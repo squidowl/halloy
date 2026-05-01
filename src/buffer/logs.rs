@@ -20,8 +20,8 @@ pub enum Event {
     MarkAsRead,
     OpenUrl(String),
     ImagePreview(PathBuf, url::Url),
-    ExpandCondensedMessage(DateTime<Utc>, message::Hash),
-    ContractCondensedMessage(DateTime<Utc>, message::Hash),
+    ExpandMessage(DateTime<Utc>, message::Hash),
+    ContractMessage(DateTime<Utc>, message::Hash),
 }
 
 pub fn view<'a>(
@@ -162,15 +162,11 @@ impl Logs {
                     scroll_view::Event::ImagePreview(path, url) => {
                         Some(Event::ImagePreview(path, url))
                     }
-                    scroll_view::Event::ExpandCondensedMessage(
-                        server_time,
-                        hash,
-                    ) => Some(Event::ExpandCondensedMessage(server_time, hash)),
-                    scroll_view::Event::ContractCondensedMessage(
-                        server_time,
-                        hash,
-                    ) => {
-                        Some(Event::ContractCondensedMessage(server_time, hash))
+                    scroll_view::Event::ExpandMessage(server_time, hash) => {
+                        Some(Event::ExpandMessage(server_time, hash))
+                    }
+                    scroll_view::Event::ContractMessage(server_time, hash) => {
+                        Some(Event::ContractMessage(server_time, hash))
                     }
                 });
 

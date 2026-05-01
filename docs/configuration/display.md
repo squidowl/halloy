@@ -32,7 +32,20 @@ Arrow shown for right-facing events.
 direction_arrows = { right = ">" }
 ```
 
-### `decode_urls`
+## `truncation_character`
+
+Customize the character used to indicate a nickname was truncated.
+
+```toml
+# Type: character
+# Values: any character
+# Default: "…"
+
+[display]
+truncation_character = '-'
+```
+
+## `decode_urls`
 
 Whether to automatically decode urls in messages, otherwise the URLs
 will appear exactly as sent.  E.g. when enabled `https://bücher.de` will appear as `https://bücher.de`

@@ -55,8 +55,8 @@ pub enum Event {
     MarkAsRead(history::Kind),
     OpenUrl(String),
     ImagePreview(PathBuf, url::Url),
-    ExpandCondensedMessage(DateTime<Utc>, message::Hash),
-    ContractCondensedMessage(DateTime<Utc>, message::Hash),
+    ExpandMessage(DateTime<Utc>, message::Hash),
+    ContractMessage(DateTime<Utc>, message::Hash),
     InputSent {
         history_task: Task<history::manager::Message>,
         open_buffers: Vec<(Target, BufferAction)>,
@@ -151,6 +151,7 @@ pub fn view<'a>(
                             None,
                             vec![],
                             false,
+                            false,
                             &message.content,
                             config,
                             theme,
@@ -187,7 +188,9 @@ pub fn view<'a>(
                         let (user_display, show_nickname_tooltip) = user
                             .display_with_truncated(
                                 with_access_levels,
+                                config.buffer.nickname.show_bot_icon,
                                 truncate,
+                                config.display.truncation_character,
                             );
 
                         let nick: Element<_> = if hide_nickname {
@@ -272,6 +275,7 @@ pub fn view<'a>(
                             message.target.source(),
                             None,
                             vec![],
+                            false,
                             false,
                             &message.content,
                             config,
@@ -393,15 +397,11 @@ impl Server {
                     scroll_view::Event::ImagePreview(path, url) => {
                         Some(Event::ImagePreview(path, url))
                     }
-                    scroll_view::Event::ExpandCondensedMessage(
-                        server_time,
-                        hash,
-                    ) => Some(Event::ExpandCondensedMessage(server_time, hash)),
-                    scroll_view::Event::ContractCondensedMessage(
-                        server_time,
-                        hash,
-                    ) => {
-                        Some(Event::ContractCondensedMessage(server_time, hash))
+                    scroll_view::Event::ExpandMessage(server_time, hash) => {
+                        Some(Event::ExpandMessage(server_time, hash))
+                    }
+                    scroll_view::Event::ContractMessage(server_time, hash) => {
+                        Some(Event::ContractMessage(server_time, hash))
                     }
                 });
 

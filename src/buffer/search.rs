@@ -134,7 +134,7 @@ impl Search {
             scope.channel.clone(),
         );
 
-        let Some(view) = history.get_messages(&kind, None, &config.buffer) else {
+        let Some(view) = history.get_messages(&kind, None, config) else {
             self.results.clear();
             return;
         };

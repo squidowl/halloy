@@ -234,6 +234,7 @@ dependencies = [
  "parking_lot",
  "percent-encoding",
  "windows-sys 0.60.2",
+ "wl-clipboard-rs",
  "x11rb",
 ]
 
@@ -765,11 +766,11 @@ checksum = "843867be96c8daad0d758b57df9392b6d8d271134fce549de6ce169ff98a92af"
 
 [[package]]
 name = "bitstream-io"
-version = "4.9.0"
+version = "4.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60d4bd9d1db2c6bdf285e223a7fa369d5ce98ec767dec949c6ca62863ce61757"
+checksum = "7eff00be299a18769011411c9def0d827e8f2d7bf0c3dbf53633147a8867fd1f"
 dependencies = [
- "core2",
+ "no_std_io2",
 ]
 
 [[package]]
@@ -1262,15 +1263,6 @@ dependencies = [
  "bitflags 2.11.0",
  "core-foundation 0.10.1",
  "libc",
-]
-
-[[package]]
-name = "core2"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b49ba7ef1ad6107f8824dbe97de947cbaac53c44e7f9756a1fba0d37c1eec505"
-dependencies = [
- "memchr",
 ]
 
 [[package]]
@@ -2415,6 +2407,12 @@ name = "find-msvc-tools"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
+
+[[package]]
+name = "fixedbitset"
+version = "0.5.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d674e81391d1e1ab681a28d99df07927c6d4aa5b027d7da16ba32d1d21ecd99"
 
 [[package]]
 name = "flate2"
@@ -4392,6 +4390,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 
 [[package]]
+name = "no_std_io2"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b51ed7824b6e07d354605f4abb3d9d300350701299da96642ee084f5ce631550"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "nom"
 version = "7.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5095,6 +5102,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "os_pipe"
+version = "1.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d8fae84b431384b68627d0f9b3b1245fcf9f46f6c0e3dc902e9dce64edd1967"
+dependencies = [
+ "libc",
+ "windows-sys 0.45.0",
+]
+
+[[package]]
 name = "os_str_bytes"
 version = "6.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5259,6 +5276,17 @@ name = "percent-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
+
+[[package]]
+name = "petgraph"
+version = "0.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8701b58ea97060d5e5b155d383a69952a60943f0e6dfe30b04c287beb0b27455"
+dependencies = [
+ "fixedbitset",
+ "hashbrown 0.15.5",
+ "indexmap 2.13.0",
+]
 
 [[package]]
 name = "phf"
@@ -9067,6 +9095,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tree_magic_mini"
+version = "3.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8765b90061cba6c22b5831f675da109ae5561588290f9fa2317adab2714d5a6"
+dependencies = [
+ "memchr",
+ "nom 8.0.0",
+ "petgraph",
+]
+
+[[package]]
 name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10704,6 +10743,24 @@ dependencies = [
  "serde_json",
  "unicode-xid",
  "wasmparser",
+]
+
+[[package]]
+name = "wl-clipboard-rs"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e9651471a32e87d96ef3a127715382b2d11cc7c8bb9822ded8a7cc94072eb0a3"
+dependencies = [
+ "libc",
+ "log",
+ "os_pipe",
+ "rustix 1.1.4",
+ "thiserror 2.0.18",
+ "tree_magic_mini",
+ "wayland-backend",
+ "wayland-client",
+ "wayland-protocols",
+ "wayland-protocols-wlr",
 ]
 
 [[package]]

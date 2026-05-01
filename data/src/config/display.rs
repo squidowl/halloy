@@ -5,6 +5,7 @@ use serde::Deserialize;
 pub struct Display {
     pub direction_arrows: DirectionArrows,
     pub decode_urls: bool,
+    pub truncation_character: char,
 }
 
 impl Default for Display {
@@ -12,6 +13,7 @@ impl Default for Display {
         Self {
             direction_arrows: DirectionArrows::default(),
             decode_urls: true,
+            truncation_character: '…',
         }
     }
 }

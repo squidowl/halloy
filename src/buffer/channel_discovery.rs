@@ -274,7 +274,9 @@ fn channel_list_view<'a>(
                             Option::<fn(Color) -> Color>::None,
                             move |link| match link {
                                 message::Link::Url(_) => {
-                                    context_menu::Entry::url_list(None, false)
+                                    context_menu::Entry::url_list(
+                                        None, false, false,
+                                    )
                                 }
                                 _ => vec![],
                             },

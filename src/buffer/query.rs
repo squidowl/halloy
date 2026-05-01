@@ -38,8 +38,8 @@ pub enum Event {
     MarkAsRead(history::Kind),
     OpenUrl(String),
     ImagePreview(PathBuf, url::Url),
-    ExpandCondensedMessage(DateTime<Utc>, message::Hash),
-    ContractCondensedMessage(DateTime<Utc>, message::Hash),
+    ExpandMessage(DateTime<Utc>, message::Hash),
+    ContractMessage(DateTime<Utc>, message::Hash),
     InputSent {
         history_task: Task<history::manager::Message>,
         open_buffers: Vec<(Target, BufferAction)>,
@@ -66,6 +66,7 @@ pub fn view<'a>(
     let server = &state.server;
     let connected = matches!(clients.status(server), client::Status::Connected);
     let can_send_reactions = clients.get_server_can_send_reactions(server);
+    let can_redact = clients.get_server_can_redact(server);
     let chantypes = clients.get_server_chantypes_or_default(server);
     let casemapping = clients.get_server_casemapping_or_default(server);
     let prefix = clients.get_server_prefix_or_default(server);
@@ -101,6 +102,7 @@ pub fn view<'a>(
         prefix,
         confirm_message_delivery,
         can_send_reactions,
+        can_redact,
         our_nick,
         connected,
         server,
@@ -264,15 +266,11 @@ impl Query {
                     scroll_view::Event::ImagePreview(path, url) => {
                         Some(Event::ImagePreview(path, url))
                     }
-                    scroll_view::Event::ExpandCondensedMessage(
-                        server_time,
-                        hash,
-                    ) => Some(Event::ExpandCondensedMessage(server_time, hash)),
-                    scroll_view::Event::ContractCondensedMessage(
-                        server_time,
-                        hash,
-                    ) => {
-                        Some(Event::ContractCondensedMessage(server_time, hash))
+                    scroll_view::Event::ExpandMessage(server_time, hash) => {
+                        Some(Event::ExpandMessage(server_time, hash))
+                    }
+                    scroll_view::Event::ContractMessage(server_time, hash) => {
+                        Some(Event::ContractMessage(server_time, hash))
                     }
                 });
 

@@ -14,10 +14,12 @@ use crate::capabilities::LabeledResponseContext;
 use crate::history::{self, History, MessageReferences, ReadMarker, metadata};
 use crate::message::broadcast::{self, Broadcast};
 use crate::message::{self, Limit};
+use crate::redaction::Redaction;
 use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{
-    Config, Server, buffer, client, config, input, isupport, reaction, server,
+    Config, Server, buffer, client, config, input, isupport, reaction,
+    redaction, server,
 };
 
 const DRAFT_SAVE_EVERY: Duration = Duration::from_secs(10);
@@ -467,8 +469,29 @@ impl Manager {
         &mut self,
         server: &Server,
         reaction: reaction::Context,
+        notification_enabled: bool,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        self.data.add_reaction(server.clone(), reaction)
+        self.data
+            .add_reaction(server.clone(), reaction, notification_enabled)
+    }
+
+    pub fn redact_message(
+        &mut self,
+        server: &Server,
+        redaction: redaction::Context,
+        display_redacted: bool,
+    ) -> Option<impl Future<Output = Message> + use<>> {
+        let kind = history::Kind::from_target(
+            server.clone(),
+            redaction.target.clone(),
+        );
+        self.data.redact_message(
+            kind,
+            redaction.id,
+            redaction.inner,
+            redaction.server_time,
+            display_redacted,
+        )
     }
 
     pub fn block_and_record_message(
@@ -530,26 +553,24 @@ impl Manager {
         self.data.remove_message(kind, server_time, hash, resend)
     }
 
-    pub fn expand_condensed_message(
+    pub fn expand_message(
         &mut self,
         kind: history::Kind,
         server_time: DateTime<Utc>,
         hash: message::Hash,
         config: &config::buffer::Condensation,
     ) {
-        self.data
-            .expand_condensed_message(kind, server_time, hash, config);
+        self.data.expand_message(kind, server_time, hash, config);
     }
 
-    pub fn contract_condensed_message(
+    pub fn contract_message(
         &mut self,
         kind: history::Kind,
         server_time: DateTime<Utc>,
         hash: message::Hash,
         config: &config::buffer::Condensation,
     ) {
-        self.data
-            .contract_condensed_message(kind, server_time, hash, config);
+        self.data.contract_message(kind, server_time, hash, config);
     }
 
     pub fn update_chathistory_references<T: Into<history::Kind>>(
@@ -615,9 +636,9 @@ impl Manager {
         &self,
         kind: &history::Kind,
         limit: Option<Limit>,
-        buffer_config: &config::Buffer,
+        config: &Config,
     ) -> Option<history::View<'_>> {
-        self.data.history_view(kind, limit, buffer_config)
+        self.data.history_view(kind, limit, config)
     }
 
     pub fn get_last_seen(
@@ -1027,115 +1048,128 @@ impl Manager {
             messages.iter_mut().for_each(|message| {
                 message.blocked = false;
 
-                match message.target.source() {
-                    message::Source::Server(source) => {
-                        let server = if let Some(server) = kind.server() {
-                            Some(server)
-                        } else if let message::Target::Highlights {
-                            server,
-                            ..
-                        } = &message.target
-                        {
-                            Some(server)
-                        } else {
-                            None
-                        };
-
-                        let casemapping = clients
-                            .get_maybe_server_casemapping_or_default(server);
-
-                        // Check if target is included/excluded.
-                        let target_ref = match &message.target {
-                            message::Target::Channel { channel, .. }
-                            | message::Target::Highlights { channel, .. } => {
-                                Some(channel.as_target_ref())
-                            }
-
-                            message::Target::Query { query, .. } => {
-                                Some(query.as_target_ref())
-                            }
-                            message::Target::Server { .. }
-                            | message::Target::Logs { .. } => None,
-                        };
-
-                        let source_kind = source
-                            .as_ref()
-                            .map(message::source::server::Server::kind);
-
-                        if let Some(target_ref) = target_ref
-                            && let Some(server) = server
-                            && !buffer_config
-                                .server_messages
-                                .should_send_message(
-                                    source.as_ref(),
-                                    target_ref,
-                                    server,
-                                    casemapping,
-                                )
-                        {
-                            message.blocked = true;
-                        } else if let Some(seconds) =
-                            buffer_config.server_messages.smart(source_kind)
-                        {
-                            let nick = match source
-                                .as_ref()
-                                .and_then(|source| source.nick())
+                if message.redaction.is_some()
+                    && !buffer_config.redaction.display.is_visible()
+                {
+                    message.blocked = true;
+                } else {
+                    match message.target.source() {
+                        message::Source::Server(source) => {
+                            let server = if let Some(server) = kind.server() {
+                                Some(server)
+                            } else if let message::Target::Highlights {
+                                server,
+                                ..
+                            } = &message.target
                             {
-                                Some(nick) => Some(nick.clone()),
-                                None => message.plain().and_then(|s| {
-                                    s.split(' ').nth(1).map(|nick| {
-                                        Nick::from_str(nick, casemapping)
-                                    })
-                                }),
+                                Some(server)
+                            } else {
+                                None
                             };
 
-                            if let Some(nick) = nick {
-                                match source_kind {
-                                    Some(message::Kind::Away) => {
-                                        message.blocked = smart_filter_repeat(
-                                            message,
-                                            &seconds,
-                                            last_away.get(&nick),
-                                        );
+                            let casemapping = clients
+                                .get_maybe_server_casemapping_or_default(
+                                    server,
+                                );
 
-                                        if !message.blocked {
-                                            last_away.insert(
-                                                nick.clone(),
-                                                message.server_time,
-                                            );
+                            // Check if target is included/excluded.
+                            let target_ref = match &message.target {
+                                message::Target::Channel {
+                                    channel, ..
+                                }
+                                | message::Target::Highlights {
+                                    channel, ..
+                                } => Some(channel.as_target_ref()),
+
+                                message::Target::Query { query, .. } => {
+                                    Some(query.as_target_ref())
+                                }
+                                message::Target::Server { .. }
+                                | message::Target::Logs { .. } => None,
+                            };
+
+                            let source_kind = source
+                                .as_ref()
+                                .map(message::source::server::Server::kind);
+
+                            if let Some(target_ref) = target_ref
+                                && let Some(server) = server
+                                && !buffer_config
+                                    .server_messages
+                                    .should_send_message(
+                                        source.as_ref(),
+                                        target_ref,
+                                        server,
+                                        casemapping,
+                                    )
+                            {
+                                message.blocked = true;
+                            } else if let Some(seconds) =
+                                buffer_config.server_messages.smart(source_kind)
+                            {
+                                let nick = match source
+                                    .as_ref()
+                                    .and_then(|source| source.nick())
+                                {
+                                    Some(nick) => Some(nick.clone()),
+                                    None => message.plain().and_then(|s| {
+                                        s.split(' ').nth(1).map(|nick| {
+                                            Nick::from_str(nick, casemapping)
+                                        })
+                                    }),
+                                };
+
+                                if let Some(nick) = nick {
+                                    match source_kind {
+                                        Some(message::Kind::Away) => {
+                                            message.blocked =
+                                                smart_filter_repeat(
+                                                    message,
+                                                    &seconds,
+                                                    last_away.get(&nick),
+                                                );
+
+                                            if !message.blocked {
+                                                last_away.insert(
+                                                    nick.clone(),
+                                                    message.server_time,
+                                                );
+                                            }
                                         }
-                                    }
-                                    _ => {
-                                        message.blocked = smart_filter_message(
-                                            message,
-                                            &seconds,
-                                            last_seen.get(&nick),
-                                        );
+                                        _ => {
+                                            message.blocked =
+                                                smart_filter_message(
+                                                    message,
+                                                    &seconds,
+                                                    last_seen.get(&nick),
+                                                );
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                    crate::message::Source::User(message_user) => {
-                        last_seen.insert(
-                            message_user.nickname().to_owned(),
-                            message.server_time,
-                        );
-                    }
-                    message::Source::Internal(
-                        message::source::Internal::Status(status),
-                    ) => {
-                        if !buffer_config.internal_messages.enabled(status) {
-                            message.blocked = true;
-                        } else if let Some(seconds) =
-                            buffer_config.internal_messages.smart(status)
-                        {
-                            message.blocked = smart_filter_internal_message(
-                                message, &seconds,
+                        crate::message::Source::User(message_user) => {
+                            last_seen.insert(
+                                message_user.nickname().to_owned(),
+                                message.server_time,
                             );
                         }
+                        message::Source::Internal(
+                            message::source::Internal::Status(status),
+                        ) => {
+                            if !buffer_config.internal_messages.enabled(status)
+                            {
+                                message.blocked = true;
+                            } else if let Some(seconds) =
+                                buffer_config.internal_messages.smart(status)
+                            {
+                                message.blocked = smart_filter_internal_message(
+                                    message, &seconds,
+                                );
+                            }
+                        }
+                        _ => (),
                     }
-                    _ => (),
                 }
             });
 
@@ -1267,6 +1301,7 @@ impl Data {
                     chathistory_references: partial_chathistory_references,
                     last_seen,
                     pending_reactions,
+                    pending_redactions,
                     ..
                 } => {
                     let read_marker =
@@ -1282,12 +1317,28 @@ impl Data {
                     let mut last_seen = last_seen.clone();
 
                     for (id, pending) in pending_reactions.iter_mut() {
-                        if let Some(message) = history::find_reaction_target(
+                        if let Some(message) = history::find_message_target(
                             &mut messages,
                             id,
                             &pending.server_time,
                         ) {
-                            message.reactions.append(&mut pending.reactions);
+                            message.reactions.append(
+                                &mut pending
+                                    .reactions
+                                    .iter()
+                                    .map(|(reaction, _)| reaction.clone())
+                                    .collect(),
+                            );
+                        }
+                    }
+
+                    for (id, pending) in pending_redactions.iter_mut() {
+                        if let Some(message) = history::find_message_target(
+                            &mut messages,
+                            id,
+                            &pending.server_time,
+                        ) {
+                            message.redaction = Some(pending.redaction.clone());
                         }
                     }
 
@@ -1364,7 +1415,7 @@ impl Data {
         &self,
         kind: &history::Kind,
         limit: Option<Limit>,
-        buffer_config: &config::Buffer,
+        config: &Config,
     ) -> Option<history::View<'_>> {
         let History::Full {
             messages,
@@ -1382,7 +1433,7 @@ impl Data {
                 if message.blocked {
                     None
                 } else if message
-                    .can_condense(&buffer_config.server_messages.condense)
+                    .can_condense(&config.buffer.server_messages.condense)
                 {
                     if message.expanded {
                         Some(message)
@@ -1397,11 +1448,11 @@ impl Data {
                         message::Source::Internal(
                             message::source::Internal::Status(status),
                         ) => {
-                            if !buffer_config.internal_messages.enabled(status)
+                            if !config.buffer.internal_messages.enabled(status)
                             {
                                 return None;
                             } else if let Some(seconds) =
-                                buffer_config.internal_messages.smart(status)
+                                config.buffer.internal_messages.smart(status)
                             {
                                 return (!smart_filter_internal_message(
                                     message, &seconds,
@@ -1418,11 +1469,11 @@ impl Data {
             .collect::<Vec<_>>();
 
         let total = processed.len();
-        let with_access_levels = buffer_config.nickname.show_access_levels;
-        let truncate = buffer_config.nickname.truncate;
+        let with_access_levels = config.buffer.nickname.show_access_levels;
+        let truncate = config.buffer.nickname.truncate;
 
         let max_nick_chars =
-            buffer_config.nickname.alignment.is_right().then(|| {
+            config.buffer.nickname.alignment.is_right().then(|| {
                 processed
                     .iter()
                     .filter_map(|message| {
@@ -1431,15 +1482,16 @@ impl Data {
                             && !user.is_bot()
                         {
                             Some(
-                                buffer_config
+                                config
+                                    .buffer
                                     .nickname
                                     .brackets
-                                    .format(
-                                        user.display(
-                                            with_access_levels,
-                                            truncate,
-                                        ),
-                                    )
+                                    .format(user.display(
+                                        with_access_levels,
+                                        config.buffer.nickname.show_bot_icon,
+                                        truncate,
+                                        config.display.truncation_character,
+                                    ))
                                     .chars()
                                     .count(),
                             )
@@ -1452,7 +1504,7 @@ impl Data {
             });
 
         let max_bot_nick_chars =
-            buffer_config.nickname.alignment.is_right().then(|| {
+            config.buffer.nickname.alignment.is_right().then(|| {
                 processed
                     .iter()
                     .filter_map(|message| {
@@ -1461,15 +1513,16 @@ impl Data {
                             && user.is_bot()
                         {
                             Some(
-                                buffer_config
+                                config
+                                    .buffer
                                     .nickname
                                     .brackets
-                                    .format(
-                                        user.display(
-                                            with_access_levels,
-                                            truncate,
-                                        ),
-                                    )
+                                    .format(user.display(
+                                        with_access_levels,
+                                        config.buffer.nickname.show_bot_icon,
+                                        truncate,
+                                        config.display.truncation_character,
+                                    ))
                                     .chars()
                                     .count(),
                             )
@@ -1482,13 +1535,14 @@ impl Data {
             });
 
         let max_prefix_chars =
-            buffer_config.nickname.alignment.is_right().then(|| {
+            config.buffer.nickname.alignment.is_right().then(|| {
                 if matches!(kind, history::Kind::Channel(..)) {
                     processed
                         .iter()
                         .filter_map(|message| {
                             message.target.prefixes().map(|prefixes| {
-                                buffer_config
+                                config
+                                    .buffer
                                     .status_message_prefix
                                     .brackets
                                     .format(prefixes.iter().collect::<String>())
@@ -1506,32 +1560,33 @@ impl Data {
         // The right-aligned nicknames setting expects timestamps to have a
         // constant character count to function, so we can utilize that
         // expectation in this calculation
-        let range_end_timestamp_chars = (buffer_config
-            .nickname
-            .alignment
-            .is_right()
-            && buffer_config.server_messages.condense.any())
-        .then(|| {
-            processed
-                .iter()
-                .find_map(|message| {
-                    if let message::Source::Internal(
-                        message::source::Internal::Condensed(end_server_time),
-                    ) = message.target.source()
-                        && message.server_time != *end_server_time
-                    {
-                        buffer_config
-                            .format_range_end_timestamp(end_server_time)
-                            .map(|(dash, end_timestamp)| {
-                                dash.chars().count()
-                                    + end_timestamp.chars().count()
-                            })
-                    } else {
-                        None
-                    }
-                })
-                .unwrap_or_default()
-        });
+        let range_end_timestamp_chars =
+            (config.buffer.nickname.alignment.is_right()
+                && config.buffer.server_messages.condense.any())
+            .then(|| {
+                processed
+                    .iter()
+                    .find_map(|message| {
+                        if let message::Source::Internal(
+                            message::source::Internal::Condensed(
+                                end_server_time,
+                            ),
+                        ) = message.target.source()
+                            && message.server_time != *end_server_time
+                        {
+                            config
+                                .buffer
+                                .format_range_end_timestamp(end_server_time)
+                                .map(|(dash, end_timestamp)| {
+                                    dash.chars().count()
+                                        + end_timestamp.chars().count()
+                                })
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap_or_default()
+            });
 
         let first_without_limit = processed.first().copied();
         let last_without_limit = processed.last().copied();
@@ -1646,7 +1701,7 @@ impl Data {
         })
     }
 
-    fn expand_condensed_message(
+    fn expand_message(
         &mut self,
         kind: history::Kind,
         server_time: DateTime<Utc>,
@@ -1655,7 +1710,7 @@ impl Data {
     ) {
         if let Some(history) = self.map.get_mut(&kind) {
             history
-                .get_condensed_messages(server_time, hash, config)
+                .get_expansion_messages(server_time, hash, config)
                 .iter_mut()
                 .for_each(|message| {
                     message.expanded = true;
@@ -1663,7 +1718,7 @@ impl Data {
         }
     }
 
-    fn contract_condensed_message(
+    fn contract_message(
         &mut self,
         kind: history::Kind,
         server_time: DateTime<Utc>,
@@ -1672,7 +1727,7 @@ impl Data {
     ) {
         if let Some(history) = self.map.get_mut(&kind) {
             history
-                .get_condensed_messages(server_time, hash, config)
+                .get_expansion_messages(server_time, hash, config)
                 .iter_mut()
                 .for_each(|message| {
                     message.expanded = false;
@@ -1877,22 +1932,70 @@ impl Data {
         &mut self,
         server: Server,
         reaction: reaction::Context,
+        notification_enabled: bool,
     ) -> Option<impl Future<Output = Message> + use<>> {
         let kind =
             history::Kind::from_target(server.clone(), reaction.target.clone());
         match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
-                entry.get_mut().add_reaction(reaction).map(|reaction| {
-                    async move {
-                        Message::ReactionsToEcho(server, vec![reaction])
-                    }
-                    .boxed()
-                })
+                let reactions = entry
+                    .get_mut()
+                    .add_reaction(reaction, notification_enabled);
+
+                if notification_enabled {
+                    reactions.map(|reaction| {
+                        async move {
+                            Message::ReactionsToEcho(server, vec![reaction])
+                        }
+                        .boxed()
+                    })
+                } else {
+                    None
+                }
             }
             hash_map::Entry::Vacant(entry) => {
                 entry
                     .insert(History::partial(kind.clone()))
-                    .add_reaction(reaction);
+                    .add_reaction(reaction, notification_enabled);
+
+                Some(
+                    async move {
+                        let loaded =
+                            history::metadata::load(kind.clone()).await;
+                        Message::UpdatePartial(kind, loaded)
+                    }
+                    .boxed(),
+                )
+            }
+        }
+    }
+
+    fn redact_message(
+        &mut self,
+        kind: history::Kind,
+        id: message::Id,
+        redaction: Redaction,
+        server_time: DateTime<Utc>,
+        display_redacted: bool,
+    ) -> Option<impl Future<Output = Message> + use<>> {
+        match self.map.entry(kind.clone()) {
+            hash_map::Entry::Occupied(mut entry) => {
+                entry.get_mut().redact_message(
+                    id,
+                    redaction,
+                    server_time,
+                    display_redacted,
+                );
+
+                None
+            }
+            hash_map::Entry::Vacant(entry) => {
+                entry.insert(History::partial(kind.clone())).redact_message(
+                    id,
+                    redaction,
+                    server_time,
+                    display_redacted,
+                );
 
                 Some(
                     async move {

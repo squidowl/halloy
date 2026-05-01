@@ -16,7 +16,7 @@ pub fn tooltip<'a, Message: 'a>(
         Some(tooltip) => iced::widget::tooltip(
             content,
             container(
-                text(tooltip.into().into_owned())
+                text(tooltip.into())
                     .style(theme::text::secondary)
                     .line_height(font::line_height())
                     .font_maybe(

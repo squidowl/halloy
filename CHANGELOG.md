@@ -6,16 +6,28 @@ Added:
 - Configuration options for font stretch (`font.stretch`)
 - Notification for reacts
 - IRCv3 bot mode support, with bot icon in buffers and nicklists
+- Customize the character used to indicate a nickname was truncated with `display.truncation_character`
+- Support for IRCv3 `draft/message-redaction`
 
 Fixed:
 
 - `NICK` and `QUIT` messages returned by `draft/event-playback` (`chathistory`)
 - Backlog separator text colour now follows `buffer.backlog_rule`
+- Distinguish between reacts in chathistory vs active history
+- Channel matching on single line only
+- Do not hide consecutive nicknames if the user's displayed access levels or bot mode changes
+- Issue where unread indicator could appear in sidebar for an open pane that does not have unread messages
+- Issue where backlog divider in highlights or logs pane would not update when marking the pane as read
+
+Changed:
+
+- On-join topic messages disabled by default (`buffer.server_messages.topic`), instead the topic banner is enabled by default (`buffer.channel.topic_banner`)
 
 Thanks:
 
-- Contributions: @bb010g, @furudean, @englut
+- Contributions: @bb010g, @furudean, @englut, @luca020400
 - Bug reports: @bb010g
+- Feature requests: @WinnerWind
 
 # 2026.6 (2026-04-21)
 

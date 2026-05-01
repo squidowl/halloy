@@ -36,8 +36,8 @@ pub fn update(message: Message) -> Option<Event> {
             )))
         }
         Message::Link(message::Link::GoToMessage(..))
-        | Message::Link(message::Link::ExpandCondensedMessage(..))
-        | Message::Link(message::Link::ContractCondensedMessage(..)) => None,
+        | Message::Link(message::Link::ExpandMessage(..))
+        | Message::Link(message::Link::ContractMessage(..)) => None,
     }
 }
 
@@ -127,7 +127,7 @@ pub fn view<'a>(
                     )
                 }
                 message::Link::Url(_) =>
-                    context_menu::Entry::url_list(None, false),
+                    context_menu::Entry::url_list(None, false, false),
                 _ => vec![],
             },
             move |link, entry, length| {

@@ -66,6 +66,7 @@ pub struct ChannelQueryLayout<'a> {
     pub prefix: &'a [PrefixMap],
     pub confirm_message_delivery: bool,
     pub can_send_reactions: bool,
+    pub can_redact: bool,
     pub our_nick: Option<NickRef<'a>>,
     pub connected: bool,
     pub server: &'a Server,
@@ -108,6 +109,7 @@ impl<'a> ChannelQueryLayout<'a> {
             message::Link::Url(url) => context_menu::Entry::url_list(
                 self.preview_hidden_for_url(message, url),
                 self.can_send_reactions,
+                self.can_redact_message(message),
             ),
             _ => {
                 if self.can_send_reactions {
@@ -116,6 +118,24 @@ impl<'a> ChannelQueryLayout<'a> {
                     vec![]
                 }
             }
+        }
+    }
+
+    fn can_redact_message(&self, message: &data::Message) -> bool {
+        // Gate on message-redaction capability first.
+        if !self.can_redact {
+            return false;
+        }
+
+        // A message can only be redacted once.
+        if message.redaction.is_some() {
+            return false;
+        }
+
+        // Message MUST be PRIVMSG, NOTICE, or TAGMSG
+        match message.target.source() {
+            message::Source::User(_) | message::Source::Action(_) => true,
+            message::Source::Server(_) | message::Source::Internal(_) => false,
         }
     }
 
@@ -366,12 +386,15 @@ impl<'a> ChannelQueryLayout<'a> {
     ) {
         let not_sent_row = self.not_sent_row(message);
 
-        let dimmed = not_sent_row.is_some().then_some(Dimmed::new(None));
+        let dimmed = (not_sent_row.is_some() || message.redaction.is_some())
+            .then_some(Dimmed::new(None));
         let dimmed_background_tuple = dimmed
             .map(|dimmed| (dimmed, self.theme.styles().buffer.background));
 
         let with_access_levels = self.config.buffer.nickname.show_access_levels;
+        let show_bot_icon = self.config.buffer.nickname.show_bot_icon;
         let truncate = self.config.buffer.nickname.truncate;
+        let truncation_character = self.config.display.truncation_character;
         let user_in_channel = self
             .target
             .users()
@@ -408,11 +431,15 @@ impl<'a> ChannelQueryLayout<'a> {
             dimmed_background_tuple,
         );
 
-        let (user_display, show_nickname_tooltip) =
-            user.display_with_truncated(with_access_levels, truncate);
+        let (user_display, show_nickname_tooltip) = user
+            .display_with_truncated(
+                with_access_levels,
+                show_bot_icon,
+                truncate,
+                truncation_character,
+            );
 
-        let is_bot =
-            user_in_channel.map_or_else(|| user.is_bot(), User::is_bot);
+        let is_bot = user.is_bot();
         let show_bot_icon = is_bot && self.config.buffer.nickname.show_bot_icon;
         let brackets = &self.config.buffer.nickname.brackets;
 
@@ -565,50 +592,110 @@ impl<'a> ChannelQueryLayout<'a> {
             }
         });
 
-        let message_content = message_content::with_context(
-            &message.content,
-            self.server,
-            self.chantypes,
-            self.casemapping,
-            self.theme,
-            Message::Link,
-            None,
-            message_style,
-            theme::font_style::primary,
-            color_transformation,
-            move |link| match link {
-                message::Link::User(_, _) => {
-                    if rerouted_private && !is_ourself {
-                        vec![context_menu::Entry::Whois]
-                    } else {
-                        context_menu::Entry::user_list(
-                            formatter.target.is_channel(),
-                            user_in_channel,
-                            formatter.target.our_user(),
-                            formatter.config.file_transfer.enabled,
-                        )
-                    }
-                }
-                message::Link::Url(_) => formatter.url_entries(message, link),
-                _ => vec![],
-            },
-            move |link, entry, length| {
-                entry
-                    .view(
-                        formatter.link_context(message, link),
-                        length,
-                        formatter.config,
-                        formatter.theme,
+        let redaction_message = if let Some(redaction) =
+            message.redaction.as_ref()
+        {
+            match &redaction.reason {
+                Some(reason) if !reason.is_empty() => Some(format!(
+                    "Message redacted by {}: {reason}",
+                    redaction.from
+                )),
+                _ => Some(format!("Message redacted by {}", redaction.from)),
+            }
+        } else {
+            None
+        };
+
+        let (message_content, after_content) =
+            if self.config.buffer.redaction.display.is_redacted()
+                && !message.expanded
+                && let Some(redaction_message) = redaction_message
+            {
+                (
+                    button(
+                        selectable_text(redaction_message)
+                            .font_maybe(
+                                theme::font_style::primary(self.theme)
+                                    .map(font::get),
+                            )
+                            .style(message_style),
                     )
-                    .map(Message::ContextMenu)
-            },
-            self.config,
-        );
+                    .style(theme::button::bare)
+                    .padding(0)
+                    .on_press(Message::Link(message::Link::ExpandMessage(
+                        message.server_time,
+                        message.hash,
+                    )))
+                    .into(),
+                    vec![],
+                )
+            } else {
+                let link = (self.config.buffer.redaction.display.is_redacted()
+                    && message.expanded
+                    && redaction_message.is_some())
+                .then_some(message::Link::ContractMessage(
+                    message.server_time,
+                    message.hash,
+                ));
 
-        let after_content =
-            self.reaction_row(message).into_iter().chain(not_sent_row);
+                (
+                    tooltip(
+                        message_content::with_context(
+                            &message.content,
+                            self.server,
+                            self.chantypes,
+                            self.casemapping,
+                            self.theme,
+                            Message::Link,
+                            link,
+                            message_style,
+                            theme::font_style::primary,
+                            color_transformation,
+                            move |link| match link {
+                                message::Link::User(_, _) => {
+                                    if rerouted_private && !is_ourself {
+                                        vec![context_menu::Entry::Whois]
+                                    } else {
+                                        context_menu::Entry::user_list(
+                                            formatter.target.is_channel(),
+                                            user_in_channel,
+                                            formatter.target.our_user(),
+                                            formatter
+                                                .config
+                                                .file_transfer
+                                                .enabled,
+                                        )
+                                    }
+                                }
+                                message::Link::Url(_) => {
+                                    formatter.url_entries(message, link)
+                                }
+                                _ => vec![],
+                            },
+                            move |link, entry, length| {
+                                entry
+                                    .view(
+                                        formatter.link_context(message, link),
+                                        length,
+                                        formatter.config,
+                                        formatter.theme,
+                                    )
+                                    .map(Message::ContextMenu)
+                            },
+                            self.config,
+                        ),
+                        redaction_message,
+                        tooltip::Position::Top,
+                        self.theme,
+                    ),
+                    self.reaction_row(message)
+                        .into_iter()
+                        .chain(not_sent_row)
+                        .collect(),
+                )
+            };
 
-        (nick_element, message_content, after_content.collect())
+        (nick_element, message_content, after_content)
     }
 
     fn format_server_message(
@@ -642,12 +729,10 @@ impl<'a> ChannelQueryLayout<'a> {
             theme::font_style::server(message_theme, server)
         };
 
-        let link = message.expanded.then_some(
-            message::Link::ContractCondensedMessage(
-                message.server_time,
-                message.hash,
-            ),
-        );
+        let link = message.expanded.then_some(message::Link::ContractMessage(
+            message.server_time,
+            message.hash,
+        ));
 
         let marker_style = move |message_theme: &Theme| {
             if message.expanded || message.condensed.is_some() {
@@ -754,10 +839,8 @@ impl<'a> ChannelQueryLayout<'a> {
             theme::font_style::server(message_theme, None)
         };
 
-        let link = message::Link::ExpandCondensedMessage(
-            message.server_time,
-            message.hash,
-        );
+        let link =
+            message::Link::ExpandMessage(message.server_time, message.hash);
         let moved_link = link.clone();
 
         let range_end_timestamp = if let message::Source::Internal(
@@ -1079,6 +1162,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             message.id.as_ref(),
             selected_reaction_texts,
             self.can_send_reactions,
+            self.can_redact_message(message),
             &message.content,
             self.config,
             self.theme,

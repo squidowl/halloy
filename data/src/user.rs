@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use std::fmt;
 use std::hash::Hash;
 
+use indexmap::set::MutableValues;
 use indexmap::{Equivalent, IndexSet};
 use irc::proto;
 use itertools::sorted;
@@ -97,6 +98,25 @@ impl ChannelUsers {
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
+
+    // Any modifications to this procedure MUST ensure that no
+    // modifications are made to the user's hash.
+    pub fn update_user(
+        &mut self,
+        user: &User,
+        away: Option<bool>,
+        bot: Option<bool>,
+    ) {
+        if let Some(user) = self.0.get_full_mut2(user).map(|(_, user)| user) {
+            if let Some(away) = away {
+                user.update_away(away);
+            }
+
+            if let Some(bot) = bot {
+                user.update_bot(bot);
+            }
+        }
+    }
 }
 
 impl Serialize for User {
@@ -116,8 +136,9 @@ impl Serialize for User {
             .hostname()
             .map(|hostname| format!("@{hostname}"))
             .unwrap_or_default();
+        let is_bot = if self.is_bot() { ":" } else { "" };
 
-        format!("{access_levels} {nickname}{username}{hostname}")
+        format!("{access_levels}{is_bot} {nickname}{username}{hostname}")
             .serialize(serializer)
     }
 }
@@ -129,11 +150,12 @@ impl<'de> Deserialize<'de> for User {
     {
         let value = String::deserialize(deserializer)?;
 
-        if let Some((access_levels, names)) = value.split_once(' ') {
-            let access_levels = access_levels
+        if let Some((access_levels_and_is_bot, names)) = value.split_once(' ') {
+            let access_levels = access_levels_and_is_bot
                 .chars()
                 .filter_map(|c| AccessLevel::try_from(c).ok())
                 .collect::<BTreeSet<_>>();
+            let is_bot = access_levels_and_is_bot.ends_with(':');
 
             let (nickname, username, hostname) =
                 parse_user_names(names, isupport::CaseMap::default());
@@ -145,7 +167,7 @@ impl<'de> Deserialize<'de> for User {
                 accountname: None,
                 access_levels,
                 away: false,
-                bot: false,
+                bot: is_bot,
             })
         } else {
             // Older format for user string, with no space; attempt to parse
@@ -180,6 +202,7 @@ impl User {
     pub fn from_proto_user(
         user: proto::User,
         casemapping: isupport::CaseMap,
+        from_bot: bool,
     ) -> Self {
         User {
             nickname: Nick::from_string(user.nickname, casemapping),
@@ -188,7 +211,7 @@ impl User {
             accountname: None,
             access_levels: BTreeSet::default(),
             away: false,
-            bot: false,
+            bot: from_bot,
         }
     }
 
@@ -206,15 +229,25 @@ impl User {
     pub fn display(
         &self,
         with_access_levels: AccessLevelFormat,
+        show_bot_icon: bool,
         truncate: Option<u16>,
+        truncation_character: char,
     ) -> String {
-        self.display_with_truncated(with_access_levels, truncate).0
+        self.display_with_truncated(
+            with_access_levels,
+            show_bot_icon,
+            truncate,
+            truncation_character,
+        )
+        .0
     }
 
     pub fn display_with_truncated(
         &self,
         with_access_levels: AccessLevelFormat,
+        show_bot_icon: bool,
         truncate: Option<u16>,
+        truncation_character: char,
     ) -> (String, bool) {
         let mut nickname = match with_access_levels {
             AccessLevelFormat::All => {
@@ -235,16 +268,20 @@ impl User {
             AccessLevelFormat::None => self.nickname().to_string(),
         };
 
+        let show_bot_icon = self.is_bot() && show_bot_icon;
+
         let mut show_tooltip = false;
 
         if let Some(len) = truncate
-            && UnicodeSegmentation::graphemes(nickname.as_str(), true).count()
+            && (UnicodeSegmentation::graphemes(nickname.as_str(), true).count()
+                + if show_bot_icon { 2 } else { 0 })
                 > len as usize
         {
             nickname = UnicodeSegmentation::graphemes(nickname.as_str(), true)
-                .take(len.saturating_sub(1) as usize)
+                .take(len.saturating_sub(if show_bot_icon { 3 } else { 1 })
+                    as usize)
                 .collect::<String>();
-            nickname.push('…');
+            nickname.push(truncation_character);
 
             show_tooltip = true;
         }
@@ -394,6 +431,33 @@ impl User {
                 false
             }
         })
+    }
+
+    pub fn has_matching_display(
+        &self,
+        other: &User,
+        with_access_levels: AccessLevelFormat,
+        show_bot_icon: bool,
+    ) -> bool {
+        if self != other {
+            return false;
+        }
+
+        match with_access_levels {
+            AccessLevelFormat::All => {
+                if self.access_levels != other.access_levels {
+                    return false;
+                }
+            }
+            AccessLevelFormat::Highest => {
+                if self.highest_access_level() != other.highest_access_level() {
+                    return false;
+                }
+            }
+            AccessLevelFormat::None => (),
+        }
+
+        !show_bot_icon || self.is_bot() == other.is_bot()
     }
 
     pub fn parse(
@@ -751,7 +815,50 @@ impl TryFrom<mode::Channel> for AccessLevel {
 
 #[cfg(test)]
 mod tests {
+    use std::hash::{DefaultHasher, Hasher};
+
     use super::*;
+
+    #[test]
+    fn user_hash() {
+        let user = User::from(Nick::from_str(
+            "test-user",
+            isupport::CaseMap::default(),
+        ));
+
+        let tests = [
+            (
+                User {
+                    away: false,
+                    ..user.clone()
+                },
+                User {
+                    away: true,
+                    ..user.clone()
+                },
+            ),
+            (
+                User {
+                    bot: false,
+                    ..user.clone()
+                },
+                User {
+                    bot: true,
+                    ..user.clone()
+                },
+            ),
+        ];
+
+        for (left, right) in tests {
+            let mut left_hasher = DefaultHasher::new();
+            left.hash(&mut left_hasher);
+
+            let mut right_hasher = DefaultHasher::new();
+            right.hash(&mut right_hasher);
+
+            assert_eq!(left_hasher.finish(), right_hasher.finish());
+        }
+    }
 
     #[test]
     fn user_serde() {

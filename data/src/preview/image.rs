@@ -1,37 +1,29 @@
 use std::path::PathBuf;
 
-use derive_more::derive::AsRef;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use super::cache;
+use crate::cache::HexDigest;
 
 pub type Format = image::ImageFormat;
 pub type Error = image::ImageError;
-
-/// SHA256 digest of image
-#[derive(Debug, Clone, Serialize, Deserialize, AsRef)]
-pub struct Digest(String);
-
-impl Digest {
-    pub fn new(data: &[u8]) -> Self {
-        Self(hex::encode(data))
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Image {
     #[serde(with = "serde_format")]
     pub format: Format,
     pub url: Url,
-    pub digest: Digest,
+    pub digest: HexDigest,
     pub path: PathBuf,
 }
 
 impl Image {
-    pub fn new(format: Format, url: Url, digest: Digest) -> Self {
-        let path = cache::image_path(&format, &digest);
-
+    pub fn new(
+        format: Format,
+        url: Url,
+        digest: HexDigest,
+        path: PathBuf,
+    ) -> Self {
         Self {
             format,
             url,

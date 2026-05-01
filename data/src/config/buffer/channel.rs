@@ -96,7 +96,7 @@ pub struct TopicBanner {
 impl Default for TopicBanner {
     fn default() -> Self {
         Self {
-            enabled: false,
+            enabled: true,
             max_lines: 2,
         }
     }

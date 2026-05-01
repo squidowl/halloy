@@ -20,8 +20,9 @@ use data::message::{self, Broadcast};
 use data::rate_limit::TokenPriority;
 use data::target::{self, Target};
 use data::{
-    Config, Notification, Server, User, Version, client, command, config,
-    environment, file_transfer, history, preview, reaction, server, stream,
+    Config, Notification, Server, User, Version, cache, client, command,
+    config, environment, file_transfer, history, preview, reaction, redaction,
+    server, stream,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{Space, center, column, container, row, stack, text};
@@ -29,7 +30,7 @@ use iced::{Length, Padding, Size, Task, Vector, advanced, clipboard};
 use irc::proto;
 
 use self::command_bar::CommandBar;
-use self::modal::reaction as reaction_modal;
+use self::modal::{reaction as reaction_modal, redaction as redaction_modal};
 use self::pane::Pane;
 use self::sidebar::Sidebar;
 use self::theme_editor::ThemeEditor;
@@ -66,6 +67,7 @@ pub struct Dashboard {
     theme_editor: Option<ThemeEditor>,
     notifications: notification::Notifications,
     previews: preview::Collection,
+    previews_cache: Arc<cache::FileCache>,
     typing_animation: Option<buffer::typing::Animation>,
     http_client: Option<Arc<reqwest::Client>>,
     buffer_settings: dashboard::BufferSettings,
@@ -149,6 +151,7 @@ impl Dashboard {
             theme_editor: None,
             notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),
+            previews_cache: Arc::new(preview_cache(&config.preview)),
             typing_animation: None,
             http_client: http_client_from_config(config).map(Arc::new),
             buffer_settings: dashboard::BufferSettings::default(),
@@ -220,6 +223,10 @@ impl Dashboard {
         self.reprocess_history(clients, buffer_config);
     }
 
+    pub fn refresh_cache_limits(&mut self, config: &Config) {
+        self.previews_cache = Arc::new(preview_cache(&config.preview));
+    }
+
     pub fn set_reroute_rules(
         &mut self,
         servers: &server::Map,
@@ -244,6 +251,7 @@ impl Dashboard {
                             url.clone(),
                             client.clone(),
                             config.preview.clone(),
+                            self.previews_cache.clone(),
                         ),
                         move |result| {
                             Message::LoadPreview((url.clone(), result))
@@ -491,39 +499,77 @@ impl Dashboard {
                                 return (Task::none(), None);
                             };
 
-                            let modal::Event::ToggleReaction {
-                                msgid,
-                                text,
-                                unreact,
-                            } = event;
+                            match event {
+                                modal::Event::ToggleReaction {
+                                    msgid,
+                                    text,
+                                    unreact,
+                                } => {
+                                    let Some(buffer_message) = pane
+                                        .buffer
+                                        .reaction_message(msgid, text, unreact)
+                                    else {
+                                        pane.close_buffer_modal();
+                                        return (Task::none(), None);
+                                    };
 
-                            let Some(buffer_message) = pane
-                                .buffer
-                                .reaction_message(msgid, text, unreact)
-                            else {
-                                pane.close_buffer_modal();
-                                return (Task::none(), None);
-                            };
+                                    pane.close_buffer_modal();
 
-                            pane.close_buffer_modal();
+                                    let (command, event) = pane.buffer.update(
+                                        buffer_message,
+                                        clients,
+                                        &mut self.history,
+                                        &mut self.file_transfers,
+                                        main_window,
+                                        config,
+                                    );
 
-                            let (command, event) = pane.buffer.update(
-                                buffer_message,
-                                clients,
-                                &mut self.history,
-                                &mut self.file_transfers,
-                                main_window,
-                                config,
-                            );
+                                    let task = command.map(move |message| {
+                                        Message::Pane(
+                                            window,
+                                            pane::Message::Buffer(id, message),
+                                        )
+                                    });
 
-                            let task = command.map(move |message| {
-                                Message::Pane(
-                                    window,
-                                    pane::Message::Buffer(id, message),
-                                )
-                            });
+                                    (task, event)
+                                }
+                                modal::Event::RedactReason {
+                                    msgid,
+                                    reason,
+                                } => {
+                                    pane.close_buffer_modal();
 
-                            (task, event)
+                                    if let Some(buffer) = pane.buffer.upstream()
+                                        && let Some(target) = buffer.target()
+                                    {
+                                        let command = command::Irc::Redact {
+                                            target: target.to_string(),
+                                            msgid: msgid.clone(),
+                                            reason: if reason.is_empty() {
+                                                None
+                                            } else {
+                                                Some(reason.clone())
+                                            },
+                                        };
+
+                                        let input: data::Input =
+                                            data::Input::from_command(
+                                                buffer.clone(),
+                                                command,
+                                            );
+
+                                        if let Some(encoded) = input.encoded() {
+                                            clients.send(
+                                                &input.buffer,
+                                                encoded,
+                                                TokenPriority::User,
+                                            );
+                                        }
+                                    }
+
+                                    (Task::none(), None)
+                                }
+                            }
                         };
 
                         let Some(event) = buffer_event else {
@@ -2348,6 +2394,19 @@ impl Dashboard {
                         );
                         None
                     }
+                    buffer::context_menu::Event::RedactMessage(msgid) => {
+                        tasks.push(
+                            pane.open_modal(
+                                id,
+                                modal::Modal::RedactReason(
+                                    redaction_modal::State::new(msgid),
+                                ),
+                            )
+                            .map(move |message| Message::Pane(window, message)),
+                        );
+
+                        None
+                    }
                 };
 
                 return (Task::batch(tasks), event);
@@ -2463,6 +2522,7 @@ impl Dashboard {
                                     url.clone(),
                                     preview_client.clone(),
                                     config.preview.clone(),
+                                    self.previews_cache.clone(),
                                 ),
                                 move |result| {
                                     Message::LoadPreview((url.clone(), result))
@@ -2496,11 +2556,11 @@ impl Dashboard {
             buffer::Event::ImagePreview(path, url) => {
                 return (Task::none(), Some(Event::ImagePreview(path, url)));
             }
-            buffer::Event::ExpandCondensedMessage(server_time, hash) => {
+            buffer::Event::ExpandMessage(server_time, hash) => {
                 if let Some(kind) =
                     pane.buffer.data().and_then(history::Kind::from_buffer)
                 {
-                    self.history.expand_condensed_message(
+                    self.history.expand_message(
                         kind,
                         server_time,
                         hash,
@@ -2508,11 +2568,11 @@ impl Dashboard {
                     );
                 }
             }
-            buffer::Event::ContractCondensedMessage(server_time, hash) => {
+            buffer::Event::ContractMessage(server_time, hash) => {
                 if let Some(kind) =
                     pane.buffer.data().and_then(history::Kind::from_buffer)
                 {
-                    self.history.contract_condensed_message(
+                    self.history.contract_message(
                         kind,
                         server_time,
                         hash,
@@ -3230,13 +3290,28 @@ impl Dashboard {
         &mut self,
         server: &Server,
         reaction: reaction::Context,
+        notification_enabled: bool,
     ) -> Task<Message> {
-        let future = self.history.record_reaction(server, reaction);
+        let future = self.history.record_reaction(
+            server,
+            reaction,
+            notification_enabled,
+        );
         if let Some(f) = future {
             Task::perform(f, Message::History)
         } else {
             Task::none()
         }
+    }
+
+    pub fn redact_message(
+        &mut self,
+        server: &Server,
+        redaction: redaction::Context,
+        display_redacted: bool,
+    ) {
+        self.history
+            .redact_message(server, redaction, display_redacted);
     }
 
     pub fn is_focused_and_at_bottom(
@@ -4135,6 +4210,7 @@ impl Dashboard {
             theme_editor: None,
             notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),
+            previews_cache: Arc::new(preview_cache(&config.preview)),
             typing_animation: None,
             http_client: http_client_from_config(config).map(Arc::new),
             buffer_settings: data.buffer_settings.clone(),
@@ -4858,4 +4934,14 @@ fn http_client_from_config(config: &Config) -> Option<reqwest::Client> {
             None
         }
     }
+}
+
+fn preview_cache(config: &config::Preview) -> cache::FileCache {
+    let root = environment::cache_dir().join("previews");
+
+    cache::FileCache::new(
+        root,
+        config.request.image_cache.max_size_bytes(),
+        config.request.image_cache.trim_interval,
+    )
 }

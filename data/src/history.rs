@@ -14,11 +14,12 @@ pub use self::manager::{Manager, ReactionToEcho, Resource};
 pub use self::metadata::{Metadata, ReadMarker};
 use crate::capabilities::LabeledResponseContext;
 use crate::message::{self, Direction, MessageReferences, Source};
+use crate::redaction::Redaction;
 use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{
     Buffer, Message, Server, buffer, compression, config, environment,
-    isupport, reaction,
+    isupport, reaction, redaction,
 };
 
 pub mod filter;
@@ -268,39 +269,60 @@ pub async fn append(
     read_marker: Option<ReadMarker>,
     chathistory_references: Option<MessageReferences>,
     pending_reactions: HashMap<message::Id, reaction::Pending>,
+    pending_redactions: HashMap<message::Id, redaction::Pending>,
 ) -> Result<Vec<ReactionToEcho>, Error> {
     let loaded = load(kind.clone(), seed).await?;
 
     let mut pending_reactions_flushed: Vec<ReactionToEcho> = vec![];
 
     let mut all_messages = loaded.messages;
+
     // pending reactions should only exist for unloaded history entries
-    for (id, mut pending) in pending_reactions.into_iter() {
+    for (id, pending) in pending_reactions.into_iter() {
         if let Some(message) =
-            find_reaction_target(&mut all_messages, &id, &pending.server_time)
+            find_message_target(&mut all_messages, &id, &pending.server_time)
         {
             if message.is_echo
                 && message.direction == Direction::Received
                 && let Ok(target) = Target::try_from(message.target.clone())
             {
                 let message_text = message.text();
-                for reaction in pending.clone().reactions.into_iter() {
-                    let reaction_to_echo = ReactionToEcho {
-                        reaction: reaction::Context {
-                            inner: reaction,
-                            target: target.clone(),
-                            in_reply_to: id.clone(),
-                            server_time: pending.server_time,
-                        },
-                        message_text: message_text.clone(),
-                    };
-                    pending_reactions_flushed.push(reaction_to_echo);
+                for (reaction, notification_enabled) in
+                    pending.clone().reactions.into_iter()
+                {
+                    if notification_enabled {
+                        let reaction_to_echo = ReactionToEcho {
+                            reaction: reaction::Context {
+                                inner: reaction,
+                                target: target.clone(),
+                                in_reply_to: id.clone(),
+                                server_time: pending.server_time,
+                            },
+                            message_text: message_text.clone(),
+                        };
+                        pending_reactions_flushed.push(reaction_to_echo);
+                    }
                 }
             }
 
-            message.reactions.append(&mut pending.reactions);
+            message.reactions.append(
+                &mut pending
+                    .reactions
+                    .iter()
+                    .map(|(reaction, _)| reaction.clone())
+                    .collect(),
+            );
         }
     }
+
+    for (id, pending) in pending_redactions.into_iter() {
+        if let Some(message) =
+            find_message_target(&mut all_messages, &id, &pending.server_time)
+        {
+            message.redaction = Some(pending.redaction);
+        }
+    }
+
     pending_messages.into_iter().for_each(
         |(message, labeled_response_context)| {
             insert_message(
@@ -373,6 +395,7 @@ pub enum History {
         chathistory_references: Option<MessageReferences>,
         last_seen: HashMap<Nick, DateTime<Utc>>,
         pending_reactions: HashMap<message::Id, reaction::Pending>,
+        pending_redactions: HashMap<message::Id, redaction::Pending>,
         show_in_sidebar: bool,
     },
     Full {
@@ -399,6 +422,7 @@ impl History {
             chathistory_references: None,
             last_seen: HashMap::new(),
             pending_reactions: HashMap::new(),
+            pending_redactions: HashMap::new(),
             show_in_sidebar: false,
         }
     }
@@ -442,14 +466,15 @@ impl History {
             }
             History::Full {
                 messages,
-                read_marker,
+                display_read_marker,
                 ..
             } => {
                 let latest = metadata::latest_triggers_unread(messages);
 
-                if let Some(read_marker) = read_marker {
-                    latest
-                        .is_some_and(|latest| read_marker.date_time() < latest)
+                if let Some(display_read_marker) = display_read_marker {
+                    latest.is_some_and(|latest| {
+                        display_read_marker.date_time() < latest
+                    })
                 } else {
                     latest.is_some()
                 }
@@ -612,14 +637,14 @@ impl History {
 
     // Find the first message in the condensation, then return all messages in
     // the condensation
-    fn get_condensed_messages(
+    fn get_expansion_messages(
         &mut self,
         server_time: DateTime<Utc>,
         hash: message::Hash,
         config: &config::buffer::Condensation,
     ) -> Vec<&mut Message> {
         match self {
-            History::Partial { .. } => vec![],
+            History::Partial { .. } => (),
             History::Full { messages, .. } => {
                 if messages.is_empty() {
                     return vec![];
@@ -650,31 +675,35 @@ impl History {
                         (message.hash == hash)
                             .then_some(start_index + slice_index)
                     })
-                    && let Some(first_index) = messages[..=index]
+                {
+                    if messages[index].redaction.is_some() {
+                        return vec![&mut messages[index]];
+                    } else if let Some(first_index) = messages[..=index]
                         .iter()
                         .rev()
                         .position(|message| message.condensed.is_some())
                         .map(|position| index - position)
-                {
-                    messages[first_index..]
-                        .iter_mut()
-                        .filter(|message| !message.blocked)
-                        .scan(true, |is_first_message, message| {
-                            if *is_first_message {
-                                *is_first_message = false;
-                                Some(message)
-                            } else {
-                                (message.can_condense(config)
-                                    && message.condensed.is_none())
-                                .then_some(message)
-                            }
-                        })
-                        .collect()
-                } else {
-                    vec![]
+                    {
+                        return messages[first_index..]
+                            .iter_mut()
+                            .filter(|message| !message.blocked)
+                            .scan(true, |is_first_message, message| {
+                                if *is_first_message {
+                                    *is_first_message = false;
+                                    Some(message)
+                                } else {
+                                    (message.can_condense(config)
+                                        && message.condensed.is_none())
+                                    .then_some(message)
+                                }
+                            })
+                            .collect();
+                    }
                 }
             }
         }
+
+        vec![]
     }
 
     // If now is None then history will be flushed regardless of time
@@ -692,6 +721,7 @@ impl History {
                 read_marker,
                 chathistory_references,
                 pending_reactions,
+                pending_redactions,
                 ..
             } => {
                 if let Some(last_received) = *last_updated_at
@@ -705,6 +735,7 @@ impl History {
                     let read_marker = *read_marker;
                     let chathistory_references = chathistory_references.clone();
                     let pending_reactions = std::mem::take(pending_reactions);
+                    let pending_redactions = std::mem::take(pending_redactions);
 
                     *last_updated_at = None;
 
@@ -717,6 +748,7 @@ impl History {
                                 read_marker,
                                 chathistory_references,
                                 pending_reactions,
+                                pending_redactions,
                             )
                             .await
                         }
@@ -810,6 +842,7 @@ impl History {
                         chathistory_references: chathistory_references.clone(),
                         last_seen,
                         pending_reactions: HashMap::new(),
+                        pending_redactions: HashMap::new(),
                         show_in_sidebar: true,
                     },
                 );
@@ -838,6 +871,7 @@ impl History {
                 read_marker,
                 chathistory_references,
                 pending_reactions,
+                pending_redactions,
                 ..
             } => append(
                 &kind,
@@ -846,6 +880,7 @@ impl History {
                 read_marker,
                 chathistory_references,
                 pending_reactions,
+                pending_redactions,
             )
             .await
             .map(|_| ()),
@@ -872,8 +907,17 @@ impl History {
             History::Full {
                 messages,
                 read_marker,
+                display_read_marker,
                 ..
-            } => (read_marker, ReadMarker::latest(messages)),
+            } => {
+                let latest = ReadMarker::latest(messages);
+
+                if latest > *display_read_marker {
+                    *display_read_marker = latest;
+                }
+
+                (read_marker, latest)
+            }
         };
 
         if latest > *read_marker {
@@ -1075,6 +1119,7 @@ impl History {
     pub fn add_reaction(
         &mut self,
         reaction: reaction::Context,
+        notification_enabled: bool,
     ) -> Option<ReactionToEcho> {
         match self {
             History::Partial {
@@ -1096,9 +1141,12 @@ impl History {
                     } else {
                         None
                     };
+
                     message.reactions.push(reaction.inner.clone());
 
-                    if let Some(message_text) = message_text {
+                    if let Some(message_text) = message_text
+                        && notification_enabled
+                    {
                         return Some(ReactionToEcho {
                             reaction,
                             message_text,
@@ -1115,7 +1163,9 @@ impl History {
 
                     pending.server_time =
                         (pending.server_time).min(reaction.server_time);
-                    pending.reactions.push(reaction.inner);
+                    pending
+                        .reactions
+                        .push((reaction.inner, notification_enabled));
                 }
 
                 *last_updated_at = Some(Instant::now());
@@ -1125,7 +1175,7 @@ impl History {
                 last_updated_at,
                 ..
             } => {
-                let message = find_reaction_target(
+                let message = find_message_target(
                     messages,
                     &reaction.in_reply_to,
                     &reaction.server_time,
@@ -1134,7 +1184,10 @@ impl History {
 
                 *last_updated_at = Some(Instant::now());
 
-                if message.is_echo && message.direction == Direction::Received {
+                if message.is_echo
+                    && message.direction == Direction::Received
+                    && notification_enabled
+                {
                     return Some(ReactionToEcho {
                         reaction,
                         message_text: message.text(),
@@ -1145,6 +1198,59 @@ impl History {
             }
         }
         None
+    }
+
+    pub fn redact_message(
+        &mut self,
+        id: message::Id,
+        redaction: Redaction,
+        server_time: DateTime<Utc>,
+        display_redacted: bool,
+    ) {
+        match self {
+            History::Partial {
+                pending_messages,
+                last_updated_at,
+                pending_redactions,
+                ..
+            } => {
+                if let Some(message) =
+                    pending_messages.iter_mut().rev().find_map(|(m, _)| {
+                        (m.id.as_deref() == Some(&*id)).then_some(m)
+                    })
+                {
+                    message.redaction = Some(redaction);
+                } else {
+                    let pending = pending_redactions.entry(id).or_insert(
+                        redaction::Pending::new(redaction, server_time),
+                    );
+
+                    pending.server_time =
+                        (pending.server_time).min(server_time);
+                }
+
+                *last_updated_at = Some(Instant::now());
+            }
+            History::Full {
+                messages,
+                last_updated_at,
+                ..
+            } => {
+                let Some(message) =
+                    find_message_target(messages, &id, &server_time)
+                else {
+                    return;
+                };
+
+                message.redaction = Some(redaction);
+
+                if !display_redacted {
+                    message.blocked = true;
+                }
+
+                *last_updated_at = Some(Instant::now());
+            }
+        }
     }
 
     pub fn last_seen(&self) -> HashMap<Nick, DateTime<Utc>> {
@@ -1387,7 +1493,7 @@ pub fn get_last_seen(messages: &[Message]) -> HashMap<Nick, DateTime<Utc>> {
     last_seen
 }
 
-pub fn find_reaction_target<'a>(
+pub fn find_message_target<'a>(
     messages: &'a mut [Message],
     id: &message::Id,
     server_time: &DateTime<Utc>,

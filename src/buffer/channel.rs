@@ -43,8 +43,8 @@ pub enum Event {
     MarkAsRead(history::Kind),
     OpenUrl(String),
     ImagePreview(PathBuf, url::Url),
-    ExpandCondensedMessage(DateTime<Utc>, message::Hash),
-    ContractCondensedMessage(DateTime<Utc>, message::Hash),
+    ExpandMessage(DateTime<Utc>, message::Hash),
+    ContractMessage(DateTime<Utc>, message::Hash),
     InputSent {
         history_task: Task<history::manager::Message>,
         open_buffers: Vec<(Target, BufferAction)>,
@@ -72,6 +72,7 @@ pub fn view<'a>(
     let server = &state.server;
     let connected = matches!(clients.status(server), client::Status::Connected);
     let can_send_reactions = clients.get_server_can_send_reactions(server);
+    let can_redact = clients.get_server_can_redact(server);
     let chantypes = clients.get_server_chantypes_or_default(server);
     let casemapping = clients.get_server_casemapping_or_default(server);
     let prefix = clients.get_server_prefix_or_default(server);
@@ -115,6 +116,7 @@ pub fn view<'a>(
         prefix,
         confirm_message_delivery,
         can_send_reactions,
+        can_redact,
         our_nick,
         connected,
         server,
@@ -315,15 +317,11 @@ impl Channel {
                     scroll_view::Event::ImagePreview(path, url) => {
                         Some(Event::ImagePreview(path, url))
                     }
-                    scroll_view::Event::ExpandCondensedMessage(
-                        server_time,
-                        hash,
-                    ) => Some(Event::ExpandCondensedMessage(server_time, hash)),
-                    scroll_view::Event::ContractCondensedMessage(
-                        server_time,
-                        hash,
-                    ) => {
-                        Some(Event::ContractCondensedMessage(server_time, hash))
+                    scroll_view::Event::ExpandMessage(server_time, hash) => {
+                        Some(Event::ExpandMessage(server_time, hash))
+                    }
+                    scroll_view::Event::ContractMessage(server_time, hash) => {
+                        Some(Event::ContractMessage(server_time, hash))
                     }
                 });
 
@@ -583,31 +581,55 @@ mod nick_list {
         let width = match nicklist_config.width {
             Some(width) => width,
             None => {
-                let max_nick_length = users
-                    .into_iter()
-                    .flatten()
-                    .map(|user| {
-                        user.display(
-                            nicklist_config.show_access_levels,
-                            truncate,
+                let (max_nick_length, max_bot_nick_length) =
+                    users.into_iter().flatten().fold(
+                        (0, None),
+                        |(max_nick_length, max_bot_nick_length), user| {
+                            let nick_length = user
+                                .display(
+                                    nicklist_config.show_access_levels,
+                                    nicklist_config.show_bot_icon,
+                                    truncate,
+                                    config.display.truncation_character,
+                                )
+                                .chars()
+                                .count();
+
+                            if user.is_bot() {
+                                (
+                                    max_nick_length,
+                                    max_bot_nick_length.max(Some(nick_length)),
+                                )
+                            } else {
+                                (
+                                    max_nick_length.max(nick_length),
+                                    max_bot_nick_length,
+                                )
+                            }
+                        },
+                    );
+
+                (if let Some(max_bot_nick_length) = max_bot_nick_length {
+                    if nicklist_config.show_bot_icon {
+                        // reserve space for any eventual bot icon
+                        font::width_from_chars(max_nick_length, &config.font)
+                            .max(
+                                font::width_from_chars(
+                                    max_bot_nick_length,
+                                    &config.font,
+                                ) + theme::ICON_SIZE
+                                    + theme::ICON_SPACE,
+                            )
+                    } else {
+                        font::width_from_chars(
+                            max_nick_length.max(max_bot_nick_length),
+                            &config.font,
                         )
-                        .chars()
-                        .count()
-                    })
-                    .max()
-                    .unwrap_or_default();
-
-                font::width_from_chars(max_nick_length, &config.font) + 1.0
+                    }
+                } else {
+                    font::width_from_chars(max_nick_length, &config.font)
+                } + 1.0)
             }
-        };
-
-        let bot_nick_max_chars = if nicklist_config.show_bot_icon {
-            let char_width = font::width_from_chars(1, &config.font);
-            let available = width - theme::ICON_SIZE - theme::ICON_SPACE;
-            let px_max = (available / char_width).floor() as u16;
-            Some(truncate.map_or(px_max, |t| t.min(px_max)))
-        } else {
-            None
         };
 
         let content = column(users.into_iter().flatten().map(|user| {
@@ -616,11 +638,9 @@ mod nick_list {
             let (nick_display, show_nick_tooltip) = user
                 .display_with_truncated(
                     nicklist_config.show_access_levels,
-                    if show_bot_icon {
-                        bot_nick_max_chars
-                    } else {
-                        truncate
-                    },
+                    nicklist_config.show_bot_icon,
+                    truncate,
+                    config.display.truncation_character,
                 );
 
             let nick = selectable_text(nick_display)
@@ -645,9 +665,7 @@ mod nick_list {
                         Length::Shrink
                     }
                     (true, config::buffer::channel::Alignment::Right) => {
-                        Length::Fixed(
-                            width - theme::ICON_SIZE - theme::ICON_SPACE,
-                        )
+                        Length::Fixed(width)
                     }
                     (false, _) => Length::Fixed(width),
                 });

@@ -88,8 +88,8 @@ pub enum Event {
     MarkAsRead,
     OpenUrl(String),
     ImagePreview(PathBuf, url::Url),
-    ExpandCondensedMessage(DateTime<Utc>, message::Hash),
-    ContractCondensedMessage(DateTime<Utc>, message::Hash),
+    ExpandMessage(DateTime<Utc>, message::Hash),
+    ContractMessage(DateTime<Utc>, message::Hash),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -227,15 +227,24 @@ fn is_consecutive_user_message(
     message: &data::Message,
     prev_message: Option<&data::Message>,
     duration: Option<chrono::TimeDelta>,
+    config: &Config,
 ) -> bool {
     matches!(message.target.source(), message::Source::User(_))
         && prev_message.is_some_and(|prev_message| {
-            matches!(
-                (message.target.source(), prev_message.target.source()),
-                (message::Source::User(user), message::Source::User(prev_user)) if user == prev_user
-            ) && duration.is_none_or(|duration| {
+            if duration.is_none_or(|duration| {
                 message.server_time - prev_message.server_time < duration
-            })
+            }) && let message::Source::User(user) = message.target.source()
+                && let message::Source::User(prev_user) =
+                    prev_message.target.source()
+            {
+                user.has_matching_display(
+                    prev_user,
+                    config.buffer.nickname.show_access_levels,
+                    config.buffer.nickname.show_bot_icon,
+                )
+            } else {
+                false
+            }
         })
 }
 
@@ -265,7 +274,7 @@ pub fn view<'a>(
         range_end_timestamp_chars,
         cleared,
         ..
-    }) = history.get_messages(&kind.into(), Some(state.limit), &config.buffer)
+    }) = history.get_messages(&kind.into(), Some(state.limit), config)
     else {
         return column![].into();
     };
@@ -311,24 +320,25 @@ pub fn view<'a>(
     let status = state.status;
 
     let right_aligned_width = max_nick_chars.map(|max_nick_chars| {
-        let max_nick_width =
-            if let Some(max_bot_nick_chars) = max_bot_nick_chars {
-                if config.buffer.nickname.show_bot_icon {
-                    // reserve space for any eventual bot icon
-                    font::width_from_chars(max_nick_chars, &config.font).max(
-                        font::width_from_chars(max_nick_chars, &config.font)
-                            + theme::ICON_SIZE
-                            + theme::ICON_SPACE,
-                    )
-                } else {
-                    font::width_from_chars(
-                        max_nick_chars.max(max_bot_nick_chars),
-                        &config.font,
-                    )
-                }
+        let max_nick_width = if let Some(max_bot_nick_chars) =
+            max_bot_nick_chars
+        {
+            if config.buffer.nickname.show_bot_icon {
+                // reserve space for any eventual bot icon
+                font::width_from_chars(max_nick_chars, &config.font).max(
+                    font::width_from_chars(max_bot_nick_chars, &config.font)
+                        + theme::ICON_SIZE
+                        + theme::ICON_SPACE,
+                )
             } else {
-                font::width_from_chars(max_nick_chars, &config.font)
-            } + 1.0;
+                font::width_from_chars(
+                    max_nick_chars.max(max_bot_nick_chars),
+                    &config.font,
+                )
+            }
+        } else {
+            font::width_from_chars(max_nick_chars, &config.font)
+        } + 1.0;
         let message_marker_width =
             font::width_of_message_marker(&config.font) + 1.0;
         let mut range_end_timestamp_width = range_end_timestamp_chars.map_or(
@@ -371,6 +381,7 @@ pub fn view<'a>(
                             message,
                             *prev_message,
                             duration,
+                            config,
                         )
                     } else {
                         false
@@ -385,6 +396,7 @@ pub fn view<'a>(
                             message,
                             *prev_message,
                             duration,
+                            config
                         )
                         // don't hide if prev message has visible preview (when show_after_previews is enabled)
                         && !(config
@@ -860,7 +872,7 @@ impl State {
                             }) = history.get_messages(
                                 &kind.into(),
                                 Some(self.limit),
-                                &config.buffer,
+                                config,
                             ) && let Some(oldest) =
                                 old_messages.iter().chain(&new_messages).next()
                             {
@@ -1043,22 +1055,19 @@ impl State {
                     );
                 }
             }
-            Message::Link(message::Link::ExpandCondensedMessage(
-                server_time,
-                hash,
-            )) => {
+            Message::Link(message::Link::ExpandMessage(server_time, hash)) => {
                 return (
                     Task::none(),
-                    Some(Event::ExpandCondensedMessage(server_time, hash)),
+                    Some(Event::ExpandMessage(server_time, hash)),
                 );
             }
-            Message::Link(message::Link::ContractCondensedMessage(
+            Message::Link(message::Link::ContractMessage(
                 server_time,
                 hash,
             )) => {
                 return (
                     Task::none(),
-                    Some(Event::ContractCondensedMessage(server_time, hash)),
+                    Some(Event::ContractMessage(server_time, hash)),
                 );
             }
             Message::RequestOlderChatHistory => {
@@ -1261,7 +1270,7 @@ impl State {
             old_messages,
             new_messages,
             ..
-        }) = history.get_messages(&kind.into(), None, &config.buffer)
+        }) = history.get_messages(&kind.into(), None, config)
         else {
             // We're still loading history, which will trigger scroll_to_backlog
             // after loading. If this is set, we will scroll_to_message
@@ -1305,7 +1314,7 @@ impl State {
             old_messages,
             new_messages,
             ..
-        }) = history.get_messages(&kind.into(), None, &config.buffer)
+        }) = history.get_messages(&kind.into(), None, config)
         else {
             return Task::none();
         };
@@ -1351,7 +1360,7 @@ impl State {
             old_messages,
             new_messages,
             ..
-        }) = history.get_messages(&kind.into(), None, &config.buffer)
+        }) = history.get_messages(&kind.into(), None, config)
         else {
             return Task::none();
         };
@@ -1434,6 +1443,7 @@ fn send_reaction(
                 in_reply_to: msgid,
                 server_time: Utc::now(),
             },
+            false,
         );
     }
 
@@ -1939,6 +1949,7 @@ fn preview_row<'a>(
                     .is_enabled(url.as_str())
                     .then_some(message.hidden_urls.contains(url)),
                 false,
+                false,
             ),
             move |entry, length| {
                 entry
@@ -1999,31 +2010,37 @@ fn preview_row<'a>(
             );
 
             let with_access_levels = config.buffer.nickname.show_access_levels;
+            let show_bot_icon = config.buffer.nickname.show_bot_icon;
             let truncate = config.buffer.nickname.truncate;
+            let truncation_character = config.display.truncation_character;
 
-            let nick = if let message::Source::User(user) =
-                message.target.source()
-            {
-                let mut nick = selectable_text(
-                    " ".repeat(
-                        config
-                            .buffer
-                            .nickname
-                            .brackets
-                            .format(user.display(with_access_levels, truncate))
-                            .chars()
-                            .count(),
-                    ),
-                );
+            let nick =
+                if let message::Source::User(user) = message.target.source() {
+                    let mut nick = selectable_text(
+                        " ".repeat(
+                            config
+                                .buffer
+                                .nickname
+                                .brackets
+                                .format(user.display(
+                                    with_access_levels,
+                                    show_bot_icon,
+                                    truncate,
+                                    truncation_character,
+                                ))
+                                .chars()
+                                .count(),
+                        ),
+                    );
 
-                if let Some(width) = right_aligned_width {
-                    nick = nick.width(width);
-                }
+                    if let Some(width) = right_aligned_width {
+                        nick = nick.width(width);
+                    }
 
-                Some(nick)
-            } else {
-                None
-            };
+                    Some(nick)
+                } else {
+                    None
+                };
 
             let timestamp_nickname_row =
                 row![timestamp_gap, space, prefixes, nick];

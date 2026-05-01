@@ -1,11 +1,11 @@
-use data::user::ChannelUsers;
+use data::user::{ChannelUsers, User};
 use data::{Config, file_transfer, history, preview};
 use iced::widget::{button, center, column, container, pane_grid, row, text};
-use iced::{Size, Task};
+use iced::{Length, Size, Task, padding};
 
 use super::sidebar;
 use crate::buffer::{self, Buffer};
-use crate::widget::{on_resize, tooltip};
+use crate::widget::{Element, on_resize, tooltip};
 use crate::{Theme, font, icon, theme, widget};
 
 #[derive(Debug, Clone)]
@@ -66,8 +66,8 @@ impl Pane {
         settings: Option<&'a buffer::Settings>,
         is_popout: bool,
     ) -> widget::Content<'a, Message> {
-        let title_bar_text = match &self.buffer {
-            Buffer::Empty => String::new(),
+        let title: Element<'a, Message> = match &self.buffer {
+            Buffer::Empty => text("").into(),
             Buffer::Channel(state) => {
                 let raw_channel = state.target.as_str();
                 let display_channel = if let Some(casing) =
@@ -81,29 +81,39 @@ impl Pane {
                 };
 
                 let server = &state.server;
-                if let Some(mode) =
-                    clients.get_channel_mode(&state.server, &state.target)
-                {
-                    let users = clients
-                        .get_channel_users(&state.server, &state.target)
-                        .map(ChannelUsers::len)
-                        .unwrap_or_default();
+                row![
+                    text(display_channel).style(theme::text::url).font_maybe(
+                        theme::font_style::url(theme).map(font::get),
+                    ),
+                    if let Some(mode) =
+                        clients.get_channel_mode(&state.server, &state.target)
+                    {
+                        let users = clients
+                            .get_channel_users(&state.server, &state.target)
+                            .map(ChannelUsers::len)
+                            .unwrap_or_default();
 
-                    format!(
-                        "{display_channel} ({mode}) @ {server} - {users} users"
-                    )
-                } else {
-                    format!("{display_channel} @ {server}")
-                }
+                        text(format!(" ({mode}) @ {server} - {users} users"))
+                    } else {
+                        text(format!(" @ {server}"))
+                    }
+                ]
+                .into()
             }
-            Buffer::Server(state) => state.server.to_string(),
-            Buffer::Query(state) => {
-                let nick = state.target.as_str();
-                let server = &state.server;
-
-                format!("{nick} @ {server}")
-            }
-            Buffer::FileTransfers(_) => "File Transfers".to_string(),
+            Buffer::Server(state) => text(state.server.to_string())
+                .style(|theme| theme::text::server(theme, None))
+                .font_maybe(
+                    theme::font_style::server(theme, None).map(font::get),
+                )
+                .into(),
+            Buffer::Query(state) => query_title(
+                &state.server,
+                &state.target,
+                clients,
+                config,
+                theme,
+            ),
+            Buffer::FileTransfers(_) => text("File Transfers").into(),
             Buffer::ChannelDiscovery(state) => {
                 let base = "Channel Discovery";
                 if let Some(server) = state.server.as_ref() {
@@ -113,23 +123,24 @@ impl Pane {
                         .map(data::channel_discovery::Manager::amount_of_channels)
                         .unwrap_or_default();
                     if channel_count > 0 {
-                        format!("{base} - {channel_count} channels")
+                        text(format!("{base} - {channel_count} channels"))
+                            .into()
                     } else {
-                        base.to_string()
+                        text(base).into()
                     }
                 } else {
-                    base.to_string()
+                    text(base).into()
                 }
             }
-            Buffer::Logs(_) => "Logs".to_string(),
-            Buffer::Highlights(_) => "Highlights".to_string(),
-            Buffer::Search(_) => "Search".to_string(),
+            Buffer::Logs(_) => text("Logs").into(),
+            Buffer::Highlights(_) => text("Highlights").into(),
+            Buffer::Search(_) => text("Search").into(),
         };
 
         let title_bar = self.title_bar.view(
             &self.buffer,
             history,
-            title_bar_text,
+            title,
             id,
             panes,
             is_focused,
@@ -245,7 +256,7 @@ impl TitleBar {
         &'a self,
         buffer: &Buffer,
         history: &'a history::Manager,
-        value: String,
+        title: Element<'a, Message>,
         _id: pane_grid::Pane,
         panes: usize,
         _is_focused: bool,
@@ -484,17 +495,10 @@ impl TitleBar {
         ]
         .spacing(2);
 
-        let title = container(
-            text(value)
-                .style(theme::text::buffer_title_bar)
-                .font_maybe(
-                    theme::font_style::buffer_title_bar(theme).map(font::get),
-                )
-                .shaping(text::Shaping::Advanced),
-        )
-        .height(theme::resolve_line_height(&config.font).ceil().max(22.0))
-        .padding([0, 4])
-        .align_y(iced::alignment::Vertical::Center);
+        let title = container(title)
+            .height(theme::resolve_line_height(&config.font).ceil().max(22.0))
+            .padding([0, 4])
+            .align_y(iced::alignment::Vertical::Center);
 
         let title_bar = widget::TitleBar::new(title).padding(6);
 
@@ -504,6 +508,99 @@ impl TitleBar {
             title_bar
         }
     }
+}
+
+fn query_title<'a>(
+    server: &'a data::Server,
+    query: &'a data::target::Query,
+    clients: &'a data::client::Map,
+    config: &'a Config,
+    theme: &'a Theme,
+) -> Element<'a, Message> {
+    let resolved_query = clients.resolve_query(server, query).unwrap_or(query);
+    let user = User::from(data::user::Nick::from_str(
+        resolved_query.as_str(),
+        clients.get_server_casemapping_or_default(server),
+    ));
+    let shared_channels = clients.get_user_channels(server, user.nickname());
+    let current_user = shared_channels.iter().find_map(|channel| {
+        clients.resolve_user_attributes(server, channel, &user)
+    });
+
+    let is_user_away = config
+        .buffer
+        .nickname
+        .away
+        .is_away(current_user.is_some_and(User::is_away));
+    let is_user_offline = config
+        .buffer
+        .nickname
+        .offline
+        .is_offline(!shared_channels.is_empty() && current_user.is_none());
+
+    let nickname = text(resolved_query.as_str())
+        .style(move |_| {
+            theme::text::nickname(
+                theme,
+                &config.buffer.nickname.color,
+                Some(resolved_query.as_str()),
+                is_user_away,
+                is_user_offline,
+            )
+        })
+        .font_maybe(
+            theme::font_style::nickname(theme, is_user_offline).map(font::get),
+        )
+        .shaping(text::Shaping::Advanced);
+
+    row![
+        nickname,
+        current_user.and_then(User::accountname).map(
+            |accountname| -> Element<'a, Message> {
+                iced::widget::tooltip(
+                    row![
+                        icon::lock()
+                            .size(theme::TEXT_SIZE - 2.0)
+                            .style(move |_| {
+                                theme::text::nickname(
+                                    theme,
+                                    &config.buffer.nickname.color,
+                                    Some(resolved_query.as_str()),
+                                    is_user_away,
+                                    is_user_offline,
+                                )
+                            })
+                            .line_height(1.0)
+                    ]
+                    .padding(padding::horizontal(4))
+                    .align_y(iced::Alignment::Center),
+                    container(
+                        text(format!("Authenticated as {accountname}"))
+                            .style(theme::text::secondary)
+                            .line_height(font::line_height())
+                            .font_maybe(
+                                theme::font_style::secondary(theme)
+                                    .map(font::get),
+                            ),
+                    )
+                    .style(theme::container::tooltip)
+                    .padding(8),
+                    crate::widget::tooltip::Position::Bottom,
+                )
+                .delay(iced::time::Duration::ZERO)
+                .into()
+            }
+        ),
+        text(format!(" @ {server}"))
+            .style(theme::text::buffer_title_bar)
+            .font_maybe(
+                theme::font_style::buffer_title_bar(theme).map(font::get)
+            )
+            .shaping(text::Shaping::Advanced),
+    ]
+    .width(Length::Shrink)
+    .align_y(iced::Alignment::Center)
+    .into()
 }
 
 impl From<Pane> for data::Pane {

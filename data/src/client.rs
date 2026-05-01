@@ -29,7 +29,6 @@ use crate::isupport::{
     ChatHistoryState, ChatHistorySubcommand, MessageReference, WhoToken,
     WhoXPollParameters, find_target_limit,
 };
-use crate::message::source;
 use crate::rate_limit::{BackoffInterval, TokenBucket, TokenPriority};
 use crate::target::{self, Target};
 use crate::time::Posix;
@@ -102,6 +101,27 @@ pub enum Broadcast {
 }
 
 #[derive(Debug)]
+pub enum Destination {
+    Server,
+    Target(Target),
+}
+
+impl From<&buffer::Upstream> for Destination {
+    fn from(buffer: &buffer::Upstream) -> Self {
+        match buffer.target() {
+            Some(target) => Self::Target(target),
+            None => Self::Server,
+        }
+    }
+}
+
+impl From<Target> for Destination {
+    fn from(target: Target) -> Self {
+        Self::Target(target)
+    }
+}
+
+#[derive(Debug)]
 pub enum Message {
     ChatHistoryRequest(Server, ChatHistorySubcommand),
     ChatHistoryTargetsTimestampUpdated(
@@ -127,11 +147,16 @@ pub enum Event {
         deduplicate: bool,
         labeled_response_context: Option<LabeledResponseContext>,
     },
-    Reaction(message::Encoded, Nick),
+    Reaction {
+        message: message::Encoded,
+        our_nick: Nick,
+        notification_enabled: bool,
+    },
+    Redaction(message::Encoded, Nick),
     WithTarget {
         message: message::Encoded,
         our_nick: Nick,
-        target: message::Target,
+        target: Destination,
         deduplicate: bool,
     },
     Broadcast(Broadcast),
@@ -534,10 +559,7 @@ impl Client {
         message: &mut message::Encoded,
     ) -> Option<LabeledResponseContext> {
         buffer.and_then(|buffer| {
-            let labeled_response_context = if self
-                .capabilities
-                .acknowledged(Capability::LabeledResponse)
-            {
+            if self.capabilities.acknowledged(Capability::LabeledResponse) {
                 let label = generate_label();
 
                 let context =
@@ -553,13 +575,12 @@ impl Client {
 
                 labeled_response_context
             } else {
+                self.reroute_responses_to = self
+                    .start_reroute(&message.command)
+                    .then(|| buffer.clone());
+
                 None
-            };
-
-            self.reroute_responses_to =
-                self.start_reroute(&message.command).then(|| buffer.clone());
-
-            labeled_response_context
+            }
         })
     }
 
@@ -1059,22 +1080,15 @@ impl Client {
                     }
                 }
             }
-            // Label context whois
-            _ if context.as_ref().is_some_and(Context::is_whois) => {
-                if let Some(source) = context
-                    .map(Context::buffer)
-                    .map(|buffer| buffer.server_message_target(None))
-                {
-                    return Ok(vec![Event::WithTarget {
-                        message,
-                        our_nick: self.nickname().to_owned(),
-                        target: source,
-                        deduplicate: false,
-                    }]);
-                }
-            }
             _ if is_reaction(&message) => {
-                return Ok(vec![Event::Reaction(
+                return Ok(vec![Event::Reaction {
+                    message,
+                    our_nick: self.nickname().to_owned(),
+                    notification_enabled: true,
+                }]);
+            }
+            _ if matches!(message.command, Command::REDACT(_, _, _)) => {
+                return Ok(vec![Event::Redaction(
                     message,
                     self.nickname().to_owned(),
                 )]);
@@ -1093,15 +1107,13 @@ impl Client {
                 | ERR_NOTONCHANNEL | ERR_CHANOPRIVSNEEDED | ERR_USERONCHANNEL,
                 _,
             ) if self.reroute_responses_to.is_some() => {
-                if let Some(source) = self
-                    .reroute_responses_to
-                    .clone()
-                    .map(|buffer| buffer.server_message_target(None))
+                if let Some(target) =
+                    self.reroute_responses_to.as_ref().map(Destination::from)
                 {
                     return Ok(vec![Event::WithTarget {
                         message,
                         our_nick: self.nickname().to_owned(),
-                        target: source,
+                        target,
                         deduplicate: false,
                     }]);
                 }
@@ -1511,14 +1523,16 @@ impl Client {
                         }
                     }
 
-                    if message.tags.contains_key("bot")
+                    if self.isupport.contains_key(&isupport::Kind::BOT)
                         && let Some(channel) =
                             self.message_channel_target(&message.command)
                         && let Some(ch) = self.chanmap.get_mut(&channel)
-                        && let Some(mut chan_user) = ch.users.take(&user)
                     {
-                        chan_user.update_bot(true);
-                        ch.users.insert(chan_user);
+                        ch.users.update_user(
+                            &user,
+                            None,
+                            Some(message.tags.contains_key("bot")),
+                        );
                     }
 
                     let user_query = target::Query::from(&user);
@@ -1765,7 +1779,7 @@ impl Client {
                 } else if let Some(channel) =
                     self.chanmap.get_mut(&target_channel)
                 {
-                    let user = if self
+                    let mut user = if self
                         .capabilities
                         .acknowledged(Capability::ExtendedJoin)
                     {
@@ -1777,6 +1791,10 @@ impl Client {
                     } else {
                         user
                     };
+
+                    if message.tags.contains_key("bot") {
+                        user.update_bot(true);
+                    }
 
                     channel.users.insert(user);
                 }
@@ -1861,15 +1879,15 @@ impl Client {
                         // User did not request, don't save to history
                         return Ok(vec![]);
                     // Reroute who responses
-                    } else if let Some(source) = self
+                    } else if let Some(target) = self
                         .reroute_responses_to
-                        .clone()
-                        .map(|buffer| buffer.server_message_target(None))
+                        .as_ref()
+                        .map(Destination::from)
                     {
                         return Ok(vec![Event::WithTarget {
                             message,
                             our_nick: self.nickname().to_owned(),
-                            target: source,
+                            target,
                             deduplicate: false,
                         }]);
                     }
@@ -1979,15 +1997,15 @@ impl Client {
                         // User did not request, don't save to history
                         return Ok(vec![]);
                     // Reroute who responses
-                    } else if let Some(source) = self
+                    } else if let Some(target) = self
                         .reroute_responses_to
-                        .clone()
-                        .map(|buffer| buffer.server_message_target(None))
+                        .as_ref()
+                        .map(Destination::from)
                     {
                         return Ok(vec![Event::WithTarget {
                             message,
                             our_nick: self.nickname().to_owned(),
-                            target: source,
+                            target,
                             deduplicate: false,
                         }]);
                     }
@@ -2055,15 +2073,15 @@ impl Client {
                         // User did not request, don't save to history
                         return Ok(vec![]);
                     // Reroute who responses
-                    } else if let Some(source) = self
+                    } else if let Some(target) = self
                         .reroute_responses_to
-                        .clone()
-                        .map(|buffer| buffer.server_message_target(None))
+                        .as_ref()
+                        .map(Destination::from)
                     {
                         return Ok(vec![Event::WithTarget {
                             message,
                             our_nick: self.nickname().to_owned(),
-                            target: source,
+                            target,
                             deduplicate: false,
                         }]);
                     }
@@ -2182,6 +2200,31 @@ impl Client {
                         }
                     }
                 } else {
+                    let modes = mode::parse::<mode::User>(
+                        modes,
+                        args,
+                        self.chanmodes(),
+                        self.prefix(),
+                    );
+
+                    let bot_change = modes.iter().find_map(|mode| match mode {
+                        mode::Mode::Add(mode::User::Bot, _) => Some(true),
+                        mode::Mode::Remove(mode::User::Bot, _) => Some(false),
+                        _ => None,
+                    });
+
+                    if let Some(is_bot) = bot_change {
+                        let lookup =
+                            User::from(Nick::from_str(target, casemapping));
+                        self.chanmap.values_mut().for_each(|channel| {
+                            if let Some(mut user) = channel.users.take(&lookup)
+                            {
+                                user.update_bot(is_bot);
+                                channel.users.insert(user);
+                            }
+                        });
+                    }
+
                     // Only check for being logged in via mode if account-notify is not available,
                     // since it is not standardized across networks.
 
@@ -2191,30 +2234,22 @@ impl Client {
                             .capabilities
                             .acknowledged(Capability::AccountNotify)
                         && !self.registration_required_channels.is_empty()
-                    {
-                        let modes = mode::parse::<mode::User>(
-                            modes,
-                            args,
-                            self.chanmodes(),
-                            self.prefix(),
-                        );
-
-                        if modes.into_iter().any(|mode| {
+                        && modes.into_iter().any(|mode| {
                             matches!(
                                 mode,
                                 mode::Mode::Add(mode::User::Registered, None)
                             )
-                        }) {
-                            for message in group_joins(
-                                &self.registration_required_channels,
-                                &self.config.channel_keys,
-                                find_target_limit(&self.isupport, "JOIN"),
-                            ) {
-                                self.handle.try_send(message)?;
-                            }
-
-                            self.registration_required_channels.clear();
+                        })
+                    {
+                        for message in group_joins(
+                            &self.registration_required_channels,
+                            &self.config.channel_keys,
+                            find_target_limit(&self.isupport, "JOIN"),
+                        ) {
+                            self.handle.try_send(message)?;
                         }
+
+                        self.registration_required_channels.clear();
                     }
                 }
             }
@@ -3056,11 +3091,22 @@ impl Client {
             _ => {}
         }
 
-        Ok(vec![Event::Single {
-            message,
-            our_nick: self.nickname().to_owned(),
-            deduplicate: false,
-        }])
+        if let Some(target) =
+            context.map(Context::buffer).as_ref().map(Destination::from)
+        {
+            Ok(vec![Event::WithTarget {
+                message,
+                our_nick: self.nickname().to_owned(),
+                target,
+                deduplicate: false,
+            }])
+        } else {
+            Ok(vec![Event::Single {
+                message,
+                our_nick: self.nickname().to_owned(),
+                deduplicate: false,
+            }])
+        }
     }
 
     fn handle_chathistory(
@@ -3079,110 +3125,39 @@ impl Client {
         } else {
             match &message.command {
                 _ if is_reaction(&message) => {
-                    vec![Event::Reaction(message, self.nickname().to_owned())]
+                    vec![Event::Reaction {
+                        message,
+                        our_nick: self.nickname().to_owned(),
+                        notification_enabled: false,
+                    }]
                 }
-                Command::NICK(new_nick) => {
-                    let new_nick = Nick::from_str(new_nick, self.casemapping());
-
-                    batch_target
-                        .as_channel()
-                        .map(|channel| {
-                            let target = message::Target::Channel {
-                                channel: channel.clone(),
-                                source: source::Source::Server(Some(
-                                    source::Server::new(
-                                        source::server::Kind::ChangeNick,
-                                        message.user(self.casemapping()).map(
-                                            |user| Nick::from(user.nickname()),
-                                        ),
-                                        Some(source::server::Change::Nick(
-                                            new_nick,
-                                        )),
-                                    ),
-                                )),
-                            };
-
-                            vec![Event::WithTarget {
-                                message,
-                                our_nick: self.nickname().to_owned(),
-                                target,
-                                deduplicate: true,
-                            }]
-                        })
-                        .unwrap_or_default()
+                Command::REDACT(_, _, _) => {
+                    vec![Event::Redaction(message, self.nickname().to_owned())]
                 }
-                Command::JOIN(_, _) => batch_target
-                    .as_channel()
-                    .map(|channel| {
-                        let target = message::Target::Channel {
-                            channel: channel.clone(),
-                            source: source::Source::Server(Some(
-                                source::Server::new(
-                                    source::server::Kind::Join,
-                                    message.user(self.casemapping()).map(
-                                        |user| Nick::from(user.nickname()),
-                                    ),
-                                    None,
-                                ),
-                            )),
-                        };
-
-                        vec![Event::WithTarget {
-                            message,
-                            our_nick: self.nickname().to_owned(),
-                            target,
-                            deduplicate: true,
-                        }]
-                    })
-                    .unwrap_or_default(),
-                Command::PART(_, _) => batch_target
-                    .as_channel()
-                    .map(|channel| {
-                        let target = message::Target::Channel {
-                            channel: channel.clone(),
-                            source: source::Source::Server(Some(
-                                source::Server::new(
-                                    source::server::Kind::Part,
-                                    message.user(self.casemapping()).map(
-                                        |user| Nick::from(user.nickname()),
-                                    ),
-                                    None,
-                                ),
-                            )),
-                        };
-
-                        vec![Event::WithTarget {
-                            message,
-                            our_nick: self.nickname().to_owned(),
-                            target,
-                            deduplicate: true,
-                        }]
-                    })
-                    .unwrap_or_default(),
-                Command::QUIT(_) => batch_target
-                    .as_channel()
-                    .map(|channel| {
-                        let target = message::Target::Channel {
-                            channel: channel.clone(),
-                            source: source::Source::Server(Some(
-                                source::Server::new(
-                                    source::server::Kind::Quit,
-                                    message.user(self.casemapping()).map(
-                                        |user| Nick::from(user.nickname()),
-                                    ),
-                                    None,
-                                ),
-                            )),
-                        };
-
-                        vec![Event::WithTarget {
-                            message,
-                            our_nick: self.nickname().to_owned(),
-                            target,
-                            deduplicate: true,
-                        }]
-                    })
-                    .unwrap_or_default(),
+                Command::NICK(_) => vec![Event::WithTarget {
+                    message,
+                    our_nick: self.nickname().to_owned(),
+                    target: batch_target.into(),
+                    deduplicate: true,
+                }],
+                Command::JOIN(_, _) => vec![Event::WithTarget {
+                    message,
+                    our_nick: self.nickname().to_owned(),
+                    target: batch_target.into(),
+                    deduplicate: true,
+                }],
+                Command::PART(_, _) => vec![Event::WithTarget {
+                    message,
+                    our_nick: self.nickname().to_owned(),
+                    target: batch_target.into(),
+                    deduplicate: true,
+                }],
+                Command::QUIT(_) => vec![Event::WithTarget {
+                    message,
+                    our_nick: self.nickname().to_owned(),
+                    target: batch_target.into(),
+                    deduplicate: true,
+                }],
                 Command::PRIVMSG(target, text)
                 | Command::NOTICE(target, text) => {
                     if ctcp::is_query(text) && !message::is_action(text) {
@@ -4146,6 +4121,11 @@ impl Client {
                 || isupport::is_client_tag_allowed(&self.isupport, "reply"))
     }
 
+    fn can_redact(&self) -> bool {
+        self.capabilities.acknowledged(Capability::MessageTags)
+            && self.capabilities.acknowledged(Capability::MessageRedaction)
+    }
+
     pub fn is_channel(&self, target: &str) -> bool {
         proto::is_channel(target, self.chantypes())
     }
@@ -4269,7 +4249,8 @@ fn continue_chathistory_between(
             | Event::PrivOrNotice { message, .. }
             | Event::WithTarget { message, .. }
             | Event::DirectMessage(message, _, _)
-            | Event::Reaction(message, _) => match end_message_reference {
+            | Event::Reaction { message, .. }
+            | Event::Redaction(message, _) => match end_message_reference {
                 MessageReference::MessageId(_) => {
                     message.message_id().map(MessageReference::MessageId)
                 }
@@ -4318,7 +4299,8 @@ fn continue_chathistory_targets(
             | Event::PrivOrNotice { .. }
             | Event::WithTarget { .. }
             | Event::DirectMessage(_, _, _)
-            | Event::Reaction(_, _)
+            | Event::Reaction { .. }
+            | Event::Redaction(_, _)
             | Event::Broadcast(_)
             | Event::FileTransferRequest(_)
             | Event::UpdateReadMarker(_, _)
@@ -4770,6 +4752,10 @@ impl Map {
         self.client(server).is_some_and(Client::can_send_reactions)
     }
 
+    pub fn get_server_can_redact(&self, server: &Server) -> bool {
+        self.client(server).is_some_and(Client::can_redact)
+    }
+
     pub fn get_server_can_send_typing(&self, server: &Server) -> bool {
         self.client(server).is_some_and(Client::can_send_typing)
     }
@@ -5026,7 +5012,6 @@ impl Map {
 pub enum Context {
     Buffer(buffer::Upstream),
     PrivOrNotice(buffer::Upstream, Option<LabeledResponseContext>),
-    Whois(buffer::Upstream),
 }
 
 impl Context {
@@ -5036,7 +5021,6 @@ impl Context {
         label: Option<&str>,
     ) -> Self {
         match &message.command {
-            Command::WHOIS(_, _) => Self::Whois(buffer),
             Command::PRIVMSG(_, _) | Command::NOTICE(_, _) => {
                 Self::PrivOrNotice(
                     buffer,
@@ -5059,15 +5043,10 @@ impl Context {
         }
     }
 
-    fn is_whois(&self) -> bool {
-        matches!(self, Self::Whois(_))
-    }
-
     fn buffer(self) -> buffer::Upstream {
         match self {
             Context::Buffer(buffer) => buffer,
             Context::PrivOrNotice(buffer, _) => buffer,
-            Context::Whois(buffer) => buffer,
         }
     }
 
@@ -5076,7 +5055,7 @@ impl Context {
             Context::PrivOrNotice(_, labeled_response_context) => {
                 labeled_response_context.as_ref()
             }
-            Context::Buffer(_) | Context::Whois(_) => None,
+            Context::Buffer(_) => None,
         }
     }
 }
@@ -5087,7 +5066,7 @@ impl From<Context> for Option<LabeledResponseContext> {
             Context::PrivOrNotice(_, labeled_response_context) => {
                 labeled_response_context
             }
-            Context::Buffer(_) | Context::Whois(_) => None,
+            Context::Buffer(_) => None,
         }
     }
 }
@@ -5197,13 +5176,11 @@ impl Channel {
                 _ => return,
             };
 
-            if let Some(mut user) = self.users.take(&user) {
-                user.update_away(away);
-                if let Some(bot_char) = bot_mode_char {
-                    user.update_bot(flags.contains(bot_char));
-                }
-                self.users.insert(user);
-            }
+            self.users.update_user(
+                &user,
+                Some(away),
+                bot_mode_char.map(|bot_char| flags.contains(bot_char)),
+            );
         }
     }
 

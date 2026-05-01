@@ -26,9 +26,10 @@ pub enum Event {
     GoToMessage(Server, target::Channel, message::Hash),
     History(Task<history::manager::Message>),
     OpenUrl(String),
+    MarkAsRead,
     ImagePreview(PathBuf, url::Url),
-    ExpandCondensedMessage(DateTime<Utc>, message::Hash),
-    ContractCondensedMessage(DateTime<Utc>, message::Hash),
+    ExpandMessage(DateTime<Utc>, message::Hash),
+    ContractMessage(DateTime<Utc>, message::Hash),
 }
 
 pub fn view<'a>(
@@ -99,7 +100,10 @@ pub fn view<'a>(
 
                     let with_access_levels =
                         config.buffer.nickname.show_access_levels;
+                    let show_bot_icon = config.buffer.nickname.show_bot_icon;
                     let truncate = config.buffer.nickname.truncate;
+                    let truncation_character =
+                        config.display.truncation_character;
 
                     let current_user =
                         users.and_then(|users| users.resolve(user));
@@ -110,7 +114,12 @@ pub fn view<'a>(
                         };
 
                     let (user_display, show_nickname_tooltip) = user
-                        .display_with_truncated(with_access_levels, truncate);
+                        .display_with_truncated(
+                            with_access_levels,
+                            show_bot_icon,
+                            truncate,
+                            truncation_character,
+                        );
 
                     let nick_text =
                         config.buffer.nickname.brackets.format(user_display);
@@ -180,7 +189,9 @@ pub fn view<'a>(
                                 )
                             }
                             message::Link::Url(_) => {
-                                context_menu::Entry::url_list(None, false)
+                                context_menu::Entry::url_list(
+                                    None, false, false,
+                                )
                             }
                             _ => vec![],
                         },
@@ -342,22 +353,18 @@ impl Highlights {
                     scroll_view::Event::RequestOlderChatHistory => None,
                     scroll_view::Event::PreviewChanged => None,
                     scroll_view::Event::HidePreview(..) => None,
-                    scroll_view::Event::MarkAsRead => None,
+                    scroll_view::Event::MarkAsRead => Some(Event::MarkAsRead),
                     scroll_view::Event::OpenUrl(url) => {
                         Some(Event::OpenUrl(url))
                     }
                     scroll_view::Event::ImagePreview(path, url) => {
                         Some(Event::ImagePreview(path, url))
                     }
-                    scroll_view::Event::ExpandCondensedMessage(
-                        server_time,
-                        hash,
-                    ) => Some(Event::ExpandCondensedMessage(server_time, hash)),
-                    scroll_view::Event::ContractCondensedMessage(
-                        server_time,
-                        hash,
-                    ) => {
-                        Some(Event::ContractCondensedMessage(server_time, hash))
+                    scroll_view::Event::ExpandMessage(server_time, hash) => {
+                        Some(Event::ExpandMessage(server_time, hash))
+                    }
+                    scroll_view::Event::ContractMessage(server_time, hash) => {
+                        Some(Event::ContractMessage(server_time, hash))
                     }
                 });
 

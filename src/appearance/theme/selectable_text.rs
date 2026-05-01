@@ -230,8 +230,8 @@ impl selectable_rich_text::Link for message::Link {
             data::message::Link::User(..)
             | data::message::Link::Channel(..)
             | data::message::Link::GoToMessage(..)
-            | data::message::Link::ExpandCondensedMessage(..)
-            | data::message::Link::ContractCondensedMessage(..) => false,
+            | data::message::Link::ExpandMessage(..)
+            | data::message::Link::ContractMessage(..) => false,
         }
     }
 }

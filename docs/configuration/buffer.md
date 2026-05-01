@@ -243,7 +243,7 @@ Control if topic banner should be shown or not by default.
 ```toml
 # Type: boolean
 # Values: true, false
-# Default: false
+# Default: true
 
 [buffer.channel.topic_banner]
 enabled = true
@@ -982,7 +982,7 @@ Control if server message type is enabled.
 ```toml
 # Type: boolean
 # Values: true, false
-# Default: true
+# Default: true (except for topic, which is false)
 
 [buffer.server_messages.<server_message>]
 enabled = true
@@ -1564,4 +1564,21 @@ Prompt before opening a hyperlink.
 
 [buffer.url]
 prompt_before_open = true
+```
+
+## `redaction`
+
+Customize how redacted messages behave in buffers
+
+### `display`
+
+How to display redacted messages in the buffer.  If displayed as `"dimmed"` then the message will be displayed dimmed and the redaction reason viewable via tooltip.  If displayed as `"redacted"` then the message will be replaced with the redaction reason, and the redcated message can be revealed by clicking on the message. 
+
+```toml
+# Type: string
+# Values: "none", "dimmed", "redacted"
+# Default: "none"
+
+[buffer.redaction]
+display = "dimmed"
 ```

@@ -24,7 +24,7 @@ nickname = ""
 
 ## `nick_password`
 
-The client's NICKSERV password.
+The client's NICKSERV password. Whenever possible, using [`sasl.plain`](#saslplain) or [`sasl.external`](#saslexternal) instead of NICKSERV is recommended.
 
 ```toml
 # Type: string
@@ -570,7 +570,7 @@ Reroute selected message types within this server. See [Reroute](reroute.md) for
 
 ## `sasl.external`
 
-External SASL auth uses a PEM encoded X509 certificate. [Reference](https://libera.chat/guides/certfp).
+External SASL auth uses a PEM encoded X509 certificate. See the [guide by Libera.Chat](https://libera.chat/guides/certfp) for more information.
 
 ### `cert`
 
@@ -613,7 +613,7 @@ disconnect_on_failure = false
 
 ## `sasl.plain`
 
-Plain SASL auth using a username and password
+Plain SASL auth using a username and password.  See the [guide by Libera.Chat](https://libera.chat/guides/sasl) for more information.
 
 ### `username`
 
