@@ -1408,15 +1408,35 @@ impl State {
                 to_nick_prefix,
                 reply_preview,
             } => {
+                let suffix =
+                    &config.buffer.text_input.autocomplete.completion_suffixes
+                        [0];
+                // Strip old nick prefix if replacing an existing reply
+                if let Some(old_reply) = &self.draft_reply {
+                    let old_prefix_str = format!("{}{suffix}", old_reply.nick);
+                    let current_text = self.input_content.text();
+                    if current_text.starts_with(&old_prefix_str) {
+                        let stripped =
+                            current_text[old_prefix_str.len()..].to_string();
+                        let delta = -(old_prefix_str.chars().count() as i64);
+                        let cursor = adjust_cursor(
+                            &self.input_content,
+                            &stripped,
+                            0,
+                            0,
+                            delta,
+                        );
+                        self.input_content =
+                            text_editor::Content::with_text(&stripped);
+                        self.input_content.move_to(cursor);
+                    }
+                }
                 self.draft_reply = Some(input::DraftReply {
                     id: msgid,
                     nick: to_nick.clone(),
                     prefix: to_nick_prefix,
                     preview: reply_preview,
                 });
-                let suffix =
-                    &config.buffer.text_input.autocomplete.completion_suffixes
-                        [0];
                 let prefix_str = format!("{to_nick}{suffix}");
                 let current_text = self.input_content.text();
                 if !current_text.starts_with(&prefix_str) {
@@ -1441,13 +1461,37 @@ impl State {
                 (self.focus(), None)
             }
             Message::ClearDraftReply => {
+                if let Some(draft_reply) = &self.draft_reply {
+                    let suffix = &config
+                        .buffer
+                        .text_input
+                        .autocomplete
+                        .completion_suffixes[0];
+                    let prefix_str = format!("{}{suffix}", draft_reply.nick);
+                    let current_text = self.input_content.text();
+                    if current_text.starts_with(&prefix_str) {
+                        let stripped =
+                            current_text[prefix_str.len()..].to_string();
+                        let delta = -(prefix_str.chars().count() as i64);
+                        let cursor = adjust_cursor(
+                            &self.input_content,
+                            &stripped,
+                            0,
+                            0,
+                            delta,
+                        );
+                        self.input_content =
+                            text_editor::Content::with_text(&stripped);
+                        self.input_content.move_to(cursor);
+                    }
+                }
                 self.draft_reply = None;
                 history.record_draft(RawInput {
                     buffer: buffer.clone(),
                     text: self.input_content.text(),
                     reply: None,
                 });
-                (Task::none(), None)
+                (self.focus(), None)
             }
             Message::FilehostUploadDone { id, url } => {
                 self.uploading = self.uploading.saturating_sub(1);
