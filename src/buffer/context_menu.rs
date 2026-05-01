@@ -91,6 +91,9 @@ impl Entry {
         if can_send_reactions {
             entries.push(Entry::AddReaction);
         }
+        if can_send_replies || can_send_reactions {
+            entries.push(Entry::HorizontalRule);
+        }
         entries.push(Entry::CopyMessage);
         if can_redact {
             entries.push(Entry::Redact);
