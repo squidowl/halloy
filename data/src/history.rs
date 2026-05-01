@@ -1371,9 +1371,9 @@ pub fn insert_message(
                 matches!(stored.direction, message::Direction::Sent)
                     && message_is_unlabeled_echo;
 
-            let check_for_matching_content = stored.id.is_none()
-                && ((message.id.is_none()
-                    && message.deduplicate
+            let check_for_matching_content = (stored.id.is_none()
+                || message.id.is_none())
+                && ((message.deduplicate
                     && stored.server_time == message.server_time)
                     || use_echo_cmp);
 
