@@ -19,6 +19,7 @@ Fixed:
 - Issue where unread indicator could appear in sidebar for an open pane that does not have unread messages
 - Issue where backlog divider in highlights or logs pane would not update when marking the pane as read
 - Fix link matching for both end of line delimiters & punctuations
+- Matching against `users` for some include/exclude conditions
 
 Changed:
 
@@ -27,7 +28,7 @@ Changed:
 Thanks:
 
 - Contributions: @bb010g, @furudean, @englut, @luca020400
-- Bug reports: @bb010g
+- Bug reports: @bb010g, daniiooo
 - Feature requests: @WinnerWind
 
 # 2026.6 (2026-04-21)
