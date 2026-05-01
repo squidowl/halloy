@@ -231,77 +231,7 @@ pub fn view<'a>(
         .padding([8, 4])
         .into()
     } else {
-        scrollable(column(
-            state
-                .results
-                .iter()
-                .enumerate()
-                .map(|(index, result)| {
-                    let timestamp = config
-                        .buffer
-                        .format_timestamp(&result.timestamp)
-                        .unwrap_or_default();
-
-                    let mut row_items: Vec<Element<'_, Message>> =
-                        Vec::with_capacity(3);
-
-                    if !timestamp.is_empty() {
-                        row_items.push(
-                            selectable_text(timestamp)
-                                .style(theme::selectable_text::timestamp)
-                                .font_maybe(
-                                    theme::font_style::timestamp(theme)
-                                        .map(font::get),
-                                )
-                                .into(),
-                        );
-                    }
-
-                    if let Some(user) = result.sender.as_ref() {
-                        let nick_style =
-                            theme::selectable_text::nickname(
-                                theme, config, user, false,
-                            );
-                        let brackets = &config.buffer.nickname.brackets;
-                        let nick_str = brackets.format(user.nickname().as_str());
-                        row_items.push(
-                            selectable_text(nick_str)
-                                .style(move |_| nick_style)
-                                .font_maybe(
-                                    theme::font_style::nickname(
-                                        theme, false,
-                                    )
-                                    .map(font::get),
-                                )
-                                .into(),
-                        );
-                    }
-
-                    row_items.push(
-                        selectable_text(result.text.as_str())
-                            .style(|theme: &Theme| crate::widget::selectable_text::Style {
-                                color: Some(theme.styles().text.primary.color),
-                                selection_color: theme.styles().buffer.selection,
-                            })
-                            .font_maybe(
-                                theme::font_style::primary(theme)
-                                    .map(font::get),
-                            )
-                            .into(),
-                    );
-
-                    button(
-                        row(row_items)
-                            .spacing(8)
-                            .width(Length::Fill),
-                    )
-                    .style(theme::button::bare)
-                    .on_press(Message::SelectResult(index))
-                    .width(Length::Fill)
-                    .padding([4, 0])
-                    .into()
-                }),
-        ))
+        search_results_view(state, config, theme)
         .into()
     };
 
@@ -314,4 +244,78 @@ pub fn view<'a>(
     .height(Length::Fill)
     .padding(8)
     .into()
+}
+
+fn search_results_view<'a>(state: &'a Search, config: &'a Config, theme: &'a Theme) -> widget::Scrollable<'a, Message, Theme> {
+    scrollable(column(
+        state
+            .results
+            .iter()
+            .enumerate()
+            .map(|(index, result)| {
+                let timestamp = config
+                    .buffer
+                    .format_timestamp(&result.timestamp)
+                    .unwrap_or_default();
+
+                let mut row_items: Vec<Element<'_, Message>> =
+                    Vec::with_capacity(3);
+
+                if !timestamp.is_empty() {
+                    row_items.push(
+                        selectable_text(timestamp)
+                            .style(theme::selectable_text::timestamp)
+                            .font_maybe(
+                                theme::font_style::timestamp(theme)
+                                    .map(font::get),
+                            )
+                            .into(),
+                    );
+                }
+
+                if let Some(user) = result.sender.as_ref() {
+                    let nick_style =
+                        theme::selectable_text::nickname(
+                            theme, config, user, false,
+                        );
+                    let brackets = &config.buffer.nickname.brackets;
+                    let nick_str = brackets.format(user.nickname().as_str());
+                    row_items.push(
+                        selectable_text(nick_str)
+                            .style(move |_| nick_style)
+                            .font_maybe(
+                                theme::font_style::nickname(
+                                    theme, false,
+                                )
+                                .map(font::get),
+                            )
+                            .into(),
+                    );
+                }
+
+                row_items.push(
+                    selectable_text(result.text.as_str())
+                        .style(|theme: &Theme| crate::widget::selectable_text::Style {
+                            color: Some(theme.styles().text.primary.color),
+                            selection_color: theme.styles().buffer.selection,
+                        })
+                        .font_maybe(
+                            theme::font_style::primary(theme)
+                                .map(font::get),
+                        )
+                        .into(),
+                );
+
+                button(
+                    row(row_items)
+                        .spacing(8)
+                        .width(Length::Fill),
+                )
+                .style(theme::button::bare)
+                .on_press(Message::SelectResult(index))
+                .width(Length::Fill)
+                .padding([4, 0])
+                .into()
+            }),
+    ))
 }
