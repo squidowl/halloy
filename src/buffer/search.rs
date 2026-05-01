@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use data::command::Irc;
 use data::message::Source;
 use data::{Config, User, history, message, target};
 use iced::widget::{
@@ -70,7 +71,7 @@ impl Search {
     pub fn update(
         &mut self,
         message: Message,
-        history: &history::Manager,
+        history: &mut history::Manager,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         match message {
@@ -152,6 +153,11 @@ impl Search {
                     Source::Action(Some(user)) => Some(user.clone()),
                     _ => None,
                 };
+
+                // Ignore if not message
+                if !matches!(message.command, Some(Irc::Msg(_, _))) {
+                    return None
+                }
 
                 text.to_lowercase().contains(&query).then_some(ResultRow {
                     hash: message.hash,
