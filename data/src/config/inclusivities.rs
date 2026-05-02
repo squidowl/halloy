@@ -46,7 +46,7 @@ pub fn is_source_included(
                         casemapping: isupport::CaseMap|
      -> bool {
         inclusivities.is_some_and(|inclusivities| {
-            inclusivities.is_source_inclusive(source)
+            inclusivities.is_source_inclusive(source, casemapping)
                 || inclusivities.criteria.iter().any(|criterion| {
                     criterion.is_source_channel_server_inclusive(
                         Some(source),
@@ -369,10 +369,19 @@ impl Inclusivities {
             })
     }
 
-    pub fn is_source_inclusive(&self, source: &Source) -> bool {
-        if let Source::Server(server) = &source {
-            self.server_messages.as_ref().is_some_and(|inclusivity| {
-                match inclusivity {
+    pub fn is_source_inclusive(
+        &self,
+        source: &Source,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
+        match source {
+            Source::User(user) | Source::Action(Some(user)) => {
+                self.is_user_inclusive(user.nickname(), casemapping)
+            }
+            Source::Server(server) => self
+                .server_messages
+                .as_ref()
+                .is_some_and(|inclusivity| match inclusivity {
                     Inclusivity::All => true,
                     Inclusivity::Any(inclusivity_server_messages) => {
                         server.as_ref().is_some_and(|server| {
@@ -385,10 +394,8 @@ impl Inclusivities {
                             )
                         })
                     }
-                }
-            })
-        } else {
-            false
+                }),
+            _ => false,
         }
     }
 
