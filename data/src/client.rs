@@ -2768,6 +2768,24 @@ impl Client {
                     self.resolved_host = Some(hostname.to_string());
                 }
             }
+            Command::SETNAME(_realname) => {
+                // Real names are not currently stored anywhere, but
+                // SETNAME provides an opportunity to update resolved_user
+                // and resolved_host.
+                let user = ok!(message.user(self.casemapping()));
+
+                let ourself = user.nickname() == self.nickname();
+
+                if ourself {
+                    if let Some(username) = user.username() {
+                        self.resolved_user = Some(username.to_string());
+                    }
+
+                    if let Some(hostname) = user.hostname() {
+                        self.resolved_host = Some(hostname.to_string());
+                    }
+                }
+            }
             Command::Numeric(RPL_MONONLINE, args) => {
                 let casemapping =
                     isupport::get_casemapping_or_default(&self.isupport);
