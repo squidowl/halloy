@@ -41,7 +41,7 @@ pub fn view<'a>(
             0.0,
             config,
             theme,
-            move |message: &'a data::Message, _, _, _, _| match message
+            move |message: &'a data::Message, _, _, _| match message
                 .target
                 .source()
             {

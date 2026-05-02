@@ -1469,59 +1469,6 @@ impl Data {
             .collect::<Vec<_>>();
 
         let total = processed.len();
-        let max_prefix_chars =
-            config.buffer.nickname.alignment.is_right().then(|| {
-                if matches!(kind, history::Kind::Channel(..)) {
-                    processed
-                        .iter()
-                        .filter_map(|message| {
-                            message.target.prefixes().map(|prefixes| {
-                                config
-                                    .buffer
-                                    .status_message_prefix
-                                    .brackets
-                                    .format(prefixes.iter().collect::<String>())
-                                    .chars()
-                                    .count()
-                            })
-                        })
-                        .max()
-                        .unwrap_or_default()
-                } else {
-                    0
-                }
-            });
-
-        // The right-aligned nicknames setting expects timestamps to have a
-        // constant character count to function, so we can utilize that
-        // expectation in this calculation
-        let range_end_timestamp_chars =
-            (config.buffer.nickname.alignment.is_right()
-                && config.buffer.server_messages.condense.any())
-            .then(|| {
-                processed
-                    .iter()
-                    .find_map(|message| {
-                        if let message::Source::Internal(
-                            message::source::Internal::Condensed(
-                                end_server_time,
-                            ),
-                        ) = message.target.source()
-                            && message.server_time != *end_server_time
-                        {
-                            config
-                                .buffer
-                                .format_range_end_timestamp(end_server_time)
-                                .map(|(dash, end_timestamp)| {
-                                    dash.chars().count()
-                                        + end_timestamp.chars().count()
-                                })
-                        } else {
-                            None
-                        }
-                    })
-                    .unwrap_or_default()
-            });
 
         let first_without_limit = processed.first().copied();
         let last_without_limit = processed.last().copied();
@@ -1563,8 +1510,6 @@ impl Data {
             has_more_newer_messages,
             old_messages: old.to_vec(),
             new_messages: new.to_vec(),
-            max_prefix_chars,
-            range_end_timestamp_chars,
             cleared: *cleared,
         })
     }

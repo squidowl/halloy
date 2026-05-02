@@ -5,15 +5,15 @@ use data::target::{Query, TargetRef};
 use data::user::AccessLevel;
 use data::{Config, User, metadata};
 use iced::Color;
-use iced::widget::{container, row, tooltip};
+use iced::widget::{container, row};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{Element, selectable_text};
 use crate::{Theme, font, theme, widget};
 
 pub struct UserDisplay {
-    full: UserDisplayData,
-    truncated: Option<UserDisplayData>,
+    base: UserDisplayData,
+    tooltip: Option<UserDisplayData>,
 }
 
 impl UserDisplay {
@@ -41,13 +41,18 @@ impl UserDisplay {
             )
         }) {
             Self {
-                full,
-                truncated: Some(truncated.bracket(brackets)),
+                base: truncated.bracket(brackets),
+                tooltip: Some(full),
+            }
+        } else if full.bot_icon && brackets.is_some() {
+            Self {
+                base: full.clone().bracket(brackets),
+                tooltip: Some(full),
             }
         } else {
             Self {
-                full: full.bracket(brackets),
-                truncated: None,
+                base: full.bracket(brackets),
+                tooltip: None,
             }
         }
     }
@@ -61,25 +66,16 @@ impl UserDisplay {
         theme: &'a Theme,
         config: &'a Config,
     ) -> Element<'a, M> {
-        let (base_user_display, tooltip_user_display) =
-            if let Some(truncated) = self.truncated {
-                (truncated, Some(self.full))
-            } else {
-                let tooltip_user_display =
-                    self.full.bot_icon.then_some(self.full.clone());
-
-                (self.full, tooltip_user_display)
-            };
-
-        let base_user_display = base_user_display
+        let base = self
+            .base
             .into_element(user, is_away, is_offline, dimmed, theme, config);
 
-        if let Some(tooltip_user_display) = tooltip_user_display {
-            tooltip(
-                base_user_display,
-                container(container(if tooltip_user_display.bot_icon {
+        if let Some(tooltip) = self.tooltip {
+            iced::widget::tooltip(
+                base,
+                container(container(if tooltip.bot_icon {
                     row![
-                        tooltip_user_display.into_element(
+                        tooltip.into_element(
                             user, false, false, None, theme, config,
                         ),
                         selectable_text(String::from(
@@ -90,26 +86,22 @@ impl UserDisplay {
                     .spacing(theme::ICON_SPACE)
                     .into()
                 } else {
-                    tooltip_user_display
+                    tooltip
                         .into_element(user, false, false, None, theme, config)
                 }))
                 .style(theme::container::tooltip)
                 .padding(8),
-                tooltip::Position::Top,
+                iced::widget::tooltip::Position::Top,
             )
             .delay(iced::time::Duration::ZERO)
             .into()
         } else {
-            base_user_display
+            base
         }
     }
 
     pub fn width(&self, config: &Config) -> f32 {
-        self.truncated
-            .as_ref()
-            .map_or(self.full.width(config), |truncated| {
-                truncated.width(config)
-            })
+        self.base.width(config)
     }
 }
 

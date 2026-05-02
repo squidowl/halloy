@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
+use data::buffer::RightAlignmentWidths;
 use data::dashboard::BufferAction;
 use data::target::Target;
 use data::user::Nick;
@@ -100,8 +101,7 @@ pub fn view<'a>(
             config,
             theme,
             move |message: &'a data::Message,
-                  right_aligned_width: Option<f32>,
-                  _,
+                  right_alignment_widths: Option<RightAlignmentWidths>,
                   _,
                   hide_nickname| {
                 let timestamp = config
@@ -201,8 +201,13 @@ pub fn view<'a>(
                                     user_display.width(config)
                                 }
                                 data::buffer::Alignment::Right => {
-                                    right_aligned_width
-                                        .unwrap_or(user_display.width(config))
+                                    if let Some(right_alignment_widths) =
+                                        right_alignment_widths
+                                    {
+                                        right_alignment_widths.middle
+                                    } else {
+                                        user_display.width(config)
+                                    }
                                 }
                             };
 
@@ -212,9 +217,11 @@ pub fn view<'a>(
                                 user, false, false, None, theme, config,
                             );
 
-                            if let Some(width) = right_aligned_width {
+                            if let Some(right_alignment_widths) =
+                                right_alignment_widths
+                            {
                                 nick_text = container(nick_text)
-                                    .width(width)
+                                    .width(right_alignment_widths.middle)
                                     .align_x(text::Alignment::Right)
                                     .into();
                             }
