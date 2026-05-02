@@ -82,7 +82,6 @@ impl UserDisplay {
                             " has marked itself as a bot"
                         ))
                     ]
-                    .align_y(iced::Alignment::Center)
                     .spacing(theme::ICON_SPACE)
                     .into()
                 } else {
@@ -242,7 +241,6 @@ impl UserDisplayData {
                     .style(move |_| style)
                     .font_maybe(font)),
             ]
-            .align_y(iced::Alignment::Center)
             .spacing(theme::ICON_SPACE)
             .into()
         } else {
