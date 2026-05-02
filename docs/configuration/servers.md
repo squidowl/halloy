@@ -764,6 +764,8 @@ enabled = true
 
 Override the filehost URL advertised by the server via ISUPPORT. The filehost must be compatible with the `soju.im/filehost` spec.
 
+When connecting over TLS, plain `http://` URLs are rejected unless the host is a loopback address.
+
 ```toml
 # Type: string
 # Values: any string

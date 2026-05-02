@@ -2688,6 +2688,7 @@ impl Dashboard {
                 let pending = filehost::PendingUpload {
                     window,
                     pane_id: id,
+                    is_override_url: clients.get_filehost_is_override(&server),
                     has_credentials: clients
                         .get_filehost_auth(&server)
                         .is_some(),
