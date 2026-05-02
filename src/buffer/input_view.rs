@@ -933,8 +933,9 @@ impl State {
                     );
 
                     self.on_completion(buffer, history, actions, true)
-                // IRCv3 draft/multiline forbids all blank lines, so we will
-                // take that as an IRC norm and require the same
+                // IRCv3 draft/multiline forbids messages consisting
+                // entirely of blank lines, so we will take that as an
+                // IRC norm and require the same
                 } else if !self.input_content.text().trim().is_empty() {
                     // If there is an error in the input then display the error
                     // for the current line (if it has an error) or the first
