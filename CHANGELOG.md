@@ -19,6 +19,7 @@ Fixed:
 - Issue where unread indicator could appear in sidebar for an open pane that does not have unread messages
 - Issue where backlog divider in highlights or logs pane would not update when marking the pane as read
 - Allow multiple file uploads when pasting on macOs
+- Fix link matching for both end of line delimiters & punctuations
 
 Changed:
 

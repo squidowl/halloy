@@ -2099,8 +2099,11 @@ fn filter_trailing_delimiter<'a>(
 
     if let Some(trimmed_end) = trim_at {
         let is_end_of_text = end >= text.len()
-            || text[end..].starts_with(|c: char| c.is_whitespace());
-
+            || text[end..].starts_with(|c: char| c.is_whitespace())
+            || matches!(
+                EXCLUDED_TRAILING_CHARS_REGEX.find_iter(&text[end..]).next(),
+                Some(Ok(_))
+            );
         if trimmed_end > 0 && trimmed_end < matching.len() && is_end_of_text {
             (&matching[..trimmed_end], Some(&matching[trimmed_end..]))
         } else {
@@ -3995,6 +3998,15 @@ pub mod tests {
                     Fragment::Text("testing new line ".into()),
                     Fragment::Channel("#match".into()),
                     Fragment::Text("\ning.".into()),
+                ],
+            ),
+            (
+                "\"a #test\",",
+                vec![
+                    Fragment::Text("\"a ".into()),
+                    Fragment::Channel("#test".into()),
+                    Fragment::Text("\"".into()),
+                    Fragment::Text(",".into()),
                 ],
             ),
             (
