@@ -2765,8 +2765,11 @@ fn clean_path(path: std::path::PathBuf) -> std::path::PathBuf {
 fn try_clipboard_upload() -> Option<Vec<std::path::PathBuf>> {
     // macos needs special treatment
     #[cfg(target_os = "macos")]
-    if let Some(path) = macos_clipboard_file() {
-        return Some(vec![path]);
+    {
+        let files = macos_clipboard_files();
+        if !files.is_empty() {
+            return Some(files);
+        }
     }
 
     let mut cb = arboard::Clipboard::new().ok()?;
@@ -2792,27 +2795,34 @@ fn try_clipboard_upload() -> Option<Vec<std::path::PathBuf>> {
 }
 
 #[cfg(target_os = "macos")]
-fn macos_clipboard_file() -> Option<std::path::PathBuf> {
+fn macos_clipboard_files() -> Vec<std::path::PathBuf> {
     use objc2_app_kit::NSPasteboard;
     use objc2_foundation::{NSString, NSURL};
 
-    let url_str = {
-        let pasteboard = NSPasteboard::generalPasteboard();
-        let type_str = NSString::from_str("public.file-url");
-        pasteboard.stringForType(&type_str)?.to_string()
+    let pasteboard = NSPasteboard::generalPasteboard();
+
+    let Some(items) = pasteboard.pasteboardItems() else {
+        return vec![];
     };
 
-    // pasteboard may return a file-reference URL: (e.g. `file:///.file/id=…`)
-    // rather than a path URL. NSURL.filePathURL resolves either to a real path.
-    let path_str = {
-        let ns_url_str = NSString::from_str(url_str.trim());
-        let nsurl = NSURL::URLWithString(&ns_url_str)?;
-        let path_url = nsurl.filePathURL()?;
-        path_url.path()?.to_string()
-    };
+    let matcher = NSString::from_str("public.file-url");
 
-    let path = std::path::PathBuf::from(path_str);
-    path.is_file().then_some(path)
+    items
+        .iter()
+        .filter_map(|item| {
+            // get the file:/// url associated with the NSPasteboardItem item
+            let file_url = item.stringForType(&matcher)?;
+            // clipboard may give a file-reference URL: (e.g. file:///.file/id=…)
+            // if the copied file only exists in the clipboard, so we use filePathURL()
+            // to resolve for the real path
+            let path_str = NSURL::URLWithString(&file_url)?
+                .filePathURL()?
+                .path()? // file:///my/file -> /my/file
+                .to_string();
+
+            Some(std::path::PathBuf::from(path_str))
+        })
+        .collect()
 }
 
 fn upload_ghost(id: u32) -> String {
