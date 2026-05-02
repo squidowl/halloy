@@ -1536,10 +1536,6 @@ pub struct View<'a> {
     pub has_more_newer_messages: bool,
     pub old_messages: Vec<&'a Message>,
     pub new_messages: Vec<&'a Message>,
-    pub max_nick_chars: Option<usize>,
-    pub max_bot_nick_chars: Option<usize>,
-    pub max_prefix_chars: Option<usize>,
-    pub range_end_timestamp_chars: Option<usize>,
     pub cleared: bool,
 }
 

@@ -8,6 +8,7 @@ Added:
 - IRCv3 bot mode support, with bot icon in buffers and nicklists
 - Customize the character used to indicate a nickname was truncated with `display.truncation_character`
 - Support for IRCv3 `draft/message-redaction`
+- Show IRCv3 metadata `display-name`, `pronouns`, and `avatar` keys
 
 Fixed:
 
@@ -28,7 +29,7 @@ Changed:
 
 Thanks:
 
-- Contributions: @bb010g, @furudean, @englut, @luca020400
+- Contributions: @bb010g, @furudean, @englut, @luca020400, @4e554c4c
 - Bug reports: @bb010g, daniiooo
 - Feature requests: @WinnerWind
 

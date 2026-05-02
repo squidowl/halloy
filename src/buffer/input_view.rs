@@ -14,7 +14,7 @@ use data::rate_limit::TokenPriority;
 use data::server::Server;
 use data::target::Target;
 use data::user::Nick;
-use data::{Config, User, client, command, message, shortcut};
+use data::{Config, User, client, command, message, metadata, shortcut};
 use iced::advanced::widget::Tree;
 use iced::advanced::{Clipboard, Layout, Shell, mouse};
 use iced::widget::text::{Shaping, Wrapping};
@@ -30,6 +30,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use self::completion::Completion;
 use self::exec::run as execute_shell_command;
 use crate::widget::key_press::is_numpad;
+use crate::widget::user_display::UserDisplay;
 use crate::widget::{
     Element, Renderer, Text, anchored_overlay, context_menu, decorate, text,
     tooltip,
@@ -338,6 +339,7 @@ pub fn view<'a>(
     state: &'a State,
     our_user: Option<&User>,
     server: &'a Server,
+    registry: &dyn metadata::Registry,
     config: &'a Config,
     theme: &'a Theme,
     filehost_url: Option<&'a str>,
@@ -555,45 +557,32 @@ pub fn view<'a>(
     )
     .into();
 
-    let our_user_style = {
-        let is_user_away = config
-            .buffer
-            .nickname
-            .away
-            .is_away(our_user.is_none_or(User::is_away));
-
-        theme::text::nickname(
-            theme,
-            &config.buffer.nickname.color,
-            our_user.map(User::seed),
-            is_user_away,
-            false,
-        )
-    };
-
     let maybe_our_user = config
         .buffer
         .text_input
         .nickname
         .enabled
-        .then(move || {
-            our_user.map(|user| {
-                container(
-                    text(user.display(
-                        config.buffer.text_input.nickname.show_access_levels,
-                        config.buffer.nickname.show_bot_icon,
-                        None,
-                        config.display.truncation_character,
-                    ))
-                    .style(move |_| our_user_style)
-                    .font_maybe(
-                        theme::font_style::nickname(theme, false)
-                            .map(font::get),
-                    ),
-                )
-                .padding(padding::right(4))
-            })
-        })
+        .then_some(our_user.map(|user| {
+            let user_display = UserDisplay::new(
+                user,
+                config.buffer.text_input.nickname.show_access_levels,
+                config.buffer.nickname.show_bot_icon,
+                registry,
+                None,
+                None,
+                config,
+            );
+
+            container(user_display.into_element(
+                user,
+                user.is_away(),
+                false,
+                None,
+                theme,
+                config,
+            ))
+            .padding(padding::right(4))
+        }))
         .flatten();
 
     let maybe_vertical_rule =

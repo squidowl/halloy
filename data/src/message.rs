@@ -2777,6 +2777,7 @@ fn target(
         | Command::Unknown(_, _)
         | Command::BOUNCER(_, _)
         | Command::REDACT(_, _, _)
+        | Command::METADATA(_, _)
         | Command::Raw(_) => Some((
             Target::Server {
                 source: Source::Server(None),
@@ -3269,6 +3270,27 @@ fn content<'a>(
             Some((
                 parse_fragments_with_user(
                     format!("{} {status_text} {account}", user.nickname()),
+                    &user,
+                    casemapping,
+                ),
+                None,
+            ))
+        }
+        Command::Numeric(RPL_WHOISKEYVALUE, params) => {
+            let user: User = User::from(Nick::from_str(
+                params.get(1)?.as_str(),
+                casemapping,
+            ));
+            let key = params.get(2)?;
+            let visibility = params.get(3)?;
+            let value = params.get(4)?;
+
+            Some((
+                parse_fragments_with_user(
+                    format!(
+                        "{} has {key} {value} (visibility: {visibility})",
+                        user.nickname()
+                    ),
                     &user,
                     casemapping,
                 ),

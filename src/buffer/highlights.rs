@@ -4,14 +4,15 @@ use chrono::{DateTime, Utc};
 use data::config::buffer::nickname::ShownStatus;
 use data::dashboard::BufferAction;
 use data::target::{self, Target};
-use data::{Config, Preview, Server, history, message};
+use data::{Config, Preview, Server, history, message, metadata, preview};
 use iced::widget::{container, row, span};
 use iced::{Color, Length, Size, Task};
 
 use super::context_menu::{self, Context};
 use super::scroll_view;
+use crate::widget::user_display::UserDisplay;
 use crate::widget::{
-    Element, message_content, selectable_rich_text, selectable_text, tooltip,
+    Element, message_content, selectable_rich_text, selectable_text,
 };
 use crate::{Theme, font, theme};
 
@@ -36,6 +37,7 @@ pub fn view<'a>(
     state: &'a Highlights,
     clients: &'a data::client::Map,
     history: &'a history::Manager,
+    previews: &'a preview::Collection,
     config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
@@ -50,8 +52,7 @@ pub fn view<'a>(
             0.0,
             config,
             theme,
-            move |message: &'a data::Message, _, _, _, _| match &message.target
-            {
+            move |message: &'a data::Message, _, _, _| match &message.target {
                 message::Target::Highlights {
                     server,
                     channel,
@@ -98,50 +99,40 @@ pub fn view<'a>(
                         ])
                         .on_link(scroll_view::Message::Link);
 
-                    let with_access_levels =
-                        config.buffer.nickname.show_access_levels;
-                    let show_bot_icon = config.buffer.nickname.show_bot_icon;
-                    let truncate = config.buffer.nickname.truncate;
-                    let truncation_character =
-                        config.display.truncation_character;
-
                     let current_user =
                         users.and_then(|users| users.resolve(user));
+                    let is_user_away =
+                        match config.buffer.nickname.shown_status {
+                            ShownStatus::Current => {
+                                current_user.unwrap_or(user)
+                            }
+                            ShownStatus::Historical => user,
+                        }
+                        .is_away();
                     let is_user_offline =
                         match config.buffer.nickname.shown_status {
                             ShownStatus::Current => current_user.is_none(),
                             ShownStatus::Historical => false,
                         };
 
-                    let (user_display, show_nickname_tooltip) = user
-                        .display_with_truncated(
-                            with_access_levels,
-                            show_bot_icon,
-                            truncate,
-                            truncation_character,
-                        );
+                    let user_display = UserDisplay::new(
+                        user,
+                        config.buffer.nickname.show_access_levels,
+                        config.buffer.nickname.show_bot_icon,
+                        clients.get_registry(server),
+                        config.buffer.nickname.truncate,
+                        Some(&config.buffer.nickname.brackets),
+                        config,
+                    );
 
-                    let nick_text =
-                        config.buffer.nickname.brackets.format(user_display);
-
-                    let text = selectable_text(nick_text)
-                        .font_maybe(
-                            theme::font_style::nickname(theme, is_user_offline)
-                                .map(font::get),
-                        )
-                        .style(move |theme| {
-                            theme::selectable_text::nickname(
-                                theme,
-                                config,
-                                match config.buffer.nickname.shown_status {
-                                    ShownStatus::Current => {
-                                        current_user.unwrap_or(user)
-                                    }
-                                    ShownStatus::Historical => user,
-                                },
-                                is_user_offline,
-                            )
-                        });
+                    let nick_text = user_display.into_element(
+                        user,
+                        is_user_away,
+                        is_user_offline,
+                        None,
+                        theme,
+                        config,
+                    );
 
                     let chantypes =
                         clients.get_server_chantypes_or_default(server);
@@ -149,24 +140,21 @@ pub fn view<'a>(
                         clients.get_server_casemapping_or_default(server);
                     let prefix = clients.get_server_prefix_or_default(server);
 
-                    let nick = tooltip(
-                        context_menu::user(
-                            text,
-                            server,
-                            prefix,
-                            Some(channel),
-                            user,
-                            current_user,
-                            None,
-                            config,
-                            theme,
-                            &config.buffer.nickname.click,
-                        )
-                        .map(scroll_view::Message::ContextMenu),
-                        show_nickname_tooltip.then_some(user.as_str()),
-                        tooltip::Position::Bottom,
+                    let nick = context_menu::user(
+                        nick_text,
+                        server,
+                        prefix,
+                        Some(channel),
+                        clients.get_registry(server),
+                        previews,
+                        user,
+                        current_user,
+                        None,
+                        config,
                         theme,
-                    );
+                        &config.buffer.nickname.click,
+                    )
+                    .map(scroll_view::Message::ContextMenu);
 
                     let text = message_content::with_context(
                         &message.content,
@@ -186,6 +174,11 @@ pub fn view<'a>(
                                     current_user,
                                     None,
                                     config.file_transfer.enabled,
+                                    context_menu::has_user_metadata(
+                                        user,
+                                        clients.get_registry(server),
+                                        config,
+                                    ),
                                 )
                             }
                             message::Link::Url(_) => {
@@ -201,6 +194,12 @@ pub fn view<'a>(
                                     server,
                                     prefix,
                                     channel: Some(channel),
+                                    registry: clients.get_registry(server),
+                                    avatar: context_menu::user_avatar(
+                                        user,
+                                        clients.get_registry(server),
+                                        previews,
+                                    ),
                                     user,
                                     current_user,
                                 })
@@ -293,6 +292,7 @@ pub fn view<'a>(
                 }
                 _ => None,
             },
+            metadata::EMPTY,
         )
         .map(Message::ScrollView),
     )

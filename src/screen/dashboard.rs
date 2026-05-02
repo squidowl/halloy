@@ -2113,14 +2113,54 @@ impl Dashboard {
                 );
             }
             buffer::Event::ContextMenu(event) => {
-                let mut tasks =
+                let mut tasks = if matches!(
+                    event,
+                    buffer::context_menu::Event::LoadUserAvatar(..)
+                ) {
+                    vec![]
+                } else {
                     vec![context_menu::close(convert::identity).map(
                         move |any_closed| {
                             Message::CloseContextMenu(window, any_closed)
                         },
-                    )];
+                    )]
+                };
 
                 let event = match event {
+                    buffer::context_menu::Event::LoadUserAvatar(
+                        server,
+                        url,
+                    ) => {
+                        let client = if clients
+                            .get_server_proxy_config(&server)
+                            .is_some()
+                        {
+                            clients.get_server_http_client(&server)
+                        } else {
+                            self.http_client.clone()
+                        };
+
+                        if let Some(client) = client
+                            && !self.previews.contains_key(&url)
+                        {
+                            self.previews
+                                .insert(url.clone(), preview::State::Loading);
+                            tasks.push(Task::perform(
+                                data::preview::load_avatar(
+                                    url.clone(),
+                                    client,
+                                    config.metadata.avatar.clone(),
+                                    config.preview.clone(),
+                                    self.previews_cache.clone(),
+                                ),
+                                move |result| {
+                                    Message::LoadPreview((url.clone(), result))
+                                },
+                            ));
+                        }
+
+                        None
+                    }
                     buffer::context_menu::Event::CopyUrl(url) => {
                         tasks.push(clipboard::write(url));
                         None

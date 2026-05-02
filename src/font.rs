@@ -145,7 +145,7 @@ pub fn load() -> Vec<Cow<'static, [u8]>> {
     ]
 }
 
-pub fn width_from_chars(len: usize, config: &config::Font) -> f32 {
+pub fn width_from_str(text: &str, config: &config::Font) -> f32 {
     use iced::advanced::graphics::text::Paragraph;
     use iced::advanced::text::{self, Paragraph as _, Text};
     use iced::{Size, alignment};
@@ -153,7 +153,7 @@ pub fn width_from_chars(len: usize, config: &config::Font) -> f32 {
     use crate::theme;
 
     Paragraph::with_text(Text {
-        content: &"W".repeat(len),
+        content: text,
         bounds: Size::INFINITE,
         size: config.size.map_or(theme::TEXT_SIZE, f32::from).into(),
         line_height: line_height(),
