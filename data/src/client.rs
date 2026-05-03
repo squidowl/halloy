@@ -388,6 +388,43 @@ impl Client {
                     );
                 }
             }
+
+            if !config.metadata.is_empty()
+                && config.metadata != self.config.metadata
+            {
+                if self.capabilities.acknowledged(Capability::ReadMarker) {
+                    self.send(
+                        None,
+                        command!(
+                            "METADATA",
+                            self.nickname().to_string(),
+                            "CLEAR"
+                        )
+                        .into(),
+                        TokenPriority::High,
+                    );
+
+                    for (key, value) in config.metadata.iter() {
+                        self.send(
+                            None,
+                            command!(
+                                "METADATA",
+                                self.nickname().to_string(),
+                                "SET",
+                                key.to_str(),
+                                value
+                            )
+                            .into(),
+                            TokenPriority::High,
+                        );
+                    }
+                } else {
+                    log::warn!(
+                        "[{}] Metadata configured for, but is not supported by the server",
+                        self.server,
+                    );
+                }
+            }
         }
 
         let events = config
@@ -3105,6 +3142,32 @@ impl Client {
                     );
                 }
 
+                if !self.config.metadata.is_empty() {
+                    if self.capabilities.acknowledged(Capability::ReadMarker) {
+                        for (key, value) in
+                            self.config.metadata.clone().into_iter()
+                        {
+                            self.send(
+                                None,
+                                command!(
+                                    "METADATA",
+                                    self.nickname().to_string(),
+                                    "SET",
+                                    key.to_str(),
+                                    value
+                                )
+                                .into(),
+                                TokenPriority::High,
+                            );
+                        }
+                    } else {
+                        log::warn!(
+                            "[{}] Metadata configured for, but is not supported by the server",
+                            self.server,
+                        );
+                    }
+                }
+
                 return Ok(events);
             }
             Command::Numeric(RPL_VERSION, args) => {
@@ -3137,6 +3200,25 @@ impl Client {
                     );
                 }
             }
+            Command::Numeric(RPL_KEYVALUE, args) => {
+                if let [_, target, key, _visibility, value] = &args[..] {
+                    log::debug!(
+                        "[{}] Received metadata [{target}]: {key}={value}",
+                        self.server
+                    );
+                    self.registry.insert(
+                        Target::parse(
+                            target,
+                            self.chantypes(),
+                            self.statusmsg(),
+                            self.casemapping(),
+                        ),
+                        key.clone(),
+                        value.clone(),
+                    );
+                    return Ok(vec![]);
+                }
+            }
             Command::FAIL(command, code, context, _) => {
                 if command == "METADATA"
                     && code == "KEY_INVALID"
@@ -3144,6 +3226,11 @@ impl Client {
                         context.as_ref().and_then(|context| context.first())
                     && self.metadata_sub_requests.take(key).is_some()
                 {
+                    log::warn!(
+                        "[{}] Metadata {key} not supported by the server",
+                        self.server
+                    );
+
                     // Expected as part of requesting keys via METADATA SUB,
                     // hide from the user.
                     return Ok(vec![]);
@@ -3151,6 +3238,11 @@ impl Client {
             }
             Command::Numeric(RPL_METADATASUBOK, args) => {
                 for key in args.iter().skip(1) {
+                    log::info!(
+                        "[{}] Metadata {key} subscription successful",
+                        self.server
+                    );
+
                     self.metadata_sub_requests.remove(key);
                 }
             }
