@@ -3226,6 +3226,11 @@ impl Client {
                         context.as_ref().and_then(|context| context.first())
                     && self.metadata_sub_requests.take(key).is_some()
                 {
+                    log::warn!(
+                        "[{}] Metadata {key} not supported by the server",
+                        self.server
+                    );
+
                     // Expected as part of requesting keys via METADATA SUB,
                     // hide from the user.
                     return Ok(vec![]);
@@ -3233,6 +3238,11 @@ impl Client {
             }
             Command::Numeric(RPL_METADATASUBOK, args) => {
                 for key in args.iter().skip(1) {
+                    log::info!(
+                        "[{}] Metadata {key} subscription successful",
+                        self.server
+                    );
+
                     self.metadata_sub_requests.remove(key);
                 }
             }
