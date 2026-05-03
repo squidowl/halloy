@@ -37,9 +37,9 @@ use crate::{Config, User, command, ctcp, isupport, message, target};
 // References:
 // - https://datatracker.ietf.org/doc/html/rfc1738#section-5
 // - https://www.ietf.org/rfc/rfc2396.txt
-const URL_PATH_UNRESERVED: &str = r#"\p{Letter}\p{Number}\-_.!~*'()"#;
+const URL_PATH_UNRESERVED: &str = r#"\p{Letter}\p{Number}\-._~"#;
 
-const URL_PATH_RESERVED: &str = r#";?:@&=+$,"#;
+const URL_PATH_RESERVED: &str = r#":?@!&'()*+,;=\[\]"#;
 
 static URL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     RegexBuilder::new(concatcp!(
@@ -79,7 +79,7 @@ const SYMMETRIC_DELIMITERS: [char; 2] = ['"', '\''];
 
 // used for matching delimiter chars at the end of a word
 static EXCLUDED_TRAILING_DELIMITER_CHARS_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| RegexBuilder::new(r#"(?i)(["')\]}]*)$"#).build().unwrap());
+    LazyLock::new(|| RegexBuilder::new(r#"(?i)(["')\]}])$"#).build().unwrap());
 
 pub(crate) mod broadcast;
 pub mod formatting;
@@ -2084,9 +2084,11 @@ fn filter_trailing_delimiter<'a>(
         {
             let orphaned_before_match = preceding_match.matches(*open).count()
                 > preceding_match.matches(ch).count();
+            let immediately_preceding = preceding_match.ends_with(*open);
             let orphaned_in_match = preceding_trail.matches(*open).count()
                 <= preceding_trail.matches(ch).count();
-            orphaned_before_match && orphaned_in_match
+            (orphaned_before_match || immediately_preceding)
+                && orphaned_in_match
         } else {
             continue;
         };
@@ -4141,6 +4143,28 @@ pub mod tests {
                     Fragment::Text("(This is also a valid url ".into()),
                     Fragment::Url("https://www.example.com/another_test_(example)".parse().unwrap(), "https://www.example.com/another_test_(example)".to_string()),
                     Fragment::Text(")".into()),
+                ]
+            ),
+            (
+                "test ) and another test (https://example.com/)",
+                vec![
+                    Fragment::Text("test ) and another test (".into()),
+                    Fragment::Url("https://example.com/".parse().unwrap(), "https://example.com/".to_string()),
+                    Fragment::Text(")".into()),
+                ]
+            ),
+            (
+                "what about https://example.com/]",
+                vec![
+                    Fragment::Text("what about ".into()),
+                    Fragment::Url("https://example.com/]".parse().unwrap(), "https://example.com/]".to_string()),
+                ]
+            ),
+            (
+                "what about https://example.com/a[test]",
+                vec![
+                    Fragment::Text("what about ".into()),
+                    Fragment::Url("https://example.com/a[test]".parse().unwrap(), "https://example.com/a[test]".to_string()),
                 ]
             ),
             (
