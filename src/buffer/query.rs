@@ -71,6 +71,7 @@ pub fn view<'a>(
     let chantypes = clients.get_server_chantypes_or_default(server);
     let casemapping = clients.get_server_casemapping_or_default(server);
     let prefix = clients.get_server_prefix_or_default(server);
+    let registry = clients.get_registry(server);
     let query = &state.target;
     let confirm_message_delivery = clients.get_server_supports_echoes(server)
         && config.servers.get(server).is_some_and(|server_config| {
@@ -88,19 +89,20 @@ pub fn view<'a>(
     let chathistory_state =
         clients.get_chathistory_state(server, &query.to_target());
 
-    let previews = Some(Previews::new(
+    let previews = Previews::new(
         previews,
         query.as_target_ref(),
         server,
         &config.preview,
         casemapping,
-    ));
+    );
 
     let message_formatter = ChannelQueryLayout {
         config,
         chantypes,
         casemapping,
         prefix,
+        registry,
         confirm_message_delivery,
         can_send_reactions,
         can_redact,
@@ -118,7 +120,7 @@ pub fn view<'a>(
             &state.scroll_view,
             scroll_view::Kind::Query(server, query),
             history,
-            previews,
+            Some(previews),
             Option::<fn(&Preview, &message::Source) -> bool>::None,
             chathistory_state,
             typing::reserved_bottom_padding(
@@ -129,6 +131,7 @@ pub fn view<'a>(
             config,
             theme,
             message_formatter,
+            clients.get_registry(server),
         )
         .map(Message::ScrollView),
     )
@@ -148,6 +151,7 @@ pub fn view<'a>(
             &state.input_view,
             our_user.as_ref(),
             &state.server,
+            registry,
             config,
             theme,
             filehost_url,

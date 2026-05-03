@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
-use data::{Config, Preview, client, history, message};
+use data::{Config, Preview, client, history, message, metadata};
 use iced::widget::{container, row};
 use iced::{Length, Size, Task};
 
@@ -41,7 +41,7 @@ pub fn view<'a>(
             0.0,
             config,
             theme,
-            move |message: &'a data::Message, _, _, _, _| match message
+            move |message: &'a data::Message, _, _, _| match message
                 .target
                 .source()
             {
@@ -103,6 +103,7 @@ pub fn view<'a>(
                 }
                 _ => None,
             },
+            metadata::EMPTY,
         )
         .map(Message::ScrollView),
     )

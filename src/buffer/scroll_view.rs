@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use chrono::{DateTime, Local, NaiveDate, Utc};
+use data::buffer::RightAlignmentWidths;
 use data::command::Irc;
 use data::config::buffer::{CondensationIcon, HideConsecutiveEnabled};
 use data::dashboard::BufferAction;
@@ -14,10 +15,10 @@ use data::rate_limit::TokenPriority;
 use data::reaction::Reaction;
 use data::server::Server;
 use data::target::{self, Target};
-use data::{Config, Preview, client, history, reaction};
+use data::{Config, Preview, client, history, metadata, reaction};
 use iced::widget::{
-    self, Scrollable, button, center, column, container, image, mouse_area,
-    right, row, rule, scrollable, space, stack, text,
+    self, Scrollable, Space, button, center, column, container, image,
+    mouse_area, right, row, rule, scrollable, space, stack, text,
 };
 use iced::{
     ContentFit, Length, Padding, Size, Task, alignment, mouse, padding,
@@ -27,9 +28,8 @@ use tokio::time;
 use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
 use super::context_menu;
-use crate::widget::{
-    Element, notify_visibility, on_resize, selectable_text, tooltip,
-};
+use crate::widget::user_display::UserDisplay;
+use crate::widget::{Element, notify_visibility, on_resize, tooltip};
 use crate::{Theme, buffer, font, icon, theme};
 
 const HIDE_BUTTON_WIDTH: f32 = 22.0;
@@ -132,10 +132,10 @@ pub trait LayoutMessage<'a> {
     fn format(
         &self,
         message: &'a data::Message,
-        right_aligned_width: Option<f32>,
-        max_prefix_width: Option<f32>,
+        right_alignment_widths: Option<RightAlignmentWidths>,
         hide_timestamp: bool,
         hide_nickname: bool,
+        registry: &'a dyn metadata::Registry,
     ) -> Option<Element<'a, Message>>;
 }
 
@@ -143,8 +143,7 @@ impl<'a, T> LayoutMessage<'a> for T
 where
     T: Fn(
         &'a data::Message,
-        Option<f32>,
-        Option<f32>,
+        Option<RightAlignmentWidths>,
         bool,
         bool,
     ) -> Option<Element<'a, Message>>,
@@ -152,15 +151,14 @@ where
     fn format(
         &self,
         message: &'a data::Message,
-        right_aligned_width: Option<f32>,
-        max_prefix_width: Option<f32>,
+        right_alignment_widths: Option<RightAlignmentWidths>,
         hide_timestamp: bool,
         hide_nickname: bool,
+        _registry: &dyn metadata::Registry,
     ) -> Option<Element<'a, Message>> {
         self(
             message,
-            right_aligned_width,
-            max_prefix_width,
+            right_alignment_widths,
             hide_timestamp,
             hide_nickname,
         )
@@ -259,6 +257,7 @@ pub fn view<'a>(
     config: &'a Config,
     theme: &'a Theme,
     formatter: impl LayoutMessage<'a> + 'a,
+    registry: &'a dyn metadata::Registry,
 ) -> Element<'a, Message> {
     let divider_font_size =
         config.font.size.map_or(theme::TEXT_SIZE, f32::from) - 1.0;
@@ -268,10 +267,6 @@ pub fn view<'a>(
         has_more_newer_messages,
         old_messages,
         new_messages,
-        max_nick_chars,
-        max_bot_nick_chars,
-        max_prefix_chars,
-        range_end_timestamp_chars,
         cleared,
         ..
     }) = history.get_messages(&kind.into(), Some(state.limit), config)
@@ -319,54 +314,112 @@ pub fn view<'a>(
         .map_or_else(Utc::now, |message| message.server_time);
     let status = state.status;
 
-    let right_aligned_width = max_nick_chars.map(|max_nick_chars| {
-        let max_nick_width = if let Some(max_bot_nick_chars) =
-            max_bot_nick_chars
-        {
-            if config.buffer.nickname.show_bot_icon {
-                // reserve space for any eventual bot icon
-                font::width_from_chars(max_nick_chars, &config.font).max(
-                    font::width_from_chars(max_bot_nick_chars, &config.font)
-                        + theme::ICON_SIZE
-                        + theme::ICON_SPACE,
-                )
-            } else {
-                font::width_from_chars(
-                    max_nick_chars.max(max_bot_nick_chars),
-                    &config.font,
-                )
+    let right_alignment_widths =
+        config.buffer.nickname.alignment.is_right().then_some({
+            let max_prefixes_width = old_messages
+                .iter()
+                .chain(&new_messages)
+                .filter_map(|message| prefixes_width(message, config))
+                .fold(0.0, f32::max);
+
+            let max_timestamp_width = old_messages
+                .iter()
+                .chain(&new_messages)
+                .filter_map(|message| timestamp_width(message, config))
+                .fold(0.0, f32::max);
+
+            let max_nick_width = old_messages
+                .iter()
+                .chain(&new_messages)
+                .filter_map(|message| match message.target.source() {
+                    message::Source::User(user) => {
+                        let user_display = UserDisplay::new(
+                            user,
+                            config.buffer.nickname.show_access_levels,
+                            config.buffer.nickname.show_bot_icon,
+                            registry,
+                            config.buffer.nickname.truncate,
+                            Some(&config.buffer.nickname.brackets),
+                            config,
+                        );
+
+                        Some(user_display.width(config) + 1.0)
+                    }
+                    _ => None,
+                })
+                .fold(0.0, f32::max);
+
+            let range_end_timestamp_width =
+                if config.buffer.server_messages.condense.any() {
+                    old_messages
+                        .iter()
+                        .chain(&new_messages)
+                        .filter_map(|message| {
+                            if let message::Source::Internal(
+                                message::source::Internal::Condensed(
+                                    end_server_time,
+                                ),
+                            ) = message.target.source()
+                                && message.server_time != *end_server_time
+                            {
+                                config
+                                    .buffer
+                                    .format_range_end_timestamp(end_server_time)
+                                    .map(|(dash, end_timestamp)| {
+                                        let condensation_icon = !matches!(
+                                            config
+                                                .buffer
+                                                .server_messages
+                                                .condense
+                                                .icon,
+                                            CondensationIcon::None
+                                        );
+
+                                        let range_end_timestamp_width =
+                                            font::width_from_str(
+                                                &(if condensation_icon {
+                                                    format!(
+                                                        "{dash}{end_timestamp} "
+                                                    )
+                                                } else {
+                                                    format!(
+                                                        "{dash}{end_timestamp}"
+                                                    )
+                                                }),
+                                                &config.font,
+                                            );
+
+                                        range_end_timestamp_width
+                                            + if condensation_icon {
+                                                font::width_of_message_marker(
+                                                    &config.font,
+                                                )
+                                            } else {
+                                                0.0
+                                            }
+                                    })
+                            } else {
+                                None
+                            }
+                        })
+                        .fold(0.0, f32::max)
+                } else {
+                    0.0
+                };
+
+            let message_marker_width =
+                font::width_of_message_marker(&config.font) + 1.0;
+
+            let max_middle_width = max_nick_width
+                .max(range_end_timestamp_width)
+                .max(message_marker_width);
+
+            RightAlignmentWidths {
+                prefixes: max_prefixes_width,
+                timestamp: max_timestamp_width,
+                middle: max_middle_width,
             }
-        } else {
-            font::width_from_chars(max_nick_chars, &config.font)
-        } + 1.0;
-        let message_marker_width =
-            font::width_of_message_marker(&config.font) + 1.0;
-        let mut range_end_timestamp_width = range_end_timestamp_chars.map_or(
-            0.0,
-            |range_end_timestamp_chars| {
-                font::width_from_chars(range_end_timestamp_chars, &config.font)
-                    + 1.0
-            },
-        );
-
-        if config.buffer.server_messages.condense.any()
-            && !matches!(
-                config.buffer.server_messages.condense.icon,
-                CondensationIcon::None
-            )
-        {
-            range_end_timestamp_width +=
-                font::width_from_chars(1, &config.font)
-                    + font::width_of_message_marker(&config.font);
-        }
-
-        max_nick_width
-            .max(range_end_timestamp_width)
-            .max(message_marker_width)
-    });
-
-    let max_prefix_width = max_prefix_chars
-        .map(|len| font::width_from_chars(len, &config.font) + 1.0);
+        });
 
     let message_rows = |last_date: Option<NaiveDate>,
                         messages: &[&'a data::Message]| {
@@ -424,10 +477,10 @@ pub fn view<'a>(
                     formatter
                         .format(
                             message,
-                            right_aligned_width,
-                            max_prefix_width,
+                            right_alignment_widths,
                             hide_timestamp,
                             hide_nickname,
+                            registry,
                         )
                         .map(|element| (message, element)),
                 )
@@ -488,10 +541,10 @@ pub fn view<'a>(
                                         preview,
                                         url,
                                         idx,
-                                        right_aligned_width,
-                                        max_prefix_width,
+                                        right_alignment_widths,
                                         is_hovered,
                                         config,
+                                        registry,
                                         theme,
                                     ));
                                 }
@@ -1841,10 +1894,10 @@ fn preview_row<'a>(
     preview: &'a Preview,
     url: &url::Url,
     idx: usize,
-    right_aligned_width: Option<f32>,
-    max_prefix_width: Option<f32>,
+    right_alignment_widths: Option<RightAlignmentWidths>,
     is_hovered: bool,
     config: &'a Config,
+    registry: &'a dyn metadata::Registry,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
     let content = match preview {
@@ -1974,85 +2027,55 @@ fn preview_row<'a>(
         )
         .into();
 
-    let timestamp_gap = config
-        .buffer
-        .format_timestamp(&message.server_time)
-        .map(|timestamp| {
-            selectable_text(" ".repeat(timestamp.chars().count()))
-        });
-    let space = selectable_text(" ");
-
     let aligned_content = match &config.buffer.nickname.alignment {
         data::buffer::Alignment::Left => {
-            row![timestamp_gap, space, content].into()
+            let mut alignment_width = 0.0;
+
+            let prefixes_width = prefixes_width(message, config);
+
+            if let Some(prefixes_width) = prefixes_width {
+                alignment_width += prefixes_width;
+            }
+
+            let timestamp_width = timestamp_width(message, config);
+
+            let space_width = font::width_from_str(" ", &config.font);
+
+            if let Some(timestamp_width) = timestamp_width {
+                alignment_width += timestamp_width + space_width;
+            }
+
+            alignment_width +=
+                if let message::Source::User(user) = message.target.source() {
+                    UserDisplay::new(
+                        user,
+                        config.buffer.nickname.show_access_levels,
+                        config.buffer.nickname.show_bot_icon,
+                        registry,
+                        config.buffer.nickname.truncate,
+                        Some(&config.buffer.nickname.brackets),
+                        config,
+                    )
+                    .width(config)
+                } else {
+                    font::width_of_message_marker(&config.font)
+                } + space_width;
+
+            row![Space::new().width(alignment_width), content].into()
         }
         data::buffer::Alignment::Right => {
-            let prefixes = message.target.prefixes().map_or(
-                right_aligned_width.and_then(|_| {
-                    max_prefix_width
-                        .map(|width| selectable_text("").width(width))
-                }),
-                |prefixes| {
-                    let text = selectable_text(
-                        " ".repeat(
-                            config
-                                .buffer
-                                .status_message_prefix
-                                .brackets
-                                .format(String::from_iter(prefixes))
-                                .chars()
-                                .count()
-                                + 1,
-                        ),
-                    );
+            let right_alignment_widths =
+                right_alignment_widths.unwrap_or_default();
 
-                    if let Some(width) = max_prefix_width {
-                        Some(text.width(width))
-                    } else {
-                        Some(text)
-                    }
-                },
-            );
+            let space_width = font::width_from_str(" ", &config.font);
 
-            let with_access_levels = config.buffer.nickname.show_access_levels;
-            let show_bot_icon = config.buffer.nickname.show_bot_icon;
-            let truncate = config.buffer.nickname.truncate;
-            let truncation_character = config.display.truncation_character;
+            let alignment_width = right_alignment_widths.prefixes
+                + right_alignment_widths.timestamp
+                + space_width
+                + right_alignment_widths.middle
+                + space_width;
 
-            let nick =
-                if let message::Source::User(user) = message.target.source() {
-                    let mut nick = selectable_text(
-                        " ".repeat(
-                            config
-                                .buffer
-                                .nickname
-                                .brackets
-                                .format(user.display(
-                                    with_access_levels,
-                                    show_bot_icon,
-                                    truncate,
-                                    truncation_character,
-                                ))
-                                .chars()
-                                .count(),
-                        ),
-                    );
-
-                    if let Some(width) = right_aligned_width {
-                        nick = nick.width(width);
-                    }
-
-                    Some(nick)
-                } else {
-                    None
-                };
-
-            let timestamp_nickname_row =
-                row![timestamp_gap, space, prefixes, nick];
-
-            let space = selectable_text(" ");
-
-            row![timestamp_nickname_row, space, content].into()
+            row![Space::new().width(alignment_width), content].into()
         }
         data::buffer::Alignment::Top => content,
     };
@@ -2427,4 +2450,27 @@ mod correct_viewport {
             f: Box::new(f),
         })
     }
+}
+
+fn prefixes_width(message: &data::Message, config: &Config) -> Option<f32> {
+    message.target.prefixes().map(|prefixes| {
+        font::width_from_str(
+            &format!(
+                "{} ",
+                config
+                    .buffer
+                    .status_message_prefix
+                    .brackets
+                    .format(prefixes.iter().collect::<String>())
+            ),
+            &config.font,
+        ) + 1.0
+    })
+}
+
+fn timestamp_width(message: &data::Message, config: &Config) -> Option<f32> {
+    config
+        .buffer
+        .format_timestamp(&message.server_time)
+        .map(|timestamp| font::width_from_str(&timestamp, &config.font) + 1.0)
 }

@@ -22,7 +22,7 @@ license = "GPL-3.0-or-later"
 edition = "2024"
 
 [workspace.dependencies]
-tokio = { version = "1.50.0" }
+tokio = { version = "1.52.1" }
 futures = "0.3.32"
 thiserror = "2.0.18"
 chrono = { version = "0.4.40", features = ['serde', 'unstable-locales'] }
@@ -33,7 +33,7 @@ url = { version = "2.5.0", features = ["serde"] }
 tokio-stream = { version = "0.1" }
 timeago = "0.6.0"
 itertools = "0.14.0"
-emojis = "0.8.0"
+emojis = "0.8.1"
 unicode-segmentation = "1.13.2"
 rand = "0.10.1"
 rand_chacha = "0.10.0"
@@ -43,7 +43,7 @@ uptime_lib = "0.3.1"
 nucleo-matcher = "0.3.1"
 reqwest = { version = "0.13", features = ["json", "socks", "stream"] }
 tokio-util = { version = "0.7", features = ["io"] }
-const_format = "0.2.32"
+const_format = "0.2.36"
 iced = { version = "0.15.0-dev", default-features = false }
 nom = "8.0"
 percent-encoding = "2.3.2"
@@ -146,6 +146,7 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = [
     "std",
     "NSWorkspace",
     "NSPasteboard",
+    "NSPasteboardItem",
 ] }
 objc2-foundation = { version = "0.3.2", default-features = false, features = [
     "std",

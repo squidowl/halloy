@@ -149,10 +149,6 @@ pub fn plus<'a>() -> Text<'a> {
     to_text('\u{E820}')
 }
 
-pub fn robot<'a>() -> Text<'a> {
-    to_text('\u{E81A}')
-}
-
 pub fn lock<'a>() -> Text<'a> {
     to_text('\u{E821}')
 }

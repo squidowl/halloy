@@ -376,6 +376,10 @@ impl User {
             .unwrap_or(AccessLevel::Member)
     }
 
+    pub fn access_levels(&self) -> impl Iterator<Item = &AccessLevel> {
+        self.access_levels.iter()
+    }
+
     pub fn has_access_level(&self, access_level: AccessLevel) -> bool {
         self.access_levels.contains(&access_level)
     }
@@ -778,21 +782,7 @@ pub enum ProtectedPrefix {
 
 impl std::fmt::Display for AccessLevel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let access_level = match self {
-            AccessLevel::Founder => Some(proto::FOUNDER_PREFIX),
-            AccessLevel::Protected(prefix) => match prefix {
-                ProtectedPrefix::Standard => Some(proto::PROTECTED_PREFIX_STD),
-                ProtectedPrefix::Alternative => {
-                    Some(proto::PROTECTED_PREFIX_ALT)
-                }
-            },
-            AccessLevel::Oper => Some(proto::OPERATOR_PREFIX),
-            AccessLevel::HalfOp => Some(proto::HALF_OPERATOR_PREFIX),
-            AccessLevel::Voice => Some(proto::VOICED_PREFIX),
-            AccessLevel::Member => None,
-        };
-
-        if let Some(access_level) = access_level {
+        if let Some(access_level) = self.char() {
             write!(f, "{access_level}")
         } else {
             write!(f, "")
@@ -832,6 +822,24 @@ impl TryFrom<mode::Channel> for AccessLevel {
             mode::Channel::Voice => Self::Voice,
             _ => return Err(()),
         })
+    }
+}
+
+impl AccessLevel {
+    pub fn char(&self) -> Option<char> {
+        match self {
+            AccessLevel::Founder => Some(proto::FOUNDER_PREFIX),
+            AccessLevel::Protected(prefix) => match prefix {
+                ProtectedPrefix::Standard => Some(proto::PROTECTED_PREFIX_STD),
+                ProtectedPrefix::Alternative => {
+                    Some(proto::PROTECTED_PREFIX_ALT)
+                }
+            },
+            AccessLevel::Oper => Some(proto::OPERATOR_PREFIX),
+            AccessLevel::HalfOp => Some(proto::HALF_OPERATOR_PREFIX),
+            AccessLevel::Voice => Some(proto::VOICED_PREFIX),
+            AccessLevel::Member => None,
+        }
     }
 }
 

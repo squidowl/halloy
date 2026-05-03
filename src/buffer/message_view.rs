@@ -1,14 +1,14 @@
-use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, TimeDelta, Utc};
+use data::buffer::RightAlignmentWidths;
 use data::config::buffer::nickname::ShownStatus;
 use data::config::buffer::{CondensationIcon, Dimmed};
 use data::isupport::{CaseMap, PrefixMap};
 use data::preview::{self, Previews};
 use data::server::Server;
 use data::user::{ChannelUsers, Nick, NickRef};
-use data::{Config, User, message, target};
+use data::{Config, User, message, metadata, target};
 use iced::widget::text::Wrapping;
 use iced::widget::{Space, button, column, container, row, text};
 use iced::{Color, Length, alignment};
@@ -17,6 +17,7 @@ use super::context_menu::{self, Context};
 use super::scroll_view::LayoutMessage;
 use crate::buffer::scroll_view::Message;
 use crate::widget::reaction_row::{has_visible_reactions, reaction_row};
+use crate::widget::user_display::UserDisplay;
 use crate::widget::{
     Element, Marker, message_content, message_marker, selectable_text, tooltip,
 };
@@ -65,6 +66,7 @@ pub struct ChannelQueryLayout<'a> {
     pub chantypes: &'a [char],
     pub casemapping: CaseMap,
     pub prefix: &'a [PrefixMap],
+    pub registry: &'a dyn metadata::Registry,
     pub confirm_message_delivery: bool,
     pub can_send_replies: bool,
     pub can_send_reactions: bool,
@@ -73,7 +75,7 @@ pub struct ChannelQueryLayout<'a> {
     pub connected: bool,
     pub server: &'a Server,
     pub theme: &'a Theme,
-    pub previews: Option<Previews<'a>>,
+    pub previews: Previews<'a>,
     pub target: TargetInfo<'a>,
 }
 
@@ -93,7 +95,7 @@ impl<'a> ChannelQueryLayout<'a> {
         // for this URL in current context.
         let is_loaded = self
             .previews
-            .and_then(|previews| previews.get(&parsed))
+            .get(&parsed)
             .is_some_and(|state| matches!(state, preview::State::Loaded(_)));
         if !is_loaded {
             return None;
@@ -186,10 +188,8 @@ impl<'a> ChannelQueryLayout<'a> {
             .format_timestamp(&message.server_time)
             .map(|timestamp| {
                 if hide_timestamp {
-                    let width = font::width_from_chars(
-                        timestamp.chars().count(),
-                        &self.config.font,
-                    );
+                    let width =
+                        font::width_from_str(&timestamp, &self.config.font);
 
                     return Space::new().width(width).into();
                 }
@@ -219,8 +219,8 @@ impl<'a> ChannelQueryLayout<'a> {
             .format_range_end_timestamp(end_server_time)
             .map(|(dash, end_timestamp)| {
                 if hide_timestamp {
-                    let width = font::width_from_chars(
-                        dash.chars().count() + end_timestamp.chars().count(),
+                    let width = font::width_from_str(
+                        &format!("{dash}{end_timestamp}"),
                         &self.config.font,
                     );
 
@@ -254,35 +254,20 @@ impl<'a> ChannelQueryLayout<'a> {
     fn format_prefixes(
         &self,
         message: &'a data::Message,
-        max_prefix_width: Option<f32>,
     ) -> Option<Element<'a, Message>> {
-        message.target.prefixes().map_or(
-            max_prefix_width.map(|width| Space::new().width(width).into()),
-            |prefixes| {
-                let text = selectable_text(format!(
-                    "{} ",
-                    self.config
-                        .buffer
-                        .status_message_prefix
-                        .brackets
-                        .format(String::from_iter(prefixes))
-                ))
-                .style(theme::selectable_text::tertiary)
-                .font_maybe(
-                    theme::font_style::tertiary(self.theme).map(font::get),
-                );
-
-                if let Some(width) = max_prefix_width {
-                    Some(
-                        text.width(width)
-                            .align_x(text::Alignment::Right)
-                            .into(),
-                    )
-                } else {
-                    Some(text.into())
-                }
-            },
-        )
+        message.target.prefixes().map(|prefixes| {
+            selectable_text(format!(
+                "{} ",
+                self.config
+                    .buffer
+                    .status_message_prefix
+                    .brackets
+                    .format(String::from_iter(prefixes))
+            ))
+            .style(theme::selectable_text::tertiary)
+            .font_maybe(theme::font_style::tertiary(self.theme).map(font::get))
+            .into()
+        })
     }
 
     fn not_sent_row(
@@ -385,11 +370,12 @@ impl<'a> ChannelQueryLayout<'a> {
     fn format_user_message(
         &self,
         message: &'a data::Message,
-        right_aligned_width: Option<f32>,
+        right_alignment_middle_width: Option<f32>,
         user: &'a User,
         hide_nickname: bool,
+        registry: &'a dyn metadata::Registry,
     ) -> (
-        Element<'a, Message>,
+        Option<Element<'a, Message>>,
         Element<'a, Message>,
         Vec<Element<'a, Message>>,
     ) {
@@ -400,17 +386,14 @@ impl<'a> ChannelQueryLayout<'a> {
         let dimmed_background_tuple = dimmed
             .map(|dimmed| (dimmed, self.theme.styles().buffer.background));
 
-        let with_access_levels = self.config.buffer.nickname.show_access_levels;
-        let show_bot_icon = self.config.buffer.nickname.show_bot_icon;
-        let truncate = self.config.buffer.nickname.truncate;
-        let truncation_character = self.config.display.truncation_character;
-        let user_in_channel = self
-            .target
-            .users()
-            .into_iter()
-            .flatten()
-            .find(|current_user| *current_user == user);
+        let user_in_channel =
+            self.target.users().and_then(|users| users.resolve(user));
         let rerouted_private = message.is_rerouted();
+        let is_user_away = match self.config.buffer.nickname.shown_status {
+            ShownStatus::Current => user_in_channel.unwrap_or(user),
+            ShownStatus::Historical => user,
+        }
+        .is_away();
         let is_user_offline = if rerouted_private {
             false
         } else {
@@ -426,156 +409,73 @@ impl<'a> ChannelQueryLayout<'a> {
             .our_user()
             .is_some_and(|our_user| our_user.nickname() == user.nickname());
 
-        let nickname_style = theme::selectable_text::dimmed(
-            theme::selectable_text::nickname(
-                self.theme,
-                self.config,
-                match self.config.buffer.nickname.shown_status {
-                    ShownStatus::Current => user_in_channel.unwrap_or(user),
-                    ShownStatus::Historical => user,
-                },
-                is_user_offline,
-            ),
-            self.theme,
-            dimmed_background_tuple,
+        let user_display = UserDisplay::new(
+            user,
+            self.config.buffer.nickname.show_access_levels,
+            self.config.buffer.nickname.show_bot_icon,
+            registry,
+            self.config.buffer.nickname.truncate,
+            Some(&self.config.buffer.nickname.brackets),
+            self.config,
         );
 
-        let (user_display, show_nickname_tooltip) = user
-            .display_with_truncated(
-                with_access_levels,
-                show_bot_icon,
-                truncate,
-                truncation_character,
-            );
-
-        let is_bot = user.is_bot();
-        let show_bot_icon = is_bot && self.config.buffer.nickname.show_bot_icon;
-        let brackets = &self.config.buffer.nickname.brackets;
-
-        // nick_open + nick_close = full bracketed nick; bot icon sits inside open-close
-        let nick_open = format!("{}{}", brackets.left, &*user_display);
-        let nick_close = brackets.right.as_str();
-        let nick_full = brackets.format(&*user_display);
-
         let nick_element: Element<_> = if hide_nickname {
-            let width = match self.config.buffer.nickname.alignment {
-                data::buffer::Alignment::Left
-                | data::buffer::Alignment::Top => {
-                    let base = font::width_from_chars(
-                        nick_full.chars().count(),
-                        &self.config.font,
-                    );
-                    if show_bot_icon {
-                        base + theme::ICON_SIZE + theme::ICON_SPACE
-                    } else {
-                        base
-                    }
-                }
-                data::buffer::Alignment::Right => {
-                    right_aligned_width.unwrap_or_default()
-                }
+            let width = if let Some(right_alignment_middle_width) =
+                right_alignment_middle_width
+            {
+                right_alignment_middle_width
+            } else {
+                user_display.width(self.config)
             };
+
             Space::new().width(width).into()
         } else {
-            let mut nick_text = selectable_text(if show_bot_icon {
-                nick_open
-            } else {
-                nick_full
-            })
-            .style(move |_| nickname_style)
-            .font_maybe(
-                theme::font_style::nickname(self.theme, is_user_offline)
-                    .map(font::get),
+            let mut nick_text = user_display.into_element(
+                user,
+                is_user_away,
+                is_user_offline,
+                dimmed_background_tuple,
+                self.theme,
+                self.config,
             );
 
-            let nick_text: Element<_> = if show_bot_icon {
-                let nick_color = nickname_style.color;
-                let bot_icon = icon::robot().style(move |_| {
-                    iced::widget::text::Style { color: nick_color }
-                });
+            if let Some(width) = right_alignment_middle_width {
+                nick_text = container(nick_text)
+                    .width(width)
+                    .align_x(text::Alignment::Right)
+                    .into();
+            }
 
-                let icon_and_close: Element<_> = if nick_close.is_empty() {
-                    bot_icon.into()
-                } else {
-                    row![
-                        bot_icon,
-                        selectable_text(nick_close)
-                            .style(move |_| nickname_style)
-                            .font_maybe(
-                                theme::font_style::nickname(
-                                    self.theme,
-                                    is_user_offline,
-                                )
-                                .map(font::get),
-                            ),
-                    ]
-                    .align_y(iced::Alignment::Center)
-                    .into()
-                };
-
-                let nick_text = row![nick_text, icon_and_close]
-                    .align_y(iced::Alignment::Center)
-                    .spacing(theme::ICON_SPACE);
-
-                if let Some(w) = right_aligned_width {
-                    container(nick_text)
-                        .width(w)
-                        .align_x(text::Alignment::Right)
-                        .into()
-                } else {
-                    nick_text.into()
-                }
+            if rerouted_private && !is_ourself {
+                context_menu::rerouted_private_user(
+                    nick_text,
+                    self.server,
+                    self.prefix,
+                    self.registry,
+                    self.previews.collection(),
+                    user,
+                    self.config,
+                    self.theme,
+                    &self.config.buffer.nickname.click,
+                )
+                .map(Message::ContextMenu)
             } else {
-                if let Some(w) = right_aligned_width {
-                    nick_text =
-                        nick_text.width(w).align_x(text::Alignment::Right);
-                }
-
-                nick_text.into()
-            };
-
-            let nick_tooltip = if show_bot_icon {
-                Some(Cow::Owned(format!(
-                    "{} has marked itself as a bot",
-                    user.nickname()
-                )))
-            } else if show_nickname_tooltip {
-                Some(Cow::Borrowed(user.as_str()))
-            } else {
-                None
-            };
-
-            tooltip(
-                if rerouted_private && !is_ourself {
-                    context_menu::rerouted_private_user(
-                        nick_text,
-                        self.server,
-                        self.prefix,
-                        user,
-                        self.config,
-                        self.theme,
-                        &self.config.buffer.nickname.click,
-                    )
-                    .map(Message::ContextMenu)
-                } else {
-                    context_menu::user(
-                        nick_text,
-                        self.server,
-                        self.prefix,
-                        self.target.channel(),
-                        user,
-                        user_in_channel,
-                        self.target.our_user(),
-                        self.config,
-                        self.theme,
-                        &self.config.buffer.nickname.click,
-                    )
-                    .map(Message::ContextMenu)
-                },
-                nick_tooltip,
-                tooltip::Position::Top,
-                self.theme,
-            )
+                context_menu::user(
+                    nick_text,
+                    self.server,
+                    self.prefix,
+                    self.target.channel(),
+                    self.registry,
+                    self.previews.collection(),
+                    user,
+                    user_in_channel,
+                    self.target.our_user(),
+                    self.config,
+                    self.theme,
+                    &self.config.buffer.nickname.click,
+                )
+                .map(Message::ContextMenu)
+            }
         };
 
         let formatter = *self;
@@ -662,7 +562,10 @@ impl<'a> ChannelQueryLayout<'a> {
                             color_transformation,
                             move |link| match link {
                                 message::Link::User(_, _) => {
-                                    if rerouted_private && !is_ourself {
+                                    if rerouted_private
+                                        && !is_ourself
+                                        && user_in_channel.is_none()
+                                    {
                                         vec![context_menu::Entry::Whois]
                                     } else {
                                         context_menu::Entry::user_list(
@@ -673,6 +576,11 @@ impl<'a> ChannelQueryLayout<'a> {
                                                 .config
                                                 .file_transfer
                                                 .enabled,
+                                            context_menu::has_user_metadata(
+                                                user,
+                                                formatter.registry,
+                                                formatter.config,
+                                            ),
                                         )
                                     }
                                 }
@@ -704,16 +612,16 @@ impl<'a> ChannelQueryLayout<'a> {
                 )
             };
 
-        (nick_element, message_content, after_content)
+        (Some(nick_element), message_content, after_content)
     }
 
     fn format_server_message(
         &self,
         message: &'a data::Message,
-        right_aligned_width: Option<f32>,
+        right_alignment_middle_width: Option<f32>,
         server: Option<&'a message::source::Server>,
     ) -> (
-        Element<'a, Message>,
+        Option<Element<'a, Message>>,
         Element<'a, Message>,
         Vec<Element<'a, Message>>,
     ) {
@@ -756,7 +664,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 message.expanded,
                 message.condensed.is_some(),
             ),
-            right_aligned_width,
+            right_alignment_middle_width,
             self.config,
             marker_style,
             link.clone().map(Message::Link),
@@ -784,18 +692,19 @@ impl<'a> ChannelQueryLayout<'a> {
             }),
             move |link| match link {
                 message::Link::User(_, user) => {
-                    let user_in_channel = formatter
-                        .target
-                        .users()
-                        .into_iter()
-                        .flatten()
-                        .find(|u| *u == user);
+                    let user_in_channel =
+                        formatter.target.users().and_then(|u| u.resolve(user));
 
                     context_menu::Entry::user_list(
                         formatter.target.is_channel(),
                         user_in_channel,
                         formatter.target.our_user(),
                         formatter.config.file_transfer.enabled,
+                        context_menu::has_user_metadata(
+                            user,
+                            formatter.registry,
+                            formatter.config,
+                        ),
                     )
                 }
                 message::Link::Url(_) => formatter.url_entries(message, link),
@@ -815,7 +724,7 @@ impl<'a> ChannelQueryLayout<'a> {
         );
 
         (
-            marker,
+            Some(marker),
             message_content,
             formatter.reaction_row(message).into_iter().collect(),
         )
@@ -824,10 +733,10 @@ impl<'a> ChannelQueryLayout<'a> {
     fn format_condensed_message(
         &self,
         message: &'a data::Message,
-        right_aligned_width: Option<f32>,
+        right_alignment_middle_width: Option<f32>,
         hide_timestamp: bool,
     ) -> (
-        Element<'a, Message>,
+        Option<Element<'a, Message>>,
         Element<'a, Message>,
         Vec<Element<'a, Message>>,
     ) {
@@ -864,32 +773,49 @@ impl<'a> ChannelQueryLayout<'a> {
         };
 
         let condensation_marker = self.condensation_marker(false, true);
-        let marker = message_marker(
-            condensation_marker,
-            None,
-            self.config,
-            theme::selectable_text::condensed_marker,
-            Some(Message::Link(link.clone())),
-        );
 
-        let middle = row![
-            range_end_timestamp,
-            if hide_timestamp || matches!(condensation_marker, Marker::None) {
-                let width = font::width_from_chars(1, &self.config.font);
+        let middle_is_some = range_end_timestamp.is_some()
+            || !matches!(condensation_marker, Marker::None)
+            || right_alignment_middle_width.is_some();
 
-                Element::from(Space::new().width(width))
+        let middle = middle_is_some.then_some({
+            let space = if range_end_timestamp.is_none()
+                || matches!(condensation_marker, Marker::None)
+            {
+                None
             } else {
-                Element::from(selectable_text(" "))
-            },
-            if right_aligned_width.is_some() {
-                container(marker)
-                    .width(Length::Fill)
-                    .align_x(text::Alignment::Right)
-                    .into()
+                Some(Element::from(selectable_text(" ")))
+            };
+
+            let marker = message_marker(
+                condensation_marker,
+                None,
+                self.config,
+                theme::selectable_text::condensed_marker,
+                Some(Message::Link(link.clone())),
+            );
+
+            let middle = row![
+                range_end_timestamp,
+                space,
+                if right_alignment_middle_width.is_some() {
+                    container(marker)
+                        .width(Length::Fill)
+                        .align_x(text::Alignment::Right)
+                        .into()
+                } else {
+                    marker
+                }
+            ];
+
+            if let Some(right_alignment_middle_width) =
+                right_alignment_middle_width
+            {
+                container(middle).width(right_alignment_middle_width).into()
             } else {
-                marker
+                middle.into()
             }
-        ];
+        });
 
         let message_content = message_content::with_context(
             &message.content,
@@ -913,18 +839,19 @@ impl<'a> ChannelQueryLayout<'a> {
             }),
             move |link| match link {
                 message::Link::User(_, user) => {
-                    let user_in_channel = formatter
-                        .target
-                        .users()
-                        .into_iter()
-                        .flatten()
-                        .find(|u| *u == user);
+                    let user_in_channel =
+                        formatter.target.users().and_then(|u| u.resolve(user));
 
                     context_menu::Entry::user_list(
                         formatter.target.is_channel(),
                         user_in_channel,
                         formatter.target.our_user(),
                         formatter.config.file_transfer.enabled,
+                        context_menu::has_user_metadata(
+                            user,
+                            formatter.registry,
+                            formatter.config,
+                        ),
                     )
                 }
                 message::Link::Url(_) => formatter.url_entries(message, link),
@@ -943,15 +870,7 @@ impl<'a> ChannelQueryLayout<'a> {
             self.config,
         );
 
-        (
-            if let Some(right_aligned_width) = right_aligned_width {
-                container(middle).width(right_aligned_width).into()
-            } else {
-                middle.into()
-            },
-            container(message_content).into(),
-            vec![],
-        )
+        (middle, container(message_content).into(), vec![])
     }
 
     fn content_on_new_line(&self, message: &data::Message) -> bool {
@@ -979,6 +898,12 @@ impl<'a> ChannelQueryLayout<'a> {
                 server: self.server,
                 prefix: self.prefix,
                 channel: self.target.channel(),
+                registry: self.registry,
+                avatar: context_menu::user_avatar(
+                    user,
+                    self.registry,
+                    self.previews.collection(),
+                ),
                 user,
                 current_user,
             })
@@ -1014,32 +939,59 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
     fn format(
         &self,
         message: &'a data::Message,
-        right_aligned_width: Option<f32>,
-        max_prefix_width: Option<f32>,
+        right_alignment_widths: Option<RightAlignmentWidths>,
         hide_timestamp: bool,
         hide_nickname: bool,
+        registry: &'a dyn metadata::Registry,
     ) -> Option<Element<'a, Message>> {
-        let prefixes = self.format_prefixes(message, max_prefix_width);
+        let mut prefixes: Option<Element<_>> = self.format_prefixes(message);
 
-        let timestamp = self.format_timestamp(message, hide_timestamp);
+        if let Some(right_alignment_widths) = right_alignment_widths {
+            prefixes = Some(prefixes.map_or(
+                Space::new().width(right_alignment_widths.prefixes).into(),
+                |prefixes| {
+                    container(prefixes)
+                        .width(right_alignment_widths.prefixes)
+                        .into()
+                },
+            ));
+        }
+
+        let mut timestamp: Option<Element<_>> =
+            self.format_timestamp(message, hide_timestamp);
+
+        if let Some(right_alignment_widths) = right_alignment_widths {
+            timestamp = Some(timestamp.map_or(
+                Space::new().width(right_alignment_widths.timestamp).into(),
+                |timestamp| {
+                    container(timestamp)
+                        .width(right_alignment_widths.timestamp)
+                        .into()
+                },
+            ));
+        }
 
         let left_is_hidden = prefixes.is_none() && hide_timestamp;
 
+        let right_alignment_middle_width = right_alignment_widths
+            .map(|right_alignment_widths| right_alignment_widths.middle);
+
         let (middle, content, after_content): (
-            Element<'a, Message>,
+            Option<Element<'a, Message>>,
             Element<'a, Message>,
             Vec<Element<'a, Message>>,
         ) = match message.target.source() {
             message::Source::User(user) => Some(self.format_user_message(
                 message,
-                right_aligned_width,
+                right_alignment_middle_width,
                 user,
                 hide_nickname,
+                registry,
             )),
             message::Source::Server(server_message) => {
                 Some(self.format_server_message(
                     message,
-                    right_aligned_width,
+                    right_alignment_middle_width,
                     server_message.as_ref(),
                 ))
             }
@@ -1073,7 +1025,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
 
                 let marker = message_marker(
                     Marker::Dot,
-                    right_aligned_width,
+                    right_alignment_middle_width,
                     self.config,
                     message_style,
                     None,
@@ -1095,15 +1047,18 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                             let user_in_channel = formatter
                                 .target
                                 .users()
-                                .into_iter()
-                                .flatten()
-                                .find(|u| *u == user);
+                                .and_then(|u| u.resolve(user));
 
                             context_menu::Entry::user_list(
                                 formatter.target.is_channel(),
                                 user_in_channel,
                                 formatter.target.our_user(),
                                 formatter.config.file_transfer.enabled,
+                                context_menu::has_user_metadata(
+                                    user,
+                                    formatter.registry,
+                                    formatter.config,
+                                ),
                             )
                         }
                         message::Link::Url(_) => {
@@ -1127,7 +1082,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                 let after_content =
                     self.reaction_row(message).into_iter().chain(not_sent_row);
 
-                Some((marker, message_content, after_content.collect()))
+                Some((Some(marker), message_content, after_content.collect()))
             }
             message::Source::Internal(message::source::Internal::Status(
                 status,
@@ -1141,7 +1096,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
 
                 let marker = message_marker(
                     Marker::Dot,
-                    right_aligned_width,
+                    right_alignment_middle_width,
                     self.config,
                     message_style,
                     None,
@@ -1161,7 +1116,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     self.config,
                 );
 
-                Some((marker, message, vec![]))
+                Some((Some(marker), message, vec![]))
             }
             message::Source::Internal(message::source::Internal::Logs(_)) => {
                 None
@@ -1171,7 +1126,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             ) => (!message.text().is_empty()).then_some(
                 self.format_condensed_message(
                     message,
-                    right_aligned_width,
+                    right_alignment_middle_width,
                     hide_timestamp,
                 ),
             ),
@@ -1198,18 +1153,20 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             column![content].extend(after_content).into()
         };
 
+        let middle_is_some = middle.is_some();
+
         let row = row![
             prefixes,
             timestamp,
             if left_is_hidden {
-                let width = font::width_from_chars(1, &self.config.font);
+                let width = font::width_from_str(" ", &self.config.font);
 
                 Element::from(Space::new().width(width))
             } else {
                 Element::from(selectable_text(" "))
             },
             middle,
-            selectable_text(" ")
+            middle_is_some.then_some(selectable_text(" ")),
         ];
 
         let message_element = if self.content_on_new_line(message) {
@@ -1219,7 +1176,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         };
 
         let message_element = if let Some(reply_row) =
-            self.format_reply_preview(message, right_aligned_width)
+            self.format_reply_preview(message, right_alignment_middle_width)
         {
             column![reply_row, message_element].into()
         } else {
@@ -1309,7 +1266,7 @@ impl<'a> ChannelQueryLayout<'a> {
         // right-aligned: fixed short arm offset to content column.
         // left-aligned / top-aligned: arm spans from timestamp midpoint to its edge.
         let mut r = if let Some(nick_col_width) = right_aligned_width {
-            let char_width = font::width_from_chars(1, &self.config.font);
+            let char_width = font::width_from_str("a", &self.config.font);
             let nick_col_chars = (nick_col_width / char_width).round() as usize;
             let indent = timestamp_chars + nick_col_chars - 2;
             let arm = if show_reply_icon {

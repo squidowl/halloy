@@ -19,7 +19,7 @@ pub use self::selectable_rich_text::selectable_rich_text;
 pub use self::selectable_text::selectable_text;
 pub use self::shortcut::shortcut;
 pub use self::tooltip::tooltip;
-use crate::appearance::theme::TEXT_SIZE;
+use crate::appearance::theme::{ICON_SIZE, TEXT_SIZE};
 use crate::{Theme, font};
 
 pub mod anchored_overlay;
@@ -41,6 +41,7 @@ pub mod selectable_rich_text;
 pub mod selectable_text;
 pub mod shortcut;
 pub mod tooltip;
+pub mod user_display;
 
 pub type Renderer = iced::Renderer;
 pub type Element<'a, Message> = iced::Element<'a, Message, Theme, Renderer>;
@@ -126,6 +127,17 @@ where
     } else {
         marker
     }
+}
+
+pub fn bot_icon<'a, M>(
+    style: impl Fn(&Theme) -> selectable_text::Style + 'a,
+) -> Element<'a, M> {
+    selectable_text(String::from("\u{1F916}"))
+        .line_height(LineHeight::Relative(1.35))
+        .font(*font::ICON)
+        .style(style)
+        .size(ICON_SIZE)
+        .into()
 }
 
 pub mod button {
