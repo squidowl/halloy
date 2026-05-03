@@ -608,11 +608,12 @@ mod nick_list {
                         nicklist_config.show_access_levels,
                         nicklist_config.show_bot_icon,
                         registry,
+                        &config.display.nicklist_nickname,
                         nicklist_config
                             .truncate
                             .or(config.buffer.nickname.truncate),
+                        config.display.truncation_character,
                         None,
-                        config,
                     ),
                 )
             })
