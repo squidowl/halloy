@@ -420,7 +420,7 @@ impl Channel {
             }
             Message::ContextMenu(message) => (
                 Task::none(),
-                Some(Event::ContextMenu(context_menu::update(message))),
+                context_menu::update(message).map(Event::ContextMenu),
             ),
             Message::FilehostUploadDone { id, url } => {
                 let (task, _) = self.input_view.update(

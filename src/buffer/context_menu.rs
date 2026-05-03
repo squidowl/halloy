@@ -7,10 +7,14 @@ use data::{
     Config, Server, User, config, ctcp, isupport, message, metadata, preview,
     target,
 };
-use iced::widget::{Space, button, column, container, image, row, rule};
+use iced::widget::{Space, button, column, container, image, row, rule, span};
 use iced::{ContentFit, Length, Padding, mouse};
+use url::Url;
 
-use crate::widget::{Element, context_menu, double_pass, text};
+use crate::widget::{
+    Element, Renderer, context_menu, double_pass, selectable_rich_text,
+    selectable_text, text,
+};
 use crate::{Theme, font, theme, widget};
 
 pub enum Context<'a> {
@@ -593,6 +597,7 @@ pub enum Message {
     OpenReactionModal(message::Id, Vec<String>),
     Redact(message::Id),
     LoadUserAvatar(Server, url::Url),
+    Link(message::Link),
 }
 
 #[derive(Debug, Clone)]
@@ -618,40 +623,48 @@ pub enum Event {
     LoadUserAvatar(Server, url::Url),
 }
 
-pub fn update(message: Message) -> Event {
+pub fn update(message: Message) -> Option<Event> {
     match message {
-        Message::Whois(server, nick) => Event::SendWhois(server, nick),
-        Message::Whowas(server, nick) => Event::SendWhowas(server, nick),
+        Message::Whois(server, nick) => Some(Event::SendWhois(server, nick)),
+        Message::Whowas(server, nick) => Some(Event::SendWhowas(server, nick)),
         Message::Query(server, nick, buffer_action) => {
-            Event::OpenQuery(server, nick, buffer_action)
+            Some(Event::OpenQuery(server, nick, buffer_action))
         }
         Message::ToggleAccessLevel(server, target, nick, mode) => {
-            Event::ToggleAccessLevel(server, target, nick, mode)
+            Some(Event::ToggleAccessLevel(server, target, nick, mode))
         }
-        Message::SendFile(server, user) => Event::SendFile(server, user),
-        Message::InsertNickname(nick) => Event::InsertNickname(nick),
+        Message::SendFile(server, user) => Some(Event::SendFile(server, user)),
+        Message::InsertNickname(nick) => Some(Event::InsertNickname(nick)),
         Message::CtcpRequest(command, server, nick, params) => {
-            Event::CtcpRequest(command, server, nick, params)
+            Some(Event::CtcpRequest(command, server, nick, params))
         }
-        Message::CopyUrl(url) => Event::CopyUrl(url),
-        Message::CopyMessage(text) => Event::CopyMessage(text),
-        Message::OpenUrl(url) => Event::OpenUrl(url),
-        Message::HidePreview(message, url) => Event::HidePreview(message, url),
-        Message::ShowPreview(message, url) => Event::ShowPreview(message, url),
-        Message::CopyTimestamp(date_time) => Event::CopyTimestamp(date_time),
+        Message::CopyUrl(url) => Some(Event::CopyUrl(url)),
+        Message::CopyMessage(text) => Some(Event::CopyMessage(text)),
+        Message::OpenUrl(url) => Some(Event::OpenUrl(url)),
+        Message::HidePreview(message, url) => {
+            Some(Event::HidePreview(message, url))
+        }
+        Message::ShowPreview(message, url) => {
+            Some(Event::ShowPreview(message, url))
+        }
+        Message::CopyTimestamp(date_time) => {
+            Some(Event::CopyTimestamp(date_time))
+        }
         Message::DeleteMessage(sesrver_time, hash) => {
-            Event::DeleteMessage(sesrver_time, hash)
+            Some(Event::DeleteMessage(sesrver_time, hash))
         }
         Message::ResendMessage(sesrver_time, hash) => {
-            Event::ResendMessage(sesrver_time, hash)
+            Some(Event::ResendMessage(sesrver_time, hash))
         }
         Message::OpenReactionModal(msgid, selected_reactions) => {
-            Event::OpenReactionModal(msgid, selected_reactions)
+            Some(Event::OpenReactionModal(msgid, selected_reactions))
         }
-        Message::Redact(msgid) => Event::RedactMessage(msgid),
+        Message::Redact(msgid) => Some(Event::RedactMessage(msgid)),
         Message::LoadUserAvatar(server, url) => {
-            Event::LoadUserAvatar(server, url)
+            Some(Event::LoadUserAvatar(server, url))
         }
+        Message::Link(message::Link::Url(url)) => Some(Event::OpenUrl(url)),
+        Message::Link(_) => None,
     }
 }
 
@@ -1046,11 +1059,39 @@ fn user_metadata<'a>(
                 .map(|value| (key, value))
         })
         .map(|(key, value)| {
-            text(format!("{value} ({key})"))
-                .style(theme::text::secondary)
+            if matches!(key, metadata::Key::Homepage)
+                && let Ok(url) = Url::parse(value)
+            {
+                selectable_rich_text::<
+                    Message,
+                    message::Link,
+                    (),
+                    Theme,
+                    Renderer,
+                >(vec![
+                    if config.display.decode_urls {
+                        span(data::url::display(&url).to_string())
+                    } else {
+                        span(value.to_string())
+                    }
+                    .color(theme.styles().buffer.url.color)
+                    .link(message::Link::Url(url.as_str().to_string())),
+                    span(format!(" ({key})")),
+                ])
+                .on_link(Message::Link)
+                .style(theme::selectable_text::secondary)
                 .font_maybe(theme::font_style::secondary(theme).map(font::get))
                 .width(length)
                 .into()
+            } else {
+                selectable_text(format!("{value} ({key})"))
+                    .style(theme::selectable_text::secondary)
+                    .font_maybe(
+                        theme::font_style::secondary(theme).map(font::get),
+                    )
+                    .width(length)
+                    .into()
+            }
         });
 
     let mut content = column![];
