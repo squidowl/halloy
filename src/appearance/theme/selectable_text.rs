@@ -1,3 +1,4 @@
+use data::appearance::theme::nickname_alpha;
 use data::config::buffer::{self, Dimmed};
 use data::message::source::server::{Kind, StandardReply};
 use data::{Config, User, log, message};
@@ -132,20 +133,36 @@ pub fn nickname(
     theme: &Theme,
     config: &Config,
     user: &User,
+    metadata_color: Option<Color>,
     is_away: bool,
     is_user_offline: bool,
 ) -> Style {
-    nickname_style(
-        theme,
-        &config.buffer.nickname.color,
-        user,
-        config
-            .buffer
-            .nickname
-            .away
-            .is_away(is_away || is_user_offline),
-        config.buffer.nickname.offline.is_offline(is_user_offline),
-    )
+    let is_away = config
+        .buffer
+        .nickname
+        .away
+        .is_away(is_away || is_user_offline);
+
+    if let Some(metadata_color) = metadata_color {
+        let color = nickname_alpha(
+            metadata_color,
+            is_away,
+            theme.styles().buffer.background,
+        );
+
+        Style {
+            color: Some(color),
+            selection_color: theme.styles().buffer.selection,
+        }
+    } else {
+        nickname_style(
+            theme,
+            &config.buffer.nickname.color,
+            user,
+            is_away,
+            config.buffer.nickname.offline.is_offline(is_user_offline),
+        )
+    }
 }
 
 pub fn topic_nickname(

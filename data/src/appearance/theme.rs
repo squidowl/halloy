@@ -11,6 +11,8 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use thiserror::Error;
 use tokio::fs;
 
+use crate::config::buffer;
+
 const DEFAULT_THEME_NAME: &str = "Ferra";
 const DEFAULT_THEME_CONTENT: &str =
     include_str!("../../../assets/themes/ferra.toml");
@@ -567,6 +569,18 @@ pub fn nickname_color(
 
             colors[index]
         }
+    }
+}
+
+pub fn nickname_alpha(
+    color: Color,
+    is_away: Option<buffer::Away>,
+    background_color: Color,
+) -> Color {
+    if let Some(buffer::Away::Dimmed(dimmed)) = is_away {
+        dimmed.transform_color(color, background_color)
+    } else {
+        color
     }
 }
 

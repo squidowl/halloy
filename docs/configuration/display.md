@@ -67,7 +67,7 @@ Metadata to include when rendering user nicknames in message buffers.
 
 ```toml
 # Type: array of strings
-# Values: "display-name", "pronouns"
+# Values: "display-name", "pronouns", "color"
 # Default: ["display-name"]
 
 [display]
@@ -83,8 +83,9 @@ nickname = ["display-name", "pronouns"]
 
 This renders as:
 - `["display-name"]` -> `Casper (casperstorm)` when display name (`Casper`) is set, otherwise `casperstorm`
-- `["pronouns"]` -> `casperstorm (he/him)` when pronouns are set, otherwise `storm`
+- `["pronouns"]` -> `casperstorm (he/him)` when pronouns are set, otherwise `casperstorm`
 - `["display-name", "pronouns"]` -> `Casper (casperstorm, he/him)`, omitting missing metadata
+- `["display-name"]` -> `Casper (casperstorm)` when display name (`Casper`) is set, with text color as specified by the user's metadata
 
 ## `nicklist_nickname`
 
@@ -92,7 +93,7 @@ Metadata to include when rendering user nicknames in the nicklist.
 
 ```toml
 # Type: array of strings
-# Values: "display-name", "pronouns"
+# Values: "display-name", "pronouns", "color"
 # Default: ["display-name"]
 
 [display]
