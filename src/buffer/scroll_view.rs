@@ -1019,7 +1019,7 @@ impl State {
             Message::ContextMenu(message) => {
                 return (
                     Task::none(),
-                    Some(Event::ContextMenu(context_menu::update(message))),
+                    context_menu::update(message).map(Event::ContextMenu),
                 );
             }
             Message::Link(message::Link::Channel(server, channel)) => {
