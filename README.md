@@ -38,6 +38,13 @@ We strive to be a leading irc client with a rich ircv3 feature set. currently su
 - [labeled-response](https://ircv3.net/specs/extensions/labeled-response)
 - [message-redaction](https://ircv3.net/specs/extensions/message-redaction)
 - [message-tags](https://ircv3.net/specs/extensions/message-tags)
+- [metadata](https://ircv3.net/specs/extensions/metadata)
+  - `display-name`
+  - `avatar`
+  - `pronouns`
+  - `homepage`
+  - `color`
+  - `status`
 - [Monitor](https://ircv3.net/specs/extensions/monitor)
 - [msgid](https://ircv3.net/specs/extensions/message-ids)
 - [multi-prefix](https://ircv3.net/specs/extensions/multi-prefix)
