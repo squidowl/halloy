@@ -133,7 +133,7 @@ pub fn bot_icon<'a, M>(
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
 ) -> Element<'a, M> {
     selectable_text(String::from("\u{1F916}"))
-        .line_height(LineHeight::Relative(1.35))
+        .line_height(LineHeight::Relative(1.45))
         .font(*font::ICON)
         .style(style)
         .size(ICON_SIZE)

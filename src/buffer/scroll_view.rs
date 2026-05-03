@@ -338,9 +338,10 @@ pub fn view<'a>(
                             config.buffer.nickname.show_access_levels,
                             config.buffer.nickname.show_bot_icon,
                             registry,
+                            &config.display.nickname,
                             config.buffer.nickname.truncate,
+                            config.display.truncation_character,
                             Some(&config.buffer.nickname.brackets),
-                            config,
                         );
 
                         Some(user_display.width(config) + 1.0)
@@ -1020,7 +1021,7 @@ impl State {
             Message::ContextMenu(message) => {
                 return (
                     Task::none(),
-                    Some(Event::ContextMenu(context_menu::update(message))),
+                    context_menu::update(message).map(Event::ContextMenu),
                 );
             }
             Message::Link(message::Link::Channel(server, channel)) => {
@@ -2052,9 +2053,10 @@ fn preview_row<'a>(
                         config.buffer.nickname.show_access_levels,
                         config.buffer.nickname.show_bot_icon,
                         registry,
+                        &config.display.nickname,
                         config.buffer.nickname.truncate,
+                        config.display.truncation_character,
                         Some(&config.buffer.nickname.brackets),
-                        config,
                     )
                     .width(config)
                 } else {

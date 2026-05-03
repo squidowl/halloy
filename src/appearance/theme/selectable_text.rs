@@ -27,6 +27,13 @@ pub fn default(theme: &Theme) -> Style {
     }
 }
 
+pub fn secondary(theme: &Theme) -> Style {
+    Style {
+        color: Some(theme.styles().text.secondary.color),
+        selection_color: theme.styles().buffer.selection,
+    }
+}
+
 pub fn logs(theme: &Theme) -> Style {
     Style {
         color: None,

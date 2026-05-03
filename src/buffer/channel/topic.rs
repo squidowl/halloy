@@ -24,7 +24,7 @@ pub enum Message {
 pub fn update(message: Message) -> Option<Event> {
     match message {
         Message::ContextMenu(message) => {
-            Some(Event::ContextMenu(context_menu::update(message)))
+            context_menu::update(message).map(Event::ContextMenu)
         }
         Message::Link(message::Link::Channel(server, channel)) => {
             Some(Event::OpenChannel(server, channel))

@@ -575,9 +575,10 @@ pub fn view<'a>(
                 config.buffer.text_input.nickname.show_access_levels,
                 config.buffer.nickname.show_bot_icon,
                 registry,
+                &config.display.nickname,
                 None,
+                config.display.truncation_character,
                 None,
-                config,
             );
 
             container(user_display.into_element(

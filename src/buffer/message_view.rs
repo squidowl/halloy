@@ -414,9 +414,10 @@ impl<'a> ChannelQueryLayout<'a> {
             self.config.buffer.nickname.show_access_levels,
             self.config.buffer.nickname.show_bot_icon,
             registry,
+            &self.config.display.nickname,
             self.config.buffer.nickname.truncate,
+            self.config.display.truncation_character,
             Some(&self.config.buffer.nickname.brackets),
-            self.config,
         );
 
         let nick_element: Element<_> = if hide_nickname {

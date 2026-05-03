@@ -465,7 +465,7 @@ impl Channel {
             }
             Message::ContextMenu(message) => (
                 Task::none(),
-                Some(Event::ContextMenu(context_menu::update(message))),
+                context_menu::update(message).map(Event::ContextMenu),
             ),
             Message::FilehostUploadDone { id, url } => {
                 let (task, _) = self.input_view.update(
@@ -653,11 +653,12 @@ mod nick_list {
                         nicklist_config.show_access_levels,
                         nicklist_config.show_bot_icon,
                         registry,
+                        &config.display.nicklist_nickname,
                         nicklist_config
                             .truncate
                             .or(config.buffer.nickname.truncate),
+                        config.display.truncation_character,
                         None,
-                        config,
                     ),
                 )
             })
