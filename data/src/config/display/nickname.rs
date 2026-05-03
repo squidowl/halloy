@@ -5,6 +5,7 @@ use serde::Deserialize;
 pub enum Metadata {
     DisplayName,
     Pronouns,
+    Color,
 }
 
 pub fn format(
