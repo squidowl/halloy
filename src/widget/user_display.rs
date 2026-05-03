@@ -22,23 +22,21 @@ impl UserDisplay {
         show_access_levels: AccessLevelFormat,
         show_bot_icon: bool,
         registry: &dyn metadata::Registry,
+        enabled: &[Metadata],
         truncate: Option<u16>,
+        truncation_character: char,
         brackets: Option<&Brackets>,
-        config: &Config,
     ) -> Self {
         let full = UserDisplayData::new(
             user,
             show_access_levels,
             show_bot_icon,
             registry,
-            config,
+            enabled,
         );
 
         if let Some(truncated) = truncate.and_then(|truncation_length| {
-            full.truncate(
-                truncation_length as usize,
-                config.display.truncation_character,
-            )
+            full.truncate(truncation_length as usize, truncation_character)
         }) {
             Self {
                 base: truncated.bracket(brackets),
@@ -50,9 +48,11 @@ impl UserDisplay {
                 tooltip: Some(full),
             }
         } else {
+            let tooltip = full.bot_icon.then_some(full.clone());
+
             Self {
                 base: full.bracket(brackets),
-                tooltip: None,
+                tooltip,
             }
         }
     }
@@ -117,7 +117,7 @@ impl UserDisplayData {
         show_access_levels: AccessLevelFormat,
         show_bot_icon: bool,
         registry: &dyn metadata::Registry,
-        config: &Config,
+        enabled: &[Metadata],
     ) -> Self {
         let access_levels = match show_access_levels {
             AccessLevelFormat::All => {
@@ -145,18 +145,17 @@ impl UserDisplayData {
 
         let query = Query::from(user);
 
-        let display_name =
-            if config.display.nickname.contains(&Metadata::DisplayName)
-                && let Some(display_name) =
-                    registry.display_name(TargetRef::Query(&query))
-                && !display_name.is_empty()
-            {
-                Some(display_name)
-            } else {
-                None
-            };
+        let display_name = if enabled.contains(&Metadata::DisplayName)
+            && let Some(display_name) =
+                registry.display_name(TargetRef::Query(&query))
+            && !display_name.is_empty()
+        {
+            Some(display_name)
+        } else {
+            None
+        };
 
-        let pronouns = if config.display.nickname.contains(&Metadata::Pronouns)
+        let pronouns = if enabled.contains(&Metadata::Pronouns)
             && let Some(pronouns) = registry.pronouns(&query)
             && !pronouns.is_empty()
         {

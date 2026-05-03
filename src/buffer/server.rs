@@ -189,9 +189,10 @@ pub fn view<'a>(
                             config.buffer.nickname.show_access_levels,
                             config.buffer.nickname.show_bot_icon,
                             registry,
+                            &config.display.nickname,
                             config.buffer.nickname.truncate,
+                            config.display.truncation_character,
                             Some(&config.buffer.nickname.brackets),
-                            config,
                         );
 
                         let nick: Element<_> = if hide_nickname {
