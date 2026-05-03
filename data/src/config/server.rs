@@ -16,7 +16,7 @@ use crate::serde::{
     deserialize_path_buf_with_path_transformations,
     deserialize_path_buf_with_path_transformations_maybe,
 };
-use crate::{config, isupport, target};
+use crate::{config, isupport, metadata, target};
 
 pub mod filehost;
 pub mod filters;
@@ -127,6 +127,7 @@ pub struct Server {
     pub autoconnect: bool,
     pub typing: OptionalTyping,
     pub filehost: Filehost,
+    pub metadata: HashMap<metadata::Key, String>,
 }
 
 impl Server {
@@ -246,6 +247,7 @@ impl Default for Server {
             autoconnect: true,
             typing: OptionalTyping::default(),
             filehost: Filehost::default(),
+            metadata: HashMap::default(),
         }
     }
 }

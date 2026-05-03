@@ -742,7 +742,6 @@ relevant when combined with the `exclude` setting.
 include = { channels = ["#halloy"] }
 ```
 
-
 ## `filehost`
 
 See the [Filehost guide](/guides/filehost) for usage information. For global upload options see [File Upload](/configuration/file-upload).
@@ -916,6 +915,20 @@ Control whether Halloy shows typing status from other users on the server.
 [servers.<name>.typing]
 show = true
 ```
+
+## `metadata`
+
+Set values for metadata keys (`"display-name"`, `"avatar"`, `"pronouns"`, `"homepage"`, `"color"`, or `"status"`).
+
+```toml
+# Type: map
+# Values: metadata key & string value key-value pairs
+# Default: not set
+
+[servers.<name>]
+metadata = { pronouns = "they/them" }
+```
+
 
 [^1]: Windows path strings should usually be specified as literal strings (e.g. `'C:\Users\Default\'`), otherwise directory separators will need to be escaped (e.g. `"C:\\Users\\Default\\"`).
 [^2]: Relative paths are prefixed with the config directory (i.e. if you have your config.toml in `/home/me/.config/halloy/config.toml`, path `.passwd/libera` will be converted to `/home/me/.config/halloy/.passwd/libera`).

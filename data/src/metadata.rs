@@ -10,7 +10,7 @@ use crate::target::{Channel, Query, Target, TargetRef};
 
 type Metadata = HashMap<String, String>;
 
-#[derive(Copy, Clone, PartialEq, Eq, Deserialize, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Deserialize, Debug, Hash)]
 #[serde(rename_all = "kebab-case")]
 pub enum Key {
     Avatar,
