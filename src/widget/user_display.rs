@@ -50,9 +50,11 @@ impl UserDisplay {
                 tooltip: Some(full),
             }
         } else {
+            let tooltip = full.bot_icon.then_some(full.clone());
+
             Self {
                 base: full.bracket(brackets),
-                tooltip: None,
+                tooltip,
             }
         }
     }
