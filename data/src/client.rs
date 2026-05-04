@@ -1915,12 +1915,35 @@ impl Client {
                     {
                         let bot_mode_char =
                             isupport::get_bot_mode_char(&self.isupport);
-                        client_channel.update_user_status(
-                            nick,
-                            flags,
-                            casemapping,
-                            bot_mode_char,
-                        );
+
+                        if self
+                            .capabilities
+                            .acknowledged(Capability::NoImplicitNames)
+                            && let Ok(mut user) = User::parse_from_whoreply(
+                                nick,
+                                flags,
+                                user,
+                                host,
+                                casemapping,
+                                isupport::get_prefix(&self.isupport),
+                            )
+                            && client_channel.users.resolve(&user).is_none()
+                        {
+                            if flags.starts_with('G') {
+                                user.update_away(true);
+                            }
+                            if let Some(bot_char) = bot_mode_char {
+                                user.update_bot(flags.contains(bot_char));
+                            }
+                            client_channel.users.insert(user);
+                        } else {
+                            client_channel.update_user_status(
+                                nick,
+                                flags,
+                                casemapping,
+                                bot_mode_char,
+                            );
+                        }
 
                         if let Some(who_poll) = self
                             .who_polls
@@ -1935,23 +1958,6 @@ impl Client {
                                 "[{}] {channel} - WHO receiving...",
                                 self.server
                             );
-                        }
-
-                        if let Ok(mut user) = User::parse_from_whoreply(
-                            nick,
-                            flags,
-                            user,
-                            host,
-                            casemapping,
-                            isupport::get_prefix(&self.isupport),
-                        ) {
-                            if flags.starts_with('G') {
-                                user.update_away(true);
-                            }
-                            if let Some(bot_char) = bot_mode_char {
-                                user.update_bot(flags.contains(bot_char));
-                            }
-                            client_channel.users.insert(user);
                         }
                     }
 
@@ -2038,8 +2044,33 @@ impl Client {
                             _ => (),
                         }
 
-                        if let WhoStatus::Receiving(WhoSource::Poll, Some(_)) =
-                            &who_poll.status
+                        if self
+                            .capabilities
+                            .acknowledged(Capability::NoImplicitNames)
+                            && let Ok(mut user) = User::parse_from_whoreply(
+                                nick,
+                                flags,
+                                user,
+                                host,
+                                casemapping,
+                                isupport::get_prefix(&self.isupport),
+                            )
+                            && client_channel.users.resolve(&user).is_none()
+                        {
+                            if let Some(account) = account {
+                                user = user.with_accountname(account);
+                            }
+                            if flags.starts_with('G') {
+                                user.update_away(true);
+                            }
+                            if let Some(bot_char) = bot_mode_char {
+                                user.update_bot(flags.contains(bot_char));
+                            }
+                            client_channel.users.insert(user);
+                        } else if let WhoStatus::Receiving(
+                            WhoSource::Poll,
+                            Some(_),
+                        ) = &who_poll.status
                         {
                             // Check token to ~ensure reply is to poll request
                             if let Ok(token) = token.parse::<WhoToken>() {
@@ -2069,26 +2100,6 @@ impl Client {
                                     );
                                 }
                             }
-                        }
-
-                        if let Ok(mut user) = User::parse_from_whoreply(
-                            nick,
-                            flags,
-                            user,
-                            host,
-                            casemapping,
-                            isupport::get_prefix(&self.isupport),
-                        ) {
-                            if let Some(account) = account {
-                                user = user.with_accountname(account);
-                            }
-                            if flags.starts_with('G') {
-                                user.update_away(true);
-                            }
-                            if let Some(bot_char) = bot_mode_char {
-                                user.update_bot(flags.contains(bot_char));
-                            }
-                            client_channel.users.insert(user);
                         }
                     }
 
