@@ -14,6 +14,7 @@ use crate::{Theme, font, theme, widget};
 pub struct UserDisplay {
     base: UserDisplayData,
     tooltip: Option<UserDisplayData>,
+    color: Option<Color>,
 }
 
 impl UserDisplay {
@@ -27,6 +28,14 @@ impl UserDisplay {
         truncation_character: char,
         brackets: Option<&Brackets>,
     ) -> Self {
+        let query = Query::from(user);
+
+        let color = if enabled.contains(&Metadata::Color) {
+            registry.color(&query)
+        } else {
+            None
+        };
+
         let full = UserDisplayData::new(
             user,
             show_access_levels,
@@ -41,11 +50,13 @@ impl UserDisplay {
             Self {
                 base: truncated.bracket(brackets),
                 tooltip: Some(full),
+                color,
             }
         } else if full.bot_icon && brackets.is_some() {
             Self {
                 base: full.clone().bracket(brackets),
                 tooltip: Some(full),
+                color,
             }
         } else {
             let tooltip = full.bot_icon.then_some(full.clone());
@@ -53,6 +64,7 @@ impl UserDisplay {
             Self {
                 base: full.bracket(brackets),
                 tooltip,
+                color,
             }
         }
     }
@@ -66,9 +78,9 @@ impl UserDisplay {
         theme: &'a Theme,
         config: &'a Config,
     ) -> Element<'a, M> {
-        let base = self
-            .base
-            .into_element(user, is_away, is_offline, dimmed, theme, config);
+        let base = self.base.into_element(
+            user, self.color, is_away, is_offline, dimmed, theme, config,
+        );
 
         if let Some(tooltip) = self.tooltip {
             iced::widget::tooltip(
@@ -76,7 +88,8 @@ impl UserDisplay {
                 container(container(if tooltip.bot_icon {
                     row![
                         tooltip.into_element(
-                            user, false, false, None, theme, config,
+                            user, self.color, false, false, None, theme,
+                            config,
                         ),
                         selectable_text(String::from(
                             " has marked itself as a bot"
@@ -85,8 +98,9 @@ impl UserDisplay {
                     .spacing(theme::ICON_SPACE)
                     .into()
                 } else {
-                    tooltip
-                        .into_element(user, false, false, None, theme, config)
+                    tooltip.into_element(
+                        user, self.color, false, false, None, theme, config,
+                    )
                 }))
                 .style(theme::container::tooltip)
                 .padding(8),
@@ -213,6 +227,7 @@ impl UserDisplayData {
     pub fn into_element<'a, M: 'a>(
         self,
         user: &User,
+        color: Option<Color>,
         is_away: bool,
         is_offline: bool,
         dimmed: Option<(Dimmed, Color)>,
@@ -221,7 +236,7 @@ impl UserDisplayData {
     ) -> Element<'a, M> {
         let style = theme::selectable_text::dimmed(
             theme::selectable_text::nickname(
-                theme, config, user, is_away, is_offline,
+                theme, config, user, color, is_away, is_offline,
             ),
             theme,
             dimmed,
