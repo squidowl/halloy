@@ -3263,6 +3263,8 @@ impl Client {
 
                     self.metadata_sub_requests.remove(key);
                 }
+
+                return Ok(vec![]);
             }
             _ => {}
         }
