@@ -293,6 +293,13 @@ impl Alignment {
     }
 }
 
+#[derive(Default, Clone, Copy)]
+pub struct RightAlignmentWidths {
+    pub prefixes: f32,
+    pub timestamp: f32,
+    pub middle: f32,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum Resize {
     None,

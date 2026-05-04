@@ -20,9 +20,9 @@ use data::message::{self, Broadcast};
 use data::rate_limit::TokenPriority;
 use data::target::{self, Target};
 use data::{
-    Config, Notification, Server, User, Version, client, command, config,
-    environment, file_transfer, history, preview, reaction, redaction, server,
-    stream,
+    Config, Notification, Server, User, Version, cache, client, command,
+    config, environment, file_transfer, history, preview, reaction, redaction,
+    server, stream,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{Space, center, column, container, row, stack, text};
@@ -67,6 +67,7 @@ pub struct Dashboard {
     theme_editor: Option<ThemeEditor>,
     notifications: notification::Notifications,
     previews: preview::Collection,
+    previews_cache: Arc<cache::FileCache>,
     typing_animation: Option<buffer::typing::Animation>,
     http_client: Option<Arc<reqwest::Client>>,
     buffer_settings: dashboard::BufferSettings,
@@ -150,6 +151,7 @@ impl Dashboard {
             theme_editor: None,
             notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),
+            previews_cache: Arc::new(preview_cache(&config.preview)),
             typing_animation: None,
             http_client: http_client_from_config(config).map(Arc::new),
             buffer_settings: dashboard::BufferSettings::default(),
@@ -221,6 +223,10 @@ impl Dashboard {
         self.reprocess_history(clients, buffer_config);
     }
 
+    pub fn refresh_cache_limits(&mut self, config: &Config) {
+        self.previews_cache = Arc::new(preview_cache(&config.preview));
+    }
+
     pub fn set_reroute_rules(
         &mut self,
         servers: &server::Map,
@@ -245,6 +251,7 @@ impl Dashboard {
                             url.clone(),
                             client.clone(),
                             config.preview.clone(),
+                            self.previews_cache.clone(),
                         ),
                         move |result| {
                             Message::LoadPreview((url.clone(), result))
@@ -2106,14 +2113,54 @@ impl Dashboard {
                 );
             }
             buffer::Event::ContextMenu(event) => {
-                let mut tasks =
+                let mut tasks = if matches!(
+                    event,
+                    buffer::context_menu::Event::LoadUserAvatar(..)
+                ) {
+                    vec![]
+                } else {
                     vec![context_menu::close(convert::identity).map(
                         move |any_closed| {
                             Message::CloseContextMenu(window, any_closed)
                         },
-                    )];
+                    )]
+                };
 
                 let event = match event {
+                    buffer::context_menu::Event::LoadUserAvatar(
+                        server,
+                        url,
+                    ) => {
+                        let client = if clients
+                            .get_server_proxy_config(&server)
+                            .is_some()
+                        {
+                            clients.get_server_http_client(&server)
+                        } else {
+                            self.http_client.clone()
+                        };
+
+                        if let Some(client) = client
+                            && !self.previews.contains_key(&url)
+                        {
+                            self.previews
+                                .insert(url.clone(), preview::State::Loading);
+                            tasks.push(Task::perform(
+                                data::preview::load_avatar(
+                                    url.clone(),
+                                    client,
+                                    config.metadata.avatar.clone(),
+                                    config.preview.clone(),
+                                    self.previews_cache.clone(),
+                                ),
+                                move |result| {
+                                    Message::LoadPreview((url.clone(), result))
+                                },
+                            ));
+                        }
+
+                        None
+                    }
                     buffer::context_menu::Event::CopyUrl(url) => {
                         tasks.push(clipboard::write(url));
                         None
@@ -2505,6 +2552,7 @@ impl Dashboard {
                                     url.clone(),
                                     preview_client.clone(),
                                     config.preview.clone(),
+                                    self.previews_cache.clone(),
                                 ),
                                 move |result| {
                                     Message::LoadPreview((url.clone(), result))
@@ -2640,6 +2688,7 @@ impl Dashboard {
                 let pending = filehost::PendingUpload {
                     window,
                     pane_id: id,
+                    is_override_url: clients.get_filehost_is_override(&server),
                     has_credentials: clients
                         .get_filehost_auth(&server)
                         .is_some(),
@@ -4197,6 +4246,7 @@ impl Dashboard {
             theme_editor: None,
             notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),
+            previews_cache: Arc::new(preview_cache(&config.preview)),
             typing_animation: None,
             http_client: http_client_from_config(config).map(Arc::new),
             buffer_settings: data.buffer_settings.clone(),
@@ -4920,4 +4970,14 @@ fn http_client_from_config(config: &Config) -> Option<reqwest::Client> {
             None
         }
     }
+}
+
+fn preview_cache(config: &config::Preview) -> cache::FileCache {
+    let root = environment::cache_dir().join("previews");
+
+    cache::FileCache::new(
+        root,
+        config.request.image_cache.max_size_bytes(),
+        config.request.image_cache.trim_interval,
+    )
 }

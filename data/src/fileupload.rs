@@ -78,6 +78,7 @@ pub async fn upload(
     path: &Path,
     auth: Option<Auth>,
     irc_uses_tls: bool,
+    is_override_url: bool,
     client: Arc<Client>,
     proxy_config: Option<&proxy::Proxy>,
 ) -> Result<String, Error> {
@@ -93,12 +94,20 @@ pub async fn upload(
     }
 
     // Spec: clients MUST refuse unencrypted transports when IRC uses TLS.
-    if irc_uses_tls && base.scheme() != "https" {
+    if irc_uses_tls
+        && base.scheme() != "https"
+        // Exception: override_url pointing to localhost.
+        && !(is_override_url && is_localhost(&base))
+    {
         return Err(Error::InsecureTransport);
     }
 
     // Spec: SASL EXTERNAL is not valid without TLS
-    if matches!(auth, Some(Auth::External { .. })) && base.scheme() != "https" {
+    if matches!(auth, Some(Auth::External { .. }))
+        && base.scheme() != "https"
+        // same exception follows as above
+        && !(is_override_url && is_localhost(&base))
+    {
         return Err(Error::InsecureTransport);
     }
 
@@ -172,6 +181,15 @@ pub async fn upload(
     log::info!("file uploaded successfully: {file_url}");
 
     Ok(file_url.to_string())
+}
+
+fn is_localhost(url: &Url) -> bool {
+    match url.host() {
+        Some(url::Host::Domain(d)) => d == "localhost",
+        Some(url::Host::Ipv4(addr)) => addr.is_loopback(),
+        Some(url::Host::Ipv6(addr)) => addr.is_loopback(),
+        None => false,
+    }
 }
 
 fn content_disposition(file_name: &str) -> String {

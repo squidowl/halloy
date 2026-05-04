@@ -28,7 +28,7 @@ This example excludes all messages in `#halloy` except for messages from
 `GH-Bot`.
 
 ```toml
-include = { users = ["#GH-Bot"] }
+include = { users = ["GH-Bot"] }
 exclude = { channels = ["#halloy"] }
 ```
 

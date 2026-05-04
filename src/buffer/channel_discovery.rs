@@ -59,7 +59,7 @@ impl ChannelDiscovery {
         match message {
             Message::ContextMenu(message) => (
                 Task::none(),
-                Some(Event::ContextMenu(context_menu::update(message))),
+                context_menu::update(message).map(Event::ContextMenu),
             ),
             Message::Link(link) => match link {
                 message::Link::Url(url) => {

@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::mem::take;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -35,8 +35,8 @@ use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
 use crate::{
     Server, User, buffer, channel_discovery, compression, config, ctcp, dcc,
-    environment, file_transfer, fileupload, history, isupport, message, mode,
-    server,
+    environment, file_transfer, fileupload, history, isupport, message,
+    metadata, mode, server,
 };
 
 pub mod on_connect;
@@ -212,8 +212,10 @@ pub struct Client {
     resolved_netid: Option<String>,
     anti_flood: Option<TokenBucket<message::Encoded>>,
     mode_requests: Vec<ModeRequest>,
+    metadata_sub_requests: HashSet<String>,
     channel_discovery_manager: channel_discovery::Manager,
     http_client: Option<Arc<reqwest::Client>>, // Only Some if config.proxy.is_some()
+    registry: metadata::ServerRegistry,
 }
 
 impl fmt::Debug for Client {
@@ -279,9 +281,11 @@ impl Client {
             resolved_netid: None,
             anti_flood: Some(TokenBucket::new(config.anti_flood, 10)),
             mode_requests: Vec::new(),
+            metadata_sub_requests: HashSet::new(),
             http_client: http_client.map(Arc::new),
             config,
             channel_discovery_manager: channel_discovery::Manager::new(),
+            registry: metadata::ServerRegistry::new(),
         }
     }
 
@@ -380,6 +384,43 @@ impl Client {
                 } else {
                     log::warn!(
                         "[{}] Monitor list configured for, but is not supported by the server",
+                        self.server,
+                    );
+                }
+            }
+
+            if !config.metadata.is_empty()
+                && config.metadata != self.config.metadata
+            {
+                if self.capabilities.acknowledged(Capability::ReadMarker) {
+                    self.send(
+                        None,
+                        command!(
+                            "METADATA",
+                            self.nickname().to_string(),
+                            "CLEAR"
+                        )
+                        .into(),
+                        TokenPriority::High,
+                    );
+
+                    for (key, value) in config.metadata.iter() {
+                        self.send(
+                            None,
+                            command!(
+                                "METADATA",
+                                self.nickname().to_string(),
+                                "SET",
+                                key.to_str(),
+                                value
+                            )
+                            .into(),
+                            TokenPriority::High,
+                        );
+                    }
+                } else {
+                    log::warn!(
+                        "[{}] Metadata configured for, but is not supported by the server",
                         self.server,
                     );
                 }
@@ -1161,8 +1202,7 @@ impl Client {
                     (None, None) | (None, Some(_)) => return Ok(vec![]),
                 };
 
-                self.capabilities
-                    .extend_list(caps.split(' ').map(String::from));
+                self.capabilities.extend_list(caps.split(' '));
 
                 // Finished
                 if asterisk.is_none() {
@@ -1227,8 +1267,7 @@ impl Client {
             Command::CAP(_, sub, a, b) if sub == "NEW" => {
                 let caps = ok!(b.as_ref().or(a.as_ref()));
 
-                self.capabilities
-                    .extend_list(caps.split(' ').map(String::from));
+                self.capabilities.extend_list(caps.split(' '));
 
                 let requested =
                     self.capabilities.create_requested(&self.config);
@@ -1523,14 +1562,16 @@ impl Client {
                         }
                     }
 
-                    if message.tags.contains_key("bot")
+                    if self.isupport.contains_key(&isupport::Kind::BOT)
                         && let Some(channel) =
                             self.message_channel_target(&message.command)
                         && let Some(ch) = self.chanmap.get_mut(&channel)
-                        && let Some(mut chan_user) = ch.users.take(&user)
                     {
-                        chan_user.update_bot(true);
-                        ch.users.insert(chan_user);
+                        ch.users.update_user(
+                            &user,
+                            None,
+                            Some(message.tags.contains_key("bot")),
+                        );
                     }
 
                     let user_query = target::Query::from(&user);
@@ -2986,6 +3027,35 @@ impl Client {
                         .try_send(command!("BOUNCER", "LISTNETWORKS"))?;
                 }
 
+                // request metadata
+                if self.capabilities.acknowledged(Capability::Metadata) {
+                    let mut requested = config
+                        .metadata
+                        .preferred_key_strs()
+                        .map(ToString::to_string)
+                        .collect::<Vec<String>>();
+
+                    if let Some(limits) = self.capabilities.metadata_limits() {
+                        requested.truncate(limits.max_subs);
+                    }
+
+                    log::debug!(
+                        "[{}] Requesting subs: {requested:?}",
+                        self.server
+                    );
+
+                    if !requested.is_empty() {
+                        for key in &requested {
+                            self.metadata_sub_requests.insert(key.to_string());
+                        }
+
+                        let mut args = vec!["*".to_string(), "SUB".to_string()];
+                        args.extend(requested);
+
+                        self.handle.try_send(command("METADATA", args))?;
+                    }
+                }
+
                 let channels = self
                     .config
                     .channels
@@ -3072,6 +3142,32 @@ impl Client {
                     );
                 }
 
+                if !self.config.metadata.is_empty() {
+                    if self.capabilities.acknowledged(Capability::ReadMarker) {
+                        for (key, value) in
+                            self.config.metadata.clone().into_iter()
+                        {
+                            self.send(
+                                None,
+                                command!(
+                                    "METADATA",
+                                    self.nickname().to_string(),
+                                    "SET",
+                                    key.to_str(),
+                                    value
+                                )
+                                .into(),
+                                TokenPriority::High,
+                            );
+                        }
+                    } else {
+                        log::warn!(
+                            "[{}] Metadata configured for, but is not supported by the server",
+                            self.server,
+                        );
+                    }
+                }
+
                 return Ok(events);
             }
             Command::Numeric(RPL_VERSION, args) => {
@@ -3084,6 +3180,70 @@ impl Client {
                     self.features.enable_supported(server_version);
 
                     return Ok(vec![]);
+                }
+            }
+            Command::METADATA(target, args) => {
+                if let [key, _visibility, value] = &args[..] {
+                    log::debug!(
+                        "[{}] Received metadata [{target}]: {key}={value}",
+                        self.server
+                    );
+                    self.registry.insert(
+                        Target::parse(
+                            target,
+                            self.chantypes(),
+                            self.statusmsg(),
+                            self.casemapping(),
+                        ),
+                        key.clone(),
+                        value.clone(),
+                    );
+                }
+            }
+            Command::Numeric(RPL_KEYVALUE, args) => {
+                if let [_, target, key, _visibility, value] = &args[..] {
+                    log::debug!(
+                        "[{}] Received metadata [{target}]: {key}={value}",
+                        self.server
+                    );
+                    self.registry.insert(
+                        Target::parse(
+                            target,
+                            self.chantypes(),
+                            self.statusmsg(),
+                            self.casemapping(),
+                        ),
+                        key.clone(),
+                        value.clone(),
+                    );
+                    return Ok(vec![]);
+                }
+            }
+            Command::FAIL(command, code, context, _) => {
+                if command == "METADATA"
+                    && code == "KEY_INVALID"
+                    && let Some(key) =
+                        context.as_ref().and_then(|context| context.first())
+                    && self.metadata_sub_requests.take(key).is_some()
+                {
+                    log::warn!(
+                        "[{}] Metadata {key} not supported by the server",
+                        self.server
+                    );
+
+                    // Expected as part of requesting keys via METADATA SUB,
+                    // hide from the user.
+                    return Ok(vec![]);
+                }
+            }
+            Command::Numeric(RPL_METADATASUBOK, args) => {
+                for key in args.iter().skip(1) {
+                    log::info!(
+                        "[{}] Metadata {key} subscription successful",
+                        self.server
+                    );
+
+                    self.metadata_sub_requests.remove(key);
                 }
             }
             _ => {}
@@ -4648,6 +4808,29 @@ impl Map {
         self.client(server).is_none_or(|c| c.config.use_tls)
     }
 
+    pub fn get_filehost_is_override(&self, server: &Server) -> bool {
+        let Some(client) = self.client(server) else {
+            return false;
+        };
+
+        if !client.config.filehost.enabled {
+            return false;
+        }
+
+        if client.config.filehost.override_url.is_some() {
+            return true;
+        }
+
+        if server.is_bouncer_network() {
+            server
+                .parent()
+                .as_ref()
+                .is_some_and(|p| self.get_filehost_is_override(p))
+        } else {
+            false
+        }
+    }
+
     pub fn get_features_ref(&self, server: &Server) -> &Features {
         self.client(server)
             .map_or(&features::DEFAULT, |client| &client.features)
@@ -5004,6 +5187,16 @@ impl Map {
         }
         Ok(())
     }
+
+    pub fn get_registry(&self, server: &Server) -> &dyn metadata::Registry {
+        self.0
+            .get(server)
+            .and_then::<&dyn metadata::Registry, _>(|state| match state {
+                State::Disconnected => None,
+                State::Ready(client) => Some(&client.registry),
+            })
+            .unwrap_or(metadata::EMPTY)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -5174,13 +5367,11 @@ impl Channel {
                 _ => return,
             };
 
-            if let Some(mut user) = self.users.take(&user) {
-                user.update_away(away);
-                if let Some(bot_char) = bot_mode_char {
-                    user.update_bot(flags.contains(bot_char));
-                }
-                self.users.insert(user);
-            }
+            self.users.update_user(
+                &user,
+                Some(away),
+                bot_mode_char.map(|bot_char| flags.contains(bot_char)),
+            );
         }
     }
 

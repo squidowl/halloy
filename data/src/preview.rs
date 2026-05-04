@@ -18,12 +18,12 @@ use url::Url;
 
 pub use self::card::Card;
 pub use self::image::Image;
+use crate::cache::{self, Asset, CacheState, CachedAsset, FileCache};
 use crate::message::Source;
 use crate::server::Server;
 use crate::target::{self, TargetRef};
 use crate::{config, isupport};
 
-mod cache;
 pub mod card;
 pub mod image;
 
@@ -79,6 +79,10 @@ impl<'a> Previews<'a> {
             State::Error(_) => true,
         })
     }
+
+    pub fn collection(&self) -> &'a Collection {
+        self.collection
+    }
 }
 
 pub type Collection = HashMap<Url, State>;
@@ -123,6 +127,17 @@ impl Preview {
     }
 }
 
+impl CachedAsset for Preview {
+    fn assets(&self) -> Vec<Asset<'_>> {
+        match self {
+            Preview::Card(c) => {
+                vec![Asset(c.image.path.as_path(), &c.image.digest)]
+            }
+            Preview::Image(i) => vec![Asset(i.path.as_path(), &i.digest)],
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum State {
     Loading,
@@ -130,35 +145,87 @@ pub enum State {
     Error(LoadError),
 }
 
+#[derive(Debug, Clone, Copy)]
+enum Kind {
+    Preview,
+    Avatar,
+}
+
 pub async fn load(
     url: Url,
     client: Arc<reqwest::Client>,
     config: config::Preview,
+    cache: Arc<FileCache>,
+) -> Result<Preview, LoadError> {
+    let is_enabled = config.is_enabled(url.as_str());
+    load_inner(url, client, &config, cache, is_enabled, Kind::Preview).await
+}
+
+pub async fn load_avatar(
+    url: Url,
+    client: Arc<reqwest::Client>,
+    avatar_config: config::metadata::Avatar,
+    preview_config: config::Preview,
+    cache: Arc<FileCache>,
+) -> Result<Preview, LoadError> {
+    let is_enabled = avatar_config.is_enabled(url.as_str());
+    load_inner(
+        url,
+        client,
+        &preview_config,
+        cache,
+        is_enabled,
+        Kind::Avatar,
+    )
+    .await
+}
+
+async fn load_inner(
+    url: Url,
+    client: Arc<reqwest::Client>,
+    preview_config: &config::Preview,
+    cache: Arc<FileCache>,
+    is_enabled: bool,
+    kind: Kind,
 ) -> Result<Preview, LoadError> {
     let cache_key_url = canonical_preview_url(&url);
 
-    if !config.is_enabled(url.as_str()) {
+    if !is_enabled {
         return Err(LoadError::Disabled);
     }
 
-    let result = if let Some(state) =
-        cache::load(&cache_key_url, client.clone(), &config).await
-    {
+    let result = if let Some(state) = cache.load(&cache_key_url).await {
         match state {
-            cache::State::Ok(preview) => Ok(preview),
-            cache::State::Error => Err(LoadError::CachedFailed),
+            CacheState::Ok(preview) => Ok(preview),
+            CacheState::Error => Err(LoadError::CachedFailed),
         }
     } else {
-        match load_uncached(url.clone(), client, &config).await {
-            Ok(preview) => {
-                cache::save(&cache_key_url, cache::State::Ok(preview.clone()))
-                    .await;
+        let loaded = match kind {
+            Kind::Preview => {
+                load_uncached(url.clone(), client, preview_config, &cache).await
+            }
+            Kind::Avatar => {
+                load_avatar_uncached(
+                    url.clone(),
+                    client,
+                    preview_config,
+                    &cache,
+                )
+                .await
+            }
+        };
 
+        match loaded {
+            Ok(preview) => {
+                cache
+                    .save(&cache_key_url, &CacheState::Ok(preview.clone()))
+                    .await;
                 Ok(preview)
             }
             Err(error) => {
-                cache::save(&cache_key_url, cache::State::Error).await;
-
+                cache
+                    .save::<Preview>(&cache_key_url, &CacheState::Error)
+                    .await;
                 Err(error)
             }
         }
@@ -207,10 +274,11 @@ async fn load_uncached(
     url: Url,
     client: Arc<reqwest::Client>,
     config: &config::Preview,
+    cache: &FileCache,
 ) -> Result<Preview, LoadError> {
     log::trace!("Loading preview for {url}");
 
-    match fetch(url.clone(), client.clone(), config).await? {
+    match fetch(url.clone(), client.clone(), config, cache).await? {
         Fetched::Image(image) => Ok(Preview::Image(image)),
         Fetched::Other(bytes) => {
             let MetaTagProperties {
@@ -224,7 +292,7 @@ async fn load_uncached(
                 image_url.ok_or(LoadError::MissingProperty("image"))?;
 
             let Fetched::Image(image) =
-                fetch(image_url, client, config).await?
+                fetch(image_url, client, config, cache).await?
             else {
                 return Err(LoadError::NotImage);
             };
@@ -241,6 +309,21 @@ async fn load_uncached(
     }
 }
 
+async fn load_avatar_uncached(
+    url: Url,
+    client: Arc<reqwest::Client>,
+    config: &config::Preview,
+    cache: &FileCache,
+) -> Result<Preview, LoadError> {
+    log::trace!("Loading avatar for {url}");
+
+    let Fetched::Image(image) = fetch(url, client, config, cache).await? else {
+        return Err(LoadError::NotImage);
+    };
+
+    Ok(Preview::Image(image))
+}
+
 enum Fetched {
     Image(Image),
     Other(Vec<u8>),
@@ -250,6 +333,7 @@ async fn fetch(
     url: Url,
     client: Arc<reqwest::Client>,
     config: &config::Preview,
+    cache: &FileCache,
 ) -> Result<Fetched, LoadError> {
     // WARN: `concurrency` changes aren't picked up until app is relaunched
     let _permit = RATE_LIMIT
@@ -283,7 +367,7 @@ async fn fetch(
             }
 
             // Store image to disk, we don't want to explode memory
-            let temp_path = cache::download_path(&url);
+            let temp_path = cache.download_path(&url);
 
             if let Some(parent) = temp_path.parent().filter(|p| !p.exists()) {
                 fs::create_dir_all(&parent).await?;
@@ -309,8 +393,9 @@ async fn fetch(
                     written += chunk.len();
                 }
 
-                let digest = image::Digest::new(&hasher.finalize());
-                let image_path = cache::image_path(&format, &digest);
+                let digest = cache::HexDigest::new(&hasher.finalize());
+                let image_path =
+                    cache.blob_path(&digest, format.extensions_str()[0]);
 
                 if let Some(parent) =
                     image_path.parent().filter(|p| !p.exists())
@@ -319,14 +404,11 @@ async fn fetch(
                 }
 
                 fs::rename(&temp_path, &image_path).await?;
-                cache::maybe_trim_image_cache(
-                    written as u64,
-                    config.request.image_cache.max_size_bytes(),
-                    config.request.image_cache.trim_interval,
-                    image_path.clone(),
-                );
+                cache.account_blob(written as u64, image_path.clone());
 
-                Ok::<Image, LoadError>(Image::new(format, url, digest))
+                Ok::<Image, LoadError>(Image::new(
+                    format, url, digest, image_path,
+                ))
             }
             .await;
 
@@ -458,7 +540,7 @@ fn parse_meta_tag_properties(
 
 #[derive(Debug, thiserror::Error)]
 pub enum LoadError {
-    #[error("preview disabled in config")]
+    #[error("loading disabled in config")]
     Disabled,
     #[error("cached failed attempt")]
     CachedFailed,

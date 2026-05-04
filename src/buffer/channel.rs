@@ -76,6 +76,7 @@ pub fn view<'a>(
     let chantypes = clients.get_server_chantypes_or_default(server);
     let casemapping = clients.get_server_casemapping_or_default(server);
     let prefix = clients.get_server_prefix_or_default(server);
+    let registry = clients.get_registry(server);
     let channel = &state.target;
     let confirm_message_delivery = clients.get_server_supports_echoes(server)
         && config.servers.get(server).is_some_and(|server_config| {
@@ -101,19 +102,20 @@ pub fn view<'a>(
     let chathistory_state =
         clients.get_chathistory_state(server, &channel.to_target());
 
-    let previews = Some(Previews::new(
+    let previews = Previews::new(
         previews,
         channel.as_target_ref(),
         server,
         &config.preview,
         casemapping,
-    ));
+    );
 
     let message_formatter = ChannelQueryLayout {
         config,
         chantypes,
         casemapping,
         prefix,
+        registry,
         confirm_message_delivery,
         can_send_reactions,
         can_redact,
@@ -134,7 +136,7 @@ pub fn view<'a>(
             &state.scroll_view,
             scroll_view::Kind::Channel(&state.server, channel),
             history,
-            previews,
+            Some(previews),
             Some(|preview: &Preview, source: &message::Source| {
                 preview.visible_for_source(
                     source,
@@ -153,6 +155,7 @@ pub fn view<'a>(
             config,
             theme,
             message_formatter,
+            clients.get_registry(&state.server),
         )
         .map(Message::ScrollView),
     )
@@ -160,14 +163,31 @@ pub fn view<'a>(
     .height(Length::Fill);
 
     let nick_list = nick_list::view(
-        server, prefix, channel, users, our_user, config, theme,
+        server,
+        prefix,
+        channel,
+        clients.get_registry(server),
+        previews.collection(),
+        users,
+        our_user,
+        config,
+        theme,
     )
     .map(Message::ContextMenu);
 
     // If topic toggles from None to Some then it messes with messages' scroll state,
     // so produce a zero-height placeholder when topic is None.
-    let topic = topic(state, clients, users, our_user, settings, config, theme)
-        .unwrap_or_else(|| column![].into());
+    let topic = topic(
+        state,
+        clients,
+        users,
+        our_user,
+        settings,
+        config,
+        theme,
+        previews.collection(),
+    )
+    .unwrap_or_else(|| column![].into());
 
     let show_text_input = match config.buffer.text_input.visibility {
         data::config::buffer::text_input::Visibility::Focused => is_focused,
@@ -183,6 +203,7 @@ pub fn view<'a>(
             &state.input_view,
             our_user,
             &state.server,
+            registry,
             config,
             theme,
             filehost_url,
@@ -399,7 +420,7 @@ impl Channel {
             }
             Message::ContextMenu(message) => (
                 Task::none(),
-                Some(Event::ContextMenu(context_menu::update(message))),
+                context_menu::update(message).map(Event::ContextMenu),
             ),
             Message::FilehostUploadDone { id, url } => {
                 let (task, _) = self.input_view.update(
@@ -512,6 +533,7 @@ fn topic<'a>(
     settings: Option<&'a buffer::Settings>,
     config: &'a Config,
     theme: &'a Theme,
+    previews: &'a preview::Collection,
 ) -> Option<Element<'a, Message>> {
     let topic_enabled = settings
         .map_or(config.buffer.channel.topic_banner.enabled, |settings| {
@@ -543,172 +565,87 @@ fn topic<'a>(
             our_user,
             config,
             theme,
+            clients.get_registry(&state.server),
+            previews,
         )
         .map(Message::Topic),
     )
 }
 
 mod nick_list {
-    use std::borrow::Cow;
-
     use context_menu::Message;
     use data::user::ChannelUsers;
-    use data::{Config, Server, User, config, isupport, target};
+    use data::{Config, Server, User, isupport, metadata, target};
     use iced::Length;
-    use iced::advanced::text;
-    use iced::widget::{Scrollable, column, row, scrollable};
+    use iced::widget::{Scrollable, column, scrollable};
 
     use crate::buffer::context_menu;
-    use crate::widget::{Element, selectable_text, tooltip};
-    use crate::{Theme, font, icon, theme};
+    use crate::widget::Element;
+    use crate::widget::user_display::UserDisplay;
+    use crate::{Theme, theme};
 
     pub fn view<'a>(
         server: &'a Server,
         prefix: &'a [isupport::PrefixMap],
         channel: &'a target::Channel,
+        registry: &'a dyn metadata::Registry,
+        previews: &'a data::preview::Collection,
         users: Option<&'a ChannelUsers>,
         our_user: Option<&'a User>,
         config: &'a Config,
         theme: &'a Theme,
     ) -> Element<'a, Message> {
         let nicklist_config = &config.buffer.channel.nicklist;
-        let truncate = if nicklist_config.width.is_some() {
-            None
-        } else {
-            nicklist_config.truncate.or(config.buffer.nickname.truncate)
-        };
+
+        let user_displays = users
+            .into_iter()
+            .flatten()
+            .map(|user| {
+                (
+                    user,
+                    UserDisplay::new(
+                        user,
+                        nicklist_config.show_access_levels,
+                        nicklist_config.show_bot_icon,
+                        registry,
+                        &config.display.nicklist_nickname,
+                        nicklist_config
+                            .truncate
+                            .or(config.buffer.nickname.truncate),
+                        config.display.truncation_character,
+                        None,
+                    ),
+                )
+            })
+            .collect::<Vec<_>>();
 
         let width = match nicklist_config.width {
             Some(width) => width,
             None => {
-                let (max_nick_length, max_bot_nick_length) =
-                    users.into_iter().flatten().fold(
-                        (0, None),
-                        |(max_nick_length, max_bot_nick_length), user| {
-                            let nick_length = user
-                                .display(
-                                    nicklist_config.show_access_levels,
-                                    nicklist_config.show_bot_icon,
-                                    truncate,
-                                    config.display.truncation_character,
-                                )
-                                .chars()
-                                .count();
-
-                            if user.is_bot() {
-                                (
-                                    max_nick_length,
-                                    max_bot_nick_length.max(Some(nick_length)),
-                                )
-                            } else {
-                                (
-                                    max_nick_length.max(nick_length),
-                                    max_bot_nick_length,
-                                )
-                            }
-                        },
-                    );
-
-                (if let Some(max_bot_nick_length) = max_bot_nick_length {
-                    if nicklist_config.show_bot_icon {
-                        // reserve space for any eventual bot icon
-                        font::width_from_chars(max_nick_length, &config.font)
-                            .max(
-                                font::width_from_chars(
-                                    max_bot_nick_length,
-                                    &config.font,
-                                ) + theme::ICON_SIZE
-                                    + theme::ICON_SPACE,
-                            )
-                    } else {
-                        font::width_from_chars(
-                            max_nick_length.max(max_bot_nick_length),
-                            &config.font,
-                        )
-                    }
-                } else {
-                    font::width_from_chars(max_nick_length, &config.font)
-                } + 1.0)
+                user_displays.iter().fold(
+                    0.0_f32,
+                    |max_width, (_, user_display)| {
+                        max_width.max(user_display.width(config))
+                    },
+                ) + 1.0
             }
         };
 
-        let content = column(users.into_iter().flatten().map(|user| {
-            let show_bot_icon = user.is_bot() && nicklist_config.show_bot_icon;
-
-            let (nick_display, show_nick_tooltip) = user
-                .display_with_truncated(
-                    nicklist_config.show_access_levels,
-                    nicklist_config.show_bot_icon,
-                    truncate,
-                    config.display.truncation_character,
-                );
-
-            let nick = selectable_text(nick_display)
-                .font_maybe(
-                    theme::font_style::nickname(theme, false).map(font::get),
-                )
-                .style(|theme| {
-                    theme::selectable_text::nicklist_nickname(
-                        theme, config, user,
-                    )
-                })
-                .align_x(match nicklist_config.alignment {
-                    config::buffer::channel::Alignment::Left => {
-                        text::Alignment::Left
-                    }
-                    config::buffer::channel::Alignment::Right => {
-                        text::Alignment::Right
-                    }
-                })
-                .width(match (show_bot_icon, nicklist_config.alignment) {
-                    (true, config::buffer::channel::Alignment::Left) => {
-                        Length::Shrink
-                    }
-                    (true, config::buffer::channel::Alignment::Right) => {
-                        Length::Fixed(width)
-                    }
-                    (false, _) => Length::Fixed(width),
-                });
-
-            let content_tooltip = if show_bot_icon {
-                Some(Cow::Owned(format!(
-                    "{} has marked itself as a bot",
-                    user.nickname()
-                )))
-            } else if show_nick_tooltip {
-                Some(Cow::Borrowed(user.as_str()))
-            } else {
-                None
-            };
-
-            let content: Element<_> = if show_bot_icon {
-                let nick_color = theme::selectable_text::nicklist_nickname(
-                    theme, config, user,
-                )
-                .color;
-                let bot_icon = icon::robot().style(move |_| {
-                    iced::widget::text::Style { color: nick_color }
-                });
-                row![nick, bot_icon]
-                    .align_y(iced::Alignment::Center)
-                    .spacing(theme::ICON_SPACE)
-                    .into()
-            } else {
-                nick.into()
-            };
-
-            let content: Element<_> = tooltip(
-                content,
-                content_tooltip,
-                tooltip::Position::Top,
-                theme,
-            );
-
+        let rows = user_displays.into_iter().map(|(user, user_display)| {
             context_menu::user(
-                content,
+                user_display.into_element(
+                    user,
+                    user.is_away(),
+                    false,
+                    None,
+                    theme,
+                    config,
+                ),
                 server,
                 prefix,
                 Some(channel),
+                registry,
+                previews,
                 user,
                 Some(user),
                 our_user,
@@ -716,13 +653,15 @@ mod nick_list {
                 theme,
                 &config.buffer.channel.nicklist.click,
             )
-        }));
+        });
+
+        let content = column(rows);
 
         Scrollable::new(content)
             .direction(scrollable::Direction::Vertical(
                 scrollable::Scrollbar::new().width(1).scroller_width(1),
             ))
-            .width(Length::Shrink)
+            .width(Length::Fixed(width))
             .style(theme::scrollable::hidden)
             .into()
     }

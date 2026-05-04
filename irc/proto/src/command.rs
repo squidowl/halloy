@@ -137,6 +137,11 @@ pub enum Command {
     /// <subcommand> <params>...
     BOUNCER(String, Vec<String>),
 
+    /* Metadata */
+    /// <subcommand> <key> <visibility> <value> (server->client)
+    /// <subcommand> <subcommand> <params>...   (client->server)
+    METADATA(String, Vec<String>),
+
     Numeric(Numeric, Vec<String>),
     Unknown(String, Vec<String>),
     Raw(String),
@@ -274,6 +279,7 @@ impl Command {
                 }
             }
             "BOUNCER" if len > 0 => BOUNCER(req!(), remaining!()),
+            "METADATA" if len > 0 => METADATA(req!(), remaining!()),
             _ => Self::Unknown(tag, remaining!()),
         }
     }
@@ -366,6 +372,9 @@ impl Command {
             Command::BOUNCER(command, params) => {
                 std::iter::once(command).chain(params).collect()
             }
+            Command::METADATA(command, params) => {
+                std::iter::once(command).chain(params).collect()
+            }
             Command::Numeric(_, params) => params,
             Command::Unknown(_, params) => params,
             Command::Raw(_) => vec![],
@@ -433,6 +442,7 @@ impl Command {
             WARN(_, _, _, _) => "WARN".into(),
             NOTE(_, _, _, _) => "NOTE".into(),
             BOUNCER(..) => "BOUNCER".into(),
+            METADATA(..) => "METADATA".into(),
             Numeric(numeric, _) => format!("{:03}", *numeric as u16).into(),
             Unknown(tag, _) => tag.clone().into(),
             Raw(_) => "".into(),
@@ -575,6 +585,13 @@ pub enum Numeric {
     RPL_MONLIST = 732,
     RPL_ENDOFMONLIST = 733,
     ERR_MONLISTFULL = 734,
+    RPL_WHOISKEYVALUE = 760,
+    RPL_KEYVALUE = 761,
+    RPL_KEYNOTSET = 766,
+    RPL_METADATASUBOK = 770,
+    RPL_METADATAUNSUBOK = 771,
+    RPL_METADATASUBS = 772,
+    RPL_METADATASYNCLATER = 774,
     RPL_LOGGEDIN = 900,
     RPL_LOGGEDOUT = 901,
     ERR_NICKLOCKED = 902,
@@ -723,6 +740,9 @@ impl TryFrom<u16> for Numeric {
             732 => RPL_MONLIST,
             733 => RPL_ENDOFMONLIST,
             734 => ERR_MONLISTFULL,
+            760 => RPL_WHOISKEYVALUE,
+            761 => RPL_KEYVALUE,
+            770 => RPL_METADATASUBOK,
             900 => RPL_LOGGEDIN,
             901 => RPL_LOGGEDOUT,
             902 => ERR_NICKLOCKED,

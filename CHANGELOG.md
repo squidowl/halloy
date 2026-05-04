@@ -9,6 +9,7 @@ Added:
 - Customize the character used to indicate a nickname was truncated with `display.truncation_character`
 - Support for IRCv3 `draft/message-redaction`
 - Setting to close queries when closing query buffer panes (`buffer.close.query`)
+- Support for IRCv3 metadata `display-name`, `avatar`, `pronouns`, `homepage`, `color`, `status` keys
 
 Fixed:
 
@@ -19,15 +20,20 @@ Fixed:
 - Do not hide consecutive nicknames if the user's displayed access levels or bot mode changes
 - Issue where unread indicator could appear in sidebar for an open pane that does not have unread messages
 - Issue where backlog divider in highlights or logs pane would not update when marking the pane as read
+- Allow multiple file uploads when pasting on macOs
+- Fix link matching for both end of line delimiters & punctuations
+- Matching against `users` for some include/exclude conditions
+- Handle URLs ending with paired delimiters chars
 
 Changed:
 
 - On-join topic messages disabled by default (`buffer.server_messages.topic`), instead the topic banner is enabled by default (`buffer.channel.topic_banner`)
+- For filehosts, localhost is now treated as a secure transport when using `servers.<name>.filehost.override_url`
 
 Thanks:
 
-- Contributions: @bb010g, @furudean, @englut, @luca020400
-- Bug reports: @bb010g
+- Contributions: @bb010g, @furudean, @englut, @luca020400, @4e554c4c
+- Bug reports: @bb010g, daniiooo
 - Feature requests: @WinnerWind, Shyny
 
 # 2026.6 (2026-04-21)

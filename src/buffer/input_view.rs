@@ -14,7 +14,7 @@ use data::rate_limit::TokenPriority;
 use data::server::Server;
 use data::target::Target;
 use data::user::Nick;
-use data::{Config, User, client, command, message, shortcut};
+use data::{Config, User, client, command, message, metadata, shortcut};
 use iced::advanced::widget::Tree;
 use iced::advanced::{Clipboard, Layout, Shell, mouse};
 use iced::widget::text::{Shaping, Wrapping};
@@ -30,6 +30,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use self::completion::Completion;
 use self::exec::run as execute_shell_command;
 use crate::widget::key_press::is_numpad;
+use crate::widget::user_display::UserDisplay;
 use crate::widget::{
     Element, Renderer, Text, anchored_overlay, context_menu, decorate, text,
     tooltip,
@@ -338,6 +339,7 @@ pub fn view<'a>(
     state: &'a State,
     our_user: Option<&User>,
     server: &'a Server,
+    registry: &dyn metadata::Registry,
     config: &'a Config,
     theme: &'a Theme,
     filehost_url: Option<&'a str>,
@@ -555,45 +557,33 @@ pub fn view<'a>(
     )
     .into();
 
-    let our_user_style = {
-        let is_user_away = config
-            .buffer
-            .nickname
-            .away
-            .is_away(our_user.is_none_or(User::is_away));
-
-        theme::text::nickname(
-            theme,
-            &config.buffer.nickname.color,
-            our_user.map(User::seed),
-            is_user_away,
-            false,
-        )
-    };
-
     let maybe_our_user = config
         .buffer
         .text_input
         .nickname
         .enabled
-        .then(move || {
-            our_user.map(|user| {
-                container(
-                    text(user.display(
-                        config.buffer.text_input.nickname.show_access_levels,
-                        config.buffer.nickname.show_bot_icon,
-                        None,
-                        config.display.truncation_character,
-                    ))
-                    .style(move |_| our_user_style)
-                    .font_maybe(
-                        theme::font_style::nickname(theme, false)
-                            .map(font::get),
-                    ),
-                )
-                .padding(padding::right(4))
-            })
-        })
+        .then_some(our_user.map(|user| {
+            let user_display = UserDisplay::new(
+                user,
+                config.buffer.text_input.nickname.show_access_levels,
+                config.buffer.nickname.show_bot_icon,
+                registry,
+                &config.display.nickname,
+                None,
+                config.display.truncation_character,
+                None,
+            );
+
+            container(user_display.into_element(
+                user,
+                user.is_away(),
+                false,
+                None,
+                theme,
+                config,
+            ))
+            .padding(padding::right(4))
+        }))
         .flatten();
 
     let maybe_vertical_rule =
@@ -1182,7 +1172,7 @@ impl State {
                 let task = Task::perform(
                     async move { has_filehost.then(try_clipboard_upload).flatten() },
                     |path| match path {
-                        Some(p) => Message::FilesSelected(vec![p]),
+                        Some(p) => Message::FilesSelected(p),
                         None => Message::PasteText,
                     },
                 );
@@ -2754,52 +2744,75 @@ fn show_while_typing(error: &input::Error) -> bool {
     }
 }
 
-fn try_clipboard_upload() -> Option<std::path::PathBuf> {
+// arboard returns paths ending with \r
+// https://github.com/1Password/arboard/issues/216
+fn clean_path(path: std::path::PathBuf) -> std::path::PathBuf {
+    let path_string = path.to_string_lossy();
+    let cleaned = path_string.strip_suffix("\r").unwrap_or(&path_string);
+    std::path::PathBuf::from(cleaned)
+}
+
+fn try_clipboard_upload() -> Option<Vec<std::path::PathBuf>> {
     // macos needs special treatment
     #[cfg(target_os = "macos")]
-    if let Some(path) = macos_clipboard_file() {
-        return Some(path);
+    {
+        let files = macos_clipboard_files();
+        if !files.is_empty() {
+            return Some(files);
+        }
     }
 
     let mut cb = arboard::Clipboard::new().ok()?;
-    let img = cb.get_image().ok()?;
 
-    let rgba: image::RgbaImage = image::ImageBuffer::from_raw(
-        img.width as u32,
-        img.height as u32,
-        img.bytes.into_owned(),
-    )?;
+    if let Ok(img) = cb.get().image() {
+        let rgba: image::RgbaImage = image::ImageBuffer::from_raw(
+            img.width as u32,
+            img.height as u32,
+            img.bytes.into_owned(),
+        )?;
 
-    let path = std::env::temp_dir()
-        .join(format!("halloy-paste-{}.png", uuid::Uuid::new_v4()));
+        let path = std::env::temp_dir()
+            .join(format!("halloy-paste-{}.png", uuid::Uuid::new_v4()));
 
-    rgba.save(&path).ok()?;
+        rgba.save(&path).ok()?;
 
-    Some(path)
+        return Some(vec![path]);
+    } else if let Ok(file_list) = cb.get().file_list() {
+        return Some(file_list.into_iter().map(clean_path).collect());
+    }
+
+    None
 }
 
 #[cfg(target_os = "macos")]
-fn macos_clipboard_file() -> Option<std::path::PathBuf> {
+fn macos_clipboard_files() -> Vec<std::path::PathBuf> {
     use objc2_app_kit::NSPasteboard;
     use objc2_foundation::{NSString, NSURL};
 
-    let url_str = {
-        let pasteboard = NSPasteboard::generalPasteboard();
-        let type_str = NSString::from_str("public.file-url");
-        pasteboard.stringForType(&type_str)?.to_string()
+    let pasteboard = NSPasteboard::generalPasteboard();
+
+    let Some(items) = pasteboard.pasteboardItems() else {
+        return vec![];
     };
 
-    // pasteboard may return a file-reference URL: (e.g. `file:///.file/id=…`)
-    // rather than a path URL. NSURL.filePathURL resolves either to a real path.
-    let path_str = {
-        let ns_url_str = NSString::from_str(url_str.trim());
-        let nsurl = NSURL::URLWithString(&ns_url_str)?;
-        let path_url = nsurl.filePathURL()?;
-        path_url.path()?.to_string()
-    };
+    let matcher = NSString::from_str("public.file-url");
 
-    let path = std::path::PathBuf::from(path_str);
-    path.is_file().then_some(path)
+    items
+        .iter()
+        .filter_map(|item| {
+            // get the file:/// url associated with the NSPasteboardItem item
+            let file_url = item.stringForType(&matcher)?;
+            // clipboard may give a file-reference URL: (e.g. file:///.file/id=…)
+            // if the copied file only exists in the clipboard, so we use filePathURL()
+            // to resolve for the real path
+            let path_str = NSURL::URLWithString(&file_url)?
+                .filePathURL()?
+                .path()? // file:///my/file -> /my/file
+                .to_string();
+
+            Some(std::path::PathBuf::from(path_str))
+        })
+        .collect()
 }
 
 fn upload_ghost(id: u32) -> String {

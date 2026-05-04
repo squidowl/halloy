@@ -27,6 +27,13 @@ pub fn default(theme: &Theme) -> Style {
     }
 }
 
+pub fn secondary(theme: &Theme) -> Style {
+    Style {
+        color: Some(theme.styles().text.secondary.color),
+        selection_color: theme.styles().buffer.selection,
+    }
+}
+
 pub fn logs(theme: &Theme) -> Style {
     Style {
         color: None,
@@ -121,20 +128,11 @@ pub fn server(
     }
 }
 
-pub fn nicklist_nickname(theme: &Theme, config: &Config, user: &User) -> Style {
-    nickname_style(
-        theme,
-        &config.buffer.nickname.color,
-        user,
-        config.buffer.nickname.away.is_away(user.is_away()),
-        false,
-    )
-}
-
 pub fn nickname(
     theme: &Theme,
     config: &Config,
     user: &User,
+    is_away: bool,
     is_user_offline: bool,
 ) -> Style {
     nickname_style(
@@ -145,7 +143,7 @@ pub fn nickname(
             .buffer
             .nickname
             .away
-            .is_away(user.is_away() || is_user_offline),
+            .is_away(is_away || is_user_offline),
         config.buffer.nickname.offline.is_offline(is_user_offline),
     )
 }

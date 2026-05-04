@@ -125,6 +125,7 @@ export default defineConfig({
           },
           { text: "Keyboard", link: "/configuration/keyboard" },
           { text: "Logs", link: "/configuration/logs" },
+          { text: "Metadata", link: "/configuration/metadata" },
           { text: "Notifications", link: "/configuration/notifications" },
           {
             text: "Pane",

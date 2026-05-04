@@ -24,7 +24,7 @@ nickname = ""
 
 ## `nick_password`
 
-The client's NICKSERV password.
+The client's NICKSERV password. Whenever possible, using [`sasl.plain`](#saslplain) or [`sasl.external`](#saslexternal) instead of NICKSERV is recommended.
 
 ```toml
 # Type: string
@@ -570,7 +570,7 @@ Reroute selected message types within this server. See [Reroute](reroute.md) for
 
 ## `sasl.external`
 
-External SASL auth uses a PEM encoded X509 certificate. [Reference](https://libera.chat/guides/certfp).
+External SASL auth uses a PEM encoded X509 certificate. See the [guide by Libera.Chat](https://libera.chat/guides/certfp) for more information.
 
 ### `cert`
 
@@ -613,7 +613,7 @@ disconnect_on_failure = false
 
 ## `sasl.plain`
 
-Plain SASL auth using a username and password
+Plain SASL auth using a username and password.  See the [guide by Libera.Chat](https://libera.chat/guides/sasl) for more information.
 
 ### `username`
 
@@ -742,7 +742,6 @@ relevant when combined with the `exclude` setting.
 include = { channels = ["#halloy"] }
 ```
 
-
 ## `filehost`
 
 See the [Filehost guide](/guides/filehost) for usage information. For global upload options see [File Upload](/configuration/file-upload).
@@ -763,6 +762,8 @@ enabled = true
 ### `override_url`
 
 Override the filehost URL advertised by the server via ISUPPORT. The filehost must be compatible with the `soju.im/filehost` spec.
+
+When connecting over TLS, plain `http://` URLs are rejected unless the host is a loopback address.
 
 ```toml
 # Type: string
@@ -914,6 +915,20 @@ Control whether Halloy shows typing status from other users on the server.
 [servers.<name>.typing]
 show = true
 ```
+
+## `metadata`
+
+Set values for metadata keys (`"display-name"`, `"avatar"`, `"pronouns"`, `"homepage"`, `"color"`, or `"status"`).
+
+```toml
+# Type: map
+# Values: metadata key & string value key-value pairs
+# Default: not set
+
+[servers.<name>]
+metadata = { pronouns = "they/them" }
+```
+
 
 [^1]: Windows path strings should usually be specified as literal strings (e.g. `'C:\Users\Default\'`), otherwise directory separators will need to be escaped (e.g. `"C:\\Users\\Default\\"`).
 [^2]: Relative paths are prefixed with the config directory (i.e. if you have your config.toml in `/home/me/.config/halloy/config.toml`, path `.passwd/libera` will be converted to `/home/me/.config/halloy/.passwd/libera`).
