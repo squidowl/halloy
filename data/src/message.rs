@@ -304,6 +304,7 @@ pub enum Direction {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReplyPreview {
     pub nick: String,
+    pub is_bot: bool,
     pub text: String,
 }
 

@@ -17,7 +17,7 @@ use super::context_menu::{self, Context};
 use super::scroll_view::LayoutMessage;
 use crate::buffer::scroll_view::Message;
 use crate::widget::reaction_row::{has_visible_reactions, reaction_row};
-use crate::widget::user_display::UserDisplay;
+use crate::widget::user_display::{UserDisplay, UserDisplayData};
 use crate::widget::{
     Element, Marker, message_content, message_marker, selectable_text, tooltip,
 };
@@ -1206,45 +1206,43 @@ impl<'a> ChannelQueryLayout<'a> {
 
         let content: Element<_> = if let Some(data::message::ReplyPreview {
             nick,
+            is_bot,
             text: preview,
         }) = &message.reply_preview
         {
             let nick_obj = Nick::from_str(nick, self.casemapping);
-            let display_nick = self
+            let mut user = self
                 .target
                 .users()
                 .and_then(|users| users.get_by_nick(nick_obj.as_nickref()))
-                .map_or_else(
-                    || {
-                        data::user::truncate_nick(
-                            nick,
-                            self.config.buffer.nickname.truncate,
-                            self.config.display.truncation_character,
-                        )
-                        .into_owned()
-                    },
-                    |user| {
-                        user.display(
-                            self.config.buffer.nickname.show_access_levels,
-                            false,
-                            self.config.buffer.nickname.truncate,
-                            self.config.display.truncation_character,
-                        )
-                    },
-                );
-            let formatted_nick =
-                self.config.buffer.nickname.brackets.format(display_nick);
-            let nick_color = theme::text::nickname(
-                self.theme,
-                &self.config.buffer.nickname.color,
-                Some(nick.as_str()),
-                Some(data::config::buffer::Away::None),
-                false,
+                .cloned()
+                .unwrap_or_else(|| User::from(nick_obj));
+            user.update_bot(*is_bot);
+            let full = UserDisplayData::new(
+                &user,
+                self.config.buffer.nickname.show_access_levels,
+                self.config.buffer.nickname.show_bot_icon,
+                self.registry,
+                &self.config.display.nickname,
             );
+            let display = self
+                .config
+                .buffer
+                .nickname
+                .truncate
+                .and_then(|len| {
+                    full.truncate(
+                        len as usize,
+                        self.config.display.truncation_character,
+                    )
+                })
+                .unwrap_or(full);
+            let nick_element: Element<_> = display
+                .bracket(Some(&self.config.buffer.nickname.brackets))
+                .into_element_sized(&user, sm_font_s, self.theme, self.config);
             row![
-                text(format!(" {formatted_nick}"))
-                    .style(move |_| nick_color)
-                    .size(sm_font_s),
+                text(" ").size(sm_font_s),
+                nick_element,
                 text(format!(" {preview}"))
                     .style(theme::text::secondary)
                     .size(sm_font_s)

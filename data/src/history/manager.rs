@@ -1532,17 +1532,17 @@ impl Data {
             && let Some(history) = self.map.get(&kind)
             && let Some(original) = history.find_by_id(&reply_id)
         {
-            let nick = match original.target.source() {
+            let (nick, is_bot) = match original.target.source() {
                 message::Source::User(user)
                 | message::Source::Action(Some(user)) => {
-                    user.nickname().to_string()
+                    (user.nickname().to_string(), user.is_bot())
                 }
-                _ => String::new(),
+                _ => (String::new(), false),
             };
             let text = original.content.preview_text();
             if !nick.is_empty() {
                 message.reply_preview =
-                    Some(message::ReplyPreview { nick, text });
+                    Some(message::ReplyPreview { nick, is_bot, text });
             }
         }
 
@@ -1916,29 +1916,30 @@ impl Data {
 
 /// Backfill previews for replies for messages in a history batch
 fn populate_reply_previews(messages: &mut [crate::Message]) {
-    let lookup: HashMap<String, (String, String)> = messages
+    let lookup: HashMap<String, (String, bool, String)> = messages
         .iter()
         .filter_map(|m| {
             let id = m.id.as_deref()?.to_owned();
-            let nick = match m.target.source() {
+            let (nick, is_bot) = match m.target.source() {
                 message::Source::User(user)
                 | message::Source::Action(Some(user)) => {
-                    user.nickname().to_string()
+                    (user.nickname().to_string(), user.is_bot())
                 }
                 _ => return None,
             };
             let text = m.content.preview_text();
-            Some((id, (nick, text)))
+            Some((id, (nick, is_bot, text)))
         })
         .collect();
 
     for message in messages.iter_mut() {
         if message.reply_preview.is_none()
             && let Some(reply_id) = &message.reply_to
-            && let Some((nick, text)) = lookup.get(reply_id.as_ref())
+            && let Some((nick, is_bot, text)) = lookup.get(reply_id.as_ref())
         {
             message.reply_preview = Some(message::ReplyPreview {
                 nick: nick.clone(),
+                is_bot: *is_bot,
                 text: text.clone(),
             });
         }
