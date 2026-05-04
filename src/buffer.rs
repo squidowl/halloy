@@ -17,6 +17,7 @@ pub use self::file_transfers::FileTransfers;
 pub use self::highlights::Highlights;
 pub use self::logs::Logs;
 pub use self::query::Query;
+pub use self::search::{Scope as SearchScope, Search};
 pub use self::server::Server;
 use crate::Theme;
 use crate::screen::dashboard::sidebar;
@@ -33,6 +34,7 @@ mod input_view;
 pub mod logs;
 mod message_view;
 pub mod query;
+pub mod search;
 mod scroll_view;
 pub mod server;
 pub mod typing;
@@ -47,6 +49,7 @@ pub enum Buffer {
     Logs(Logs),
     Highlights(Highlights),
     ChannelDiscovery(ChannelDiscovery),
+    Search(Search),
 }
 
 #[derive(Debug, Clone)]
@@ -58,6 +61,7 @@ pub enum Message {
     Logs(logs::Message),
     Highlights(highlights::Message),
     ChannelList(channel_discovery::Message),
+    Search(search::Message),
 }
 
 pub enum Event {
@@ -99,6 +103,22 @@ impl Buffer {
         pane_size: Size,
         config: &Config,
     ) -> Self {
+        Self::from_data_with_search_scope(
+            buffer,
+            history,
+            pane_size,
+            config,
+            None,
+        )
+    }
+
+    pub fn from_data_with_search_scope(
+        buffer: data::Buffer,
+        history: &history::Manager,
+        pane_size: Size,
+        config: &Config,
+        search_scope: Option<SearchScope>,
+    ) -> Self {
         match buffer {
             data::Buffer::Upstream(upstream) => match upstream {
                 buffer::Upstream::Server(server) => Self::Server(Server::new(
@@ -124,6 +144,9 @@ impl Buffer {
                 buffer::Internal::ChannelDiscovery(server) => {
                     Self::ChannelDiscovery(ChannelDiscovery::new(server))
                 }
+                buffer::Internal::Search => {
+                    Self::Search(Search::new(search_scope, pane_size, config))
+                }
             },
         }
     }
@@ -140,7 +163,8 @@ impl Buffer {
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
-            | Buffer::ChannelDiscovery(_) => None,
+            | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_) => None,
         }
     }
 
@@ -155,7 +179,8 @@ impl Buffer {
             Buffer::Highlights(_) => Some(buffer::Internal::Highlights),
             Buffer::ChannelDiscovery(state) => {
                 Some(buffer::Internal::ChannelDiscovery(state.server.clone()))
-            }
+            },
+            Buffer::Search(_) => Some(buffer::Internal::Search),
         }
     }
 
@@ -183,6 +208,9 @@ impl Buffer {
             Buffer::ChannelDiscovery(state) => Some(data::Buffer::Internal(
                 buffer::Internal::ChannelDiscovery(state.server.clone()),
             )),
+            Buffer::Search(_) => {
+                Some(data::Buffer::Internal(buffer::Internal::Search))
+            }
         }
     }
 
@@ -195,7 +223,8 @@ impl Buffer {
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
-            | Buffer::ChannelDiscovery(_) => None,
+            | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_) => None,
         }
     }
 
@@ -210,7 +239,8 @@ impl Buffer {
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
-            | Buffer::ChannelDiscovery(_) => None,
+            | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_) => None,
         }
     }
 
@@ -240,7 +270,8 @@ impl Buffer {
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
-            | Buffer::ChannelDiscovery(_) => None,
+            | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_) => None,
         }
     }
 
@@ -561,6 +592,17 @@ impl Buffer {
 
                 (command.map(Message::Highlights), event)
             }
+            (Buffer::Search(state), Message::Search(message)) => {
+                let (command, event) = state.update(message, history, config);
+
+                let event = event.map(|event| match event {
+                    search::Event::GoToMessage(server, channel, message) => {
+                        Event::GoToMessage(server, channel, message)
+                    }
+                });
+
+                (command.map(Message::Search), event)
+            }
             _ => (Task::none(), None),
         }
     }
@@ -622,6 +664,10 @@ impl Buffer {
                 channel_discovery::view(state, clients, config, theme)
                     .map(Message::ChannelList)
             }
+            Buffer::Search(state) => {
+                search::view(state, history, config, theme)
+                    .map(Message::Search)
+            }
         }
     }
 
@@ -634,7 +680,25 @@ impl Buffer {
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
-            | Buffer::ChannelDiscovery(_) => false,
+            | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_) => false,
+        }
+    }
+
+    pub fn search_scope(&self) -> Option<SearchScope> {
+        match self {
+            Buffer::Channel(state) => Some(SearchScope::new(
+                state.server.clone(),
+                state.target.clone(),
+            )),
+            Buffer::Empty
+            | Buffer::Server(_)
+            | Buffer::Query(_)
+            | Buffer::FileTransfers(_)
+            | Buffer::Logs(_)
+            | Buffer::Highlights(_)
+            | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_) => None,
         }
     }
 
@@ -675,6 +739,7 @@ impl Buffer {
             Buffer::ChannelDiscovery(channel_discovery) => {
                 channel_discovery.focus().map(Message::ChannelList)
             }
+            Buffer::Search(search) => search.focus().map(Message::Search),
         }
     }
 
@@ -688,6 +753,7 @@ impl Buffer {
             Buffer::Channel(channel) => channel.reset(),
             Buffer::Server(server) => server.reset(),
             Buffer::Query(query) => query.reset(),
+            Buffer::Search(search) => search.reset(),
         }
     }
 
@@ -702,7 +768,8 @@ impl Buffer {
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
-            | Buffer::ChannelDiscovery(_) => (),
+            | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_) => (),
             Buffer::Server(state) => state.input_view.insert_user(
                 nick,
                 state.buffer.clone(),
@@ -728,7 +795,8 @@ impl Buffer {
         match self {
             Buffer::Empty
             | Buffer::FileTransfers(_)
-            | Buffer::ChannelDiscovery(_) => Task::none(),
+            | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_) => Task::none(),
             Buffer::Channel(channel) => {
                 channel.scroll_view.scroll_up_page().map(|message| {
                     Message::Channel(channel::Message::ScrollView(message))
@@ -763,7 +831,8 @@ impl Buffer {
         match self {
             Buffer::Empty
             | Buffer::FileTransfers(_)
-            | Buffer::ChannelDiscovery(_) => Task::none(),
+            | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_) => Task::none(),
             Buffer::Channel(channel) => {
                 channel.scroll_view.scroll_down_page().map(|message| {
                     Message::Channel(channel::Message::ScrollView(message))
@@ -798,7 +867,8 @@ impl Buffer {
         match self {
             Buffer::Empty
             | Buffer::FileTransfers(_)
-            | Buffer::ChannelDiscovery(_) => Task::none(),
+            | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_) => Task::none(),
             Buffer::Channel(channel) => {
                 channel.scroll_view.scroll_to_start(config).map(|message| {
                     Message::Channel(channel::Message::ScrollView(message))
@@ -834,7 +904,8 @@ impl Buffer {
         match self {
             Buffer::Empty
             | Buffer::FileTransfers(_)
-            | Buffer::ChannelDiscovery(_) => Task::none(),
+            | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_) => Task::none(),
             Buffer::Channel(channel) => {
                 channel.scroll_view.scroll_to_end(config).map(|message| {
                     Message::Channel(channel::Message::ScrollView(message))
@@ -874,7 +945,8 @@ impl Buffer {
         match self {
             Buffer::Empty
             | Buffer::FileTransfers(_)
-            | Buffer::ChannelDiscovery(_) => Task::none(),
+            | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_) => Task::none(),
             Buffer::Channel(state) => state
                 .scroll_view
                 .scroll_to_message(
@@ -943,7 +1015,8 @@ impl Buffer {
         match self {
             Buffer::Empty
             | Buffer::FileTransfers(_)
-            | Buffer::ChannelDiscovery(_) => Task::none(),
+            | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_) => Task::none(),
             Buffer::Channel(state) => state
                 .scroll_view
                 .scroll_to_backlog(
@@ -999,7 +1072,8 @@ impl Buffer {
         match self {
             Buffer::Empty
             | Buffer::FileTransfers(_)
-            | Buffer::ChannelDiscovery(_) => false,
+            | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_) => false,
             Buffer::Channel(state) => state.scroll_view.has_pending_scroll_to(),
             Buffer::Server(state) => state.scroll_view.has_pending_scroll_to(),
             Buffer::Query(state) => state.scroll_view.has_pending_scroll_to(),
@@ -1018,7 +1092,8 @@ impl Buffer {
         match self {
             Buffer::Empty
             | Buffer::FileTransfers(_)
-            | Buffer::ChannelDiscovery(_) => Task::none(),
+            | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_) => Task::none(),
             Buffer::Channel(state) => state
                 .scroll_view
                 .prepare_for_pending_scroll_to(
@@ -1078,7 +1153,8 @@ impl Buffer {
         match self {
             Buffer::Empty
             | Buffer::FileTransfers(_)
-            | Buffer::ChannelDiscovery(_) => None,
+            | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_) => None,
             Buffer::Channel(channel) => {
                 Some(channel.scroll_view.is_scrolled_to_bottom())
             }
@@ -1101,7 +1177,8 @@ impl Buffer {
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
-            | Buffer::ChannelDiscovery(_) => false,
+            | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_) => false,
             Buffer::Server(state) => state.input_view.close_picker(),
             Buffer::Channel(state) => state.input_view.close_picker(),
             Buffer::Query(state) => state.input_view.close_picker(),
@@ -1112,7 +1189,8 @@ impl Buffer {
         match self {
             Buffer::Empty
             | Buffer::FileTransfers(_)
-            | Buffer::ChannelDiscovery(_) => (),
+            | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_) => (),
             Buffer::Channel(channel) => {
                 channel.scroll_view.update_pane_size(pane_size, config);
             }
@@ -1143,6 +1221,7 @@ impl fmt::Display for Buffer {
             Buffer::Logs(_) => write!(f, "Logs"),
             Buffer::Highlights(_) => write!(f, "Highlights"),
             Buffer::ChannelDiscovery(_) => write!(f, "Channel Discovery"),
+            Buffer::Search(_) => write!(f, "Search"),
         }
     }
 }

@@ -134,6 +134,7 @@ impl Pane {
             }
             Buffer::Logs(_) => text("Logs").into(),
             Buffer::Highlights(_) => text("Highlights").into(),
+            Buffer::Search(_) => text("Search").into(),
         };
 
         let title_bar = self.title_bar.view(
@@ -227,7 +228,9 @@ impl Pane {
             }),
             Buffer::Logs(_) => Some(history::Resource::logs()),
             Buffer::Highlights(_) => Some(history::Resource::highlights()),
-            Buffer::ChannelDiscovery(_) | Buffer::FileTransfers(_) => None,
+            Buffer::ChannelDiscovery(_)
+            | Buffer::FileTransfers(_)
+            | Buffer::Search(_) => None,
         }
     }
 
@@ -242,7 +245,8 @@ impl Pane {
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
-            | Buffer::ChannelDiscovery(_) => vec![],
+            | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_) => vec![],
         }
     }
 }
@@ -622,6 +626,9 @@ impl From<Pane> for data::Pane {
             Buffer::ChannelDiscovery(state) => data::Buffer::Internal(
                 buffer::Internal::ChannelDiscovery(state.server.clone()),
             ),
+            Buffer::Search(_) => {
+                data::Buffer::Internal(buffer::Internal::Search)
+            }
         };
 
         data::Pane::Buffer { buffer }

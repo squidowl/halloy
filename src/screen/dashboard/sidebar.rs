@@ -341,6 +341,14 @@ impl Sidebar {
                                     buffer::Internal::ChannelDiscovery(None),
                                 ),
                             ),
+                            Menu::Search => context_button(
+                                text("Search"),
+                                Some(&keyboard.search),
+                                icon::search(),
+                                Message::ToggleInternalBuffer(
+                                    buffer::Internal::Search,
+                                ),
+                            ),
                             Menu::Logs => context_button(
                                 text("Logs")
                                     .style(if logs_has_unread {
@@ -677,6 +685,7 @@ enum Menu {
     ThemeEditor,
     Highlights,
     ChannelDiscovery,
+    Search,
     Logs,
     FileTransfers,
     Version,
@@ -707,6 +716,7 @@ impl Menu {
 
         list.extend([
             Self::ChannelDiscovery,
+            Self::Search,
             Self::Highlights,
             Self::Logs,
             Self::OpenConfigFile,

@@ -94,6 +94,7 @@ pub enum Command {
     ToggleSidebar,
     ToggleFullscreen,
     CommandBar,
+    Search,
     ReloadConfiguration,
     FileTransfers,
     Logs,
@@ -276,6 +277,7 @@ impl KeyBind {
     #[cfg(not(target_os = "macos"))]
     default!(toggle_fullscreen, F11);
     default!(command_bar, "k", COMMAND);
+    default!(search, "s", COMMAND);
     default!(reload_configuration, "r", COMMAND);
     default!(file_transfers, "j", COMMAND);
     default!(logs, "l", COMMAND);
