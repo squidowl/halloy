@@ -1761,10 +1761,16 @@ impl Client {
                         self.statusmsg(),
                         casemapping,
                     ));
-                    if let Some(pos) = self
-                        .who_polls
-                        .iter()
-                        .position(|who_poll| who_poll.channel == target_channel)
+                    if let Some(pos) =
+                        self.who_polls.iter().position(|who_poll| {
+                            who_poll.channel == target_channel
+                                && (matches!(
+                                    who_poll.status,
+                                    WhoStatus::Joined
+                                        | WhoStatus::Received
+                                        | WhoStatus::Waiting(_)
+                                ))
+                        })
                     {
                         self.who_polls.remove(pos);
                     }
@@ -4423,11 +4429,13 @@ impl Client {
     }
 
     pub fn prioritize_joined_who_poll(&mut self, channel: target::Channel) {
-        if let Some(pos) = self
-            .who_polls
-            .iter()
-            .position(|who_poll| who_poll.channel == channel)
-            && pos != 0
+        if let Some(pos) = self.who_polls.iter().position(|who_poll| {
+            who_poll.channel == channel
+                && !matches!(
+                    who_poll.status,
+                    WhoStatus::Received | WhoStatus::Waiting(_)
+                )
+        }) && pos != 0
             && let Some(who_poll) = self.who_polls.remove(pos)
         {
             log::debug!("prioritizing who poll for: {channel:?}");
