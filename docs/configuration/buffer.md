@@ -746,6 +746,23 @@ Marks as read when a new message arrives in the focused buffer and you are at th
 on_message = true
 ```
 
+## `close`
+
+Side effects for when closing buffers.
+
+### `query`
+
+What happens when closing a query buffer. `"keep"` only closes the pane, while `"close"` also closes the query.
+
+```toml
+# Type: string
+# Values: "close", "keep"
+# Default: "keep"
+
+[buffer.close]
+query = "keep"
+```
+
 ## `nickname`
 
 Customize how nicknames are displayed within a buffer.

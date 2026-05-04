@@ -52,7 +52,28 @@ pub struct Buffer {
     pub scroll_position_on_open: ScrollPosition,
     pub typing: Typing,
     pub redaction: Redaction,
+    pub close: Close,
     pub reply: Reply,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(default)]
+pub struct Close {
+    pub query: CloseQuery,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum CloseQuery {
+    #[default]
+    Keep,
+    Close,
+}
+
+impl CloseQuery {
+    pub fn close(&self) -> bool {
+        matches!(self, Self::Close)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
