@@ -4778,6 +4778,11 @@ impl Map {
         )
     }
 
+    pub fn get_icon_url<'a>(&'a self, server: &Server) -> Option<&'a str> {
+        self.client(server)
+            .and_then(|client| isupport::get_icon_url(&client.isupport))
+    }
+
     pub fn get_filehost_auth(
         &self,
         server: &Server,

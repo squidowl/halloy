@@ -22,7 +22,7 @@ use data::target::{self, Target};
 use data::{
     Config, Notification, Server, User, Version, cache, client, command,
     config, environment, file_transfer, history, preview, reaction, redaction,
-    server, stream,
+    server, server_icon, stream,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{Space, center, column, container, row, stack, text};
@@ -68,6 +68,7 @@ pub struct Dashboard {
     notifications: notification::Notifications,
     previews: preview::Collection,
     previews_cache: Arc<cache::FileCache>,
+    server_icons: server_icon::Manager,
     typing_animation: Option<buffer::typing::Animation>,
     http_client: Option<Arc<reqwest::Client>>,
     buffer_settings: dashboard::BufferSettings,
@@ -89,6 +90,8 @@ pub enum Message {
     ThemeEditor(theme_editor::Message),
     ConfigReloaded(Result<Config, config::Error>),
     Client(client::Message),
+    UpdateServerIcon(Server, Option<String>),
+    ServerIcon(server_icon::Message),
     LoadPreview((url::Url, Result<data::Preview, data::preview::LoadError>)),
     NewWindow(window::Id, Pane),
     Filehost(filehost::Message),
@@ -152,6 +155,7 @@ impl Dashboard {
             notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),
             previews_cache: Arc::new(preview_cache(&config.preview)),
+            server_icons: server_icon::Manager::default(),
             typing_animation: None,
             http_client: http_client_from_config(config).map(Arc::new),
             buffer_settings: dashboard::BufferSettings::default(),
@@ -1773,6 +1777,17 @@ impl Dashboard {
                     *entry.get_mut() = preview::State::Loaded(preview);
                 }
             }
+            Message::UpdateServerIcon(server, icon_url) => {
+                return (
+                    self.server_icons
+                        .request(server, icon_url, self.http_client.clone())
+                        .map(Message::ServerIcon),
+                    None,
+                );
+            }
+            Message::ServerIcon(message) => {
+                self.server_icons.update(message);
+            }
             Message::LoadPreview((url, Err(error))) => {
                 if matches!(error, preview::LoadError::Disabled) {
                     log::trace!("Failed to load preview for {url}: {error}");
@@ -1933,6 +1948,7 @@ impl Dashboard {
                 &self.history,
                 &self.panes,
                 self.focus,
+                &self.server_icons,
                 config,
                 &self.file_transfers,
                 version,
@@ -4247,6 +4263,7 @@ impl Dashboard {
             notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),
             previews_cache: Arc::new(preview_cache(&config.preview)),
+            server_icons: server_icon::Manager::default(),
             typing_animation: None,
             http_client: http_client_from_config(config).map(Arc::new),
             buffer_settings: data.buffer_settings.clone(),
