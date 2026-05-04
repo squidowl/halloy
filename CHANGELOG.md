@@ -8,6 +8,7 @@ Added:
 - IRCv3 bot mode support, with bot icon in buffers and nicklists
 - Customize the character used to indicate a nickname was truncated with `display.truncation_character`
 - Support for IRCv3 `draft/message-redaction`
+- Setting to close queries when closing query buffer panes (`buffer.close.query`)
 - Support for IRCv3 metadata `display-name`, `avatar`, `pronouns`, `homepage`, `color`, `status` keys
 
 Fixed:
@@ -33,7 +34,7 @@ Thanks:
 
 - Contributions: @bb010g, @furudean, @englut, @luca020400, @4e554c4c
 - Bug reports: @bb010g, daniiooo
-- Feature requests: @WinnerWind
+- Feature requests: @WinnerWind, Shyny
 
 # 2026.6 (2026-04-21)
 
