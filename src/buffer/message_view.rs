@@ -1211,13 +1211,16 @@ impl<'a> ChannelQueryLayout<'a> {
         }) = &message.reply_preview
         {
             let nick_obj = Nick::from_str(nick, self.casemapping);
-            let mut user = self
+            let user = self
                 .target
                 .users()
                 .and_then(|users| users.get_by_nick(nick_obj.as_nickref()))
                 .cloned()
-                .unwrap_or_else(|| User::from(nick_obj));
-            user.update_bot(*is_bot);
+                .unwrap_or_else(|| {
+                    let mut u = User::from(nick_obj);
+                    u.update_bot(*is_bot);
+                    u
+                });
             let full = UserDisplayData::new(
                 &user,
                 self.config.buffer.nickname.show_access_levels,
