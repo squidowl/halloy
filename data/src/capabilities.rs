@@ -428,14 +428,12 @@ impl Capabilities {
             requested.push("draft/multiline");
         }
 
+        // TODO(quaff): remove `draft/no-implicit-names` support when ergo & soju have both been upgraded
         if self.pending.contains_key("no-implicit-names")
             && !self.acknowledged(Capability::NoImplicitNames)
         {
             requested.push("no-implicit-names");
-        }
-
-        // TODO(quaff): remove `draft/no-implicit-names` support when ergo & soju have both been upgraded
-        if self.pending.contains_key("draft/no-implicit-names")
+        } else if self.pending.contains_key("draft/no-implicit-names")
             && !self.acknowledged(Capability::NoImplicitNames)
         {
             requested.push("draft/no-implicit-names");
