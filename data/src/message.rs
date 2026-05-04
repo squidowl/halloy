@@ -2168,8 +2168,9 @@ impl Content {
     }
 
     pub fn preview_text(&self) -> String {
-        let re = Regex::new(r"\n+").unwrap();
-        re.replace_all(&self.text(), " ").into_owned()
+        static NEWLINES: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(r"\n+").unwrap());
+        NEWLINES.replace_all(&self.text(), " ").into_owned()
     }
 
     pub fn echo_cmp(&self, other: &Self) -> std::cmp::Ordering {

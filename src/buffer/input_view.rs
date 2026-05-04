@@ -661,7 +661,8 @@ pub fn view<'a>(
             )
         });
 
-    let maybe_reply_bar = reply_bar(state, reply_user, registry, config, theme);
+    let maybe_reply_bar = reply_user
+        .and_then(|user| reply_bar(state, user, registry, config, theme));
 
     let input_row = container(
         row![
@@ -719,16 +720,15 @@ pub fn view<'a>(
 
 fn reply_bar<'a>(
     state: &'a State,
-    reply_user: Option<User>,
+    user: User,
     registry: &dyn data::metadata::Registry,
     config: &'a Config,
     theme: &'a Theme,
 ) -> Option<crate::widget::Element<'a, Message>> {
     let input::DraftReply { preview, .. } = state.draft_reply.as_ref()?;
     let font_size = config.font.size.map_or(theme::TEXT_SIZE, f32::from) * 0.85;
-    let user = reply_user.as_ref()?;
     let full = UserDisplayData::new(
-        user,
+        &user,
         config.buffer.nickname.show_access_levels,
         config.buffer.nickname.show_bot_icon,
         registry,
@@ -744,7 +744,7 @@ fn reply_bar<'a>(
         .unwrap_or(full);
     let nick_element: Element<_> = display
         .bracket(Some(&config.buffer.nickname.brackets))
-        .into_element_sized(user, font_size, theme, config);
+        .into_element_sized(&user, font_size, theme, config);
 
     Some(
         container(

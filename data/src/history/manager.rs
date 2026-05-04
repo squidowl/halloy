@@ -1916,7 +1916,13 @@ impl Data {
 
 /// Backfill previews for replies for messages in a history batch
 fn populate_reply_previews(messages: &mut [crate::Message]) {
-    let lookup: HashMap<String, (String, bool, String)> = messages
+    struct Entry {
+        nick: String,
+        is_bot: bool,
+        text: String,
+    }
+
+    let lookup: HashMap<String, Entry> = messages
         .iter()
         .filter_map(|m| {
             let id = m.id.as_deref()?.to_owned();
@@ -1928,14 +1934,15 @@ fn populate_reply_previews(messages: &mut [crate::Message]) {
                 _ => return None,
             };
             let text = m.content.preview_text();
-            Some((id, (nick, is_bot, text)))
+            Some((id, Entry { nick, is_bot, text }))
         })
         .collect();
 
     for message in messages.iter_mut() {
         if message.reply_preview.is_none()
             && let Some(reply_id) = &message.reply_to
-            && let Some((nick, is_bot, text)) = lookup.get(reply_id.as_ref())
+            && let Some(Entry { nick, is_bot, text }) =
+                lookup.get(reply_id.as_ref())
         {
             message.reply_preview = Some(message::ReplyPreview {
                 nick: nick.clone(),
