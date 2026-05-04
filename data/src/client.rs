@@ -946,6 +946,16 @@ impl Client {
                                     )
                                 })
                             }
+                            Some("znc.in/playback") => {
+                                params.get(1).map(|target| {
+                                    BatchKind::ZncPlayback(Target::parse(
+                                        target,
+                                        self.chantypes(),
+                                        self.statusmsg(),
+                                        self.casemapping(),
+                                    ))
+                                })
+                            }
                             _ => None,
                         };
 
@@ -1071,6 +1081,7 @@ impl Client {
                                         _,
                                         _,
                                     ))
+                                    | Some(BatchKind::ZncPlayback(_))
                                     | None => (),
                                 };
 
@@ -1106,6 +1117,8 @@ impl Client {
                         Some(BatchKind::ChathistoryTargets) | None => {
                             self.handle(message, context, config)?
                         }
+                        Some(BatchKind::ZncPlayback(batch_target)) => self
+                            .handle_znc_playback(message, batch_target.clone()),
                     };
 
                     if let Some(batch) = self.batches.get_mut(batch_tag) {
@@ -3410,6 +3423,77 @@ impl Client {
         }
     }
 
+    fn handle_znc_playback(
+        &mut self,
+        message: message::Encoded,
+        batch_target: Target,
+    ) -> Vec<Event> {
+        match &message.command {
+            _ if is_reaction(&message) => {
+                vec![Event::Reaction {
+                    message,
+                    our_nick: self.nickname().to_owned(),
+                    notification_enabled: false,
+                }]
+            }
+            Command::REDACT(_, _, _) => {
+                vec![Event::Redaction(message, self.nickname().to_owned())]
+            }
+            Command::NICK(_) => vec![Event::WithTarget {
+                message,
+                our_nick: self.nickname().to_owned(),
+                target: batch_target.into(),
+                deduplicate: true,
+            }],
+            Command::JOIN(_, _) => vec![Event::WithTarget {
+                message,
+                our_nick: self.nickname().to_owned(),
+                target: batch_target.into(),
+                deduplicate: true,
+            }],
+            Command::PART(_, _) => vec![Event::WithTarget {
+                message,
+                our_nick: self.nickname().to_owned(),
+                target: batch_target.into(),
+                deduplicate: true,
+            }],
+            Command::QUIT(_) => vec![Event::WithTarget {
+                message,
+                our_nick: self.nickname().to_owned(),
+                target: batch_target.into(),
+                deduplicate: true,
+            }],
+            Command::PRIVMSG(target, text) | Command::NOTICE(target, text) => {
+                if ctcp::is_query(text) && !message::is_action(text) {
+                    // Ignore historical CTCP queries/responses except for
+                    // ACTIONs
+                    vec![]
+                } else {
+                    if let Some(user) = message.user(self.casemapping()) {
+                        // If direct message, update query map with user
+                        if target == &self.nickname().to_string() {
+                            self.record_query(&target::Query::from(user));
+                        }
+                    }
+
+                    vec![Event::PrivOrNotice {
+                        message,
+                        our_nick: self.nickname().to_owned(),
+                        // Don't allow notifications from history
+                        notification_enabled: false,
+                        deduplicate: true,
+                        labeled_response_context: None,
+                    }]
+                }
+            }
+            _ => vec![Event::Single {
+                message,
+                our_nick: self.nickname().to_owned(),
+                deduplicate: true,
+            }],
+        }
+    }
+
     fn send_markread(
         &mut self,
         target: Target,
@@ -5273,15 +5357,15 @@ pub enum BatchKind {
         Option<MultilineBatchKind>,
         String,
     ),
+    ZncPlayback(Target),
 }
 
 impl BatchKind {
     pub fn target(&self) -> Option<Target> {
         match self {
             Self::ChathistoryTarget(batch_target)
-            | Self::Multiline(_, _, batch_target, _, _) => {
-                Some(batch_target.clone())
-            }
+            | Self::Multiline(_, _, batch_target, _, _)
+            | Self::ZncPlayback(batch_target) => Some(batch_target.clone()),
             Self::ChathistoryTargets => None,
         }
     }
