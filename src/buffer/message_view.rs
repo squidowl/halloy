@@ -1216,15 +1216,11 @@ impl<'a> ChannelQueryLayout<'a> {
                 .users()
                 .and_then(|users| users.get_by_nick(nick_obj.as_nickref()))
                 .cloned()
-                .unwrap_or_else(|| {
-                    let mut u = User::from(nick_obj);
-                    u.update_bot(*is_bot);
-                    u
-                });
+                .unwrap_or_else(|| User::from(nick_obj));
             let full = UserDisplayData::new(
                 &user,
                 self.config.buffer.nickname.show_access_levels,
-                self.config.buffer.nickname.show_bot_icon,
+                self.config.buffer.nickname.show_bot_icon && *is_bot,
                 self.registry,
                 &self.config.display.nickname,
             );
