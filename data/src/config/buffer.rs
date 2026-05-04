@@ -53,6 +53,7 @@ pub struct Buffer {
     pub typing: Typing,
     pub redaction: Redaction,
     pub close: Close,
+    pub reply: Reply,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -72,6 +73,24 @@ pub enum CloseQuery {
 impl CloseQuery {
     pub fn close(&self) -> bool {
         matches!(self, Self::Close)
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct Reply {
+    pub enabled: bool,
+    pub show_icon: bool,
+    pub icon_size: f32,
+}
+
+impl Default for Reply {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            show_icon: false,
+            icon_size: 10.0,
+        }
     }
 }
 

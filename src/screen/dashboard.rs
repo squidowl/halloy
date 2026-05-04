@@ -1002,6 +1002,7 @@ impl Dashboard {
                                             buffer,
                                             vec![encoded],
                                             TokenPriority::User,
+                                            None,
                                         )
                                     } else {
                                         clients.send(
@@ -2437,6 +2438,7 @@ impl Dashboard {
 
                         None
                     }
+                    buffer::context_menu::Event::Reply { .. } => None,
                 };
 
                 return (Task::batch(tasks), event);

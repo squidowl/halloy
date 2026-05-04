@@ -2,7 +2,6 @@ use data::buffer::Brackets;
 use data::config::buffer::{AccessLevelFormat, Dimmed};
 use data::config::display::nickname::Metadata;
 use data::target::{Query, TargetRef};
-use data::user::AccessLevel;
 use data::{Config, User, metadata};
 use iced::Color;
 use iced::widget::{container, row};
@@ -119,27 +118,7 @@ impl UserDisplayData {
         registry: &dyn metadata::Registry,
         enabled: &[Metadata],
     ) -> Self {
-        let access_levels = match show_access_levels {
-            AccessLevelFormat::All => {
-                let access_levels = user
-                    .access_levels()
-                    .filter_map(AccessLevel::char)
-                    .collect::<String>();
-
-                if access_levels.is_empty() {
-                    None
-                } else {
-                    Some(access_levels)
-                }
-            }
-            AccessLevelFormat::Highest => {
-                user.highest_access_level().char().map(String::from)
-            }
-            AccessLevelFormat::None => None,
-        }
-        .unwrap_or_default();
-
-        let nickname = user.nickname();
+        let prefixed_nick = user.display(show_access_levels, false, None, '\0');
 
         let bot_icon = user.is_bot() && show_bot_icon;
 
@@ -167,7 +146,7 @@ impl UserDisplayData {
         if bot_icon {
             let (left, right) = if let Some(display_name) = display_name {
                 (
-                    format!("{display_name} ({access_levels}{nickname}"),
+                    format!("{display_name} ({prefixed_nick}"),
                     if let Some(pronouns) = pronouns {
                         Some(format!("{pronouns})"))
                     } else {
@@ -176,7 +155,7 @@ impl UserDisplayData {
                 )
             } else {
                 (
-                    format!("{access_levels}{nickname}"),
+                    prefixed_nick,
                     pronouns.map(|pronouns| format!(" ({pronouns})")),
                 )
             };
@@ -189,17 +168,15 @@ impl UserDisplayData {
         } else {
             let left = match (display_name, pronouns) {
                 (Some(display_name), Some(pronouns)) => {
-                    format!(
-                        "{display_name} ({access_levels}{nickname}, {pronouns})",
-                    )
+                    format!("{display_name} ({prefixed_nick}, {pronouns})")
                 }
                 (Some(display_name), None) => {
-                    format!("{display_name} ({access_levels}{nickname})",)
+                    format!("{display_name} ({prefixed_nick})")
                 }
                 (None, Some(pronouns)) => {
-                    format!("{access_levels}{nickname} ({pronouns})",)
+                    format!("{prefixed_nick} ({pronouns})")
                 }
-                (None, None) => format!("{access_levels}{nickname}",),
+                (None, None) => prefixed_nick,
             };
 
             Self {
@@ -227,6 +204,29 @@ impl UserDisplayData {
             dimmed,
         );
 
+        self.render(style, is_offline, None, theme)
+    }
+
+    pub(crate) fn into_element_sized<'a, M: 'a>(
+        self,
+        user: &User,
+        size: f32,
+        theme: &'a Theme,
+        config: &'a Config,
+    ) -> Element<'a, M> {
+        let style =
+            theme::selectable_text::nickname(theme, config, user, false, false);
+
+        self.render(style, false, Some(size), theme)
+    }
+
+    fn render<'a, M: 'a>(
+        self,
+        style: crate::widget::selectable_text::Style,
+        is_offline: bool,
+        size: Option<f32>,
+        theme: &'a Theme,
+    ) -> Element<'a, M> {
         let font =
             theme::font_style::nickname(theme, is_offline).map(font::get);
 
@@ -234,11 +234,13 @@ impl UserDisplayData {
             row![
                 selectable_text(self.left)
                     .style(move |_| style)
-                    .font_maybe(font.clone()),
+                    .font_maybe(font.clone())
+                    .size_maybe(size),
                 widget::bot_icon(move |_| style),
                 self.right.map(|right| selectable_text(right)
                     .style(move |_| style)
-                    .font_maybe(font)),
+                    .font_maybe(font)
+                    .size_maybe(size)),
             ]
             .spacing(theme::ICON_SPACE)
             .into()
@@ -246,6 +248,7 @@ impl UserDisplayData {
             selectable_text(self.left)
                 .style(move |_| style)
                 .font_maybe(font)
+                .size_maybe(size)
                 .into()
         }
     }

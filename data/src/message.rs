@@ -302,6 +302,13 @@ pub enum Direction {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct ReplyPreview {
+    pub nick: String,
+    pub is_bot: bool,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Message {
     pub received_at: Posix,
     pub server_time: DateTime<Utc>,
@@ -309,6 +316,8 @@ pub struct Message {
     pub target: Target,
     pub content: Content,
     pub id: Option<Id>,
+    pub reply_to: Option<Id>,
+    pub reply_preview: Option<ReplyPreview>,
     pub hash: Hash,
     pub hidden_urls: HashSet<Url>,
     pub is_echo: bool, // Only relevant if direction == Direction::Received
@@ -416,6 +425,7 @@ impl Message {
     ) -> Option<Message> {
         let server_time = encoded.server_time_or_now();
         let id = encoded.message_id();
+        let reply_to = encoded.in_reply_to();
         let command = received_command(&encoded);
         let is_echo = encoded
             .user(casemapping)
@@ -453,6 +463,8 @@ impl Message {
             target,
             content,
             id,
+            reply_to,
+            reply_preview: None,
             hash,
             hidden_urls: HashSet::default(),
             is_echo,
@@ -483,6 +495,7 @@ impl Message {
     ) -> Option<(Message, Option<Highlight>)> {
         let server_time = encoded.server_time_or_now();
         let id = encoded.message_id();
+        let reply_to = encoded.in_reply_to();
         let command = received_command(&encoded);
         let is_echo = encoded
             .user(casemapping)
@@ -520,6 +533,8 @@ impl Message {
             target,
             content,
             id,
+            reply_to,
+            reply_preview: None,
             hash,
             hidden_urls: HashSet::default(),
             is_echo,
@@ -590,6 +605,8 @@ impl Message {
             target,
             content,
             id: None,
+            reply_to: None,
+            reply_preview: None,
             hash,
             hidden_urls: HashSet::default(),
             is_echo: false,
@@ -627,6 +644,8 @@ impl Message {
             },
             content,
             id: None,
+            reply_to: None,
+            reply_preview: None,
             hash,
             hidden_urls: HashSet::default(),
             is_echo: false,
@@ -662,6 +681,8 @@ impl Message {
             },
             content,
             id: None,
+            reply_to: None,
+            reply_preview: None,
             hash,
             hidden_urls: HashSet::default(),
             is_echo: false,
@@ -752,6 +773,8 @@ impl Message {
             target,
             content,
             id: None,
+            reply_to: None,
+            reply_preview: None,
             hash,
             hidden_urls: HashSet::default(),
             is_echo: false,
@@ -802,6 +825,8 @@ impl Serialize for Message {
             target: &'a Target,
             content: &'a Content,
             id: &'a Option<Id>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            reply_to: &'a Option<Id>,
             // Old field before we had fragments,
             // added for downgrade compatibility
             text: Cow<'a, str>,
@@ -821,6 +846,7 @@ impl Serialize for Message {
             target: &self.target,
             content: &self.content,
             id: &self.id,
+            reply_to: &self.reply_to,
             text: self.content.text(),
             hidden_urls: &self.hidden_urls,
             is_echo: &self.is_echo,
@@ -850,6 +876,8 @@ impl<'de> Deserialize<'de> for Message {
             // Old field before we had fragments
             text: Option<String>,
             id: Option<Id>,
+            #[serde(default, deserialize_with = "fail_as_none")]
+            reply_to: Option<Id>,
             #[serde(default)]
             hidden_urls: HashSet<url::Url>,
             // New field, optional for upgrade compatibility
@@ -873,6 +901,7 @@ impl<'de> Deserialize<'de> for Message {
             content,
             text,
             id,
+            reply_to,
             hidden_urls,
             is_echo,
             command,
@@ -902,6 +931,8 @@ impl<'de> Deserialize<'de> for Message {
             target,
             content,
             id,
+            reply_to,
+            reply_preview: None,
             hash,
             hidden_urls,
             is_echo,
@@ -1096,6 +1127,8 @@ pub fn condense(
             target,
             content: Content::Fragments(condensed_fragments),
             id: None,
+            reply_to: None,
+            reply_preview: None,
             hash: first_message.hash,
             hidden_urls: HashSet::default(),
             is_echo: false,
@@ -2132,6 +2165,12 @@ impl Content {
             }
             Content::Log(record) => (&record.message).into(),
         }
+    }
+
+    pub fn preview_text(&self) -> String {
+        static NEWLINES: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(r"\n+").unwrap());
+        NEWLINES.replace_all(&self.text(), " ").into_owned()
     }
 
     pub fn echo_cmp(&self, other: &Self) -> std::cmp::Ordering {

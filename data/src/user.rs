@@ -9,6 +9,7 @@ use irc::proto;
 use itertools::sorted;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::config::buffer::{AccessLevelFormat, UsernameFormat};
 use crate::{isupport, mode};
@@ -225,6 +226,91 @@ impl User {
         self.nickname.seed()
     }
 
+    pub fn display(
+        &self,
+        with_access_levels: AccessLevelFormat,
+        show_bot_icon: bool,
+        truncate: Option<u16>,
+        truncation_character: char,
+    ) -> String {
+        self.display_with_truncated(
+            with_access_levels,
+            show_bot_icon,
+            truncate,
+            truncation_character,
+        )
+        .0
+    }
+
+    pub fn display_with_truncated(
+        &self,
+        with_access_levels: AccessLevelFormat,
+        show_bot_icon: bool,
+        truncate: Option<u16>,
+        truncation_character: char,
+    ) -> (String, bool) {
+        let mut nickname = match with_access_levels {
+            AccessLevelFormat::All => {
+                if self.access_levels.is_empty() {
+                    self.nickname().to_string()
+                } else {
+                    self.access_levels.iter().fold(
+                        self.nickname().to_string(),
+                        |display, access_level| {
+                            format!("{access_level}{display}")
+                        },
+                    )
+                }
+            }
+            AccessLevelFormat::Highest => {
+                format!("{}{}", self.highest_access_level(), self.nickname())
+            }
+            AccessLevelFormat::None => self.nickname().to_string(),
+        };
+
+        let show_bot_icon = self.is_bot() && show_bot_icon;
+
+        let mut show_tooltip = false;
+
+        if let Some(len) = truncate
+            && (UnicodeSegmentation::graphemes(nickname.as_str(), true).count()
+                + if show_bot_icon { 2 } else { 0 })
+                > len as usize
+        {
+            nickname = UnicodeSegmentation::graphemes(nickname.as_str(), true)
+                .take(len.saturating_sub(if show_bot_icon { 3 } else { 1 })
+                    as usize)
+                .collect::<String>();
+            nickname.push(truncation_character);
+
+            show_tooltip = true;
+        }
+
+        (nickname, show_tooltip)
+    }
+}
+
+pub fn truncate_nick(
+    nick: &str,
+    truncate: Option<u16>,
+    truncation_character: char,
+) -> std::borrow::Cow<'_, str> {
+    if let Some(len) = truncate {
+        let graphemes: Vec<&str> =
+            UnicodeSegmentation::graphemes(nick, true).collect();
+        if graphemes.len() > len as usize {
+            let mut truncated: String = graphemes
+                .into_iter()
+                .take(len.saturating_sub(1) as usize)
+                .collect();
+            truncated.push(truncation_character);
+            return std::borrow::Cow::Owned(truncated);
+        }
+    }
+    std::borrow::Cow::Borrowed(nick)
+}
+
+impl User {
     pub fn as_str(&self) -> &str {
         self.nickname.raw.as_ref()
     }

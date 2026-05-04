@@ -73,6 +73,7 @@ pub fn view<'a>(
     let connected = matches!(clients.status(server), client::Status::Connected);
     let can_send_reactions = clients.get_server_can_send_reactions(server);
     let can_redact = clients.get_server_can_redact(server);
+    let can_send_replies = clients.get_server_can_send_replies(server);
     let chantypes = clients.get_server_chantypes_or_default(server);
     let casemapping = clients.get_server_casemapping_or_default(server);
     let prefix = clients.get_server_prefix_or_default(server);
@@ -119,6 +120,7 @@ pub fn view<'a>(
         confirm_message_delivery,
         can_send_reactions,
         can_redact,
+        can_send_replies,
         our_nick,
         connected,
         server,
@@ -198,6 +200,15 @@ pub fn view<'a>(
 
     let filehost_url = clients.get_filehost(server);
 
+    let reply_user = state.input_view.draft_reply().map(|draft_reply| {
+        let nick_obj = Nick::from_str(draft_reply.nick.as_str(), casemapping);
+        clients
+            .get_channel_users(server, &state.target)
+            .and_then(|users| users.get_by_nick(nick_obj.as_nickref()))
+            .cloned()
+            .unwrap_or_else(|| User::from(nick_obj))
+    });
+
     let text_input = show_text_input.then(move || {
         input_view::view(
             &state.input_view,
@@ -207,6 +218,7 @@ pub fn view<'a>(
             config,
             theme,
             filehost_url,
+            reply_user,
         )
         .map(Message::InputView)
     });
@@ -274,9 +286,7 @@ impl Channel {
         let buffer = buffer::Upstream::Channel(server.clone(), target.clone());
 
         Self {
-            input_view: input_view::State::new(Some(
-                history.input(&buffer).draft,
-            )),
+            input_view: input_view::State::new(Some(history.input(&buffer))),
             buffer,
             server,
             target,
@@ -303,6 +313,39 @@ impl Channel {
                     clients,
                     config,
                 );
+
+                if let Some(scroll_view::Event::ContextMenu(
+                    context_menu::Event::Reply {
+                        msgid,
+                        to_nick,
+                        reply_preview,
+                    },
+                )) = &event
+                {
+                    let (reply_task, _) = self.input_view.update(
+                        input_view::Message::SetDraftReply {
+                            msgid: msgid.clone(),
+                            to_nick: to_nick.clone(),
+                            reply_preview: reply_preview.clone(),
+                        },
+                        &self.buffer,
+                        clients,
+                        history,
+                        main_window,
+                        config,
+                    );
+                    return (
+                        Task::batch([
+                            command.map(Message::ScrollView),
+                            reply_task.map(Message::InputView),
+                        ]),
+                        Some(Event::ContextMenu(context_menu::Event::Reply {
+                            msgid: msgid.clone(),
+                            to_nick: to_nick.clone(),
+                            reply_preview: reply_preview.clone(),
+                        })),
+                    );
+                }
 
                 let event = event.and_then(|event| match event {
                     scroll_view::Event::ContextMenu(event) => {

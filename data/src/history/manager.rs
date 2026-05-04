@@ -317,7 +317,7 @@ impl Manager {
         clients: &client::Map,
     ) -> impl Future<Output = Message> + use<> {
         let data = std::mem::take(&mut self.data);
-        let drafts = data.input.clone_draft_map();
+        let drafts = data.input.clone_drafts();
         let seeds: Vec<Option<history::Seed>> =
             data.map.keys().map(|kind| clients.get_seed(kind)).collect();
         let seeded_map = data.map.into_iter().zip(seeds);
@@ -344,7 +344,7 @@ impl Manager {
         }
 
         self.last_draft_changed = None;
-        let drafts = self.data.input.clone_draft_map();
+        let drafts = self.data.input.clone_drafts();
 
         Some(
             async move {
@@ -357,9 +357,9 @@ impl Manager {
 
     pub fn preload_drafts(
         &mut self,
-        drafts: HashMap<buffer::Upstream, String>,
+        drafts: HashMap<buffer::Upstream, input::SavedDraft>,
     ) {
-        self.data.input.load_into(drafts);
+        self.data.input.load_drafts_into(drafts);
     }
 
     pub fn record_input_message(
@@ -1354,6 +1354,8 @@ impl Data {
                         );
                     }
 
+                    populate_reply_previews(&mut messages);
+
                     entry.insert(History::Full {
                         kind,
                         messages,
@@ -1371,6 +1373,8 @@ impl Data {
                         .max(metadata::latest_can_reference(&messages));
 
                     let last_seen = history::get_last_seen(&messages);
+
+                    populate_reply_previews(&mut messages);
 
                     entry.insert(History::Full {
                         kind,
@@ -1390,6 +1394,8 @@ impl Data {
                     .max(metadata::latest_can_reference(&messages));
 
                 let last_seen = history::get_last_seen(&messages);
+
+                populate_reply_previews(&mut messages);
 
                 entry.insert(History::Full {
                     kind,
@@ -1517,9 +1523,29 @@ impl Data {
     fn add_message(
         &mut self,
         kind: history::Kind,
-        message: crate::Message,
+        mut message: crate::Message,
         labeled_response_context: Option<LabeledResponseContext>,
     ) -> Option<impl Future<Output = Message> + use<>> {
+        // Cache the replied-to author and preview text on the message so the
+        // reply is in view context without a lookup at render time.
+        if let Some(reply_id) = message.reply_to.clone()
+            && let Some(history) = self.map.get(&kind)
+            && let Some(original) = history.find_by_id(&reply_id)
+        {
+            let (nick, is_bot) = match original.target.source() {
+                message::Source::User(user)
+                | message::Source::Action(Some(user)) => {
+                    (user.nickname().to_string(), user.is_bot())
+                }
+                _ => (String::new(), false),
+            };
+            let text = original.content.preview_text();
+            if !nick.is_empty() {
+                message.reply_preview =
+                    Some(message::ReplyPreview { nick, is_bot, text });
+            }
+        }
+
         match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
                 let read_marker = entry
@@ -1884,6 +1910,45 @@ impl Data {
                     .boxed(),
                 )
             }
+        }
+    }
+}
+
+/// Backfill previews for replies for messages in a history batch
+fn populate_reply_previews(messages: &mut [crate::Message]) {
+    struct Entry {
+        nick: String,
+        is_bot: bool,
+        text: String,
+    }
+
+    let lookup: HashMap<String, Entry> = messages
+        .iter()
+        .filter_map(|m| {
+            let id = m.id.as_deref()?.to_owned();
+            let (nick, is_bot) = match m.target.source() {
+                message::Source::User(user)
+                | message::Source::Action(Some(user)) => {
+                    (user.nickname().to_string(), user.is_bot())
+                }
+                _ => return None,
+            };
+            let text = m.content.preview_text();
+            Some((id, Entry { nick, is_bot, text }))
+        })
+        .collect();
+
+    for message in messages.iter_mut() {
+        if message.reply_preview.is_none()
+            && let Some(reply_id) = &message.reply_to
+            && let Some(Entry { nick, is_bot, text }) =
+                lookup.get(reply_id.as_ref())
+        {
+            message.reply_preview = Some(message::ReplyPreview {
+                nick: nick.clone(),
+                is_bot: *is_bot,
+                text: text.clone(),
+            });
         }
     }
 }
