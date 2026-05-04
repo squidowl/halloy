@@ -200,6 +200,15 @@ pub fn view<'a>(
 
     let filehost_url = clients.get_filehost(server);
 
+    let reply_user = state.input_view.draft_reply().map(|draft_reply| {
+        let nick_obj = Nick::from_str(draft_reply.nick.as_str(), casemapping);
+        clients
+            .get_channel_users(server, &state.target)
+            .and_then(|users| users.get_by_nick(nick_obj.as_nickref()))
+            .cloned()
+            .unwrap_or_else(|| User::from(nick_obj))
+    });
+
     let text_input = show_text_input.then(move || {
         input_view::view(
             &state.input_view,
@@ -209,6 +218,7 @@ pub fn view<'a>(
             config,
             theme,
             filehost_url,
+            reply_user,
         )
         .map(Message::InputView)
     });
@@ -312,22 +322,10 @@ impl Channel {
                     },
                 )) = &event
                 {
-                    let casemapping =
-                        clients.get_server_casemapping_or_default(&self.server);
-                    let nick_obj =
-                        Nick::from_str(to_nick.as_str(), casemapping);
-                    let prefix = clients
-                        .get_channel_users(&self.server, &self.target)
-                        .and_then(|users| {
-                            users.get_by_nick(nick_obj.as_nickref())
-                        })
-                        .map(|user| user.highest_access_level().to_string())
-                        .unwrap_or_default();
                     let (reply_task, _) = self.input_view.update(
                         input_view::Message::SetDraftReply {
                             msgid: msgid.clone(),
                             to_nick: to_nick.clone(),
-                            to_nick_prefix: prefix,
                             reply_preview: reply_preview.clone(),
                         },
                         &self.buffer,

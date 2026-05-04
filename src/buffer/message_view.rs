@@ -1210,23 +1210,30 @@ impl<'a> ChannelQueryLayout<'a> {
         }) = &message.reply_preview
         {
             let nick_obj = Nick::from_str(nick, self.casemapping);
-            let prefix = self
+            let display_nick = self
                 .target
                 .users()
                 .and_then(|users| users.get_by_nick(nick_obj.as_nickref()))
-                .map(|user| user.highest_access_level().to_string())
-                .unwrap_or_default();
-            let display_nick = data::user::truncate_nick(
-                nick,
-                self.config.buffer.nickname.truncate,
-                self.config.display.truncation_character,
-            );
-            let formatted_nick = self
-                .config
-                .buffer
-                .nickname
-                .brackets
-                .format(format!("{prefix}{}", display_nick.as_ref()));
+                .map_or_else(
+                    || {
+                        data::user::truncate_nick(
+                            nick,
+                            self.config.buffer.nickname.truncate,
+                            self.config.display.truncation_character,
+                        )
+                        .into_owned()
+                    },
+                    |user| {
+                        user.display(
+                            self.config.buffer.nickname.show_access_levels,
+                            false,
+                            self.config.buffer.nickname.truncate,
+                            self.config.display.truncation_character,
+                        )
+                    },
+                );
+            let formatted_nick =
+                self.config.buffer.nickname.brackets.format(display_nick);
             let nick_color = theme::text::nickname(
                 self.theme,
                 &self.config.buffer.nickname.color,

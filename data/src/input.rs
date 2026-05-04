@@ -364,7 +364,6 @@ impl Content {
 pub struct DraftReply {
     pub id: message::Id,
     pub nick: String,
-    pub prefix: String,
     pub preview: String,
 }
 

@@ -30,7 +30,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use self::completion::Completion;
 use self::exec::run as execute_shell_command;
 use crate::widget::key_press::is_numpad;
-use crate::widget::user_display::UserDisplay;
+use crate::widget::user_display::{UserDisplay, UserDisplayData};
 use crate::widget::{
     Element, Renderer, Text, anchored_overlay, context_menu, decorate, text,
     tooltip,
@@ -116,7 +116,6 @@ pub enum Message {
     SetDraftReply {
         msgid: message::Id,
         to_nick: String,
-        to_nick_prefix: String,
         reply_preview: String,
     },
     ClearDraftReply,
@@ -350,6 +349,7 @@ pub fn view<'a>(
     config: &'a Config,
     theme: &'a Theme,
     filehost_url: Option<&'a str>,
+    reply_user: Option<User>,
 ) -> Element<'a, Message> {
     let style = if let Some(notice) = &state.notice {
         match notice {
@@ -661,7 +661,7 @@ pub fn view<'a>(
             )
         });
 
-    let maybe_reply_bar = reply_bar(state, config, theme);
+    let maybe_reply_bar = reply_bar(state, reply_user, registry, config, theme);
 
     let input_row = container(
         row![
@@ -719,33 +719,32 @@ pub fn view<'a>(
 
 fn reply_bar<'a>(
     state: &'a State,
+    reply_user: Option<User>,
+    registry: &dyn data::metadata::Registry,
     config: &'a Config,
     theme: &'a Theme,
 ) -> Option<crate::widget::Element<'a, Message>> {
-    let input::DraftReply {
-        nick,
-        prefix,
-        preview,
-        ..
-    } = state.draft_reply.as_ref()?;
+    let input::DraftReply { preview, .. } = state.draft_reply.as_ref()?;
     let font_size = config.font.size.map_or(theme::TEXT_SIZE, f32::from) * 0.85;
-    let display_nick = data::user::truncate_nick(
-        nick,
-        config.buffer.nickname.truncate,
-        config.display.truncation_character,
+    let user = reply_user.as_ref()?;
+    let full = UserDisplayData::new(
+        user,
+        config.buffer.nickname.show_access_levels,
+        config.buffer.nickname.show_bot_icon,
+        registry,
+        &config.display.nickname,
     );
-    let formatted_nick = config
+    let display = config
         .buffer
         .nickname
-        .brackets
-        .format(format!("{prefix}{}", display_nick.as_ref()));
-    let nick_color = theme::text::nickname(
-        theme,
-        &config.buffer.nickname.color,
-        Some(nick.as_str()),
-        None,
-        false,
-    );
+        .truncate
+        .and_then(|len| {
+            full.truncate(len as usize, config.display.truncation_character)
+        })
+        .unwrap_or(full);
+    let nick_element: Element<_> = display
+        .bracket(Some(&config.buffer.nickname.brackets))
+        .into_element_sized(user, font_size, theme, config);
 
     Some(
         container(
@@ -755,9 +754,7 @@ fn reply_bar<'a>(
                     text("Replying to ")
                         .style(theme::text::primary)
                         .size(font_size),
-                    text(formatted_nick.to_string())
-                        .style(move |_| nick_color)
-                        .size(font_size),
+                    nick_element,
                     text(format!(" {preview}"))
                         .style(theme::text::secondary)
                         .size(font_size)
@@ -849,6 +846,10 @@ impl State {
             upload_abort_handles: Vec::new(),
             draft_reply: cache.and_then(|c| c.draft_reply).cloned(),
         }
+    }
+
+    pub fn draft_reply(&self) -> Option<&input::DraftReply> {
+        self.draft_reply.as_ref()
     }
 
     pub fn update(
@@ -1395,7 +1396,6 @@ impl State {
             Message::SetDraftReply {
                 msgid,
                 to_nick,
-                to_nick_prefix,
                 reply_preview,
             } => {
                 let suffix =
@@ -1424,7 +1424,6 @@ impl State {
                 self.draft_reply = Some(input::DraftReply {
                     id: msgid,
                     nick: to_nick.clone(),
-                    prefix: to_nick_prefix,
                     preview: reply_preview,
                 });
                 let prefix_str = format!("{to_nick}{suffix}");

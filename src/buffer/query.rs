@@ -155,6 +155,9 @@ pub fn view<'a>(
             config,
             theme,
             filehost_url,
+            state.input_view.draft_reply().map(|draft_reply| {
+                User::from(Nick::from_str(&draft_reply.nick, casemapping))
+            }),
         )
         .map(Message::InputView)
     });
@@ -248,7 +251,6 @@ impl Query {
                         input_view::Message::SetDraftReply {
                             msgid: msgid.clone(),
                             to_nick: to_nick.clone(),
-                            to_nick_prefix: String::new(),
                             reply_preview: reply_preview.clone(),
                         },
                         &self.buffer,
