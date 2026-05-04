@@ -1,5 +1,9 @@
 # Connect with ZNC
 
+::: info
+Connecting with [soju](/guides/connect-with-soju) is recommended over ZNC due to the greater IRCv3 feature support it currently provides (and enables by default).
+:::
+
 To connect with a [**ZNC**](https://wiki.znc.in/ZNC) bouncer, the configuration
 below can be used as a template. Simply change so it fits your credentials.
 
@@ -27,3 +31,6 @@ Does your znc use a self-signed or expired certificate? See:
 
 Does your znc listen on a different port? See:
 [`servers.<name>.port`](/configuration/servers#port)
+
+Are you connecting with multiple clients? See:
+[multiple clients](https://wiki.znc.in/Multiple_clients)
