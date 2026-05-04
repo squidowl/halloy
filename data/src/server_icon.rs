@@ -54,9 +54,7 @@ impl Manager {
         };
 
         let Some(http_client) = http_client else {
-            log::warn!(
-                "[{server}] File upload disabled: Unable to build HTTP client"
-            );
+            log::warn!("server icon fetching disabled for {server}");
             self.drop_request(&server);
             return Task::none();
         };
@@ -202,7 +200,7 @@ async fn fetch(
     let digest = cache::HexDigest::new(&hasher.finalize());
     let image_path = cache.blob_path(&digest, format.extensions_str()[0]);
 
-    if !image_path.exists() {
+    if !fs::try_exists(&image_path).await? {
         if let Some(parent) = image_path.parent().filter(|p| !p.exists()) {
             fs::create_dir_all(parent).await?;
         }
