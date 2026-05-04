@@ -24,6 +24,7 @@ Fixed:
 - Fix link matching for both end of line delimiters & punctuations
 - Matching against `users` for some include/exclude conditions
 - Handle URLs ending with paired delimiters chars
+- `VERSION` and `JOIN` commands on connect are skipped if server is primary soju server
 
 Changed:
 
