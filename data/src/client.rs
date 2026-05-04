@@ -389,7 +389,7 @@ impl Client {
                 }
             }
 
-            if !config.metadata.is_empty()
+            if (!config.metadata.is_empty() || !self.config.metadata.is_empty())
                 && config.metadata != self.config.metadata
             {
                 if self.capabilities.acknowledged(Capability::ReadMarker) {
