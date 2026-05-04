@@ -1891,7 +1891,7 @@ impl Client {
                     if let Some(client_channel) =
                         self.chanmap.get_mut(&target_channel)
                     {
-                        client_channel.update_user_away(
+                        client_channel.update_user_status(
                             ok!(args.get(5)),
                             ok!(args.get(6)),
                             casemapping,
@@ -1999,7 +1999,7 @@ impl Client {
                             {
                                 if token == WhoXPollParameters::Default.token()
                                 {
-                                    client_channel.update_user_away(
+                                    client_channel.update_user_status(
                                         ok!(args.get(3)),
                                         ok!(args.get(4)),
                                         casemapping,
@@ -2013,7 +2013,7 @@ impl Client {
                                 {
                                     let user = ok!(args.get(3));
 
-                                    client_channel.update_user_away(
+                                    client_channel.update_user_status(
                                         user,
                                         ok!(args.get(4)),
                                         casemapping,
@@ -5370,7 +5370,7 @@ pub struct Channel {
 }
 
 impl Channel {
-    pub fn update_user_away(
+    pub fn update_user_status(
         &mut self,
         user: &str,
         flags: &str,
@@ -5379,20 +5379,18 @@ impl Channel {
     ) {
         let user = User::from(Nick::from_str(user, casemapping));
 
-        if let Some(away_flag) = flags.chars().next() {
+        let away = flags.chars().next().and_then(|away_flag| {
             // H = Here, G = gone (away)
-            let away = match away_flag {
-                'G' => true,
-                'H' => false,
-                _ => return,
-            };
+            match away_flag {
+                'G' => Some(true),
+                'H' => Some(false),
+                _ => None,
+            }
+        });
 
-            self.users.update_user(
-                &user,
-                Some(away),
-                bot_mode_char.map(|bot_char| flags.contains(bot_char)),
-            );
-        }
+        let bot = bot_mode_char.map(|bot_char| flags.contains(bot_char));
+
+        self.users.update_user(&user, away, bot);
     }
 
     pub fn update_user_accountname(
