@@ -442,6 +442,31 @@ impl User {
             bot: false,
         })
     }
+
+    pub fn parse_from_whoreply(
+        nick: &String,
+        flags: &str,
+        user: &String,
+        host: &String,
+        casemapping: isupport::CaseMap,
+        prefix: Option<&[isupport::PrefixMap]>,
+    ) -> Result<Self, ParseUserError> {
+        let access_level: String = flags[1..]
+            .chars()
+            .filter(|c| {
+                if let Some(prefix) = prefix {
+                    prefix.iter().any(|p| p.prefix == *c)
+                } else {
+                    AccessLevel::try_from(*c).is_ok()
+                }
+            })
+            .collect();
+        User::parse(
+            format!("{access_level}{nick}!{user}@{host}").as_str(),
+            casemapping,
+            prefix,
+        )
+    }
 }
 
 fn parse_user_names(
