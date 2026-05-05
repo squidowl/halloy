@@ -5,6 +5,14 @@ Halloy supports two different ways to connect with a [**soju**](https://soju.im/
 1. Automatic network detection using the [`bouncer-networks`](https://codeberg.org/emersion/soju/src/branch/master/doc/ext/bouncer-networks.md) extension
 2. Manual per-network configuration (legacy)
 
+::: tip
+It is strongly recommended to [configure](https://soju.im/doc/soju.1.html#CONFIG_FILE) soju with the `db` `message-store` driver with:
+```
+message-store db
+```
+
+Both the `fs` and `memory` `message-store` drivers are incompatible with the proper functioning of some IRCv3 features (e.g. IRCv3 `chathistory` with the `memory` driver or IRCv3 `reactions` with the `fs` driver).
+:::
 
 ## Automatic network detection using the `bouncer-networks` extension
 
