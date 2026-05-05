@@ -525,11 +525,11 @@ fn query_title<'a>(
         .nickname
         .away
         .is_away(current_user.is_some_and(User::is_away));
-    let is_user_offline = config
-        .buffer
-        .nickname
-        .offline
-        .is_offline(!shared_channels.is_empty() && current_user.is_none());
+    // It's generally not possible to tell whether another user is offline or
+    // just not in the any shared channels.  Unless/until user offline status is
+    // monitored (via IRCv3 MONITOR or otherwise), do not display users as
+    // offline in query titles as it may be misleading.
+    let is_user_offline = config.buffer.nickname.offline.is_offline(false);
 
     let nickname = text(resolved_query.as_str())
         .style(move |_| {
