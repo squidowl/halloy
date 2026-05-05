@@ -962,24 +962,38 @@ impl History {
         }
     }
 
-    pub fn last_can_reference_before(
+    pub fn last_can_reference_before_or_at(
         &self,
         server_time: DateTime<Utc>,
-    ) -> Option<MessageReferences> {
-        let can_reference = |message: &Message| {
+        allow_at: bool,
+        message_reference_types: &[isupport::MessageReferenceType],
+    ) -> Option<isupport::MessageReference> {
+        let can_reference_before = |message: &Message| {
             message.can_reference()
                 && !message.is_rerouted()
                 && message.server_time < server_time
         };
 
-        let (message, chathistory_references) = match self {
+        let mut at_message = None;
+
+        let can_reference_at = |message: &Message| {
+            message.can_reference()
+                && !message.is_rerouted()
+                && message.server_time == server_time
+        };
+
+        let (before_message, chathistory_references) = match self {
             History::Partial {
                 pending_messages,
                 chathistory_references,
                 ..
             } => (
                 pending_messages.iter().rev().find_map(|(message, _)| {
-                    can_reference(message).then_some(message)
+                    if at_message.is_none() && can_reference_at(message) {
+                        at_message = Some(message);
+                    }
+
+                    can_reference_before(message).then_some(message)
                 }),
                 chathistory_references,
             ),
@@ -988,22 +1002,49 @@ impl History {
                 chathistory_references,
                 ..
             } => (
-                messages.iter().rev().find(|message| can_reference(message)),
+                messages.iter().rev().find(|message| {
+                    if at_message.is_none() && can_reference_at(message) {
+                        at_message = Some(message);
+                    }
+
+                    can_reference_before(message)
+                }),
                 chathistory_references,
             ),
         };
 
-        message.map(Message::references).max(
-            if chathistory_references.as_ref().is_some_and(
-                |chathistory_references| {
-                    chathistory_references.timestamp < server_time
+        // If a reference before server_time exists, then return that reference.
+        if let Some(message_references) =
+            before_message.map(Message::references).max(
+                if chathistory_references.as_ref().is_some_and(
+                    |chathistory_references| {
+                        chathistory_references.timestamp < server_time
+                    },
+                ) {
+                    chathistory_references.clone()
+                } else {
+                    None
                 },
-            ) {
-                chathistory_references.clone()
-            } else {
-                None
-            },
-        )
+            )
+        {
+            Some(message_references.message_reference(message_reference_types))
+        // Else, if a reference at server_time is allowed, exists, and timestamp
+        // references are supported, then return a timestamp reference at
+        // server_time.
+        } else if allow_at
+            && message_reference_types
+                .contains(&isupport::MessageReferenceType::Timestamp)
+            && (at_message.is_some()
+                || chathistory_references.as_ref().is_some_and(
+                    |chathistory_references| {
+                        chathistory_references.timestamp == server_time
+                    },
+                ))
+        {
+            Some(isupport::MessageReference::Timestamp(server_time))
+        } else {
+            None
+        }
     }
 
     pub fn update_chathistory_references(

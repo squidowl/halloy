@@ -1709,6 +1709,7 @@ impl Dashboard {
                     server,
                     target,
                     server_time,
+                    allow_at,
                 ) => {
                     let message_reference_types = clients
                         .get_server_chathistory_message_reference_types(
@@ -1717,15 +1718,14 @@ impl Dashboard {
 
                     let message_reference = self
                         .history
-                        .last_can_reference_before(
+                        .last_can_reference_before_or_at(
                             server.clone(),
                             target.clone(),
                             server_time,
+                            allow_at,
+                            &message_reference_types,
                         )
-                        .map_or(MessageReference::None, |message_references| {
-                            message_references
-                                .message_reference(&message_reference_types)
-                        });
+                        .unwrap_or(MessageReference::None);
 
                     let limit = clients.get_server_chathistory_limit(&server);
 
@@ -3535,12 +3535,13 @@ impl Dashboard {
         mark_as_read(kind, &mut self.history, clients, TokenPriority::High);
     }
 
-    pub fn load_metadata(
+    pub fn load_metadata_and_request_newer_chathistory(
         &mut self,
         clients: &data::client::Map,
         server: Server,
         target: Target,
         server_time: DateTime<Utc>,
+        allow_at: bool,
     ) -> Task<Message> {
         let command = self
             .history
@@ -3553,6 +3554,7 @@ impl Dashboard {
                     server,
                     target,
                     server_time,
+                    allow_at,
                 ),
             )))
         } else {
