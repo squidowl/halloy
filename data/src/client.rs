@@ -332,7 +332,9 @@ impl Client {
     ) -> Vec<Event> {
         if self.registration_step == RegistrationStep::Complete {
             // TODO: allow from_modal when modal matching to bouncer networks is added.
-            if !self.server.is_bouncer_network() && !self.is_primary() {
+            if !self.capabilities.acknowledged(Capability::BouncerNetworks)
+                || !self.is_primary()
+            {
                 self.join(
                     &config
                         .channels
@@ -3072,7 +3074,9 @@ impl Client {
                     .collect::<Vec<_>>();
 
                 // Send JOIN on non bouncer networks
-                if !self.server.is_bouncer_network() && !self.is_primary() {
+                if !self.capabilities.acknowledged(Capability::BouncerNetworks)
+                    || !self.is_primary()
+                {
                     for message in group_joins(
                         &channels,
                         &self.config.channel_keys,
@@ -3129,7 +3133,10 @@ impl Client {
                     ))))
                     .collect::<Vec<_>>();
 
-                if !self.is_primary()
+                if (!self
+                    .capabilities
+                    .acknowledged(Capability::BouncerNetworks)
+                    || !self.is_primary())
                     && matches!(
                         self.features.version_request,
                         VersionRequest::Need(true)
