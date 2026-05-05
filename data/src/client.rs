@@ -3244,7 +3244,7 @@ impl Client {
                         context.as_ref().and_then(|context| context.first())
                     && self.metadata_sub_requests.take(key).is_some()
                 {
-                    log::warn!(
+                    log::info!(
                         "[{}] Metadata {key} not supported by the server",
                         self.server
                     );
