@@ -115,11 +115,13 @@ pub fn view<'a>(
                             ShownStatus::Historical => false,
                         };
 
+                    let registry = clients.get_registry(server);
+
                     let user_display = UserDisplay::new(
                         user,
                         config.buffer.nickname.show_access_levels,
                         config.buffer.nickname.show_bot_icon,
-                        clients.get_registry(server),
+                        registry,
                         &config.display.nickname,
                         config.buffer.nickname.truncate,
                         config.display.truncation_character,
@@ -160,6 +162,7 @@ pub fn view<'a>(
                     let text = message_content::with_context(
                         &message.content,
                         server,
+                        registry,
                         chantypes,
                         casemapping,
                         theme,
@@ -270,6 +273,7 @@ pub fn view<'a>(
                     let text = message_content(
                         &message.content,
                         server,
+                        clients.get_registry(server),
                         chantypes,
                         casemapping,
                         theme,

@@ -1,4 +1,4 @@
-use data::{Config, Server, channel_discovery, message, target};
+use data::{Config, Server, channel_discovery, message, metadata, target};
 use iced::widget::{
     self, button, center, column, container, operation, pick_list, row, rule,
     scrollable, span, text, text_input,
@@ -264,6 +264,7 @@ fn channel_list_view<'a>(
                         Some(message_content::with_context(
                             topic_content,
                             server,
+                            metadata::EMPTY,
                             clients.get_server_chantypes_or_default(server),
                             clients.get_server_casemapping_or_default(server),
                             theme,

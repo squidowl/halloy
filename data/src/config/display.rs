@@ -1,4 +1,7 @@
+use iced_core::Color;
 use serde::Deserialize;
+
+use crate::appearance::theme::adapt_nickname_color;
 
 pub mod nickname;
 
@@ -49,4 +52,35 @@ pub enum AdaptMetadataColors {
     All,
     Illegible,
     None,
+}
+
+impl AdaptMetadataColors {
+    pub fn adapt(
+        &self,
+        metadata_color: Color,
+        theme_nickname_color: Color,
+        background: Color,
+    ) -> Color {
+        match self {
+            AdaptMetadataColors::All => adapt_nickname_color(
+                metadata_color,
+                theme_nickname_color,
+                background,
+                true,
+            ),
+            AdaptMetadataColors::Illegible => {
+                if metadata_color.is_readable_on(background) {
+                    metadata_color
+                } else {
+                    adapt_nickname_color(
+                        metadata_color,
+                        theme_nickname_color,
+                        background,
+                        false,
+                    )
+                }
+            }
+            AdaptMetadataColors::None => metadata_color,
+        }
+    }
 }

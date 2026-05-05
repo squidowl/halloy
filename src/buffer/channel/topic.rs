@@ -110,6 +110,7 @@ pub fn view<'a>(
         message_content::with_context(
             content,
             server,
+            registry,
             chantypes,
             casemapping,
             theme,

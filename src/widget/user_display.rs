@@ -1,7 +1,5 @@
-use data::appearance::theme::adapt_nickname_color;
 use data::buffer::Brackets;
 use data::config::buffer::{AccessLevelFormat, Dimmed};
-use data::config::display::AdaptMetadataColors;
 use data::config::display::nickname::Metadata;
 use data::target::{Query, TargetRef};
 use data::user::AccessLevel;
@@ -40,6 +38,7 @@ impl UserDisplay {
 
         let full = UserDisplayData::new(
             user,
+            query,
             show_access_levels,
             show_bot_icon,
             registry,
@@ -81,27 +80,11 @@ impl UserDisplay {
         config: &'a Config,
     ) -> Element<'a, M> {
         let color = self.color.map(|color| {
-            match config.display.adapt_metadata_colors {
-                AdaptMetadataColors::All => adapt_nickname_color(
-                    color,
-                    theme.styles().buffer.nickname.color,
-                    theme.styles().buffer.background,
-                    true,
-                ),
-                AdaptMetadataColors::Illegible => {
-                    if color.is_readable_on(theme.styles().buffer.background) {
-                        color
-                    } else {
-                        adapt_nickname_color(
-                            color,
-                            theme.styles().buffer.nickname.color,
-                            theme.styles().buffer.background,
-                            false,
-                        )
-                    }
-                }
-                AdaptMetadataColors::None => color,
-            }
+            config.display.adapt_metadata_colors.adapt(
+                color,
+                theme.styles().buffer.nickname.color,
+                theme.styles().buffer.background,
+            )
         });
 
         let base = self.base.into_element(
@@ -153,6 +136,7 @@ pub struct UserDisplayData {
 impl UserDisplayData {
     pub fn new(
         user: &User,
+        query: Query,
         show_access_levels: AccessLevelFormat,
         show_bot_icon: bool,
         registry: &dyn metadata::Registry,
@@ -181,8 +165,6 @@ impl UserDisplayData {
         let nickname = user.nickname();
 
         let bot_icon = user.is_bot() && show_bot_icon;
-
-        let query = Query::from(user);
 
         let display_name = if enabled.contains(&Metadata::DisplayName)
             && let Some(display_name) =
