@@ -10,6 +10,7 @@ pub struct Display {
     pub truncation_character: char,
     pub nickname: Vec<nickname::Metadata>,
     pub nicklist_nickname: Vec<nickname::Metadata>,
+    pub adapt_metadata_colors: AdaptMetadataColors,
 }
 
 impl Default for Display {
@@ -20,6 +21,7 @@ impl Default for Display {
             truncation_character: '…',
             nickname: vec![nickname::Metadata::DisplayName],
             nicklist_nickname: vec![nickname::Metadata::DisplayName],
+            adapt_metadata_colors: AdaptMetadataColors::default(),
         }
     }
 }
@@ -38,4 +40,13 @@ impl Default for DirectionArrows {
             right: String::from("→"),
         }
     }
+}
+
+#[derive(Debug, Default, Clone, Copy, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum AdaptMetadataColors {
+    #[default]
+    All,
+    Illegible,
+    None,
 }

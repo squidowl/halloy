@@ -1,5 +1,7 @@
+use data::appearance::theme::adapt_nickname_color;
 use data::buffer::Brackets;
 use data::config::buffer::{AccessLevelFormat, Dimmed};
+use data::config::display::AdaptMetadataColors;
 use data::config::display::nickname::Metadata;
 use data::target::{Query, TargetRef};
 use data::user::AccessLevel;
@@ -78,8 +80,32 @@ impl UserDisplay {
         theme: &'a Theme,
         config: &'a Config,
     ) -> Element<'a, M> {
+        let color = self.color.map(|color| {
+            match config.display.adapt_metadata_colors {
+                AdaptMetadataColors::All => adapt_nickname_color(
+                    color,
+                    theme.styles().buffer.nickname.color,
+                    theme.styles().buffer.background,
+                    true,
+                ),
+                AdaptMetadataColors::Illegible => {
+                    if color.is_readable_on(theme.styles().buffer.background) {
+                        color
+                    } else {
+                        adapt_nickname_color(
+                            color,
+                            theme.styles().buffer.nickname.color,
+                            theme.styles().buffer.background,
+                            false,
+                        )
+                    }
+                }
+                AdaptMetadataColors::None => color,
+            }
+        });
+
         let base = self.base.into_element(
-            user, self.color, is_away, is_offline, dimmed, theme, config,
+            user, color, is_away, is_offline, dimmed, theme, config,
         );
 
         if let Some(tooltip) = self.tooltip {
@@ -88,8 +114,7 @@ impl UserDisplay {
                 container(container(if tooltip.bot_icon {
                     row![
                         tooltip.into_element(
-                            user, self.color, false, false, None, theme,
-                            config,
+                            user, color, false, false, None, theme, config,
                         ),
                         selectable_text(String::from(
                             " has marked itself as a bot"
@@ -99,7 +124,7 @@ impl UserDisplay {
                     .into()
                 } else {
                     tooltip.into_element(
-                        user, self.color, false, false, None, theme, config,
+                        user, color, false, false, None, theme, config,
                     )
                 }))
                 .style(theme::container::tooltip)
