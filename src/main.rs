@@ -1669,11 +1669,12 @@ fn handle_client_events(
             Event::JoinedChannel(channel, server_time) => {
                 commands.push(
                     dashboard
-                        .load_metadata(
+                        .load_metadata_and_request_newer_chathistory(
                             clients,
                             server.clone(),
                             Target::Channel(channel),
                             server_time,
+                            false,
                         )
                         .map(Message::Dashboard),
                 );
@@ -1694,11 +1695,12 @@ fn handle_client_events(
             Event::ChatHistoryTargetReceived(target, server_time) => {
                 commands.push(
                     dashboard
-                        .load_metadata(
+                        .load_metadata_and_request_newer_chathistory(
                             clients,
                             server.clone(),
                             target,
                             server_time,
+                            true,
                         )
                         .map(Message::Dashboard),
                 );

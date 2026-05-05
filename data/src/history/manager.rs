@@ -614,14 +614,21 @@ impl Manager {
         self.data.first_can_reference(server, target)
     }
 
-    pub fn last_can_reference_before(
+    pub fn last_can_reference_before_or_at(
         &self,
         server: Server,
         target: Target,
         server_time: DateTime<Utc>,
-    ) -> Option<MessageReferences> {
-        self.data
-            .last_can_reference_before(server, target, server_time)
+        allow_at: bool,
+        message_reference_types: &[isupport::MessageReferenceType],
+    ) -> Option<isupport::MessageReference> {
+        self.data.last_can_reference_before_or_at(
+            server,
+            target,
+            server_time,
+            allow_at,
+            message_reference_types,
+        )
     }
 
     pub fn mark_as_read(&mut self, kind: &history::Kind) -> Option<ReadMarker> {
@@ -1736,17 +1743,23 @@ impl Data {
             .and_then(|history| history.first_can_reference())
     }
 
-    fn last_can_reference_before(
+    fn last_can_reference_before_or_at(
         &self,
         server: Server,
         target: Target,
         server_time: DateTime<Utc>,
-    ) -> Option<MessageReferences> {
+        allow_at: bool,
+        message_reference_types: &[isupport::MessageReferenceType],
+    ) -> Option<isupport::MessageReference> {
         let kind = history::Kind::from_target(server, target);
 
-        self.map
-            .get(&kind)
-            .and_then(|history| history.last_can_reference_before(server_time))
+        self.map.get(&kind).and_then(|history| {
+            history.last_can_reference_before_or_at(
+                server_time,
+                allow_at,
+                message_reference_types,
+            )
+        })
     }
 
     fn mark_as_read(&mut self, kind: &history::Kind) -> Option<ReadMarker> {

@@ -129,7 +129,7 @@ pub enum Message {
         DateTime<Utc>,
         Result<(), Error>,
     ),
-    RequestNewerChatHistory(Server, Target, DateTime<Utc>),
+    RequestNewerChatHistory(Server, Target, DateTime<Utc>, bool),
     RequestChatHistoryTargets(Server, Option<DateTime<Utc>>, DateTime<Utc>),
 }
 

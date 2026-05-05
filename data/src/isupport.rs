@@ -970,7 +970,7 @@ impl PartialEq<Message> for MessageReference {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum MessageReferenceType {
     Timestamp,
     MessageId,
