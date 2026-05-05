@@ -4939,22 +4939,17 @@ impl Dashboard {
         }
     }
 
-    pub fn prioritize_panes_joined_who_polls(
+    pub fn has_open_channel_pane(
         &self,
-        server: &data::Server,
-        clients: &mut client::Map,
-    ) {
-        if let Some(client) = clients.client_mut(server) {
-            for (_, _, pane) in self.panes.iter() {
-                if let Some(buffer) = pane.buffer.data()
-                    && let Some(upstream) = buffer.upstream()
-                    && upstream.server() == server
-                    && let Some(channel) = upstream.channel()
-                {
-                    client.prioritize_joined_who_poll(channel.to_owned());
-                }
-            }
-        }
+        server: &Server,
+        channel: &target::Channel,
+    ) -> bool {
+        self.panes.iter().any(|(_, _, pane)| {
+            matches!(
+                pane.buffer.upstream(),
+                Some(buffer::Upstream::Channel(s, c)) if s == server && c == channel
+            )
+        })
     }
 
     pub fn open_pane_server_queries(
