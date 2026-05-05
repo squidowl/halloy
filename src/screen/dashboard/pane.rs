@@ -514,10 +514,7 @@ fn query_title<'a>(
     theme: &'a Theme,
 ) -> Element<'a, Message> {
     let resolved_query = clients.resolve_query(server, query).unwrap_or(query);
-    let user = User::from(data::user::Nick::from_str(
-        resolved_query.as_str(),
-        clients.get_server_casemapping_or_default(server),
-    ));
+    let user = User::from(data::user::Nick::from(resolved_query));
     let shared_channels = clients.get_user_channels(server, user.nickname());
     let current_user = shared_channels.iter().find_map(|channel| {
         clients.resolve_user_attributes(server, channel, &user)
@@ -539,7 +536,7 @@ fn query_title<'a>(
             theme::text::nickname(
                 theme,
                 &config.buffer.nickname.color,
-                Some(resolved_query.as_str()),
+                Some(user.seed()),
                 is_user_away,
                 is_user_offline,
             )
