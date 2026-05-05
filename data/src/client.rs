@@ -392,7 +392,7 @@ impl Client {
             if (!config.metadata.is_empty() || !self.config.metadata.is_empty())
                 && config.metadata != self.config.metadata
             {
-                if self.capabilities.acknowledged(Capability::ReadMarker) {
+                if self.capabilities.acknowledged(Capability::Metadata) {
                     self.send(
                         None,
                         command!(
@@ -3161,7 +3161,7 @@ impl Client {
                 }
 
                 if !self.config.metadata.is_empty() {
-                    if self.capabilities.acknowledged(Capability::ReadMarker) {
+                    if self.capabilities.acknowledged(Capability::Metadata) {
                         for (key, value) in
                             self.config.metadata.clone().into_iter()
                         {
