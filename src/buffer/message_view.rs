@@ -438,7 +438,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     .into();
             }
 
-            if rerouted_private && !is_ourself {
+            if rerouted_private && user_in_channel.is_none() {
                 context_menu::rerouted_private_user(
                     nick_text,
                     self.server,
