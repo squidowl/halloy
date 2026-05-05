@@ -1132,13 +1132,15 @@ impl FromStr for WhoToken {
 pub enum WhoXPollParameters {
     Default,
     WithAccountName,
+    InitialJoin,
 }
 
 impl WhoXPollParameters {
     pub fn fields(&self) -> &'static str {
         match self {
-            WhoXPollParameters::Default => "tcnfuh",
-            WhoXPollParameters::WithAccountName => "tcnfuha",
+            WhoXPollParameters::Default => "tcnf",
+            WhoXPollParameters::WithAccountName => "tcnfa",
+            WhoXPollParameters::InitialJoin => "tcnfuha",
         }
     }
 
@@ -1149,6 +1151,9 @@ impl WhoXPollParameters {
             },
             WhoXPollParameters::WithAccountName => WhoToken {
                 digits: ['9', '9', '\0'],
+            },
+            WhoXPollParameters::InitialJoin => WhoToken {
+                digits: ['9', '9', '9'],
             },
         }
     }

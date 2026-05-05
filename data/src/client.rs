@@ -1901,10 +1901,6 @@ impl Client {
             }
             Command::Numeric(RPL_WHOREPLY, args) => {
                 let channel = ok!(args.get(1));
-                let user = ok!(args.get(2));
-                let host = ok!(args.get(3));
-                let nick = ok!(args.get(5));
-                let flags = ok!(args.get(6));
 
                 let casemapping = self.casemapping();
 
@@ -1914,11 +1910,11 @@ impl Client {
                     self.statusmsg(),
                     casemapping,
                 ) {
-                    let user_request = self.user_who_request(&target_channel);
-
                     if let Some(client_channel) =
                         self.chanmap.get_mut(&target_channel)
                     {
+                        let nick = ok!(args.get(5));
+                        let flags = ok!(args.get(6));
                         let bot_mode_char =
                             isupport::get_bot_mode_char(&self.isupport);
 
@@ -1928,8 +1924,8 @@ impl Client {
                             && let Ok(mut user) = User::parse_from_whoreply(
                                 nick,
                                 flags,
-                                user,
-                                host,
+                                ok!(args.get(2)),
+                                ok!(args.get(3)),
                                 casemapping,
                                 isupport::get_prefix(&self.isupport),
                             )
@@ -1967,6 +1963,7 @@ impl Client {
                         }
                     }
 
+                    let user_request = self.user_who_request(&target_channel);
                     if !user_request {
                         // User did not request, don't save to history
                         return Ok(vec![]);
@@ -1986,13 +1983,7 @@ impl Client {
                 }
             }
             Command::Numeric(RPL_WHOSPCRPL, args) => {
-                let token = ok!(args.get(1));
                 let channel = ok!(args.get(2));
-                let user = ok!(args.get(3));
-                let host = ok!(args.get(4));
-                let nick = ok!(args.get(5));
-                let flags = ok!(args.get(6));
-                let account = args.get(7);
 
                 let casemapping = self.casemapping();
 
@@ -2019,7 +2010,8 @@ impl Client {
                                 _,
                                 Some(request_token),
                             ) if matches!(source, WhoSource::Poll) => {
-                                if let Ok(token) = token.parse::<WhoToken>()
+                                if let Ok(token) =
+                                    ok!(args.get(1)).parse::<WhoToken>()
                                     && *request_token == token
                                 {
                                     who_poll.status = WhoStatus::Receiving(
@@ -2050,41 +2042,18 @@ impl Client {
                             _ => (),
                         }
 
-                        if self
-                            .capabilities
-                            .acknowledged(Capability::NoImplicitNames)
-                            && let Ok(mut user) = User::parse_from_whoreply(
-                                nick,
-                                flags,
-                                user,
-                                host,
-                                casemapping,
-                                isupport::get_prefix(&self.isupport),
-                            )
-                            && client_channel.users.resolve(&user).is_none()
-                        {
-                            if let Some(account) = account {
-                                user = user.with_accountname(account);
-                            }
-                            if flags.starts_with('G') {
-                                user.update_away(true);
-                            }
-                            if let Some(bot_char) = bot_mode_char {
-                                user.update_bot(flags.contains(bot_char));
-                            }
-                            client_channel.users.insert(user);
-                        } else if let WhoStatus::Receiving(
-                            WhoSource::Poll,
-                            Some(_),
-                        ) = &who_poll.status
+                        if let WhoStatus::Receiving(WhoSource::Poll, Some(_)) =
+                            &who_poll.status
                         {
                             // Check token to ~ensure reply is to poll request
-                            if let Ok(token) = token.parse::<WhoToken>() {
+                            if let Ok(token) =
+                                ok!(args.get(1)).parse::<WhoToken>()
+                            {
                                 if token == WhoXPollParameters::Default.token()
                                 {
                                     client_channel.update_user_status(
-                                        nick,
-                                        flags,
+                                        ok!(args.get(3)),
+                                        ok!(args.get(4)),
                                         casemapping,
                                         bot_mode_char,
                                     );
@@ -2093,17 +2062,48 @@ impl Client {
                                         .token()
                                 {
                                     client_channel.update_user_status(
-                                        nick,
-                                        flags,
+                                        ok!(args.get(3)),
+                                        ok!(args.get(4)),
                                         casemapping,
                                         bot_mode_char,
                                     );
 
                                     client_channel.update_user_accountname(
-                                        nick,
-                                        ok!(account),
+                                        ok!(args.get(3)),
+                                        ok!(args.get(5)),
                                         casemapping,
                                     );
+                                } else if token
+                                    == WhoXPollParameters::InitialJoin.token()
+                                    && let flags = ok!(args.get(6))
+                                    && let Ok(mut user) =
+                                        User::parse_from_whoreply(
+                                            ok!(args.get(5)),
+                                            flags,
+                                            ok!(args.get(3)),
+                                            ok!(args.get(4)),
+                                            casemapping,
+                                            isupport::get_prefix(
+                                                &self.isupport,
+                                            ),
+                                        )
+                                    && client_channel
+                                        .users
+                                        .resolve(&user)
+                                        .is_none()
+                                {
+                                    if let Some(account) = args.get(7) {
+                                        user = user.with_accountname(account);
+                                    }
+                                    if flags.starts_with('G') {
+                                        user.update_away(true);
+                                    }
+                                    if let Some(bot_char) = bot_mode_char {
+                                        user.update_bot(
+                                            flags.contains(bot_char),
+                                        );
+                                    }
+                                    client_channel.users.insert(user);
                                 }
                             }
                         }
@@ -4191,14 +4191,12 @@ impl Client {
             }
 
             let request = match &who_poll.status {
-                WhoStatus::Joined => {
-                    (self.capabilities.acknowledged(Capability::AwayNotify)
-                        || self
-                            .capabilities
-                            .acknowledged(Capability::NoImplicitNames)
-                        || self.config.who_poll_enabled)
-                        .then_some(Request::Poll)
-                }
+                WhoStatus::Joined => (self
+                    .capabilities
+                    .acknowledged(Capability::NoImplicitNames)
+                    || self.capabilities.acknowledged(Capability::AwayNotify)
+                    || self.config.who_poll_enabled)
+                    .then_some(Request::Poll),
                 WhoStatus::Waiting(last) => {
                     if self.capabilities.acknowledged(Capability::AwayNotify) {
                         self.chanmap.get(&who_poll.channel).and_then(
@@ -4247,6 +4245,15 @@ impl Client {
                 let message =
                     if self.isupport.contains_key(&isupport::Kind::WHOX) {
                         let whox_params = if self
+                            .capabilities
+                            .acknowledged(Capability::NoImplicitNames)
+                            && self
+                                .chanmap
+                                .get(&who_poll.channel)
+                                .is_none_or(|channel| !channel.who_init)
+                        {
+                            WhoXPollParameters::InitialJoin
+                        } else if self
                             .capabilities
                             .acknowledged(Capability::AccountNotify)
                         {
