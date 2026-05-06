@@ -342,6 +342,7 @@ pub fn view<'a>(
                             config.buffer.nickname.truncate,
                             config.display.truncation_character,
                             Some(&config.buffer.nickname.brackets),
+                            true,
                         );
 
                         Some(user_display.width(config) + 1.0)
@@ -2057,6 +2058,7 @@ fn preview_row<'a>(
                         config.buffer.nickname.truncate,
                         config.display.truncation_character,
                         Some(&config.buffer.nickname.brackets),
+                        true,
                     )
                     .width(config)
                 } else {

@@ -589,7 +589,9 @@ impl Message {
 
         let is_reply_to_us = message.reply_to.as_deref().is_some_and(|id| {
             crate::history::Kind::from_server_message(server, &message)
-                .is_some_and(|kind| is_our_message(id, &kind, &message.server_time))
+                .is_some_and(|kind| {
+                    is_our_message(id, &kind, &message.server_time)
+                })
         });
 
         Some((message, highlight, is_reply_to_us))
@@ -4592,7 +4594,7 @@ pub mod tests {
                     .cloned()
             },
             |_channel: &target::Channel| Some(&channel_users),
-            |_| false,
+            |_, _, _| false,
             server,
             isupport::get_chantypes_or_default(&isupport),
             isupport::get_statusmsg_or_default(&isupport),

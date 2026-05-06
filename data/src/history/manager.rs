@@ -639,7 +639,12 @@ impl Manager {
         self.data.can_mark_as_read(kind)
     }
 
-    pub fn is_our_message(&self, id: &str, kind: &history::Kind, server_time: &DateTime<Utc>) -> bool {
+    pub fn is_our_message(
+        &self,
+        id: &str,
+        kind: &history::Kind,
+        server_time: &DateTime<Utc>,
+    ) -> bool {
         self.data
             .map
             .get(kind)

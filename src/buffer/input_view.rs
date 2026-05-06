@@ -30,7 +30,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use self::completion::Completion;
 use self::exec::run as execute_shell_command;
 use crate::widget::key_press::is_numpad;
-use crate::widget::user_display::{UserDisplay, UserDisplayData};
+use crate::widget::user_display::UserDisplay;
 use crate::widget::{
     Element, Renderer, Text, anchored_overlay, context_menu, decorate, text,
     tooltip,
@@ -579,6 +579,7 @@ pub fn view<'a>(
                 None,
                 config.display.truncation_character,
                 None,
+                true,
             );
 
             container(user_display.into_element(
@@ -586,6 +587,8 @@ pub fn view<'a>(
                 user.is_away(),
                 false,
                 None,
+                None,
+                false,
                 theme,
                 config,
             ))
@@ -727,24 +730,27 @@ fn reply_bar<'a>(
 ) -> Option<crate::widget::Element<'a, Message>> {
     let input::DraftReply { preview, .. } = state.draft_reply.as_ref()?;
     let font_size = config.font.size.map_or(theme::TEXT_SIZE, f32::from) * 0.85;
-    let full = UserDisplayData::new(
+    let user_display = UserDisplay::new(
         &user,
         config.buffer.nickname.show_access_levels,
         config.buffer.nickname.show_bot_icon,
         registry,
         &config.display.nickname,
+        config.buffer.nickname.truncate,
+        config.display.truncation_character,
+        Some(&config.buffer.nickname.brackets),
+        false,
     );
-    let display = config
-        .buffer
-        .nickname
-        .truncate
-        .and_then(|len| {
-            full.truncate(len as usize, config.display.truncation_character)
-        })
-        .unwrap_or(full);
-    let nick_element: Element<_> = display
-        .bracket(Some(&config.buffer.nickname.brackets))
-        .into_element_sized(&user, font_size, theme, config);
+    let nick_element: Element<_> = user_display.into_element(
+        &user,
+        false,
+        false,
+        None,
+        Some(font_size),
+        false,
+        theme,
+        config,
+    );
 
     Some(
         container(

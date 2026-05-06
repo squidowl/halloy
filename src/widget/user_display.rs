@@ -2,6 +2,7 @@ use data::buffer::Brackets;
 use data::config::buffer::{AccessLevelFormat, Dimmed};
 use data::config::display::nickname::Metadata;
 use data::target::{Query, TargetRef};
+use data::user::AccessLevel;
 use data::{Config, User, metadata};
 use iced::Color;
 use iced::widget::{container, row};
@@ -25,6 +26,7 @@ impl UserDisplay {
         truncate: Option<u16>,
         truncation_character: char,
         brackets: Option<&Brackets>,
+        with_tooltip: bool,
     ) -> Self {
         let full = UserDisplayData::new(
             user,
@@ -33,6 +35,13 @@ impl UserDisplay {
             registry,
             enabled,
         );
+
+        if !with_tooltip {
+            return Self {
+                base: full.bracket(brackets),
+                tooltip: None,
+            };
+        }
 
         if let Some(truncated) = truncate.and_then(|truncation_length| {
             full.truncate(truncation_length as usize, truncation_character)
@@ -62,12 +71,26 @@ impl UserDisplay {
         is_away: bool,
         is_offline: bool,
         dimmed: Option<(Dimmed, Color)>,
+        size: Option<f32>,
+        highlight: bool,
         theme: &'a Theme,
         config: &'a Config,
     ) -> Element<'a, M> {
-        let base = self
-            .base
-            .into_element(user, is_away, is_offline, dimmed, theme, config);
+        let base = self.base.into_element(
+            user, is_away, is_offline, dimmed, size, theme, config,
+        );
+
+        let base = if highlight {
+            let highlight_color = theme.styles().buffer.highlight;
+            container(base)
+                .style(move |_| iced::widget::container::Style {
+                    background: Some(iced::Background::Color(highlight_color)),
+                    ..Default::default()
+                })
+                .into()
+        } else {
+            base
+        };
 
         if let Some(tooltip) = self.tooltip {
             iced::widget::tooltip(
@@ -75,7 +98,7 @@ impl UserDisplay {
                 container(container(if tooltip.bot_icon {
                     row![
                         tooltip.into_element(
-                            user, false, false, None, theme, config,
+                            user, false, false, None, None, theme, config,
                         ),
                         selectable_text(String::from(
                             " has marked itself as a bot"
@@ -84,8 +107,9 @@ impl UserDisplay {
                     .spacing(theme::ICON_SPACE)
                     .into()
                 } else {
-                    tooltip
-                        .into_element(user, false, false, None, theme, config)
+                    tooltip.into_element(
+                        user, false, false, None, None, theme, config,
+                    )
                 }))
                 .style(theme::container::tooltip)
                 .padding(8),
@@ -118,7 +142,27 @@ impl UserDisplayData {
         registry: &dyn metadata::Registry,
         enabled: &[Metadata],
     ) -> Self {
-        let prefixed_nick = user.display(show_access_levels, false, None, '\0');
+        let access_levels = match show_access_levels {
+            AccessLevelFormat::All => {
+                let access_levels = user
+                    .access_levels()
+                    .filter_map(AccessLevel::char)
+                    .collect::<String>();
+
+                if access_levels.is_empty() {
+                    None
+                } else {
+                    Some(access_levels)
+                }
+            }
+            AccessLevelFormat::Highest => {
+                user.highest_access_level().char().map(String::from)
+            }
+            AccessLevelFormat::None => None,
+        }
+        .unwrap_or_default();
+
+        let nickname = user.nickname();
 
         let bot_icon = user.is_bot() && show_bot_icon;
 
@@ -146,7 +190,7 @@ impl UserDisplayData {
         if bot_icon {
             let (left, right) = if let Some(display_name) = display_name {
                 (
-                    format!("{display_name} ({prefixed_nick}"),
+                    format!("{display_name} ({access_levels}{nickname}"),
                     if let Some(pronouns) = pronouns {
                         Some(format!("{pronouns})"))
                     } else {
@@ -155,7 +199,7 @@ impl UserDisplayData {
                 )
             } else {
                 (
-                    prefixed_nick,
+                    format!("{access_levels}{nickname}"),
                     pronouns.map(|pronouns| format!(" ({pronouns})")),
                 )
             };
@@ -168,15 +212,17 @@ impl UserDisplayData {
         } else {
             let left = match (display_name, pronouns) {
                 (Some(display_name), Some(pronouns)) => {
-                    format!("{display_name} ({prefixed_nick}, {pronouns})")
+                    format!(
+                        "{display_name} ({access_levels}{nickname}, {pronouns})",
+                    )
                 }
                 (Some(display_name), None) => {
-                    format!("{display_name} ({prefixed_nick})")
+                    format!("{display_name} ({access_levels}{nickname})",)
                 }
                 (None, Some(pronouns)) => {
-                    format!("{prefixed_nick} ({pronouns})")
+                    format!("{access_levels}{nickname} ({pronouns})",)
                 }
-                (None, None) => prefixed_nick,
+                (None, None) => format!("{access_levels}{nickname}",),
             };
 
             Self {
@@ -193,6 +239,7 @@ impl UserDisplayData {
         is_away: bool,
         is_offline: bool,
         dimmed: Option<(Dimmed, Color)>,
+        size: Option<f32>,
         theme: &'a Theme,
         config: &'a Config,
     ) -> Element<'a, M> {
@@ -204,20 +251,7 @@ impl UserDisplayData {
             dimmed,
         );
 
-        self.render(style, is_offline, None, theme)
-    }
-
-    pub(crate) fn into_element_sized<'a, M: 'a>(
-        self,
-        user: &User,
-        size: f32,
-        theme: &'a Theme,
-        config: &'a Config,
-    ) -> Element<'a, M> {
-        let style =
-            theme::selectable_text::nickname(theme, config, user, false, false);
-
-        self.render(style, false, Some(size), theme)
+        self.render(style, is_offline, size, theme)
     }
 
     fn render<'a, M: 'a>(

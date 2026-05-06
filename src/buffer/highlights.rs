@@ -124,6 +124,7 @@ pub fn view<'a>(
                         config.buffer.nickname.truncate,
                         config.display.truncation_character,
                         Some(&config.buffer.nickname.brackets),
+                        true,
                     );
 
                     let nick_text = user_display.into_element(
@@ -131,6 +132,8 @@ pub fn view<'a>(
                         is_user_away,
                         is_user_offline,
                         None,
+                        None,
+                        false,
                         theme,
                         config,
                     );

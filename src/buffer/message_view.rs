@@ -11,13 +11,13 @@ use data::user::{ChannelUsers, Nick, NickRef};
 use data::{Config, User, message, metadata, target};
 use iced::widget::text::Wrapping;
 use iced::widget::{Space, button, column, container, row, text};
-use iced::{Background, Color, Length, alignment};
+use iced::{Color, Length, alignment};
 
 use super::context_menu::{self, Context};
 use super::scroll_view::LayoutMessage;
 use crate::buffer::scroll_view::Message;
 use crate::widget::reaction_row::{has_visible_reactions, reaction_row};
-use crate::widget::user_display::{UserDisplay, UserDisplayData};
+use crate::widget::user_display::UserDisplay;
 use crate::widget::{
     Element, Marker, message_content, message_marker, selectable_text, tooltip,
 };
@@ -418,6 +418,7 @@ impl<'a> ChannelQueryLayout<'a> {
             self.config.buffer.nickname.truncate,
             self.config.display.truncation_character,
             Some(&self.config.buffer.nickname.brackets),
+            true,
         );
 
         let nick_element: Element<_> = if hide_nickname {
@@ -436,6 +437,8 @@ impl<'a> ChannelQueryLayout<'a> {
                 is_user_away,
                 is_user_offline,
                 dimmed_background_tuple,
+                None,
+                false,
                 self.theme,
                 self.config,
             );
@@ -1222,40 +1225,27 @@ impl<'a> ChannelQueryLayout<'a> {
                 .and_then(|users| users.get_by_nick(nick_obj.as_nickref()))
                 .cloned()
                 .unwrap_or_else(|| User::from(nick_obj));
-            let full = UserDisplayData::new(
+            let user_display = UserDisplay::new(
                 &user,
                 self.config.buffer.nickname.show_access_levels,
                 self.config.buffer.nickname.show_bot_icon && *is_bot,
                 self.registry,
                 &self.config.display.nickname,
+                self.config.buffer.nickname.truncate,
+                self.config.display.truncation_character,
+                Some(&self.config.buffer.nickname.brackets),
+                false,
             );
-            let display = self
-                .config
-                .buffer
-                .nickname
-                .truncate
-                .and_then(|len| {
-                    full.truncate(
-                        len as usize,
-                        self.config.display.truncation_character,
-                    )
-                })
-                .unwrap_or(full);
-            let base_nick_element = display
-                .bracket(Some(&self.config.buffer.nickname.brackets))
-                .into_element_sized(&user, sm_font_s, self.theme, self.config);
-            // add a highlight visual style if nick is self
-            let nick_element: Element<_> = if is_our_nick {
-                let highlight = self.theme.styles().buffer.highlight;
-                container(base_nick_element)
-                    .style(move |_| container::Style {
-                        background: Some(Background::Color(highlight)),
-                        ..Default::default()
-                    })
-                    .into()
-            } else {
-                base_nick_element
-            };
+            let nick_element: Element<_> = user_display.into_element(
+                &user,
+                false,
+                false,
+                None,
+                Some(sm_font_s),
+                is_our_nick,
+                self.theme,
+                self.config,
+            );
             row![
                 text(" ").size(sm_font_s),
                 nick_element,

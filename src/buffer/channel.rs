@@ -657,6 +657,7 @@ mod nick_list {
                             .or(config.buffer.nickname.truncate),
                         config.display.truncation_character,
                         None,
+                        true,
                     ),
                 )
             })
@@ -681,6 +682,8 @@ mod nick_list {
                     user.is_away(),
                     false,
                     None,
+                    None,
+                    false,
                     theme,
                     config,
                 ),

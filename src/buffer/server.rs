@@ -194,6 +194,7 @@ pub fn view<'a>(
                             config.buffer.nickname.truncate,
                             config.display.truncation_character,
                             Some(&config.buffer.nickname.brackets),
+                            true,
                         );
 
                         let nick: Element<_> = if hide_nickname {
@@ -216,7 +217,8 @@ pub fn view<'a>(
                             Space::new().width(width).into()
                         } else {
                             let mut nick_text = user_display.into_element(
-                                user, false, false, None, theme, config,
+                                user, false, false, None, None, false, theme,
+                                config,
                             );
 
                             if let Some(right_alignment_widths) =
