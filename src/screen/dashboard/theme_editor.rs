@@ -520,6 +520,7 @@ pub enum General {
     Border,
     HighlightIndicator,
     HorizontalRule,
+    HorizontalRuleText,
     Scrollbar,
     UnreadIndicator,
 }
@@ -534,6 +535,10 @@ impl General {
                 .highlight_indicator
                 .unwrap_or(styles.general.unread_indicator),
             General::HorizontalRule => styles.general.horizontal_rule,
+            General::HorizontalRuleText => styles
+                .general
+                .horizontal_rule_text
+                .unwrap_or(styles.text.secondary.color),
             General::Scrollbar => styles
                 .general
                 .scrollbar
@@ -555,6 +560,9 @@ impl General {
             }
             General::HorizontalRule => {
                 styles.horizontal_rule = color;
+            }
+            General::HorizontalRuleText => {
+                styles.horizontal_rule_text = Some(color);
             }
             General::Scrollbar => {
                 styles.scrollbar = Some(color);
@@ -690,6 +698,9 @@ pub enum Buffer {
     Topic,
     Url,
     BacklogRule,
+    BacklogRuleText,
+    DateRule,
+    DateRuleText,
 }
 
 impl Buffer {
@@ -722,6 +733,26 @@ impl Buffer {
                     .backlog_rule
                     .unwrap_or(styles.general.horizontal_rule),
             ),
+            Buffer::BacklogRuleText => Some(
+                styles
+                    .buffer
+                    .backlog_rule_text
+                    .or(styles.general.horizontal_rule_text)
+                    .unwrap_or(styles.text.secondary.color),
+            ),
+            Buffer::DateRule => Some(
+                styles
+                    .buffer
+                    .date_rule
+                    .unwrap_or(styles.general.horizontal_rule),
+            ),
+            Buffer::DateRuleText => Some(
+                styles
+                    .buffer
+                    .date_rule_text
+                    .or(styles.general.horizontal_rule_text)
+                    .unwrap_or(styles.text.secondary.color),
+            ),
         }
     }
 
@@ -747,6 +778,9 @@ impl Buffer {
             Buffer::Topic => Some(styles.buffer.topic.font_style),
             Buffer::Url => Some(styles.buffer.url.font_style),
             Buffer::BacklogRule => None,
+            Buffer::BacklogRuleText => None,
+            Buffer::DateRule => None,
+            Buffer::DateRuleText => None,
         }
     }
 
@@ -842,6 +876,21 @@ impl Buffer {
             Buffer::BacklogRule => {
                 if let Some(color) = color {
                     styles.backlog_rule = Some(color);
+                }
+            }
+            Buffer::BacklogRuleText => {
+                if let Some(color) = color {
+                    styles.backlog_rule_text = Some(color);
+                }
+            }
+            Buffer::DateRule => {
+                if let Some(color) = color {
+                    styles.date_rule = Some(color);
+                }
+            }
+            Buffer::DateRuleText => {
+                if let Some(color) = color {
+                    styles.date_rule_text = Some(color);
                 }
             }
         }

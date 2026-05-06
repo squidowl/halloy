@@ -30,6 +30,7 @@ Halloy has a built in theme editor which makes theme creation easier
 background = "<color string>"
 border = "<color string>"
 horizontal_rule = "<color string>"
+horizontal_rule_text = "<color string>"
 scrollbar = "<color string>"
 unread_indicator = "<color string>"
 highlight_indicator = "<color string>"
@@ -73,6 +74,9 @@ timestamp = <text style>
 topic = <text style>
 url = <text style>
 backlog_rule = "<color string>"
+backlog_rule_text = "<color string>"
+date_rule = "<color string>"
+date_rule_text = "<color string>"
 
 [buffer.server_messages]
 # Set below if you want to have a unique color for each.
