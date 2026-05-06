@@ -61,7 +61,7 @@ static CHANNEL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 static USER_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    RegexBuilder::new(r#"(?i)(?<!\w)([\w"\-\[\]\\`^{|}\/]+)(?!\w)"#)
+    RegexBuilder::new(r#"(?i)(?<!\w)([\w\-\[\]\\`^{|}\/]+)(?!\w)"#)
         .build()
         .unwrap()
 });
@@ -75,7 +75,7 @@ static EXCLUDED_TRAILING_CHARS_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 const PAIRED_DELIMITERS: [(char, char); 3] =
     [('(', ')'), ('{', '}'), ('[', ']')];
 
-const SYMMETRIC_DELIMITERS: [char; 2] = ['"', '\''];
+const SYMMETRIC_DELIMITERS: [char; 3] = ['"', '\'', '`'];
 
 // used for matching delimiter chars at the end of a word
 static EXCLUDED_TRAILING_DELIMITER_CHARS_REGEX: LazyLock<Regex> =
@@ -4328,33 +4328,57 @@ pub mod tests {
     #[test]
     fn fragments_with_users_parsing() {
         let casemapping = isupport::CaseMap::default();
-        let tests = [(
+        let tests = [
             (
-                "Hey Dave!~Dave@user/Dave have you seen &`Bill`?".to_string(),
-                ["Greg", "Dave", "Bob", "George_", "`Bill`"]
-                    .into_iter()
-                    .map(|nick| User::from(Nick::from_str(nick, casemapping)))
-                    .collect::<ChannelUsers>(),
+                (
+                    "Hey Dave!~Dave@user/Dave have you seen &`Bill`?"
+                        .to_string(),
+                    ["Greg", "Dave", "Bob", "George_", "`Bill`"]
+                        .into_iter()
+                        .map(|nick| {
+                            User::from(Nick::from_str(nick, casemapping))
+                        })
+                        .collect::<ChannelUsers>(),
+                ),
+                vec![
+                    Fragment::Text("Hey ".into()),
+                    Fragment::User(
+                        User::from(Nick::from_str("Dave", casemapping)),
+                        "Dave".into(),
+                    ),
+                    Fragment::Text("!~".into()),
+                    Fragment::User(
+                        User::from(Nick::from_str("Dave", casemapping)),
+                        "Dave".into(),
+                    ),
+                    Fragment::Text("@user/Dave have you seen &".into()),
+                    Fragment::User(
+                        User::from(Nick::from_str("`Bill`", casemapping)),
+                        "`Bill`".into(),
+                    ),
+                    Fragment::Text("?".into()),
+                ],
             ),
-            vec![
-                Fragment::Text("Hey ".into()),
-                Fragment::User(
-                    User::from(Nick::from_str("Dave", casemapping)),
-                    "Dave".into(),
+            (
+                (
+                    "And they said: \"Susan, where are you?\"".to_string(),
+                    ["Susan"]
+                        .into_iter()
+                        .map(|nick| {
+                            User::from(Nick::from_str(nick, casemapping))
+                        })
+                        .collect::<ChannelUsers>(),
                 ),
-                Fragment::Text("!~".into()),
-                Fragment::User(
-                    User::from(Nick::from_str("Dave", casemapping)),
-                    "Dave".into(),
-                ),
-                Fragment::Text("@user/Dave have you seen &".into()),
-                Fragment::User(
-                    User::from(Nick::from_str("`Bill`", casemapping)),
-                    "`Bill`".into(),
-                ),
-                Fragment::Text("?".into()),
-            ],
-        )];
+                vec![
+                    Fragment::Text("And they said: \"".into()),
+                    Fragment::User(
+                        User::from(Nick::from_str("Susan", casemapping)),
+                        "Susan".into(),
+                    ),
+                    Fragment::Text(", where are you?\"".into()),
+                ],
+            ),
+        ];
         for ((text, channel_users), expected) in tests {
             if let Content::Fragments(actual) = parse_fragments_with_users(
                 text.clone(),
