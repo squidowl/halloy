@@ -109,8 +109,22 @@ pub fn backlog(theme: &Theme) -> Style {
             theme
                 .styles()
                 .buffer
-                .backlog_rule
-                .unwrap_or(theme.styles().general.horizontal_rule),
+                .backlog_rule_text
+                .or(theme.styles().general.horizontal_rule_text)
+                .unwrap_or(theme.styles().text.secondary.color),
+        ),
+    }
+}
+
+pub fn date_separator(theme: &Theme) -> Style {
+    Style {
+        color: Some(
+            theme
+                .styles()
+                .buffer
+                .date_rule_text
+                .or(theme.styles().general.horizontal_rule_text)
+                .unwrap_or(theme.styles().text.secondary.color),
         ),
     }
 }

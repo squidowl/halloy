@@ -35,3 +35,16 @@ pub fn backlog(theme: &Theme) -> Style {
         snap: true,
     }
 }
+
+pub fn date(theme: &Theme) -> Style {
+    Style {
+        color: theme
+            .styles()
+            .buffer
+            .date_rule
+            .unwrap_or(theme.styles().general.horizontal_rule),
+        radius: 0.0.into(),
+        fill_mode: FillMode::Full,
+        snap: true,
+    }
+}
