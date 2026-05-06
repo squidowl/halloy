@@ -1998,15 +1998,19 @@ fn parse_regex_fragments<'a>(
             &text,
         );
         let (matching, leading_delimiter) = filter_leading_delimiter(matching);
+
         if let Some(fragment) = (f)(matching) {
+            let mut leading_text = String::new();
             if i < re_match.start() {
-                fragments.push(Fragment::Text(
-                    text[i..re_match.start()].to_string(),
-                ));
+                leading_text.push_str(&text[i..re_match.start()]);
             }
             if let Some(delimiter) = leading_delimiter {
-                fragments.push(Fragment::Text(delimiter.to_string()));
+                leading_text.push_str(delimiter);
             }
+            if !leading_text.is_empty() {
+                merge_text_fragment(&mut fragments, leading_text);
+            }
+
             fragments.push(fragment);
 
             if trailing_delimiter.is_some() || trailing_punctuation.is_some() {
@@ -2024,13 +2028,28 @@ fn parse_regex_fragments<'a>(
         }
     }
 
-    if i == 0 {
-        fragments.push(Fragment::Text(text.into_owned()));
-    } else {
-        fragments.push(Fragment::Text(text[i..text.len()].to_string()));
-    }
+    let next_fragment_text = if i == 0 { &text } else { &text[i..] };
+    merge_text_fragment(&mut fragments, next_fragment_text.to_string());
 
     fragments
+}
+
+fn merge_text_fragment(fragments: &mut Vec<Fragment>, text: String) {
+    if text.is_empty() {
+        return;
+    }
+    match fragments.pop() {
+        Some(Fragment::Text(mut fragment_text)) => {
+            fragment_text.push_str(&text);
+            fragments.push(Fragment::Text(fragment_text));
+        }
+        fragment => {
+            if let Some(fragment) = fragment {
+                fragments.push(fragment);
+            }
+            fragments.push(Fragment::Text(text));
+        }
+    }
 }
 
 fn filter_trailing_punctuation<'a>(
@@ -3976,8 +3995,7 @@ pub mod tests {
                 r##"#channel: "#foo""##,
                 vec![
                     Fragment::Channel("#channel".into()),
-                    Fragment::Text(":".into()),
-                    Fragment::Text(" \"".into()),
+                    Fragment::Text(": \"".into()),
                     Fragment::Channel("#foo".into()),
                     Fragment::Text("\"".into()),
                 ],
@@ -3989,8 +4007,7 @@ pub mod tests {
                     Fragment::Channel("#test.123.".into()),
                     Fragment::Text(",! and another ".into()),
                     Fragment::Channel("#channel".into()),
-                    Fragment::Text("?".into()),
-                    Fragment::Text(" and ".into()),
+                    Fragment::Text("? and ".into()),
                     Fragment::Channel("#testing".into()),
                     Fragment::Text("!!".into()),
                 ],
@@ -4008,8 +4025,7 @@ pub mod tests {
                 vec![
                     Fragment::Text("Testing delimiters \"quoting a ".into()),
                     Fragment::Channel("#channel".into()),
-                    Fragment::Text("\"".into()),
-                    Fragment::Text(" here.".into()),
+                    Fragment::Text("\" here.".into()),
                 ],
             ),
             (
@@ -4017,8 +4033,7 @@ pub mod tests {
                 vec![
                     Fragment::Text("Testing delimiters (this is a ".into()),
                     Fragment::Channel("#channel".into()),
-                    Fragment::Text(")".into()),
-                    Fragment::Text(" here.".into()),
+                    Fragment::Text(") here.".into()),
                 ],
             ),
             (
@@ -4044,8 +4059,7 @@ pub mod tests {
                 vec![
                     Fragment::Text("\"a ".into()),
                     Fragment::Channel("#test".into()),
-                    Fragment::Text("\"".into()),
-                    Fragment::Text(",".into()),
+                    Fragment::Text("\",".into()),
                 ],
             ),
             (
@@ -4385,8 +4399,7 @@ pub mod tests {
                         .collect::<ChannelUsers>(),
                 ),
                 vec![
-                    Fragment::Text("And they said: ".into()),
-                    Fragment::Text("\"".into()),
+                    Fragment::Text("And they said: \"".into()),
                     Fragment::User(
                         User::from(Nick::from_str("Susan", casemapping)),
                         "Susan".into(),
