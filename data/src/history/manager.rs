@@ -1361,6 +1361,8 @@ impl Data {
                         );
                     }
 
+                    let last_flushed_at = messages.len();
+
                     entry.insert(History::Full {
                         kind,
                         messages,
@@ -1370,6 +1372,7 @@ impl Data {
                         chathistory_references,
                         last_seen,
                         cleared: false,
+                        last_flushed_at,
                     });
                 }
                 _ => {
@@ -1378,6 +1381,7 @@ impl Data {
                         .max(metadata::latest_can_reference(&messages));
 
                     let last_seen = history::get_last_seen(&messages);
+                    let last_flushed_at = messages.len();
 
                     entry.insert(History::Full {
                         kind,
@@ -1388,6 +1392,7 @@ impl Data {
                         chathistory_references,
                         last_seen,
                         cleared: false,
+                        last_flushed_at,
                     });
                 }
             },
@@ -1397,6 +1402,7 @@ impl Data {
                     .max(metadata::latest_can_reference(&messages));
 
                 let last_seen = history::get_last_seen(&messages);
+                let last_flushed_at = messages.len();
 
                 entry.insert(History::Full {
                     kind,
@@ -1407,6 +1413,7 @@ impl Data {
                     chathistory_references,
                     last_seen,
                     cleared: false,
+                    last_flushed_at,
                 });
             }
         }
