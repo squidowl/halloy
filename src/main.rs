@@ -1880,7 +1880,7 @@ fn create_message_with_highlight(
     config: &Config,
     clients: &data::client::Map,
     reroute_rules: &RerouteRules,
-    is_our_message: impl Fn(&str) -> bool,
+    is_our_message: impl Fn(&str, &data::history::Kind, &chrono::DateTime<chrono::Utc>) -> bool,
 ) -> Option<(data::Message, Option<message::Highlight>, bool)> {
     data::Message::received_with_highlight(
         encoded,
@@ -1997,7 +1997,7 @@ fn handle_priv_or_notice(
             config,
             clients,
             dashboard.get_reroute_rules(),
-            |id| dashboard.history().is_our_message(id),
+            |id, kind, server_time| dashboard.history().is_our_message(id, kind, server_time),
         )
     else {
         return;

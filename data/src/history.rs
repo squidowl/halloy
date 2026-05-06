@@ -600,6 +600,27 @@ impl History {
         }
     }
 
+    pub(crate) fn is_our_message(&self, id: &str, server_time: &DateTime<Utc>) -> bool {
+        let check = |msg: &Message| {
+            msg.id.as_deref() == Some(id)
+                && (msg.direction == Direction::Sent || msg.is_echo)
+        };
+        match self {
+            History::Partial {
+                pending_messages, ..
+            } => pending_messages.iter().any(|(m, _)| check(m)),
+            History::Full { messages, .. } => {
+                let start = *server_time + chrono::Duration::seconds(1);
+                let start_index =
+                    match messages.binary_search_by(|stored| stored.server_time.cmp(&start)) {
+                        Ok(i) | Err(i) => i,
+                    };
+                messages.iter().take(start_index).rev().any(check)
+                    || messages.iter().skip(start_index).any(check)
+            }
+        }
+    }
+
     fn remove_message(
         &mut self,
         server_time: DateTime<Utc>,

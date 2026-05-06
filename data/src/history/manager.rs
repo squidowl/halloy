@@ -639,12 +639,11 @@ impl Manager {
         self.data.can_mark_as_read(kind)
     }
 
-    pub fn is_our_message(&self, id: &str) -> bool {
-        self.data.map.values().any(|history| {
-            history.find_by_id(id).is_some_and(|msg| {
-                msg.direction == crate::message::Direction::Sent || msg.is_echo
-            })
-        })
+    pub fn is_our_message(&self, id: &str, kind: &history::Kind, server_time: &DateTime<Utc>) -> bool {
+        self.data
+            .map
+            .get(kind)
+            .is_some_and(|history| history.is_our_message(id, server_time))
     }
 
     pub fn get_messages(
