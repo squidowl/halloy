@@ -587,10 +587,8 @@ impl Message {
             }
         });
 
-        let is_reply_to_us = message
-            .reply_to
-            .as_deref()
-            .is_some_and(is_our_message);
+        let is_reply_to_us =
+            message.reply_to.as_deref().is_some_and(is_our_message);
 
         Some((message, highlight, is_reply_to_us))
     }
