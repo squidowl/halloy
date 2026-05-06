@@ -1343,29 +1343,28 @@ impl Data {
 
                     let mut last_seen = last_seen.clone();
 
-                    for (id, pending) in pending_reactions.iter_mut() {
+                    for (id, pending) in std::mem::take(pending_reactions) {
                         if let Some(message) = history::find_message_target(
                             &mut messages,
-                            id,
+                            &id,
                             &pending.server_time,
                         ) {
-                            message.reactions.append(
-                                &mut pending
+                            message.reactions.extend(
+                                pending
                                     .reactions
-                                    .iter()
-                                    .map(|(reaction, _)| reaction.clone())
-                                    .collect(),
+                                    .into_iter()
+                                    .map(|(reaction, _)| reaction),
                             );
                         }
                     }
 
-                    for (id, pending) in pending_redactions.iter_mut() {
+                    for (id, pending) in std::mem::take(pending_redactions) {
                         if let Some(message) = history::find_message_target(
                             &mut messages,
-                            id,
+                            &id,
                             &pending.server_time,
                         ) {
-                            message.redaction = Some(pending.redaction.clone());
+                            message.redaction = Some(pending.redaction);
                         }
                     }
 
@@ -1383,6 +1382,8 @@ impl Data {
 
                     populate_reply_previews(&mut messages);
 
+                    let last_flushed_at = messages.len();
+
                     entry.insert(History::Full {
                         kind,
                         messages,
@@ -1392,6 +1393,7 @@ impl Data {
                         chathistory_references,
                         last_seen,
                         cleared: false,
+                        last_flushed_at,
                     });
                 }
                 _ => {
@@ -1400,6 +1402,7 @@ impl Data {
                         .max(metadata::latest_can_reference(&messages));
 
                     let last_seen = history::get_last_seen(&messages);
+                    let last_flushed_at = messages.len();
 
                     populate_reply_previews(&mut messages);
 
@@ -1412,6 +1415,7 @@ impl Data {
                         chathistory_references,
                         last_seen,
                         cleared: false,
+                        last_flushed_at,
                     });
                 }
             },
@@ -1421,6 +1425,7 @@ impl Data {
                     .max(metadata::latest_can_reference(&messages));
 
                 let last_seen = history::get_last_seen(&messages);
+                let last_flushed_at = messages.len();
 
                 populate_reply_previews(&mut messages);
 
@@ -1433,6 +1438,7 @@ impl Data {
                     chathistory_references,
                     last_seen,
                     cleared: false,
+                    last_flushed_at,
                 });
             }
         }

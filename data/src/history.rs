@@ -36,6 +36,8 @@ const MAX_MESSAGES: usize = 10_000;
 const TRUNC_COUNT: usize = 500;
 /// Duration to wait after receiving last message before flushing
 const FLUSH_AFTER_LAST_RECEIVED: Duration = Duration::from_secs(5);
+/// # new messages to trigger flush even if FLUSH_AFTER_LAST_RECEIVED has not passed
+const FLUSH_COUNT: usize = 1000;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Kind {
@@ -425,6 +427,7 @@ pub enum History {
         chathistory_references: Option<MessageReferences>,
         last_seen: HashMap<Nick, DateTime<Utc>>,
         cleared: bool,
+        last_flushed_at: usize,
     },
 }
 
@@ -783,10 +786,10 @@ impl History {
                 ..
             } => {
                 if let Some(last_received) = *last_updated_at
-                    && now.is_none_or(|now| {
+                    && (now.is_none_or(|now| {
                         now.duration_since(last_received)
                             >= FLUSH_AFTER_LAST_RECEIVED
-                    })
+                    }) || pending_messages.len() > FLUSH_COUNT)
                 {
                     let kind = kind.clone();
                     let pending_messages = std::mem::take(pending_messages);
@@ -822,13 +825,15 @@ impl History {
                 last_updated_at,
                 read_marker,
                 chathistory_references,
+                last_flushed_at,
                 ..
             } => {
                 if let Some(last_received) = *last_updated_at
-                    && now.is_none_or(|now| {
+                    && (now.is_none_or(|now| {
                         now.duration_since(last_received)
                             >= FLUSH_AFTER_LAST_RECEIVED
-                    })
+                    }) || messages.len().saturating_sub(*last_flushed_at)
+                        > FLUSH_COUNT)
                     && !messages.is_empty()
                 {
                     let kind = kind.clone();

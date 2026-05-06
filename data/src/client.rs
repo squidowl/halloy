@@ -42,7 +42,7 @@ use crate::{
 pub mod on_connect;
 
 const HIGHLIGHT_BLACKOUT_INTERVAL: Duration = Duration::from_secs(5);
-const CLIENT_CHATHISTORY_LIMIT: u16 = 500;
+const CLIENT_CHATHISTORY_LIMIT: u16 = 1000;
 const CHATHISTORY_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 const MODE_REQUEST_DELAY: Duration = Duration::from_millis(600);
 const MODE_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
@@ -3840,6 +3840,7 @@ impl Client {
                         continue_chathistory_between(
                             target,
                             events,
+                            None,
                             message_reference,
                             self.chathistory_limit(),
                         )
@@ -3877,6 +3878,7 @@ impl Client {
                         continue_chathistory_between(
                             target,
                             events,
+                            Some(start_message_reference),
                             end_message_reference,
                             self.chathistory_limit(),
                         )
@@ -3900,6 +3902,7 @@ impl Client {
                     if *autorequest && size >= *limit {
                         continue_chathistory_targets(
                             events,
+                            start_message_reference,
                             end_message_reference,
                             self.chathistory_limit(),
                         )
@@ -4525,6 +4528,7 @@ fn is_reaction(message: &message::Encoded) -> bool {
 fn continue_chathistory_between(
     target: &Target,
     events: &[Event],
+    previous_start_message_reference: Option<&MessageReference>,
     end_message_reference: &MessageReference,
     limit: u16,
 ) -> Option<ChatHistorySubcommand> {
@@ -4539,9 +4543,27 @@ fn continue_chathistory_between(
                 MessageReference::MessageId(_) => {
                     message.message_id().map(MessageReference::MessageId)
                 }
-                MessageReference::Timestamp(_) => Some(
-                    MessageReference::Timestamp(message.server_time_or_now()),
-                ),
+                MessageReference::Timestamp(_) => {
+                    let server_time = message.server_time();
+
+                    let previous_server_time = if let Some(
+                        MessageReference::Timestamp(previous_start_timestamp),
+                    ) =
+                        previous_start_message_reference
+                    {
+                        Some(previous_start_timestamp)
+                    } else {
+                        None
+                    };
+
+                    if server_time != previous_server_time.copied() {
+                        server_time.map(|timestamp| {
+                            MessageReference::Timestamp(timestamp)
+                        })
+                    } else {
+                        None
+                    }
+                }
                 MessageReference::None => None,
             },
             Event::Broadcast(_)
@@ -4572,13 +4594,28 @@ fn continue_chathistory_between(
 
 fn continue_chathistory_targets(
     events: &[Event],
+    previous_start_message_reference: &MessageReference,
     end_message_reference: &MessageReference,
     limit: u16,
 ) -> Option<ChatHistorySubcommand> {
     let start_message_reference =
         events.last().and_then(|first_event| match first_event {
             Event::ChatHistoryTargetReceived(_, server_time) => {
-                Some(MessageReference::Timestamp(*server_time))
+                let previous_server_time = if let MessageReference::Timestamp(
+                    previous_start_timestamp,
+                ) =
+                    previous_start_message_reference
+                {
+                    Some(previous_start_timestamp)
+                } else {
+                    None
+                };
+
+                if Some(server_time) != previous_server_time {
+                    Some(MessageReference::Timestamp(*server_time))
+                } else {
+                    None
+                }
             }
             Event::Single { .. }
             | Event::PrivOrNotice { .. }

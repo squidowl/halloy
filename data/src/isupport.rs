@@ -1055,7 +1055,7 @@ pub const DEFAULT_PREFIX: &[PrefixMap] = &[
 pub const DEFAULT_STATUSMSG: &[char] =
     proto::DEFAULT_CHANNEL_MEMBERSHIP_PREFIXES;
 
-const FUZZ_SECONDS: chrono::Duration = chrono::Duration::seconds(5);
+const FUZZ_SECONDS: chrono::Duration = chrono::Duration::seconds(1);
 
 pub fn fuzz_start_message_reference(
     message_reference: MessageReference,
