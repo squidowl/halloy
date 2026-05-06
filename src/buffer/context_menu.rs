@@ -1059,49 +1059,61 @@ fn user_metadata<'a>(
                 .filter(|value| !value.is_empty())
                 .map(|value| (key, value))
         })
-        .map(|(key, value)| match key {
-            metadata::Key::Homepage if let Ok(url) = Url::parse(value) => {
-                selectable_rich_text::<
-                    Message,
-                    message::Link,
-                    (),
-                    Theme,
-                    Renderer,
-                >(vec![
-                    if config.display.decode_urls {
-                        span(data::url::display(&url).to_string())
-                    } else {
-                        span(value.to_string())
-                    }
-                    .color(theme.styles().buffer.url.color)
-                    .link(message::Link::Url(url.as_str().to_string())),
-                    span(format!(" ({key})")),
-                ])
-                .on_link(Message::Link)
-                .style(theme::selectable_text::secondary)
-                .font_maybe(theme::font_style::secondary(theme).map(font::get))
-                .width(length)
-                .into()
+        .map(|(key, value)| {
+            match key {
+                metadata::Key::Homepage => Url::parse(value).ok().map(|url| {
+                    selectable_rich_text::<
+                        Message,
+                        message::Link,
+                        (),
+                        Theme,
+                        Renderer,
+                    >(vec![
+                        if config.display.decode_urls {
+                            span(data::url::display(&url).to_string())
+                        } else {
+                            span(value.to_string())
+                        }
+                        .color(theme.styles().buffer.url.color)
+                        .link(message::Link::Url(url.as_str().to_string())),
+                        span(format!(" ({key})")),
+                    ])
+                    .on_link(Message::Link)
+                    .style(theme::selectable_text::secondary)
+                    .font_maybe(
+                        theme::font_style::secondary(theme).map(font::get),
+                    )
+                    .width(length)
+                    .into()
+                }),
+                metadata::Key::Color => {
+                    Color::from_str(value).ok().map(|color| {
+                        row![
+                            color_dot(color),
+                            selectable_text(format!("{value} ({key})"))
+                                .style(theme::selectable_text::secondary)
+                                .font_maybe(
+                                    theme::font_style::secondary(theme)
+                                        .map(font::get),
+                                )
+                        ]
+                        .spacing(5)
+                        .align_y(alignment::Vertical::Center)
+                        .width(length)
+                        .into()
+                    })
+                }
+                _ => None,
             }
-            metadata::Key::Color if let Ok(color) = Color::from_str(value) => {
-                row![
-                    color_dot(color),
-                    selectable_text(format!("{value} ({key})"))
-                        .style(theme::selectable_text::secondary)
-                        .font_maybe(
-                            theme::font_style::secondary(theme).map(font::get),
-                        )
-                ]
-                .spacing(5)
-                .align_y(alignment::Vertical::Center)
-                .width(length)
-                .into()
-            }
-            _ => selectable_text(format!("{value} ({key})"))
-                .style(theme::selectable_text::secondary)
-                .font_maybe(theme::font_style::secondary(theme).map(font::get))
-                .width(length)
-                .into(),
+            .unwrap_or(
+                selectable_text(format!("{value} ({key})"))
+                    .style(theme::selectable_text::secondary)
+                    .font_maybe(
+                        theme::font_style::secondary(theme).map(font::get),
+                    )
+                    .width(length)
+                    .into(),
+            )
         });
 
     let mut content = column![];
