@@ -13,7 +13,7 @@ use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
 use data::history::ReadMarker;
 use data::history::filter::Filter;
-use data::history::manager::ReactionToEcho;
+use data::history::manager::EchoEvent;
 use data::history::reroute::RerouteRules;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::message::{self, Broadcast};
@@ -121,7 +121,7 @@ pub enum Event {
         has_credentials: bool,
         window: window::Id,
     },
-    ReactionsToEcho(Server, Vec<ReactionToEcho>),
+    EchoEvents(Server, Vec<EchoEvent>),
 }
 
 impl Dashboard {
@@ -1038,13 +1038,10 @@ impl Dashboard {
                                 }
                             }
                         }
-                        history::manager::Event::ReactionsToEcho(
-                            server,
-                            reactions,
-                        ) => {
+                        history::manager::Event::EchoEvents(server, events) => {
                             return (
                                 Task::none(),
-                                Some(Event::ReactionsToEcho(server, reactions)),
+                                Some(Event::EchoEvents(server, events)),
                             );
                         }
                     }

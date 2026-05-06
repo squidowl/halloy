@@ -49,6 +49,17 @@ pub struct ReactionToEcho {
     pub message_text: String,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReplyToEcho {
+    pub message: message::Message,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum EchoEvent {
+    Reaction(ReactionToEcho),
+    Reply(ReplyToEcho),
+}
+
 #[derive(Debug)]
 pub enum Message {
     LoadFull(history::Kind, Result<history::Loaded, history::Error>),
@@ -64,12 +75,12 @@ pub enum Message {
         Result<(), history::Error>,
     ),
     Closed(history::Kind, Result<(), history::Error>),
-    Flushed(history::Kind, Result<Vec<ReactionToEcho>, history::Error>),
+    Flushed(history::Kind, Result<Vec<EchoEvent>, history::Error>),
     Exited(Vec<(history::Kind, Result<(), history::Error>)>),
     SentMessageUpdated(history::Kind, history::ReadMarker),
     ResendMessage(history::Kind, message::Message),
     DraftsSaved,
-    ReactionsToEcho(Server, Vec<ReactionToEcho>),
+    EchoEvents(Server, Vec<EchoEvent>),
 }
 
 pub enum Event {
@@ -77,7 +88,7 @@ pub enum Event {
     Exited,
     SentMessageUpdated(history::Kind, history::ReadMarker),
     ResendMessage(history::Kind, message::Message),
-    ReactionsToEcho(Server, Vec<ReactionToEcho>),
+    EchoEvents(Server, Vec<EchoEvent>),
 }
 
 #[derive(Debug, Default)]
@@ -178,18 +189,15 @@ impl Manager {
             Message::Closed(kind, Err(error)) => {
                 log::warn!("failed to close history for {kind}: {error}");
             }
-            Message::Flushed(kind, Ok(reactions)) => {
+            Message::Flushed(kind, Ok(events)) => {
                 // Will cause flush loop if we emit a log every time we flush logs
                 if !matches!(kind, history::Kind::Logs) {
                     log::debug!("flushed history for {kind}",);
                 }
-                if !reactions.is_empty()
+                if !events.is_empty()
                     && let Some(server) = kind.server()
                 {
-                    return Some(Event::ReactionsToEcho(
-                        server.clone(),
-                        reactions,
-                    ));
+                    return Some(Event::EchoEvents(server.clone(), events));
                 }
             }
             Message::Flushed(kind, Err(error)) => {
@@ -251,8 +259,8 @@ impl Manager {
                 return Some(Event::ResendMessage(kind, message));
             }
             Message::DraftsSaved => {}
-            Message::ReactionsToEcho(server, reactions) => {
-                return Some(Event::ReactionsToEcho(server, reactions));
+            Message::EchoEvents(server, events) => {
+                return Some(Event::EchoEvents(server, events));
             }
         }
 
@@ -1874,7 +1882,10 @@ impl Data {
                 if notification_enabled {
                     reactions.map(|reaction| {
                         async move {
-                            Message::ReactionsToEcho(server, vec![reaction])
+                            Message::EchoEvents(
+                                server,
+                                vec![EchoEvent::Reaction(reaction)],
+                            )
                         }
                         .boxed()
                     })

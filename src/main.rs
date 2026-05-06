@@ -31,8 +31,8 @@ use appearance::{Theme, theme};
 use data::capabilities::LabeledResponseContext;
 use data::client::{self, Destination};
 use data::config::{self, Config};
-use data::history::ReactionToEcho;
 use data::history::filter::FilterChain;
+use data::history::manager::{EchoEvent, ReactionToEcho, ReplyToEcho};
 use data::history::reroute::RerouteRules;
 use data::message::{self, Broadcast};
 use data::reaction::Reaction;
@@ -585,10 +585,7 @@ impl Halloy {
                         });
                         Task::none()
                     }
-                    Some(dashboard::Event::ReactionsToEcho(
-                        server,
-                        reactions,
-                    )) => {
+                    Some(dashboard::Event::EchoEvents(server, events)) => {
                         let casemapping = self
                             .clients
                             .get_server_casemapping_or_default(&server);
@@ -600,21 +597,34 @@ impl Halloy {
                             .get_server_statusmsg_or_default(&server);
                         if let Some(our_nick) = self.clients.nickname(&server) {
                             Task::batch(
-                                reactions
+                                events
                                     .into_iter()
-                                    .filter_map(|reaction| {
-                                        handle_reaction_to_echo(
-                                            &self.config,
-                                            &server,
-                                            casemapping,
-                                            chantypes,
-                                            statusmsg,
-                                            dashboard,
-                                            &self.main_window,
-                                            reaction,
-                                            &mut self.notifications,
-                                            our_nick.to_owned(),
-                                        )
+                                    .filter_map(|event| match event {
+                                        EchoEvent::Reaction(reaction) => {
+                                            handle_reaction_to_echo(
+                                                &self.config,
+                                                &server,
+                                                casemapping,
+                                                chantypes,
+                                                statusmsg,
+                                                dashboard,
+                                                &self.main_window,
+                                                reaction,
+                                                &mut self.notifications,
+                                                our_nick.to_owned(),
+                                            )
+                                        }
+                                        EchoEvent::Reply(reply) => {
+                                            handle_reply_to_echo(
+                                                &self.config,
+                                                &server,
+                                                casemapping,
+                                                dashboard,
+                                                &self.main_window,
+                                                reply,
+                                                &mut self.notifications,
+                                            )
+                                        }
                                     })
                                     .collect::<Vec<_>>(),
                             )
@@ -2383,6 +2393,52 @@ fn handle_reaction_to_echo(
         );
 
         return request_attention;
+    }
+
+    None
+}
+
+fn handle_reply_to_echo(
+    config: &Config,
+    server: &Server,
+    casemapping: data::isupport::CaseMap,
+    dashboard: &mut screen::Dashboard,
+    main_window: &Window,
+    reply_to_echo: ReplyToEcho,
+    notifications: &mut Notifications,
+) -> Option<Task<Message>> {
+    let data::message::Target::Channel {
+        channel,
+        source:
+            data::message::Source::User(user)
+            | data::message::Source::Action(Some(user)),
+        ..
+    } = &reply_to_echo.message.target
+    else {
+        return None;
+    };
+
+    let kind = history::Kind::Channel(server.to_owned(), channel.to_owned());
+    let message_window = dashboard.find_window_with_history(&kind);
+
+    let blocked = FilterChain::borrow(dashboard.get_filters()).filter_user(
+        user,
+        Some(channel),
+        server,
+    );
+
+    if !blocked && (message_window.is_none() || !main_window.focused) {
+        return notifications.notify(
+            &config.notifications,
+            &Notification::Reply {
+                user: user.clone(),
+                channel: channel.clone(),
+                casemapping,
+                message: reply_to_echo.message.text(),
+            },
+            server,
+            message_window.unwrap_or(main_window.id),
+        );
     }
 
     None

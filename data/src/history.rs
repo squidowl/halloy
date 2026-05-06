@@ -10,7 +10,9 @@ use futures::{Future, FutureExt};
 use tokio::fs;
 use tokio::time::Instant;
 
-pub use self::manager::{Manager, ReactionToEcho, Resource};
+pub use self::manager::{
+    EchoEvent, Manager, ReactionToEcho, ReplyToEcho, Resource,
+};
 pub use self::metadata::{Metadata, ReadMarker};
 use crate::capabilities::LabeledResponseContext;
 use crate::message::{self, Direction, MessageReferences, Source};
@@ -269,10 +271,10 @@ pub async fn append(
     chathistory_references: Option<MessageReferences>,
     pending_reactions: HashMap<message::Id, reaction::Pending>,
     pending_redactions: HashMap<message::Id, redaction::Pending>,
-) -> Result<Vec<ReactionToEcho>, Error> {
+) -> Result<Vec<EchoEvent>, Error> {
     let loaded = load(kind.clone(), seed).await?;
 
-    let mut pending_reactions_flushed: Vec<ReactionToEcho> = vec![];
+    let mut echo_events: Vec<EchoEvent> = vec![];
 
     let mut all_messages = loaded.messages;
 
@@ -299,7 +301,7 @@ pub async fn append(
                             },
                             message_text: message_text.clone(),
                         };
-                        pending_reactions_flushed.push(reaction_to_echo);
+                        echo_events.push(EchoEvent::Reaction(reaction_to_echo));
                     }
                 }
             }
@@ -322,6 +324,23 @@ pub async fn append(
         }
     }
 
+    for (message, _) in &pending_messages {
+        if !message.is_echo
+            && let Some(reply_id) = &message.reply_to
+            && let Some(original) = find_message_target(
+                &mut all_messages,
+                reply_id,
+                &message.server_time,
+            )
+            && original.is_echo
+            && original.direction == Direction::Received
+        {
+            echo_events.push(EchoEvent::Reply(ReplyToEcho {
+                message: message.clone(),
+            }));
+        }
+    }
+
     pending_messages.into_iter().for_each(
         |(message, labeled_response_context)| {
             insert_message(
@@ -334,7 +353,7 @@ pub async fn append(
 
     overwrite(kind, &all_messages, read_marker, chathistory_references)
         .await
-        .map(|()| pending_reactions_flushed)
+        .map(|()| echo_events)
 }
 
 pub async fn delete(kind: &Kind) -> Result<(), Error> {
@@ -751,7 +770,7 @@ impl History {
         &mut self,
         now: Option<Instant>,
         seed: Option<Seed>,
-    ) -> Option<BoxFuture<'static, Result<Vec<ReactionToEcho>, Error>>> {
+    ) -> Option<BoxFuture<'static, Result<Vec<EchoEvent>, Error>>> {
         match self {
             History::Partial {
                 kind,
