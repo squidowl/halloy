@@ -61,7 +61,7 @@ static CHANNEL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 static USER_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    RegexBuilder::new(r#"(?i)(?<!\w)([\w\-\[\]\\`^{|}\/]+)(?!\w)"#)
+    RegexBuilder::new(r#"(?i)(?<!\w)([\w"\-\[\]\\`^{|}\/]+)(?!\w)"#)
         .build()
         .unwrap()
 });
@@ -75,7 +75,7 @@ static EXCLUDED_TRAILING_CHARS_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 const PAIRED_DELIMITERS: [(char, char); 3] =
     [('(', ')'), ('{', '}'), ('[', ']')];
 
-const SYMMETRIC_DELIMITERS: [char; 3] = ['"', '\'', '`'];
+const SYMMETRIC_DELIMITERS: [char; 2] = ['"', '\''];
 
 // used for matching delimiter chars at the end of a word
 static EXCLUDED_TRAILING_DELIMITER_CHARS_REGEX: LazyLock<Regex> =
@@ -1997,13 +1997,16 @@ fn parse_regex_fragments<'a>(
             re_match.end(),
             &text,
         );
+        let (matching, leading_delimiter) = filter_leading_delimiter(matching);
         if let Some(fragment) = (f)(matching) {
             if i < re_match.start() {
                 fragments.push(Fragment::Text(
                     text[i..re_match.start()].to_string(),
                 ));
             }
-
+            if let Some(delimiter) = leading_delimiter {
+                fragments.push(Fragment::Text(delimiter.to_string()));
+            }
             fragments.push(fragment);
 
             if trailing_delimiter.is_some() || trailing_punctuation.is_some() {
@@ -2114,6 +2117,18 @@ fn filter_trailing_delimiter<'a>(
     } else {
         (matching, None)
     }
+}
+
+fn filter_leading_delimiter(matching: &str) -> (&str, Option<&str>) {
+    let Some(first_char) = matching.chars().next() else {
+        return (matching, None);
+    };
+
+    if SYMMETRIC_DELIMITERS.contains(&first_char) {
+        return (&matching[1..], Some(&matching[..1]));
+    }
+
+    (matching, None)
 }
 
 #[derive(Debug, Clone, Eq, Serialize, Deserialize)]
@@ -4370,7 +4385,8 @@ pub mod tests {
                         .collect::<ChannelUsers>(),
                 ),
                 vec![
-                    Fragment::Text("And they said: \"".into()),
+                    Fragment::Text("And they said: ".into()),
+                    Fragment::Text("\"".into()),
                     Fragment::User(
                         User::from(Nick::from_str("Susan", casemapping)),
                         "Susan".into(),
