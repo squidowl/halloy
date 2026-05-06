@@ -1873,7 +1873,8 @@ fn create_message_with_highlight(
     config: &Config,
     clients: &data::client::Map,
     reroute_rules: &RerouteRules,
-) -> Option<(data::Message, Option<message::Highlight>)> {
+    is_our_message: impl Fn(&str) -> bool,
+) -> Option<(data::Message, Option<message::Highlight>, bool)> {
     data::Message::received_with_highlight(
         encoded,
         our_nick,
@@ -1886,6 +1887,7 @@ fn create_message_with_highlight(
                 .cloned()
         },
         |channel| clients.get_channel_users(server, channel),
+        is_our_message,
         server,
         clients.get_server_chantypes_or_default(server),
         clients.get_server_statusmsg_or_default(server),
@@ -1979,15 +1981,18 @@ fn handle_priv_or_notice(
     notifications: &mut Notifications,
     main_window: &Window,
 ) {
-    let Some((mut msg, highlight)) = create_message_with_highlight(
-        server,
-        encoded,
-        our_nick,
-        deduplicate,
-        config,
-        clients,
-        dashboard.get_reroute_rules(),
-    ) else {
+    let Some((mut msg, highlight, is_reply_to_us)) =
+        create_message_with_highlight(
+            server,
+            encoded,
+            our_nick,
+            deduplicate,
+            config,
+            clients,
+            dashboard.get_reroute_rules(),
+            |id| dashboard.history().is_our_message(id),
+        )
+    else {
         return;
     };
 
@@ -2020,7 +2025,7 @@ fn handle_priv_or_notice(
             server,
             highlight,
             &msg,
-            notification_enabled,
+            notification_enabled && !is_reply_to_us,
             window,
             casemapping,
             dashboard,
@@ -2029,7 +2034,7 @@ fn handle_priv_or_notice(
             notifications,
             main_window,
         );
-    } else {
+    } else if !is_reply_to_us {
         maybe_notify_channel_message(
             server,
             &msg,
@@ -2041,6 +2046,34 @@ fn handle_priv_or_notice(
             notifications,
             main_window,
         );
+    }
+
+    if is_reply_to_us
+        && !msg.blocked
+        && notification_enabled
+        && (window.is_none() || !main_window.focused)
+        && let data::message::Target::Channel {
+            channel,
+            source:
+                data::message::Source::User(user)
+                | data::message::Source::Action(Some(user)),
+            ..
+        } = &msg.target
+    {
+        let request_attention = notifications.notify(
+            &config.notifications,
+            &Notification::Reply {
+                user: user.clone(),
+                channel: channel.clone(),
+                casemapping,
+                message: msg.text(),
+            },
+            server,
+            window.unwrap_or(main_window.id),
+        );
+        if let Some(req) = request_attention {
+            commands.push(req);
+        }
     }
 
     if should_mark_as_read && let Some(kind) = kind.as_ref() {

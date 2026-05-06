@@ -487,12 +487,13 @@ impl Message {
         reroute_rules: &RerouteRules,
         resolve_attributes: impl Fn(&User, &target::Channel) -> Option<User>,
         channel_users: impl Fn(&target::Channel) -> Option<&'a ChannelUsers>,
+        is_our_message: impl Fn(&str) -> bool,
         server: &Server,
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
         prefix: &[isupport::PrefixMap],
-    ) -> Option<(Message, Option<Highlight>)> {
+    ) -> Option<(Message, Option<Highlight>, bool)> {
         let server_time = encoded.server_time_or_now();
         let id = encoded.message_id();
         let reply_to = encoded.in_reply_to();
@@ -586,7 +587,12 @@ impl Message {
             }
         });
 
-        Some((message, highlight))
+        let is_reply_to_us = message
+            .reply_to
+            .as_deref()
+            .is_some_and(is_our_message);
+
+        Some((message, highlight, is_reply_to_us))
     }
 
     pub fn sent(
@@ -4586,12 +4592,14 @@ pub mod tests {
                     .cloned()
             },
             |_channel: &target::Channel| Some(&channel_users),
+            |_| false,
             server,
             isupport::get_chantypes_or_default(&isupport),
             isupport::get_statusmsg_or_default(&isupport),
             isupport::get_casemapping_or_default(&isupport),
             isupport::get_prefix_or_default(&isupport),
         )
+        .map(|(msg, highlight, _)| (msg, highlight))
         .unwrap_or_else(|| panic!("failed to create Message from {encoded:?}"))
     }
 

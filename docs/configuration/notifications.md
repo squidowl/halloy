@@ -17,18 +17,18 @@ exclude = { users = ["NickServ"], channels = ["#halloy"] }
 
 Following notifications are available:
 
-| Name                    | Description                                        | Content      |
-| ----------------------- | -------------------------------------------------- | ------------ |
-| `channel`               | Triggered when a message is received in a channel  | Message text |
-| `connected`             | Triggered when a server is connected               | N/A          |
-| `direct_message`        | Triggered when a direct message is received        | Message text |
-| `disconnected`          | Triggered when a server disconnects                | N/A          |
-| `file_transfer_request` | Triggered when a file transfer request is received | File name    |
-| `highlight`             | Triggered when you were highlighted in a buffer    | Message text |
-| `monitored_online`      | Triggered when a user you're monitoring is online  | N/A          |
-| `monitored_offline`     | Triggered when a user you're monitoring is offline | N/A          |
-| `reconnected`           | Triggered when a server reconnects                 | N/A          |
-| `reaction`              | Triggered when another user reacts to your message | Message text |
+| Name                    | Description                                          | Content      |
+| ----------------------- | ---------------------------------------------------- | ------------ |
+| `channel`               | Triggered when a message is received in a channel    | Message text |
+| `connected`             | Triggered when a server is connected                 | N/A          |
+| `direct_message`        | Triggered when a direct message is received          | Message text |
+| `disconnected`          | Triggered when a server disconnects                  | N/A          |
+| `file_transfer_request` | Triggered when a file transfer request is received   | File name    |
+| `highlight`             | Triggered when highlighted in a buffer or replied to | Message text |
+| `monitored_online`      | Triggered when a user you're monitoring is online    | N/A          |
+| `monitored_offline`     | Triggered when a user you're monitoring is offline   | N/A          |
+| `reconnected`           | Triggered when a server reconnects                   | N/A          |
+| `reaction`              | Triggered when another user reacts to your message   | Message text |
 
 `channel` is an array of tables, with each entry a notification for a single
 channel. For example, the following shows a toast notification for every

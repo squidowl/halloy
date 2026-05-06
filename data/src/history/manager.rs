@@ -632,6 +632,14 @@ impl Manager {
         self.data.can_mark_as_read(kind)
     }
 
+    pub fn is_our_message(&self, id: &str) -> bool {
+        self.data.map.values().any(|history| {
+            history
+                .find_by_id(id)
+                .is_some_and(|msg| msg.direction == crate::message::Direction::Sent || msg.is_echo)
+        })
+    }
+
     pub fn get_messages(
         &self,
         kind: &history::Kind,
