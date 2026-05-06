@@ -439,6 +439,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 dimmed_background_tuple,
                 None,
                 false,
+                true,
                 self.theme,
                 self.config,
             );
@@ -1243,6 +1244,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 None,
                 Some(sm_font_s),
                 is_our_nick,
+                false,
                 self.theme,
                 self.config,
             );

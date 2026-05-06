@@ -9,6 +9,7 @@ use iced::widget::{container, row};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{Element, selectable_text};
+use crate::widget::TextExt as _;
 use crate::{Theme, font, theme, widget};
 
 pub struct UserDisplay {
@@ -73,11 +74,12 @@ impl UserDisplay {
         dimmed: Option<(Dimmed, Color)>,
         size: Option<f32>,
         highlight: bool,
+        selectable: bool,
         theme: &'a Theme,
         config: &'a Config,
     ) -> Element<'a, M> {
         let base = self.base.into_element(
-            user, is_away, is_offline, dimmed, size, theme, config,
+            user, is_away, is_offline, dimmed, size, selectable, theme, config,
         );
 
         let base = if highlight {
@@ -98,7 +100,8 @@ impl UserDisplay {
                 container(container(if tooltip.bot_icon {
                     row![
                         tooltip.into_element(
-                            user, false, false, None, None, theme, config,
+                            user, false, false, None, None, true, theme,
+                            config,
                         ),
                         selectable_text(String::from(
                             " has marked itself as a bot"
@@ -108,7 +111,7 @@ impl UserDisplay {
                     .into()
                 } else {
                     tooltip.into_element(
-                        user, false, false, None, None, theme, config,
+                        user, false, false, None, None, true, theme, config,
                     )
                 }))
                 .style(theme::container::tooltip)
@@ -240,6 +243,7 @@ impl UserDisplayData {
         is_offline: bool,
         dimmed: Option<(Dimmed, Color)>,
         size: Option<f32>,
+        selectable: bool,
         theme: &'a Theme,
         config: &'a Config,
     ) -> Element<'a, M> {
@@ -251,7 +255,7 @@ impl UserDisplayData {
             dimmed,
         );
 
-        self.render(style, is_offline, size, theme)
+        self.render(style, is_offline, size, selectable, theme)
     }
 
     fn render<'a, M: 'a>(
@@ -259,31 +263,51 @@ impl UserDisplayData {
         style: crate::widget::selectable_text::Style,
         is_offline: bool,
         size: Option<f32>,
+        selectable: bool,
         theme: &'a Theme,
     ) -> Element<'a, M> {
         let font =
             theme::font_style::nickname(theme, is_offline).map(font::get);
 
+        // selectable_text carries selection state and handles copy interactions;
+        // plain text is used where selection would be undesirable (e.g. input bar)
+        let text_piece =
+            |content: String, f: Option<font::Font>| -> Element<'a, M> {
+                if selectable {
+                    selectable_text(content)
+                        .style(move |_| style)
+                        .font_maybe(f)
+                        .size_maybe(size)
+                        .into()
+                } else {
+                    widget::text(content)
+                        .color_maybe(style.color)
+                        .font_maybe(f)
+                        .size_maybe(size)
+                        .into()
+                }
+            };
+
         if self.bot_icon {
+            let icon: Element<M> = if selectable {
+                widget::bot_icon(move |_| style)
+            } else {
+                widget::text(String::from("\u{1F916}"))
+                    .color_maybe(style.color)
+                    .line_height(iced::widget::text::LineHeight::Relative(1.45))
+                    .font(*font::ICON)
+                    .size(theme::ICON_SIZE)
+                    .into()
+            };
             row![
-                selectable_text(self.left)
-                    .style(move |_| style)
-                    .font_maybe(font.clone())
-                    .size_maybe(size),
-                widget::bot_icon(move |_| style),
-                self.right.map(|right| selectable_text(right)
-                    .style(move |_| style)
-                    .font_maybe(font)
-                    .size_maybe(size)),
+                text_piece(self.left, font.clone()),
+                icon,
+                self.right.map(|right| text_piece(right, font)),
             ]
             .spacing(theme::ICON_SPACE)
             .into()
         } else {
-            selectable_text(self.left)
-                .style(move |_| style)
-                .font_maybe(font)
-                .size_maybe(size)
-                .into()
+            text_piece(self.left, font)
         }
     }
 

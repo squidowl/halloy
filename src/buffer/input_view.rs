@@ -589,6 +589,7 @@ pub fn view<'a>(
                 None,
                 None,
                 false,
+                false,
                 theme,
                 config,
             ))
@@ -747,6 +748,7 @@ fn reply_bar<'a>(
         false,
         None,
         Some(font_size),
+        false,
         false,
         theme,
         config,

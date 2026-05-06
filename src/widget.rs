@@ -71,6 +71,20 @@ pub fn text<'a>(
     iced::widget::text(content).line_height(font::line_height())
 }
 
+pub trait TextExt<'a>: Sized {
+    fn size_maybe(self, size: Option<f32>) -> Self;
+}
+
+impl<'a> TextExt<'a> for Text<'a> {
+    fn size_maybe(self, size: Option<f32>) -> Self {
+        if let Some(s) = size {
+            self.size(s)
+        } else {
+            self
+        }
+    }
+}
+
 pub fn message_marker<'a, M>(
     marker: Marker,
     width: Option<f32>,

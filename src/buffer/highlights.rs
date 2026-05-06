@@ -134,6 +134,7 @@ pub fn view<'a>(
                         None,
                         None,
                         false,
+                        true,
                         theme,
                         config,
                     );

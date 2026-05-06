@@ -684,6 +684,7 @@ mod nick_list {
                     None,
                     None,
                     false,
+                    true,
                     theme,
                     config,
                 ),
