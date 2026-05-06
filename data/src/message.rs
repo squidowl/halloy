@@ -4597,8 +4597,10 @@ pub mod tests {
             isupport::get_casemapping_or_default(&isupport),
             isupport::get_prefix_or_default(&isupport),
         )
-        .map(|(msg, highlight, _)| (msg, highlight))
-        .unwrap_or_else(|| panic!("failed to create Message from {encoded:?}"))
+        .map_or_else(
+            || panic!("failed to create Message from {encoded:?}"),
+            |(msg, highlight, _)| (msg, highlight),
+        )
     }
 
     #[test]

@@ -1213,7 +1213,9 @@ impl<'a> ChannelQueryLayout<'a> {
             let nick_obj = Nick::from_str(nick, self.casemapping);
             let is_our_nick = self
                 .our_nick
-                .is_some_and(|our| our == nick_obj.as_nickref());
+                .is_some_and(|our| our == nick_obj.as_nickref())
+                && !message.is_echo
+                && message.direction == message::Direction::Received;
             let user = self
                 .target
                 .users()
