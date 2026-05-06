@@ -268,3 +268,10 @@ pub fn dimmed(
         style
     }
 }
+
+pub fn color_dot(theme: &Theme, color: Color) -> Style {
+    Style {
+        color: Some(color),
+        selection_color: theme.styles().buffer.selection,
+    }
+}
