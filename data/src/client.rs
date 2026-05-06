@@ -129,7 +129,7 @@ pub enum Message {
         DateTime<Utc>,
         Result<(), Error>,
     ),
-    RequestNewerChatHistory(Server, Target, DateTime<Utc>),
+    RequestNewerChatHistory(Server, Target, DateTime<Utc>, bool),
     RequestChatHistoryTargets(Server, Option<DateTime<Utc>>, DateTime<Utc>),
 }
 
@@ -332,7 +332,9 @@ impl Client {
     ) -> Vec<Event> {
         if self.registration_step == RegistrationStep::Complete {
             // TODO: allow from_modal when modal matching to bouncer networks is added.
-            if !self.server.is_bouncer_network() && !self.is_primary() {
+            if !self.capabilities.acknowledged(Capability::BouncerNetworks)
+                || !self.is_primary()
+            {
                 self.join(
                     &config
                         .channels
@@ -389,10 +391,10 @@ impl Client {
                 }
             }
 
-            if !config.metadata.is_empty()
+            if (!config.metadata.is_empty() || !self.config.metadata.is_empty())
                 && config.metadata != self.config.metadata
             {
-                if self.capabilities.acknowledged(Capability::ReadMarker) {
+                if self.capabilities.acknowledged(Capability::Metadata) {
                     self.send(
                         None,
                         command!(
@@ -956,6 +958,16 @@ impl Client {
                                     )
                                 })
                             }
+                            Some("znc.in/playback") => {
+                                params.get(1).map(|target| {
+                                    BatchKind::ZncPlayback(Target::parse(
+                                        target,
+                                        self.chantypes(),
+                                        self.statusmsg(),
+                                        self.casemapping(),
+                                    ))
+                                })
+                            }
                             _ => None,
                         };
 
@@ -1081,6 +1093,7 @@ impl Client {
                                         _,
                                         _,
                                     ))
+                                    | Some(BatchKind::ZncPlayback(_))
                                     | None => (),
                                 };
 
@@ -1116,6 +1129,8 @@ impl Client {
                         Some(BatchKind::ChathistoryTargets) | None => {
                             self.handle(message, context, config)?
                         }
+                        Some(BatchKind::ZncPlayback(batch_target)) => self
+                            .handle_znc_playback(message, batch_target.clone()),
                     };
 
                     if let Some(batch) = self.batches.get_mut(batch_tag) {
@@ -1901,7 +1916,7 @@ impl Client {
                     if let Some(client_channel) =
                         self.chanmap.get_mut(&target_channel)
                     {
-                        client_channel.update_user_away(
+                        client_channel.update_user_status(
                             ok!(args.get(5)),
                             ok!(args.get(6)),
                             casemapping,
@@ -2009,7 +2024,7 @@ impl Client {
                             {
                                 if token == WhoXPollParameters::Default.token()
                                 {
-                                    client_channel.update_user_away(
+                                    client_channel.update_user_status(
                                         ok!(args.get(3)),
                                         ok!(args.get(4)),
                                         casemapping,
@@ -2023,7 +2038,7 @@ impl Client {
                                 {
                                     let user = ok!(args.get(3));
 
-                                    client_channel.update_user_away(
+                                    client_channel.update_user_status(
                                         user,
                                         ok!(args.get(4)),
                                         casemapping,
@@ -2778,6 +2793,24 @@ impl Client {
                     self.resolved_host = Some(hostname.to_string());
                 }
             }
+            Command::SETNAME(_realname) => {
+                // Real names are not currently stored anywhere, but
+                // SETNAME provides an opportunity to update resolved_user
+                // and resolved_host.
+                let user = ok!(message.user(self.casemapping()));
+
+                let ourself = user.nickname() == self.nickname();
+
+                if ourself {
+                    if let Some(username) = user.username() {
+                        self.resolved_user = Some(username.to_string());
+                    }
+
+                    if let Some(hostname) = user.hostname() {
+                        self.resolved_host = Some(hostname.to_string());
+                    }
+                }
+            }
             Command::Numeric(RPL_MONONLINE, args) => {
                 let casemapping =
                     isupport::get_casemapping_or_default(&self.isupport);
@@ -3082,7 +3115,9 @@ impl Client {
                     .collect::<Vec<_>>();
 
                 // Send JOIN on non bouncer networks
-                if !self.server.is_bouncer_network() && !self.is_primary() {
+                if !self.capabilities.acknowledged(Capability::BouncerNetworks)
+                    || !self.is_primary()
+                {
                     for message in group_joins(
                         &channels,
                         &self.config.channel_keys,
@@ -3139,7 +3174,10 @@ impl Client {
                     ))))
                     .collect::<Vec<_>>();
 
-                if !self.is_primary()
+                if (!self
+                    .capabilities
+                    .acknowledged(Capability::BouncerNetworks)
+                    || !self.is_primary())
                     && matches!(
                         self.features.version_request,
                         VersionRequest::Need(true)
@@ -3155,7 +3193,7 @@ impl Client {
                 }
 
                 if !self.config.metadata.is_empty() {
-                    if self.capabilities.acknowledged(Capability::ReadMarker) {
+                    if self.capabilities.acknowledged(Capability::Metadata) {
                         for (key, value) in
                             self.config.metadata.clone().into_iter()
                         {
@@ -3238,7 +3276,7 @@ impl Client {
                         context.as_ref().and_then(|context| context.first())
                     && self.metadata_sub_requests.take(key).is_some()
                 {
-                    log::warn!(
+                    log::info!(
                         "[{}] Metadata {key} not supported by the server",
                         self.server
                     );
@@ -3257,6 +3295,8 @@ impl Client {
 
                     self.metadata_sub_requests.remove(key);
                 }
+
+                return Ok(vec![]);
             }
             _ => {}
         }
@@ -3419,6 +3459,77 @@ impl Client {
                     self.server
                 ),
             }
+        }
+    }
+
+    fn handle_znc_playback(
+        &mut self,
+        message: message::Encoded,
+        batch_target: Target,
+    ) -> Vec<Event> {
+        match &message.command {
+            _ if is_reaction(&message) => {
+                vec![Event::Reaction {
+                    message,
+                    our_nick: self.nickname().to_owned(),
+                    notification_enabled: false,
+                }]
+            }
+            Command::REDACT(_, _, _) => {
+                vec![Event::Redaction(message, self.nickname().to_owned())]
+            }
+            Command::NICK(_) => vec![Event::WithTarget {
+                message,
+                our_nick: self.nickname().to_owned(),
+                target: batch_target.into(),
+                deduplicate: true,
+            }],
+            Command::JOIN(_, _) => vec![Event::WithTarget {
+                message,
+                our_nick: self.nickname().to_owned(),
+                target: batch_target.into(),
+                deduplicate: true,
+            }],
+            Command::PART(_, _) => vec![Event::WithTarget {
+                message,
+                our_nick: self.nickname().to_owned(),
+                target: batch_target.into(),
+                deduplicate: true,
+            }],
+            Command::QUIT(_) => vec![Event::WithTarget {
+                message,
+                our_nick: self.nickname().to_owned(),
+                target: batch_target.into(),
+                deduplicate: true,
+            }],
+            Command::PRIVMSG(target, text) | Command::NOTICE(target, text) => {
+                if ctcp::is_query(text) && !message::is_action(text) {
+                    // Ignore historical CTCP queries/responses except for
+                    // ACTIONs
+                    vec![]
+                } else {
+                    if let Some(user) = message.user(self.casemapping()) {
+                        // If direct message, update query map with user
+                        if target == &self.nickname().to_string() {
+                            self.record_query(&target::Query::from(user));
+                        }
+                    }
+
+                    vec![Event::PrivOrNotice {
+                        message,
+                        our_nick: self.nickname().to_owned(),
+                        // Don't allow notifications from history
+                        notification_enabled: false,
+                        deduplicate: true,
+                        labeled_response_context: None,
+                    }]
+                }
+            }
+            _ => vec![Event::Single {
+                message,
+                our_nick: self.nickname().to_owned(),
+                deduplicate: true,
+            }],
         }
     }
 
@@ -4793,6 +4904,11 @@ impl Map {
         )
     }
 
+    pub fn get_icon_url<'a>(&'a self, server: &Server) -> Option<&'a str> {
+        self.client(server)
+            .and_then(|client| isupport::get_icon_url(&client.isupport))
+    }
+
     pub fn get_filehost_auth(
         &self,
         server: &Server,
@@ -5294,15 +5410,15 @@ pub enum BatchKind {
         Option<MultilineBatchKind>,
         String,
     ),
+    ZncPlayback(Target),
 }
 
 impl BatchKind {
     pub fn target(&self) -> Option<Target> {
         match self {
             Self::ChathistoryTarget(batch_target)
-            | Self::Multiline(_, _, batch_target, _, _) => {
-                Some(batch_target.clone())
-            }
+            | Self::Multiline(_, _, batch_target, _, _)
+            | Self::ZncPlayback(batch_target) => Some(batch_target.clone()),
             Self::ChathistoryTargets => None,
         }
     }
@@ -5371,7 +5487,7 @@ pub struct Channel {
 }
 
 impl Channel {
-    pub fn update_user_away(
+    pub fn update_user_status(
         &mut self,
         user: &str,
         flags: &str,
@@ -5380,20 +5496,18 @@ impl Channel {
     ) {
         let user = User::from(Nick::from_str(user, casemapping));
 
-        if let Some(away_flag) = flags.chars().next() {
+        let away = flags.chars().next().and_then(|away_flag| {
             // H = Here, G = gone (away)
-            let away = match away_flag {
-                'G' => true,
-                'H' => false,
-                _ => return,
-            };
+            match away_flag {
+                'G' => Some(true),
+                'H' => Some(false),
+                _ => None,
+            }
+        });
 
-            self.users.update_user(
-                &user,
-                Some(away),
-                bot_mode_char.map(|bot_char| flags.contains(bot_char)),
-            );
-        }
+        let bot = bot_mode_char.map(|bot_char| flags.contains(bot_char));
+
+        self.users.update_user(&user, away, bot);
     }
 
     pub fn update_user_accountname(

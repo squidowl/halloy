@@ -12,6 +12,7 @@ use thiserror::Error;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::config::buffer::{AccessLevelFormat, UsernameFormat};
+use crate::target::Query;
 use crate::{isupport, mode};
 
 #[derive(Debug, Clone)]
@@ -613,6 +614,15 @@ impl From<NickRef<'_>> for Nick {
         Nick {
             raw: nickref.raw.to_string(),
             normalized: nickref.normalized.to_string(),
+        }
+    }
+}
+
+impl From<&Query> for Nick {
+    fn from(query: &Query) -> Self {
+        Nick {
+            raw: query.as_str().to_string(),
+            normalized: query.as_normalized_str().to_string(),
         }
     }
 }
