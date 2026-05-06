@@ -11,7 +11,7 @@ use data::user::{ChannelUsers, Nick, NickRef};
 use data::{Config, User, message, metadata, target};
 use iced::widget::text::Wrapping;
 use iced::widget::{Space, button, column, container, row, text};
-use iced::{Color, Length, alignment};
+use iced::{Background, Color, Length, alignment};
 
 use super::context_menu::{self, Context};
 use super::scroll_view::LayoutMessage;
@@ -1211,6 +1211,9 @@ impl<'a> ChannelQueryLayout<'a> {
         }) = &message.reply_preview
         {
             let nick_obj = Nick::from_str(nick, self.casemapping);
+            let is_our_nick = self
+                .our_nick
+                .is_some_and(|our| our == nick_obj.as_nickref());
             let user = self
                 .target
                 .users()
@@ -1236,9 +1239,21 @@ impl<'a> ChannelQueryLayout<'a> {
                     )
                 })
                 .unwrap_or(full);
-            let nick_element: Element<_> = display
+            let base_nick_element = display
                 .bracket(Some(&self.config.buffer.nickname.brackets))
                 .into_element_sized(&user, sm_font_s, self.theme, self.config);
+            // add a highlight visual style if nick is self
+            let nick_element: Element<_> = if is_our_nick {
+                let highlight = self.theme.styles().buffer.highlight;
+                container(base_nick_element)
+                    .style(move |_| container::Style {
+                        background: Some(Background::Color(highlight)),
+                        ..Default::default()
+                    })
+                    .into()
+            } else {
+                base_nick_element
+            };
             row![
                 text(" ").size(sm_font_s),
                 nick_element,
