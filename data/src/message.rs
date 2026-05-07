@@ -487,7 +487,7 @@ impl Message {
         reroute_rules: &RerouteRules,
         resolve_attributes: impl Fn(&User, &target::Channel) -> Option<User>,
         channel_users: impl Fn(&target::Channel) -> Option<&'a ChannelUsers>,
-        is_our_message: impl Fn(&str, &crate::history::Kind, &DateTime<Utc>) -> bool,
+        is_our_message: impl Fn(&Id, &crate::history::Kind, &DateTime<Utc>) -> bool,
         server: &Server,
         chantypes: &[char],
         statusmsg: &[char],
@@ -587,7 +587,7 @@ impl Message {
             }
         });
 
-        let is_reply_to_us = message.reply_to.as_deref().is_some_and(|id| {
+        let is_reply_to_us = message.reply_to.as_ref().is_some_and(|id| {
             crate::history::Kind::from_server_message(server, &message)
                 .is_some_and(|kind| {
                     is_our_message(id, &kind, &message.server_time)

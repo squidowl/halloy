@@ -1891,7 +1891,7 @@ fn create_message_with_highlight(
     clients: &data::client::Map,
     reroute_rules: &RerouteRules,
     is_our_message: impl Fn(
-        &str,
+        &message::Id,
         &data::history::Kind,
         &chrono::DateTime<chrono::Utc>,
     ) -> bool,

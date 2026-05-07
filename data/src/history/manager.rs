@@ -649,7 +649,7 @@ impl Manager {
 
     pub fn is_our_message(
         &self,
-        id: &str,
+        id: &message::Id,
         kind: &history::Kind,
         server_time: &DateTime<Utc>,
     ) -> bool {
@@ -1344,7 +1344,7 @@ impl Data {
                     let mut last_seen = last_seen.clone();
 
                     for (id, pending) in std::mem::take(pending_reactions) {
-                        if let Some(message) = history::find_message_target(
+                        if let Some(message) = history::find_reply_target_mut(
                             &mut messages,
                             &id,
                             &pending.server_time,
@@ -1359,7 +1359,7 @@ impl Data {
                     }
 
                     for (id, pending) in std::mem::take(pending_redactions) {
-                        if let Some(message) = history::find_message_target(
+                        if let Some(message) = history::find_reply_target_mut(
                             &mut messages,
                             &id,
                             &pending.server_time,
@@ -1561,9 +1561,10 @@ impl Data {
     ) -> Option<impl Future<Output = Message> + use<>> {
         // Cache the replied-to author and preview text on the message so the
         // reply is in view context without a lookup at render time.
-        if let Some(reply_id) = message.reply_to.clone()
+        if let Some(reply_id) = message.reply_to.as_ref()
             && let Some(history) = self.map.get(&kind)
-            && let Some(original) = history.find_by_id(&reply_id)
+            && let Some(original) =
+                history.find_reply_target(reply_id, &message.server_time)
         {
             let (nick, is_bot) = match original.target.source() {
                 message::Source::User(user)

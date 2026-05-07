@@ -283,7 +283,7 @@ pub async fn append(
     // pending reactions should only exist for unloaded history entries
     for (id, pending) in pending_reactions.into_iter() {
         if let Some(message) =
-            find_message_target(&mut all_messages, &id, &pending.server_time)
+            find_reply_target_mut(&mut all_messages, &id, &pending.server_time)
         {
             if message.is_echo
                 && message.direction == Direction::Received
@@ -320,7 +320,7 @@ pub async fn append(
 
     for (id, pending) in pending_redactions.into_iter() {
         if let Some(message) =
-            find_message_target(&mut all_messages, &id, &pending.server_time)
+            find_reply_target_mut(&mut all_messages, &id, &pending.server_time)
         {
             message.redaction = Some(pending.redaction);
         }
@@ -329,11 +329,8 @@ pub async fn append(
     for (message, _) in &pending_messages {
         if !message.is_echo
             && let Some(reply_id) = &message.reply_to
-            && let Some(original) = find_message_target(
-                &mut all_messages,
-                reply_id,
-                &message.server_time,
-            )
+            && let Some(original) =
+                find_reply_target(&all_messages, reply_id, &message.server_time)
             && original.is_echo
             && original.direction == Direction::Received
         {
@@ -608,7 +605,11 @@ impl History {
         }
     }
 
-    fn find_by_id(&self, id: &str) -> Option<&Message> {
+    fn find_reply_target(
+        &self,
+        id: &message::Id,
+        server_time: &DateTime<Utc>,
+    ) -> Option<&Message> {
         match self {
             History::Partial {
                 pending_messages, ..
@@ -617,35 +618,18 @@ impl History {
                 .find(|(m, _)| m.id.as_deref() == Some(id))
                 .map(|(m, _)| m),
             History::Full { messages, .. } => {
-                messages.iter().find(|m| m.id.as_deref() == Some(id))
+                find_reply_target(messages, id, server_time)
             }
         }
     }
 
     pub(crate) fn is_our_message(
         &self,
-        id: &str,
+        id: &message::Id,
         server_time: &DateTime<Utc>,
     ) -> bool {
-        let check = |msg: &Message| {
-            msg.id.as_deref() == Some(id)
-                && (msg.direction == Direction::Sent || msg.is_echo)
-        };
-        match self {
-            History::Partial {
-                pending_messages, ..
-            } => pending_messages.iter().any(|(m, _)| check(m)),
-            History::Full { messages, .. } => {
-                let start = *server_time + chrono::Duration::seconds(1);
-                let start_index = match messages
-                    .binary_search_by(|stored| stored.server_time.cmp(&start))
-                {
-                    Ok(i) | Err(i) => i,
-                };
-                messages.iter().take(start_index).rev().any(check)
-                    || messages.iter().skip(start_index).any(check)
-            }
-        }
+        self.find_reply_target(id, server_time)
+            .is_some_and(|msg| msg.direction == Direction::Sent || msg.is_echo)
     }
 
     fn remove_message(
@@ -1279,7 +1263,7 @@ impl History {
                 last_updated_at,
                 ..
             } => {
-                let message = find_message_target(
+                let message = find_reply_target_mut(
                     messages,
                     &reaction.in_reply_to,
                     &reaction.server_time,
@@ -1341,7 +1325,7 @@ impl History {
                 ..
             } => {
                 let Some(message) =
-                    find_message_target(messages, &id, &server_time)
+                    find_reply_target_mut(messages, &id, &server_time)
                 else {
                     return;
                 };
@@ -1597,11 +1581,29 @@ pub fn get_last_seen(messages: &[Message]) -> HashMap<Nick, DateTime<Utc>> {
     last_seen
 }
 
-pub fn find_message_target<'a>(
+pub fn find_reply_target<'a>(
+    messages: &'a [Message],
+    id: &message::Id,
+    server_time: &DateTime<Utc>,
+) -> Option<&'a Message> {
+    position_reply_target(messages, id, server_time)
+        .and_then(|position| messages.get(position))
+}
+
+pub fn find_reply_target_mut<'a>(
     messages: &'a mut [Message],
     id: &message::Id,
     server_time: &DateTime<Utc>,
 ) -> Option<&'a mut Message> {
+    position_reply_target(messages, id, server_time)
+        .and_then(|position| messages.get_mut(position))
+}
+
+pub fn position_reply_target(
+    messages: &[Message],
+    id: &message::Id,
+    server_time: &DateTime<Utc>,
+) -> Option<usize> {
     if messages.is_empty() {
         return None;
     }
@@ -1618,7 +1620,7 @@ pub fn find_message_target<'a>(
     // Look for the message at/before the earliest server_time for a react, then
     // check for the unlikely scenario where the message where the message's
     // server_time is after a react
-    let position = messages
+    messages
         .iter()
         .take(start_index)
         .rev()
@@ -1629,9 +1631,7 @@ pub fn find_message_target<'a>(
             .skip(start_index)
             .rev()
             .position(|m| m.id.as_deref() == Some(id))
-            .map(|position| messages.len() - 1 - position));
-
-    position.and_then(|position| messages.get_mut(position))
+            .map(|position| messages.len() - 1 - position))
 }
 
 #[derive(Debug)]
