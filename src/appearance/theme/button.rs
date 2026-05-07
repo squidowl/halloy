@@ -23,25 +23,33 @@ fn button(
     foreground: Color,
     background: Color,
     background_hover: Color,
+    background_pressed: Color,
+    border_color: Option<Color>,
     status: Status,
 ) -> Style {
+    let border = Border {
+        radius: 4.0.into(),
+        color: border_color.unwrap_or(Color::TRANSPARENT),
+        width: 1.0,
+    };
+
     match status {
-        Status::Active | Status::Pressed => Style {
+        Status::Active => Style {
             background: Some(Background::Color(background)),
             text_color: foreground,
-            border: Border {
-                radius: 4.0.into(),
-                ..Default::default()
-            },
+            border,
             ..Default::default()
         },
         Status::Hovered => Style {
             background: Some(Background::Color(background_hover)),
             text_color: foreground,
-            border: Border {
-                radius: 4.0.into(),
-                ..Default::default()
-            },
+            border,
+            ..Default::default()
+        },
+        Status::Pressed => Style {
+            background: Some(Background::Color(background_pressed)),
+            text_color: foreground,
+            border,
             ..Default::default()
         },
         Status::Disabled => {
@@ -49,6 +57,8 @@ fn button(
                 foreground,
                 background,
                 background_hover,
+                background_pressed,
+                border_color,
                 Status::Active,
             );
 
@@ -72,19 +82,36 @@ pub fn sidebar_buffer(
     let foreground = theme.styles().text.primary.color;
     let button_colors = theme.styles().buttons.primary;
 
-    let background = match (is_focused, is_open) {
-        (true, true) => button_colors.background_selected,
-        (false, true) => button_colors.background_hover,
-        (_, _) => button_colors.background,
+    let background = if is_open {
+        button_colors.background_selected
+    } else {
+        button_colors.background
     };
 
-    let background_hover = match (is_focused, is_open) {
-        (true, true) => button_colors.background_selected_hover,
-        (false, true) => button_colors.background_selected,
-        (_, _) => button_colors.background_hover,
+    let background_hover = if is_open {
+        button_colors.background_selected_hover
+    } else {
+        button_colors.background_hover
     };
 
-    button(foreground, background, background_hover, status)
+    let background_pressed = button_colors.background_selected;
+
+    button(
+        foreground,
+        background,
+        background_hover,
+        background_pressed,
+        if matches!(status, Status::Pressed) {
+            !is_focused
+        } else {
+            is_focused
+        }
+        .then_some(Color {
+            a: 0.2,
+            ..foreground
+        }),
+        status,
+    )
 }
 
 pub fn primary(theme: &Theme, status: Status, selected: bool) -> Style {
@@ -103,7 +130,20 @@ pub fn primary(theme: &Theme, status: Status, selected: bool) -> Style {
         button_colors.background_hover
     };
 
-    button(foreground, background, background_hover, status)
+    let background_pressed = if selected {
+        button_colors.background_hover
+    } else {
+        button_colors.background_selected_hover
+    };
+
+    button(
+        foreground,
+        background,
+        background_hover,
+        background_pressed,
+        None,
+        status,
+    )
 }
 
 pub fn secondary(theme: &Theme, status: Status, selected: bool) -> Style {
@@ -122,7 +162,20 @@ pub fn secondary(theme: &Theme, status: Status, selected: bool) -> Style {
         button_colors.background_hover
     };
 
-    button(foreground, background, background_hover, status)
+    let background_pressed = if selected {
+        button_colors.background_hover
+    } else {
+        button_colors.background_selected_hover
+    };
+
+    button(
+        foreground,
+        background,
+        background_hover,
+        background_pressed,
+        None,
+        status,
+    )
 }
 
 pub fn picker(theme: &Theme, status: Status, is_selected: bool) -> Style {
@@ -141,7 +194,20 @@ pub fn picker(theme: &Theme, status: Status, is_selected: bool) -> Style {
         button_colors.background_hover
     };
 
-    button(foreground, background, background_hover, status)
+    let background_pressed = if is_selected {
+        button_colors.background_selected_hover
+    } else {
+        button_colors.background_selected
+    };
+
+    button(
+        foreground,
+        background,
+        background_hover,
+        background_pressed,
+        None,
+        status,
+    )
 }
 
 pub fn reaction(
@@ -153,19 +219,33 @@ pub fn reaction(
     let foreground = theme.styles().text.secondary.color;
     let button_colors = theme.styles().buttons.secondary;
 
-    let background = match (selection, already_reacted) {
-        (true, _) => button_colors.background_selected,
-        (false, true) => button_colors.background_hover,
-        (false, false) => button_colors.background,
+    let background = if selection {
+        button_colors.background_selected
+    } else {
+        button_colors.background
     };
 
-    let background_hover = match (selection, already_reacted) {
-        (true, _) => button_colors.background_selected_hover,
-        (false, true) => button_colors.background_selected,
-        (false, false) => button_colors.background_hover,
+    let background_hover = if selection {
+        button_colors.background_selected_hover
+    } else {
+        button_colors.background_hover
     };
 
-    button(foreground, background, background_hover, status)
+    let background_pressed = button_colors.background_selected;
+
+    button(
+        foreground,
+        background,
+        background_hover,
+        background_pressed,
+        if matches!(status, Status::Pressed) {
+            !already_reacted
+        } else {
+            already_reacted
+        }
+        .then_some(foreground),
+        status,
+    )
 }
 
 pub fn bare(_theme: &Theme, status: Status) -> Style {
