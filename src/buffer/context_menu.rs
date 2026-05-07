@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use std::string::ToString;
 
 use chrono::{DateTime, Utc};
@@ -8,12 +9,12 @@ use data::{
     target,
 };
 use iced::widget::{Space, button, column, container, image, row, rule, span};
-use iced::{ContentFit, Length, Padding, mouse};
+use iced::{Color, ContentFit, Length, Padding, alignment, mouse};
 use url::Url;
 
 use crate::widget::{
-    Element, Renderer, context_menu, double_pass, selectable_rich_text,
-    selectable_text, text,
+    Element, Renderer, color_dot, context_menu, double_pass,
+    selectable_rich_text, selectable_text, text,
 };
 use crate::{Theme, font, theme, widget};
 
@@ -1059,39 +1060,60 @@ fn user_metadata<'a>(
                 .map(|value| (key, value))
         })
         .map(|(key, value)| {
-            if matches!(key, metadata::Key::Homepage)
-                && let Ok(url) = Url::parse(value)
-            {
-                selectable_rich_text::<
-                    Message,
-                    message::Link,
-                    (),
-                    Theme,
-                    Renderer,
-                >(vec![
-                    if config.display.decode_urls {
-                        span(data::url::display(&url).to_string())
-                    } else {
-                        span(value.to_string())
-                    }
-                    .color(theme.styles().buffer.url.color)
-                    .link(message::Link::Url(url.as_str().to_string())),
-                    span(format!(" ({key})")),
-                ])
-                .on_link(Message::Link)
-                .style(theme::selectable_text::secondary)
-                .font_maybe(theme::font_style::secondary(theme).map(font::get))
-                .width(length)
-                .into()
-            } else {
-                selectable_text(format!("{value} ({key})"))
+            match key {
+                metadata::Key::Homepage => Url::parse(value).ok().map(|url| {
+                    selectable_rich_text::<
+                        Message,
+                        message::Link,
+                        (),
+                        Theme,
+                        Renderer,
+                    >(vec![
+                        if config.display.decode_urls {
+                            span(data::url::display(&url).to_string())
+                        } else {
+                            span(value.to_string())
+                        }
+                        .color(theme.styles().buffer.url.color)
+                        .link(message::Link::Url(url.as_str().to_string())),
+                        span(format!(" ({key})")),
+                    ])
+                    .on_link(Message::Link)
                     .style(theme::selectable_text::secondary)
                     .font_maybe(
                         theme::font_style::secondary(theme).map(font::get),
                     )
                     .width(length)
                     .into()
+                }),
+                metadata::Key::Color => {
+                    Color::from_str(value).ok().map(|color| {
+                        row![
+                            color_dot(color),
+                            selectable_text(format!("{value} ({key})"))
+                                .style(theme::selectable_text::secondary)
+                                .font_maybe(
+                                    theme::font_style::secondary(theme)
+                                        .map(font::get),
+                                )
+                        ]
+                        .spacing(5)
+                        .align_y(alignment::Vertical::Center)
+                        .width(length)
+                        .into()
+                    })
+                }
+                _ => None,
             }
+            .unwrap_or(
+                selectable_text(format!("{value} ({key})"))
+                    .style(theme::selectable_text::secondary)
+                    .font_maybe(
+                        theme::font_style::secondary(theme).map(font::get),
+                    )
+                    .width(length)
+                    .into(),
+            )
         });
 
     let mut content = column![];
@@ -1099,7 +1121,7 @@ fn user_metadata<'a>(
     let inter_column_spacing = if let Some(avatar) = avatar {
         content = content.push(avatar);
 
-        4
+        6
     } else {
         0
     };

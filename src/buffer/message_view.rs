@@ -438,7 +438,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     .into();
             }
 
-            if rerouted_private && !is_ourself {
+            if rerouted_private && user_in_channel.is_none() {
                 context_menu::rerouted_private_user(
                     nick_text,
                     self.server,
@@ -544,6 +544,7 @@ impl<'a> ChannelQueryLayout<'a> {
                         message_content::with_context(
                             &message.content,
                             self.server,
+                            self.registry,
                             self.chantypes,
                             self.casemapping,
                             self.theme,
@@ -665,6 +666,7 @@ impl<'a> ChannelQueryLayout<'a> {
         let message_content = message_content::with_context(
             &message.content,
             formatter.server,
+            formatter.registry,
             formatter.chantypes,
             formatter.casemapping,
             self.theme,
@@ -812,6 +814,7 @@ impl<'a> ChannelQueryLayout<'a> {
         let message_content = message_content::with_context(
             &message.content,
             formatter.server,
+            formatter.registry,
             formatter.chantypes,
             formatter.casemapping,
             self.theme,
@@ -1012,6 +1015,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                 let message_content = message_content::with_context(
                     &message.content,
                     formatter.server,
+                    formatter.registry,
                     formatter.chantypes,
                     formatter.casemapping,
                     formatter.theme,
@@ -1083,6 +1087,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                 let message = message_content(
                     &message.content,
                     self.server,
+                    self.registry,
                     self.chantypes,
                     self.casemapping,
                     self.theme,

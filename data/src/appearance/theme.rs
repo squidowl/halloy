@@ -11,6 +11,8 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use thiserror::Error;
 use tokio::fs;
 
+use crate::config::buffer;
+
 const DEFAULT_THEME_NAME: &str = "Ferra";
 const DEFAULT_THEME_CONTENT: &str =
     include_str!("../../../assets/themes/ferra.toml");
@@ -579,6 +581,49 @@ pub fn nickname_color(
 
             colors[index]
         }
+    }
+}
+
+pub fn nickname_alpha(
+    color: Color,
+    is_away: Option<buffer::Away>,
+    background_color: Color,
+) -> Color {
+    if let Some(buffer::Away::Dimmed(dimmed)) = is_away {
+        dimmed.transform_color(color, background_color)
+    } else {
+        color
+    }
+}
+
+pub fn adapt_nickname_color(
+    original_color: Color,
+    theme_color: Color,
+    background_color: Color,
+    restrict_saturation: bool,
+) -> Color {
+    let original_hsl = to_hsl(original_color);
+
+    let theme_hsl = to_hsl(theme_color);
+
+    let adapted_color = from_hsl(Okhsl::new(
+        original_hsl.hue,
+        if restrict_saturation {
+            original_hsl.saturation.min(theme_hsl.saturation)
+        } else {
+            original_hsl.saturation
+        },
+        theme_hsl.lightness,
+    ));
+
+    if adapted_color.is_readable_on(background_color) {
+        adapted_color
+    } else {
+        from_hsl(Okhsl::new(
+            original_hsl.hue,
+            theme_hsl.saturation,
+            theme_hsl.lightness,
+        ))
     }
 }
 

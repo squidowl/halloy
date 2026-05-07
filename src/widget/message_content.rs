@@ -1,5 +1,7 @@
 use data::appearance::theme::{FontStyle, nickname_color};
-use data::{Config, Server, isupport, message, target};
+use data::config::display::nickname::Metadata;
+use data::target::Query;
+use data::{Config, Server, User, isupport, message, metadata, target};
 use iced::widget::text::Span;
 use iced::widget::{button, span};
 use iced::{Color, Length, border};
@@ -11,6 +13,7 @@ use crate::{Theme, font, theme};
 pub fn message_content<'a, M: 'a + std::clone::Clone>(
     content: &'a message::Content,
     server: &'a Server,
+    registry: &'a dyn metadata::Registry,
     chantypes: &[char],
     casemapping: isupport::CaseMap,
     theme: &'a Theme,
@@ -24,6 +27,7 @@ pub fn message_content<'a, M: 'a + std::clone::Clone>(
     message_content_impl::<(), M>(
         content,
         server,
+        registry,
         chantypes,
         casemapping,
         theme,
@@ -40,6 +44,7 @@ pub fn message_content<'a, M: 'a + std::clone::Clone>(
 pub fn with_context<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
     content: &'a message::Content,
     server: &'a Server,
+    registry: &'a dyn metadata::Registry,
     chantypes: &[char],
     casemapping: isupport::CaseMap,
     theme: &'a Theme,
@@ -55,6 +60,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
     message_content_impl(
         content,
         server,
+        registry,
         chantypes,
         casemapping,
         theme,
@@ -72,6 +78,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
 fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
     content: &'a message::Content,
     server: &'a Server,
+    registry: &'a dyn metadata::Registry,
     chantypes: &[char],
     casemapping: isupport::CaseMap,
     theme: &'a Theme,
@@ -86,6 +93,29 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
     )>,
     config: &Config,
 ) -> Element<'a, M> {
+    let color_from_user = |user: &User| -> Color {
+        config
+            .display
+            .nickname
+            .contains(&Metadata::Color)
+            .then_some(registry)
+            .and_then(|registry| registry.color(&Query::from(user)))
+            .map_or(
+                nickname_color(
+                    theme.styles().buffer.nickname.color,
+                    &config.buffer.nickname.color,
+                    Some(user.seed()),
+                ),
+                |color| {
+                    config.display.adapt_metadata_colors.adapt(
+                        color,
+                        theme.styles().buffer.nickname.color,
+                        theme.styles().buffer.background,
+                    )
+                },
+            )
+    };
+
     match content {
         data::message::Content::Plain(text) => {
             let selectable_text = if let Some(only_emojis_size) =
@@ -159,11 +189,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                                     ))
                             }
                             data::message::Fragment::User(user, text) => {
-                                let color = nickname_color(
-                                    theme.styles().buffer.nickname.color,
-                                    &config.buffer.nickname.color,
-                                    Some(user.seed()),
-                                );
+                                let color = color_from_user(user);
 
                                 span(text)
                                     .font_maybe(
@@ -184,11 +210,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                                 user,
                                 text,
                             ) => {
-                                let color = nickname_color(
-                                    theme.styles().buffer.nickname.color,
-                                    &config.buffer.nickname.color,
-                                    Some(user.seed()),
-                                );
+                                let color = color_from_user(user);
 
                                 span(text)
                                     .font_maybe(
