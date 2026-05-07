@@ -1997,11 +1997,18 @@ fn parse_regex_fragments<'a>(
             re_match.end(),
             &text,
         );
+        let (matching, leading_delimiter) = filter_leading_delimiter(matching);
+
         if let Some(fragment) = (f)(matching) {
+            let mut leading_text = String::new();
             if i < re_match.start() {
-                fragments.push(Fragment::Text(
-                    text[i..re_match.start()].to_string(),
-                ));
+                leading_text.push_str(&text[i..re_match.start()]);
+            }
+            if let Some(delimiter) = leading_delimiter {
+                leading_text.push_str(delimiter);
+            }
+            if !leading_text.is_empty() {
+                merge_text_fragment(&mut fragments, leading_text);
             }
 
             fragments.push(fragment);
@@ -2021,13 +2028,28 @@ fn parse_regex_fragments<'a>(
         }
     }
 
-    if i == 0 {
-        fragments.push(Fragment::Text(text.into_owned()));
-    } else {
-        fragments.push(Fragment::Text(text[i..text.len()].to_string()));
-    }
+    let next_fragment_text = if i == 0 { &text } else { &text[i..] };
+    merge_text_fragment(&mut fragments, next_fragment_text.to_string());
 
     fragments
+}
+
+fn merge_text_fragment(fragments: &mut Vec<Fragment>, text: String) {
+    if text.is_empty() {
+        return;
+    }
+    match fragments.pop() {
+        Some(Fragment::Text(mut fragment_text)) => {
+            fragment_text.push_str(&text);
+            fragments.push(Fragment::Text(fragment_text));
+        }
+        fragment => {
+            if let Some(fragment) = fragment {
+                fragments.push(fragment);
+            }
+            fragments.push(Fragment::Text(text));
+        }
+    }
 }
 
 fn filter_trailing_punctuation<'a>(
@@ -2114,6 +2136,18 @@ fn filter_trailing_delimiter<'a>(
     } else {
         (matching, None)
     }
+}
+
+fn filter_leading_delimiter(matching: &str) -> (&str, Option<&str>) {
+    let Some(first_char) = matching.chars().next() else {
+        return (matching, None);
+    };
+
+    if SYMMETRIC_DELIMITERS.contains(&first_char) {
+        return (&matching[1..], Some(&matching[..1]));
+    }
+
+    (matching, None)
 }
 
 #[derive(Debug, Clone, Eq, Serialize, Deserialize)]
@@ -3961,8 +3995,7 @@ pub mod tests {
                 r##"#channel: "#foo""##,
                 vec![
                     Fragment::Channel("#channel".into()),
-                    Fragment::Text(":".into()),
-                    Fragment::Text(" \"".into()),
+                    Fragment::Text(": \"".into()),
                     Fragment::Channel("#foo".into()),
                     Fragment::Text("\"".into()),
                 ],
@@ -3974,8 +4007,7 @@ pub mod tests {
                     Fragment::Channel("#test.123.".into()),
                     Fragment::Text(",! and another ".into()),
                     Fragment::Channel("#channel".into()),
-                    Fragment::Text("?".into()),
-                    Fragment::Text(" and ".into()),
+                    Fragment::Text("? and ".into()),
                     Fragment::Channel("#testing".into()),
                     Fragment::Text("!!".into()),
                 ],
@@ -3993,8 +4025,7 @@ pub mod tests {
                 vec![
                     Fragment::Text("Testing delimiters \"quoting a ".into()),
                     Fragment::Channel("#channel".into()),
-                    Fragment::Text("\"".into()),
-                    Fragment::Text(" here.".into()),
+                    Fragment::Text("\" here.".into()),
                 ],
             ),
             (
@@ -4002,8 +4033,7 @@ pub mod tests {
                 vec![
                     Fragment::Text("Testing delimiters (this is a ".into()),
                     Fragment::Channel("#channel".into()),
-                    Fragment::Text(")".into()),
-                    Fragment::Text(" here.".into()),
+                    Fragment::Text(") here.".into()),
                 ],
             ),
             (
@@ -4029,8 +4059,7 @@ pub mod tests {
                 vec![
                     Fragment::Text("\"a ".into()),
                     Fragment::Channel("#test".into()),
-                    Fragment::Text("\"".into()),
-                    Fragment::Text(",".into()),
+                    Fragment::Text("\",".into()),
                 ],
             ),
             (
@@ -4328,33 +4357,57 @@ pub mod tests {
     #[test]
     fn fragments_with_users_parsing() {
         let casemapping = isupport::CaseMap::default();
-        let tests = [(
+        let tests = [
             (
-                "Hey Dave!~Dave@user/Dave have you seen &`Bill`?".to_string(),
-                ["Greg", "Dave", "Bob", "George_", "`Bill`"]
-                    .into_iter()
-                    .map(|nick| User::from(Nick::from_str(nick, casemapping)))
-                    .collect::<ChannelUsers>(),
+                (
+                    "Hey Dave!~Dave@user/Dave have you seen &`Bill`?"
+                        .to_string(),
+                    ["Greg", "Dave", "Bob", "George_", "`Bill`"]
+                        .into_iter()
+                        .map(|nick| {
+                            User::from(Nick::from_str(nick, casemapping))
+                        })
+                        .collect::<ChannelUsers>(),
+                ),
+                vec![
+                    Fragment::Text("Hey ".into()),
+                    Fragment::User(
+                        User::from(Nick::from_str("Dave", casemapping)),
+                        "Dave".into(),
+                    ),
+                    Fragment::Text("!~".into()),
+                    Fragment::User(
+                        User::from(Nick::from_str("Dave", casemapping)),
+                        "Dave".into(),
+                    ),
+                    Fragment::Text("@user/Dave have you seen &".into()),
+                    Fragment::User(
+                        User::from(Nick::from_str("`Bill`", casemapping)),
+                        "`Bill`".into(),
+                    ),
+                    Fragment::Text("?".into()),
+                ],
             ),
-            vec![
-                Fragment::Text("Hey ".into()),
-                Fragment::User(
-                    User::from(Nick::from_str("Dave", casemapping)),
-                    "Dave".into(),
+            (
+                (
+                    "And they said: \"Susan, where are you?\"".to_string(),
+                    ["Susan"]
+                        .into_iter()
+                        .map(|nick| {
+                            User::from(Nick::from_str(nick, casemapping))
+                        })
+                        .collect::<ChannelUsers>(),
                 ),
-                Fragment::Text("!~".into()),
-                Fragment::User(
-                    User::from(Nick::from_str("Dave", casemapping)),
-                    "Dave".into(),
-                ),
-                Fragment::Text("@user/Dave have you seen &".into()),
-                Fragment::User(
-                    User::from(Nick::from_str("`Bill`", casemapping)),
-                    "`Bill`".into(),
-                ),
-                Fragment::Text("?".into()),
-            ],
-        )];
+                vec![
+                    Fragment::Text("And they said: \"".into()),
+                    Fragment::User(
+                        User::from(Nick::from_str("Susan", casemapping)),
+                        "Susan".into(),
+                    ),
+                    Fragment::Text(", where are you?\"".into()),
+                ],
+            ),
+        ];
         for ((text, channel_users), expected) in tests {
             if let Content::Fragments(actual) = parse_fragments_with_users(
                 text.clone(),

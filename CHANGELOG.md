@@ -25,6 +25,7 @@ Fixed:
 - Matching against `users` for some include/exclude conditions
 - Handle URLs ending with paired delimiters chars
 - `VERSION` and `JOIN` commands on connect are skipped if server is primary soju server
+- Handle leading delimiters when parsing link fragments to match nicks after quotes
 
 Changed:
 
