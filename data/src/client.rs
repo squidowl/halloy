@@ -4547,7 +4547,7 @@ fn continue_chathistory_between(
                 MessageReference::MessageId(_) => {
                     message.message_id().map(MessageReference::MessageId)
                 }
-                MessageReference::Timestamp(_) => {
+                MessageReference::Timestamp(end_server_time) => {
                     let server_time = message.server_time();
 
                     let previous_server_time = if let Some(
@@ -4560,10 +4560,15 @@ fn continue_chathistory_between(
                         None
                     };
 
-                    if server_time != previous_server_time.copied() {
-                        server_time.map(|timestamp| {
-                            MessageReference::Timestamp(timestamp)
-                        })
+                    if let Some(server_time) = server_time
+                        && previous_server_time.is_none_or(
+                            |previous_server_time| {
+                                server_time < *previous_server_time
+                            },
+                        )
+                        && server_time > *end_server_time
+                    {
+                        Some(MessageReference::Timestamp(server_time))
                     } else {
                         None
                     }
@@ -4605,17 +4610,13 @@ fn continue_chathistory_targets(
     let start_message_reference =
         events.last().and_then(|first_event| match first_event {
             Event::ChatHistoryTargetReceived(_, server_time) => {
-                let previous_server_time = if let MessageReference::Timestamp(
-                    previous_start_timestamp,
-                ) =
+                if let MessageReference::Timestamp(previous_start_server_time) =
                     previous_start_message_reference
+                    && server_time > previous_start_server_time
+                    && let MessageReference::Timestamp(end_server_time) =
+                        end_message_reference
+                    && server_time < end_server_time
                 {
-                    Some(previous_start_timestamp)
-                } else {
-                    None
-                };
-
-                if Some(server_time) != previous_server_time {
                     Some(MessageReference::Timestamp(*server_time))
                 } else {
                     None
