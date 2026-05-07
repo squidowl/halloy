@@ -5955,6 +5955,100 @@ mod tests {
     }
 
     #[test]
+    fn chathistory_end_tag_marks_history_exhausted() {
+        let mut client = test_client("tester");
+        let config = config::Config::default();
+        let server = proto::Source::Server("irc.test".to_string());
+        let alice = proto::Source::User(proto::User {
+            nickname: "alice".to_string(),
+            username: Some("alice".to_string()),
+            hostname: Some("example.test".to_string()),
+        });
+
+        let target = Target::parse(
+            "#test",
+            isupport::DEFAULT_CHANTYPES,
+            &[],
+            isupport::CaseMap::default(),
+        );
+
+        // limit=5 so that without draft/chathistory-end, receiving exactly 5
+        // messages would leave exhausted=false (size >= limit)
+        let limit: u16 = 5;
+
+        client.chathistory_requests.insert(
+            target.clone(),
+            ChatHistoryRequest {
+                subcommand: ChatHistorySubcommand::Before(
+                    target.clone(),
+                    MessageReference::None,
+                    limit,
+                ),
+                requested_at: Instant::now(),
+                autorequest: false,
+            },
+        );
+
+        // BATCH +1 chathistory #test (with draft/chathistory-end tag)
+        client
+            .handle(
+                message::Encoded(proto::Message {
+                    tags: BTreeMap::from([(
+                        "draft/chathistory-end".to_string(),
+                        String::new(),
+                    )]),
+                    source: Some(server.clone()),
+                    command: Command::BATCH(
+                        "+1".to_string(),
+                        vec!["chathistory".to_string(), "#test".to_string()],
+                    ),
+                }),
+                None,
+                &config,
+            )
+            .unwrap();
+
+        // Send exactly `limit` messages to test for boundary edge case
+        for _ in 0..limit {
+            client
+                .handle(
+                    message::Encoded(proto::Message {
+                        tags: BTreeMap::from([(
+                            "batch".to_string(),
+                            "1".to_string(),
+                        )]),
+                        source: Some(alice.clone()),
+                        command: Command::PRIVMSG(
+                            "#test".to_string(),
+                            "message".to_string(),
+                        ),
+                    }),
+                    None,
+                    &config,
+                )
+                .unwrap();
+        }
+
+        // BATCH -1
+        client
+            .handle(
+                message::Encoded(proto::Message {
+                    tags: BTreeMap::default(),
+                    source: Some(server.clone()),
+                    command: Command::BATCH("-1".to_string(), vec![]),
+                }),
+                None,
+                &config,
+            )
+            .unwrap();
+
+        assert!(
+            client.chathistory_exhausted(&target),
+            "draft/chathistory-end tag should mark history as exhausted"
+        );
+    }
+
+    #[test]
     fn chathistory_direct_messages_record_query_in_querymap() {
         let mut client = test_client("tester");
         let canonical = query("FooBar");
