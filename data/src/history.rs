@@ -328,6 +328,7 @@ pub async fn append(
 
     for (message, _) in &pending_messages {
         if !message.is_echo
+            && !message.deduplicate
             && let Some(reply_id) = &message.reply_to
             && let Some(original) =
                 find_reply_target(&all_messages, reply_id, &message.server_time)
