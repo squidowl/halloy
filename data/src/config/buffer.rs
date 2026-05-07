@@ -82,6 +82,7 @@ pub struct Reply {
     pub enabled: bool,
     pub show_icon: bool,
     pub icon_size: f32,
+    pub insert_nick: bool,
 }
 
 impl Default for Reply {
@@ -90,6 +91,7 @@ impl Default for Reply {
             enabled: true,
             show_icon: false,
             icon_size: 10.0,
+            insert_nick: true,
         }
     }
 }

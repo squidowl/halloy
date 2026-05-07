@@ -1642,3 +1642,18 @@ Size of the reply icon.
 [buffer.reply]
 icon_size = 12.0
 ```
+
+### `insert_nick`
+
+When replying to `alice`, insert `alice: ` at the start of the input.
+
+This is useful for clients that don't support replies, as they may not otherwise be highlighted.
+
+```toml
+# Type: bool
+# Values: true, false
+# Default: true
+
+[buffer.reply]
+insert_nick = false
+```

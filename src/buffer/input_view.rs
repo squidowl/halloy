@@ -1407,11 +1407,12 @@ impl State {
                 to_nick,
                 reply_preview,
             } => {
+                let is_insert_nick = config.buffer.reply.insert_nick;
                 let suffix =
                     &config.buffer.text_input.autocomplete.completion_suffixes
                         [0];
                 // Strip old nick prefix if replacing an existing reply
-                if let Some(old_reply) = &self.draft_reply {
+                if is_insert_nick && let Some(old_reply) = &self.draft_reply {
                     let old_prefix_str = format!("{}{suffix}", old_reply.nick);
                     let current_text = self.input_content.text();
                     if current_text.starts_with(&old_prefix_str) {
@@ -1435,31 +1436,35 @@ impl State {
                     nick: to_nick.clone(),
                     preview: reply_preview,
                 });
-                let prefix_str = format!("{to_nick}{suffix}");
-                let current_text = self.input_content.text();
-                if !current_text.starts_with(&prefix_str) {
-                    let replaced = format!("{prefix_str}{current_text}");
-                    let delta = prefix_str.chars().count() as i64;
-                    let cursor = adjust_cursor(
-                        &self.input_content,
-                        &replaced,
-                        0,
-                        0,
-                        delta,
-                    );
-                    self.input_content =
-                        text_editor::Content::with_text(&replaced);
-                    self.input_content.move_to(cursor);
-                    history.record_draft(RawInput {
-                        buffer: buffer.clone(),
-                        text: self.input_content.text(),
-                        reply: self.draft_reply.clone(),
-                    });
+                if is_insert_nick {
+                    let prefix_str = format!("{to_nick}{suffix}");
+                    let current_text = self.input_content.text();
+                    if !current_text.starts_with(&prefix_str) {
+                        let replaced = format!("{prefix_str}{current_text}");
+                        let delta = prefix_str.chars().count() as i64;
+                        let cursor = adjust_cursor(
+                            &self.input_content,
+                            &replaced,
+                            0,
+                            0,
+                            delta,
+                        );
+                        self.input_content =
+                            text_editor::Content::with_text(&replaced);
+                        self.input_content.move_to(cursor);
+                        history.record_draft(RawInput {
+                            buffer: buffer.clone(),
+                            text: self.input_content.text(),
+                            reply: self.draft_reply.clone(),
+                        });
+                    }
                 }
                 (self.focus(), None)
             }
             Message::ClearDraftReply => {
-                if let Some(draft_reply) = &self.draft_reply {
+                if config.buffer.reply.insert_nick
+                    && let Some(draft_reply) = &self.draft_reply
+                {
                     let suffix = &config
                         .buffer
                         .text_input
