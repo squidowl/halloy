@@ -903,6 +903,9 @@ impl Client {
                     '+' => {
                         let mut batch = Batch::new(context);
 
+                        batch.chathistory_end =
+                            message.tags.contains_key("draft/chathistory-end");
+
                         batch.kind = match params.first().map(String::as_str) {
                             Some("chathistory") => {
                                 params.get(1).map(|target| {
@@ -1018,6 +1021,7 @@ impl Client {
                                                 Some(batch_target),
                                                 finished.size,
                                                 &finished.events,
+                                                finished.chathistory_end,
                                             );
 
                                         self.clear_chathistory_request(Some(
@@ -1039,6 +1043,7 @@ impl Client {
                                                 None,
                                                 finished.size,
                                                 &finished.events,
+                                                finished.chathistory_end,
                                             );
 
                                         self.clear_chathistory_request(None);
@@ -3785,6 +3790,7 @@ impl Client {
         target: Option<&Target>,
         size: u16,
         events: &[Event],
+        chathistory_end: bool,
     ) -> Option<ChatHistorySubcommand> {
         if let Some(ChatHistoryRequest {
             subcommand,
@@ -3804,7 +3810,11 @@ impl Client {
                 ) = subcommand
             {
                 self.chathistory_exhausted
-                    .insert(target.clone(), size < *limit);
+                    .insert(target.clone(), chathistory_end || size < *limit);
+            }
+
+            if chathistory_end {
+                return None;
             }
 
             match subcommand {
@@ -5445,6 +5455,7 @@ pub struct Batch {
     events: Vec<Event>,
     kind: Option<BatchKind>,
     size: u16,
+    chathistory_end: bool,
 }
 
 impl Batch {
@@ -5454,6 +5465,7 @@ impl Batch {
             events: vec![],
             kind: None,
             size: 0,
+            chathistory_end: false,
         }
     }
 }
