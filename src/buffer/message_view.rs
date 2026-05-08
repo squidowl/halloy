@@ -6,8 +6,9 @@ use data::config::buffer::nickname::ShownStatus;
 use data::config::buffer::{CondensationIcon, Dimmed};
 use data::isupport::{CaseMap, PrefixMap};
 use data::preview::{self, Previews};
+use data::redaction::Redaction;
 use data::server::Server;
-use data::user::{ChannelUsers, Nick, NickRef};
+use data::user::{ChannelUsers, NickRef};
 use data::{Config, User, message, metadata, target};
 use iced::widget::text::Wrapping;
 use iced::widget::{Space, button, column, container, row, text};
@@ -515,19 +516,8 @@ impl<'a> ChannelQueryLayout<'a> {
             }
         });
 
-        let redaction_message = if let Some(redaction) =
-            message.redaction.as_ref()
-        {
-            match &redaction.reason {
-                Some(reason) if !reason.is_empty() => Some(format!(
-                    "Message redacted by {}: {reason}",
-                    redaction.from
-                )),
-                _ => Some(format!("Message redacted by {}", redaction.from)),
-            }
-        } else {
-            None
-        };
+        let redaction_message =
+            message.redaction.as_ref().map(Redaction::message);
 
         let (message_content, after_content) =
             if self.config.buffer.redaction.display.is_redacted()
@@ -1223,65 +1213,69 @@ impl<'a> ChannelQueryLayout<'a> {
         let sm_font_s = reg_text_s * 0.85;
 
         let content: Element<_> = if let Some(data::message::ReplyPreview {
-            nick,
-            is_bot,
+            user,
             text: preview,
         }) = &message.reply_preview
         {
-            let nick_obj = Nick::from_str(nick, self.casemapping);
-            let is_our_nick = self
-                .our_nick
-                .is_some_and(|our| our == nick_obj.as_nickref())
-                && !message.is_echo
-                && message.direction == message::Direction::Received;
-            let user = self
-                .target
-                .users()
-                .and_then(|users| users.get_by_nick(nick_obj.as_nickref()))
-                .cloned()
-                .unwrap_or_else(|| User::from(nick_obj));
-            let user_display = UserDisplay::new(
-                &user,
-                self.config.buffer.nickname.show_access_levels,
-                self.config.buffer.nickname.show_bot_icon && *is_bot,
-                self.registry,
-                &self.config.display.nickname,
-                self.config.buffer.nickname.truncate,
-                self.config.display.truncation_character,
-                Some(&self.config.buffer.nickname.brackets),
-                false,
-            );
+            let nick_element: Option<Element<_>> = if let Some(user) = user {
+                let is_our_nick =
+                    self.our_nick.is_some_and(|our| our == user.nickname())
+                        && !(message.is_echo
+                            || message.direction == message::Direction::Sent);
 
-            let highlight = is_our_nick
-                && self.config.highlights.nickname.is_target_included(
-                    message.user(),
-                    self.target.as_target_ref(),
-                    self.server,
-                    self.casemapping,
+                let user = self
+                    .target
+                    .users()
+                    .and_then(|users| users.resolve(user))
+                    .unwrap_or(user);
+
+                let user_display = UserDisplay::new(
+                    user,
+                    self.config.buffer.nickname.show_access_levels,
+                    self.config.buffer.nickname.show_bot_icon,
+                    self.registry,
+                    &self.config.display.nickname,
+                    self.config.buffer.nickname.truncate,
+                    self.config.display.truncation_character,
+                    Some(&self.config.buffer.nickname.brackets),
+                    false,
                 );
 
-            let nick_element: Element<_> = user_display.into_element(
-                &user,
-                false,
-                false,
-                None,
-                Some(sm_font_s),
-                highlight,
-                false,
-                self.theme,
-                self.config,
-            );
-            row![
-                text(" ").size(sm_font_s),
-                nick_element,
+                let highlight = is_our_nick
+                    && self.config.highlights.nickname.is_target_included(
+                        message.user(),
+                        self.target.as_target_ref(),
+                        self.server,
+                        self.casemapping,
+                    );
+
+                Some(user_display.into_element(
+                    user,
+                    false,
+                    false,
+                    None,
+                    Some(sm_font_s),
+                    highlight,
+                    false,
+                    self.theme,
+                    self.config,
+                ))
+            } else {
+                None
+            };
+
+            let preview_text = if nick_element.is_some() {
                 text(format!(" {preview}"))
-                    .style(theme::text::secondary)
-                    .size(sm_font_s)
-                    .wrapping(Wrapping::None)
-                    .ellipsis(text::Ellipsis::End)
-                    .width(Length::Fill),
-            ]
-            .into()
+            } else {
+                text(preview)
+            }
+            .style(theme::text::secondary)
+            .size(sm_font_s)
+            .wrapping(Wrapping::None)
+            .ellipsis(text::Ellipsis::End)
+            .width(Length::Fill);
+
+            row![text(" ").size(sm_font_s), nick_element, preview_text,].into()
         } else {
             // the message may not be loaded into history
             text(" replied to a message")

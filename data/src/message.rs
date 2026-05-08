@@ -303,8 +303,7 @@ pub enum Direction {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReplyPreview {
-    pub nick: String,
-    pub is_bot: bool,
+    pub user: Option<User>,
     pub text: String,
 }
 
@@ -821,6 +820,19 @@ impl Message {
             Source::User(user) => Some(user),
             Source::Action(user) => user.as_ref(),
             Source::Server(_) | Source::Internal(_) => None,
+        }
+    }
+
+    pub fn as_reply_preview(&self) -> ReplyPreview {
+        ReplyPreview {
+            user: self.user().cloned(),
+            text: if self.blocked {
+                "Message blocked by Halloy configuration".to_string()
+            } else if let Some(redaction) = &self.redaction {
+                redaction.message()
+            } else {
+                self.content.preview_text()
+            },
         }
     }
 }

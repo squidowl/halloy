@@ -1053,7 +1053,7 @@ impl Manager {
         }
     }
 
-    // Block and condense messages
+    // Block, condense, and populate reply-previews for history's messages
     pub fn process_messages(
         &mut self,
         kind: history::Kind,
@@ -1256,6 +1256,8 @@ impl Manager {
                         .iter_mut()
                         .for_each(|message| message.condensed = None),
                 });
+
+            populate_reply_previews(messages);
         }
 
         log::debug!("processed messages in {kind}");
@@ -1380,8 +1382,6 @@ impl Data {
                         );
                     }
 
-                    populate_reply_previews(&mut messages);
-
                     let last_flushed_at = messages.len();
 
                     entry.insert(History::Full {
@@ -1404,8 +1404,6 @@ impl Data {
                     let last_seen = history::get_last_seen(&messages);
                     let last_flushed_at = messages.len();
 
-                    populate_reply_previews(&mut messages);
-
                     entry.insert(History::Full {
                         kind,
                         messages,
@@ -1426,8 +1424,6 @@ impl Data {
 
                 let last_seen = history::get_last_seen(&messages);
                 let last_flushed_at = messages.len();
-
-                populate_reply_previews(&mut messages);
 
                 entry.insert(History::Full {
                     kind,
@@ -1563,21 +1559,10 @@ impl Data {
         // reply is in view context without a lookup at render time.
         if let Some(reply_id) = message.reply_to.as_ref()
             && let Some(history) = self.map.get(&kind)
-            && let Some(original) =
+            && let Some(reply_target) =
                 history.find_reply_target(reply_id, &message.server_time)
         {
-            let (nick, is_bot) = match original.target.source() {
-                message::Source::User(user)
-                | message::Source::Action(Some(user)) => {
-                    (user.nickname().to_string(), user.is_bot())
-                }
-                _ => (String::new(), false),
-            };
-            let text = original.content.preview_text();
-            if !nick.is_empty() {
-                message.reply_preview =
-                    Some(message::ReplyPreview { nick, is_bot, text });
-            }
+            message.reply_preview = Some(reply_target.as_reply_preview());
         }
 
         match self.map.entry(kind.clone()) {
@@ -1959,39 +1944,30 @@ impl Data {
 
 /// Backfill previews for replies for messages in a history batch
 fn populate_reply_previews(messages: &mut [crate::Message]) {
-    struct Entry {
-        nick: String,
-        is_bot: bool,
-        text: String,
-    }
-
-    let lookup: HashMap<String, Entry> = messages
+    let position_pairs: Vec<(usize, usize)> = messages
         .iter()
-        .filter_map(|m| {
-            let id = m.id.as_deref()?.to_owned();
-            let (nick, is_bot) = match m.target.source() {
-                message::Source::User(user)
-                | message::Source::Action(Some(user)) => {
-                    (user.nickname().to_string(), user.is_bot())
-                }
-                _ => return None,
-            };
-            let text = m.content.preview_text();
-            Some((id, Entry { nick, is_bot, text }))
+        .enumerate()
+        .filter_map(|(message_position, message)| {
+            message.reply_to.as_ref().and_then(|reply_id| {
+                history::position_reply_target(
+                    messages,
+                    reply_id,
+                    &message.server_time,
+                )
+                .map(|reply_target_position| {
+                    (message_position, reply_target_position)
+                })
+            })
         })
         .collect();
 
-    for message in messages.iter_mut() {
-        if message.reply_preview.is_none()
-            && let Some(reply_id) = &message.reply_to
-            && let Some(Entry { nick, is_bot, text }) =
-                lookup.get(reply_id.as_ref())
+    for (message_position, reply_target_position) in position_pairs {
+        if let Some(reply_preview) = messages
+            .get(reply_target_position)
+            .map(crate::Message::as_reply_preview)
+            && let Some(message) = messages.get_mut(message_position)
         {
-            message.reply_preview = Some(message::ReplyPreview {
-                nick: nick.clone(),
-                is_bot: *is_bot,
-                text: text.clone(),
-            });
+            message.reply_preview = Some(reply_preview);
         }
     }
 }
