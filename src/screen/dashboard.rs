@@ -2460,7 +2460,11 @@ impl Dashboard {
 
                         None
                     }
-                    buffer::context_menu::Event::Reply { .. } => None,
+                    buffer::context_menu::Event::Reply { .. } => {
+                        tasks.push(self.focus_pane(window, id));
+
+                        None
+                    }
                 };
 
                 return (Task::batch(tasks), event);
