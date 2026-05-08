@@ -1999,7 +1999,7 @@ impl State {
         let reply_id = self
             .draft_reply
             .as_ref()
-            .map(|input::DraftReply { id, .. }| id.as_ref());
+            .map(|input::DraftReply { id, .. }| id);
 
         let labeled_response_context = if let Some(last_encoded) =
             encoded.last()

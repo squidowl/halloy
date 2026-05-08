@@ -703,7 +703,7 @@ impl Client {
         buffer: &buffer::Upstream,
         mut messages: Vec<message::Encoded>,
         priority: TokenPriority,
-        reply_id: Option<&str>,
+        reply_id: Option<&message::Id>,
     ) -> Option<LabeledResponseContext> {
         if let Some(multiline_limits) = self.multiline_limits()
             && let Some(batch_kind) =
@@ -4786,7 +4786,7 @@ impl Map {
         buffer: &buffer::Upstream,
         messages: Vec<message::Encoded>,
         priority: TokenPriority,
-        reply_id: Option<&str>,
+        reply_id: Option<&message::Id>,
     ) -> Option<LabeledResponseContext> {
         self.client_mut(buffer.server()).and_then(|client| {
             client.send_multiline_batch(buffer, messages, priority, reply_id)
