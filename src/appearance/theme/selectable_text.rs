@@ -165,15 +165,6 @@ pub fn nickname(
     }
 }
 
-pub fn topic_nickname(
-    theme: &Theme,
-    config: &Config,
-    user: &User,
-    is_offline: bool,
-) -> Style {
-    nickname_style(theme, &config.buffer.nickname.color, user, None, is_offline)
-}
-
 fn nickname_style(
     theme: &Theme,
     kind: &data::buffer::Color,
