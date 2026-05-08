@@ -1939,6 +1939,8 @@ fn handle_single_event(
         return;
     };
 
+    handle_on_message_display_mark_as_read(server, &message, dashboard, config);
+
     commands.push(
         dashboard
             .block_and_record_message(
@@ -1974,6 +1976,8 @@ fn handle_with_target_event(
     ) else {
         return;
     };
+
+    handle_on_message_display_mark_as_read(server, &message, dashboard, config);
 
     commands.push(
         dashboard
@@ -2032,16 +2036,15 @@ fn handle_priv_or_notice(
         );
     }
 
+    let should_display_mark_as_read =
+        handle_on_message_display_mark_as_read(server, &msg, dashboard, config);
+
+    let should_mark_as_read =
+        should_display_mark_as_read && msg.triggers_unread();
+
     let window = kind
         .as_ref()
         .and_then(|kind| dashboard.find_window_with_history(kind));
-
-    let should_mark_as_read = config.buffer.mark_as_read.on_message
-        && !msg.blocked
-        && msg.triggers_unread()
-        && kind.as_ref().is_some_and(|kind| {
-            dashboard.is_focused_and_at_bottom(kind, window)
-        });
 
     if let Some(highlight) = highlight {
         handle_highlight(
@@ -2097,13 +2100,6 @@ fn handle_priv_or_notice(
         if let Some(req) = request_attention {
             commands.push(req);
         }
-    }
-
-    if should_mark_as_read && let Some(kind) = kind.as_ref() {
-        dashboard.update_display_read_marker(
-            kind.clone(),
-            history::ReadMarker::from(&msg),
-        );
     }
 
     commands.push(
@@ -2566,4 +2562,31 @@ fn handle_isupport_param(
         }
         _ => (),
     }
+}
+
+fn handle_on_message_display_mark_as_read(
+    server: &Server,
+    message: &data::Message,
+    dashboard: &mut screen::Dashboard,
+    config: &Config,
+) -> bool {
+    let kind = history::Kind::from_server_message(server, message);
+
+    let window = kind
+        .as_ref()
+        .and_then(|kind| dashboard.find_window_with_history(kind));
+
+    let should_display_mark_as_read = config.buffer.mark_as_read.on_message
+        && kind.as_ref().is_some_and(|kind| {
+            dashboard.is_focused_and_at_bottom(kind, window)
+        });
+
+    if should_display_mark_as_read && let Some(kind) = kind.as_ref() {
+        dashboard.update_display_read_marker(
+            kind.clone(),
+            history::ReadMarker::from(message),
+        );
+    }
+
+    should_display_mark_as_read
 }
