@@ -686,11 +686,15 @@ pub fn view<'a>(
     let styled_input =
         container(input_row).style(theme::container::buffer_text_input);
 
-    let mut input_column = column![].spacing(0);
-    if let Some(bar) = maybe_reply_bar {
-        input_column = input_column.push(bar);
-    }
-    input_column = input_column.push(styled_input);
+    let input_column = column![
+        if let Some(bar) = maybe_reply_bar {
+            bar
+        } else {
+            row![].into()
+        },
+        styled_input
+    ]
+    .spacing(0);
 
     let content = column![input_column].spacing(4).padding(padding::top(4));
 
