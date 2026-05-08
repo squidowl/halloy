@@ -13,7 +13,7 @@ use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
 use data::history::ReadMarker;
 use data::history::filter::Filter;
-use data::history::manager::ReactionToEcho;
+use data::history::manager::EchoEvent;
 use data::history::reroute::RerouteRules;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::message::{self, Broadcast};
@@ -121,7 +121,7 @@ pub enum Event {
         has_credentials: bool,
         window: window::Id,
     },
-    ReactionsToEcho(Server, Vec<ReactionToEcho>),
+    EchoEvents(Server, Vec<EchoEvent>),
 }
 
 impl Dashboard {
@@ -1006,6 +1006,7 @@ impl Dashboard {
                                             buffer,
                                             vec![encoded],
                                             TokenPriority::User,
+                                            None,
                                         )
                                     } else {
                                         clients.send(
@@ -1037,13 +1038,10 @@ impl Dashboard {
                                 }
                             }
                         }
-                        history::manager::Event::ReactionsToEcho(
-                            server,
-                            reactions,
-                        ) => {
+                        history::manager::Event::EchoEvents(server, events) => {
                             return (
                                 Task::none(),
-                                Some(Event::ReactionsToEcho(server, reactions)),
+                                Some(Event::EchoEvents(server, events)),
                             );
                         }
                     }
@@ -1638,10 +1636,19 @@ impl Dashboard {
             }
             Message::CloseContextMenu(window, any_closed) => {
                 if !any_closed {
-                    if let Some((_, _, state)) = self.get_focused_mut()
-                        && state.buffer.close_picker()
+                    if let Some((_, _, state, history)) =
+                        self.get_focused_with_history_mut()
                     {
-                        return (Task::none(), None);
+                        if state.buffer.close_picker() {
+                            return (Task::none(), None);
+                        // We only want to call clear_draft_reply if
+                        // close_picker does not return true.
+                        } else if state
+                            .buffer
+                            .clear_draft_reply(history, config)
+                        {
+                            return (Task::none(), None);
+                        }
                     }
 
                     if self.is_pane_maximized() && window == self.main_window()
@@ -2450,6 +2457,11 @@ impl Dashboard {
                             )
                             .map(move |message| Message::Pane(window, message)),
                         );
+
+                        None
+                    }
+                    buffer::context_menu::Event::Reply { .. } => {
+                        tasks.push(self.focus_pane(window, id));
 
                         None
                     }

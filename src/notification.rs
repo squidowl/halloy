@@ -25,6 +25,7 @@ enum NotificationDelayKey {
     MonitoredOffline,
     Channel(Box<str>),
     Reaction,
+    Reply(Box<str>),
 }
 
 impl From<&Notification> for NotificationDelayKey {
@@ -60,6 +61,9 @@ impl From<&Notification> for NotificationDelayKey {
                 )
             }
             Notification::Reaction { .. } => NotificationDelayKey::Reaction,
+            Notification::Reply { channel, .. } => {
+                NotificationDelayKey::Reply(channel.as_normalized_str().into())
+            }
         }
     }
 }
@@ -407,6 +411,48 @@ impl Notifications {
                     );
 
                     config.reaction.request_attention
+                } else {
+                    false
+                }
+            }
+            Notification::Reply {
+                user,
+                channel,
+                casemapping,
+                message,
+            } => {
+                if config.highlight.should_notify(
+                    user,
+                    Some(channel),
+                    server,
+                    *casemapping,
+                ) {
+                    if config.highlight.show_content {
+                        self.execute(
+                            &config.highlight,
+                            notification,
+                            &format!("{} replied to you", user.nickname()),
+                            Some(if cfg!(target_os = "macos") {
+                                format!("{channel} ({server})")
+                            } else {
+                                format!("{channel}, {server}")
+                            })
+                            .as_deref(),
+                            message,
+                            None,
+                        );
+                    } else {
+                        self.execute(
+                            &config.highlight,
+                            notification,
+                            user.nickname().as_str(),
+                            None,
+                            &format!("replied to you in {channel} ({server})"),
+                            None,
+                        );
+                    }
+
+                    config.highlight.request_attention
                 } else {
                     false
                 }

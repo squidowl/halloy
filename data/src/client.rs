@@ -703,6 +703,7 @@ impl Client {
         buffer: &buffer::Upstream,
         mut messages: Vec<message::Encoded>,
         priority: TokenPriority,
+        reply_id: Option<&message::Id>,
     ) -> Option<LabeledResponseContext> {
         if let Some(multiline_limits) = self.multiline_limits()
             && let Some(batch_kind) =
@@ -722,6 +723,15 @@ impl Client {
                 target.as_str()
             )
             .into();
+
+            if let Some(id) = reply_id {
+                opening_batch
+                    .tags
+                    .insert("+reply".to_string(), id.to_string());
+                opening_batch
+                    .tags
+                    .insert("+draft/reply".to_string(), id.to_string());
+            }
 
             let labeled_response_context = self
                 .set_labeled_response_context(Some(buffer), &mut opening_batch);
@@ -4392,9 +4402,13 @@ impl Client {
     }
 
     fn can_send_reactions(&self) -> bool {
-        self.capabilities.acknowledged(Capability::MessageTags)
+        self.can_send_replies()
             && isupport::is_client_tag_allowed(&self.isupport, "draft/react")
             && isupport::is_client_tag_allowed(&self.isupport, "draft/unreact")
+    }
+
+    fn can_send_replies(&self) -> bool {
+        self.capabilities.acknowledged(Capability::MessageTags)
             && (isupport::is_client_tag_allowed(&self.isupport, "draft/reply")
                 || isupport::is_client_tag_allowed(&self.isupport, "reply"))
     }
@@ -4779,9 +4793,10 @@ impl Map {
         buffer: &buffer::Upstream,
         messages: Vec<message::Encoded>,
         priority: TokenPriority,
+        reply_id: Option<&message::Id>,
     ) -> Option<LabeledResponseContext> {
         self.client_mut(buffer.server()).and_then(|client| {
-            client.send_multiline_batch(buffer, messages, priority)
+            client.send_multiline_batch(buffer, messages, priority, reply_id)
         })
     }
 
@@ -5094,6 +5109,10 @@ impl Map {
 
     pub fn get_server_can_redact(&self, server: &Server) -> bool {
         self.client(server).is_some_and(Client::can_redact)
+    }
+
+    pub fn get_server_can_send_replies(&self, server: &Server) -> bool {
+        self.client(server).is_some_and(Client::can_send_replies)
     }
 
     pub fn get_server_can_send_typing(&self, server: &Server) -> bool {

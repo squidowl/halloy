@@ -9,6 +9,7 @@ use iced::widget::{container, row};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{Element, selectable_text};
+use crate::widget::TextExt as _;
 use crate::{Theme, font, theme, widget};
 
 pub struct UserDisplay {
@@ -27,6 +28,7 @@ impl UserDisplay {
         truncate: Option<u16>,
         truncation_character: char,
         brackets: Option<&Brackets>,
+        with_tooltip: bool,
     ) -> Self {
         let query = Query::from(user);
 
@@ -44,6 +46,14 @@ impl UserDisplay {
             registry,
             enabled,
         );
+
+        if !with_tooltip {
+            return Self {
+                base: full.bracket(brackets),
+                tooltip: None,
+                color,
+            };
+        }
 
         if let Some(truncated) = truncate.and_then(|truncation_length| {
             full.truncate(truncation_length as usize, truncation_character)
@@ -76,6 +86,9 @@ impl UserDisplay {
         is_away: bool,
         is_offline: bool,
         dimmed: Option<(Dimmed, Color)>,
+        size: Option<f32>,
+        highlight: bool,
+        selectable: bool,
         theme: &'a Theme,
         config: &'a Config,
     ) -> Element<'a, M> {
@@ -88,8 +101,21 @@ impl UserDisplay {
         });
 
         let base = self.base.into_element(
-            user, color, is_away, is_offline, dimmed, theme, config,
+            user, color, is_away, is_offline, dimmed, size, selectable, theme,
+            config,
         );
+
+        let base = if highlight {
+            let highlight_color = theme.styles().buffer.highlight;
+            container(base)
+                .style(move |_| iced::widget::container::Style {
+                    background: Some(iced::Background::Color(highlight_color)),
+                    ..Default::default()
+                })
+                .into()
+        } else {
+            base
+        };
 
         if let Some(tooltip) = self.tooltip {
             iced::widget::tooltip(
@@ -97,7 +123,8 @@ impl UserDisplay {
                 container(container(if tooltip.bot_icon {
                     row![
                         tooltip.into_element(
-                            user, color, false, false, None, theme, config,
+                            user, color, false, false, None, None, true, theme,
+                            config,
                         ),
                         selectable_text(String::from(
                             " has marked itself as a bot"
@@ -107,7 +134,8 @@ impl UserDisplay {
                     .into()
                 } else {
                     tooltip.into_element(
-                        user, color, false, false, None, theme, config,
+                        user, color, false, false, None, None, true, theme,
+                        config,
                     )
                 }))
                 .style(theme::container::tooltip)
@@ -238,6 +266,8 @@ impl UserDisplayData {
         is_away: bool,
         is_offline: bool,
         dimmed: Option<(Dimmed, Color)>,
+        size: Option<f32>,
+        selectable: bool,
         theme: &'a Theme,
         config: &'a Config,
     ) -> Element<'a, M> {
@@ -249,26 +279,59 @@ impl UserDisplayData {
             dimmed,
         );
 
+        self.render(style, is_offline, size, selectable, theme)
+    }
+
+    fn render<'a, M: 'a>(
+        self,
+        style: crate::widget::selectable_text::Style,
+        is_offline: bool,
+        size: Option<f32>,
+        selectable: bool,
+        theme: &'a Theme,
+    ) -> Element<'a, M> {
         let font =
             theme::font_style::nickname(theme, is_offline).map(font::get);
 
+        // selectable_text carries selection state and handles copy interactions;
+        // plain text is used where selection would be undesirable (e.g. input bar)
+        let text_piece =
+            |content: String, f: Option<font::Font>| -> Element<'a, M> {
+                if selectable {
+                    selectable_text(content)
+                        .style(move |_| style)
+                        .font_maybe(f)
+                        .size_maybe(size)
+                        .into()
+                } else {
+                    widget::text(content)
+                        .color_maybe(style.color)
+                        .font_maybe(f)
+                        .size_maybe(size)
+                        .into()
+                }
+            };
+
         if self.bot_icon {
+            let icon: Element<M> = if selectable {
+                widget::bot_icon(move |_| style)
+            } else {
+                widget::text(String::from("\u{1F916}"))
+                    .color_maybe(style.color)
+                    .line_height(iced::widget::text::LineHeight::Relative(1.45))
+                    .font(*font::ICON)
+                    .size(theme::ICON_SIZE)
+                    .into()
+            };
             row![
-                selectable_text(self.left)
-                    .style(move |_| style)
-                    .font_maybe(font.clone()),
-                widget::bot_icon(move |_| style),
-                self.right.map(|right| selectable_text(right)
-                    .style(move |_| style)
-                    .font_maybe(font)),
+                text_piece(self.left, font.clone()),
+                icon,
+                self.right.map(|right| text_piece(right, font)),
             ]
             .spacing(theme::ICON_SPACE)
             .into()
         } else {
-            selectable_text(self.left)
-                .style(move |_| style)
-                .font_maybe(font)
-                .into()
+            text_piece(self.left, font)
         }
     }
 

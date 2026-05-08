@@ -38,4 +38,10 @@ pub enum Notification {
         reaction: reaction::Context,
         message_text: String,
     },
+    Reply {
+        user: User,
+        channel: Channel,
+        casemapping: isupport::CaseMap,
+        message: String,
+    },
 }

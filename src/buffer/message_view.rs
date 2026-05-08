@@ -6,9 +6,11 @@ use data::config::buffer::nickname::ShownStatus;
 use data::config::buffer::{CondensationIcon, Dimmed};
 use data::isupport::{CaseMap, PrefixMap};
 use data::preview::{self, Previews};
+use data::redaction::Redaction;
 use data::server::Server;
 use data::user::{ChannelUsers, NickRef};
 use data::{Config, User, message, metadata, target};
+use iced::widget::text::Wrapping;
 use iced::widget::{Space, button, column, container, row, text};
 use iced::{Color, Length, alignment};
 
@@ -29,33 +31,42 @@ pub enum TargetInfo<'a> {
         our_user: Option<&'a User>,
         users: Option<&'a ChannelUsers>,
     },
-    Query,
+    Query {
+        query: &'a target::Query,
+    },
 }
 
 impl<'a> TargetInfo<'a> {
     fn users(&self) -> Option<&'a ChannelUsers> {
         match self {
             TargetInfo::Channel { users, .. } => *users,
-            TargetInfo::Query => None,
+            TargetInfo::Query { .. } => None,
         }
     }
 
     fn our_user(&self) -> Option<&'a User> {
         match self {
             TargetInfo::Channel { our_user, .. } => *our_user,
-            TargetInfo::Query => None,
+            TargetInfo::Query { .. } => None,
         }
     }
 
     fn channel(&self) -> Option<&'a target::Channel> {
         match self {
             TargetInfo::Channel { channel, .. } => Some(channel),
-            TargetInfo::Query => None,
+            TargetInfo::Query { .. } => None,
         }
     }
 
     fn is_channel(&self) -> bool {
         matches!(self, TargetInfo::Channel { .. })
+    }
+
+    fn as_target_ref(&self) -> target::TargetRef<'a> {
+        match self {
+            TargetInfo::Channel { channel, .. } => channel.as_target_ref(),
+            TargetInfo::Query { query } => query.as_target_ref(),
+        }
     }
 }
 
@@ -67,6 +78,7 @@ pub struct ChannelQueryLayout<'a> {
     pub prefix: &'a [PrefixMap],
     pub registry: &'a dyn metadata::Registry,
     pub confirm_message_delivery: bool,
+    pub can_send_replies: bool,
     pub can_send_reactions: bool,
     pub can_redact: bool,
     pub our_nick: Option<NickRef<'a>>,
@@ -107,18 +119,25 @@ impl<'a> ChannelQueryLayout<'a> {
         message: &data::Message,
         link: &message::Link,
     ) -> Vec<context_menu::Entry> {
+        let can_send_replies = self.can_send_replies && message.id.is_some();
         match link {
             message::Link::Url(url) => context_menu::Entry::url_list(
                 self.preview_hidden_for_url(message, url),
                 self.can_send_reactions,
                 self.can_redact_message(message),
+                can_send_replies,
             ),
             _ => {
-                if self.can_send_reactions {
-                    vec![context_menu::Entry::AddReaction]
-                } else {
-                    vec![]
+                let mut entries = vec![];
+                if can_send_replies || self.can_send_reactions {
+                    if can_send_replies {
+                        entries.push(context_menu::Entry::Reply);
+                    }
+                    if self.can_send_reactions {
+                        entries.push(context_menu::Entry::AddReaction);
+                    }
                 }
+                entries
             }
         }
     }
@@ -409,6 +428,7 @@ impl<'a> ChannelQueryLayout<'a> {
             self.config.buffer.nickname.truncate,
             self.config.display.truncation_character,
             Some(&self.config.buffer.nickname.brackets),
+            true,
         );
 
         let nick_element: Element<_> = if hide_nickname {
@@ -427,6 +447,9 @@ impl<'a> ChannelQueryLayout<'a> {
                 is_user_away,
                 is_user_offline,
                 dimmed_background_tuple,
+                None,
+                false,
+                true,
                 self.theme,
                 self.config,
             );
@@ -493,19 +516,8 @@ impl<'a> ChannelQueryLayout<'a> {
             }
         });
 
-        let redaction_message = if let Some(redaction) =
-            message.redaction.as_ref()
-        {
-            match &redaction.reason {
-                Some(reason) if !reason.is_empty() => Some(format!(
-                    "Message redacted by {}: {reason}",
-                    redaction.from
-                )),
-                _ => Some(format!("Message redacted by {}", redaction.from)),
-            }
-        } else {
-            None
-        };
+        let redaction_message =
+            message.redaction.as_ref().map(Redaction::message);
 
         let (message_content, after_content) =
             if self.config.buffer.redaction.display.is_redacted()
@@ -906,11 +918,25 @@ impl<'a> ChannelQueryLayout<'a> {
             let selected_reaction_texts =
                 selected_reactions_refs(message, self.our_nick);
 
+            let (to_nick, reply_preview) = match message.target.source() {
+                message::Source::User(user) => (
+                    Some(user.nickname().to_string()),
+                    Some(message.content.preview_text()),
+                ),
+                message::Source::Action(Some(user)) => (
+                    Some(user.nickname().to_string()),
+                    Some(message.content.preview_text()),
+                ),
+                _ => (None, None),
+            };
+
             link.url().map(move |url| Context::Url {
                 url,
                 message: Some(message.hash),
                 msgid: message.id.as_ref(),
                 selected_reactions: selected_reaction_texts,
+                to_nick,
+                reply_preview,
             })
         }
     }
@@ -1122,6 +1148,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             message.target.source(),
             message.id.as_ref(),
             selected_reaction_texts,
+            self.can_send_replies,
             self.can_send_reactions,
             self.can_redact_message(message),
             &message.content,
@@ -1151,11 +1178,165 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             middle_is_some.then_some(selectable_text(" ")),
         ];
 
-        if self.content_on_new_line(message) {
-            Some(container(column![row, content]).into())
+        let message_element = if self.content_on_new_line(message) {
+            container(column![row, content]).into()
         } else {
-            Some(container(row![row, content]).into())
+            container(row![row, content]).into()
+        };
+
+        let message_element = if let Some(reply_row) =
+            self.format_reply_preview(message, right_alignment_middle_width)
+        {
+            column![reply_row, message_element].into()
+        } else {
+            message_element
+        };
+
+        Some(message_element)
+    }
+}
+
+impl<'a> ChannelQueryLayout<'a> {
+    fn format_reply_preview(
+        &self,
+        message: &'a data::Message,
+        right_aligned_width: Option<f32>,
+    ) -> Option<Element<'a, Message>> {
+        message.reply_to.as_ref()?;
+
+        if !self.config.buffer.reply.enabled {
+            return None;
         }
+
+        let reg_text_s =
+            self.config.font.size.map_or(theme::TEXT_SIZE, f32::from);
+        let sm_font_s = reg_text_s * 0.85;
+
+        let content: Element<_> = if let Some(data::message::ReplyPreview {
+            user,
+            text: preview,
+        }) = &message.reply_preview
+        {
+            let nick_element: Option<Element<_>> = if let Some(user) = user {
+                let is_our_nick =
+                    self.our_nick.is_some_and(|our| our == user.nickname())
+                        && !(message.is_echo
+                            || message.direction == message::Direction::Sent);
+
+                let user = self
+                    .target
+                    .users()
+                    .and_then(|users| users.resolve(user))
+                    .unwrap_or(user);
+
+                let user_display = UserDisplay::new(
+                    user,
+                    self.config.buffer.nickname.show_access_levels,
+                    self.config.buffer.nickname.show_bot_icon,
+                    self.registry,
+                    &self.config.display.nickname,
+                    self.config.buffer.nickname.truncate,
+                    self.config.display.truncation_character,
+                    Some(&self.config.buffer.nickname.brackets),
+                    false,
+                );
+
+                let highlight = is_our_nick
+                    && self.config.highlights.nickname.is_target_included(
+                        message.user(),
+                        self.target.as_target_ref(),
+                        self.server,
+                        self.casemapping,
+                    );
+
+                Some(user_display.into_element(
+                    user,
+                    false,
+                    false,
+                    None,
+                    Some(sm_font_s),
+                    highlight,
+                    false,
+                    self.theme,
+                    self.config,
+                ))
+            } else {
+                None
+            };
+
+            let preview_text = if nick_element.is_some() {
+                text(format!(" {preview}"))
+            } else {
+                text(preview)
+            }
+            .style(theme::text::secondary)
+            .size(sm_font_s)
+            .wrapping(Wrapping::None)
+            .ellipsis(text::Ellipsis::End)
+            .width(Length::Fill);
+
+            row![text(" ").size(sm_font_s), nick_element, preview_text,].into()
+        } else {
+            // the message may not be loaded into history
+            text(" replied to a message")
+                .style(theme::text::timestamp)
+                .size(sm_font_s)
+                .width(Length::Fill)
+                .into()
+        };
+
+        let timestamp_chars = self
+            .config
+            .buffer
+            .format_timestamp(&message.server_time)
+            .map_or(0, |s| s.chars().count());
+
+        let show_reply_icon = self.config.buffer.reply.show_icon;
+        let reply_icon_size = self.config.buffer.reply.icon_size;
+
+        // right-aligned: fixed short arm offset to content column.
+        // left-aligned / top-aligned: arm spans from timestamp midpoint to its edge.
+        let mut r = if let Some(nick_col_width) = right_aligned_width {
+            let char_width = font::width_from_str("a", &self.config.font);
+            let nick_col_chars = (nick_col_width / char_width).round() as usize;
+            let indent = timestamp_chars + nick_col_chars - 2;
+            let arm = if show_reply_icon {
+                "┌── "
+            } else {
+                "┌──"
+            };
+            row![
+                text(" ".repeat(indent)).size(reg_text_s),
+                text(arm).style(theme::text::timestamp).size(reg_text_s),
+            ]
+        } else {
+            let half = timestamp_chars / 2;
+            let trailing = if show_reply_icon { " " } else { "" };
+            let arm = format!(
+                "┌{}{}",
+                "─".repeat(
+                    half.saturating_sub(1)
+                        + usize::from(!timestamp_chars.is_multiple_of(2))
+                ),
+                trailing
+            );
+            row![
+                text(" ".repeat(half)).size(reg_text_s),
+                text(arm).style(theme::text::timestamp).size(reg_text_s),
+            ]
+        };
+
+        if show_reply_icon {
+            r = r.push(
+                icon::reply()
+                    .size(reply_icon_size)
+                    .style(theme::text::primary),
+            );
+        }
+
+        let reply_row = r.push(content);
+
+        Some(reply_row.align_y(alignment::Vertical::Center).into())
     }
 }
 

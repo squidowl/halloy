@@ -1108,6 +1108,35 @@ impl Buffer {
         }
     }
 
+    pub fn clear_draft_reply(
+        &mut self,
+        history: &mut history::Manager,
+        config: &Config,
+    ) -> bool {
+        match self {
+            Buffer::Empty
+            | Buffer::FileTransfers(_)
+            | Buffer::Logs(_)
+            | Buffer::Highlights(_)
+            | Buffer::ChannelDiscovery(_) => false,
+            Buffer::Server(state) => state.input_view.clear_draft_reply(
+                &state.buffer,
+                history,
+                config,
+            ),
+            Buffer::Channel(state) => state.input_view.clear_draft_reply(
+                &state.buffer,
+                history,
+                config,
+            ),
+            Buffer::Query(state) => state.input_view.clear_draft_reply(
+                &state.buffer,
+                history,
+                config,
+            ),
+        }
+    }
+
     pub fn update_pane_size(&mut self, pane_size: Size, config: &Config) {
         match self {
             Buffer::Empty

@@ -276,7 +276,7 @@ fn channel_list_view<'a>(
                             move |link| match link {
                                 message::Link::Url(_) => {
                                     context_menu::Entry::url_list(
-                                        None, false, false,
+                                        None, false, false, false,
                                     )
                                 }
                                 _ => vec![],
@@ -289,6 +289,8 @@ fn channel_list_view<'a>(
                                             message: None,
                                             msgid: None,
                                             selected_reactions: vec![],
+                                            to_nick: None,
+                                            reply_preview: None,
                                         }),
                                         length,
                                         config,

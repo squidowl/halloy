@@ -33,6 +33,8 @@ pub enum Context<'a> {
         message: Option<message::Hash>,
         msgid: Option<&'a message::Id>,
         selected_reactions: Vec<&'a str>,
+        to_nick: Option<String>,
+        reply_preview: Option<String>,
     },
     Timestamp(&'a DateTime<Utc>),
     NotSentMessage(&'a DateTime<Utc>, &'a message::Hash),
@@ -40,6 +42,7 @@ pub enum Context<'a> {
         msgid: Option<&'a message::Id>,
         selected_reactions: &'a [String],
         content: &'a message::Content,
+        source: &'a message::Source,
     },
 }
 
@@ -69,6 +72,7 @@ pub enum Entry {
     ResendMessage,
     // message context
     CopyMessage,
+    Reply,
     AddReaction,
     Redact,
 }
@@ -95,11 +99,19 @@ impl Entry {
     pub fn message_list(
         can_send_reactions: bool,
         can_redact: bool,
+        can_send_replies: bool,
     ) -> Vec<Self> {
-        let mut entries = vec![Entry::CopyMessage];
+        let mut entries = vec![];
+        if can_send_replies {
+            entries.push(Entry::Reply);
+        }
         if can_send_reactions {
             entries.push(Entry::AddReaction);
         }
+        if can_send_replies || can_send_reactions {
+            entries.push(Entry::HorizontalRule);
+        }
+        entries.push(Entry::CopyMessage);
         if can_redact {
             entries.push(Entry::Redact);
         }
@@ -110,6 +122,7 @@ impl Entry {
         preview_hidden: Option<bool>,
         can_send_reactions: bool,
         can_redact: bool,
+        can_send_replies: bool,
     ) -> Vec<Self> {
         let mut entries = vec![Entry::CopyUrl, Entry::OpenUrl];
 
@@ -122,8 +135,12 @@ impl Entry {
             });
         }
 
-        if can_send_reactions || can_redact {
+        if can_send_replies || can_send_reactions || can_redact {
             entries.push(Entry::HorizontalRule);
+        }
+
+        if can_send_replies {
+            entries.push(Entry::Reply);
         }
 
         if can_send_reactions {
@@ -519,6 +536,44 @@ impl Entry {
                 )
             }
             (
+                Entry::Reply,
+                Context::Message {
+                    msgid: Some(msgid),
+                    source: message::Source::User(user),
+                    content,
+                    ..
+                },
+            ) => menu_button(
+                "Reply".to_string(),
+                Some(Message::Reply {
+                    msgid: msgid.clone(),
+                    to_nick: user.nickname().to_string(),
+                    reply_preview: content.preview_text(),
+                }),
+                length,
+                theme,
+                config,
+            ),
+            (
+                Entry::Reply,
+                Context::Message {
+                    msgid: Some(msgid),
+                    source: message::Source::Action(Some(user)),
+                    content,
+                    ..
+                },
+            ) => menu_button(
+                "Reply".to_string(),
+                Some(Message::Reply {
+                    msgid: msgid.clone(),
+                    to_nick: user.nickname().to_string(),
+                    reply_preview: content.preview_text(),
+                }),
+                length,
+                theme,
+                config,
+            ),
+            (
                 Entry::AddReaction,
                 Context::Message {
                     msgid: Some(msgid),
@@ -531,6 +586,25 @@ impl Entry {
                     msgid.clone(),
                     selected_reactions.to_vec(),
                 )),
+                length,
+                theme,
+                config,
+            ),
+            (
+                Entry::Reply,
+                Context::Url {
+                    msgid: Some(msgid),
+                    to_nick: Some(to_nick),
+                    reply_preview: Some(reply_preview),
+                    ..
+                },
+            ) => menu_button(
+                "Reply".to_string(),
+                Some(Message::Reply {
+                    msgid: msgid.clone(),
+                    to_nick,
+                    reply_preview,
+                }),
                 length,
                 theme,
                 config,
@@ -597,6 +671,11 @@ pub enum Message {
     ResendMessage(DateTime<Utc>, message::Hash),
     OpenReactionModal(message::Id, Vec<String>),
     Redact(message::Id),
+    Reply {
+        msgid: message::Id,
+        to_nick: String,
+        reply_preview: String,
+    },
     LoadUserAvatar(Server, url::Url),
     Link(message::Link),
 }
@@ -621,6 +700,11 @@ pub enum Event {
     ResendMessage(DateTime<Utc>, message::Hash),
     OpenReactionModal(message::Id, Vec<String>),
     RedactMessage(message::Id),
+    Reply {
+        msgid: message::Id,
+        to_nick: String,
+        reply_preview: String,
+    },
     LoadUserAvatar(Server, url::Url),
 }
 
@@ -661,6 +745,15 @@ pub fn update(message: Message) -> Option<Event> {
             Some(Event::OpenReactionModal(msgid, selected_reactions))
         }
         Message::Redact(msgid) => Some(Event::RedactMessage(msgid)),
+        Message::Reply {
+            msgid,
+            to_nick,
+            reply_preview,
+        } => Some(Event::Reply {
+            msgid,
+            to_nick,
+            reply_preview,
+        }),
         Message::LoadUserAvatar(server, url) => {
             Some(Event::LoadUserAvatar(server, url))
         }
@@ -674,6 +767,7 @@ pub fn message<'a, M>(
     source: &'a message::Source,
     msgid: Option<&'a message::Id>,
     selected_reactions: Vec<String>,
+    can_send_replies: bool,
     can_send_reactions: bool,
     can_redact: bool,
     message_content: &'a message::Content,
@@ -690,6 +784,7 @@ where
     let entries = Entry::message_list(
         can_send_reactions && msgid.is_some(),
         can_redact && msgid.is_some(),
+        can_send_replies && msgid.is_some(),
     );
 
     context_menu(
@@ -706,6 +801,7 @@ where
                         msgid,
                         selected_reactions: &selected_reactions,
                         content: message_content,
+                        source,
                     }),
                     length,
                     config,

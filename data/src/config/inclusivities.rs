@@ -4,7 +4,7 @@ use serde::{Deserialize, Deserializer};
 use crate::isupport;
 use crate::message::Source;
 use crate::server::Server;
-use crate::target::{Channel, Query, Target, TargetRef};
+use crate::target::{Channel, Query, TargetRef};
 use crate::user::NickRef;
 
 pub fn is_server_included(
@@ -132,12 +132,12 @@ pub fn is_target_included(
     include: Option<&Inclusivities>,
     exclude: Option<&Inclusivities>,
     user: Option<NickRef>,
-    target: &Target,
+    target: TargetRef,
     server: &Server,
     casemapping: isupport::CaseMap,
 ) -> bool {
     match target {
-        Target::Channel(channel) => is_target_channel_included(
+        TargetRef::Channel(channel) => is_target_channel_included(
             include,
             exclude,
             user,
@@ -145,7 +145,7 @@ pub fn is_target_included(
             server,
             casemapping,
         ),
-        Target::Query(query) => is_target_query_included(
+        TargetRef::Query(query) => is_target_query_included(
             include,
             exclude,
             query,

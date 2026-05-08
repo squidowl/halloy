@@ -126,6 +126,7 @@ pub fn view<'a>(
                         config.buffer.nickname.truncate,
                         config.display.truncation_character,
                         Some(&config.buffer.nickname.brackets),
+                        true,
                     );
 
                     let nick_text = user_display.into_element(
@@ -133,6 +134,9 @@ pub fn view<'a>(
                         is_user_away,
                         is_user_offline,
                         None,
+                        None,
+                        false,
+                        true,
                         theme,
                         config,
                     );
@@ -187,7 +191,7 @@ pub fn view<'a>(
                             }
                             message::Link::Url(_) => {
                                 context_menu::Entry::url_list(
-                                    None, false, false,
+                                    None, false, false, false,
                                 )
                             }
                             _ => vec![],
@@ -213,6 +217,8 @@ pub fn view<'a>(
                                     message: None,
                                     msgid: None,
                                     selected_reactions: vec![],
+                                    to_nick: None,
+                                    reply_preview: None,
                                 })
                             };
 

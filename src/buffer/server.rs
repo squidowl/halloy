@@ -156,6 +156,7 @@ pub fn view<'a>(
                             vec![],
                             false,
                             false,
+                            false,
                             &message.content,
                             config,
                             theme,
@@ -195,6 +196,7 @@ pub fn view<'a>(
                             config.buffer.nickname.truncate,
                             config.display.truncation_character,
                             Some(&config.buffer.nickname.brackets),
+                            true,
                         );
 
                         let nick: Element<_> = if hide_nickname {
@@ -217,7 +219,8 @@ pub fn view<'a>(
                             Space::new().width(width).into()
                         } else {
                             let mut nick_text = user_display.into_element(
-                                user, false, false, None, theme, config,
+                                user, false, false, None, None, false, true,
+                                theme, config,
                             );
 
                             if let Some(right_alignment_widths) =
@@ -278,6 +281,7 @@ pub fn view<'a>(
                             vec![],
                             false,
                             false,
+                            false,
                             &message.content,
                             config,
                             theme,
@@ -311,6 +315,7 @@ pub fn view<'a>(
                 config,
                 theme,
                 filehost_url,
+                None,
             )
             .map(Message::InputView)
         ]
@@ -343,9 +348,7 @@ impl Server {
         let buffer = buffer::Upstream::Server(server.clone());
 
         Self {
-            input_view: input_view::State::new(Some(
-                history.input(&buffer).draft,
-            )),
+            input_view: input_view::State::new(Some(history.input(&buffer))),
             buffer,
             server,
             scroll_view: scroll_view::State::new(pane_size, config),

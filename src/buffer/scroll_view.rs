@@ -342,6 +342,7 @@ pub fn view<'a>(
                             config.buffer.nickname.truncate,
                             config.display.truncation_character,
                             Some(&config.buffer.nickname.brackets),
+                            true,
                         );
 
                         Some(user_display.width(config) + 1.0)
@@ -431,12 +432,13 @@ pub fn view<'a>(
                     if let HideConsecutiveEnabled::Enabled(duration) =
                         config.buffer.timestamp.hide_consecutive.enabled
                     {
-                        is_consecutive_user_message(
-                            message,
-                            *prev_message,
-                            duration,
-                            config,
-                        )
+                        message.reply_to.is_none()
+                            && is_consecutive_user_message(
+                                message,
+                                *prev_message,
+                                duration,
+                                config,
+                            )
                     } else {
                         false
                     };
@@ -446,6 +448,7 @@ pub fn view<'a>(
                         config.buffer.nickname.hide_consecutive.enabled
                     {
                         !config.buffer.nickname.alignment.is_top()
+                        && message.reply_to.is_none()
                         && is_consecutive_user_message(
                             message,
                             *prev_message,
@@ -2008,6 +2011,7 @@ fn preview_row<'a>(
                     .then_some(message.hidden_urls.contains(url)),
                 false,
                 false,
+                false,
             ),
             move |entry, length| {
                 entry
@@ -2017,6 +2021,8 @@ fn preview_row<'a>(
                             message: Some(message.hash),
                             msgid: None,
                             selected_reactions: vec![],
+                            to_nick: None,
+                            reply_preview: None,
                         }),
                         length,
                         config,
@@ -2056,6 +2062,7 @@ fn preview_row<'a>(
                         config.buffer.nickname.truncate,
                         config.display.truncation_character,
                         Some(&config.buffer.nickname.brackets),
+                        true,
                     )
                     .width(config)
                 } else {

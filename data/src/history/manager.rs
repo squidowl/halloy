@@ -49,6 +49,17 @@ pub struct ReactionToEcho {
     pub message_text: String,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReplyToEcho {
+    pub message: message::Message,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum EchoEvent {
+    Reaction(ReactionToEcho),
+    Reply(ReplyToEcho),
+}
+
 #[derive(Debug)]
 pub enum Message {
     LoadFull(history::Kind, Result<history::Loaded, history::Error>),
@@ -64,12 +75,12 @@ pub enum Message {
         Result<(), history::Error>,
     ),
     Closed(history::Kind, Result<(), history::Error>),
-    Flushed(history::Kind, Result<Vec<ReactionToEcho>, history::Error>),
+    Flushed(history::Kind, Result<Vec<EchoEvent>, history::Error>),
     Exited(Vec<(history::Kind, Result<(), history::Error>)>),
     SentMessageUpdated(history::Kind, history::ReadMarker),
     ResendMessage(history::Kind, message::Message),
     DraftsSaved,
-    ReactionsToEcho(Server, Vec<ReactionToEcho>),
+    EchoEvents(Server, Vec<EchoEvent>),
 }
 
 pub enum Event {
@@ -77,7 +88,7 @@ pub enum Event {
     Exited,
     SentMessageUpdated(history::Kind, history::ReadMarker),
     ResendMessage(history::Kind, message::Message),
-    ReactionsToEcho(Server, Vec<ReactionToEcho>),
+    EchoEvents(Server, Vec<EchoEvent>),
 }
 
 #[derive(Debug, Default)]
@@ -178,18 +189,15 @@ impl Manager {
             Message::Closed(kind, Err(error)) => {
                 log::warn!("failed to close history for {kind}: {error}");
             }
-            Message::Flushed(kind, Ok(reactions)) => {
+            Message::Flushed(kind, Ok(events)) => {
                 // Will cause flush loop if we emit a log every time we flush logs
                 if !matches!(kind, history::Kind::Logs) {
                     log::debug!("flushed history for {kind}",);
                 }
-                if !reactions.is_empty()
+                if !events.is_empty()
                     && let Some(server) = kind.server()
                 {
-                    return Some(Event::ReactionsToEcho(
-                        server.clone(),
-                        reactions,
-                    ));
+                    return Some(Event::EchoEvents(server.clone(), events));
                 }
             }
             Message::Flushed(kind, Err(error)) => {
@@ -251,8 +259,8 @@ impl Manager {
                 return Some(Event::ResendMessage(kind, message));
             }
             Message::DraftsSaved => {}
-            Message::ReactionsToEcho(server, reactions) => {
-                return Some(Event::ReactionsToEcho(server, reactions));
+            Message::EchoEvents(server, events) => {
+                return Some(Event::EchoEvents(server, events));
             }
         }
 
@@ -317,7 +325,7 @@ impl Manager {
         clients: &client::Map,
     ) -> impl Future<Output = Message> + use<> {
         let data = std::mem::take(&mut self.data);
-        let drafts = data.input.clone_draft_map();
+        let drafts = data.input.clone_drafts();
         let seeds: Vec<Option<history::Seed>> =
             data.map.keys().map(|kind| clients.get_seed(kind)).collect();
         let seeded_map = data.map.into_iter().zip(seeds);
@@ -344,7 +352,7 @@ impl Manager {
         }
 
         self.last_draft_changed = None;
-        let drafts = self.data.input.clone_draft_map();
+        let drafts = self.data.input.clone_drafts();
 
         Some(
             async move {
@@ -357,9 +365,9 @@ impl Manager {
 
     pub fn preload_drafts(
         &mut self,
-        drafts: HashMap<buffer::Upstream, String>,
+        drafts: HashMap<buffer::Upstream, input::SavedDraft>,
     ) {
-        self.data.input.load_into(drafts);
+        self.data.input.load_drafts_into(drafts);
     }
 
     pub fn record_input_message(
@@ -637,6 +645,18 @@ impl Manager {
 
     pub fn can_mark_as_read(&self, kind: &history::Kind) -> bool {
         self.data.can_mark_as_read(kind)
+    }
+
+    pub fn is_our_message(
+        &self,
+        id: &message::Id,
+        kind: &history::Kind,
+        server_time: &DateTime<Utc>,
+    ) -> bool {
+        self.data
+            .map
+            .get(kind)
+            .is_some_and(|history| history.is_our_message(id, server_time))
     }
 
     pub fn get_messages(
@@ -1033,7 +1053,7 @@ impl Manager {
         }
     }
 
-    // Block and condense messages
+    // Block, condense, and populate reply-previews for history's messages
     pub fn process_messages(
         &mut self,
         kind: history::Kind,
@@ -1236,6 +1256,8 @@ impl Manager {
                         .iter_mut()
                         .for_each(|message| message.condensed = None),
                 });
+
+            populate_reply_previews(messages);
         }
 
         log::debug!("processed messages in {kind}");
@@ -1324,7 +1346,7 @@ impl Data {
                     let mut last_seen = last_seen.clone();
 
                     for (id, pending) in std::mem::take(pending_reactions) {
-                        if let Some(message) = history::find_message_target(
+                        if let Some(message) = history::find_reply_target_mut(
                             &mut messages,
                             &id,
                             &pending.server_time,
@@ -1339,7 +1361,7 @@ impl Data {
                     }
 
                     for (id, pending) in std::mem::take(pending_redactions) {
-                        if let Some(message) = history::find_message_target(
+                        if let Some(message) = history::find_reply_target_mut(
                             &mut messages,
                             &id,
                             &pending.server_time,
@@ -1530,9 +1552,19 @@ impl Data {
     fn add_message(
         &mut self,
         kind: history::Kind,
-        message: crate::Message,
+        mut message: crate::Message,
         labeled_response_context: Option<LabeledResponseContext>,
     ) -> Option<impl Future<Output = Message> + use<>> {
+        // Cache the replied-to author and preview text on the message so the
+        // reply is in view context without a lookup at render time.
+        if let Some(reply_id) = message.reply_to.as_ref()
+            && let Some(history) = self.map.get(&kind)
+            && let Some(reply_target) =
+                history.find_reply_target(reply_id, &message.server_time)
+        {
+            message.reply_preview = Some(reply_target.as_reply_preview());
+        }
+
         match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
                 let read_marker = entry
@@ -1842,7 +1874,10 @@ impl Data {
                 if notification_enabled {
                     reactions.map(|reaction| {
                         async move {
-                            Message::ReactionsToEcho(server, vec![reaction])
+                            Message::EchoEvents(
+                                server,
+                                vec![EchoEvent::Reaction(reaction)],
+                            )
                         }
                         .boxed()
                     })
@@ -1903,6 +1938,36 @@ impl Data {
                     .boxed(),
                 )
             }
+        }
+    }
+}
+
+/// Backfill previews for replies for messages in a history batch
+fn populate_reply_previews(messages: &mut [crate::Message]) {
+    let position_pairs: Vec<(usize, usize)> = messages
+        .iter()
+        .enumerate()
+        .filter_map(|(message_position, message)| {
+            message.reply_to.as_ref().and_then(|reply_id| {
+                history::position_reply_target(
+                    messages,
+                    reply_id,
+                    &message.server_time,
+                )
+                .map(|reply_target_position| {
+                    (message_position, reply_target_position)
+                })
+            })
+        })
+        .collect();
+
+    for (message_position, reply_target_position) in position_pairs {
+        if let Some(reply_preview) = messages
+            .get(reply_target_position)
+            .map(crate::Message::as_reply_preview)
+            && let Some(message) = messages.get_mut(message_position)
+        {
+            message.reply_preview = Some(reply_preview);
         }
     }
 }
