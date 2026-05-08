@@ -11,6 +11,7 @@ Added:
 - Setting to close queries when closing query buffer panes (`buffer.close.query`)
 - Support for IRCv3 metadata `display-name`, `avatar`, `pronouns`, `homepage`, `color`, `status` keys
 - Theme colors for horizontal rule text and buffer backlog/date separators
+- The config `buffer.server_messages.condense.max` may be used to limit the number of user entries shown in condensed messages
 
 Fixed:
 

@@ -1171,6 +1171,18 @@ Marker style for condensed server messages.
 icon = "chevron"
 ```
 
+#### `max`
+
+Maximum number of user entries to show in a condensed group.
+
+```toml
+# Type: integer
+# Default: not set (show all)
+
+[buffer.server_messages.condense]
+max = 20
+```
+
 ## `status_message_prefix`
 
 Status message prefix settings.
