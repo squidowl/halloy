@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 
+use iced::widget::text::LineHeight;
 pub use iced::widget::tooltip::Position;
 use iced::widget::{container, text};
 
@@ -18,7 +19,7 @@ pub fn tooltip<'a, Message: 'a>(
             container(
                 text(tooltip.into())
                     .style(theme::text::secondary)
-                    .line_height(font::line_height())
+                    .line_height(LineHeight::Relative(1.0))
                     .font_maybe(
                         theme::font_style::secondary(theme).map(font::get),
                     ),

@@ -5,10 +5,11 @@ use data::target::{Query, TargetRef};
 use data::user::AccessLevel;
 use data::{Config, User, metadata};
 use iced::Color;
+use iced::alignment::Vertical;
 use iced::widget::{container, row};
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{Element, selectable_text};
+use super::{Element, selectable_text, text};
 use crate::widget::TextExt as _;
 use crate::{Theme, font, theme, widget};
 
@@ -101,8 +102,16 @@ impl UserDisplay {
         });
 
         let base = self.base.into_element(
-            user, color, is_away, is_offline, dimmed, size, selectable, theme,
+            user,
+            color,
+            is_away,
+            is_offline,
+            dimmed,
+            size,
+            selectable,
+            theme,
             config,
+            font::line_height(),
         );
 
         let base = if highlight {
@@ -123,19 +132,37 @@ impl UserDisplay {
                 container(container(if tooltip.bot_icon {
                     row![
                         tooltip.into_element(
-                            user, color, false, false, None, None, true, theme,
+                            user,
+                            color,
+                            false,
+                            false,
+                            None,
+                            None,
+                            true,
+                            theme,
                             config,
+                            iced::widget::text::LineHeight::Relative(1.0),
                         ),
-                        selectable_text(String::from(
-                            " has marked itself as a bot"
-                        ))
+                        text(String::from(" has marked itself as a bot"))
+                            .style(theme::text::secondary)
+                            .line_height(
+                                iced::widget::text::LineHeight::Relative(1.0),
+                            )
                     ]
                     .spacing(theme::ICON_SPACE)
                     .into()
                 } else {
                     tooltip.into_element(
-                        user, color, false, false, None, None, true, theme,
+                        user,
+                        color,
+                        false,
+                        false,
+                        None,
+                        None,
+                        true,
+                        theme,
                         config,
+                        iced::widget::text::LineHeight::Relative(1.0),
                     )
                 }))
                 .style(theme::container::tooltip)
@@ -270,6 +297,7 @@ impl UserDisplayData {
         selectable: bool,
         theme: &'a Theme,
         config: &'a Config,
+        line_height: iced::widget::text::LineHeight,
     ) -> Element<'a, M> {
         let style = theme::selectable_text::dimmed(
             theme::selectable_text::nickname(
@@ -279,7 +307,7 @@ impl UserDisplayData {
             dimmed,
         );
 
-        self.render(style, is_offline, size, selectable, theme)
+        self.render(style, is_offline, size, selectable, theme, line_height)
     }
 
     fn render<'a, M: 'a>(
@@ -289,6 +317,7 @@ impl UserDisplayData {
         size: Option<f32>,
         selectable: bool,
         theme: &'a Theme,
+        line_height: iced::widget::text::LineHeight,
     ) -> Element<'a, M> {
         let font =
             theme::font_style::nickname(theme, is_offline).map(font::get);
@@ -302,12 +331,14 @@ impl UserDisplayData {
                         .style(move |_| style)
                         .font_maybe(f)
                         .size_maybe(size)
+                        .line_height(line_height)
                         .into()
                 } else {
                     widget::text(content)
                         .color_maybe(style.color)
                         .font_maybe(f)
                         .size_maybe(size)
+                        .line_height(line_height)
                         .into()
                 }
             };
@@ -318,7 +349,7 @@ impl UserDisplayData {
             } else {
                 widget::text(String::from("\u{1F916}"))
                     .color_maybe(style.color)
-                    .line_height(iced::widget::text::LineHeight::Relative(1.45))
+                    .line_height(line_height)
                     .font(*font::ICON)
                     .size(theme::ICON_SIZE)
                     .into()
@@ -329,6 +360,7 @@ impl UserDisplayData {
                 self.right.map(|right| text_piece(right, font)),
             ]
             .spacing(theme::ICON_SPACE)
+            .align_y(Vertical::Center)
             .into()
         } else {
             text_piece(self.left, font)

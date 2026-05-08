@@ -570,7 +570,9 @@ fn query_title<'a>(
                     container(
                         text(format!("Authenticated as {accountname}"))
                             .style(theme::text::secondary)
-                            .line_height(font::line_height())
+                            .line_height(
+                                iced::widget::text::LineHeight::Relative(1.0),
+                            )
                             .font_maybe(
                                 theme::font_style::secondary(theme)
                                     .map(font::get),
