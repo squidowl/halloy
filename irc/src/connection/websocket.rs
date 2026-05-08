@@ -16,7 +16,7 @@ use super::{IrcStream, Security, tls};
 
 const BINARY_SUBPROTOCOL: &str = "binary.ircv3.net";
 const TEXT_SUBPROTOCOL: &str = "text.ircv3.net";
-const SUBPROTOCOLS: [&str; 2] = [BINARY_SUBPROTOCOL, TEXT_SUBPROTOCOL];
+const REQUESTED_SUBPROTOCOLS: &str = "binary.ircv3.net, text.ircv3.net";
 const MAX_IRC_WEBSOCKET_MESSAGE_SIZE: usize = 8192;
 
 pub struct WebSocketConnection<Codec> {
@@ -69,8 +69,7 @@ impl<Codec> WebSocketConnection<Codec> {
             websocket_uri(scheme, server, port, path).into_client_request()?;
         request.headers_mut().insert(
             http::header::SEC_WEBSOCKET_PROTOCOL,
-            http::HeaderValue::from_str(&requested_subprotocols())
-                .expect("subprotocols should be valid header value"),
+            http::HeaderValue::from_static(REQUESTED_SUBPROTOCOLS),
         );
 
         let config = WebSocketConfig::default()
@@ -220,10 +219,6 @@ fn websocket_uri(scheme: &str, server: &str, port: u16, path: &str) -> String {
     };
 
     format!("{scheme}://{host}:{port}{path}")
-}
-
-fn requested_subprotocols() -> String {
-    SUBPROTOCOLS.join(", ")
 }
 
 fn mode_from_response(
