@@ -13,9 +13,11 @@ use tokio_util::codec;
 use tokio_util::codec::Framed;
 
 pub use self::proxy::Proxy;
+use self::websocket::WebSocketConnection;
 
 mod proxy;
 mod tls;
+mod websocket;
 
 pub fn prepare() {
     static INIT: Once = Once::new();
@@ -35,6 +37,7 @@ pub enum IrcStream {
 pub enum Connection<Codec> {
     Tls(Framed<TlsStream<IrcStream>, Codec>),
     Unsecured(Framed<IrcStream, Codec>),
+    WebSocket(WebSocketConnection<Codec>),
 }
 
 #[derive(Debug, Clone)]
@@ -54,6 +57,12 @@ pub struct Config<'a> {
     pub port: u16,
     pub security: Security<'a>,
     pub proxy: Option<Proxy>,
+    pub websocket: Option<WebSocket<'a>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct WebSocket<'a> {
+    pub path: &'a str,
 }
 
 impl<Codec> Connection<Codec> {
@@ -64,6 +73,20 @@ impl<Codec> Connection<Codec> {
             ),
             Some(proxy) => proxy.connect(config.server, config.port).await?,
         };
+
+        if let Some(websocket) = config.websocket {
+            return Ok(Self::WebSocket(
+                WebSocketConnection::connect(
+                    stream,
+                    config.server,
+                    config.port,
+                    config.security,
+                    websocket.path,
+                    codec,
+                )
+                .await?,
+            ));
+        }
 
         if let Security::Secured {
             accept_invalid_certs,
@@ -119,6 +142,9 @@ impl<Codec> Connection<Codec> {
             Connection::Unsecured(framed) => {
                 framed.into_inner().shutdown().await?;
             }
+            Connection::WebSocket(websocket) => {
+                websocket.shutdown().await?;
+            }
         }
         Ok(())
     }
@@ -132,6 +158,8 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("proxy error: {0}")]
     Proxy(#[from] proxy::Error),
+    #[error("websocket error: {0}")]
+    WebSocket(#[from] websocket::Error),
 }
 
 macro_rules! delegate {
@@ -139,13 +167,15 @@ macro_rules! delegate {
         match $e {
             $crate::connection::Connection::Tls(framed) => framed.$($t)*,
             $crate::connection::Connection::Unsecured(framed) => framed.$($t)*,
+            $crate::connection::Connection::WebSocket(websocket) => websocket.$($t)*,
         }
     };
 }
 
 impl<Codec> Stream for Connection<Codec>
 where
-    Codec: codec::Decoder,
+    Codec: codec::Decoder + Unpin,
+    Codec::Error: From<std::io::Error>,
 {
     type Item = Result<Codec::Item, Codec::Error>;
 
@@ -159,7 +189,8 @@ where
 
 impl<Item, Codec> Sink<Item> for Connection<Codec>
 where
-    Codec: codec::Encoder<Item>,
+    Codec: codec::Encoder<Item> + Unpin,
+    Codec::Error: From<std::io::Error>,
 {
     type Error = Codec::Error;
 
