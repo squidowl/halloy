@@ -815,6 +815,14 @@ impl Message {
             });
         }
     }
+
+    pub fn user(&self) -> Option<&User> {
+        match self.target.source() {
+            Source::User(user) => Some(user),
+            Source::Action(user) => user.as_ref(),
+            Source::Server(_) | Source::Internal(_) => None,
+        }
+    }
 }
 
 // When changing how Message (or its constituent parts) is serialized, run
@@ -1776,7 +1784,7 @@ pub fn parse_fragments_with_highlights(
                 Fragment::User(user, raw)
                     if highlights.nickname.is_target_included(
                         message_user,
-                        target,
+                        target.as_target_ref(),
                         server,
                         casemapping,
                     ) && (user.nickname() == *our_nick
@@ -1794,8 +1802,13 @@ pub fn parse_fragments_with_highlights(
             .collect::<Vec<_>>();
 
     for (regex, sound) in highlights.matches.iter().filter_map(|m| {
-        m.is_target_included(message_user, target, server, casemapping)
-            .then_some((&m.regex, &m.sound))
+        m.is_target_included(
+            message_user,
+            target.as_target_ref(),
+            server,
+            casemapping,
+        )
+        .then_some((&m.regex, &m.sound))
     }) {
         fragments = fragments
             .into_iter()

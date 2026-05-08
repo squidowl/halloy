@@ -30,33 +30,42 @@ pub enum TargetInfo<'a> {
         our_user: Option<&'a User>,
         users: Option<&'a ChannelUsers>,
     },
-    Query,
+    Query {
+        query: &'a target::Query,
+    },
 }
 
 impl<'a> TargetInfo<'a> {
     fn users(&self) -> Option<&'a ChannelUsers> {
         match self {
             TargetInfo::Channel { users, .. } => *users,
-            TargetInfo::Query => None,
+            TargetInfo::Query { .. } => None,
         }
     }
 
     fn our_user(&self) -> Option<&'a User> {
         match self {
             TargetInfo::Channel { our_user, .. } => *our_user,
-            TargetInfo::Query => None,
+            TargetInfo::Query { .. } => None,
         }
     }
 
     fn channel(&self) -> Option<&'a target::Channel> {
         match self {
             TargetInfo::Channel { channel, .. } => Some(channel),
-            TargetInfo::Query => None,
+            TargetInfo::Query { .. } => None,
         }
     }
 
     fn is_channel(&self) -> bool {
         matches!(self, TargetInfo::Channel { .. })
+    }
+
+    fn as_target_ref(&self) -> target::TargetRef<'a> {
+        match self {
+            TargetInfo::Channel { channel, .. } => channel.as_target_ref(),
+            TargetInfo::Query { query } => query.as_target_ref(),
+        }
     }
 }
 
@@ -1242,13 +1251,22 @@ impl<'a> ChannelQueryLayout<'a> {
                 Some(&self.config.buffer.nickname.brackets),
                 false,
             );
+
+            let highlight = is_our_nick
+                && self.config.highlights.nickname.is_target_included(
+                    message.user(),
+                    self.target.as_target_ref(),
+                    self.server,
+                    self.casemapping,
+                );
+
             let nick_element: Element<_> = user_display.into_element(
                 &user,
                 false,
                 false,
                 None,
                 Some(sm_font_s),
-                is_our_nick,
+                highlight,
                 false,
                 self.theme,
                 self.config,

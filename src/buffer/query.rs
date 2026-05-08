@@ -112,7 +112,7 @@ pub fn view<'a>(
         server,
         theme,
         previews,
-        target: TargetInfo::Query,
+        target: TargetInfo::Query { query },
     };
 
     let messages = container(
