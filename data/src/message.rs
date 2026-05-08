@@ -2534,6 +2534,12 @@ fn target(
                 }
             };
 
+            let resolve_attributes_with_bot =
+                |user: &User, channel: &target::Channel| -> Option<User> {
+                    resolve_attributes(user, channel)
+                        .map(|user| user.with_bot(message.from_bot()))
+                };
+
             if target == "*" {
                 let source = user.map_or(Source::Server(None), source);
 
@@ -2592,7 +2598,7 @@ fn target(
                 ) {
                     (target::Target::Channel(channel), Some(user)) => {
                         let source = source(
-                            resolve_attributes(user, &channel)
+                            resolve_attributes_with_bot(user, &channel)
                                 .unwrap_or(user.clone()),
                         );
                         (Target::Channel { channel, source }, None)
@@ -2657,7 +2663,7 @@ fn target(
                 let source =
                     user.as_ref().map_or(Source::Server(None), |user| {
                         source(
-                            resolve_attributes(user, &channel_context)
+                            resolve_attributes_with_bot(user, &channel_context)
                                 .unwrap_or(user.clone()),
                         )
                     });
@@ -2678,10 +2684,12 @@ fn target(
                 // Resolve attributes in the target channel
                 let source = match source {
                     Source::User(user) => Source::User(
-                        resolve_attributes(&user, &channel).unwrap_or(user),
+                        resolve_attributes_with_bot(&user, &channel)
+                            .unwrap_or(user),
                     ),
                     Source::Action(Some(user)) => Source::Action(Some(
-                        resolve_attributes(&user, &channel).unwrap_or(user),
+                        resolve_attributes_with_bot(&user, &channel)
+                            .unwrap_or(user),
                     )),
                     Source::Action(None)
                     | Source::Server(_)
