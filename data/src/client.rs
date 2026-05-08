@@ -3813,10 +3813,6 @@ impl Client {
                     .insert(target.clone(), chathistory_end || size < *limit);
             }
 
-            if chathistory_end {
-                return None;
-            }
-
             match subcommand {
                 ChatHistorySubcommand::Latest(
                     target,
@@ -3833,7 +3829,8 @@ impl Client {
 
                     if matches!(message_reference, MessageReference::None) {
                         None
-                    } else if *autorequest && size >= *limit {
+                    } else if *autorequest && size >= *limit && !chathistory_end
+                    {
                         continue_chathistory_between(
                             target,
                             events,
@@ -3871,7 +3868,7 @@ impl Client {
                         end_message_reference,
                     );
 
-                    if *autorequest && size >= *limit {
+                    if *autorequest && size >= *limit && !chathistory_end {
                         continue_chathistory_between(
                             target,
                             events,
@@ -3896,7 +3893,7 @@ impl Client {
                         end_message_reference,
                     );
 
-                    if *autorequest && size >= *limit {
+                    if *autorequest && size >= *limit && !chathistory_end {
                         continue_chathistory_targets(
                             events,
                             start_message_reference,
