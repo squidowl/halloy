@@ -582,19 +582,23 @@ pub fn view<'a>(
                 {
                     column![
                         row![
-                            container(rule::horizontal(1))
-                                .width(Length::Fill)
-                                .padding(padding::right(6)),
+                            container(
+                                rule::horizontal(1).style(theme::rule::date)
+                            )
+                            .width(Length::Fill)
+                            .padding(padding::right(6)),
                             text(config.buffer.format_date_separator(&date))
                                 .size(divider_font_size)
-                                .style(theme::text::secondary)
+                                .style(theme::text::date_separator)
                                 .font_maybe(
                                     theme::font_style::secondary(theme)
                                         .map(font::get)
                                 ),
-                            container(rule::horizontal(1))
-                                .width(Length::Fill)
-                                .padding(padding::left(6))
+                            container(
+                                rule::horizontal(1).style(theme::rule::date)
+                            )
+                            .width(Length::Fill)
+                            .padding(padding::left(6))
                         ]
                         .padding(2)
                         .align_y(iced::Alignment::Center),

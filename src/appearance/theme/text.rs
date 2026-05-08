@@ -1,4 +1,4 @@
-use data::appearance::theme::nickname_color;
+use data::appearance::theme::{nickname_alpha, nickname_color};
 use data::config::buffer;
 use data::message;
 use data::message::source::server::{Kind, StandardReply};
@@ -109,8 +109,22 @@ pub fn backlog(theme: &Theme) -> Style {
             theme
                 .styles()
                 .buffer
-                .backlog_rule
-                .unwrap_or(theme.styles().general.horizontal_rule),
+                .backlog_rule_text
+                .or(theme.styles().general.horizontal_rule_text)
+                .unwrap_or(theme.styles().text.secondary.color),
+        ),
+    }
+}
+
+pub fn date_separator(theme: &Theme) -> Style {
+    Style {
+        color: Some(
+            theme
+                .styles()
+                .buffer
+                .date_rule_text
+                .or(theme.styles().general.horizontal_rule_text)
+                .unwrap_or(theme.styles().text.secondary.color),
         ),
     }
 }
@@ -128,27 +142,20 @@ pub fn nickname(
     is_away: Option<buffer::Away>,
     is_offline: bool,
 ) -> Style {
-    let calculate_alpha_color = |color| {
-        if let Some(buffer::Away::Dimmed(dimmed)) = is_away {
-            dimmed.transform_color(color, theme.styles().buffer.background)
+    let color = nickname_alpha(
+        if is_offline
+            && let Some(offline_color) =
+                theme.styles().buffer.nickname_offline.color
+        {
+            offline_color
         } else {
-            color
-        }
-    };
+            let nickname = theme.styles().buffer.nickname;
 
-    // If the user is offline, use the offline style if it exists
-    if is_offline
-        && let Some(color) = theme.styles().buffer.nickname_offline.color
-    {
-        return Style {
-            color: Some(calculate_alpha_color(color)),
-        };
-    }
-
-    let nickname = theme.styles().buffer.nickname;
-
-    let color =
-        calculate_alpha_color(nickname_color(nickname.color, kind, seed));
+            nickname_color(nickname.color, kind, seed)
+        },
+        is_away,
+        theme.styles().buffer.background,
+    );
 
     Style { color: Some(color) }
 }

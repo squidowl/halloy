@@ -67,7 +67,7 @@ Metadata to include when rendering user nicknames in message buffers.
 
 ```toml
 # Type: array of strings
-# Values: "display-name", "pronouns"
+# Values: "display-name", "pronouns", "color"
 # Default: ["display-name"]
 
 [display]
@@ -83,8 +83,9 @@ nickname = ["display-name", "pronouns"]
 
 This renders as:
 - `["display-name"]` -> `Casper (casperstorm)` when display name (`Casper`) is set, otherwise `casperstorm`
-- `["pronouns"]` -> `casperstorm (he/him)` when pronouns are set, otherwise `storm`
+- `["pronouns"]` -> `casperstorm (he/him)` when pronouns are set, otherwise `casperstorm`
 - `["display-name", "pronouns"]` -> `Casper (casperstorm, he/him)`, omitting missing metadata
+- `["display-name"]` -> `Casper (casperstorm)` when display name (`Casper`) is set, with text color as specified by the user's metadata
 
 ## `nicklist_nickname`
 
@@ -92,9 +93,22 @@ Metadata to include when rendering user nicknames in the nicklist.
 
 ```toml
 # Type: array of strings
-# Values: "display-name", "pronouns"
+# Values: "display-name", "pronouns", "color"
 # Default: ["display-name"]
 
 [display]
 nicklist_nickname = ["display-name"]
+```
+
+## `adapt_metadata_colors`
+
+Whether to adapt metadata colors to the configured theme (only applies if `"color"` has been specified for [`nickname`](#nickname) or [`nicklist_nickname`](#nicklist_nickname)).  Will modify colors from what the user has specified as their color metadata to ensure legibility and better fit in with the configured theme. If set to `"illegible"` then only colors determined to not be readable will be modified.
+
+```toml
+# Type: string
+# Values: "all", "illegible", "none"
+# Default: "all"
+
+[display]
+adapt_metadata_colors = "illegible"
 ```

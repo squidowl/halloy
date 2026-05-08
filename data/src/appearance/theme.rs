@@ -11,6 +11,8 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use thiserror::Error;
 use tokio::fs;
 
+use crate::config::buffer;
+
 const DEFAULT_THEME_NAME: &str = "Ferra";
 const DEFAULT_THEME_CONTENT: &str =
     include_str!("../../../assets/themes/ferra.toml");
@@ -139,6 +141,8 @@ pub struct General {
     #[serde(with = "color_serde")]
     pub horizontal_rule: Color,
     #[serde(with = "color_serde_maybe")]
+    pub horizontal_rule_text: Option<Color>,
+    #[serde(with = "color_serde_maybe")]
     pub scrollbar: Option<Color>,
     #[serde(with = "color_serde")]
     pub unread_indicator: Color,
@@ -152,6 +156,7 @@ impl Default for General {
             background: Color::TRANSPARENT,
             border: Color::TRANSPARENT,
             horizontal_rule: Color::TRANSPARENT,
+            horizontal_rule_text: None,
             scrollbar: None,
             unread_indicator: Color::TRANSPARENT,
             highlight_indicator: None,
@@ -186,6 +191,12 @@ pub struct Buffer {
     pub nickname_offline: OptionalTextStyle,
     #[serde(with = "color_serde_maybe")]
     pub backlog_rule: Option<Color>,
+    #[serde(with = "color_serde_maybe")]
+    pub backlog_rule_text: Option<Color>,
+    #[serde(with = "color_serde_maybe")]
+    pub date_rule: Option<Color>,
+    #[serde(with = "color_serde_maybe")]
+    pub date_rule_text: Option<Color>,
 }
 
 impl Default for Buffer {
@@ -207,6 +218,9 @@ impl Default for Buffer {
             url: TextStyle::default(),
             nickname_offline: OptionalTextStyle::default(),
             backlog_rule: None,
+            backlog_rule_text: None,
+            date_rule: None,
+            date_rule_text: None,
         }
     }
 }
@@ -570,6 +584,49 @@ pub fn nickname_color(
     }
 }
 
+pub fn nickname_alpha(
+    color: Color,
+    is_away: Option<buffer::Away>,
+    background_color: Color,
+) -> Color {
+    if let Some(buffer::Away::Dimmed(dimmed)) = is_away {
+        dimmed.transform_color(color, background_color)
+    } else {
+        color
+    }
+}
+
+pub fn adapt_nickname_color(
+    original_color: Color,
+    theme_color: Color,
+    background_color: Color,
+    restrict_saturation: bool,
+) -> Color {
+    let original_hsl = to_hsl(original_color);
+
+    let theme_hsl = to_hsl(theme_color);
+
+    let adapted_color = from_hsl(Okhsl::new(
+        original_hsl.hue,
+        if restrict_saturation {
+            original_hsl.saturation.min(theme_hsl.saturation)
+        } else {
+            original_hsl.saturation
+        },
+        theme_hsl.lightness,
+    ));
+
+    if adapted_color.is_readable_on(background_color) {
+        adapted_color
+    } else {
+        from_hsl(Okhsl::new(
+            original_hsl.hue,
+            theme_hsl.saturation,
+            theme_hsl.lightness,
+        ))
+    }
+}
+
 pub fn to_hsl(color: Color) -> Okhsl {
     let mut hsl = Okhsl::from_color(to_rgb(color));
     if hsl.saturation.is_nan() {
@@ -778,6 +835,11 @@ mod binary {
         BufferNicknameOffline = 49,
         GeneralHighlightIndicator = 50,
         BufferServerMessagesChangeTopic = 51,
+        GeneralHorizontalRuleText = 52,
+        BufferBacklogRule = 53,
+        BufferBacklogRuleText = 54,
+        BufferDateRule = 55,
+        BufferDateRuleText = 56,
     }
 
     impl Tag {
@@ -786,6 +848,9 @@ mod binary {
                 Tag::GeneralBackground => styles.general.background,
                 Tag::GeneralBorder => styles.general.border,
                 Tag::GeneralHorizontalRule => styles.general.horizontal_rule,
+                Tag::GeneralHorizontalRuleText => {
+                    styles.general.horizontal_rule_text?
+                }
                 Tag::GeneralUnreadIndicator => styles.general.unread_indicator,
                 Tag::TextPrimary => styles.text.primary.color,
                 Tag::TextSecondary => styles.text.secondary.color,
@@ -816,6 +881,10 @@ mod binary {
                 Tag::BufferTimestamp => styles.buffer.timestamp.color,
                 Tag::BufferTopic => styles.buffer.topic.color,
                 Tag::BufferUrl => styles.buffer.url.color,
+                Tag::BufferBacklogRule => styles.buffer.backlog_rule?,
+                Tag::BufferBacklogRuleText => styles.buffer.backlog_rule_text?,
+                Tag::BufferDateRule => styles.buffer.date_rule?,
+                Tag::BufferDateRuleText => styles.buffer.date_rule_text?,
                 Tag::BufferServerMessagesJoin => {
                     styles.buffer.server_messages.join.color?
                 }
@@ -903,6 +972,9 @@ mod binary {
                 Tag::GeneralHorizontalRule => {
                     styles.general.horizontal_rule = color;
                 }
+                Tag::GeneralHorizontalRuleText => {
+                    styles.general.horizontal_rule_text = Some(color);
+                }
                 Tag::GeneralUnreadIndicator => {
                     styles.general.unread_indicator = color;
                 }
@@ -937,6 +1009,18 @@ mod binary {
                 Tag::BufferTimestamp => styles.buffer.timestamp.color = color,
                 Tag::BufferTopic => styles.buffer.topic.color = color,
                 Tag::BufferUrl => styles.buffer.url.color = color,
+                Tag::BufferBacklogRule => {
+                    styles.buffer.backlog_rule = Some(color);
+                }
+                Tag::BufferBacklogRuleText => {
+                    styles.buffer.backlog_rule_text = Some(color);
+                }
+                Tag::BufferDateRule => {
+                    styles.buffer.date_rule = Some(color);
+                }
+                Tag::BufferDateRuleText => {
+                    styles.buffer.date_rule_text = Some(color);
+                }
                 Tag::BufferServerMessagesJoin => {
                     styles.buffer.server_messages.join.color = Some(color);
                 }

@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 use data::Config;
+use iced::Color;
 use iced::advanced::text;
 use iced::widget::text::LineHeight;
 
@@ -19,7 +20,7 @@ pub use self::selectable_rich_text::selectable_rich_text;
 pub use self::selectable_text::selectable_text;
 pub use self::shortcut::shortcut;
 pub use self::tooltip::tooltip;
-use crate::appearance::theme::{ICON_SIZE, TEXT_SIZE};
+use crate::appearance::theme::{self, ICON_SIZE, TEXT_SIZE};
 use crate::{Theme, font};
 
 pub mod anchored_overlay;
@@ -150,6 +151,15 @@ pub fn bot_icon<'a, M>(
         .line_height(LineHeight::Relative(1.45))
         .font(*font::ICON)
         .style(style)
+        .size(ICON_SIZE)
+        .into()
+}
+
+pub fn color_dot<'a, M>(color: Color) -> Element<'a, M> {
+    selectable_text(String::from("\u{F111}"))
+        .line_height(LineHeight::Relative(1.0))
+        .font(*font::ICON)
+        .style(move |theme| theme::selectable_text::color_dot(theme, color))
         .size(ICON_SIZE)
         .into()
 }

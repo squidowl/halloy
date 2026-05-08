@@ -15,6 +15,7 @@ use crate::{Theme, font, theme, widget};
 pub struct UserDisplay {
     base: UserDisplayData,
     tooltip: Option<UserDisplayData>,
+    color: Option<Color>,
 }
 
 impl UserDisplay {
@@ -29,8 +30,17 @@ impl UserDisplay {
         brackets: Option<&Brackets>,
         with_tooltip: bool,
     ) -> Self {
+        let query = Query::from(user);
+
+        let color = if enabled.contains(&Metadata::Color) {
+            registry.color(&query)
+        } else {
+            None
+        };
+
         let full = UserDisplayData::new(
             user,
+            query,
             show_access_levels,
             show_bot_icon,
             registry,
@@ -41,6 +51,7 @@ impl UserDisplay {
             return Self {
                 base: full.bracket(brackets),
                 tooltip: None,
+                color,
             };
         }
 
@@ -50,11 +61,13 @@ impl UserDisplay {
             Self {
                 base: truncated.bracket(brackets),
                 tooltip: Some(full),
+                color,
             }
         } else if full.bot_icon && brackets.is_some() {
             Self {
                 base: full.clone().bracket(brackets),
                 tooltip: Some(full),
+                color,
             }
         } else {
             let tooltip = full.bot_icon.then_some(full.clone());
@@ -62,6 +75,7 @@ impl UserDisplay {
             Self {
                 base: full.bracket(brackets),
                 tooltip,
+                color,
             }
         }
     }
@@ -78,8 +92,17 @@ impl UserDisplay {
         theme: &'a Theme,
         config: &'a Config,
     ) -> Element<'a, M> {
+        let color = self.color.map(|color| {
+            config.display.adapt_metadata_colors.adapt(
+                color,
+                theme.styles().buffer.nickname.color,
+                theme.styles().buffer.background,
+            )
+        });
+
         let base = self.base.into_element(
-            user, is_away, is_offline, dimmed, size, selectable, theme, config,
+            user, color, is_away, is_offline, dimmed, size, selectable, theme,
+            config,
         );
 
         let base = if highlight {
@@ -100,7 +123,7 @@ impl UserDisplay {
                 container(container(if tooltip.bot_icon {
                     row![
                         tooltip.into_element(
-                            user, false, false, None, None, true, theme,
+                            user, color, false, false, None, None, true, theme,
                             config,
                         ),
                         selectable_text(String::from(
@@ -111,7 +134,8 @@ impl UserDisplay {
                     .into()
                 } else {
                     tooltip.into_element(
-                        user, false, false, None, None, true, theme, config,
+                        user, color, false, false, None, None, true, theme,
+                        config,
                     )
                 }))
                 .style(theme::container::tooltip)
@@ -140,6 +164,7 @@ pub struct UserDisplayData {
 impl UserDisplayData {
     pub fn new(
         user: &User,
+        query: Query,
         show_access_levels: AccessLevelFormat,
         show_bot_icon: bool,
         registry: &dyn metadata::Registry,
@@ -168,8 +193,6 @@ impl UserDisplayData {
         let nickname = user.nickname();
 
         let bot_icon = user.is_bot() && show_bot_icon;
-
-        let query = Query::from(user);
 
         let display_name = if enabled.contains(&Metadata::DisplayName)
             && let Some(display_name) =
@@ -239,6 +262,7 @@ impl UserDisplayData {
     pub fn into_element<'a, M: 'a>(
         self,
         user: &User,
+        color: Option<Color>,
         is_away: bool,
         is_offline: bool,
         dimmed: Option<(Dimmed, Color)>,
@@ -249,7 +273,7 @@ impl UserDisplayData {
     ) -> Element<'a, M> {
         let style = theme::selectable_text::dimmed(
             theme::selectable_text::nickname(
-                theme, config, user, is_away, is_offline,
+                theme, config, user, color, is_away, is_offline,
             ),
             theme,
             dimmed,

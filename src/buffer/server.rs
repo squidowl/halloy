@@ -127,6 +127,7 @@ pub fn view<'a>(
                         let text_content = message_content(
                             &message.content,
                             &state.server,
+                            registry,
                             chantypes,
                             casemapping,
                             theme,
@@ -167,6 +168,7 @@ pub fn view<'a>(
                         let content = message_content(
                             &message.content,
                             &state.server,
+                            registry,
                             chantypes,
                             casemapping,
                             theme,
@@ -252,6 +254,7 @@ pub fn view<'a>(
                         let content = message_content(
                             &message.content,
                             &state.server,
+                            registry,
                             chantypes,
                             casemapping,
                             theme,

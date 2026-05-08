@@ -10,11 +10,11 @@ Added:
 - Support for IRCv3 `draft/message-redaction`
 - Setting to close queries when closing query buffer panes (`buffer.close.query`)
 - Support for IRCv3 metadata `display-name`, `avatar`, `pronouns`, `homepage`, `color`, `status` keys
+- Theme colors for horizontal rule text and buffer backlog/date separators
 
 Fixed:
 
 - `NICK` and `QUIT` messages returned by `draft/event-playback` (`chathistory`)
-- Backlog separator text colour now follows `buffer.backlog_rule`
 - Distinguish between reacts in chathistory vs active history
 - Channel matching on single line only
 - Do not hide consecutive nicknames if the user's displayed access levels or bot mode changes
@@ -25,6 +25,7 @@ Fixed:
 - Matching against `users` for some include/exclude conditions
 - Handle URLs ending with paired delimiters chars
 - `VERSION` and `JOIN` commands on connect are skipped if server is primary soju server
+- Handle leading delimiters when parsing link fragments to match nicks after quotes
 
 Changed:
 
