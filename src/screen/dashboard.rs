@@ -1636,10 +1636,19 @@ impl Dashboard {
             }
             Message::CloseContextMenu(window, any_closed) => {
                 if !any_closed {
-                    if let Some((_, _, state)) = self.get_focused_mut()
-                        && state.buffer.close_picker()
+                    if let Some((_, _, state, history)) =
+                        self.get_focused_with_history_mut()
                     {
-                        return (Task::none(), None);
+                        if state.buffer.close_picker() {
+                            return (Task::none(), None);
+                        // We only want to call clear_draft_reply if
+                        // close_picker does not return true.
+                        } else if state
+                            .buffer
+                            .clear_draft_reply(history, config)
+                        {
+                            return (Task::none(), None);
+                        }
                     }
 
                     if self.is_pane_maximized() && window == self.main_window()

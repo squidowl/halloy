@@ -1466,38 +1466,8 @@ impl State {
                 (self.focus(), None)
             }
             Message::ClearDraftReply => {
-                if config.buffer.reply.insert_nick
-                    && let Some(draft_reply) = &self.draft_reply
-                {
-                    let suffix = &config
-                        .buffer
-                        .text_input
-                        .autocomplete
-                        .completion_suffixes[0];
-                    let prefix_str = format!("{}{suffix}", draft_reply.nick);
-                    let current_text = self.input_content.text();
-                    if current_text.starts_with(&prefix_str) {
-                        let stripped =
-                            current_text[prefix_str.len()..].to_string();
-                        let delta = -(prefix_str.chars().count() as i64);
-                        let cursor = adjust_cursor(
-                            &self.input_content,
-                            &stripped,
-                            0,
-                            0,
-                            delta,
-                        );
-                        self.input_content =
-                            text_editor::Content::with_text(&stripped);
-                        self.input_content.move_to(cursor);
-                    }
-                }
-                self.draft_reply = None;
-                history.record_draft(RawInput {
-                    buffer: buffer.clone(),
-                    text: self.input_content.text(),
-                    reply: None,
-                });
+                let _ = self.clear_draft_reply(buffer, history, config);
+
                 (self.focus(), None)
             }
             Message::FilehostUploadDone { id, url } => {
@@ -2797,6 +2767,51 @@ impl State {
 
     pub fn close_picker(&mut self) -> bool {
         self.completion.close_picker()
+    }
+
+    pub fn clear_draft_reply(
+        &mut self,
+        buffer: &buffer::Upstream,
+        history: &mut history::Manager,
+        config: &Config,
+    ) -> bool {
+        if self.draft_reply.is_some() {
+            if config.buffer.reply.insert_nick
+                && let Some(draft_reply) = &self.draft_reply
+            {
+                let suffix =
+                    &config.buffer.text_input.autocomplete.completion_suffixes
+                        [0];
+                let prefix_str = format!("{}{suffix}", draft_reply.nick);
+                let current_text = self.input_content.text();
+                if current_text.starts_with(&prefix_str) {
+                    let stripped = current_text[prefix_str.len()..].to_string();
+                    let delta = -(prefix_str.chars().count() as i64);
+                    let cursor = adjust_cursor(
+                        &self.input_content,
+                        &stripped,
+                        0,
+                        0,
+                        delta,
+                    );
+                    self.input_content =
+                        text_editor::Content::with_text(&stripped);
+                    self.input_content.move_to(cursor);
+                }
+            }
+
+            self.draft_reply = None;
+
+            history.record_draft(RawInput {
+                buffer: buffer.clone(),
+                text: self.input_content.text(),
+                reply: None,
+            });
+
+            true
+        } else {
+            false
+        }
     }
 
     fn parse_lines_and_maybe_send_typing_status(
