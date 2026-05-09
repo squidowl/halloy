@@ -2,6 +2,7 @@ use std::net::IpAddr;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Once;
+use std::time::Duration;
 
 #[cfg(feature = "tor")]
 use arti_client::DataStream as TorStream;
@@ -63,6 +64,7 @@ pub struct Config<'a> {
 #[derive(Debug, Clone)]
 pub struct WebSocket<'a> {
     pub path: &'a str,
+    pub ping_interval: Duration,
 }
 
 impl<Codec> Connection<Codec> {
@@ -82,6 +84,7 @@ impl<Codec> Connection<Codec> {
                     config.port,
                     config.security,
                     websocket.path,
+                    websocket.ping_interval,
                     codec,
                 )
                 .await?,
