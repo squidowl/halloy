@@ -286,6 +286,7 @@ async fn receive(
                 port: port.get(),
                 security: connection::Security::Unsecured,
                 proxy: proxy.map(From::from),
+                websocket: None,
             },
             BytesCodec::new(),
         )
@@ -418,6 +419,7 @@ async fn send(
                 port: port.get(),
                 security: connection::Security::Unsecured,
                 proxy: proxy.map(From::from),
+                websocket: None,
             },
             BytesCodec::new(),
         )

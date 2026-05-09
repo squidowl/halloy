@@ -12,6 +12,7 @@ Added:
 - Support for IRCv3 metadata `display-name`, `avatar`, `pronouns`, `homepage`, `color`, `status` keys
 - Theme colors for horizontal rule text and buffer backlog/date separators
 - Support for `draft/chathistory-end` message tag
+- Support for IRCv3 WebSockets
 
 Fixed:
 
