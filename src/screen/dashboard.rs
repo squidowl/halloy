@@ -3359,26 +3359,66 @@ impl Dashboard {
             .redact_message(server, redaction, display_redacted);
     }
 
-    pub fn is_focused_and_at_bottom(
-        &self,
-        kind: &history::Kind,
-        kind_window: Option<window::Id>,
-    ) -> bool {
+    pub fn is_focused_and_at_bottom(&self, kind: &history::Kind) -> bool {
+        let Some((kind_window, kind_pane)) =
+            self.panes.iter().find_map(|(window, _, state)| {
+                state
+                    .buffer
+                    .data()
+                    .and_then(history::Kind::from_buffer)
+                    .is_some_and(|pane_kind| pane_kind == *kind)
+                    .then_some((window, state))
+            })
+        else {
+            return false;
+        };
+
+        if kind_pane
+            .buffer
+            .is_scrolled_to_bottom()
+            .is_none_or(|is_scrolled_to_bottom| !is_scrolled_to_bottom)
+        {
+            return false;
+        }
+
         self.get_focused()
             .is_some_and(|(focused_window, _, focused_pane)| {
-                let is_focused_window = kind_window == Some(focused_window);
+                let is_focused_window = kind_window == focused_window;
 
                 let focused_kind = focused_pane
                     .buffer
                     .data()
                     .and_then(history::Kind::from_buffer);
-                let is_same_buffer = focused_kind.as_ref() == Some(kind);
+                let is_focused_pane = focused_kind.as_ref() == Some(kind);
 
-                let is_at_bottom =
-                    focused_pane.buffer.is_scrolled_to_bottom() == Some(true);
-
-                is_focused_window && is_same_buffer && is_at_bottom
+                is_focused_window && is_focused_pane
             })
+    }
+
+    pub fn is_open_and_at_bottom(&self, kind: &history::Kind) -> bool {
+        let Some((kind_window, kind_pane)) =
+            self.panes.iter().find_map(|(window, _, state)| {
+                state
+                    .buffer
+                    .data()
+                    .and_then(history::Kind::from_buffer)
+                    .is_some_and(|pane_kind| pane_kind == *kind)
+                    .then_some((window, state))
+            })
+        else {
+            return false;
+        };
+
+        if kind_pane
+            .buffer
+            .is_scrolled_to_bottom()
+            .is_none_or(|is_scrolled_to_bottom| !is_scrolled_to_bottom)
+        {
+            return false;
+        }
+
+        self.get_focused()
+            .is_some_and(|(focused_window, _, _)| kind_window == focused_window)
     }
 
     pub fn block_and_record_message(

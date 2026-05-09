@@ -145,7 +145,7 @@ pub struct MarkAsRead {
     pub on_buffer_close: OnBufferClose,
     pub on_scroll_to_bottom: bool,
     pub on_message_sent: bool,
-    pub on_message: bool,
+    pub on_message: OnMessage,
 }
 
 impl Default for MarkAsRead {
@@ -155,7 +155,7 @@ impl Default for MarkAsRead {
             on_buffer_close: OnBufferClose::default(),
             on_scroll_to_bottom: true,
             on_message_sent: true,
-            on_message: true,
+            on_message: OnMessage::default(),
         }
     }
 }
@@ -188,6 +188,51 @@ impl OnBufferClose {
 #[serde(rename_all = "kebab-case")]
 pub enum OnBufferCloseCondition {
     ScrolledToBottom,
+}
+
+#[derive(Debug, Default, Clone)]
+pub enum OnMessage {
+    #[default]
+    Focused,
+    Open,
+    None,
+}
+
+impl<'de> Deserialize<'de> for OnMessage {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "kebab-case")]
+        pub enum Enum {
+            Focused,
+            Open,
+            None,
+        }
+
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum OnMessageCondition {
+            Enum(Enum),
+            Bool(bool),
+        }
+
+        match OnMessageCondition::deserialize(deserializer)? {
+            OnMessageCondition::Enum(on_message) => Ok(match on_message {
+                Enum::Focused => Self::Focused,
+                Enum::Open => Self::Open,
+                Enum::None => Self::None,
+            }),
+            OnMessageCondition::Bool(boolean) => {
+                if boolean {
+                    Ok(Self::Open)
+                } else {
+                    Ok(Self::None)
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
