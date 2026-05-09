@@ -813,17 +813,13 @@ fn upstream_buffer_button<'a>(
         (state.buffer.upstream() == Some(&buffer)).then_some((window_id, pane))
     });
 
-    let has_unread = if config.sidebar.unread_indicator.show_on_open_buffers
-        || open.is_none()
-    {
+    let has_unread = if open.is_none() {
         history.has_unread(&kind)
     } else {
         false
     };
 
-    let has_highlight = if config.sidebar.unread_indicator.show_on_open_buffers
-        || open.is_none()
-    {
+    let has_highlight = if open.is_none() {
         history.has_highlight(&kind)
     } else {
         false

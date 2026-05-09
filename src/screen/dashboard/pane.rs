@@ -251,7 +251,7 @@ impl TitleBar {
     fn view<'a>(
         &'a self,
         buffer: &Buffer,
-        history: &'a history::Manager,
+        _history: &'a history::Manager,
         title: Element<'a, Message>,
         _id: pane_grid::Pane,
         panes: usize,
@@ -267,49 +267,12 @@ impl TitleBar {
     ) -> widget::TitleBar<'a, Message> {
         let maybe_buffer_kind =
             buffer.data().and_then(history::Kind::from_buffer);
-        let can_mark_as_read = if let Some(kind) = &maybe_buffer_kind {
-            history.can_mark_as_read(kind)
-        } else {
-            false
-        };
-        let has_unread = if let Some(kind) = &maybe_buffer_kind {
-            history.has_unread(kind)
-        } else {
-            false
-        };
 
         // Pane controls.
         let controls = row![
             if maybe_buffer_kind.is_some() {
-                let mark_as_read_button = button(center(icon::mark_as_read()))
-                    .padding(5)
-                    .width(22)
-                    .height(22)
-                    .on_press_maybe(
-                        can_mark_as_read.then_some(Message::MarkAsRead),
-                    )
-                    .style(move |theme, status| {
-                        theme::button::secondary(theme, status, has_unread)
-                    });
-
-                let mark_as_read_button_with_tooltip = tooltip(
-                    mark_as_read_button,
-                    show_tooltips.then_some(if can_mark_as_read {
-                        "Mark messages as read"
-                    } else {
-                        "No unread messages"
-                    }),
-                    tooltip::Position::Bottom,
-                    theme,
-                );
-                Some(mark_as_read_button_with_tooltip)
-            } else {
-                None
-            },
-            {
-                if maybe_buffer_kind.is_some() {
-                    let can_scroll_to_bottom =
-                        !buffer.is_scrolled_to_bottom().unwrap_or_default();
+                let can_scroll_to_bottom =
+                    !buffer.is_scrolled_to_bottom().unwrap_or_default();
                     let scroll_to_bottom_button =
                         button(center(icon::scroll_to_bottom()))
                             .padding(5)
@@ -336,8 +299,7 @@ impl TitleBar {
                     Some(scroll_to_bottom_button_with_tooltip)
                 } else {
                     None
-                }
-            },
+                },
             if let Buffer::Channel(state) = &buffer {
                 if let Some(topic) =
                     clients.get_channel_topic(&state.server, &state.target)
