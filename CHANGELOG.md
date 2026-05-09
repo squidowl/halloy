@@ -30,6 +30,7 @@ Fixed:
 - Issue where unread indicator could appear in sidebar for an open pane that does not have unread messages
 - Issue where backlog divider in highlights or logs pane would not update when marking the pane as read
 - `VERSION` and `JOIN` commands on connect are skipped if server is primary soju server
+- `tor` enabled builds
 
 Changed:
 
