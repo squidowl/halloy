@@ -72,6 +72,7 @@ pub struct Dashboard {
     typing_animation: Option<buffer::typing::Animation>,
     http_client: Option<Arc<reqwest::Client>>,
     buffer_settings: dashboard::BufferSettings,
+    pending_mark_as_read: HashSet<history::Kind>,
     pub filehost: filehost::Manager,
 }
 
@@ -159,6 +160,7 @@ impl Dashboard {
             typing_animation: None,
             http_client: http_client_from_config(config).map(Arc::new),
             buffer_settings: dashboard::BufferSettings::default(),
+            pending_mark_as_read: HashSet::new(),
             filehost: filehost::Manager::new(),
         };
 
@@ -335,7 +337,15 @@ impl Dashboard {
             Message::Pane(window, message) => {
                 match message {
                     pane::Message::PaneClicked(pane) => {
-                        return (self.focus_pane(window, pane), None);
+                        return (
+                            self.focus_pane(window, pane).chain(
+                                Task::done(Message::Pane(
+                                    window,
+                                    pane::Message::MarkAsRead,
+                                ))
+                            ),
+                            None,
+                        );
                     }
                     pane::Message::PaneResized(pane_grid::ResizeEvent {
                         split,
@@ -813,6 +823,15 @@ impl Dashboard {
                 {
                     match event {
                         history::manager::Event::Loaded(kind) => {
+                            if self.pending_mark_as_read.remove(&kind) {
+                                mark_as_read(
+                                    kind.clone(),
+                                    &mut self.history,
+                                    clients,
+                                    TokenPriority::User,
+                                );
+                            }
+
                             let buffer = kind.into();
 
                             if let Some((window, pane, state)) =
@@ -2887,7 +2906,15 @@ impl Dashboard {
                     advanced::clipboard::Kind::Standard,
                 )
             }),
-            LeftClick => self.refocus_pane(),
+            LeftClick => {
+                let Focus { window, pane: _ } = self.focus;
+                self.refocus_pane().chain(
+                    Task::done(Message::Pane(
+                        window,
+                        pane::Message::MarkAsRead,
+                    ))
+                )
+            }
             UpdatePrimaryClipboard => {
                 selectable_text::selected(|selected_text| {
                     Message::SelectedText(
@@ -3026,6 +3053,10 @@ impl Dashboard {
                     Task::batch(vec![
                         self.reset_pane(window, pane),
                         self.focus_pane(window, pane),
+                        Task::done(Message::Pane(
+                            window,
+                            pane::Message::MarkAsRead,
+                        )),
                     ])
                 } else {
                     log::error!("Didn't find any panes to replace");
@@ -3038,7 +3069,13 @@ impl Dashboard {
                     if pane.buffer.data().as_ref() == Some(&buffer) {
                         self.focus = Focus { window, pane: id };
 
-                        return self.focus_pane(window, id);
+                        return Task::batch(vec![
+                            self.focus_pane(window, id),
+                            Task::done(Message::Pane(
+                                window,
+                                pane::Message::MarkAsRead,
+                            )),
+                        ]);
                     }
                 }
 
@@ -3056,7 +3093,13 @@ impl Dashboard {
                             });
                             self.last_changed = Some(Instant::now());
 
-                            return self.focus_pane(self.main_window(), *id);
+                            return Task::batch(vec![
+                                self.focus_pane(self.main_window(), *id),
+                                Task::done(Message::Pane(
+                                    self.main_window(),
+                                    pane::Message::MarkAsRead,
+                                )),
+                            ]);
                         }
                     }
                 }
@@ -3128,7 +3171,13 @@ impl Dashboard {
                 );
 
                 if let Some((pane, _)) = result {
-                    return self.focus_pane(self.main_window(), pane);
+                    return Task::batch(vec![
+                        self.focus_pane(self.main_window(), pane),
+                        Task::done(Message::Pane(
+                            self.main_window(),
+                            pane::Message::MarkAsRead,
+                        )),
+                    ]);
                 }
 
                 Task::none()
@@ -4281,8 +4330,29 @@ impl Dashboard {
             typing_animation: None,
             http_client: http_client_from_config(config).map(Arc::new),
             buffer_settings: data.buffer_settings.clone(),
+            pending_mark_as_read: HashSet::new(),
             filehost: filehost::Manager::new(),
         };
+
+        let mut pending_mark_as_read = dashboard
+            .panes
+            .iter()
+            .filter_map(|(_, _, pane)| {
+                pane.buffer
+                    .data()
+                    .and_then(history::Kind::from_buffer)
+            })
+            .collect::<HashSet<_>>();
+
+        for pane in &data.popout_panes {
+            if let data::Pane::Buffer { buffer } = pane {
+                if let Some(kind) = history::Kind::from_buffer(buffer.clone()) {
+                    pending_mark_as_read.insert(kind);
+                }
+            }
+        }
+
+        dashboard.pending_mark_as_read = pending_mark_as_read;
 
         let mut tasks = vec![sidebar_task.map(Message::Sidebar)];
 
