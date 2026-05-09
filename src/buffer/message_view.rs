@@ -10,7 +10,7 @@ use data::preview::{self, Previews};
 use data::redaction::Redaction;
 use data::server::Server;
 use data::user::{ChannelUsers, NickRef};
-use data::{Config, Preview, User, message, metadata, target};
+use data::{Config, Preview, User, history, message, metadata, target};
 use iced::widget::text::Wrapping;
 use iced::widget::{
     Space, button, center, column, container, mouse_area, right, row, space,
@@ -24,8 +24,8 @@ use crate::buffer::scroll_view::{LayoutMessage, Message};
 use crate::widget::reaction_row::{has_visible_reactions, reaction_row};
 use crate::widget::user_display::UserDisplay;
 use crate::widget::{
-    Element, Marker, image, message_content, message_marker, notify_visibility,
-    selectable_text, tooltip,
+    Element, Marker, element_tooltip, image, message_content, message_marker,
+    notify_visibility, preview_content, selectable_text, tooltip,
 };
 use crate::{Theme, font, icon, theme};
 
@@ -94,6 +94,7 @@ pub struct ChannelQueryLayout<'a> {
     pub theme: &'a Theme,
     pub previews: Previews<'a>,
     pub target: TargetInfo<'a>,
+    pub history: &'a history::Manager,
 }
 
 impl<'a> ChannelQueryLayout<'a> {
@@ -1552,82 +1553,128 @@ impl<'a> ChannelQueryLayout<'a> {
             return None;
         }
 
-        let reg_text_s =
+        let text_size =
             self.config.font.size.map_or(theme::TEXT_SIZE, f32::from);
-        let sm_font_s = reg_text_s * 0.85;
+        let preview_text_size = text_size * 0.85;
 
-        let content: Element<_> = if let Some(data::message::ReplyPreview {
-            user,
-            text: preview,
-        }) = &message.reply_preview
+        let mut nick: Option<Element<'_, _>> = None;
+        let mut tooltip: Option<Element<'_, _>> = None;
+
+        let preview_str: String = if let Some(reply_preview) =
+            &message.reply_preview
         {
-            let nick_element: Option<Element<_>> = if let Some(user) = user {
-                let is_our_nick =
-                    self.our_nick.is_some_and(|our| our == user.nickname())
+            let data::message::ReplyPreview {
+                user,
+                content: reply_content,
+                in_reply_to,
+                redaction: reply_redaction,
+                blocked: reply_blocked,
+                ..
+            } = reply_preview;
+
+            let nick_info: Option<(&User, bool, UserDisplay)> =
+                if let Some(user) = user {
+                    let is_our_nick = self
+                        .our_nick
+                        .is_some_and(|our| our == user.nickname())
                         && !(message.is_echo
                             || message.direction == message::Direction::Sent);
 
-                let user = self
-                    .target
-                    .users()
-                    .and_then(|users| users.resolve(user))
-                    .unwrap_or(user);
+                    let user = self
+                        .target
+                        .users()
+                        .and_then(|users| users.resolve(user))
+                        .unwrap_or(user);
 
-                let user_display = UserDisplay::new(
-                    user,
-                    self.config.buffer.nickname.show_access_levels,
-                    self.config.buffer.nickname.show_bot_icon,
-                    self.registry,
-                    &self.config.display.nickname,
-                    self.config.buffer.nickname.truncate,
-                    self.config.display.truncation_character,
-                    Some(&self.config.buffer.nickname.brackets),
-                    false,
-                );
+                    let highlight = is_our_nick
+                        && self.config.highlights.nickname.is_target_included(
+                            message.user(),
+                            self.target.as_target_ref(),
+                            self.server,
+                            self.casemapping,
+                        );
 
-                let highlight = is_our_nick
-                    && self.config.highlights.nickname.is_target_included(
-                        message.user(),
-                        self.target.as_target_ref(),
-                        self.server,
-                        self.casemapping,
+                    let display = UserDisplay::new(
+                        user,
+                        self.config.buffer.nickname.show_access_levels,
+                        self.config.buffer.nickname.show_bot_icon,
+                        self.registry,
+                        &self.config.display.nickname,
+                        self.config.buffer.nickname.truncate,
+                        self.config.display.truncation_character,
+                        Some(&self.config.buffer.nickname.brackets),
+                        false,
                     );
 
-                Some(user_display.into_element(
-                    user,
-                    false,
-                    false,
-                    None,
-                    Some(sm_font_s),
-                    highlight,
-                    false,
-                    self.theme,
-                    self.config,
-                ))
-            } else {
-                None
-            };
+                    Some((user, highlight, display))
+                } else {
+                    None
+                };
 
-            let preview_text = if nick_element.is_some() {
-                text(format!(" {preview}"))
-            } else {
-                text(preview)
+            tooltip = (self.config.buffer.reply.tooltip.enabled
+                && !reply_blocked)
+                .then(|| {
+                    let tooltip_nick =
+                        nick_info.as_ref().map(|(user, _, display)| {
+                            display.clone().into_element(
+                                user,
+                                false,
+                                false,
+                                None,
+                                None,
+                                false,
+                                false,
+                                self.theme,
+                                self.config,
+                            )
+                        });
+                    self.hover_tooltip(
+                        reply_preview.hash,
+                        reply_preview.server_time,
+                        tooltip_nick,
+                        reply_content,
+                        in_reply_to.as_deref(),
+                        reply_redaction.as_ref(),
+                        *reply_blocked,
+                    )
+                });
+
+            if !reply_blocked {
+                nick = nick_info.map(|(user, highlight, display)| {
+                    display.into_element(
+                        user,
+                        false,
+                        false,
+                        None,
+                        Some(preview_text_size),
+                        highlight,
+                        false,
+                        self.theme,
+                        self.config,
+                    )
+                });
             }
-            .style(theme::text::secondary)
-            .size(sm_font_s)
-            .wrapping(Wrapping::None)
-            .ellipsis(text::Ellipsis::End)
-            .width(Length::Fill);
 
-            row![text(" ").size(sm_font_s), nick_element, preview_text,].into()
+            reply_preview.preview_text()
         } else {
             // the message may not be loaded into history
-            text(" replied to a message")
-                .style(theme::text::timestamp)
-                .size(sm_font_s)
-                .width(Length::Fill)
-                .into()
+            "Replied to a message".to_string()
         };
+
+        let preview_text = text(preview_str)
+            .style(theme::text::secondary)
+            .size(preview_text_size)
+            .wrapping(Wrapping::None)
+            .ellipsis(text::Ellipsis::End);
+
+        let char_width = font::width_from_str("a", &self.config.font);
+
+        let mut preview_row = row![].spacing(char_width);
+        if let Some(nick) = nick {
+            preview_row = preview_row.push(nick);
+        }
+        preview_row = preview_row.push(preview_text);
+        let preview: Element<'_, _> = preview_row.into();
 
         let timestamp_chars = self
             .config
@@ -1640,47 +1687,232 @@ impl<'a> ChannelQueryLayout<'a> {
 
         // right-aligned: fixed short arm offset to content column.
         // left-aligned / top-aligned: arm spans from timestamp midpoint to its edge.
-        let mut r = if let Some(nick_col_width) = right_aligned_width {
-            let char_width = font::width_from_str("a", &self.config.font);
+        let mut row = if let Some(nick_col_width) = right_aligned_width {
             let nick_col_chars = (nick_col_width / char_width).round() as usize;
             let indent = timestamp_chars + nick_col_chars - 2;
-            let arm = if show_reply_icon {
-                "┌── "
-            } else {
-                "┌──"
-            };
+
             row![
-                text(" ".repeat(indent)).size(reg_text_s),
-                text(arm).style(theme::text::timestamp).size(reg_text_s),
+                text(" ".repeat(indent) + "┌──")
+                    .style(theme::text::timestamp)
+                    .size(text_size),
             ]
         } else {
             let half = timestamp_chars / 2;
-            let trailing = if show_reply_icon { " " } else { "" };
             let arm = format!(
-                "┌{}{}",
+                "┌{}",
                 "─".repeat(
                     half.saturating_sub(1)
                         + usize::from(!timestamp_chars.is_multiple_of(2))
                 ),
-                trailing
             );
             row![
-                text(" ".repeat(half)).size(reg_text_s),
-                text(arm).style(theme::text::timestamp).size(reg_text_s),
+                text(" ".repeat(half) + &arm)
+                    .style(theme::text::timestamp)
+                    .size(text_size),
             ]
-        };
+        }
+        .spacing(char_width);
 
         if show_reply_icon {
-            r = r.push(
+            row = row.push(
                 icon::reply()
                     .size(reply_icon_size)
                     .style(theme::text::primary),
             );
         }
 
-        let reply_row = r.push(content);
+        row = row.push(preview).align_y(alignment::Vertical::Center);
 
-        Some(reply_row.align_y(alignment::Vertical::Center).into())
+        let delay = iced::time::Duration::from_millis(
+            self.config.buffer.reply.tooltip.delay,
+        );
+
+        Some(element_tooltip(
+            row,
+            tooltip,
+            tooltip::Position::FollowCursor,
+            delay,
+        ))
+    }
+
+    fn hover_tooltip(
+        &self,
+        reply_hash: message::Hash,
+        server_time: chrono::DateTime<chrono::Utc>,
+        nick: Option<Element<'a, Message>>,
+        reply: &'a message::Content,
+        in_reply_to: Option<&'a message::ReplyPreview>,
+        redaction: Option<&'a data::redaction::Redaction>,
+        is_blocked: bool,
+    ) -> Element<'a, Message> {
+        let kind = match self.target {
+            TargetInfo::Channel { channel, .. } => {
+                history::Kind::Channel(self.server.clone(), (*channel).clone())
+            }
+            TargetInfo::Query { query } => {
+                history::Kind::Query(self.server.clone(), (*query).clone())
+            }
+        };
+        let text_size =
+            self.config.font.size.map_or(theme::TEXT_SIZE, f32::from);
+        let preview_text_size = text_size * 0.85;
+        let char_width = font::width_from_str("a", &self.config.font);
+
+        let is_muted = redaction.is_some() || is_blocked;
+        let dimmed = is_muted.then_some(Dimmed::new(None));
+        let bg = self.theme.styles().buffer.background;
+        let dimmed_bg = dimmed.map(|d| (d, bg));
+        let dimmed_style = move |t: &Theme| {
+            theme::selectable_text::dimmed(
+                theme::selectable_text::default(t),
+                t,
+                dimmed_bg,
+            )
+        };
+
+        let use_dimmed_display = redaction.is_some()
+            && self.config.buffer.redaction.display
+                == data::config::buffer::redaction::Display::Dimmed;
+
+        let (tooltip_content, show_previews): (Element<_>, bool) = if let Some(
+            redaction,
+        ) =
+            redaction.filter(|_| !use_dimmed_display)
+        {
+            (
+                selectable_text(redaction.message())
+                    .style(dimmed_style)
+                    .into(),
+                false,
+            )
+        } else {
+            (
+                message_content(
+                    reply,
+                    &[],
+                    self.server,
+                    self.registry,
+                    self.chantypes,
+                    self.casemapping,
+                    self.theme,
+                    Message::Link,
+                    None,
+                    dimmed_style,
+                    theme::font_style::primary,
+                    dimmed.map(|d| {
+                        move |color: Color| d.transform_color(color, bg)
+                    }),
+                    self.config,
+                ),
+                true,
+            )
+        };
+
+        let mut content_col = column![tooltip_content].spacing(4);
+
+        if show_previews && let message::Content::Fragments(fragments) = reply {
+            for url in fragments
+                .iter()
+                .filter_map(message::Fragment::url)
+                .filter(|url| {
+                    !self.history.is_preview_hidden(&kind, reply_hash, url)
+                })
+                .take(self.config.preview.max_per_message)
+            {
+                if let Some(preview::State::Loaded(preview)) =
+                    self.previews.get(url)
+                {
+                    let el = preview_content(preview, self.config, self.theme);
+                    let el: Element<_> =
+                        if matches!(preview, data::Preview::Card(..)) {
+                            container(el)
+                                .style(theme::container::preview_card)
+                                .into()
+                        } else {
+                            container(el).max_height(200).into()
+                        };
+                    content_col = content_col.push(el);
+                }
+            }
+        }
+
+        let in_reply_to_row: Option<Element<_>> = in_reply_to.map(|nested| {
+            let nested_nick: Option<Element<_>> = (!nested.blocked)
+                .then_some(nested.user.as_ref())
+                .flatten()
+                .map(|user| {
+                    let user = self
+                        .target
+                        .users()
+                        .and_then(|users| users.resolve(user))
+                        .unwrap_or(user);
+                    let display = UserDisplay::new(
+                        user,
+                        self.config.buffer.nickname.show_access_levels,
+                        self.config.buffer.nickname.show_bot_icon,
+                        self.registry,
+                        &self.config.display.nickname,
+                        self.config.buffer.nickname.truncate,
+                        self.config.display.truncation_character,
+                        Some(&self.config.buffer.nickname.brackets),
+                        false,
+                    );
+                    display.into_element(
+                        user,
+                        false,
+                        false,
+                        None,
+                        Some(preview_text_size),
+                        false,
+                        false,
+                        self.theme,
+                        self.config,
+                    )
+                });
+
+            let preview_text = text(nested.preview_text())
+                .style(theme::text::secondary)
+                .size(preview_text_size)
+                .wrapping(Wrapping::None)
+                .ellipsis(text::Ellipsis::End)
+                .width(Length::Shrink);
+
+            let mut nested_row = row![
+                icon::reply()
+                    .size(self.config.buffer.reply.icon_size)
+                    .style(theme::text::primary),
+            ]
+            .spacing(char_width);
+
+            if let Some(n) = nested_nick {
+                nested_row = nested_row.push(n);
+            }
+
+            nested_row = nested_row
+                .push(preview_text)
+                .align_y(alignment::Vertical::Center);
+
+            nested_row.into()
+        });
+
+        let body: Element<_> = row![]
+            .spacing(font::width_from_str(" ", &self.config.font))
+            .extend(self.config.buffer.format_timestamp(&server_time).map(
+                |timestamp| -> Element<_> {
+                    text(timestamp).style(theme::text::timestamp).into()
+                },
+            ))
+            .extend(nick)
+            .push(content_col)
+            .into();
+
+        let outer_col = column![].spacing(4).extend(in_reply_to_row).push(body);
+
+        container(outer_col)
+            .style(theme::container::hover_preview_tooltip)
+            .padding(8)
+            .max_width(self.config.buffer.reply.tooltip.max_width)
+            .into()
     }
 }
 

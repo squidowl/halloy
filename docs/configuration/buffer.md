@@ -1669,3 +1669,44 @@ This is useful for clients that don't support replies, as they may not otherwise
 [buffer.reply]
 insert_nick = false
 ```
+
+### `tooltip`
+
+#### `enabled`
+
+Show a tooltip when hovering a reply.
+
+```toml
+# Type: bool
+# Values: true, false
+# Default: true
+
+[buffer.reply.tooltip]
+enabled = false
+```
+
+#### `delay`
+
+Delay in milliseconds before tooltip appears.
+
+```toml
+# Type: integer
+# Values: positive integer
+# Default: 500
+
+[buffer.reply.tooltip]
+delay = 0
+```
+
+#### `max_width`
+
+Maximum width of the hover tooltip in pixels.
+
+```toml
+# Type: float
+# Values: positive float
+# Default: 500.0
+
+[buffer.reply.tooltip]
+max_width = 400.0
+```

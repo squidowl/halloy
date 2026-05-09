@@ -805,6 +805,15 @@ impl Manager {
         self.data.input.get(buffer)
     }
 
+    pub fn is_preview_hidden(
+        &self,
+        kind: &history::Kind,
+        hash: message::Hash,
+        url: &url::Url,
+    ) -> bool {
+        self.data.is_preview_hidden(kind, hash, url)
+    }
+
     pub fn hide_preview(
         &mut self,
         kind: impl Into<history::Kind>,
@@ -1833,6 +1842,21 @@ impl Data {
                 )
             })
             .collect()
+    }
+
+    fn is_preview_hidden(
+        &self,
+        kind: &history::Kind,
+        hash: message::Hash,
+        url: &url::Url,
+    ) -> bool {
+        let Some(History::Full { messages, .. }) = self.map.get(kind) else {
+            return false;
+        };
+        messages
+            .iter()
+            .find(|m| m.hash == hash)
+            .is_some_and(|m| m.hidden_urls.contains(url))
     }
 
     fn hide_preview(

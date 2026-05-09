@@ -83,6 +83,7 @@ pub struct Reply {
     pub show_icon: bool,
     pub icon_size: f32,
     pub insert_nick: bool,
+    pub tooltip: ReplyTooltip,
 }
 
 impl Default for Reply {
@@ -92,6 +93,25 @@ impl Default for Reply {
             show_icon: false,
             icon_size: 10.0,
             insert_nick: true,
+            tooltip: ReplyTooltip::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct ReplyTooltip {
+    pub enabled: bool,
+    pub delay: u64,
+    pub max_width: f32,
+}
+
+impl Default for ReplyTooltip {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            delay: 500,
+            max_width: 500.0,
         }
     }
 }

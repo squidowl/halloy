@@ -16,20 +16,23 @@ use data::server::Server;
 use data::target::{self, Target};
 use data::{Config, Image, Preview, client, history, metadata, reaction};
 use iced::widget::{
-    self, Scrollable, button, column, container, row, rule, scrollable, space,
-    text,
+    self, Scrollable, Space, button, center, column, container, mouse_area,
+    right, row, rule, scrollable, space, stack, text,
 };
-use iced::{Length, Size, Task, padding};
+use iced::{Length, Padding, Size, Task, alignment, mouse, padding};
 use tokio::time;
 
 use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
 use super::context_menu;
 use crate::widget::user_display::UserDisplay;
-use crate::widget::{Element, on_resize};
-use crate::{Theme, buffer, font, theme};
+use crate::widget::{
+    Element, notify_visibility, on_resize, preview_content, tooltip,
+};
+use crate::{Theme, buffer, font, icon, theme};
 
 const SCROLL_TO_TIMEOUT: Duration = Duration::from_millis(200);
+const HIDE_BUTTON_WIDTH: f32 = 22.0;
 /// Pages of off-screen messages to keep rendered above and below the viewport
 const BUFFER_PAGES: usize = 3;
 
@@ -1807,6 +1810,175 @@ pub mod keyed {
             heights: vec![],
         })
     }
+}
+
+fn preview_row<'a>(
+    message: &'a data::Message,
+    preview: &'a Preview,
+    url: &url::Url,
+    idx: usize,
+    right_alignment_widths: Option<RightAlignmentWidths>,
+    is_hovered: bool,
+    config: &'a Config,
+    registry: &'a dyn metadata::Registry,
+    theme: &'a Theme,
+) -> Element<'a, Message> {
+    let inner = preview_content(preview, config, theme);
+
+    let content = match preview {
+        data::Preview::Card(..) => keyed(
+            keyed::Key::Preview(message.hash, idx),
+            button(inner)
+                .style(theme::button::preview_card)
+                .on_press(Message::Link(message::Link::Url(url.to_string()))),
+        ),
+        data::Preview::Image(image) => keyed(
+            keyed::Key::Preview(message.hash, idx),
+            button(inner)
+                .on_press(match config.preview.image.action {
+                    data::config::preview::ImageAction::OpenUrl => {
+                        Message::Link(message::Link::Url(image.url.to_string()))
+                    }
+                    data::config::preview::ImageAction::Preview => {
+                        Message::ImagePreview(image.clone())
+                    }
+                })
+                .padding(0)
+                .style(theme::button::bare),
+        ),
+    };
+
+    let url_string = url.to_string();
+    let content: Element<'a, Message> =
+        crate::widget::context_menu::context_menu(
+            crate::widget::context_menu::MouseButton::Right,
+            crate::widget::context_menu::Anchor::Cursor,
+            crate::widget::context_menu::ToggleBehavior::KeepOpen,
+            Some(mouse::Interaction::Pointer),
+            content,
+            context_menu::Entry::url_list(
+                false,
+                None,
+                config
+                    .preview
+                    .is_enabled(url.as_str())
+                    .then_some(message.hidden_urls.contains(url)),
+                false,
+                false,
+                false,
+            ),
+            move |entry, length| {
+                entry
+                    .view(
+                        Some(context_menu::Context::Url {
+                            url: url_string.as_str(),
+                            server_time: None,
+                            hash: Some(&message.hash),
+                            msgid: None,
+                            selected_reactions: vec![],
+                            to_nick: None,
+                            reply_preview: None,
+                            redaction: None,
+                        }),
+                        length,
+                        config,
+                        theme,
+                    )
+                    .map(Message::ContextMenu)
+            },
+        )
+        .into();
+
+    let aligned_content = match &config.buffer.nickname.alignment {
+        data::buffer::Alignment::Left => {
+            let mut alignment_width = 0.0;
+
+            let prefixes_width = prefixes_width(message, config);
+
+            if let Some(prefixes_width) = prefixes_width {
+                alignment_width += prefixes_width;
+            }
+
+            let timestamp_width = timestamp_width(message, config);
+
+            let space_width = font::width_from_str(" ", &config.font);
+
+            if let Some(timestamp_width) = timestamp_width {
+                alignment_width += timestamp_width + space_width;
+            }
+
+            alignment_width +=
+                if let message::Source::User(user) = message.target.source() {
+                    UserDisplay::new(
+                        user,
+                        config.buffer.nickname.show_access_levels,
+                        config.buffer.nickname.show_bot_icon,
+                        registry,
+                        &config.display.nickname,
+                        config.buffer.nickname.truncate,
+                        config.display.truncation_character,
+                        Some(&config.buffer.nickname.brackets),
+                        true,
+                    )
+                    .width(config)
+                } else {
+                    font::width_of_message_marker(&config.font)
+                } + space_width;
+
+            row![Space::new().width(alignment_width), content].into()
+        }
+        data::buffer::Alignment::Right => {
+            let right_alignment_widths =
+                right_alignment_widths.unwrap_or_default();
+
+            let space_width = font::width_from_str(" ", &config.font);
+
+            let alignment_width = right_alignment_widths.prefixes
+                + right_alignment_widths.timestamp
+                + space_width
+                + right_alignment_widths.middle
+                + space_width;
+
+            row![Space::new().width(alignment_width), content].into()
+        }
+        data::buffer::Alignment::Top => content,
+    };
+
+    let hide_button = if is_hovered {
+        container(tooltip(
+            button(center(icon::cancel()))
+                .padding(5)
+                .width(HIDE_BUTTON_WIDTH)
+                .height(HIDE_BUTTON_WIDTH)
+                .on_press(Message::HidePreview(message.hash, url.clone()))
+                .style(|theme, status| {
+                    theme::button::secondary(theme, status, false)
+                }),
+            config.tooltips.show_for_buttons().then_some("Hide Preview"),
+            tooltip::Position::Top,
+            theme,
+        ))
+    } else {
+        container(space::horizontal().width(Length::Fixed(HIDE_BUTTON_WIDTH)))
+    };
+
+    // Iced hack: using a stack with right-aligned hide_button ensures the button always stays visible
+    // at the edge of the content, even when the parent container is resized to a smaller width.
+    let stack = stack![
+        container(aligned_content)
+            .padding(Padding::default().right(HIDE_BUTTON_WIDTH + 2.0)),
+        right(hide_button),
+    ];
+
+    let content = container(stack)
+        .align_y(alignment::Vertical::Top)
+        .width(Length::Fill)
+        .padding(Padding::default().top(4).bottom(4));
+
+    mouse_area(content)
+        .on_enter(Message::PreviewHovered(message.hash, idx))
+        .on_exit(Message::PreviewUnhovered(message.hash, idx))
+        .into()
 }
 
 mod correct_viewport {

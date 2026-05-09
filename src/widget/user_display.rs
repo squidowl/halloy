@@ -13,6 +13,7 @@ use super::{Element, selectable_text, text};
 use crate::widget::TextExt as _;
 use crate::{Theme, font, theme, widget};
 
+#[derive(Clone)]
 pub struct UserDisplay {
     base: UserDisplayData,
     tooltip: Option<UserDisplayData>,
@@ -49,8 +50,13 @@ impl UserDisplay {
         );
 
         if !with_tooltip {
+            let base = truncate
+                .and_then(|len| {
+                    full.truncate(len as usize, truncation_character)
+                })
+                .unwrap_or(full);
             return Self {
-                base: full.bracket(brackets),
+                base: base.bracket(brackets),
                 tooltip: None,
                 color,
             };

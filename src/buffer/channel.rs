@@ -129,6 +129,7 @@ pub fn view<'a>(
             channel,
             our_user,
         },
+        history,
     };
 
     let messages = container(
