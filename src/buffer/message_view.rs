@@ -368,6 +368,7 @@ impl<'a> ChannelQueryLayout<'a> {
             message,
             self.our_nick,
             self.config.font.size.map_or(theme::TEXT_SIZE, f32::from),
+            self.config.font.only_emojis_size.map(f32::from),
             self.config.buffer.channel.message.max_reaction_display,
             on_react,
             on_unreact,

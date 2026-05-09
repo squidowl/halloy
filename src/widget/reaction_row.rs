@@ -21,6 +21,7 @@ pub fn reaction_row<'a, M, F1, F2>(
     message: &'a data::Message,
     our_nick: Option<NickRef<'a>>,
     font_size: f32,
+    only_emojis_size: Option<f32>,
     max_reaction_display: u32,
     on_react: Option<F1>,
     on_unreact: Option<F2>,
@@ -88,6 +89,25 @@ where
                     .style(theme::text::secondary),
             );
         }
+
+        let tooltip_emoji_size = if let Some(only_emojis_size) =
+            only_emojis_size
+            && UnicodeSegmentation::graphemes(*reaction_text, true)
+                .all(|grapheme| emojis::get(grapheme).is_some())
+        {
+            only_emojis_size
+        } else {
+            font_size
+        };
+
+        let tooltip_content = row![
+            text(*reaction_text)
+                .shaping(iced::widget::text::Shaping::Advanced)
+                .size(tooltip_emoji_size)
+                .style(theme::text::primary),
+            tooltip_content,
+        ]
+        .spacing(6);
 
         iced::widget::tooltip(
             content,
