@@ -7,7 +7,7 @@ use iced::widget::{
 };
 use iced::{Length, Task};
 
-use crate::widget::{Element, Row, text};
+use crate::widget::{Element, Row, key_press, text};
 use crate::{emoji, theme, widget};
 
 const MODAL_WIDTH: f32 = 380.0;
@@ -18,14 +18,17 @@ const EMOJI_BUTTON_HEIGHT: f32 = 32.0;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct State {
     msgid: message::Id,
-    selected_reactions: HashSet<Cow<'static, str>>,
+    already_reacted: HashSet<Cow<'static, str>>,
     search_query_id: iced::widget::Id,
     search_query: String,
+    selection: Option<usize>,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
     SearchChanged(String),
+    Tab(bool),
+    SearchSelect,
     SelectEmoji(Cow<'static, str>),
 }
 
@@ -39,15 +42,16 @@ pub enum Event {
 }
 
 impl State {
-    pub fn new(msgid: message::Id, selected_reactions: Vec<String>) -> Self {
+    pub fn new(msgid: message::Id, already_reacted: Vec<String>) -> Self {
         Self {
             msgid,
-            selected_reactions: selected_reactions
+            already_reacted: already_reacted
                 .into_iter()
                 .map(Cow::Owned)
                 .collect(),
             search_query_id: iced::widget::Id::unique(),
             search_query: String::new(),
+            selection: None,
         }
     }
 
@@ -55,10 +59,56 @@ impl State {
         match message {
             Message::SearchChanged(search_query) => {
                 self.search_query = search_query;
+
+                let filtered = self.filtered_emojis();
+
+                if filtered.is_empty() {
+                    self.selection = None;
+                } else {
+                    self.selection = Some(0);
+                }
+
                 None
             }
+            Message::Tab(shift) => {
+                let filtered = self.filtered_emojis();
+
+                if filtered.is_empty() {
+                    self.selection = None;
+                } else {
+                    self.selection =
+                        Some(if let Some(selection) = self.selection {
+                            if shift {
+                                if selection == 0 {
+                                    filtered.len() - 1
+                                } else {
+                                    selection - 1
+                                }
+                            } else {
+                                (selection + 1) % filtered.len()
+                            }
+                        } else if shift {
+                            filtered.len() - 1
+                        } else {
+                            0
+                        });
+                }
+
+                None
+            }
+            Message::SearchSelect => self.selection.and_then(|selection| {
+                self.filtered_emojis().get(selection).map(|emoji| {
+                    let unreact = self.already_reacted.contains(emoji.as_str());
+
+                    Event::Toggle {
+                        msgid: self.msgid.clone(),
+                        text: Cow::Borrowed(emoji.as_str()),
+                        unreact,
+                    }
+                })
+            }),
             Message::SelectEmoji(text) => {
-                let unreact = self.selected_reactions.contains(&text);
+                let unreact = self.already_reacted.contains(&text);
 
                 Some(Event::Toggle {
                     msgid: self.msgid.clone(),
@@ -80,13 +130,18 @@ impl State {
             }
         })
     }
+
+    fn filtered_emojis(&self) -> Vec<&'static emojis::Emoji> {
+        let query = normalized_query(&self.search_query);
+
+        emoji::matching_emojis(&query)
+    }
 }
 
 pub fn view<'a>(state: &'a State, config: &'a Config) -> Element<'a, Message> {
-    let query = normalized_query(&state.search_query);
-    let filtered = filtered_emojis(&query);
+    let filtered = state.filtered_emojis();
     let has_results = !filtered.is_empty();
-    let grid = emoji_grid(&filtered, &state.selected_reactions);
+    let grid = emoji_grid(&filtered, &state.already_reacted, state.selection);
 
     let body: Element<'a, Message> = if has_results {
         Scrollable::new(container(grid).width(Length::Fill))
@@ -108,10 +163,21 @@ pub fn view<'a>(state: &'a State, config: &'a Config) -> Element<'a, Message> {
     };
 
     let content = column![
-        text_input("Search..", &state.search_query)
-            .id(state.search_query_id.clone())
-            .on_input(Message::SearchChanged)
-            .padding(8),
+        key_press(
+            key_press(
+                text_input("Search...", &state.search_query)
+                    .id(state.search_query_id.clone())
+                    .on_input(Message::SearchChanged)
+                    .on_submit(Message::SearchSelect)
+                    .padding(8),
+                key_press::Key::Named(key_press::Named::Tab),
+                key_press::Modifiers::SHIFT,
+                Message::Tab(true),
+            ),
+            key_press::Key::Named(key_press::Named::Tab),
+            key_press::Modifiers::default(),
+            Message::Tab(false),
+        ),
         body
     ]
     .spacing(12)
@@ -127,14 +193,17 @@ pub fn view<'a>(state: &'a State, config: &'a Config) -> Element<'a, Message> {
 
 fn emoji_grid<'a>(
     emojis: &[&'static emojis::Emoji],
-    selected_reactions: &HashSet<Cow<'static, str>>,
+    already_reacted: &HashSet<Cow<'static, str>>,
+    selection: Option<usize>,
 ) -> Element<'a, Message> {
     emojis
         .iter()
-        .fold(Row::new().spacing(4), |row, emoji| {
+        .enumerate()
+        .fold(Row::new().spacing(4), |row, (index, emoji)| {
             row.push(emoji_button(
                 emoji,
-                selected_reactions.contains(emoji.as_str()),
+                already_reacted.contains(emoji.as_str()),
+                selection.is_some_and(|selection| selection == index),
             ))
         })
         .wrap()
@@ -143,7 +212,8 @@ fn emoji_grid<'a>(
 
 fn emoji_button<'a>(
     emoji: &'static emojis::Emoji,
-    selected: bool,
+    already_reacted: bool,
+    selection: bool,
 ) -> widget::Button<'a, Message> {
     button(
         container(text(emoji.as_str()).size(16))
@@ -155,13 +225,9 @@ fn emoji_button<'a>(
     .width(Length::Fixed(EMOJI_BUTTON_WIDTH))
     .height(Length::Fixed(EMOJI_BUTTON_HEIGHT))
     .style(move |theme, status| {
-        theme::button::secondary(theme, status, selected)
+        theme::button::reaction(theme, status, already_reacted, selection)
     })
     .on_press(Message::SelectEmoji(Cow::Borrowed(emoji.as_str())))
-}
-
-fn filtered_emojis(query: &str) -> Vec<&'static emojis::Emoji> {
-    emoji::matching_emojis(query)
 }
 
 fn normalized_query(query: &str) -> String {
