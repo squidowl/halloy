@@ -3858,10 +3858,10 @@ impl Dashboard {
                 config,
             );
 
-            if config.buffer.close.query.close()
-                && let Some(history::Kind::Query(server, nick)) =
-                    state.buffer.data().and_then(history::Kind::from_buffer)
+            if let Some(history::Kind::Query(server, nick)) =
+                state.buffer.data().and_then(history::Kind::from_buffer)
             {
+                // Always close query history when closing pane to remove from sidebar
                 tasks.push(
                     self.history
                         .close(history::Kind::Query(server, nick), clients)
@@ -3896,6 +3896,9 @@ impl Dashboard {
             );
             return Task::batch(tasks);
         }
+
+        // Update history tracking to reflect closed pane
+        tasks.push(self.track(Some(clients)));
 
         Task::batch(tasks)
     }
