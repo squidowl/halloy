@@ -396,6 +396,19 @@ The WebSocket request path. For soju HTTPS listeners or reverse proxies, this is
 websocket_path = "/"
 ```
 
+## `websocket_ping_interval`
+
+The interval in seconds at which to send WebSocket pings when [`use_websocket`](#use_websocket) is `true`. This is in addition to regular IRC pings controlled by [`ping_time`](#ping_time).
+
+```toml
+# Type: integer
+# Values: any non-negative integer
+# Default: 60
+
+[servers.<name>]
+websocket_ping_interval = 60
+```
+
 ## `dangerously_accept_invalid_certs`
 
 When `true`, all certificate validations are skipped.
