@@ -144,6 +144,30 @@ pub fn picker(theme: &Theme, status: Status, is_selected: bool) -> Style {
     button(foreground, background, background_hover, status)
 }
 
+pub fn reaction(
+    theme: &Theme,
+    status: Status,
+    already_reacted: bool,
+    selection: bool,
+) -> Style {
+    let foreground = theme.styles().text.secondary.color;
+    let button_colors = theme.styles().buttons.secondary;
+
+    let background = match (selection, already_reacted) {
+        (true, _) => button_colors.background_selected,
+        (false, true) => button_colors.background_hover,
+        (false, false) => button_colors.background,
+    };
+
+    let background_hover = match (selection, already_reacted) {
+        (true, _) => button_colors.background_selected_hover,
+        (false, true) => button_colors.background_selected,
+        (false, false) => button_colors.background_hover,
+    };
+
+    button(foreground, background, background_hover, status)
+}
+
 pub fn bare(_theme: &Theme, status: Status) -> Style {
     match status {
         Status::Active | Status::Pressed | Status::Hovered => Style {

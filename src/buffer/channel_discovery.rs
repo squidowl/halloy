@@ -125,7 +125,7 @@ pub fn view<'a>(
                 )
                 .on_select(Message::SelectServer)
                 .placeholder("Select server"),
-                text_input("Search..", &state.search_query)
+                text_input("Search...", &state.search_query)
                     .id(state.search_query_id.clone())
                     .style(move |theme, status| {
                         // Show the disabled text_input as active, since we only
