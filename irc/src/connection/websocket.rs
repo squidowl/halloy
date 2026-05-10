@@ -1,9 +1,11 @@
 use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
+use std::time::Duration;
 
 use bytes::BytesMut;
 use futures::{Sink, SinkExt, Stream, StreamExt};
+use tokio::time::Interval;
 use tokio_rustls::client::TlsStream;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
@@ -24,6 +26,7 @@ pub struct WebSocketConnection<Codec> {
     codec: Codec,
     read: BytesMut,
     mode: Mode,
+    ping_interval: Interval,
 }
 
 type WebSocketTransport = Either<IrcStream, TlsStream<IrcStream>>;
@@ -41,6 +44,7 @@ impl<Codec> WebSocketConnection<Codec> {
         port: u16,
         security: Security<'_>,
         path: &str,
+        ping_interval: Duration,
         codec: Codec,
     ) -> Result<Self, Error> {
         let (scheme, transport) = match security {
@@ -84,6 +88,7 @@ impl<Codec> WebSocketConnection<Codec> {
             codec,
             read: BytesMut::new(),
             mode: mode_from_response(&response)?,
+            ping_interval: tokio::time::interval(ping_interval),
         })
     }
 
@@ -113,6 +118,16 @@ where
         cx: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
+
+        // This is a best effort attempt at sending pings at regular intervals.
+        if this.ping_interval.poll_tick(cx).is_ready()
+            && this.stream.poll_ready_unpin(cx).is_ready()
+        {
+            let _ = this
+                .stream
+                .start_send_unpin(Message::Ping(bytes::Bytes::new()));
+            let _ = this.stream.poll_flush_unpin(cx);
+        }
 
         loop {
             if let Some(item) = this.codec.decode(&mut this.read)? {
