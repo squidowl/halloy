@@ -43,7 +43,7 @@ const URL_PATH_RESERVED: &str = r#":?@!&'()*+,;=\[\]"#;
 
 static URL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     RegexBuilder::new(concatcp!(
-        r#"(?i)(((https?|ircs?|gemini):\/\/|www\.)[\p{Letter}\p{Number}\-@:%._+~#=]{1,256}\.[\p{Letter}\p{Number}]{1,63}\b"#,
+        r#"(?i)(((https?|ircs?|gemini|gopher):\/\/|www\.)[\p{Letter}\p{Number}\-@:%._+~#=]{1,256}\.[\p{Letter}\p{Number}]{1,63}\b"#,
         r#"(?:"#,
         r#"["#, URL_PATH_UNRESERVED, URL_PATH_RESERVED, r#"%\/#]"#,
         r#"*)|halloy:\/\/[^ ]*)"#
