@@ -3,12 +3,13 @@ use std::io;
 use std::sync::Arc;
 
 use iced::Task;
-use reqwest::header::HeaderMap;
 use sha2::{Digest, Sha256};
 use tokio::fs;
 use url::Url;
 
-use crate::cache::{self, Asset, CacheState, CachedAsset, FileCache};
+use crate::cache::{
+    self, Asset, CacheState, CachedAsset, FetchResponse, FileCache,
+};
 use crate::image::{self, Image};
 use crate::{Server, environment};
 
@@ -147,28 +148,23 @@ async fn load(
         }
     } else {
         match fetch(url.clone(), http_client, &cache).await {
-            Ok(FetchedIcon {
-                image,
+            Ok(FetchResponse {
+                value,
                 response_headers,
             }) => {
                 cache
                     .save(
                         &cache_key_url,
-                        CacheState::Ok(image.clone()),
+                        CacheState::Ok(value.clone()),
                         &response_headers,
                     )
                     .await;
 
-                Ok(image)
+                Ok(value)
             }
             Err(error) => Err(error),
         }
     }
-}
-
-struct FetchedIcon {
-    image: Image,
-    response_headers: HeaderMap,
 }
 
 const MAX_ICON_SIZE: usize = 5 * 1024 * 1024; // 5 MiB
@@ -177,7 +173,7 @@ async fn fetch(
     url: Url,
     http_client: Arc<reqwest::Client>,
     cache: &FileCache,
-) -> Result<FetchedIcon, LoadError> {
+) -> Result<FetchResponse<Image>, LoadError> {
     let mut resp = http_client
         .get(url.clone())
         .send()
@@ -227,8 +223,8 @@ async fn fetch(
         cache.account_blob(bytes.len() as u64, image_path.clone());
     }
 
-    Ok(FetchedIcon {
-        image: Image::new(format, url, digest, image_path),
+    Ok(FetchResponse {
+        value: Image::new(format, url, digest, image_path),
         response_headers,
     })
 }

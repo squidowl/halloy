@@ -27,6 +27,12 @@ impl HexDigest {
 #[derive(Debug, Clone, Copy)]
 pub struct Asset<'a>(pub &'a Path, pub &'a HexDigest);
 
+#[derive(Debug)]
+pub struct FetchResponse<T> {
+    pub value: T,
+    pub response_headers: HeaderMap,
+}
+
 pub trait CachedAsset {
     fn assets(&self) -> Vec<Asset<'_>>;
 }

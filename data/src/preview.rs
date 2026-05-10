@@ -17,7 +17,9 @@ use tokio::time;
 use url::Url;
 
 pub use self::card::Card;
-use crate::cache::{self, Asset, CacheState, CachedAsset, FileCache};
+use crate::cache::{
+    self, Asset, CacheState, CachedAsset, FetchResponse, FileCache,
+};
 use crate::image::Image;
 use crate::message::Source;
 use crate::server::Server;
@@ -280,12 +282,12 @@ async fn load_uncached(
 ) -> Result<(Preview, HeaderMap), LoadError> {
     log::trace!("Loading preview for {url}");
 
-    let FetchResult {
-        fetched,
+    let FetchResponse {
+        value,
         response_headers,
     } = fetch(url.clone(), client.clone(), config, cache).await?;
 
-    match fetched {
+    match value {
         Fetched::Image(image) => Ok(Preview::Image(image)),
         Fetched::Other(bytes) => {
             let MetaTagProperties {
@@ -299,7 +301,7 @@ async fn load_uncached(
                 image_url.ok_or(LoadError::MissingProperty("image"))?;
 
             let Fetched::Image(image) =
-                fetch(image_url, client, config, cache).await?.fetched
+                fetch(image_url, client, config, cache).await?.value
             else {
                 return Err(LoadError::NotImage);
             };
@@ -325,12 +327,12 @@ async fn load_avatar_uncached(
 ) -> Result<(Preview, HeaderMap), LoadError> {
     log::trace!("Loading avatar for {url}");
 
-    let FetchResult {
-        fetched,
+    let FetchResponse {
+        value,
         response_headers,
     } = fetch(url, client, config, cache).await?;
 
-    let Fetched::Image(image) = fetched else {
+    let Fetched::Image(image) = value else {
         return Err(LoadError::NotImage);
     };
 
@@ -342,17 +344,12 @@ enum Fetched {
     Other(Vec<u8>),
 }
 
-struct FetchResult {
-    fetched: Fetched,
-    response_headers: HeaderMap,
-}
-
 async fn fetch(
     url: Url,
     client: Arc<reqwest::Client>,
     config: &config::Preview,
     cache: &FileCache,
-) -> Result<FetchResult, LoadError> {
+) -> Result<FetchResponse<Fetched>, LoadError> {
     // WARN: `concurrency` changes aren't picked up until app is relaunched
     let _permit = RATE_LIMIT
         .get_or_init(|| Semaphore::new(config.request.concurrency))
@@ -466,8 +463,8 @@ async fn fetch(
     // Artificially wait before releasing this permit for rate limiting
     time::sleep(Duration::from_millis(config.request.delay_ms)).await;
 
-    Ok(FetchResult {
-        fetched,
+    Ok(FetchResponse {
+        value: fetched,
         response_headers,
     })
 }
