@@ -18,10 +18,12 @@ impl Format {
     }
 
     pub fn from_mime_type(mime_type: &str) -> Option<Format> {
-        if mime_type == "image/svg+xml" {
-            Some(Format::Svg)
-        } else {
-            image::ImageFormat::from_mime_type(mime_type).map(Format::Raster)
+        match mime_type {
+            "image/svg+xml" | "image/svg+xml; charset=utf-8" => {
+                Some(Format::Svg)
+            }
+            _ => image::ImageFormat::from_mime_type(mime_type)
+                .map(Format::Raster),
         }
     }
 
