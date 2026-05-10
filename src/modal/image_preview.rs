@@ -1,17 +1,16 @@
-use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use iced::widget::{button, center, column, container, image, row, space};
+use data::Image;
+use iced::widget::{button, center, column, container, row, space};
 use iced::{ContentFit, Length};
 
 use super::Message;
 use crate::widget::button::transparent_button;
-use crate::widget::{Element, tooltip};
+use crate::widget::{Element, image, tooltip};
 use crate::{Theme, icon, theme};
 
 pub fn view<'a>(
-    source: &'a PathBuf,
-    url: &'a url::Url,
+    data: &'a Image,
     timer: &'a Option<Instant>,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
@@ -38,7 +37,7 @@ pub fn view<'a>(
                             .height(22)
                             .on_press(Message::ImagePreview(
                                 super::ImagePreview::SaveImage(
-                                    source.to_path_buf()
+                                    data.path.clone()
                                 )
                             ))
                             .style(
@@ -57,7 +56,9 @@ pub fn view<'a>(
                                 .padding(5)
                                 .width(22)
                                 .height(22)
-                                .on_press(Message::OpenURL(url.to_string()))
+                                .on_press(Message::OpenURL(
+                                    data.url.to_string()
+                                ))
                                 .style(move |theme, status| {
                                     theme::button::secondary(
                                         theme, status, false,
@@ -87,7 +88,7 @@ pub fn view<'a>(
                 )
             ])
             .padding(6),
-            container(image(source).content_fit(ContentFit::Contain))
+            container(image::from_data(data, false, ContentFit::Contain))
                 .padding(50)
                 .center_x(Length::Fill)
                 .center_y(Length::Fill)

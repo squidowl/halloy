@@ -1,10 +1,10 @@
-use std::path::PathBuf;
-
 use chrono::{DateTime, Utc};
 use data::config::buffer::nickname::ShownStatus;
 use data::dashboard::BufferAction;
 use data::target::{self, Target};
-use data::{Config, Preview, Server, history, message, metadata, preview};
+use data::{
+    Config, Image, Preview, Server, history, message, metadata, preview,
+};
 use iced::widget::{container, row, span};
 use iced::{Color, Length, Size, Task};
 
@@ -28,7 +28,7 @@ pub enum Event {
     History(Task<history::manager::Message>),
     OpenUrl(String),
     MarkAsRead,
-    ImagePreview(PathBuf, url::Url),
+    ImagePreview(Image),
     ExpandMessage(DateTime<Utc>, message::Hash),
     ContractMessage(DateTime<Utc>, message::Hash),
 }
@@ -368,8 +368,8 @@ impl Highlights {
                     scroll_view::Event::OpenUrl(url) => {
                         Some(Event::OpenUrl(url))
                     }
-                    scroll_view::Event::ImagePreview(path, url) => {
-                        Some(Event::ImagePreview(path, url))
+                    scroll_view::Event::ImagePreview(image) => {
+                        Some(Event::ImagePreview(image))
                     }
                     scroll_view::Event::ExpandMessage(server_time, hash) => {
                         Some(Event::ExpandMessage(server_time, hash))

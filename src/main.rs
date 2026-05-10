@@ -558,14 +558,13 @@ impl Halloy {
                             Task::none()
                         }
                     }
-                    Some(dashboard::Event::ImagePreview(path, url)) => {
+                    Some(dashboard::Event::ImagePreview(image)) => {
                         let Some((id, _, _)) = dashboard.get_focused() else {
                             return Task::none();
                         };
 
                         self.modal = Some(Modal::ImagePreview {
-                            source: path,
-                            url,
+                            image,
                             timer: None,
                             window: id,
                         });
