@@ -30,6 +30,7 @@ use std::{env, mem};
 use appearance::{Theme, theme};
 use data::capabilities::LabeledResponseContext;
 use data::client::{self, Destination};
+use data::config::buffer::OnMessage;
 use data::config::{self, Config};
 use data::history::filter::FilterChain;
 use data::history::manager::{EchoEvent, ReactionToEcho, ReplyToEcho};
@@ -1604,6 +1605,7 @@ fn handle_client_events(
                     &mut commands,
                     clients,
                     config,
+                    main_window,
                 );
             }
             Event::PrivOrNotice {
@@ -1644,6 +1646,7 @@ fn handle_client_events(
                     &mut commands,
                     clients,
                     config,
+                    main_window,
                 );
             }
             Event::Broadcast(broadcast) => {
@@ -1926,6 +1929,7 @@ fn handle_single_event(
     commands: &mut Vec<Task<Message>>,
     clients: &data::client::Map,
     config: &Config,
+    main_window: &Window,
 ) {
     let Some(message) = create_message(
         server,
@@ -1938,6 +1942,14 @@ fn handle_single_event(
     ) else {
         return;
     };
+
+    handle_on_message_display_mark_as_read(
+        server,
+        &message,
+        dashboard,
+        config,
+        main_window,
+    );
 
     commands.push(
         dashboard
@@ -1962,6 +1974,7 @@ fn handle_with_target_event(
     commands: &mut Vec<Task<Message>>,
     clients: &data::client::Map,
     config: &Config,
+    main_window: &Window,
 ) {
     let Some(message) = create_message(
         server,
@@ -1974,6 +1987,14 @@ fn handle_with_target_event(
     ) else {
         return;
     };
+
+    handle_on_message_display_mark_as_read(
+        server,
+        &message,
+        dashboard,
+        config,
+        main_window,
+    );
 
     commands.push(
         dashboard
@@ -2032,16 +2053,20 @@ fn handle_priv_or_notice(
         );
     }
 
+    let should_display_mark_as_read = handle_on_message_display_mark_as_read(
+        server,
+        &msg,
+        dashboard,
+        config,
+        main_window,
+    );
+
+    let should_mark_as_read =
+        should_display_mark_as_read && msg.triggers_unread();
+
     let window = kind
         .as_ref()
         .and_then(|kind| dashboard.find_window_with_history(kind));
-
-    let should_mark_as_read = config.buffer.mark_as_read.on_message
-        && !msg.blocked
-        && msg.triggers_unread()
-        && kind.as_ref().is_some_and(|kind| {
-            dashboard.is_focused_and_at_bottom(kind, window)
-        });
 
     if let Some(highlight) = highlight {
         handle_highlight(
@@ -2097,13 +2122,6 @@ fn handle_priv_or_notice(
         if let Some(req) = request_attention {
             commands.push(req);
         }
-    }
-
-    if should_mark_as_read && let Some(kind) = kind.as_ref() {
-        dashboard.update_display_read_marker(
-            kind.clone(),
-            history::ReadMarker::from(&msg),
-        );
     }
 
     commands.push(
@@ -2566,4 +2584,36 @@ fn handle_isupport_param(
         }
         _ => (),
     }
+}
+
+fn handle_on_message_display_mark_as_read(
+    server: &Server,
+    message: &data::Message,
+    dashboard: &mut screen::Dashboard,
+    config: &Config,
+    main_window: &Window,
+) -> bool {
+    if !main_window.focused {
+        return false;
+    }
+
+    let Some(kind) = history::Kind::from_server_message(server, message) else {
+        return false;
+    };
+
+    let should_display_mark_as_read =
+        match config.buffer.mark_as_read.on_message {
+            OnMessage::Focused => dashboard.is_focused_and_at_bottom(&kind),
+            OnMessage::Open => dashboard.is_open_and_at_bottom(&kind),
+            OnMessage::None => false,
+        };
+
+    if should_display_mark_as_read {
+        dashboard.update_display_read_marker(
+            kind,
+            history::ReadMarker::from(message),
+        );
+    }
+
+    should_display_mark_as_read
 }

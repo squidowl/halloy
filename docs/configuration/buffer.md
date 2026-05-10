@@ -735,15 +735,15 @@ on_message_sent = true
 
 ### `on_message`
 
-Marks as read when a new message arrives in the focused buffer and you are at the bottom.
+Marks as read when Halloy is focused and a new message arrives in a buffer that is scrolled to the bottom.  If `"focused"` then only the currently focused buffer will have new messages marked as read, while `"open"` will mark messages as read for any open buffer.
 
 ```toml
 # Type: boolean
-# Values: true, false
-# Default: true
+# Values: "focused", "open", "none"
+# Default: "focused"
 
 [buffer.mark_as_read]
-on_message = true
+on_message = "open"
 ```
 
 ## `close`

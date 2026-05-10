@@ -717,7 +717,7 @@ pub fn view<'a>(
         space::vertical().height(h)
     });
 
-    let show_backlog_divier = if old.is_empty() {
+    let show_backlog_divider = if old.is_empty() {
         // If all newer messages in viewport, only show backlog divider at the top
         // if we don't have any older messages at all (we're scrolled all the way up)
         !has_more_older_messages
@@ -730,7 +730,7 @@ pub fn view<'a>(
         }
     };
 
-    let divider = if show_backlog_divier {
+    let divider = if show_backlog_divider {
         match &config.buffer.backlog_separator.text {
             data::buffer::BacklogText::Hidden => row![
                 container(rule::horizontal(1).style(theme::rule::backlog))

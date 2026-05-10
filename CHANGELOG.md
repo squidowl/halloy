@@ -14,6 +14,7 @@ Added:
 - The default font is not bundled if default feature `iosevka-font` is disabled.
 - Customize the character used to indicate a nickname was truncated with `display.truncation_character`
 - Support for `draft/chathistory-end` message tag
+- Setting to mark new messages as read for any open buffer when the buffer is scrolled to the bottom and Halloy is focused (`buffer.mark_as_read.on_message`)
 
 Fixed:
 
@@ -36,12 +37,13 @@ Changed:
 
 - On-join topic messages disabled by default (`buffer.server_messages.topic`), instead the topic banner is enabled by default (`buffer.channel.topic_banner`)
 - For filehosts, localhost is now treated as a secure transport when using `servers.<name>.filehost.override_url`
+- `buffer.mark_as_read.on_message = true` is now equivalent to `buffer.mark_as_read.on_message = "open"` (previously equivalent to `buffer.mark_as_read.on_message = "focused"`)
 
 Thanks:
 
 - Contributions: @bb010g, @furudean, @englut, @luca020400, @4e554c4c
 - Bug reports: @bb010g, daniiooo, @e00E, belthesar, @Fingel, @death916
-- Feature requests: @WinnerWind, Shyny, @classabbyamp, @4e554c4c
+- Feature requests: @WinnerWind, Shyny, @classabbyamp, @4e554c4c, @furudean, @englut
 
 # 2026.6 (2026-04-21)
 
