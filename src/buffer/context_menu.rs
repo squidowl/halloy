@@ -8,12 +8,12 @@ use data::{
     Config, Server, User, config, ctcp, isupport, message, metadata, preview,
     target,
 };
-use iced::widget::{Space, button, column, container, image, row, rule, span};
+use iced::widget::{Space, button, column, container, row, rule, span};
 use iced::{Color, ContentFit, Length, Padding, alignment, mouse};
 use url::Url;
 
 use crate::widget::{
-    Element, Renderer, color_dot, context_menu, double_pass,
+    Element, Renderer, color_dot, context_menu, double_pass, image,
     selectable_rich_text, selectable_text, text,
 };
 use crate::{Theme, font, theme, widget};
@@ -24,7 +24,7 @@ pub enum Context<'a> {
         prefix: &'a [isupport::PrefixMap],
         channel: Option<&'a target::Channel>,
         registry: &'a dyn metadata::Registry,
-        avatar: Option<UserAvatar>,
+        avatar: Option<UserAvatar<'a>>,
         user: &'a User,
         current_user: Option<&'a User>,
     },
@@ -78,9 +78,9 @@ pub enum Entry {
 }
 
 #[derive(Debug, Clone)]
-pub enum UserAvatar {
+pub enum UserAvatar<'a> {
     Pending,
-    Loaded(std::path::PathBuf),
+    Loaded(&'a data::Image),
 }
 
 impl Entry {
@@ -1126,12 +1126,12 @@ fn user_metadata<'a>(
     let query = target::Query::from(user);
     let avatar: Option<Element<'a, Message>> = avatar.map(|avatar| {
         let content: Element<'a, Message> = match avatar {
-            UserAvatar::Loaded(path) => image(path.clone())
-                .width(AVATAR_SIZE)
-                .height(AVATAR_SIZE)
-                .border_radius(4)
-                .content_fit(ContentFit::Cover)
-                .into(),
+            UserAvatar::Loaded(data) => {
+                container(image::from_data(data, true, ContentFit::Cover))
+                    .width(AVATAR_SIZE)
+                    .height(AVATAR_SIZE)
+                    .into()
+            }
             UserAvatar::Pending => Space::new()
                 .width(Length::Fixed(AVATAR_SIZE))
                 .height(Length::Fixed(AVATAR_SIZE))
@@ -1238,14 +1238,14 @@ fn avatar_url(
     url::Url::parse(avatar).ok()
 }
 
-pub fn user_avatar(
+pub fn user_avatar<'a>(
     user: &User,
     registry: &dyn metadata::Registry,
-    previews: &preview::Collection,
-) -> Option<UserAvatar> {
+    previews: &'a preview::Collection,
+) -> Option<UserAvatar<'a>> {
     avatar_url(user, registry).map(|url| match previews.get(&url) {
         Some(preview::State::Loaded(preview)) => {
-            UserAvatar::Loaded(preview.image().path.clone())
+            UserAvatar::Loaded(preview.image())
         }
         _ => UserAvatar::Pending,
     })

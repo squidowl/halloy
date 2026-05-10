@@ -20,7 +20,7 @@ use data::message::{self, Broadcast};
 use data::rate_limit::TokenPriority;
 use data::target::{self, Target};
 use data::{
-    Config, Notification, Server, User, Version, cache, client, command,
+    Config, Image, Notification, Server, User, Version, cache, client, command,
     config, environment, file_transfer, history, preview, reaction, redaction,
     server, server_icon, stream,
 };
@@ -113,7 +113,7 @@ pub enum Event {
         system_information: Option<iced::system::Information>,
     },
     OpenServer(String),
-    ImagePreview(PathBuf, url::Url),
+    ImagePreview(Image),
     ToggleFullscreen,
     Remove(Server),
     PromptBeforeFileUpload {
@@ -2611,8 +2611,8 @@ impl Dashboard {
                     )),
                 );
             }
-            buffer::Event::ImagePreview(path, url) => {
-                return (Task::none(), Some(Event::ImagePreview(path, url)));
+            buffer::Event::ImagePreview(image) => {
+                return (Task::none(), Some(Event::ImagePreview(image)));
             }
             buffer::Event::ExpandMessage(server_time, hash) => {
                 if let Some(kind) =

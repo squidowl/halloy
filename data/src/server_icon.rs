@@ -5,22 +5,19 @@ use std::sync::Arc;
 use iced::Task;
 use sha2::{Digest, Sha256};
 use tokio::fs;
-use tokio_stream::StreamExt;
 use url::Url;
 
-use self::icon::Icon;
 use crate::cache::{self, Asset, CacheState, CachedAsset, FileCache};
+use crate::image::{self, Image};
 use crate::{Server, environment};
-
-mod icon;
 
 #[derive(Debug)]
 pub enum Message {
-    Loaded(Server, Url, Result<Icon, LoadError>),
+    Loaded(Server, Url, Result<Image, LoadError>),
 }
 
 pub struct Manager {
-    icons: HashMap<Server, Icon>,
+    icons: HashMap<Server, Image>,
     pending: HashMap<Server, Url>,
     cache: Arc<FileCache>,
 }
@@ -102,7 +99,7 @@ impl Manager {
         }
     }
 
-    pub fn get(&self, server: &Server) -> Option<&Icon> {
+    pub fn get(&self, server: &Server) -> Option<&Image> {
         self.icons.get(server)
     }
 
@@ -123,7 +120,7 @@ impl Manager {
     }
 }
 
-impl CachedAsset for Icon {
+impl CachedAsset for Image {
     fn assets(&self) -> Vec<Asset<'_>> {
         vec![Asset(self.path.as_path(), &self.digest)]
     }
@@ -139,7 +136,7 @@ async fn load(
     url: Url,
     http_client: Arc<reqwest::Client>,
     cache: Arc<FileCache>,
-) -> Result<Icon, LoadError> {
+) -> Result<Image, LoadError> {
     let cache_key_url = canonical_icon_url(&url);
 
     if let Some(state) = cache.load(&cache_key_url).await {
@@ -157,7 +154,9 @@ async fn load(
                 Ok(icon)
             }
             Err(error) => {
-                cache.save::<Icon>(&cache_key_url, &CacheState::Error).await;
+                cache
+                    .save::<Image>(&cache_key_url, &CacheState::Error)
+                    .await;
 
                 Err(error)
             }
@@ -171,28 +170,38 @@ async fn fetch(
     url: Url,
     http_client: Arc<reqwest::Client>,
     cache: &FileCache,
-) -> Result<Icon, LoadError> {
-    let mut stream = http_client
+) -> Result<Image, LoadError> {
+    let mut resp = http_client
         .get(url.clone())
         .send()
         .await?
-        .error_for_status()?
-        .bytes_stream();
+        .error_for_status()?;
+
+    let Some(first_chunk) = resp.chunk().await? else {
+        return Err(LoadError::EmptyBody);
+    };
+
+    // First chunk should always be enough bytes to detect raster image
+    // MAGIC value (<32 bytes)
+    let Some(format) = image::Format::from_magic_bytes(&first_chunk).or(resp
+        .headers()
+        .get("content-type")
+        .and_then(|content_type| content_type.to_str().ok())
+        .and_then(image::Format::from_mime_type))
+    else {
+        return Err(LoadError::ParseImage);
+    };
 
     let mut bytes = Vec::new();
 
-    while let Some(chunk) = stream.next().await.transpose()? {
+    bytes.extend_from_slice(&first_chunk);
+
+    while let Some(chunk) = resp.chunk().await? {
         if bytes.len() + chunk.len() > MAX_ICON_SIZE {
             return Err(LoadError::TooLarge);
         }
         bytes.extend_from_slice(&chunk);
     }
-
-    if bytes.is_empty() {
-        return Err(LoadError::EmptyBody);
-    }
-
-    let format = image::guess_format(&bytes).map_err(LoadError::ParseImage)?;
 
     let mut hasher = Sha256::default();
     hasher.update(&bytes);
@@ -210,7 +219,7 @@ async fn fetch(
         cache.account_blob(bytes.len() as u64, image_path.clone());
     }
 
-    Ok(Icon::new(format, url, digest, image_path))
+    Ok(Image::new(format, url, digest, image_path))
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -221,8 +230,8 @@ pub enum LoadError {
     EmptyBody,
     #[error("image too large")]
     TooLarge,
-    #[error("failed to parse image: {0}")]
-    ParseImage(#[from] icon::Error),
+    #[error("failed to parse image")]
+    ParseImage,
     #[error("request failed: {0}")]
     Reqwest(#[from] reqwest::Error),
     #[error("io error: {0}")]

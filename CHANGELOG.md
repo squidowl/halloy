@@ -14,6 +14,7 @@ Added:
 - The default font is not bundled if default feature `iosevka-font` is disabled.
 - Customize the character used to indicate a nickname was truncated with `display.truncation_character`
 - Support for `draft/chathistory-end` message tag
+- Support for displaying SVGs
 
 Fixed:
 
