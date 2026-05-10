@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::time::Instant;
 
-use data::{Server, config};
+use data::{Image, Server, config};
 use iced::Task;
 
 use crate::widget::Element;
@@ -28,8 +28,7 @@ pub enum Modal {
         window: window::Id,
     },
     ImagePreview {
-        source: PathBuf,
-        url: url::Url,
+        image: Image,
         timer: Option<Instant>,
         window: window::Id,
     },
@@ -77,8 +76,7 @@ impl Modal {
             Modal::About(..) => None,
             Modal::PromptBeforeOpenUrl { url: _, window } => Some(*window),
             Modal::ImagePreview {
-                source: _,
-                url: _,
+                image: _,
                 timer: _,
                 window,
             } => Some(*window),
@@ -183,11 +181,10 @@ impl Modal {
                 window: _,
             } => confirm_file_upload::view(url, *has_credentials, theme),
             Modal::ImagePreview {
-                source,
-                url,
+                image,
                 timer,
                 window: _,
-            } => image_preview::view(source, url, timer, theme),
+            } => image_preview::view(image, timer, theme),
         }
     }
 }

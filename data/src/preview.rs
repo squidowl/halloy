@@ -17,15 +17,14 @@ use tokio::time;
 use url::Url;
 
 pub use self::card::Card;
-pub use self::image::Image;
 use crate::cache::{self, Asset, CacheState, CachedAsset, FileCache};
+use crate::image::Image;
 use crate::message::Source;
 use crate::server::Server;
 use crate::target::{self, TargetRef};
-use crate::{config, isupport};
+use crate::{config, image, isupport};
 
 pub mod card;
-pub mod image;
 
 // Prevent us from rate limiting ourselves
 static RATE_LIMIT: OnceLock<Semaphore> = OnceLock::new();
@@ -234,7 +233,11 @@ async fn load_inner(
     if let Ok(ref preview) = result {
         let image = preview.image();
 
-        if let Ok((image_width, image_height)) = image_dimensions(&image.path) {
+        if matches!(image.format, image::Format::Svg) {
+            result
+        } else if let Ok((image_width, image_height)) =
+            image_dimensions(&image.path)
+        {
             // As per iced, it is a webgpu requirement that:
             //   BufferCopyView.layout.bytes_per_row % wgpu::COPY_BYTES_PER_ROW_ALIGNMENT == 0
             // So we calculate padded_width by rounding width up to the next
@@ -355,9 +358,14 @@ async fn fetch(
         return Err(LoadError::EmptyBody);
     };
 
-    // First chunk should always be enough bytes to detect image MAGIC value
-    // (<32 bytes)
-    let fetched = match image::format(&first_chunk) {
+    // First chunk should always be enough bytes to detect raster image
+    // MAGIC value (<32 bytes)
+    let fetched = match image::Format::from_magic_bytes(&first_chunk).or(resp
+        .headers()
+        .get("content-type")
+        .and_then(|content_type| content_type.to_str().ok())
+        .and_then(image::Format::from_mime_type))
+    {
         Some(format) => {
             if exceeds_image_size(
                 resp.content_length(),

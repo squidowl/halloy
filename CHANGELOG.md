@@ -7,6 +7,7 @@ Added:
 - Support for IRCv3 metadata `display-name`, `avatar`, `pronouns`, `homepage`, `color`, `status` keys
 - IRCv3 bot mode support, with bot icon in buffers and nicklists
 - Support for IRCv3 WebSockets
+- Support for displaying SVGs
 - Notification for reacts (`notifications.reaction`)
 - Theme colors for horizontal rule text and buffer backlog/date separators
 - Setting to close queries when closing query buffer panes (`buffer.close.query`)
@@ -43,7 +44,7 @@ Thanks:
 
 - Contributions: @bb010g, @furudean, @englut, @luca020400, @4e554c4c
 - Bug reports: @bb010g, daniiooo, @e00E, belthesar, @Fingel, @death916
-- Feature requests: @WinnerWind, Shyny, @classabbyamp, @4e554c4c, @furudean, @englut
+- Feature requests: @WinnerWind, Shyny, @classabbyamp, @4e554c4c, @furudean, @englut, @esden
 
 # 2026.6 (2026-04-21)
 

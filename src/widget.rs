@@ -184,3 +184,28 @@ pub mod button {
             .into()
     }
 }
+
+pub mod image {
+    use iced::{ContentFit, Length, widget};
+
+    use super::Element;
+
+    pub fn from_data<'a, Message>(
+        data: &data::Image,
+        round_corners: bool,
+        content_fit: ContentFit,
+    ) -> Element<'a, Message> {
+        match data.format {
+            data::image::Format::Raster(_) => widget::image(&data.path)
+                .border_radius(if round_corners { 4 } else { 0 })
+                .content_fit(content_fit)
+                .into(),
+            data::image::Format::Svg => {
+                widget::svg(widget::svg::Handle::from_path(&data.path))
+                    .width(Length::Shrink)
+                    .content_fit(content_fit)
+                    .into()
+            }
+        }
+    }
+}
