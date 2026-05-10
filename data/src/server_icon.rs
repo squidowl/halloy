@@ -3,6 +3,7 @@ use std::io;
 use std::sync::Arc;
 
 use iced::Task;
+use reqwest::header::HeaderMap;
 use sha2::{Digest, Sha256};
 use tokio::fs;
 use url::Url;
@@ -146,22 +147,28 @@ async fn load(
         }
     } else {
         match fetch(url.clone(), http_client, &cache).await {
-            Ok(icon) => {
+            Ok(FetchedIcon {
+                image,
+                response_headers,
+            }) => {
                 cache
-                    .save(&cache_key_url, &CacheState::Ok(icon.clone()))
+                    .save(
+                        &cache_key_url,
+                        CacheState::Ok(image.clone()),
+                        &response_headers,
+                    )
                     .await;
 
-                Ok(icon)
+                Ok(image)
             }
-            Err(error) => {
-                cache
-                    .save::<Image>(&cache_key_url, &CacheState::Error)
-                    .await;
-
-                Err(error)
-            }
+            Err(error) => Err(error),
         }
     }
+}
+
+struct FetchedIcon {
+    image: Image,
+    response_headers: HeaderMap,
 }
 
 const MAX_ICON_SIZE: usize = 5 * 1024 * 1024; // 5 MiB
@@ -170,12 +177,13 @@ async fn fetch(
     url: Url,
     http_client: Arc<reqwest::Client>,
     cache: &FileCache,
-) -> Result<Image, LoadError> {
+) -> Result<FetchedIcon, LoadError> {
     let mut resp = http_client
         .get(url.clone())
         .send()
         .await?
         .error_for_status()?;
+    let response_headers = resp.headers().clone();
 
     let Some(first_chunk) = resp.chunk().await? else {
         return Err(LoadError::EmptyBody);
@@ -219,7 +227,10 @@ async fn fetch(
         cache.account_blob(bytes.len() as u64, image_path.clone());
     }
 
-    Ok(Image::new(format, url, digest, image_path))
+    Ok(FetchedIcon {
+        image: Image::new(format, url, digest, image_path),
+        response_headers,
+    })
 }
 
 #[derive(Debug, thiserror::Error)]

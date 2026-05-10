@@ -1625,6 +1625,7 @@ dependencies = [
  "futures",
  "hex",
  "html-escape",
+ "httpdate",
  "iced",
  "iced_core",
  "iced_wgpu",

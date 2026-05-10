@@ -7,7 +7,7 @@ use ::image::image_dimensions;
 use fancy_regex::Regex;
 use iced_wgpu::wgpu;
 use log;
-use reqwest::header::{self, HeaderValue};
+use reqwest::header::{self, HeaderMap, HeaderValue};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tokio::fs::{self, File};
@@ -215,18 +215,17 @@ async fn load_inner(
         };
 
         match loaded {
-            Ok(preview) => {
+            Ok((preview, headers)) => {
                 cache
-                    .save(&cache_key_url, &CacheState::Ok(preview.clone()))
+                    .save(
+                        &cache_key_url,
+                        CacheState::Ok(preview.clone()),
+                        &headers,
+                    )
                     .await;
                 Ok(preview)
             }
-            Err(error) => {
-                cache
-                    .save::<Preview>(&cache_key_url, &CacheState::Error)
-                    .await;
-                Err(error)
-            }
+            Err(error) => Err(error),
         }
     };
 
@@ -278,10 +277,15 @@ async fn load_uncached(
     client: Arc<reqwest::Client>,
     config: &config::Preview,
     cache: &FileCache,
-) -> Result<Preview, LoadError> {
+) -> Result<(Preview, HeaderMap), LoadError> {
     log::trace!("Loading preview for {url}");
 
-    match fetch(url.clone(), client.clone(), config, cache).await? {
+    let FetchResult {
+        fetched,
+        response_headers,
+    } = fetch(url.clone(), client.clone(), config, cache).await?;
+
+    match fetched {
         Fetched::Image(image) => Ok(Preview::Image(image)),
         Fetched::Other(bytes) => {
             let MetaTagProperties {
@@ -295,7 +299,7 @@ async fn load_uncached(
                 image_url.ok_or(LoadError::MissingProperty("image"))?;
 
             let Fetched::Image(image) =
-                fetch(image_url, client, config, cache).await?
+                fetch(image_url, client, config, cache).await?.fetched
             else {
                 return Err(LoadError::NotImage);
             };
@@ -310,6 +314,7 @@ async fn load_uncached(
             }))
         }
     }
+    .map(|preview| (preview, response_headers))
 }
 
 async fn load_avatar_uncached(
@@ -317,14 +322,19 @@ async fn load_avatar_uncached(
     client: Arc<reqwest::Client>,
     config: &config::Preview,
     cache: &FileCache,
-) -> Result<Preview, LoadError> {
+) -> Result<(Preview, HeaderMap), LoadError> {
     log::trace!("Loading avatar for {url}");
 
-    let Fetched::Image(image) = fetch(url, client, config, cache).await? else {
+    let FetchResult {
+        fetched,
+        response_headers,
+    } = fetch(url, client, config, cache).await?;
+
+    let Fetched::Image(image) = fetched else {
         return Err(LoadError::NotImage);
     };
 
-    Ok(Preview::Image(image))
+    Ok((Preview::Image(image), response_headers))
 }
 
 enum Fetched {
@@ -332,12 +342,17 @@ enum Fetched {
     Other(Vec<u8>),
 }
 
+struct FetchResult {
+    fetched: Fetched,
+    response_headers: HeaderMap,
+}
+
 async fn fetch(
     url: Url,
     client: Arc<reqwest::Client>,
     config: &config::Preview,
     cache: &FileCache,
-) -> Result<Fetched, LoadError> {
+) -> Result<FetchResult, LoadError> {
     // WARN: `concurrency` changes aren't picked up until app is relaunched
     let _permit = RATE_LIMIT
         .get_or_init(|| Semaphore::new(config.request.concurrency))
@@ -353,6 +368,7 @@ async fn fetch(
     }
 
     let mut resp = req.send().await?.error_for_status()?;
+    let response_headers = resp.headers().clone();
 
     let Some(first_chunk) = resp.chunk().await? else {
         return Err(LoadError::EmptyBody);
@@ -450,7 +466,10 @@ async fn fetch(
     // Artificially wait before releasing this permit for rate limiting
     time::sleep(Duration::from_millis(config.request.delay_ms)).await;
 
-    Ok(fetched)
+    Ok(FetchResult {
+        fetched,
+        response_headers,
+    })
 }
 
 async fn remove_download_file(path: &std::path::Path) {
