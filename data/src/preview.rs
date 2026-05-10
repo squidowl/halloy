@@ -219,15 +219,14 @@ async fn load_inner(
         match loaded {
             Ok((preview, headers)) => {
                 cache
-                    .save(
-                        &cache_key_url,
-                        CacheState::Ok(preview.clone()),
-                        &headers,
-                    )
+                    .save_valid(&cache_key_url, preview.clone(), &headers)
                     .await;
                 Ok(preview)
             }
-            Err(error) => Err(error),
+            Err(error) => {
+                cache.save_error(&cache_key_url).await;
+                Err(error)
+            }
         }
     };
 

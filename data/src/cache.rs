@@ -45,9 +45,11 @@ pub enum CacheState<T> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct CacheEntry<T> {
-    state: CacheState<T>,
-    freshness: HttpFreshness,
+#[serde(untagged)]
+enum CacheEntry<T> {
+    ValidCache { state: T, freshness: HttpFreshness },
+    ErrorCache { retry_after_unix_secs: i64 },
+    Legacy(CacheState<T>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,6 +60,7 @@ struct HttpFreshness {
 }
 
 const FRESHNESS_FACTOR: u64 = 10;
+const ERROR_RETRY_AFTER_SECS: i64 = 60;
 
 impl HttpFreshness {
     fn is_fresh_at(&self, now: DateTime<Utc>) -> bool {
@@ -153,29 +156,65 @@ impl FileCache {
         T: CachedAsset + DeserializeOwned,
     {
         let path = self.state_path(url);
+        let now = Utc::now();
 
         let bytes = fs::read(&path).await.ok()?;
         let entry: CacheEntry<T> = serde_json::from_slice(&bytes).ok()?;
 
-        if let CacheState::Ok(ref asset) = entry.state {
-            let assets = asset.assets();
-            if verify_assets(&assets).await.is_none() {
-                remove_assets(&assets).await;
-                return None;
+        match entry {
+            CacheEntry::ValidCache { state, freshness } => {
+                let assets = state.assets();
+                if verify_assets(&assets).await.is_none()
+                    || !freshness.is_fresh_at(now)
+                {
+                    remove_assets(&assets).await;
+                    None
+                } else {
+                    Some(CacheState::Ok(state))
+                }
             }
-            if !entry.freshness.is_fresh_at(Utc::now()) {
-                remove_assets(&assets).await;
-                return None;
+            CacheEntry::ErrorCache {
+                retry_after_unix_secs,
+            } => {
+                if retry_after_unix_secs > now.timestamp() {
+                    Some(CacheState::Error)
+                } else {
+                    None
+                }
+            }
+            CacheEntry::Legacy(state) => {
+                // Try to remove old assets.
+                if let CacheState::Ok(ref asset) = state {
+                    remove_assets(&asset.assets()).await;
+                }
+
+                None
             }
         }
-
-        Some(entry.state)
     }
 
-    pub async fn save<T: Serialize + Clone>(
+    async fn save_internal<T: Serialize + Clone>(
         &self,
         url: &Url,
-        state: CacheState<T>,
+        entry: CacheEntry<T>,
+    ) {
+        let path = self.state_path(url);
+
+        if let Some(parent) = path.parent().filter(|p| !p.exists()) {
+            let _ = fs::create_dir_all(parent).await;
+        }
+
+        let Ok(bytes) = serde_json::to_vec(&entry) else {
+            return;
+        };
+
+        let _ = fs::write(&path, &bytes).await;
+    }
+
+    pub async fn save_valid<T: Serialize + Clone>(
+        &self,
+        url: &Url,
+        state: T,
         headers: &HeaderMap,
     ) {
         let Some(freshness) = HttpFreshness::from_headers(headers) else {
@@ -186,18 +225,17 @@ impl FileCache {
             return;
         }
 
-        let path = self.state_path(url);
+        let entry = CacheEntry::ValidCache { state, freshness };
+        self.save_internal(url, entry).await;
+    }
 
-        if let Some(parent) = path.parent().filter(|p| !p.exists()) {
-            let _ = fs::create_dir_all(parent).await;
-        }
-
-        let entry = CacheEntry { state, freshness };
-
-        let Ok(bytes) = serde_json::to_vec(&entry) else {
-            return;
+    pub async fn save_error(&self, url: &Url) {
+        let entry = CacheEntry::<()>::ErrorCache {
+            retry_after_unix_secs: Utc::now()
+                .timestamp()
+                .saturating_add(ERROR_RETRY_AFTER_SECS),
         };
-        let _ = fs::write(&path, &bytes).await;
+        self.save_internal(url, entry).await;
     }
 
     pub fn account_blob(&self, size: u64, blob_path: PathBuf) {

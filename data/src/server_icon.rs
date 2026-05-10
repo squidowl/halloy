@@ -153,16 +153,19 @@ async fn load(
                 response_headers,
             }) => {
                 cache
-                    .save(
+                    .save_valid(
                         &cache_key_url,
-                        CacheState::Ok(value.clone()),
+                        value.clone(),
                         &response_headers,
                     )
                     .await;
 
                 Ok(value)
             }
-            Err(error) => Err(error),
+            Err(error) => {
+                cache.save_error(&cache_key_url).await;
+                Err(error)
+            }
         }
     }
 }
