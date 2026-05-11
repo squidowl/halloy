@@ -21,12 +21,20 @@ const TEXT_SUBPROTOCOL: &str = "text.ircv3.net";
 const REQUESTED_SUBPROTOCOLS: &str = "binary.ircv3.net, text.ircv3.net";
 const MAX_IRC_WEBSOCKET_MESSAGE_SIZE: usize = 8192;
 
+#[derive(Debug)]
+enum PingState {
+    Idle,
+    PendingSend,
+    PendingFlush,
+}
+
 pub struct WebSocketConnection<Codec> {
     stream: WebSocketStream<WebSocketTransport>,
     codec: Codec,
     read: BytesMut,
     mode: Mode,
     ping_interval: Interval,
+    ping: PingState,
 }
 
 type WebSocketTransport = Either<IrcStream, TlsStream<IrcStream>>;
@@ -89,6 +97,7 @@ impl<Codec> WebSocketConnection<Codec> {
             read: BytesMut::new(),
             mode: mode_from_response(&response)?,
             ping_interval: tokio::time::interval(ping_interval),
+            ping: PingState::Idle,
         })
     }
 
@@ -119,14 +128,50 @@ where
     ) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
 
-        // This is a best effort attempt at sending pings at regular intervals.
         if this.ping_interval.poll_tick(cx).is_ready()
-            && this.stream.poll_ready_unpin(cx).is_ready()
+            && matches!(this.ping, PingState::Idle)
         {
-            let _ = this
-                .stream
-                .start_send_unpin(Message::Ping(bytes::Bytes::new()));
-            let _ = this.stream.poll_flush_unpin(cx);
+            this.ping = PingState::PendingSend;
+        }
+
+        loop {
+            match this.ping {
+                PingState::Idle => {
+                    break;
+                }
+                PingState::PendingSend => {
+                    match this.stream.poll_ready_unpin(cx) {
+                        Poll::Ready(Ok(())) => {
+                            this.stream
+                                .start_send_unpin(Message::Ping(
+                                    bytes::Bytes::new(),
+                                ))
+                                .map_err(websocket_error)?;
+
+                            this.ping = PingState::PendingFlush;
+                        }
+                        Poll::Ready(Err(e)) => {
+                            return Poll::Ready(Some(Err(websocket_error(e))));
+                        }
+                        Poll::Pending => {
+                            break;
+                        }
+                    }
+                }
+                PingState::PendingFlush => {
+                    match this.stream.poll_flush_unpin(cx) {
+                        Poll::Ready(Ok(())) => {
+                            this.ping = PingState::Idle;
+                        }
+                        Poll::Ready(Err(e)) => {
+                            return Poll::Ready(Some(Err(websocket_error(e))));
+                        }
+                        Poll::Pending => {
+                            break;
+                        }
+                    }
+                }
+            }
         }
 
         loop {
