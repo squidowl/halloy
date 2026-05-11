@@ -449,19 +449,23 @@ impl Commands {
             // Mark skipped arguments as skipped
             match &*command.title {
                 "CTCP" => {
-                    if let Some(nick) = rest.split_ascii_whitespace().nth(1)
-                        && matches!(
-                            nick.to_uppercase().as_str(),
-                            "ACTION"
-                                | "CLIENTINFO"
-                                | "PING"
-                                | "SOURCE"
-                                | "TIME"
-                                | "VERSION"
-                        )
-                        && let Some(nick) = command.args.get_mut(0)
-                    {
-                        nick.kind.skip();
+                    if let Some(nick_arg) = command.args.get_mut(0) {
+                        let skip = rest
+                            .split_ascii_whitespace()
+                            .nth(1)
+                            .is_some_and(|nick| {
+                                matches!(
+                                    nick.to_uppercase().as_str(),
+                                    "ACTION"
+                                        | "CLIENTINFO"
+                                        | "PING"
+                                        | "SOURCE"
+                                        | "TIME"
+                                        | "VERSION"
+                                )
+                            });
+
+                        nick_arg.kind.skip(skip);
                     }
                 }
                 "JOIN" => {
@@ -470,10 +474,10 @@ impl Commands {
                         let chantypes =
                             isupport::get_chantypes_or_default(isupport);
 
-                        if !proto::is_channel(channel, chantypes)
-                            && let Some(channel) = command.args.get_mut(0)
-                        {
-                            channel.kind.skip();
+                        if let Some(channel_arg) = command.args.get_mut(0) {
+                            let skip = !proto::is_channel(channel, chantypes);
+
+                            channel_arg.kind.skip(skip);
                         }
                     }
                 }
@@ -483,21 +487,25 @@ impl Commands {
                         let chantypes =
                             isupport::get_chantypes_or_default(isupport);
 
-                        if !proto::is_channel(channel, chantypes)
-                            && let Some(channel) = command.args.get_mut(0)
-                        {
-                            channel.kind.skip();
+                        if let Some(channel_arg) = command.args.get_mut(0) {
+                            let skip = !proto::is_channel(channel, chantypes);
+
+                            channel_arg.kind.skip(skip);
                         }
                     }
                 }
                 "MODE" => {
-                    if let Some(target) = rest.split_ascii_whitespace().nth(1)
-                        && (target.starts_with(['+', '-'])
-                            || (features.list_mode_with_equal
-                                && target.starts_with('=')))
-                        && let Some(target) = command.args.get_mut(0)
-                    {
-                        target.kind.skip();
+                    if let Some(target_arg) = command.args.get_mut(0) {
+                        let skip = rest
+                            .split_ascii_whitespace()
+                            .nth(1)
+                            .is_some_and(|target| {
+                                target.starts_with(['+', '-'])
+                                    || (features.list_mode_with_equal
+                                        && target.starts_with('='))
+                            });
+
+                        target_arg.kind.skip(skip);
                     }
                 }
                 "TOPIC" => {
@@ -506,10 +514,10 @@ impl Commands {
                         let chantypes =
                             isupport::get_chantypes_or_default(isupport);
 
-                        if !proto::is_channel(channel, chantypes)
-                            && let Some(channel) = command.args.get_mut(0)
-                        {
-                            channel.kind.skip();
+                        if let Some(channel_arg) = command.args.get_mut(0) {
+                            let skip = !proto::is_channel(channel, chantypes);
+
+                            channel_arg.kind.skip(skip);
                         }
                     }
                 }
@@ -1834,10 +1842,10 @@ enum ArgumentKind {
 }
 
 impl ArgumentKind {
-    fn skip(&mut self) {
+    fn skip(&mut self, skip: bool) {
         match self {
             ArgumentKind::Required => (),
-            ArgumentKind::Optional { skipped } => *skipped = true,
+            ArgumentKind::Optional { skipped } => *skipped = skip,
         }
     }
 
