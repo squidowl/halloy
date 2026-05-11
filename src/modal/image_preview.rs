@@ -41,9 +41,13 @@ pub fn view<'a>(
                             .width(22)
                             .height(22)
                             .on_press(Message::ImagePreview(
-                                super::ImagePreview::SaveImage(
-                                    data.path.clone()
-                                )
+                                super::ImagePreview::SaveImage {
+                                    file_name: data.suggested_file_name(),
+                                    bytes: data
+                                        .handle
+                                        .to_vec()
+                                        .unwrap_or_default(),
+                                }
                             ))
                             .style(
                                 move |theme, status| {

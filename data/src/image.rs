@@ -1,13 +1,9 @@
-use std::path::PathBuf;
-
-use serde::{Deserialize, Serialize};
+use iced::widget;
+use image::GenericImageView;
 use url::Url;
 
-use crate::cache::HexDigest;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub enum Format {
-    #[serde(with = "serde_image_format")]
     Raster(image::ImageFormat),
     Svg,
 }
@@ -44,47 +40,79 @@ impl Format {
 
 pub type Error = image::ImageError;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Image {
-    pub format: Format,
-    pub url: Url,
-    pub digest: HexDigest,
-    pub path: PathBuf,
+#[derive(Debug, Clone)]
+pub enum ImageHandle {
+    Raster(widget::image::Handle),
+    Svg(widget::svg::Handle),
 }
 
-impl Image {
-    pub fn new(
-        format: Format,
-        url: Url,
-        digest: HexDigest,
-        path: PathBuf,
-    ) -> Self {
-        Self {
-            format,
-            url,
-            digest,
-            path,
+impl ImageHandle {
+    pub fn to_vec(&self) -> Option<Vec<u8>> {
+        match self {
+            ImageHandle::Raster(handle) => match handle {
+                widget::image::Handle::Bytes(_, bytes) => Some(bytes.to_vec()),
+                _ => None,
+            },
+            ImageHandle::Svg(handle) => match handle.data() {
+                iced_core::svg::Data::Bytes(cow) => Some(cow.to_vec()),
+                _ => None,
+            },
         }
     }
 }
 
-mod serde_image_format {
-    use image::ImageFormat;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+#[derive(Debug, Clone)]
+pub struct Image {
+    pub format: Format,
+    pub url: Url,
+    pub handle: ImageHandle,
+}
 
-    pub fn serialize<S: Serializer>(
-        format: &ImageFormat,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error> {
-        format.to_mime_type().serialize(serializer)
+impl Image {
+    pub fn new(format: Format, url: Url, data: Vec<u8>) -> Self {
+        let handle = match format {
+            Format::Raster(_) => {
+                ImageHandle::Raster(widget::image::Handle::from_bytes(data))
+            }
+            Format::Svg => {
+                ImageHandle::Svg(widget::svg::Handle::from_memory(data))
+            }
+        };
+
+        Self {
+            format,
+            url,
+            handle,
+        }
     }
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(
-        deserializer: D,
-    ) -> Result<ImageFormat, D::Error> {
-        let s = String::deserialize(deserializer)?;
+    pub fn suggested_file_name(&self) -> String {
+        let ext = self.format.extensions_str()[0];
 
-        ImageFormat::from_mime_type(s)
-            .ok_or(serde::de::Error::custom("invalid mime type"))
+        let stem = self
+            .url
+            .path_segments()
+            .and_then(|mut segments| segments.next_back())
+            .filter(|name| !name.is_empty())
+            .and_then(|name| {
+                std::path::Path::new(name)
+                    .file_stem()
+                    .and_then(|stem| stem.to_str())
+            })
+            .unwrap_or("image");
+
+        format!("{stem}.{ext}")
+    }
+
+    pub fn dimensions(&self) -> Option<(u32, u32)> {
+        if let Format::Raster(_) = self.format {
+            self.handle.to_vec().and_then(|bytes| {
+                image::load_from_memory(&bytes)
+                    .ok()
+                    .map(|decoded| decoded.dimensions())
+            })
+        } else {
+            None
+        }
     }
 }

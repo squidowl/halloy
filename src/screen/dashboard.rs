@@ -22,7 +22,7 @@ use data::rate_limit::TokenPriority;
 use data::target::{self, Target};
 use data::user::Nick;
 use data::{
-    Config, Image, Notification, Server, User, Version, cache, client, command,
+    Config, Image, Notification, Server, User, Version, client, command,
     config, environment, file_transfer, history, preview, reaction, redaction,
     server, server_icon, stream,
 };
@@ -30,6 +30,7 @@ use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{Space, center, column, container, row, stack, text};
 use iced::{Length, Size, Task, Vector, advanced, clipboard, padding};
 use irc::proto;
+use reqwest_middleware::ClientWithMiddleware;
 
 use self::command_bar::CommandBar;
 use self::modal::{reaction as reaction_modal, redaction as redaction_modal};
@@ -69,10 +70,10 @@ pub struct Dashboard {
     theme_editor: Option<ThemeEditor>,
     notifications: notification::Notifications,
     previews: preview::Collection,
-    previews_cache: Arc<cache::FileCache>,
     server_icons: server_icon::Manager,
     typing_animation: Option<buffer::typing::Animation>,
     http_client: Option<Arc<reqwest::Client>>,
+    http_cached_client: Option<Arc<ClientWithMiddleware>>,
     buffer_settings: dashboard::BufferSettings,
     pub filehost: filehost::Manager,
 }
@@ -158,10 +159,11 @@ impl Dashboard {
             theme_editor: None,
             notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),
-            previews_cache: Arc::new(preview_cache(&config.preview)),
             server_icons: server_icon::Manager::default(),
             typing_animation: None,
             http_client: http_client_from_config(config).map(Arc::new),
+            http_cached_client: http_cached_client_from_config(config)
+                .map(Arc::new),
             buffer_settings: dashboard::BufferSettings::default(),
             filehost: filehost::Manager::new(),
         };
@@ -231,10 +233,6 @@ impl Dashboard {
         self.reprocess_history(clients, buffer_config);
     }
 
-    pub fn refresh_cache_limits(&mut self, config: &Config) {
-        self.previews_cache = Arc::new(preview_cache(&config.preview));
-    }
-
     pub fn set_reroute_rules(
         &mut self,
         servers: &server::Map,
@@ -259,7 +257,6 @@ impl Dashboard {
                             url.clone(),
                             client.clone(),
                             config.preview.clone(),
-                            self.previews_cache.clone(),
                         ),
                         move |result| {
                             Message::LoadPreview((url.clone(), result))
@@ -1933,9 +1930,9 @@ impl Dashboard {
                             .get_server_proxy_config(&server)
                             .is_some()
                         {
-                            clients.get_server_http_client(&server)
+                            clients.get_server_http_cached_client(&server)
                         } else {
-                            self.http_client.clone()
+                            self.http_cached_client.clone()
                         };
 
                         if let Some(client) = client
@@ -1949,7 +1946,6 @@ impl Dashboard {
                                     client,
                                     config.metadata.avatar.clone(),
                                     config.preview.clone(),
-                                    self.previews_cache.clone(),
                                 ),
                                 move |result| {
                                     Message::LoadPreview((url.clone(), result))
@@ -2411,7 +2407,6 @@ impl Dashboard {
                                     url.clone(),
                                     preview_client.clone(),
                                     config.preview.clone(),
-                                    self.previews_cache.clone(),
                                 ),
                                 move |result| {
                                     Message::LoadPreview((url.clone(), result))
@@ -2856,11 +2851,9 @@ impl Dashboard {
                         config.buffer.commands.quit.default_reason.clone(),
                     )),
                 ),
-                command_bar::Server::ReloadIcon(server) => (
-                    self.remove_server_icon(clients, &server)
-                        .chain(self.request_server_icon(clients, &server)),
-                    None,
-                ),
+                command_bar::Server::ReloadIcon(server) => {
+                    (self.request_server_icon(clients, &server), None)
+                }
             },
         }
     }
@@ -3720,18 +3713,6 @@ impl Dashboard {
         self.history.update_display_read_marker(kind, read_marker);
     }
 
-    pub fn remove_server_icon(
-        &mut self,
-        clients: &mut client::Map,
-        server: &Server,
-    ) -> Task<Message> {
-        let icon_url = clients.get_icon_url(server);
-
-        self.server_icons
-            .remove(server, icon_url)
-            .map(Message::ServerIcon)
-    }
-
     pub fn request_server_icon(
         &mut self,
         clients: &mut client::Map,
@@ -3740,9 +3721,9 @@ impl Dashboard {
         let icon_url = clients.get_icon_url(server);
 
         let http_client = if clients.get_server_proxy_config(server).is_some() {
-            clients.get_server_http_client(server)
+            clients.get_server_http_cached_client(server)
         } else {
-            self.http_client.clone()
+            self.http_cached_client.clone()
         };
 
         self.server_icons
@@ -3758,14 +3739,15 @@ impl Dashboard {
             if entry.config.icon.enabled
                 && let Some(override_url) = &entry.config.icon.override_url
             {
-                let http_client =
-                    if let Some(proxy_config) = &entry.config.proxy {
-                        config::proxy::build_client(Some(proxy_config), None)
-                            .ok()
-                            .map(Arc::from)
-                    } else {
-                        self.http_client.clone()
-                    };
+                let http_client = if let Some(proxy_config) =
+                    &entry.config.proxy
+                {
+                    config::proxy::build_cached_client(Some(proxy_config), None)
+                        .ok()
+                        .map(Arc::from)
+                } else {
+                    self.http_cached_client.clone()
+                };
 
                 Some(
                     self.server_icons
@@ -4526,10 +4508,11 @@ impl Dashboard {
             theme_editor: None,
             notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),
-            previews_cache: Arc::new(preview_cache(&config.preview)),
             server_icons: server_icon::Manager::default(),
             typing_animation: None,
             http_client: http_client_from_config(config).map(Arc::new),
+            http_cached_client: http_cached_client_from_config(config)
+                .map(Arc::new),
             buffer_settings: data.buffer_settings.clone(),
             filehost: filehost::Manager::new(),
         };
@@ -4845,25 +4828,26 @@ impl Dashboard {
     fn visible_urls_with_preview_clients(
         &self,
         clients: &client::Map,
-    ) -> HashMap<url::Url, Arc<reqwest::Client>> {
-        let pane_map = |pane: &Pane| -> Vec<(url::Url, Arc<reqwest::Client>)> {
-            let preview_client = if let Some(server) = pane.buffer.server()
-                && clients.get_server_proxy_config(&server).is_some()
-            {
-                clients.get_server_http_client(&server)
-            } else {
-                self.http_client.clone()
-            };
+    ) -> HashMap<url::Url, Arc<ClientWithMiddleware>> {
+        let pane_map =
+            |pane: &Pane| -> Vec<(url::Url, Arc<ClientWithMiddleware>)> {
+                let preview_client = if let Some(server) = pane.buffer.server()
+                    && clients.get_server_proxy_config(&server).is_some()
+                {
+                    clients.get_server_http_cached_client(&server)
+                } else {
+                    self.http_cached_client.clone()
+                };
 
-            if let Some(preview_client) = preview_client {
-                pane.visible_urls()
-                    .into_iter()
-                    .map(move |url| (url.clone(), preview_client.clone()))
-                    .collect()
-            } else {
-                vec![]
-            }
-        };
+                if let Some(preview_client) = preview_client {
+                    pane.visible_urls()
+                        .into_iter()
+                        .map(move |url| (url.clone(), preview_client.clone()))
+                        .collect()
+                } else {
+                    vec![]
+                }
+            };
 
         self.panes
             .main
@@ -5367,7 +5351,7 @@ fn http_client_from_config(config: &Config) -> Option<reqwest::Client> {
         Ok(http_client) => Some(http_client),
         Err(error) => {
             log::warn!(
-                "Unable to build HTTP client, preview fetching and file upload disabled by default: {error}"
+                "Unable to build HTTP client, file upload disabled by default: {error}"
             );
 
             None
@@ -5375,12 +5359,20 @@ fn http_client_from_config(config: &Config) -> Option<reqwest::Client> {
     }
 }
 
-fn preview_cache(config: &config::Preview) -> cache::FileCache {
-    let root = environment::cache_dir().join("previews");
+fn http_cached_client_from_config(
+    config: &Config,
+) -> Option<ClientWithMiddleware> {
+    let http_cached_client =
+        config::proxy::build_cached_client(config.proxy.as_ref(), None);
 
-    cache::FileCache::new(
-        root,
-        config.request.image_cache.max_size_bytes(),
-        config.request.image_cache.trim_interval,
-    )
+    match http_cached_client {
+        Ok(http_cached_client) => Some(http_cached_client),
+        Err(error) => {
+            log::warn!(
+                "Unable to build cached HTTP client, preview/server icon fetching disabled : {error}"
+            );
+
+            None
+        }
+    }
 }

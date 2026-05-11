@@ -50,6 +50,8 @@ reqwest = { version = "0.13", default-features = false, features = [
     "stream",
     "system-proxy",
 ] }
+reqwest-middleware = { version = "0.5.2" }
+http-cache-reqwest = "1.0.0-alpha.6"
 tokio-util = { version = "0.7", features = ["io"] }
 const_format = "0.2.36"
 iced = { version = "0.15.0-dev", default-features = false }
@@ -75,6 +77,8 @@ log = { workspace = true }
 uptime_lib = { workspace = true }
 nucleo-matcher = { workspace = true }
 reqwest = { workspace = true }
+reqwest-middleware = { workspace = true }
+http-cache-reqwest = { workspace = true }
 const_format = { workspace = true }
 dirs-next = "2.0.0"
 arboard = { version = "3.6.1", features = ["wayland-data-control"] }
