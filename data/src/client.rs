@@ -201,6 +201,8 @@ pub struct Client {
     capabilities: Capabilities,
     features: Features,
     sasl_succeeded: bool,
+    pending_chathistory_requests:
+        HashMap<Target, (ChatHistorySubcommand, TokenPriority)>,
     chathistory_requests: HashMap<Target, ChatHistoryRequest>,
     chathistory_exhausted: HashMap<Target, bool>,
     chathistory_targets_request: Option<ChatHistoryRequest>,
@@ -264,6 +266,7 @@ impl Client {
             capabilities: Capabilities::default(),
             features: Features::default(),
             sasl_succeeded: false,
+            pending_chathistory_requests: HashMap::new(),
             chathistory_requests: HashMap::new(),
             chathistory_exhausted: HashMap::new(),
             chathistory_targets_request: None,
@@ -2375,17 +2378,24 @@ impl Client {
             Command::Numeric(RPL_ENDOFNAMES, args) => {
                 let target = ok!(args.get(1));
 
-                let target_channel = context!(target::Channel::parse(
+                let target = context!(target::Channel::parse(
                     target,
                     self.chantypes(),
                     self.statusmsg(),
                     self.casemapping(),
                 ));
 
-                if let Some(channel) = self.chanmap.get_mut(&target_channel)
+                if let Some(channel) = self.chanmap.get_mut(&target)
                     && !channel.names_init
                 {
                     channel.names_init = true;
+
+                    if let Some((subcommand, priority)) = self
+                        .pending_chathistory_requests
+                        .remove(&Target::Channel(target))
+                    {
+                        self.send_chathistory_request(subcommand, priority);
+                    }
 
                     return Ok(vec![]);
                 }
@@ -3608,23 +3618,41 @@ impl Client {
         subcommand: ChatHistorySubcommand,
         priority: TokenPriority,
     ) {
-        use std::collections::hash_map;
-
         if self.capabilities.acknowledged(Capability::Chathistory) {
             if let Some(target) = subcommand.target() {
-                if let hash_map::Entry::Vacant(entry) =
-                    self.chathistory_requests.entry(Target::parse(
-                        target,
-                        self.chantypes(),
-                        self.statusmsg(),
-                        self.casemapping(),
-                    ))
-                {
-                    entry.insert(ChatHistoryRequest {
-                        subcommand: subcommand.clone(),
-                        requested_at: Instant::now(),
-                        autorequest: !matches!(priority, TokenPriority::User),
-                    });
+                if self.pending_chathistory_requests.contains_key(target) {
+                    return;
+                } else if !self.chathistory_requests.contains_key(target) {
+                    let autorequest = !matches!(priority, TokenPriority::User);
+
+                    // If the chathistory request is an automatic request due to
+                    // joining a channel, then we want to wait for the initial,
+                    // implicit NAMES reply to complete before requesting
+                    // chathistory so that we have as much channel state as
+                    // possible when parsing messages.
+                    if autorequest
+                        && let Some(channel) = target
+                            .as_channel()
+                            .and_then(|channel| self.chanmap.get_mut(channel))
+                        && !channel.names_init
+                    {
+                        self.pending_chathistory_requests
+                            .insert(target.clone(), (subcommand, priority));
+
+                        return;
+                    }
+
+                    self.chathistory_requests.insert(
+                        target.clone(),
+                        ChatHistoryRequest {
+                            subcommand: subcommand.clone(),
+                            requested_at: Instant::now(),
+                            autorequest: !matches!(
+                                priority,
+                                TokenPriority::User
+                            ),
+                        },
+                    );
                 } else {
                     return;
                 }

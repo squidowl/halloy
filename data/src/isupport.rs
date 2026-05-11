@@ -912,13 +912,11 @@ pub enum ChatHistorySubcommand {
 }
 
 impl ChatHistorySubcommand {
-    pub fn target(&self) -> Option<&str> {
+    pub fn target(&self) -> Option<&Target> {
         match self {
             ChatHistorySubcommand::Latest(target, _, _)
             | ChatHistorySubcommand::Before(target, _, _)
-            | ChatHistorySubcommand::Between(target, _, _, _) => {
-                Some(target.as_str())
-            }
+            | ChatHistorySubcommand::Between(target, _, _, _) => Some(target),
             ChatHistorySubcommand::Targets(_, _, _) => None,
         }
     }
