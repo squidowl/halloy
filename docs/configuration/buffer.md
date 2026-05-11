@@ -495,7 +495,7 @@ Customize how date separators are displayed within a buffer
 
 ### `format`
 
-Controls the date format. The expected format is [strftime](https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html).  
+Controls the date format. The expected format is [strftime](https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html).
 
 ```toml
 # Type: string
@@ -914,7 +914,7 @@ truncate = 10
 
 ### `hide_consecutive`
 
-Hide nickname if consecutive messages are from the same user.  
+Hide nickname if consecutive messages are from the same user.
 
 ::: warning
 `hide_consecutive` does not work in conjunction with `alignment = "top"` .
@@ -1240,16 +1240,16 @@ key_bindings = "emacs"
 
 Emacs variant has the following binds:
 
-> `ctrl+a`: Move the cursor to the beginning of the line  
-  `ctrl+e`: Move the cursor to the end of the line  
-  `ctrl+b`: Move the cursor backward one character  
-  `ctrl+f`: Move the cursor forward one character  
-  `ctrl+d`: Delete the character under the cursor  
-  `ctrl+k`: Delete from the cursor to the end of the line  
-  `ctrl+u`: Delete from the cursor to the beginning of the line  
-  `ctrl+w`: Delete to the beginning of the word under the cursor  
-  `alt+b`: Move the cursor backward one word  
-  `alt+f`: Move the cursor forward one word  
+> `ctrl+a`: Move the cursor to the beginning of the line
+  `ctrl+e`: Move the cursor to the end of the line
+  `ctrl+b`: Move the cursor backward one character
+  `ctrl+f`: Move the cursor forward one character
+  `ctrl+d`: Delete the character under the cursor
+  `ctrl+k`: Delete from the cursor to the end of the line
+  `ctrl+u`: Delete from the cursor to the beginning of the line
+  `ctrl+w`: Delete to the beginning of the word under the cursor
+  `alt+b`: Move the cursor backward one word
+  `alt+f`: Move the cursor forward one word
 
 ::: info
 Global [keyboard shortcuts](/configuration/keyboard) take precedence. Unset any that collide (e.g., set `command_bar = "unset"`).
@@ -1390,11 +1390,11 @@ Show access level(s) in front of nickname (`@`, `+`, `~`, etc.).
 show_access_level = "highest"
 ```
 
-### `typing`
+## `typing`
 
 Typing settings for channel and query buffers.
 
-#### `font_size`
+### `font_size`
 
 Control the font size of the typing indicator. This also adjusts the height of the typing row when it is shown, and the reserved bottom padding when `style = "padded"`.
 
@@ -1408,7 +1408,7 @@ Control the font size of the typing indicator. This also adjusts the height of t
 font_size = 12
 ```
 
-#### `style`
+### `style`
 
 Control how the typing indicator uses vertical space.
 
@@ -1421,7 +1421,7 @@ Control how the typing indicator uses vertical space.
 style = "padded"
 ```
 
-#### `share`
+### `share`
 
 Control whether Halloy shares your typing status with other users.
 
@@ -1434,7 +1434,7 @@ Control whether Halloy shares your typing status with other users.
 share = false
 ```
 
-#### `show`
+### `show`
 
 Control whether Halloy shows typing status from other users.
 
@@ -1447,11 +1447,11 @@ Control whether Halloy shows typing status from other users.
 show = true
 ```
 
-#### `animation`
+### `animation`
 
 Configure the animated dots shown next to the typing indicator text.
 
-##### `enabled`
+#### `enabled`
 
 Control whether the animated dots are shown.
 
@@ -1464,7 +1464,7 @@ Control whether the animated dots are shown.
 enabled = true
 ```
 
-##### `size`
+#### `size`
 
 Control the size of the animated typing dots. If not set we use `typing.font_size * 0.33`.
 
@@ -1589,7 +1589,7 @@ Customize how redacted messages behave in buffers
 
 ### `display`
 
-How to display redacted messages in the buffer.  If displayed as `"dimmed"` then the message will be displayed dimmed and the redaction reason viewable via tooltip.  If displayed as `"redacted"` then the message will be replaced with the redaction reason, and the redcated message can be revealed by clicking on the message. 
+How to display redacted messages in the buffer.  If displayed as `"dimmed"` then the message will be displayed dimmed and the redaction reason viewable via tooltip.  If displayed as `"redacted"` then the message will be replaced with the redaction reason, and the redcated message can be revealed by clicking on the message.
 
 ```toml
 # Type: string
