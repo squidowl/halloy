@@ -1,12 +1,12 @@
-use std::path::PathBuf;
-
 use chrono::{DateTime, Utc};
 use data::dashboard::BufferAction;
 use data::history::filter::FilterChain;
 use data::preview::{self, Previews};
 use data::target::{self, Target};
 use data::user::Nick;
-use data::{Config, Preview, Server, User, buffer, client, history, message};
+use data::{
+    Config, Image, Preview, Server, User, buffer, client, history, message,
+};
 use iced::widget::{column, container, stack};
 use iced::{Length, Size, Task, padding};
 
@@ -37,7 +37,7 @@ pub enum Event {
     HidePreview(history::Kind, message::Hash, url::Url),
     MarkAsRead(history::Kind),
     OpenUrl(String),
-    ImagePreview(PathBuf, url::Url),
+    ImagePreview(Image),
     ExpandMessage(DateTime<Utc>, message::Hash),
     ContractMessage(DateTime<Utc>, message::Hash),
     InputSent {
@@ -67,6 +67,7 @@ pub fn view<'a>(
     let connected = matches!(clients.status(server), client::Status::Connected);
     let can_send_reactions = clients.get_server_can_send_reactions(server);
     let can_redact = clients.get_server_can_redact(server);
+    let can_send_replies = clients.get_server_can_send_replies(server);
     let chantypes = clients.get_server_chantypes_or_default(server);
     let casemapping = clients.get_server_casemapping_or_default(server);
     let prefix = clients.get_server_prefix_or_default(server);
@@ -105,12 +106,13 @@ pub fn view<'a>(
         confirm_message_delivery,
         can_send_reactions,
         can_redact,
+        can_send_replies,
         our_nick,
         connected,
         server,
         theme,
         previews,
-        target: TargetInfo::Query,
+        target: TargetInfo::Query { query },
     };
 
     let messages = container(
@@ -153,6 +155,9 @@ pub fn view<'a>(
             config,
             theme,
             filehost_url,
+            state.input_view.draft_reply().map(|draft_reply| {
+                User::from(Nick::from_str(&draft_reply.nick, casemapping))
+            }),
         )
         .map(Message::InputView)
     });
@@ -206,9 +211,7 @@ impl Query {
         let buffer = buffer::Upstream::Query(server.clone(), target.clone());
 
         Self {
-            input_view: input_view::State::new(Some(
-                history.input(&buffer).draft,
-            )),
+            input_view: input_view::State::new(Some(history.input(&buffer))),
             buffer,
             server,
             target,
@@ -235,6 +238,39 @@ impl Query {
                     clients,
                     config,
                 );
+
+                if let Some(scroll_view::Event::ContextMenu(
+                    context_menu::Event::Reply {
+                        msgid,
+                        to_nick,
+                        reply_preview,
+                    },
+                )) = &event
+                {
+                    let (reply_task, _) = self.input_view.update(
+                        input_view::Message::SetDraftReply {
+                            msgid: msgid.clone(),
+                            to_nick: to_nick.clone(),
+                            reply_preview: reply_preview.clone(),
+                        },
+                        &self.buffer,
+                        clients,
+                        history,
+                        main_window,
+                        config,
+                    );
+                    return (
+                        Task::batch([
+                            command.map(Message::ScrollView),
+                            reply_task.map(Message::InputView),
+                        ]),
+                        Some(Event::ContextMenu(context_menu::Event::Reply {
+                            msgid: msgid.clone(),
+                            to_nick: to_nick.clone(),
+                            reply_preview: reply_preview.clone(),
+                        })),
+                    );
+                }
 
                 let event = event.and_then(|event| match event {
                     scroll_view::Event::ContextMenu(event) => {
@@ -267,8 +303,8 @@ impl Query {
                     scroll_view::Event::OpenUrl(url) => {
                         Some(Event::OpenUrl(url))
                     }
-                    scroll_view::Event::ImagePreview(path, url) => {
-                        Some(Event::ImagePreview(path, url))
+                    scroll_view::Event::ImagePreview(image) => {
+                        Some(Event::ImagePreview(image))
                     }
                     scroll_view::Event::ExpandMessage(server_time, hash) => {
                         Some(Event::ExpandMessage(server_time, hash))

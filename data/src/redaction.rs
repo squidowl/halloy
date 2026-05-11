@@ -13,6 +13,17 @@ pub struct Redaction {
     pub reason: Option<String>,
 }
 
+impl Redaction {
+    pub fn message(&self) -> String {
+        match &self.reason {
+            Some(reason) if !reason.is_empty() => {
+                format!("Message redacted by {}: {reason}", self.from)
+            }
+            _ => format!("Message redacted by {}", self.from),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Context {
     pub inner: Redaction,

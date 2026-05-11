@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 use data::Config;
+use iced::Color;
 use iced::advanced::text;
 use iced::widget::text::LineHeight;
 
@@ -19,7 +20,7 @@ pub use self::selectable_rich_text::selectable_rich_text;
 pub use self::selectable_text::selectable_text;
 pub use self::shortcut::shortcut;
 pub use self::tooltip::tooltip;
-use crate::appearance::theme::{ICON_SIZE, TEXT_SIZE};
+use crate::appearance::theme::{self, ICON_SIZE, TEXT_SIZE};
 use crate::{Theme, font};
 
 pub mod anchored_overlay;
@@ -69,6 +70,20 @@ pub fn text<'a>(
     content: impl iced::widget::text::IntoFragment<'a>,
 ) -> Text<'a> {
     iced::widget::text(content).line_height(font::line_height())
+}
+
+pub trait TextExt<'a>: Sized {
+    fn size_maybe(self, size: Option<f32>) -> Self;
+}
+
+impl<'a> TextExt<'a> for Text<'a> {
+    fn size_maybe(self, size: Option<f32>) -> Self {
+        if let Some(s) = size {
+            self.size(s)
+        } else {
+            self
+        }
+    }
 }
 
 pub fn message_marker<'a, M>(
@@ -140,6 +155,15 @@ pub fn bot_icon<'a, M>(
         .into()
 }
 
+pub fn color_dot<'a, M>(color: Color) -> Element<'a, M> {
+    selectable_text(String::from("\u{F111}"))
+        .line_height(LineHeight::Relative(1.0))
+        .font(*font::ICON)
+        .style(move |theme| theme::selectable_text::color_dot(theme, color))
+        .size(ICON_SIZE)
+        .into()
+}
+
 pub mod button {
     use super::Element;
     use crate::appearance::theme;
@@ -158,5 +182,30 @@ pub mod button {
             .style(theme::button::bare)
             .on_press(message)
             .into()
+    }
+}
+
+pub mod image {
+    use iced::{ContentFit, Length, widget};
+
+    use super::Element;
+
+    pub fn from_data<'a, Message>(
+        data: &data::Image,
+        round_corners: bool,
+        content_fit: ContentFit,
+    ) -> Element<'a, Message> {
+        match data.format {
+            data::image::Format::Raster(_) => widget::image(&data.path)
+                .border_radius(if round_corners { 4 } else { 0 })
+                .content_fit(content_fit)
+                .into(),
+            data::image::Format::Svg => {
+                widget::svg(widget::svg::Handle::from_path(&data.path))
+                    .width(Length::Shrink)
+                    .content_fit(content_fit)
+                    .into()
+            }
+        }
     }
 }

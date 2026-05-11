@@ -2,41 +2,50 @@
 
 Added:
 
-- The default font is not bundled if default feature `iosevka-font` is disabled.
-- Configuration options for font stretch (`font.stretch`)
-- Notification for reacts
-- IRCv3 bot mode support, with bot icon in buffers and nicklists
-- Customize the character used to indicate a nickname was truncated with `display.truncation_character`
+- Support for IRCv3 `reply` client tag
 - Support for IRCv3 `draft/message-redaction`
-- Setting to close queries when closing query buffer panes (`buffer.close.query`)
 - Support for IRCv3 metadata `display-name`, `avatar`, `pronouns`, `homepage`, `color`, `status` keys
+- IRCv3 bot mode support, with bot icon in buffers and nicklists
+- Support for IRCv3 WebSockets
+- Support for displaying SVGs
+- Notification for reacts (`notifications.reaction`)
 - Theme colors for horizontal rule text and buffer backlog/date separators
 - The config `buffer.server_messages.condense.max` may be used to limit the number of user entries shown in condensed messages
+- Setting to close queries when closing query buffer panes (`buffer.close.query`)
+- Configuration options for font stretch (`font.stretch`)
+- The default font is not bundled if default feature `iosevka-font` is disabled.
+- Customize the character used to indicate a nickname was truncated with `display.truncation_character`
+- Support for `draft/chathistory-end` message tag
+- Setting to mark new messages as read for any open buffer when the buffer is scrolled to the bottom and Halloy is focused (`buffer.mark_as_read.on_message`)
 
 Fixed:
 
-- `NICK` and `QUIT` messages returned by `draft/event-playback` (`chathistory`)
-- Distinguish between reacts in chathistory vs active history
-- Channel matching on single line only
+- Issue where duplicate messages could appear for sent messages when connecting to a soju bouncer
+- Issue where ZNC playback would produce duplicate messages
+- Record `NICK` and `QUIT` messages returned by `draft/event-playback` (`chathistory`)
+- Allow multiple file uploads when pasting on macOs
+- Matching against `users` for some include/exclude conditions
 - Do not hide consecutive nicknames if the user's displayed access levels or bot mode changes
+- Channel link matching on single line only
+- Fix link matching for both end of line delimiters & punctuations
+- Handle URLs ending with paired delimiters chars when matching links
+- Handle leading delimiters when parsing link fragments to match nicks after quotes
 - Issue where unread indicator could appear in sidebar for an open pane that does not have unread messages
 - Issue where backlog divider in highlights or logs pane would not update when marking the pane as read
-- Allow multiple file uploads when pasting on macOs
-- Fix link matching for both end of line delimiters & punctuations
-- Matching against `users` for some include/exclude conditions
-- Handle URLs ending with paired delimiters chars
 - `VERSION` and `JOIN` commands on connect are skipped if server is primary soju server
+- `tor` enabled builds
 
 Changed:
 
 - On-join topic messages disabled by default (`buffer.server_messages.topic`), instead the topic banner is enabled by default (`buffer.channel.topic_banner`)
 - For filehosts, localhost is now treated as a secure transport when using `servers.<name>.filehost.override_url`
+- `buffer.mark_as_read.on_message = true` is now equivalent to `buffer.mark_as_read.on_message = "open"` (previously equivalent to `buffer.mark_as_read.on_message = "focused"`)
 
 Thanks:
 
 - Contributions: @bb010g, @furudean, @englut, @luca020400, @4e554c4c
-- Bug reports: @bb010g, daniiooo
-- Feature requests: @WinnerWind, Shyny
+- Bug reports: @bb010g, daniiooo, @e00E, belthesar, @Fingel, @death916
+- Feature requests: @WinnerWind, Shyny, @classabbyamp, @4e554c4c, @furudean, @englut, @esden
 
 # 2026.6 (2026-04-21)
 

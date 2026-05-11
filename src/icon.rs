@@ -153,6 +153,10 @@ pub fn lock<'a>() -> Text<'a> {
     to_text('\u{E821}')
 }
 
+pub fn reply<'a>() -> Text<'a> {
+    to_text('\u{E81B}')
+}
+
 pub fn not_sent<'a>() -> Svg<'a, Theme> {
     let fontawesome_attention_circled =
         include_bytes!("../assets/fontello/fontawesome-attention.svg").to_vec();

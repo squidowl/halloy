@@ -1,4 +1,4 @@
-use data::{Config, Server, channel_discovery, message, target};
+use data::{Config, Server, channel_discovery, message, metadata, target};
 use iced::widget::{
     self, button, center, column, container, operation, pick_list, row, rule,
     scrollable, span, text, text_input,
@@ -125,7 +125,7 @@ pub fn view<'a>(
                 )
                 .on_select(Message::SelectServer)
                 .placeholder("Select server"),
-                text_input("Search..", &state.search_query)
+                text_input("Search...", &state.search_query)
                     .id(state.search_query_id.clone())
                     .style(move |theme, status| {
                         // Show the disabled text_input as active, since we only
@@ -264,6 +264,7 @@ fn channel_list_view<'a>(
                         Some(message_content::with_context(
                             topic_content,
                             server,
+                            metadata::EMPTY,
                             clients.get_server_chantypes_or_default(server),
                             clients.get_server_casemapping_or_default(server),
                             theme,
@@ -275,7 +276,7 @@ fn channel_list_view<'a>(
                             move |link| match link {
                                 message::Link::Url(_) => {
                                     context_menu::Entry::url_list(
-                                        None, false, false,
+                                        None, false, false, false,
                                     )
                                 }
                                 _ => vec![],
@@ -288,6 +289,8 @@ fn channel_list_view<'a>(
                                             message: None,
                                             msgid: None,
                                             selected_reactions: vec![],
+                                            to_nick: None,
+                                            reply_preview: None,
                                         }),
                                         length,
                                         config,

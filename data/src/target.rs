@@ -127,6 +127,13 @@ impl Target {
         }
     }
 
+    pub fn as_target_ref<'a>(&'a self) -> TargetRef<'a> {
+        match self {
+            Target::Channel(channel) => channel.as_target_ref(),
+            Target::Query(query) => query.as_target_ref(),
+        }
+    }
+
     pub fn parse(
         target: &str,
         chantypes: &[char],

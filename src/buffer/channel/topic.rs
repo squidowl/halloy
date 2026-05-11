@@ -5,6 +5,7 @@ use iced::widget::{Scrollable, column, container, row, rule, scrollable};
 use iced::{Color, Length, padding};
 
 use super::context_menu::{self, Context};
+use crate::widget::user_display::UserDisplay;
 use crate::widget::{Element, double_pass, message_content, selectable_text};
 use crate::{Theme, font, theme};
 
@@ -61,21 +62,24 @@ pub fn view<'a>(
     let set_by = who.and_then(|user| {
         let user_in_channel = users.and_then(|users| users.resolve(user));
 
+        let user_display = UserDisplay::new(
+            user,
+            config.buffer.nickname.show_access_levels,
+            config.buffer.nickname.show_bot_icon,
+            registry,
+            &config.display.nickname,
+            None,
+            config.display.truncation_character,
+            None,
+            true,
+        );
+
         // If user is in channel, we return user_context component.
         // Otherwise selectable_text component.
         let content = context_menu::user(
-            selectable_text(user.nickname().to_string())
-                .font_maybe(
-                    theme::font_style::nickname(theme, false).map(font::get),
-                )
-                .style(move |theme| {
-                    theme::selectable_text::topic_nickname(
-                        theme,
-                        config,
-                        user,
-                        user_in_channel.is_none(),
-                    )
-                }),
+            user_display.into_element(
+                user, false, false, None, None, false, true, theme, config,
+            ),
             server,
             prefix,
             Some(channel),
@@ -110,6 +114,7 @@ pub fn view<'a>(
         message_content::with_context(
             content,
             server,
+            registry,
             chantypes,
             casemapping,
             theme,
@@ -132,7 +137,7 @@ pub fn view<'a>(
                     )
                 }
                 message::Link::Url(_) =>
-                    context_menu::Entry::url_list(None, false, false),
+                    context_menu::Entry::url_list(None, false, false, false),
                 _ => vec![],
             },
             move |link, entry, length| {
@@ -157,6 +162,8 @@ pub fn view<'a>(
                         message: None,
                         msgid: None,
                         selected_reactions: vec![],
+                        to_nick: None,
+                        reply_preview: None,
                     })
                 };
 

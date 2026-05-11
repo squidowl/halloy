@@ -13,14 +13,14 @@ use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
 use data::history::ReadMarker;
 use data::history::filter::Filter;
-use data::history::manager::ReactionToEcho;
+use data::history::manager::EchoEvent;
 use data::history::reroute::RerouteRules;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::message::{self, Broadcast};
 use data::rate_limit::TokenPriority;
 use data::target::{self, Target};
 use data::{
-    Config, Notification, Server, User, Version, cache, client, command,
+    Config, Image, Notification, Server, User, Version, cache, client, command,
     config, environment, file_transfer, history, preview, reaction, redaction,
     server, server_icon, stream,
 };
@@ -113,7 +113,7 @@ pub enum Event {
         system_information: Option<iced::system::Information>,
     },
     OpenServer(String),
-    ImagePreview(PathBuf, url::Url),
+    ImagePreview(Image),
     ToggleFullscreen,
     Remove(Server),
     PromptBeforeFileUpload {
@@ -121,7 +121,7 @@ pub enum Event {
         has_credentials: bool,
         window: window::Id,
     },
-    ReactionsToEcho(Server, Vec<ReactionToEcho>),
+    EchoEvents(Server, Vec<EchoEvent>),
 }
 
 impl Dashboard {
@@ -1006,6 +1006,7 @@ impl Dashboard {
                                             buffer,
                                             vec![encoded],
                                             TokenPriority::User,
+                                            None,
                                         )
                                     } else {
                                         clients.send(
@@ -1037,13 +1038,10 @@ impl Dashboard {
                                 }
                             }
                         }
-                        history::manager::Event::ReactionsToEcho(
-                            server,
-                            reactions,
-                        ) => {
+                        history::manager::Event::EchoEvents(server, events) => {
                             return (
                                 Task::none(),
-                                Some(Event::ReactionsToEcho(server, reactions)),
+                                Some(Event::EchoEvents(server, events)),
                             );
                         }
                     }
@@ -1638,10 +1636,19 @@ impl Dashboard {
             }
             Message::CloseContextMenu(window, any_closed) => {
                 if !any_closed {
-                    if let Some((_, _, state)) = self.get_focused_mut()
-                        && state.buffer.close_picker()
+                    if let Some((_, _, state, history)) =
+                        self.get_focused_with_history_mut()
                     {
-                        return (Task::none(), None);
+                        if state.buffer.close_picker() {
+                            return (Task::none(), None);
+                        // We only want to call clear_draft_reply if
+                        // close_picker does not return true.
+                        } else if state
+                            .buffer
+                            .clear_draft_reply(history, config)
+                        {
+                            return (Task::none(), None);
+                        }
                     }
 
                     if self.is_pane_maximized() && window == self.main_window()
@@ -2453,6 +2460,11 @@ impl Dashboard {
 
                         None
                     }
+                    buffer::context_menu::Event::Reply { .. } => {
+                        tasks.push(self.focus_pane(window, id));
+
+                        None
+                    }
                 };
 
                 return (Task::batch(tasks), event);
@@ -2599,8 +2611,8 @@ impl Dashboard {
                     )),
                 );
             }
-            buffer::Event::ImagePreview(path, url) => {
-                return (Task::none(), Some(Event::ImagePreview(path, url)));
+            buffer::Event::ImagePreview(image) => {
+                return (Task::none(), Some(Event::ImagePreview(image)));
             }
             buffer::Event::ExpandMessage(server_time, hash) => {
                 if let Some(kind) =
@@ -3347,26 +3359,66 @@ impl Dashboard {
             .redact_message(server, redaction, display_redacted);
     }
 
-    pub fn is_focused_and_at_bottom(
-        &self,
-        kind: &history::Kind,
-        kind_window: Option<window::Id>,
-    ) -> bool {
+    pub fn is_focused_and_at_bottom(&self, kind: &history::Kind) -> bool {
+        let Some((kind_window, kind_pane)) =
+            self.panes.iter().find_map(|(window, _, state)| {
+                state
+                    .buffer
+                    .data()
+                    .and_then(history::Kind::from_buffer)
+                    .is_some_and(|pane_kind| pane_kind == *kind)
+                    .then_some((window, state))
+            })
+        else {
+            return false;
+        };
+
+        if kind_pane
+            .buffer
+            .is_scrolled_to_bottom()
+            .is_none_or(|is_scrolled_to_bottom| !is_scrolled_to_bottom)
+        {
+            return false;
+        }
+
         self.get_focused()
             .is_some_and(|(focused_window, _, focused_pane)| {
-                let is_focused_window = kind_window == Some(focused_window);
+                let is_focused_window = kind_window == focused_window;
 
                 let focused_kind = focused_pane
                     .buffer
                     .data()
                     .and_then(history::Kind::from_buffer);
-                let is_same_buffer = focused_kind.as_ref() == Some(kind);
+                let is_focused_pane = focused_kind.as_ref() == Some(kind);
 
-                let is_at_bottom =
-                    focused_pane.buffer.is_scrolled_to_bottom() == Some(true);
-
-                is_focused_window && is_same_buffer && is_at_bottom
+                is_focused_window && is_focused_pane
             })
+    }
+
+    pub fn is_open_and_at_bottom(&self, kind: &history::Kind) -> bool {
+        let Some((kind_window, kind_pane)) =
+            self.panes.iter().find_map(|(window, _, state)| {
+                state
+                    .buffer
+                    .data()
+                    .and_then(history::Kind::from_buffer)
+                    .is_some_and(|pane_kind| pane_kind == *kind)
+                    .then_some((window, state))
+            })
+        else {
+            return false;
+        };
+
+        if kind_pane
+            .buffer
+            .is_scrolled_to_bottom()
+            .is_none_or(|is_scrolled_to_bottom| !is_scrolled_to_bottom)
+        {
+            return false;
+        }
+
+        self.get_focused()
+            .is_some_and(|(focused_window, _, _)| kind_window == focused_window)
     }
 
     pub fn block_and_record_message(

@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
 use std::time::Duration;
 
 use chrono::{DateTime, Local, NaiveDate, Utc};
@@ -15,10 +14,10 @@ use data::rate_limit::TokenPriority;
 use data::reaction::Reaction;
 use data::server::Server;
 use data::target::{self, Target};
-use data::{Config, Preview, client, history, metadata, reaction};
+use data::{Config, Image, Preview, client, history, metadata, reaction};
 use iced::widget::{
-    self, Scrollable, Space, button, center, column, container, image,
-    mouse_area, right, row, rule, scrollable, space, stack, text,
+    self, Scrollable, Space, button, center, column, container, mouse_area,
+    right, row, rule, scrollable, space, stack, text,
 };
 use iced::{
     ContentFit, Length, Padding, Size, Task, alignment, mouse, padding,
@@ -29,7 +28,7 @@ use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
 use super::context_menu;
 use crate::widget::user_display::UserDisplay;
-use crate::widget::{Element, notify_visibility, on_resize, tooltip};
+use crate::widget::{Element, image, notify_visibility, on_resize, tooltip};
 use crate::{Theme, buffer, font, icon, theme};
 
 const HIDE_BUTTON_WIDTH: f32 = 22.0;
@@ -49,7 +48,7 @@ pub enum Message {
     },
     ContextMenu(context_menu::Message),
     Link(message::Link),
-    ImagePreview(PathBuf, url::Url),
+    ImagePreview(Image),
     ScrollTo(keyed::Hit),
     RequestOlderChatHistory,
     EnteringViewport(message::Hash, Vec<url::Url>),
@@ -87,7 +86,7 @@ pub enum Event {
     HidePreview(history::Kind, message::Hash, url::Url),
     MarkAsRead,
     OpenUrl(String),
-    ImagePreview(PathBuf, url::Url),
+    ImagePreview(Image),
     ExpandMessage(DateTime<Utc>, message::Hash),
     ContractMessage(DateTime<Utc>, message::Hash),
 }
@@ -342,6 +341,7 @@ pub fn view<'a>(
                             config.buffer.nickname.truncate,
                             config.display.truncation_character,
                             Some(&config.buffer.nickname.brackets),
+                            true,
                         );
 
                         Some(user_display.width(config) + 1.0)
@@ -431,12 +431,13 @@ pub fn view<'a>(
                     if let HideConsecutiveEnabled::Enabled(duration) =
                         config.buffer.timestamp.hide_consecutive.enabled
                     {
-                        is_consecutive_user_message(
-                            message,
-                            *prev_message,
-                            duration,
-                            config,
-                        )
+                        message.reply_to.is_none()
+                            && is_consecutive_user_message(
+                                message,
+                                *prev_message,
+                                duration,
+                                config,
+                            )
                     } else {
                         false
                     };
@@ -446,6 +447,7 @@ pub fn view<'a>(
                         config.buffer.nickname.hide_consecutive.enabled
                     {
                         !config.buffer.nickname.alignment.is_top()
+                        && message.reply_to.is_none()
                         && is_consecutive_user_message(
                             message,
                             *prev_message,
@@ -714,7 +716,7 @@ pub fn view<'a>(
         space::vertical().height(h)
     });
 
-    let show_backlog_divier = if old.is_empty() {
+    let show_backlog_divider = if old.is_empty() {
         // If all newer messages in viewport, only show backlog divider at the top
         // if we don't have any older messages at all (we're scrolled all the way up)
         !has_more_older_messages
@@ -727,7 +729,7 @@ pub fn view<'a>(
         }
     };
 
-    let divider = if show_backlog_divier {
+    let divider = if show_backlog_divider {
         match &config.buffer.backlog_separator.text {
             data::buffer::BacklogText::Hidden => row![
                 container(rule::horizontal(1).style(theme::rule::backlog))
@@ -1177,8 +1179,8 @@ impl State {
             Message::ContentResized(size) => {
                 self.content_size = size;
             }
-            Message::ImagePreview(path, url) => {
-                return (Task::none(), Some(Event::ImagePreview(path, url)));
+            Message::ImagePreview(image) => {
+                return (Task::none(), Some(Event::ImagePreview(image)));
             }
             Message::PendingScrollTo => {
                 if let Some(key) = &self.pending_scroll_to {
@@ -1905,7 +1907,7 @@ fn preview_row<'a>(
 ) -> Element<'a, Message> {
     let content = match preview {
         data::Preview::Card(preview::Card {
-            image: preview::Image { path, .. },
+            image,
             title,
             description,
             ..
@@ -1938,21 +1940,11 @@ fn preview_row<'a>(
                             )
                         }),
                         config.preview.card.show_image.then_some(
-                            container(
-                                image(path)
-                                    .border_radius(
-                                        if config
-                                            .preview
-                                            .card
-                                            .round_image_corners
-                                        {
-                                            4
-                                        } else {
-                                            0
-                                        }
-                                    )
-                                    .content_fit(ContentFit::ScaleDown)
-                            )
+                            container(image::from_data(
+                                image,
+                                config.preview.image.round_corners,
+                                ContentFit::ScaleDown,
+                            ))
                             .padding(Padding::default().top(8))
                             .max_height(config.preview.card.image_max_height)
                         ),
@@ -1965,27 +1957,23 @@ fn preview_row<'a>(
             .style(theme::button::preview_card)
             .on_press(Message::Link(message::Link::Url(url.to_string()))),
         ),
-        data::Preview::Image(preview::Image { path, url, .. }) => keyed(
+        data::Preview::Image(image) => keyed(
             keyed::Key::Preview(message.hash, idx),
             button(
-                container(
-                    image(path)
-                        .border_radius(if config.preview.image.round_corners {
-                            4
-                        } else {
-                            0
-                        })
-                        .content_fit(ContentFit::ScaleDown),
-                )
+                container(image::from_data(
+                    image,
+                    config.preview.image.round_corners,
+                    ContentFit::ScaleDown,
+                ))
                 .max_width(config.preview.image.max_width)
                 .max_height(config.preview.image.max_height),
             )
             .on_press(match config.preview.image.action {
                 data::config::preview::ImageAction::OpenUrl => {
-                    Message::Link(message::Link::Url(url.to_string()))
+                    Message::Link(message::Link::Url(image.url.to_string()))
                 }
                 data::config::preview::ImageAction::Preview => {
-                    Message::ImagePreview(path.to_path_buf(), url.clone())
+                    Message::ImagePreview(image.clone())
                 }
             })
             .padding(0)
@@ -2008,6 +1996,7 @@ fn preview_row<'a>(
                     .then_some(message.hidden_urls.contains(url)),
                 false,
                 false,
+                false,
             ),
             move |entry, length| {
                 entry
@@ -2017,6 +2006,8 @@ fn preview_row<'a>(
                             message: Some(message.hash),
                             msgid: None,
                             selected_reactions: vec![],
+                            to_nick: None,
+                            reply_preview: None,
                         }),
                         length,
                         config,
@@ -2056,6 +2047,7 @@ fn preview_row<'a>(
                         config.buffer.nickname.truncate,
                         config.display.truncation_character,
                         Some(&config.buffer.nickname.brackets),
+                        true,
                     )
                     .width(config)
                 } else {

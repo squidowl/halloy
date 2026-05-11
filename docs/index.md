@@ -21,7 +21,7 @@ Halloy is configured through a `config.toml` file. From servers and notification
 
 ## IRCv3 Capabilities
 
-We strive to be a leading irc client with a rich ircv3 feature set. currently supported capabilities:
+We strive to be a leading irc client with a rich IRCv3 feature set. Currently supported capabilities:
 
 - [account-notify](https://ircv3.net/specs/extensions/account-notify)
 - [away-notify](https://ircv3.net/specs/extensions/away-notify)
@@ -50,6 +50,7 @@ We strive to be a leading irc client with a rich ircv3 feature set. currently su
 - [multiline](https://ircv3.net/specs/extensions/multiline)
 - [react](https://ircv3.net/specs/client-tags/react.html)
 - [read-marker](https://ircv3.net/specs/extensions/read-marker)
+- [reply](https://ircv3.net/specs/client-tags/reply)
 - [sasl-3.1](https://ircv3.net/specs/extensions/sasl-3.1)
 - [server-time](https://ircv3.net/specs/extensions/server-time)
 - [setname](https://ircv3.net/specs/extensions/setname.html)

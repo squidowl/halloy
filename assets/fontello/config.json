@@ -283,6 +283,12 @@
       "css": "lock",
       "code": 59425,
       "src": "entypo"
+    },
+    {
+      "uid": "b6fc2f656ef87275889422e19550680a",
+      "css": "reply-1",
+      "code": 59419,
+      "src": "entypo"
     }
   ]
 }

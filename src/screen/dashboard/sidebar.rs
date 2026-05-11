@@ -9,14 +9,14 @@ use data::{
 };
 use iced::widget::text::Shaping;
 use iced::widget::{
-    Column, Row, Scrollable, Space, button, column, container, image,
-    pane_grid, row, rule, scrollable, space, stack,
+    Column, Row, Scrollable, Space, button, column, container, pane_grid, row,
+    rule, scrollable, space, stack,
 };
-use iced::{Alignment, Length, Padding, Task, mouse, padding};
+use iced::{Alignment, ContentFit, Length, Padding, Task, mouse, padding};
 use tokio::time;
 
 use super::{Focus, Panes, Server};
-use crate::widget::{Element, Text, context_menu, double_pass, text};
+use crate::widget::{Element, Text, context_menu, double_pass, image, text};
 use crate::{Theme, font, icon, platform_specific, theme, window};
 
 const CONFIG_RELOAD_DELAY: Duration = Duration::from_secs(1);
@@ -893,12 +893,10 @@ fn upstream_buffer_button<'a>(
         let icon_widget: Element<'a, Message> = if server_icon_enabled
             && let Some(server_icon) = server_icons.get(server)
         {
-            image(iced::widget::image::Handle::from_path(
-                server_icon.path.clone(),
-            ))
-            .width(*size)
-            .height(*size)
-            .into()
+            container(image::from_data(server_icon, false, ContentFit::Contain))
+                .width(*size)
+                .height(*size)
+                .into()
         } else {
             if server.is_bouncer_network() {
                 icon::link()

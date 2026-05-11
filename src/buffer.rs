@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 use std::fmt;
-use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
 pub use data::buffer::{Internal, Settings, Upstream};
@@ -8,7 +7,7 @@ use data::config::buffer::text_input::Autocomplete;
 use data::dashboard::BufferAction;
 use data::target::{self, Target};
 use data::user::Nick;
-use data::{Config, buffer, file_transfer, history, message, preview};
+use data::{Config, Image, buffer, file_transfer, history, message, preview};
 use iced::{Size, Task};
 
 pub use self::channel::Channel;
@@ -75,7 +74,7 @@ pub enum Event {
     HidePreview(history::Kind, message::Hash, url::Url),
     MarkAsRead(history::Kind),
     OpenUrl(String),
-    ImagePreview(PathBuf, url::Url),
+    ImagePreview(Image),
     ExpandMessage(DateTime<Utc>, message::Hash),
     ContractMessage(DateTime<Utc>, message::Hash),
     InputSent {
@@ -292,8 +291,8 @@ impl Buffer {
                     }
                     channel::Event::MarkAsRead(kind) => Event::MarkAsRead(kind),
                     channel::Event::OpenUrl(url) => Event::OpenUrl(url),
-                    channel::Event::ImagePreview(path, url) => {
-                        Event::ImagePreview(path, url)
+                    channel::Event::ImagePreview(image) => {
+                        Event::ImagePreview(image)
                     }
                     channel::Event::ExpandMessage(server_time, hash) => {
                         Event::ExpandMessage(server_time, hash)
@@ -356,8 +355,8 @@ impl Buffer {
                     server::Event::History(task) => Event::History(task),
                     server::Event::MarkAsRead(kind) => Event::MarkAsRead(kind),
                     server::Event::OpenUrl(url) => Event::OpenUrl(url),
-                    server::Event::ImagePreview(path, url) => {
-                        Event::ImagePreview(path, url)
+                    server::Event::ImagePreview(image) => {
+                        Event::ImagePreview(image)
                     }
                     server::Event::ExpandMessage(server_time, hash) => {
                         Event::ExpandMessage(server_time, hash)
@@ -425,8 +424,8 @@ impl Buffer {
                     }
                     query::Event::MarkAsRead(kind) => Event::MarkAsRead(kind),
                     query::Event::OpenUrl(url) => Event::OpenUrl(url),
-                    query::Event::ImagePreview(path, url) => {
-                        Event::ImagePreview(path, url)
+                    query::Event::ImagePreview(image) => {
+                        Event::ImagePreview(image)
                     }
                     query::Event::ExpandMessage(server_time, hash) => {
                         Event::ExpandMessage(server_time, hash)
@@ -509,8 +508,8 @@ impl Buffer {
                         Event::MarkAsRead(history::Kind::Logs)
                     }
                     logs::Event::OpenUrl(url) => Event::OpenUrl(url),
-                    logs::Event::ImagePreview(path, url) => {
-                        Event::ImagePreview(path, url)
+                    logs::Event::ImagePreview(image) => {
+                        Event::ImagePreview(image)
                     }
                     logs::Event::ExpandMessage(server_time, hash) => {
                         Event::ExpandMessage(server_time, hash)
@@ -548,8 +547,8 @@ impl Buffer {
                         Event::MarkAsRead(history::Kind::Highlights)
                     }
                     highlights::Event::OpenUrl(url) => Event::OpenUrl(url),
-                    highlights::Event::ImagePreview(path, url) => {
-                        Event::ImagePreview(path, url)
+                    highlights::Event::ImagePreview(image) => {
+                        Event::ImagePreview(image)
                     }
                     highlights::Event::ExpandMessage(server_time, hash) => {
                         Event::ExpandMessage(server_time, hash)
@@ -1105,6 +1104,35 @@ impl Buffer {
             Buffer::Server(state) => state.input_view.close_picker(),
             Buffer::Channel(state) => state.input_view.close_picker(),
             Buffer::Query(state) => state.input_view.close_picker(),
+        }
+    }
+
+    pub fn clear_draft_reply(
+        &mut self,
+        history: &mut history::Manager,
+        config: &Config,
+    ) -> bool {
+        match self {
+            Buffer::Empty
+            | Buffer::FileTransfers(_)
+            | Buffer::Logs(_)
+            | Buffer::Highlights(_)
+            | Buffer::ChannelDiscovery(_) => false,
+            Buffer::Server(state) => state.input_view.clear_draft_reply(
+                &state.buffer,
+                history,
+                config,
+            ),
+            Buffer::Channel(state) => state.input_view.clear_draft_reply(
+                &state.buffer,
+                history,
+                config,
+            ),
+            Buffer::Query(state) => state.input_view.clear_draft_reply(
+                &state.buffer,
+                history,
+                config,
+            ),
         }
     }
 

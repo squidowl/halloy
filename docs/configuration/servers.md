@@ -370,6 +370,45 @@ Whether or not to use TLS. Clients will automatically panic if this is enabled w
 use_tls = true
 ```
 
+## `use_websocket`
+
+Whether or not to connect using IRCv3 WebSocket transport. When enabled, Halloy connects to `ws://` if [`use_tls`](#use_tls) is `false`, and `wss://` if [`use_tls`](#use_tls) is `true`.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[servers.<name>]
+use_websocket = false
+```
+
+## `websocket_path`
+
+The WebSocket request path. For soju HTTPS listeners or reverse proxies, this is usually `"/socket"`.
+
+```toml
+# Type: string
+# Values: any path
+# Default: "/"
+
+[servers.<name>]
+websocket_path = "/"
+```
+
+## `websocket_ping_interval`
+
+The interval in seconds at which to send WebSocket pings when [`use_websocket`](#use_websocket) is `true`. This is in addition to regular IRC pings controlled by [`ping_time`](#ping_time).
+
+```toml
+# Type: integer
+# Values: any non-negative integer
+# Default: 60
+
+[servers.<name>]
+websocket_ping_interval = 60
+```
+
 ## `dangerously_accept_invalid_certs`
 
 When `true`, all certificate validations are skipped.

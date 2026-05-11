@@ -14,6 +14,24 @@ message-store db
 Both the `fs` and `memory` `message-store` drivers are incompatible with the proper functioning of some IRCv3 features (e.g. IRCv3 `chathistory` with the `memory` driver or IRCv3 `reactions` with the `fs` driver).
 :::
 
+## Connect over WebSocket
+
+It's also possible to connect over WebSocket using the IRCv3 WebSocket extension. For a soju that exposes WebSocket at `/socket`, configure Halloy like this:
+
+```toml
+[servers.<name>]
+nickname = "<your-nickname>"
+server = "<your-bouncer-url>"
+port = 443
+use_tls = true
+use_websocket = true
+websocket_path = "/socket"
+
+[servers.<name>.sasl.plain]
+username = "<your-username>"
+password = "<your-password>"
+```
+
 ## Automatic network detection using the `bouncer-networks` extension
 
 To connect using the `bouncer-networks` extension, you can use the following configuration template. This will ensure you are automatically connected to all your networks.

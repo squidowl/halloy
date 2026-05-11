@@ -101,6 +101,13 @@ pub struct Server {
     /// Whether or not to use TLS.
     /// Clients will automatically panic if this is enabled without TLS support.
     pub use_tls: bool,
+    /// Whether or not to connect using IRCv3 WebSocket transport.
+    pub use_websocket: bool,
+    /// The WebSocket request path.
+    pub websocket_path: String,
+    /// The WebSocket ping interval in seconds.
+    #[serde(deserialize_with = "deserialize_who_poll_interval")]
+    pub websocket_ping_interval: Duration,
     /// On `true`, all certificate validations are skipped. Defaults to `false`.
     pub dangerously_accept_invalid_certs: bool,
     /// The path to the root TLS certificate for this server in PEM format.
@@ -182,6 +189,10 @@ impl Server {
             port: self.port,
             security,
             proxy: proxy.map(From::from),
+            websocket: self.use_websocket.then_some(connection::WebSocket {
+                path: &self.websocket_path,
+                ping_interval: self.websocket_ping_interval,
+            }),
         }
     }
 
@@ -235,6 +246,9 @@ impl Default for Server {
             ghost_sequence: vec!["REGAIN".into()],
             umodes: Option::default(),
             use_tls: true,
+            use_websocket: false,
+            websocket_path: "/".into(),
+            websocket_ping_interval: Duration::from_secs(60),
             dangerously_accept_invalid_certs: Default::default(),
             root_cert_path: Option::default(),
             sasl: Option::default(),

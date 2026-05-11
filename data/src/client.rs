@@ -703,6 +703,7 @@ impl Client {
         buffer: &buffer::Upstream,
         mut messages: Vec<message::Encoded>,
         priority: TokenPriority,
+        reply_id: Option<&message::Id>,
     ) -> Option<LabeledResponseContext> {
         if let Some(multiline_limits) = self.multiline_limits()
             && let Some(batch_kind) =
@@ -722,6 +723,15 @@ impl Client {
                 target.as_str()
             )
             .into();
+
+            if let Some(id) = reply_id {
+                opening_batch
+                    .tags
+                    .insert("+reply".to_string(), id.to_string());
+                opening_batch
+                    .tags
+                    .insert("+draft/reply".to_string(), id.to_string());
+            }
 
             let labeled_response_context = self
                 .set_labeled_response_context(Some(buffer), &mut opening_batch);
@@ -903,6 +913,9 @@ impl Client {
                     '+' => {
                         let mut batch = Batch::new(context);
 
+                        batch.chathistory_end =
+                            message.tags.contains_key("draft/chathistory-end");
+
                         batch.kind = match params.first().map(String::as_str) {
                             Some("chathistory") => {
                                 params.get(1).map(|target| {
@@ -1018,6 +1031,7 @@ impl Client {
                                                 Some(batch_target),
                                                 finished.size,
                                                 &finished.events,
+                                                finished.chathistory_end,
                                             );
 
                                         self.clear_chathistory_request(Some(
@@ -1039,6 +1053,7 @@ impl Client {
                                                 None,
                                                 finished.size,
                                                 &finished.events,
+                                                finished.chathistory_end,
                                             );
 
                                         self.clear_chathistory_request(None);
@@ -3785,6 +3800,7 @@ impl Client {
         target: Option<&Target>,
         size: u16,
         events: &[Event],
+        chathistory_end: bool,
     ) -> Option<ChatHistorySubcommand> {
         if let Some(ChatHistoryRequest {
             subcommand,
@@ -3804,7 +3820,7 @@ impl Client {
                 ) = subcommand
             {
                 self.chathistory_exhausted
-                    .insert(target.clone(), size < *limit);
+                    .insert(target.clone(), chathistory_end || size < *limit);
             }
 
             match subcommand {
@@ -3823,7 +3839,8 @@ impl Client {
 
                     if matches!(message_reference, MessageReference::None) {
                         None
-                    } else if *autorequest && size >= *limit {
+                    } else if *autorequest && size >= *limit && !chathistory_end
+                    {
                         continue_chathistory_between(
                             target,
                             events,
@@ -3861,7 +3878,7 @@ impl Client {
                         end_message_reference,
                     );
 
-                    if *autorequest && size >= *limit {
+                    if *autorequest && size >= *limit && !chathistory_end {
                         continue_chathistory_between(
                             target,
                             events,
@@ -3886,7 +3903,7 @@ impl Client {
                         end_message_reference,
                     );
 
-                    if *autorequest && size >= *limit {
+                    if *autorequest && size >= *limit && !chathistory_end {
                         continue_chathistory_targets(
                             events,
                             start_message_reference,
@@ -4385,9 +4402,13 @@ impl Client {
     }
 
     fn can_send_reactions(&self) -> bool {
-        self.capabilities.acknowledged(Capability::MessageTags)
+        self.can_send_replies()
             && isupport::is_client_tag_allowed(&self.isupport, "draft/react")
             && isupport::is_client_tag_allowed(&self.isupport, "draft/unreact")
+    }
+
+    fn can_send_replies(&self) -> bool {
+        self.capabilities.acknowledged(Capability::MessageTags)
             && (isupport::is_client_tag_allowed(&self.isupport, "draft/reply")
                 || isupport::is_client_tag_allowed(&self.isupport, "reply"))
     }
@@ -4772,9 +4793,10 @@ impl Map {
         buffer: &buffer::Upstream,
         messages: Vec<message::Encoded>,
         priority: TokenPriority,
+        reply_id: Option<&message::Id>,
     ) -> Option<LabeledResponseContext> {
         self.client_mut(buffer.server()).and_then(|client| {
-            client.send_multiline_batch(buffer, messages, priority)
+            client.send_multiline_batch(buffer, messages, priority, reply_id)
         })
     }
 
@@ -5087,6 +5109,10 @@ impl Map {
 
     pub fn get_server_can_redact(&self, server: &Server) -> bool {
         self.client(server).is_some_and(Client::can_redact)
+    }
+
+    pub fn get_server_can_send_replies(&self, server: &Server) -> bool {
+        self.client(server).is_some_and(Client::can_send_replies)
     }
 
     pub fn get_server_can_send_typing(&self, server: &Server) -> bool {
@@ -5445,6 +5471,7 @@ pub struct Batch {
     events: Vec<Event>,
     kind: Option<BatchKind>,
     size: u16,
+    chathistory_end: bool,
 }
 
 impl Batch {
@@ -5454,6 +5481,7 @@ impl Batch {
             events: vec![],
             kind: None,
             size: 0,
+            chathistory_end: false,
         }
     }
 }
@@ -5940,6 +5968,100 @@ mod tests {
         } else {
             panic!("expected PrivOrNotice event");
         }
+    }
+
+    #[test]
+    fn chathistory_end_tag_marks_history_exhausted() {
+        let mut client = test_client("tester");
+        let config = config::Config::default();
+        let server = proto::Source::Server("irc.test".to_string());
+        let alice = proto::Source::User(proto::User {
+            nickname: "alice".to_string(),
+            username: Some("alice".to_string()),
+            hostname: Some("example.test".to_string()),
+        });
+
+        let target = Target::parse(
+            "#test",
+            isupport::DEFAULT_CHANTYPES,
+            &[],
+            isupport::CaseMap::default(),
+        );
+
+        // limit=5 so that without draft/chathistory-end, receiving exactly 5
+        // messages would leave exhausted=false (size >= limit)
+        let limit: u16 = 5;
+
+        client.chathistory_requests.insert(
+            target.clone(),
+            ChatHistoryRequest {
+                subcommand: ChatHistorySubcommand::Before(
+                    target.clone(),
+                    MessageReference::None,
+                    limit,
+                ),
+                requested_at: Instant::now(),
+                autorequest: false,
+            },
+        );
+
+        // BATCH +1 chathistory #test (with draft/chathistory-end tag)
+        client
+            .handle(
+                message::Encoded(proto::Message {
+                    tags: BTreeMap::from([(
+                        "draft/chathistory-end".to_string(),
+                        String::new(),
+                    )]),
+                    source: Some(server.clone()),
+                    command: Command::BATCH(
+                        "+1".to_string(),
+                        vec!["chathistory".to_string(), "#test".to_string()],
+                    ),
+                }),
+                None,
+                &config,
+            )
+            .unwrap();
+
+        // Send exactly `limit` messages to test for boundary edge case
+        for _ in 0..limit {
+            client
+                .handle(
+                    message::Encoded(proto::Message {
+                        tags: BTreeMap::from([(
+                            "batch".to_string(),
+                            "1".to_string(),
+                        )]),
+                        source: Some(alice.clone()),
+                        command: Command::PRIVMSG(
+                            "#test".to_string(),
+                            "message".to_string(),
+                        ),
+                    }),
+                    None,
+                    &config,
+                )
+                .unwrap();
+        }
+
+        // BATCH -1
+        client
+            .handle(
+                message::Encoded(proto::Message {
+                    tags: BTreeMap::default(),
+                    source: Some(server.clone()),
+                    command: Command::BATCH("-1".to_string(), vec![]),
+                }),
+                None,
+                &config,
+            )
+            .unwrap();
+
+        assert!(
+            client.chathistory_exhausted(&target),
+            "draft/chathistory-end tag should mark history as exhausted"
+        );
     }
 
     #[test]

@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use std::string::ToString;
 
 use chrono::{DateTime, Utc};
@@ -7,13 +8,13 @@ use data::{
     Config, Server, User, config, ctcp, isupport, message, metadata, preview,
     target,
 };
-use iced::widget::{Space, button, column, container, image, row, rule, span};
-use iced::{ContentFit, Length, Padding, mouse};
+use iced::widget::{Space, button, column, container, row, rule, span};
+use iced::{Color, ContentFit, Length, Padding, alignment, mouse};
 use url::Url;
 
 use crate::widget::{
-    Element, Renderer, context_menu, double_pass, selectable_rich_text,
-    selectable_text, text,
+    Element, Renderer, color_dot, context_menu, double_pass, image,
+    selectable_rich_text, selectable_text, text,
 };
 use crate::{Theme, font, theme, widget};
 
@@ -23,7 +24,7 @@ pub enum Context<'a> {
         prefix: &'a [isupport::PrefixMap],
         channel: Option<&'a target::Channel>,
         registry: &'a dyn metadata::Registry,
-        avatar: Option<UserAvatar>,
+        avatar: Option<UserAvatar<'a>>,
         user: &'a User,
         current_user: Option<&'a User>,
     },
@@ -32,6 +33,8 @@ pub enum Context<'a> {
         message: Option<message::Hash>,
         msgid: Option<&'a message::Id>,
         selected_reactions: Vec<&'a str>,
+        to_nick: Option<String>,
+        reply_preview: Option<String>,
     },
     Timestamp(&'a DateTime<Utc>),
     NotSentMessage(&'a DateTime<Utc>, &'a message::Hash),
@@ -39,6 +42,7 @@ pub enum Context<'a> {
         msgid: Option<&'a message::Id>,
         selected_reactions: &'a [String],
         content: &'a message::Content,
+        source: &'a message::Source,
     },
 }
 
@@ -68,14 +72,15 @@ pub enum Entry {
     ResendMessage,
     // message context
     CopyMessage,
+    Reply,
     AddReaction,
     Redact,
 }
 
 #[derive(Debug, Clone)]
-pub enum UserAvatar {
+pub enum UserAvatar<'a> {
     Pending,
-    Loaded(std::path::PathBuf),
+    Loaded(&'a data::Image),
 }
 
 impl Entry {
@@ -94,11 +99,19 @@ impl Entry {
     pub fn message_list(
         can_send_reactions: bool,
         can_redact: bool,
+        can_send_replies: bool,
     ) -> Vec<Self> {
-        let mut entries = vec![Entry::CopyMessage];
+        let mut entries = vec![];
+        if can_send_replies {
+            entries.push(Entry::Reply);
+        }
         if can_send_reactions {
             entries.push(Entry::AddReaction);
         }
+        if can_send_replies || can_send_reactions {
+            entries.push(Entry::HorizontalRule);
+        }
+        entries.push(Entry::CopyMessage);
         if can_redact {
             entries.push(Entry::Redact);
         }
@@ -109,6 +122,7 @@ impl Entry {
         preview_hidden: Option<bool>,
         can_send_reactions: bool,
         can_redact: bool,
+        can_send_replies: bool,
     ) -> Vec<Self> {
         let mut entries = vec![Entry::CopyUrl, Entry::OpenUrl];
 
@@ -121,8 +135,12 @@ impl Entry {
             });
         }
 
-        if can_send_reactions || can_redact {
+        if can_send_replies || can_send_reactions || can_redact {
             entries.push(Entry::HorizontalRule);
+        }
+
+        if can_send_replies {
+            entries.push(Entry::Reply);
         }
 
         if can_send_reactions {
@@ -518,6 +536,44 @@ impl Entry {
                 )
             }
             (
+                Entry::Reply,
+                Context::Message {
+                    msgid: Some(msgid),
+                    source: message::Source::User(user),
+                    content,
+                    ..
+                },
+            ) => menu_button(
+                "Reply".to_string(),
+                Some(Message::Reply {
+                    msgid: msgid.clone(),
+                    to_nick: user.nickname().to_string(),
+                    reply_preview: content.preview_text(),
+                }),
+                length,
+                theme,
+                config,
+            ),
+            (
+                Entry::Reply,
+                Context::Message {
+                    msgid: Some(msgid),
+                    source: message::Source::Action(Some(user)),
+                    content,
+                    ..
+                },
+            ) => menu_button(
+                "Reply".to_string(),
+                Some(Message::Reply {
+                    msgid: msgid.clone(),
+                    to_nick: user.nickname().to_string(),
+                    reply_preview: content.preview_text(),
+                }),
+                length,
+                theme,
+                config,
+            ),
+            (
                 Entry::AddReaction,
                 Context::Message {
                     msgid: Some(msgid),
@@ -530,6 +586,25 @@ impl Entry {
                     msgid.clone(),
                     selected_reactions.to_vec(),
                 )),
+                length,
+                theme,
+                config,
+            ),
+            (
+                Entry::Reply,
+                Context::Url {
+                    msgid: Some(msgid),
+                    to_nick: Some(to_nick),
+                    reply_preview: Some(reply_preview),
+                    ..
+                },
+            ) => menu_button(
+                "Reply".to_string(),
+                Some(Message::Reply {
+                    msgid: msgid.clone(),
+                    to_nick,
+                    reply_preview,
+                }),
                 length,
                 theme,
                 config,
@@ -596,6 +671,11 @@ pub enum Message {
     ResendMessage(DateTime<Utc>, message::Hash),
     OpenReactionModal(message::Id, Vec<String>),
     Redact(message::Id),
+    Reply {
+        msgid: message::Id,
+        to_nick: String,
+        reply_preview: String,
+    },
     LoadUserAvatar(Server, url::Url),
     Link(message::Link),
 }
@@ -620,6 +700,11 @@ pub enum Event {
     ResendMessage(DateTime<Utc>, message::Hash),
     OpenReactionModal(message::Id, Vec<String>),
     RedactMessage(message::Id),
+    Reply {
+        msgid: message::Id,
+        to_nick: String,
+        reply_preview: String,
+    },
     LoadUserAvatar(Server, url::Url),
 }
 
@@ -660,6 +745,15 @@ pub fn update(message: Message) -> Option<Event> {
             Some(Event::OpenReactionModal(msgid, selected_reactions))
         }
         Message::Redact(msgid) => Some(Event::RedactMessage(msgid)),
+        Message::Reply {
+            msgid,
+            to_nick,
+            reply_preview,
+        } => Some(Event::Reply {
+            msgid,
+            to_nick,
+            reply_preview,
+        }),
         Message::LoadUserAvatar(server, url) => {
             Some(Event::LoadUserAvatar(server, url))
         }
@@ -673,6 +767,7 @@ pub fn message<'a, M>(
     source: &'a message::Source,
     msgid: Option<&'a message::Id>,
     selected_reactions: Vec<String>,
+    can_send_replies: bool,
     can_send_reactions: bool,
     can_redact: bool,
     message_content: &'a message::Content,
@@ -689,6 +784,7 @@ where
     let entries = Entry::message_list(
         can_send_reactions && msgid.is_some(),
         can_redact && msgid.is_some(),
+        can_send_replies && msgid.is_some(),
     );
 
     context_menu(
@@ -705,6 +801,7 @@ where
                         msgid,
                         selected_reactions: &selected_reactions,
                         content: message_content,
+                        source,
                     }),
                     length,
                     config,
@@ -1029,12 +1126,12 @@ fn user_metadata<'a>(
     let query = target::Query::from(user);
     let avatar: Option<Element<'a, Message>> = avatar.map(|avatar| {
         let content: Element<'a, Message> = match avatar {
-            UserAvatar::Loaded(path) => image(path.clone())
-                .width(AVATAR_SIZE)
-                .height(AVATAR_SIZE)
-                .border_radius(4)
-                .content_fit(ContentFit::Cover)
-                .into(),
+            UserAvatar::Loaded(data) => {
+                container(image::from_data(data, true, ContentFit::Cover))
+                    .width(AVATAR_SIZE)
+                    .height(AVATAR_SIZE)
+                    .into()
+            }
             UserAvatar::Pending => Space::new()
                 .width(Length::Fixed(AVATAR_SIZE))
                 .height(Length::Fixed(AVATAR_SIZE))
@@ -1059,39 +1156,60 @@ fn user_metadata<'a>(
                 .map(|value| (key, value))
         })
         .map(|(key, value)| {
-            if matches!(key, metadata::Key::Homepage)
-                && let Ok(url) = Url::parse(value)
-            {
-                selectable_rich_text::<
-                    Message,
-                    message::Link,
-                    (),
-                    Theme,
-                    Renderer,
-                >(vec![
-                    if config.display.decode_urls {
-                        span(data::url::display(&url).to_string())
-                    } else {
-                        span(value.to_string())
-                    }
-                    .color(theme.styles().buffer.url.color)
-                    .link(message::Link::Url(url.as_str().to_string())),
-                    span(format!(" ({key})")),
-                ])
-                .on_link(Message::Link)
-                .style(theme::selectable_text::secondary)
-                .font_maybe(theme::font_style::secondary(theme).map(font::get))
-                .width(length)
-                .into()
-            } else {
-                selectable_text(format!("{value} ({key})"))
+            match key {
+                metadata::Key::Homepage => Url::parse(value).ok().map(|url| {
+                    selectable_rich_text::<
+                        Message,
+                        message::Link,
+                        (),
+                        Theme,
+                        Renderer,
+                    >(vec![
+                        if config.display.decode_urls {
+                            span(data::url::display(&url).to_string())
+                        } else {
+                            span(value.to_string())
+                        }
+                        .color(theme.styles().buffer.url.color)
+                        .link(message::Link::Url(url.as_str().to_string())),
+                        span(format!(" ({key})")),
+                    ])
+                    .on_link(Message::Link)
                     .style(theme::selectable_text::secondary)
                     .font_maybe(
                         theme::font_style::secondary(theme).map(font::get),
                     )
                     .width(length)
                     .into()
+                }),
+                metadata::Key::Color => {
+                    Color::from_str(value).ok().map(|color| {
+                        row![
+                            color_dot(color),
+                            selectable_text(format!("{value} ({key})"))
+                                .style(theme::selectable_text::secondary)
+                                .font_maybe(
+                                    theme::font_style::secondary(theme)
+                                        .map(font::get),
+                                )
+                        ]
+                        .spacing(5)
+                        .align_y(alignment::Vertical::Center)
+                        .width(length)
+                        .into()
+                    })
+                }
+                _ => None,
             }
+            .unwrap_or(
+                selectable_text(format!("{value} ({key})"))
+                    .style(theme::selectable_text::secondary)
+                    .font_maybe(
+                        theme::font_style::secondary(theme).map(font::get),
+                    )
+                    .width(length)
+                    .into(),
+            )
         });
 
     let mut content = column![];
@@ -1099,7 +1217,7 @@ fn user_metadata<'a>(
     let inter_column_spacing = if let Some(avatar) = avatar {
         content = content.push(avatar);
 
-        4
+        6
     } else {
         0
     };
@@ -1120,14 +1238,14 @@ fn avatar_url(
     url::Url::parse(avatar).ok()
 }
 
-pub fn user_avatar(
+pub fn user_avatar<'a>(
     user: &User,
     registry: &dyn metadata::Registry,
-    previews: &preview::Collection,
-) -> Option<UserAvatar> {
+    previews: &'a preview::Collection,
+) -> Option<UserAvatar<'a>> {
     avatar_url(user, registry).map(|url| match previews.get(&url) {
         Some(preview::State::Loaded(preview)) => {
-            UserAvatar::Loaded(preview.image().path.clone())
+            UserAvatar::Loaded(preview.image())
         }
         _ => UserAvatar::Pending,
     })

@@ -1,11 +1,9 @@
-use std::path::PathBuf;
-
 use chrono::{DateTime, Utc};
 use data::buffer::RightAlignmentWidths;
 use data::dashboard::BufferAction;
 use data::target::Target;
 use data::user::Nick;
-use data::{Config, Preview, User, buffer, history, message, preview};
+use data::{Config, Image, Preview, User, buffer, history, message, preview};
 use iced::advanced::text;
 use iced::widget::{Space, column, container, row, space};
 use iced::{Color, Length, Size, Task, padding};
@@ -56,7 +54,7 @@ pub enum Event {
     History(Task<history::manager::Message>),
     MarkAsRead(history::Kind),
     OpenUrl(String),
-    ImagePreview(PathBuf, url::Url),
+    ImagePreview(Image),
     ExpandMessage(DateTime<Utc>, message::Hash),
     ContractMessage(DateTime<Utc>, message::Hash),
     InputSent {
@@ -127,6 +125,7 @@ pub fn view<'a>(
                         let text_content = message_content(
                             &message.content,
                             &state.server,
+                            registry,
                             chantypes,
                             casemapping,
                             theme,
@@ -155,6 +154,7 @@ pub fn view<'a>(
                             vec![],
                             false,
                             false,
+                            false,
                             &message.content,
                             config,
                             theme,
@@ -166,6 +166,7 @@ pub fn view<'a>(
                         let content = message_content(
                             &message.content,
                             &state.server,
+                            registry,
                             chantypes,
                             casemapping,
                             theme,
@@ -193,6 +194,7 @@ pub fn view<'a>(
                             config.buffer.nickname.truncate,
                             config.display.truncation_character,
                             Some(&config.buffer.nickname.brackets),
+                            true,
                         );
 
                         let nick: Element<_> = if hide_nickname {
@@ -215,7 +217,8 @@ pub fn view<'a>(
                             Space::new().width(width).into()
                         } else {
                             let mut nick_text = user_display.into_element(
-                                user, false, false, None, theme, config,
+                                user, false, false, None, None, false, true,
+                                theme, config,
                             );
 
                             if let Some(right_alignment_widths) =
@@ -249,6 +252,7 @@ pub fn view<'a>(
                         let content = message_content(
                             &message.content,
                             &state.server,
+                            registry,
                             chantypes,
                             casemapping,
                             theme,
@@ -273,6 +277,7 @@ pub fn view<'a>(
                             message.target.source(),
                             None,
                             vec![],
+                            false,
                             false,
                             false,
                             &message.content,
@@ -308,6 +313,7 @@ pub fn view<'a>(
                 config,
                 theme,
                 filehost_url,
+                None,
             )
             .map(Message::InputView)
         ]
@@ -340,9 +346,7 @@ impl Server {
         let buffer = buffer::Upstream::Server(server.clone());
 
         Self {
-            input_view: input_view::State::new(Some(
-                history.input(&buffer).draft,
-            )),
+            input_view: input_view::State::new(Some(history.input(&buffer))),
             buffer,
             server,
             scroll_view: scroll_view::State::new(pane_size, config),
@@ -394,8 +398,8 @@ impl Server {
                     scroll_view::Event::OpenUrl(url) => {
                         Some(Event::OpenUrl(url))
                     }
-                    scroll_view::Event::ImagePreview(path, url) => {
-                        Some(Event::ImagePreview(path, url))
+                    scroll_view::Event::ImagePreview(image) => {
+                        Some(Event::ImagePreview(image))
                     }
                     scroll_view::Event::ExpandMessage(server_time, hash) => {
                         Some(Event::ExpandMessage(server_time, hash))

@@ -166,7 +166,7 @@ impl UnreadIndicator {
                 self.include.as_ref(),
                 self.exclude.as_ref(),
                 None,
-                target,
+                target.as_target_ref(),
                 server,
                 casemapping,
             )

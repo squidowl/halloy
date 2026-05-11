@@ -1,10 +1,10 @@
-use std::path::PathBuf;
-
 use chrono::{DateTime, Utc};
 use data::config::buffer::nickname::ShownStatus;
 use data::dashboard::BufferAction;
 use data::target::{self, Target};
-use data::{Config, Preview, Server, history, message, metadata, preview};
+use data::{
+    Config, Image, Preview, Server, history, message, metadata, preview,
+};
 use iced::widget::{container, row, span};
 use iced::{Color, Length, Size, Task};
 
@@ -28,7 +28,7 @@ pub enum Event {
     History(Task<history::manager::Message>),
     OpenUrl(String),
     MarkAsRead,
-    ImagePreview(PathBuf, url::Url),
+    ImagePreview(Image),
     ExpandMessage(DateTime<Utc>, message::Hash),
     ContractMessage(DateTime<Utc>, message::Hash),
 }
@@ -115,15 +115,18 @@ pub fn view<'a>(
                             ShownStatus::Historical => false,
                         };
 
+                    let registry = clients.get_registry(server);
+
                     let user_display = UserDisplay::new(
                         user,
                         config.buffer.nickname.show_access_levels,
                         config.buffer.nickname.show_bot_icon,
-                        clients.get_registry(server),
+                        registry,
                         &config.display.nickname,
                         config.buffer.nickname.truncate,
                         config.display.truncation_character,
                         Some(&config.buffer.nickname.brackets),
+                        true,
                     );
 
                     let nick_text = user_display.into_element(
@@ -131,6 +134,9 @@ pub fn view<'a>(
                         is_user_away,
                         is_user_offline,
                         None,
+                        None,
+                        false,
+                        true,
                         theme,
                         config,
                     );
@@ -160,6 +166,7 @@ pub fn view<'a>(
                     let text = message_content::with_context(
                         &message.content,
                         server,
+                        registry,
                         chantypes,
                         casemapping,
                         theme,
@@ -184,7 +191,7 @@ pub fn view<'a>(
                             }
                             message::Link::Url(_) => {
                                 context_menu::Entry::url_list(
-                                    None, false, false,
+                                    None, false, false, false,
                                 )
                             }
                             _ => vec![],
@@ -210,6 +217,8 @@ pub fn view<'a>(
                                     message: None,
                                     msgid: None,
                                     selected_reactions: vec![],
+                                    to_nick: None,
+                                    reply_preview: None,
                                 })
                             };
 
@@ -270,6 +279,7 @@ pub fn view<'a>(
                     let text = message_content(
                         &message.content,
                         server,
+                        clients.get_registry(server),
                         chantypes,
                         casemapping,
                         theme,
@@ -358,8 +368,8 @@ impl Highlights {
                     scroll_view::Event::OpenUrl(url) => {
                         Some(Event::OpenUrl(url))
                     }
-                    scroll_view::Event::ImagePreview(path, url) => {
-                        Some(Event::ImagePreview(path, url))
+                    scroll_view::Event::ImagePreview(image) => {
+                        Some(Event::ImagePreview(image))
                     }
                     scroll_view::Event::ExpandMessage(server_time, hash) => {
                         Some(Event::ExpandMessage(server_time, hash))
