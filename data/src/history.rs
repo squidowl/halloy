@@ -1482,10 +1482,24 @@ pub fn insert_message(
 
     if let Some(index) = replace_at {
         if messages[index].server_time == message.server_time {
-            messages[index] = Message {
-                id: message.id.or(messages[index].id.clone()),
-                ..message
-            };
+            if message.deduplicate
+                && has_matching_content(&messages[index], &message, false)
+            {
+                // Perform a minimal update if this is a message from
+                // chathistory (or ZNC playback) and has the same raw content,
+                // since the newly received message will have been parsed
+                // without historical state.
+                if messages[index].id.is_none() {
+                    messages[index].id = message.id;
+                }
+                messages[index].direction = message::Direction::Received;
+                messages[index].received_at = message.received_at;
+            } else {
+                messages[index] = Message {
+                    id: message.id.or(messages[index].id.clone()),
+                    ..message
+                };
+            }
         } else {
             if message_is_unlabeled_echo {
                 read_marker = Some(ReadMarker::from(&message));
