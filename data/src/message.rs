@@ -1148,6 +1148,34 @@ pub fn condense(
             .collect();
         condensed_fragments.pop(); // Remove trailing whitespace fragment
 
+        if let Some(max) = condense.max {
+            let max = max as usize;
+            let total_groups = condensed_fragments
+                .iter()
+                .filter(|f| matches!(f, Fragment::Text(_)))
+                .count()
+                + 1;
+
+            if total_groups > max + 1 {
+                let mut sep_count = 0;
+                let truncate_pos = condensed_fragments.iter().position(|f| {
+                    if matches!(f, Fragment::Text(_)) {
+                        sep_count += 1;
+                        sep_count == max
+                    } else {
+                        false
+                    }
+                });
+
+                if let Some(pos) = truncate_pos {
+                    condensed_fragments.truncate(pos);
+                    let hidden = total_groups - max;
+                    condensed_fragments
+                        .push(Fragment::Text(format!("  (… {hidden} more)")));
+                }
+            }
+        }
+
         Some(Arc::new(Message {
             received_at: Posix::now(),
             server_time: first_message.server_time,

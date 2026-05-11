@@ -10,6 +10,7 @@ Added:
 - Support for displaying SVGs
 - Notification for reacts (`notifications.reaction`)
 - Theme colors for horizontal rule text and buffer backlog/date separators
+- The config `buffer.server_messages.condense.max` may be used to limit the number of user entries shown in condensed messages
 - Setting to close queries when closing query buffer panes (`buffer.close.query`)
 - Configuration options for font stretch (`font.stretch`)
 - The default font is not bundled if default feature `iosevka-font` is disabled.

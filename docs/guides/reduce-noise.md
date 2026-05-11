@@ -58,6 +58,13 @@ messages = ["join", "part", "quit"]
 dimmed = true
 ```
 
+If a channel is very active, lists of condensed messages can still grow long. The [`max`](../configuration/buffer#max) setting can limits how many condensed messages are shown:
+
+```toml
+[buffer.server_messages.condense]
+max = 15
+```
+
 When using condensed messages, it is recommended that you specify colors for the condensed messages in your [theme](../configuration/themes).  Those colors will be used for the abbreviations used in the condensed messages.  For example, these theme settings could be added:
 
 ```toml

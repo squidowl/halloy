@@ -604,6 +604,7 @@ pub struct Condensation {
     pub icon: CondensationIcon,
     #[serde(deserialize_with = "deserialize_dimmed_maybe")]
     pub dimmed: Option<Dimmed>,
+    pub max: Option<u16>,
 }
 
 impl Default for Condensation {
@@ -619,6 +620,7 @@ impl Default for Condensation {
             format: CondensationFormat::default(),
             icon: CondensationIcon::default(),
             dimmed: Some(Dimmed::default()),
+            max: None,
         }
     }
 }
