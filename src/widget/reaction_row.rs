@@ -107,10 +107,12 @@ where
             text(*reaction_text)
                 .shaping(iced::widget::text::Shaping::Advanced)
                 .size(tooltip_emoji_size)
+                .line_height(LineHeight::Relative(1.0))
                 .style(theme::text::primary),
             tooltip_content,
         ]
-        .spacing(6);
+        .spacing(6)
+        .align_y(alignment::Vertical::Center);
 
         iced::widget::tooltip(
             content,
