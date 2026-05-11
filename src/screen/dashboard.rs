@@ -1098,8 +1098,10 @@ impl Dashboard {
                             if let Some(channel) = buffer.channel()
                                 && let Some(client) = clients.client_mut(server)
                             {
+                                let opened_channels = self.open_pane_channels();
                                 client.prioritize_joined_who_poll(
                                     channel.to_owned(),
+                                    opened_channels,
                                 );
                             }
 
@@ -1138,8 +1140,10 @@ impl Dashboard {
                             if let Some(channel) = buffer.channel()
                                 && let Some(client) = clients.client_mut(server)
                             {
+                                let opened_channels = self.open_pane_channels();
                                 client.prioritize_joined_who_poll(
                                     channel.to_owned(),
+                                    opened_channels,
                                 );
                             }
 
@@ -3015,7 +3019,11 @@ impl Dashboard {
             && let Some(channel) = upstream.channel()
             && let Some(client) = clients.client_mut(server)
         {
-            client.prioritize_joined_who_poll(channel.to_owned());
+            let opened_channels = self.open_pane_channels();
+            client.prioritize_joined_who_poll(
+                channel.to_owned(),
+                opened_channels,
+            );
         }
 
         if let Some(buffer::Upstream::Query(server, query)) = buffer.upstream()
@@ -4939,17 +4947,28 @@ impl Dashboard {
         }
     }
 
-    pub fn has_open_channel_pane(
+    pub fn open_pane_channels(&self) -> Vec<(&Server, &target::Channel)> {
+        self.panes
+            .iter()
+            .filter_map(|(_, _, pane)| match pane.buffer.upstream() {
+                Some(buffer::Upstream::Channel(server, channel)) => {
+                    Some((server, channel))
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    pub fn has_open_pane_channel(
         &self,
         server: &Server,
         channel: &target::Channel,
-    ) -> bool {
-        self.panes.iter().any(|(_, _, pane)| {
-            matches!(
-                pane.buffer.upstream(),
-                Some(buffer::Upstream::Channel(s, c)) if s == server && c == channel
-            )
-        })
+    ) -> (Vec<(&Server, &target::Channel)>, bool) {
+        let opened_channels = self.open_pane_channels();
+        let is_channel_opened = &opened_channels
+            .iter()
+            .any(|(s, c)| *s == server && *c == channel);
+        (opened_channels, *is_channel_opened)
     }
 
     pub fn open_pane_server_queries(

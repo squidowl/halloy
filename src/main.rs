@@ -1820,9 +1820,14 @@ fn handle_client_events(
                         )
                         .map(Message::Dashboard),
                 );
-
-                if dashboard.has_open_channel_pane(server, &channel) {
-                    clients.prioritize_channel_who_poll(server, channel);
+                let (opened_channels, opened) =
+                    dashboard.has_open_pane_channel(server, &channel);
+                if opened {
+                    clients.prioritize_channel_who_poll(
+                        server,
+                        channel,
+                        opened_channels,
+                    );
                 }
             }
             Event::LoggedIn(server_time) => {

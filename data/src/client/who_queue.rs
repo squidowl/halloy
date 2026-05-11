@@ -9,6 +9,7 @@ use irc::proto::command;
 use crate::capabilities::{Capabilities, Capability};
 use crate::isupport::{self, WhoToken, WhoXPollParameters};
 use crate::rate_limit::{BackoffInterval, TokenPriority};
+use crate::server::Server;
 use crate::target::Channel;
 use crate::{User, client, config, message};
 
@@ -484,6 +485,38 @@ impl WhoQueue {
 
             log::debug!("prioritizing who poll for: {channel:?}");
             self.polls.push_front(who_poll);
+        }
+    }
+
+    pub fn deprioritize_joined_who_poll(&mut self, channel: Channel) {
+        if let Some(pos) = self.polls.iter().position(|who_poll| {
+            who_poll.channel == channel
+                && matches!(who_poll.status, WhoStatus::PrioritizedJoin)
+        }) {
+            log::debug!("deprioritizing who poll for: {channel:?}");
+            self.polls[pos].status = WhoStatus::Joined;
+        }
+    }
+
+    pub fn reprioritize_joined_who_polls(
+        &mut self,
+        server: &Server,
+        opened_channels: Vec<(&Server, &Channel)>,
+    ) {
+        let channels_to_deprioritize: Vec<Channel> = self
+            .polls
+            .iter()
+            .filter(|who_poll| {
+                matches!(who_poll.status, WhoStatus::PrioritizedJoin)
+                    && !opened_channels
+                        .iter()
+                        .any(|(s, c)| *s == server && *c == &who_poll.channel)
+            })
+            .map(|who_poll| who_poll.channel.clone())
+            .collect();
+
+        for channel in channels_to_deprioritize {
+            self.deprioritize_joined_who_poll(channel);
         }
     }
 }

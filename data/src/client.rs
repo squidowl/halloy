@@ -4546,8 +4546,15 @@ impl Client {
         self.capabilities.multiline_limits()
     }
 
-    pub fn prioritize_joined_who_poll(&mut self, channel: target::Channel) {
+    pub fn prioritize_joined_who_poll(
+        &mut self,
+        channel: target::Channel,
+        opened_channels: Vec<(&Server, &target::Channel)>,
+    ) {
         self.who_queue.prioritize_joined_who_poll(channel);
+
+        self.who_queue
+            .reprioritize_joined_who_polls(&self.server, opened_channels);
     }
 
     pub fn has_isupport_monitor(&self) -> bool {
@@ -5541,9 +5548,10 @@ impl Map {
         &mut self,
         server: &Server,
         channel: target::Channel,
+        opened_channels: Vec<(&Server, &target::Channel)>,
     ) {
         if let Some(client) = self.client_mut(server) {
-            client.prioritize_joined_who_poll(channel);
+            client.prioritize_joined_who_poll(channel, opened_channels);
         }
     }
 }
