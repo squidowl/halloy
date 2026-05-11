@@ -3720,6 +3720,13 @@ impl Client {
         })
     }
 
+    pub fn is_who_init(&self, channel: &target::Channel) -> bool {
+        let Some(client_channel) = self.chanmap.get(channel) else {
+            return false;
+        };
+        client_channel.who_init
+    }
+
     pub fn chathistory_limit(&self) -> u16 {
         if let Some(isupport::Parameter::CHATHISTORY(server_limit)) =
             self.isupport.get(&isupport::Kind::CHATHISTORY)
