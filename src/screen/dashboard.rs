@@ -1742,16 +1742,14 @@ impl Dashboard {
                             &server,
                         );
 
-                    let message_reference = self
-                        .history
-                        .last_can_reference_before_or_at(
+                    let message_reference =
+                        self.history.last_can_reference_before_or_at(
                             server.clone(),
                             target.clone(),
                             server_time,
                             allow_at,
                             &message_reference_types,
-                        )
-                        .unwrap_or(MessageReference::None);
+                        );
 
                     let limit = clients.get_server_chathistory_limit(&server);
 
@@ -1760,31 +1758,6 @@ impl Dashboard {
                         ChatHistorySubcommand::Latest(
                             target,
                             message_reference,
-                            limit,
-                        ),
-                        TokenPriority::High,
-                    );
-                }
-                client::Message::RequestChatHistoryTargets(
-                    server,
-                    timestamp,
-                    server_time,
-                ) => {
-                    let start_message_reference = timestamp
-                        .map_or(MessageReference::None, |timestamp| {
-                            MessageReference::Timestamp(timestamp)
-                        });
-
-                    let end_message_reference =
-                        MessageReference::Timestamp(server_time);
-
-                    let limit = clients.get_server_chathistory_limit(&server);
-
-                    clients.send_chathistory_request(
-                        &server,
-                        ChatHistorySubcommand::Targets(
-                            start_message_reference,
-                            end_message_reference,
                             limit,
                         ),
                         TokenPriority::High,
@@ -3483,7 +3456,7 @@ impl Dashboard {
         server: &Server,
         target: Target,
         message_reference_types: &[isupport::MessageReferenceType],
-    ) -> MessageReference {
+    ) -> Option<MessageReference> {
         if let Some(first_can_reference) = self
             .history
             .first_can_reference(server.clone(), target.clone())
@@ -3492,19 +3465,21 @@ impl Dashboard {
                 match message_reference_type {
                     isupport::MessageReferenceType::MessageId => {
                         if let Some(id) = &first_can_reference.id {
-                            return MessageReference::MessageId(id.clone());
+                            return Some(MessageReference::MessageId(
+                                id.clone(),
+                            ));
                         }
                     }
                     isupport::MessageReferenceType::Timestamp => {
-                        return MessageReference::Timestamp(
+                        return Some(MessageReference::Timestamp(
                             first_can_reference.server_time,
-                        );
+                        ));
                     }
                 }
             }
         }
 
-        MessageReference::None
+        None
     }
 
     pub fn request_older_chathistory(
@@ -3535,14 +3510,14 @@ impl Dashboard {
             );
 
             let subcommand =
-                if matches!(first_can_reference, MessageReference::None) {
-                    ChatHistorySubcommand::Latest(
+                if let Some(first_can_reference) = first_can_reference {
+                    ChatHistorySubcommand::Before(
                         target,
                         first_can_reference,
                         clients.get_server_chathistory_limit(server),
                     )
                 } else {
-                    ChatHistorySubcommand::Before(
+                    ChatHistorySubcommand::Latest(
                         target,
                         first_can_reference,
                         clients.get_server_chathistory_limit(server),

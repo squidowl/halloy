@@ -1076,7 +1076,7 @@ impl History {
                 },
             )
         {
-            Some(message_references.message_reference(message_reference_types))
+            message_references.message_reference(message_reference_types)
         // Else, if a reference at server_time is allowed, exists, and timestamp
         // references are supported, then return a timestamp reference at
         // server_time.

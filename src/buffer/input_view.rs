@@ -2968,6 +2968,7 @@ fn show_while_typing(error: &input::Error) -> bool {
             | command::Error::InvalidChannelName { .. }
             | command::Error::InvalidServerUrl
             | command::Error::InvalidChathistoryMessageReference
+            | command::Error::InvalidChathistoryOptionalMessageReference
             | command::Error::InvalidChathistoryTimestamp
             | command::Error::ChathistoryLimitTooLarge { .. }
             | command::Error::ExecDisabled

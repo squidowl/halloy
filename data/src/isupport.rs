@@ -905,10 +905,10 @@ impl fmt::Display for ModeKind {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ChatHistorySubcommand {
-    Latest(Target, MessageReference, u16),
+    Latest(Target, Option<MessageReference>, u16),
     Before(Target, MessageReference, u16),
     Between(Target, MessageReference, MessageReference, u16),
-    Targets(MessageReference, MessageReference, u16),
+    Targets(DateTime<Utc>, DateTime<Utc>, u16),
 }
 
 impl ChatHistorySubcommand {
@@ -946,8 +946,16 @@ pub struct CommandTargetLimit {
 pub enum MessageReference {
     Timestamp(DateTime<Utc>),
     MessageId(message::Id),
-    None,
 }
+
+// impl fmt::Display for Option<MessageReference> {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         match self {
+//             Some(message_reference) => write!(f, "{message_reference}"),
+//             None => write!(f, "*"),
+//         }
+//     }
+// }
 
 impl fmt::Display for MessageReference {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -958,7 +966,6 @@ impl fmt::Display for MessageReference {
                 server_time.to_rfc3339_opts(SecondsFormat::Millis, true)
             ),
             MessageReference::MessageId(id) => write!(f, "msgid={id}"),
-            MessageReference::None => write!(f, "*"),
         }
     }
 }
@@ -970,8 +977,16 @@ impl PartialEq<Message> for MessageReference {
                 other.server_time == *server_time
             }
             MessageReference::MessageId(id) => other.id.as_deref() == Some(id),
-            MessageReference::None => false,
         }
+    }
+}
+
+pub fn format_optional_message_reference(
+    optional_message_reference: &Option<MessageReference>,
+) -> String {
+    match optional_message_reference {
+        Some(message_reference) => message_reference.to_string(),
+        None => "*".to_string(),
     }
 }
 
