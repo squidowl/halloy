@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::num::NonZeroU16;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -26,8 +27,6 @@ pub mod reroute;
 
 pub use self::filters::{FancyRegex, Filters, Ignore};
 pub use self::reroute::{Reroute, RerouteRule, RerouteTarget};
-
-pub(crate) const DEFAULT_UNSET_PORT: u16 = 0;
 
 const DEFAULT_PORT: u16 = 6667;
 const DEFAULT_TLS_PORT: u16 = 6697;
@@ -61,8 +60,7 @@ pub struct Server {
     /// The server to connect to.
     pub server: String,
     /// The port to connect on.
-    #[serde(deserialize_with = "deserialize_port")]
-    pub port: u16,
+    pub port: Option<NonZeroU16>,
     /// The password to connect to the server.
     pub password: Option<String>,
     /// The file with the password to connect to the server.
@@ -148,7 +146,7 @@ pub struct Server {
 impl Server {
     pub fn new(
         server: String,
-        port: Option<u16>,
+        port: Option<NonZeroU16>,
         nickname: String,
         channels: Vec<String>,
         use_tls: bool,
@@ -157,7 +155,10 @@ impl Server {
         Self {
             nickname,
             server,
-            port: port.unwrap_or(default_port(use_tls, use_websocket)),
+            port: match port {
+                None => default_port(use_tls, use_websocket),
+                port => port,
+            },
             channels,
             use_tls,
             use_websocket,
@@ -189,7 +190,11 @@ impl Server {
 
         connection::Config {
             server: &self.server,
-            port: self.port,
+            port: match self.port {
+                Some(port) => port,
+                None => default_port(self.use_tls, self.use_websocket).unwrap(),
+            }
+            .get(),
             security,
             proxy: proxy.map(From::from),
             websocket: self.use_websocket.then_some(connection::WebSocket {
@@ -231,7 +236,7 @@ impl Default for Server {
             username: Option::default(),
             realname: Option::default(),
             server: String::default(),
-            port: DEFAULT_UNSET_PORT,
+            port: None,
             password: Option::default(),
             password_file: Option::default(),
             password_file_first_line_only: true,
@@ -539,22 +544,6 @@ pub struct OptionalTyping {
     pub show: Option<bool>,
 }
 
-fn deserialize_port<'de, D>(deserializer: D) -> Result<u16, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let port = Option::<u16>::deserialize(deserializer)?;
-
-    match port {
-        None => Ok(DEFAULT_UNSET_PORT),
-        Some(DEFAULT_UNSET_PORT) => Err(serde::de::Error::invalid_value(
-            serde::de::Unexpected::Unsigned(DEFAULT_UNSET_PORT.into()),
-            &"port must be between 1 and 65535",
-        )),
-        Some(port) => Ok(port),
-    }
-}
-
 fn deserialize_anti_flood<'de, D>(deserializer: D) -> Result<Duration, D::Error>
 where
     D: Deserializer<'de>,
@@ -600,13 +589,13 @@ where
     Ok(Duration::from_secs(seconds))
 }
 
-pub fn default_port(use_tls: bool, use_websocket: bool) -> u16 {
-    match (use_tls, use_websocket) {
+pub fn default_port(use_tls: bool, use_websocket: bool) -> Option<NonZeroU16> {
+    NonZeroU16::new(match (use_tls, use_websocket) {
         (true, true) => DEFAULT_WSS_PORT,
         (true, false) => DEFAULT_TLS_PORT,
         (false, true) => DEFAULT_WS_PORT,
         (false, false) => DEFAULT_PORT,
-    }
+    })
 }
 
 pub async fn read_from_command(

@@ -145,7 +145,7 @@ The port to connect on. If you want to use a plain text port like 6667 you MUST 
 
 ```toml
 # Type: integer
-# Values: any number between 1-65535
+# Values: any non-negative integer
 # Default: 6697
 
 [servers.<name>]

@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::num::NonZeroU16;
 use std::str::FromStr;
 
 use fancy_regex::Regex;
@@ -8,6 +9,7 @@ use unicode_security::confusable_detection::skeleton;
 use unicode_security::{RestrictionLevel, RestrictionLevelDetection};
 
 use crate::appearance::theme;
+use crate::config::server::default_port;
 use crate::server::ServerName;
 use crate::{config, isupport};
 
@@ -188,7 +190,10 @@ fn parse_server_config(url: &url::Url) -> Option<config::Server> {
 
     Some(config::Server::new(
         server,
-        port,
+        match port {
+            Some(port) => NonZeroU16::new(port),
+            None => default_port(use_tls, use_websocket),
+        },
         nickname,
         channels,
         use_tls,
@@ -260,7 +265,7 @@ mod tests {
         input: &str,
         expected_server_name: &str,
         expected_host: &str,
-        expected_port: u16,
+        expected_port: Option<NonZeroU16>,
         expected_channels: &[&str],
         expected_use_tls: bool,
         expected_use_websocket: bool,
@@ -291,7 +296,7 @@ mod tests {
             "irc://irc.libera.chat",
             "libera",
             "irc.libera.chat",
-            6667,
+            NonZeroU16::new(6667),
             &[],
             false,
             false,
@@ -304,7 +309,7 @@ mod tests {
             "ircs://irc.libera.chat:7000/#halloy,#rust",
             "libera",
             "irc.libera.chat",
-            7000,
+            NonZeroU16::new(7000),
             &["#halloy", "#rust"],
             true,
             false,
@@ -317,7 +322,7 @@ mod tests {
             "irc://127.0.0.1:6669/channel,%26local,%2Bops,!safe",
             "127.0.0.1",
             "127.0.0.1",
-            6669,
+            NonZeroU16::new(6669),
             &["#channel", "&local", "#+ops", "#!safe"],
             false,
             false,
@@ -330,7 +335,7 @@ mod tests {
             "ircs://[2001:db8::1]",
             "2001:db8::1",
             "2001:db8::1",
-            6697,
+            NonZeroU16::new(6697),
             &[],
             true,
             false,
@@ -343,7 +348,7 @@ mod tests {
         let config = parse_server_config(&url).unwrap();
 
         assert_eq!(config.server, "2001:db8::1");
-        assert_eq!(config.port, 6667);
+        assert_eq!(config.port, NonZeroU16::new(6667));
         assert_eq!(config.channels, vec!["#channel"]);
         assert!(!config.use_tls);
     }
@@ -373,7 +378,7 @@ mod tests {
             "irc://irc.example.org/%23ops%5Btest%5D%7Bdev%7D%5Efoo,%23foo%25bar",
             "example",
             "irc.example.org",
-            6667,
+            NonZeroU16::new(6667),
             &["#ops[test]{dev}^foo", "#foo%bar"],
             false,
             false,
@@ -425,7 +430,7 @@ mod tests {
             "wss://irc.libera.chat",
             "libera",
             "irc.libera.chat",
-            443,
+            NonZeroU16::new(443),
             &[],
             true,
             true,
@@ -438,7 +443,7 @@ mod tests {
             "ws+insecure://irc.libera.chat",
             "libera",
             "irc.libera.chat",
-            80,
+            NonZeroU16::new(80),
             &[],
             false,
             true,
