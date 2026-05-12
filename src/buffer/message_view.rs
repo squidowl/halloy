@@ -4,6 +4,7 @@ use chrono::{DateTime, TimeDelta, Utc};
 use data::buffer::RightAlignmentWidths;
 use data::config::buffer::nickname::ShownStatus;
 use data::config::buffer::{CondensationIcon, Dimmed};
+use data::config::preview::HideUrlCondition;
 use data::isupport::{CaseMap, PrefixMap};
 use data::preview::{self, Previews};
 use data::redaction::Redaction;
@@ -1367,7 +1368,10 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
 
                 let mut column = column![].spacing(2);
 
-                if fragments.len() == 1
+                if matches!(
+                    self.config.preview.hide_url,
+                    HideUrlCondition::ContainsOnlyUrl
+                ) && fragments.len() == 1
                     && urls.len() == 1
                     && let Some(url) = urls.first()
                     && let Some(preview::State::Loaded(preview)) =

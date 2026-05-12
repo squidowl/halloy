@@ -73,6 +73,19 @@ Maximum number of previews to show for a single message.
 max_per_message = 1
 ```
 
+## `hide_url`
+
+When set to `"contains-only-url"` then for messages that consist of only a URL, the text of message will be hidden when the preview is visible.
+
+```toml
+# Type: string
+# Values: "contains-only-url" or "never"
+# Default: "contains-only-url"
+
+[preview]
+hide_url = "never"
+```
+
 ## `card`
 
 Specific card preview settings.

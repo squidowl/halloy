@@ -14,8 +14,8 @@ use crate::{Server, isupport};
 pub struct Preview {
     pub enabled: Enabled,
     pub exclude: Exclude,
-    #[serde(default = "default_max_per_message")]
     pub max_per_message: usize,
+    pub hide_url: HideUrlCondition,
     pub request: Request,
     pub card: Card,
     pub image: Image,
@@ -26,7 +26,8 @@ impl Default for Preview {
         Self {
             enabled: Enabled::default(),
             exclude: Exclude::default(),
-            max_per_message: default_max_per_message(),
+            max_per_message: 1,
+            hide_url: HideUrlCondition::default(),
             request: Request::default(),
             card: Card::default(),
             image: Image::default(),
@@ -34,8 +35,12 @@ impl Default for Preview {
     }
 }
 
-fn default_max_per_message() -> usize {
-    1
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum HideUrlCondition {
+    #[default]
+    ContainsOnlyUrl,
+    Never,
 }
 
 impl Preview {
