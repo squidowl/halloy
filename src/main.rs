@@ -1823,10 +1823,15 @@ fn handle_client_events(
                 let (opened_channels, opened) =
                     dashboard.has_open_pane_channel(server, &channel);
                 if opened {
+                    log::trace!(
+                        "[{}] {} - WHO poll open pane prioritize",
+                        server,
+                        &channel.as_normalized_str(),
+                    );
                     clients.prioritize_channel_who_poll(
                         server,
-                        channel,
-                        opened_channels,
+                        &channel,
+                        &opened_channels,
                     );
                 }
             }

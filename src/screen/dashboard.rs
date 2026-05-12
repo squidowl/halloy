@@ -1098,9 +1098,10 @@ impl Dashboard {
                             if let Some(channel) = buffer.channel()
                                 && let Some(client) = clients.client_mut(server)
                             {
-                                let opened_channels = self.open_pane_channels();
+                                let opened_channels =
+                                    &self.open_pane_channels();
                                 client.prioritize_joined_who_poll(
-                                    channel.to_owned(),
+                                    channel,
                                     opened_channels,
                                 );
                             }
@@ -1140,9 +1141,10 @@ impl Dashboard {
                             if let Some(channel) = buffer.channel()
                                 && let Some(client) = clients.client_mut(server)
                             {
-                                let opened_channels = self.open_pane_channels();
+                                let opened_channels =
+                                    &self.open_pane_channels();
                                 client.prioritize_joined_who_poll(
-                                    channel.to_owned(),
+                                    channel,
                                     opened_channels,
                                 );
                             }
@@ -3019,11 +3021,8 @@ impl Dashboard {
             && let Some(channel) = upstream.channel()
             && let Some(client) = clients.client_mut(server)
         {
-            let opened_channels = self.open_pane_channels();
-            client.prioritize_joined_who_poll(
-                channel.to_owned(),
-                opened_channels,
-            );
+            let opened_channels = &self.open_pane_channels();
+            client.prioritize_joined_who_poll(channel, opened_channels);
         }
 
         if let Some(buffer::Upstream::Query(server, query)) = buffer.upstream()

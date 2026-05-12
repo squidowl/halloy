@@ -599,13 +599,7 @@ impl Client {
                     // should be in who_polls and rerouting should be stopped, or it
                     // is treated as part of a rate-limiting response and if there
                     // are any outstanding user requests rerouting should be stopped.
-                    self.who_queue.any_matching(|who_poll| {
-                        matches!(
-                            who_poll.status,
-                            WhoStatus::Requested(WhoSource::User, _, _)
-                                | WhoStatus::Receiving(WhoSource::User, _)
-                        )
-                    })
+                    self.who_queue.has_inflight()
                 } else {
                     let target_channel = target::Channel::from_str(
                         &mask,
@@ -1902,15 +1896,8 @@ impl Client {
                         self.statusmsg(),
                         casemapping,
                     ));
-                    self.who_queue.remove_matching(|who_poll| {
+                    self.who_queue.remove_matching_polls(|who_poll| {
                         who_poll.channel == target_channel
-                            && (matches!(
-                                who_poll.status,
-                                WhoStatus::Joined
-                                    | WhoStatus::PrioritizedJoin
-                                    | WhoStatus::Received
-                                    | WhoStatus::Waiting(_)
-                            ))
                     });
                 } else if let Some(channel) =
                     self.chanmap.get_mut(&context!(target::Channel::parse(
@@ -2084,6 +2071,22 @@ impl Client {
                             &self.server,
                             &target_channel,
                         );
+
+                        if self
+                            .capabilities
+                            .acknowledged(Capability::NoImplicitNames)
+                        {
+                            for (message, priority) in
+                                self.who_queue.process_next_prioritized_join(
+                                    &self.server,
+                                    &self.capabilities,
+                                    &self.chanmap,
+                                    &self.isupport,
+                                )
+                            {
+                                self.send(None, message, priority);
+                            }
+                        }
                     }
 
                     let user_request = self.user_who_request(&target_channel);
@@ -2129,6 +2132,22 @@ impl Client {
                             client_channel,
                             args,
                         );
+
+                        if self
+                            .capabilities
+                            .acknowledged(Capability::NoImplicitNames)
+                        {
+                            for (message, priority) in
+                                self.who_queue.process_next_prioritized_join(
+                                    &self.server,
+                                    &self.capabilities,
+                                    &self.chanmap,
+                                    &self.isupport,
+                                )
+                            {
+                                self.send(None, message, priority);
+                            }
+                        }
                     }
 
                     if !user_request {
@@ -2202,10 +2221,12 @@ impl Client {
                         self.casemapping(),
                     );
 
-                    if !self.who_queue.remove_matching(|who_poll| {
+                    if !self.who_queue.remove_matching_polls(|who_poll| {
                         who_poll.channel == target_channel
-                    }) {
-                        self.who_queue.handle_who_rate_limit();
+                    }) || !self.who_queue.remove_matching_inflight(
+                        |who_poll| who_poll.channel == target_channel,
+                    ) {
+                        self.who_queue.handle_who_rate_limited();
                         return Ok(vec![]);
                     }
                 }
@@ -3050,7 +3071,7 @@ impl Client {
                 let command = ok!(args.get(1));
 
                 if command == "WHO" && self.config.who_poll_enabled {
-                    self.who_queue.interval_too_short();
+                    self.who_queue.who_reply_throttled();
 
                     log::debug!(
                         "[{}] WHO poll interval is too short → duration = {:?}",
@@ -3058,7 +3079,7 @@ impl Client {
                         self.who_queue.interval_duration()
                     );
 
-                    if !self.who_queue.any_matching(|who_poll| {
+                    if !self.who_queue.any_matching_inflight(|who_poll| {
                         matches!(
                             who_poll.status,
                             WhoStatus::Requested(WhoSource::User, _, _)
@@ -3710,14 +3731,8 @@ impl Client {
     }
 
     fn user_who_request(&self, channel: &target::Channel) -> bool {
-        self.who_queue.any_matching(|who_poll| {
-            who_poll.channel == *channel
-                && matches!(
-                    who_poll.status,
-                    WhoStatus::Requested(WhoSource::User, _, _)
-                        | WhoStatus::Receiving(WhoSource::User, _)
-                )
-        })
+        self.who_queue
+            .any_matching_inflight(|who_poll| who_poll.channel == *channel)
     }
 
     pub fn is_who_init(&self, channel: &target::Channel) -> bool {
@@ -4548,13 +4563,17 @@ impl Client {
 
     pub fn prioritize_joined_who_poll(
         &mut self,
-        channel: target::Channel,
-        opened_channels: Vec<(&Server, &target::Channel)>,
+        channel: &target::Channel,
+        opened_channels: &Vec<(&Server, &target::Channel)>,
     ) {
-        self.who_queue.prioritize_joined_who_poll(channel);
-
         self.who_queue
-            .reprioritize_joined_who_polls(&self.server, opened_channels);
+            .prioritize_joined_who_poll(&self.server, channel);
+
+        self.who_queue.reprioritize_joined_who_polls(
+            &self.server,
+            opened_channels,
+            channel,
+        );
     }
 
     pub fn has_isupport_monitor(&self) -> bool {
@@ -5547,8 +5566,8 @@ impl Map {
     pub fn prioritize_channel_who_poll(
         &mut self,
         server: &Server,
-        channel: target::Channel,
-        opened_channels: Vec<(&Server, &target::Channel)>,
+        channel: &target::Channel,
+        opened_channels: &Vec<(&Server, &target::Channel)>,
     ) {
         if let Some(client) = self.client_mut(server) {
             client.prioritize_joined_who_poll(channel, opened_channels);
