@@ -29,6 +29,8 @@ pub use self::reroute::{Reroute, RerouteRule, RerouteTarget};
 
 const DEFAULT_PORT: u16 = 6667;
 const DEFAULT_TLS_PORT: u16 = 6697;
+const DEFAULT_WS_PORT: u16 = 80;
+const DEFAULT_WSS_PORT: u16 = 443;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(default)]
@@ -57,7 +59,7 @@ pub struct Server {
     /// The server to connect to.
     pub server: String,
     /// The port to connect on.
-    pub port: u16,
+    pub port: Option<u16>,
     /// The password to connect to the server.
     pub password: Option<String>,
     /// The file with the password to connect to the server.
@@ -147,17 +149,20 @@ impl Server {
         nickname: String,
         channels: Vec<String>,
         use_tls: bool,
+        use_websocket: bool,
     ) -> Self {
         Self {
             nickname,
             server,
-            port: port.unwrap_or(if use_tls {
-                DEFAULT_TLS_PORT
-            } else {
-                DEFAULT_PORT
-            }),
+            port: Some(port.unwrap_or(match (use_tls, use_websocket) {
+                (true, true) => DEFAULT_WSS_PORT,
+                (true, false) => DEFAULT_TLS_PORT,
+                (false, true) => DEFAULT_WS_PORT,
+                _ => DEFAULT_PORT,
+            })),
             channels,
             use_tls,
+            use_websocket,
             dangerously_accept_invalid_certs: false,
             ..Default::default()
         }
@@ -186,7 +191,14 @@ impl Server {
 
         connection::Config {
             server: &self.server,
-            port: self.port,
+            port: self.port.unwrap_or(
+                match (self.use_tls, self.use_websocket) {
+                    (true, true) => DEFAULT_WSS_PORT,
+                    (true, false) => DEFAULT_TLS_PORT,
+                    (false, true) => DEFAULT_WS_PORT,
+                    _ => DEFAULT_PORT,
+                },
+            ),
             security,
             proxy: proxy.map(From::from),
             websocket: self.use_websocket.then_some(connection::WebSocket {
@@ -228,7 +240,7 @@ impl Default for Server {
             username: Option::default(),
             realname: Option::default(),
             server: String::default(),
-            port: DEFAULT_TLS_PORT,
+            port: None,
             password: Option::default(),
             password_file: Option::default(),
             password_file_first_line_only: true,

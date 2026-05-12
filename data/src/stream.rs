@@ -424,6 +424,10 @@ async fn _run(
                             if config.server != updated_config.server
                                 || config.port != updated_config.port
                                 || config.use_tls != updated_config.use_tls
+                                || config.use_websocket
+                                    != updated_config.use_websocket
+                                || config.websocket_path
+                                    != updated_config.websocket_path
                                 || config.dangerously_accept_invalid_certs
                                     != updated_config
                                         .dangerously_accept_invalid_certs

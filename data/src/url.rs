@@ -62,7 +62,17 @@ impl FromStr for Url {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let url = s.parse::<url::Url>().map_err(|_| ())?;
 
-        if ["irc", "ircs", "halloy"].contains(&url.scheme()) {
+        if [
+            "irc",
+            "irc+insecure",
+            "ircs",
+            "halloy",
+            "ws",
+            "ws+insecure",
+            "wss",
+        ]
+        .contains(&url.scheme())
+        {
             Ok(parse(url.clone()).unwrap_or(Url::Unknown(url.to_string())))
         } else {
             Err(())
@@ -72,7 +82,7 @@ impl FromStr for Url {
 
 fn parse(url: url::Url) -> Result<Url, Error> {
     match url.scheme().to_lowercase().as_str() {
-        "irc" | "irc+insecure" | "ircs" => {
+        "irc" | "irc+insecure" | "ircs" | "ws" | "ws+insecure" | "wss" => {
             let config = parse_server_config(&url).ok_or(Error::ParseServer)?;
             let server = generate_server_name(config.server.as_str());
             let url = url.into();
@@ -123,10 +133,15 @@ fn parse_server_config(url: &url::Url) -> Option<config::Server> {
     };
     let port = url.port();
     let use_tls = match url.scheme().to_lowercase().as_str() {
-        "irc" | "irc+insecure" => Some(false),
-        "ircs" => Some(true),
-        _ => None,
-    }?;
+        "irc" | "irc+insecure" | "ws" | "ws+insecure" => false,
+        "ircs" | "wss" => true,
+        _ => return None,
+    };
+    let use_websocket = match url.scheme().to_lowercase().as_str() {
+        "irc" | "irc+insecure" | "ircs" => false,
+        "ws" | "ws+insecure" | "wss" => true,
+        _ => return None,
+    };
     let channels = {
         let default_chantype =
             isupport::DEFAULT_CHANTYPES.first().copied().unwrap_or('#');
@@ -172,7 +187,12 @@ fn parse_server_config(url: &url::Url) -> Option<config::Server> {
     };
 
     Some(config::Server::new(
-        server, port, nickname, channels, use_tls,
+        server,
+        port,
+        nickname,
+        channels,
+        use_tls,
+        use_websocket,
     ))
 }
 
@@ -240,9 +260,10 @@ mod tests {
         input: &str,
         expected_server_name: &str,
         expected_host: &str,
-        expected_port: u16,
+        expected_port: Option<u16>,
         expected_channels: &[&str],
         expected_use_tls: bool,
+        expected_use_websocket: bool,
     ) {
         let url = Url::from_str(input).unwrap();
 
@@ -254,6 +275,7 @@ mod tests {
         assert_eq!(config.server, expected_host);
         assert_eq!(config.port, expected_port);
         assert_eq!(config.use_tls, expected_use_tls);
+        assert_eq!(config.use_websocket, expected_use_websocket);
         assert_eq!(
             config.channels,
             expected_channels
@@ -269,8 +291,9 @@ mod tests {
             "irc://irc.libera.chat",
             "libera",
             "irc.libera.chat",
-            6667,
+            Some(6667),
             &[],
+            false,
             false,
         );
     }
@@ -281,9 +304,10 @@ mod tests {
             "ircs://irc.libera.chat:7000/#halloy,#rust",
             "libera",
             "irc.libera.chat",
-            7000,
+            Some(7000),
             &["#halloy", "#rust"],
             true,
+            false,
         );
     }
 
@@ -293,8 +317,9 @@ mod tests {
             "irc://127.0.0.1:6669/channel,%26local,%2Bops,!safe",
             "127.0.0.1",
             "127.0.0.1",
-            6669,
+            Some(6669),
             &["#channel", "&local", "#+ops", "#!safe"],
+            false,
             false,
         );
     }
@@ -305,9 +330,10 @@ mod tests {
             "ircs://[2001:db8::1]",
             "2001:db8::1",
             "2001:db8::1",
-            6697,
+            Some(6697),
             &[],
             true,
+            false,
         );
     }
 
@@ -317,7 +343,7 @@ mod tests {
         let config = parse_server_config(&url).unwrap();
 
         assert_eq!(config.server, "2001:db8::1");
-        assert_eq!(config.port, 6667);
+        assert_eq!(config.port, Some(6667));
         assert_eq!(config.channels, vec!["#channel"]);
         assert!(!config.use_tls);
     }
@@ -347,8 +373,9 @@ mod tests {
             "irc://irc.example.org/%23ops%5Btest%5D%7Bdev%7D%5Efoo,%23foo%25bar",
             "example",
             "irc.example.org",
-            6667,
+            Some(6667),
             &["#ops[test]{dev}^foo", "#foo%bar"],
+            false,
             false,
         );
     }
@@ -390,5 +417,31 @@ mod tests {
         // CJK characters have no ASCII-confusable prototypes
         let u = url::Url::parse("https://日本語.jp/").unwrap();
         assert_eq!(display(&u), "https://日本語.jp/");
+    }
+
+    #[test]
+    fn parses_wss_with_default_ports() {
+        assert_server_connect(
+            "wss://irc.libera.chat",
+            "libera",
+            "irc.libera.chat",
+            Some(443),
+            &[],
+            true,
+            true,
+        );
+    }
+
+    #[test]
+    fn parses_websocket_with_default_insecure_port() {
+        assert_server_connect(
+            "ws+insecure://irc.libera.chat",
+            "libera",
+            "irc.libera.chat",
+            Some(80),
+            &[],
+            false,
+            true,
+        );
     }
 }
