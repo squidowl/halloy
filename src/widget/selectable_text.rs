@@ -1,3 +1,5 @@
+use std::ops::RangeInclusive;
+
 use iced::advanced::renderer::Quad;
 use iced::advanced::text::{Paragraph, paragraph};
 use iced::advanced::widget::{Operation, Tree, operation, tree};
@@ -503,11 +505,11 @@ impl Interaction {
 // }
 
 pub fn selected<Message: Send + 'static>(
-    f: fn(Vec<(f32, String)>) -> Message,
+    f: fn(Vec<(RangeInclusive<f32>, String)>) -> Message,
 ) -> Task<Message> {
     struct Selected<T> {
-        contents: Vec<(f32, String)>,
-        f: fn(Vec<(f32, String)>) -> T,
+        contents: Vec<(RangeInclusive<f32>, String)>,
+        f: fn(Vec<(RangeInclusive<f32>, String)>) -> T,
     }
 
     impl<T> Operation<T> for Selected<T> {
@@ -524,7 +526,10 @@ pub fn selected<Message: Send + 'static>(
             state: &mut dyn std::any::Any,
         ) {
             if let Some(content) = state.downcast_ref::<String>() {
-                self.contents.push((bounds.y, content.clone()));
+                self.contents.push((
+                    RangeInclusive::new(bounds.y, bounds.y + bounds.height),
+                    content.clone(),
+                ));
             }
         }
 

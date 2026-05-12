@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 
 use data::user::NickRef;
+use iced::widget::text::LineHeight;
 pub use iced::widget::tooltip::Position;
 use iced::widget::{Space, button, container, row};
 use iced::{alignment, padding};
@@ -79,6 +80,7 @@ where
                 text(*nick)
                     .shaping(iced::widget::text::Shaping::Advanced)
                     .style(theme::text::secondary)
+                    .line_height(LineHeight::Relative(1.0))
                     .into()
             }),
         );
@@ -86,7 +88,8 @@ where
             tooltip_content = tooltip_content.push(
                 text(format!("and {hidden_count} others..."))
                     .shaping(iced::widget::text::Shaping::Advanced)
-                    .style(theme::text::secondary),
+                    .style(theme::text::secondary)
+                    .line_height(LineHeight::Relative(1.0)),
             );
         }
 
@@ -104,10 +107,12 @@ where
             text(*reaction_text)
                 .shaping(iced::widget::text::Shaping::Advanced)
                 .size(tooltip_emoji_size)
+                .line_height(LineHeight::Relative(1.0))
                 .style(theme::text::primary),
             tooltip_content,
         ]
-        .spacing(6);
+        .spacing(6)
+        .align_y(alignment::Vertical::Center);
 
         iced::widget::tooltip(
             content,

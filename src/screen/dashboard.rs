@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet, VecDeque, hash_map};
+use std::ops::RangeInclusive;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -79,7 +80,10 @@ pub struct Dashboard {
 pub enum Message {
     Pane(window::Id, pane::Message),
     Sidebar(sidebar::Message),
-    SelectedText(Vec<(f32, String)>, advanced::clipboard::Kind),
+    SelectedText(
+        Vec<(RangeInclusive<f32>, String)>,
+        advanced::clipboard::Kind,
+    ),
     History(history::manager::Message),
     DashboardSaved(Result<(), data::dashboard::Error>),
     Task(command_bar::Message),
@@ -776,20 +780,31 @@ impl Dashboard {
                 );
             }
             Message::SelectedText(contents, clipboard_kind) => {
-                let mut last_y = None;
+                let mut last_y_range: Option<RangeInclusive<f32>> = None;
                 let contents = contents.into_iter().fold(
                     String::new(),
-                    |acc, (y, content)| {
-                        if let Some(_y) = last_y {
-                            let new_line = if y == _y { "" } else { "\n" };
-                            last_y = Some(y);
+                    |acc, (y_range, content)| {
+                        let content = if let Some(last_y_range) = &last_y_range
+                        {
+                            // If the widget's y ranges do not overlap, then add
+                            // a new line before appending the selected content.
+                            let new_line = if y_range.start()
+                                < last_y_range.end()
+                                && last_y_range.start() < y_range.end()
+                            {
+                                ""
+                            } else {
+                                "\n"
+                            };
 
                             format!("{acc}{new_line}{content}")
                         } else {
-                            last_y = Some(y);
-
                             content
-                        }
+                        };
+
+                        last_y_range = Some(y_range);
+
+                        content
                     },
                 );
 
