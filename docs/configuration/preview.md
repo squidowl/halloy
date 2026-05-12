@@ -73,19 +73,6 @@ Maximum number of previews to show for a single message.
 max_per_message = 1
 ```
 
-## `hide_url`
-
-When set to `"contains-only-url"` then for messages that consist of only a URL, the text of message will be hidden when the preview is visible.
-
-```toml
-# Type: string
-# Values: "contains-only-url" or "never"
-# Default: "contains-only-url"
-
-[preview]
-hide_url = "never"
-```
-
 ## `card`
 
 Specific card preview settings.
@@ -94,6 +81,19 @@ Specific card preview settings.
 [preview.card]
 exclude = "*" # hide card previews in all channels
 include = { channels = ["#halloy"] } # show card previews in #halloy
+```
+
+### `hide_url`
+
+When set to `"contains-only-url"`, messages that consist of only a URL will have the text of message hidden when the card preview is visible.
+
+```toml
+# Type: string
+# Values: "contains-only-url" or "never"
+# Default: "never"
+
+[preview.card]
+hide_url = "contains-only-url"
 ```
 
 ### `show_image`
@@ -213,6 +213,19 @@ Action when clicking on a image. `open-url` will open the image in the browser, 
 
 [preview.image]
 action = "preview"
+```
+
+### `hide_url`
+
+When set to `"contains-only-url"`, messages that consist of only a URL will have the text of message hidden when the image preview is visible.
+
+```toml
+# Type: string
+# Values: "contains-only-url" or "never"
+# Default: "contains-only-url"
+
+[preview.image]
+hide_url = "never"
 ```
 
 ### `round_corners`

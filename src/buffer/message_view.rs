@@ -1368,10 +1368,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
 
                 let mut column = column![].spacing(2);
 
-                if matches!(
-                    self.config.preview.hide_url,
-                    HideUrlCondition::ContainsOnlyUrl
-                ) && fragments.len() == 1
+                if fragments.len() == 1
                     && urls.len() == 1
                     && let Some(url) = urls.first()
                     && let Some(preview::State::Loaded(preview)) =
@@ -1379,6 +1376,10 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     && visible_for_source.is_none_or(|visible_for_source| {
                         visible_for_source(preview, message.target.source())
                     })
+                    && self.config.preview.hide_url_when(
+                        preview,
+                        HideUrlCondition::ContainsOnlyUrl,
+                    )
                 {
                     let is_hovered = hovered_preview.is_some_and(
                         |(hovered_hash, hovered_index)| {

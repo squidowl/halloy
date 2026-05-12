@@ -15,7 +15,6 @@ pub struct Preview {
     pub enabled: Enabled,
     pub exclude: Exclude,
     pub max_per_message: usize,
-    pub hide_url: HideUrlCondition,
     pub request: Request,
     pub card: Card,
     pub image: Image,
@@ -27,20 +26,11 @@ impl Default for Preview {
             enabled: Enabled::default(),
             exclude: Exclude::default(),
             max_per_message: 1,
-            hide_url: HideUrlCondition::default(),
             request: Request::default(),
             card: Card::default(),
             image: Image::default(),
         }
     }
-}
-
-#[derive(Debug, Clone, Default, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum HideUrlCondition {
-    #[default]
-    ContainsOnlyUrl,
-    Never,
 }
 
 impl Preview {
@@ -55,6 +45,19 @@ impl Preview {
             Enabled::Regex(regexes) => regexes
                 .iter()
                 .any(|regex| regex.is_match(url).unwrap_or(false)),
+        }
+    }
+
+    pub fn hide_url_when(
+        &self,
+        preview: &crate::Preview,
+        hide_url_condition: HideUrlCondition,
+    ) -> bool {
+        match preview {
+            crate::Preview::Card(_) => self.card.hide_url == hide_url_condition,
+            crate::Preview::Image(_) => {
+                self.image.hide_url == hide_url_condition
+            }
         }
     }
 }
@@ -221,11 +224,20 @@ impl Default for ImageCache {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum HideUrlCondition {
+    #[default]
+    ContainsOnlyUrl,
+    Never,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Card {
     pub exclude: Option<Inclusivities>,
     pub include: Option<Inclusivities>,
+    pub hide_url: HideUrlCondition,
     pub show_image: bool,
     pub round_image_corners: bool,
     /// Maximum width of the card in pixels
@@ -241,6 +253,7 @@ impl Default for Card {
         Self {
             exclude: None,
             include: None,
+            hide_url: HideUrlCondition::Never,
             show_image: true,
             round_image_corners: true,
             max_width: 400.0,
@@ -291,6 +304,7 @@ pub struct Image {
     pub action: ImageAction,
     pub exclude: Option<Inclusivities>,
     pub include: Option<Inclusivities>,
+    pub hide_url: HideUrlCondition,
     pub round_corners: bool,
     /// Maximum width of the image in pixels
     pub max_width: f32,
@@ -304,6 +318,7 @@ impl Default for Image {
             action: ImageAction::default(),
             exclude: None,
             include: None,
+            hide_url: HideUrlCondition::default(),
             round_corners: true,
             max_width: 550.0,
             max_height: 350.0,
