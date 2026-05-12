@@ -16,7 +16,7 @@ use iced::widget::{
     Space, button, center, column, container, mouse_area, right, row, space,
     stack, text,
 };
-use iced::{Color, ContentFit, Length, alignment, mouse, padding};
+use iced::{Color, ContentFit, Length, alignment, padding};
 
 use crate::buffer::context_menu::{self, Context};
 use crate::buffer::scroll_view::keyed::{self, keyed};
@@ -287,17 +287,19 @@ impl<'a> ChannelQueryLayout<'a> {
         })
     }
 
+    fn not_sent(&self, message: &data::Message) -> bool {
+        self.confirm_message_delivery
+            && message.command.is_some()
+            && matches!(message.direction, message::Direction::Sent)
+            && Utc::now().signed_duration_since(message.server_time)
+                > TimeDelta::seconds(10)
+    }
+
     fn not_sent_row(
         &self,
         message: &'a data::Message,
     ) -> Option<Element<'a, Message>> {
-        let not_sent = self.confirm_message_delivery
-            && message.command.is_some()
-            && matches!(message.direction, message::Direction::Sent)
-            && Utc::now().signed_duration_since(message.server_time)
-                > TimeDelta::seconds(10);
-
-        if !not_sent {
+        if !self.not_sent(message) {
             return None;
         }
 
@@ -476,37 +478,20 @@ impl<'a> ChannelQueryLayout<'a> {
             ),
         };
 
-        let formatter = *self;
-
-        let content = crate::widget::context_menu::context_menu(
-            crate::widget::context_menu::MouseButton::Right,
-            crate::widget::context_menu::Anchor::Cursor,
-            crate::widget::context_menu::ToggleBehavior::KeepOpen,
-            Some(mouse::Interaction::Pointer),
+        let content = context_menu::preview(
             content,
-            context_menu::Entry::url_list(
-                formatter.preview_hidden_for_url(message, url.as_str()),
-                false,
-                false,
-                false,
-            ),
-            move |entry, length| {
-                entry
-                    .view(
-                        Some(context_menu::Context::Url {
-                            url: url.as_str(),
-                            message: Some(message.hash),
-                            msgid: None,
-                            selected_reactions: vec![],
-                            to_nick: None,
-                            reply_preview: None,
-                        }),
-                        length,
-                        formatter.config,
-                        formatter.theme,
-                    )
-                    .map(Message::ContextMenu)
-            },
+            url.as_str(),
+            Some(false),
+            self.can_send_replies,
+            self.can_send_reactions,
+            self.can_redact_message(message),
+            message.hash,
+            message.id.as_ref(),
+            message.user(),
+            &message.content,
+            selected_reactions_refs(message, self.our_nick),
+            self.config,
+            self.theme,
         );
 
         let hide_button = if is_hovered {
@@ -1318,6 +1303,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
 
         let selected_reaction_texts =
             selected_reactions(message, self.our_nick);
+
         let content = context_menu::message(
             content,
             message.target.source(),
@@ -1330,12 +1316,6 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             self.config,
             self.theme,
         );
-
-        let content = if after_content.is_empty() {
-            content
-        } else {
-            column![content].extend(after_content).into()
-        };
 
         let middle_is_some = middle.is_some();
 
@@ -1353,8 +1333,9 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             middle_is_some.then_some(selectable_text(" ")),
         ];
 
-        let content = if let message::Content::Fragments(fragments) =
-            &message.content
+        let content = if !(self.not_sent(message)
+            || message.redaction.is_some())
+            && let message::Content::Fragments(fragments) = &message.content
         {
             let urls = eligible_preview_urls(
                 fragments.iter().filter_map(message::Fragment::url),
@@ -1445,6 +1426,12 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             }
         } else {
             content
+        };
+
+        let content = if after_content.is_empty() {
+            content
+        } else {
+            column![content].extend(after_content).into()
         };
 
         let message_element = if self.content_on_new_line(message) {

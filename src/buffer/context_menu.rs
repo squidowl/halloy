@@ -813,6 +813,60 @@ where
     .into()
 }
 
+pub fn preview<'a, M>(
+    content: impl Into<Element<'a, M>>,
+    url: &'a str,
+    preview_hidden: Option<bool>,
+    can_send_replies: bool,
+    can_send_reactions: bool,
+    can_redact: bool,
+    message_hash: message::Hash,
+    msgid: Option<&'a message::Id>,
+    user: Option<&'a User>,
+    message_content: &'a message::Content,
+    selected_reactions: Vec<&'a str>,
+    config: &'a Config,
+    theme: &'a Theme,
+) -> Element<'a, M>
+where
+    M: From<Message> + 'a,
+{
+    let entries = Entry::url_list(
+        preview_hidden,
+        can_send_reactions && msgid.is_some(),
+        can_redact && msgid.is_some(),
+        can_send_replies && msgid.is_some(),
+    );
+
+    context_menu(
+        context_menu::MouseButton::Right,
+        context_menu::Anchor::Cursor,
+        context_menu::ToggleBehavior::KeepOpen,
+        None,
+        content,
+        entries,
+        move |entry, length| {
+            entry
+                .view(
+                    Some(Context::Url {
+                        url,
+                        message: Some(message_hash),
+                        msgid,
+                        selected_reactions: selected_reactions.clone(),
+                        to_nick: user.map(|user| user.nickname().to_string()),
+                        reply_preview: (can_send_replies && msgid.is_some())
+                            .then_some(message_content.preview_text()),
+                    }),
+                    length,
+                    config,
+                    theme,
+                )
+                .map(M::from)
+        },
+    )
+    .into()
+}
+
 pub fn user<'a>(
     content: impl Into<Element<'a, Message>>,
     server: &'a Server,
