@@ -145,12 +145,25 @@ The port to connect on. If you want to use a plain text port like 6667 you MUST 
 
 ```toml
 # Type: integer
-# Values: any non-negative integer
+# Values: any number between 1-65535
 # Default: 6697
 
 [servers.<name>]
 port = 6697
 ```
+
+::: tip
+If you leave `port` unset, default ports will be chosen based on `use_tls` and
+`use_websocket` values:
+
+| `use_tls` | `use_websocket` | `port` |
+| --------- | --------------- | ------ |
+| `"true"`  | `"false"`       | `6697` |
+| `"false"` | `"false"`       | `6667` |
+| `"true"`  | `"true"`        | `443`  |
+| `"false"` | `"true"`        | `80`   |
+
+:::
 
 ## `password`
 
@@ -476,7 +489,7 @@ who_poll_enabled = true
 
 ## `who_poll_interval`
 
-WHO poll interval (in seconds) for servers without away-notify.  Specifically, the time between individual WHO requests. Will be increased automatically if the server sends a rate-limiting message.  When the server does not support SAFERATE (and [anti-flood protections](#anti_flood) are enabled) then `who_poll_interval` will be increased to more than twice [`anti_flood`](#anti_flood) if it is not already.
+WHO poll interval (in seconds) for servers without away-notify. Specifically, the time between individual WHO requests. Will be increased automatically if the server sends a rate-limiting message. When the server does not support SAFERATE (and [anti-flood protections](#anti_flood) are enabled) then `who_poll_interval` will be increased to more than twice [`anti_flood`](#anti_flood) if it is not already.
 
 ```toml
 # Type: integer
@@ -580,7 +593,7 @@ A list of users to ignore. Users may be identified in any of these four ways:
 
 [servers.<name>.filters]
 ignore = [
-"ignored_user", 
+"ignored_user",
 { regex = '''(?i)ignored_users-.*''' },
 { user = "user_in_channel", channel = "#channel_with_user" },
 { regex = '''(?i)users_in_channel-.*''', channel = "#channel_with_users" }
@@ -652,7 +665,7 @@ disconnect_on_failure = false
 
 ## `sasl.plain`
 
-Plain SASL auth using a username and password.  See the [guide by Libera.Chat](https://libera.chat/guides/sasl) for more information.
+Plain SASL auth using a username and password. See the [guide by Libera.Chat](https://libera.chat/guides/sasl) for more information.
 
 ### `username`
 
@@ -815,7 +828,7 @@ override_url = "https://example.org/upload"
 
 ### `credentials`
 
-Specify what credentials to use for filehost.  By default the SASL credentials used for the server will be used, if they have been specified.  
+Specify what credentials to use for filehost. By default the SASL credentials used for the server will be used, if they have been specified.
 
 ```toml
 # Type: string or SASL
@@ -968,8 +981,8 @@ Set values for metadata keys (`"display-name"`, `"avatar"`, `"pronouns"`, `"home
 metadata = { pronouns = "they/them" }
 ```
 
-
 [^1]: Windows path strings should usually be specified as literal strings (e.g. `'C:\Users\Default\'`), otherwise directory separators will need to be escaped (e.g. `"C:\\Users\\Default\\"`).
+
 [^2]: Relative paths are prefixed with the config directory (i.e. if you have your config.toml in `/home/me/.config/halloy/config.toml`, path `.passwd/libera` will be converted to `/home/me/.config/halloy/.passwd/libera`).
 
 ### `icon`

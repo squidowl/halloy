@@ -260,7 +260,7 @@ mod tests {
         input: &str,
         expected_server_name: &str,
         expected_host: &str,
-        expected_port: Option<u16>,
+        expected_port: u16,
         expected_channels: &[&str],
         expected_use_tls: bool,
         expected_use_websocket: bool,
@@ -291,7 +291,7 @@ mod tests {
             "irc://irc.libera.chat",
             "libera",
             "irc.libera.chat",
-            Some(6667),
+            6667,
             &[],
             false,
             false,
@@ -304,7 +304,7 @@ mod tests {
             "ircs://irc.libera.chat:7000/#halloy,#rust",
             "libera",
             "irc.libera.chat",
-            Some(7000),
+            7000,
             &["#halloy", "#rust"],
             true,
             false,
@@ -317,7 +317,7 @@ mod tests {
             "irc://127.0.0.1:6669/channel,%26local,%2Bops,!safe",
             "127.0.0.1",
             "127.0.0.1",
-            Some(6669),
+            6669,
             &["#channel", "&local", "#+ops", "#!safe"],
             false,
             false,
@@ -330,7 +330,7 @@ mod tests {
             "ircs://[2001:db8::1]",
             "2001:db8::1",
             "2001:db8::1",
-            Some(6697),
+            6697,
             &[],
             true,
             false,
@@ -343,7 +343,7 @@ mod tests {
         let config = parse_server_config(&url).unwrap();
 
         assert_eq!(config.server, "2001:db8::1");
-        assert_eq!(config.port, Some(6667));
+        assert_eq!(config.port, 6667);
         assert_eq!(config.channels, vec!["#channel"]);
         assert!(!config.use_tls);
     }
@@ -373,7 +373,7 @@ mod tests {
             "irc://irc.example.org/%23ops%5Btest%5D%7Bdev%7D%5Efoo,%23foo%25bar",
             "example",
             "irc.example.org",
-            Some(6667),
+            6667,
             &["#ops[test]{dev}^foo", "#foo%bar"],
             false,
             false,
@@ -425,7 +425,7 @@ mod tests {
             "wss://irc.libera.chat",
             "libera",
             "irc.libera.chat",
-            Some(443),
+            443,
             &[],
             true,
             true,
@@ -438,7 +438,7 @@ mod tests {
             "ws+insecure://irc.libera.chat",
             "libera",
             "irc.libera.chat",
-            Some(80),
+            80,
             &[],
             false,
             true,
