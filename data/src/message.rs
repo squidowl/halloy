@@ -3957,25 +3957,25 @@ impl MessageReferences {
     pub fn message_reference(
         &self,
         message_reference_types: &[isupport::MessageReferenceType],
-    ) -> isupport::MessageReference {
+    ) -> Option<isupport::MessageReference> {
         for message_reference_type in message_reference_types {
             match message_reference_type {
                 isupport::MessageReferenceType::MessageId => {
                     if let Some(id) = &self.id {
-                        return isupport::MessageReference::MessageId(
+                        return Some(isupport::MessageReference::MessageId(
                             id.clone(),
-                        );
+                        ));
                     }
                 }
                 isupport::MessageReferenceType::Timestamp => {
-                    return isupport::MessageReference::Timestamp(
+                    return Some(isupport::MessageReference::Timestamp(
                         self.timestamp,
-                    );
+                    ));
                 }
             }
         }
 
-        isupport::MessageReference::None
+        None
     }
 }
 

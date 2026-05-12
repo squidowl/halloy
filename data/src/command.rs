@@ -13,7 +13,9 @@ use crate::capabilities::{Capabilities, Capability};
 use crate::config::buffer::text_input::AutoFormat;
 use crate::features::Features;
 use crate::history::reroute::RerouteRules;
-use crate::isupport::{self, find_target_limit};
+use crate::isupport::{
+    self, find_target_limit, format_optional_message_reference,
+};
 use crate::message::{self, formatting};
 use crate::user::{ChannelUsers, NickRef};
 use crate::{Config, Message, Server, Target, Url, User, ctcp, target};
@@ -1215,14 +1217,10 @@ fn parse_command(
                                 None,
                             ] = params
                             {
-                                let Some(message_reference) =
+                                let message_reference =
                                     validated_message_reference(
                                         &message_reference,
-                                        false,
-                                    )
-                                else {
-                                    return Err(Error::InvalidChathistoryMessageReference);
-                                };
+                                    )?;
 
                                 if let Ok(limit) = limit.parse::<u16>()
                                     && limit > 0
@@ -1270,14 +1268,10 @@ fn parse_command(
                                 None,
                             ] = params
                             {
-                                let Some(message_reference) =
-                                    validated_message_reference(
+                                let optional_message_reference =
+                                    validated_optional_message_reference(
                                         &message_reference,
-                                        true,
-                                    )
-                                else {
-                                    return Err(Error::InvalidChathistoryMessageReference);
-                                };
+                                    )?;
 
                                 if let Ok(limit) = limit.parse::<u16>()
                                     && limit > 0
@@ -1300,7 +1294,9 @@ fn parse_command(
                                         subcommand,
                                         vec![
                                             target,
-                                            message_reference.to_string(),
+                                            format_optional_message_reference(
+                                                &optional_message_reference,
+                                            ),
                                             limit,
                                         ],
                                     ),
@@ -1325,23 +1321,15 @@ fn parse_command(
                                 Some(limit),
                             ] = params
                             {
-                                let Some(first_message_reference) =
+                                let first_message_reference =
                                     validated_message_reference(
                                         &first_message_reference,
-                                        false,
-                                    )
-                                else {
-                                    return Err(Error::InvalidChathistoryMessageReference);
-                                };
+                                    )?;
 
-                                let Some(second_message_reference) =
+                                let second_message_reference =
                                     validated_message_reference(
                                         &second_message_reference,
-                                        false,
-                                    )
-                                else {
-                                    return Err(Error::InvalidChathistoryMessageReference);
-                                };
+                                    )?;
 
                                 if let Ok(limit) = limit.parse::<u16>()
                                     && limit > 0
@@ -1889,18 +1877,30 @@ fn validated_timestamp(timestamp: &str) -> Option<DateTime<Utc>> {
 
 fn validated_message_reference(
     message_reference: &str,
-    allow_none: bool,
-) -> Option<isupport::MessageReference> {
+) -> Result<isupport::MessageReference, Error> {
     if let Some(date_time) = validated_timestamp(message_reference) {
-        return Some(isupport::MessageReference::Timestamp(date_time));
+        return Ok(isupport::MessageReference::Timestamp(date_time));
     }
 
     if let Some(message_id) = message_reference.strip_prefix("msgid=") {
-        return Some(isupport::MessageReference::MessageId(message_id.into()));
+        return Ok(isupport::MessageReference::MessageId(message_id.into()));
     }
 
-    (allow_none && message_reference == "*")
-        .then_some(isupport::MessageReference::None)
+    Err(Error::InvalidChathistoryMessageReference)
+}
+
+fn validated_optional_message_reference(
+    message_reference: &str,
+) -> Result<Option<isupport::MessageReference>, Error> {
+    if let Ok(message_reference) =
+        validated_message_reference(message_reference)
+    {
+        Ok(Some(message_reference))
+    } else if message_reference == "*" {
+        Ok(None)
+    } else {
+        Err(Error::InvalidChathistoryOptionalMessageReference)
+    }
 }
 
 fn validated_mode_string(
@@ -2120,6 +2120,8 @@ pub enum Error {
     },
     #[error("invalid timestamp or message id")]
     InvalidChathistoryMessageReference,
+    #[error("invalid timestamp or message id, and is not \"*\"")]
+    InvalidChathistoryOptionalMessageReference,
     #[error("invalid timestamp")]
     InvalidChathistoryTimestamp,
     #[error("too large (maximum limit: {maximum_limit})")]

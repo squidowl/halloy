@@ -1076,7 +1076,7 @@ impl History {
                 },
             )
         {
-            Some(message_references.message_reference(message_reference_types))
+            message_references.message_reference(message_reference_types)
         // Else, if a reference at server_time is allowed, exists, and timestamp
         // references are supported, then return a timestamp reference at
         // server_time.
@@ -1482,13 +1482,23 @@ pub fn insert_message(
 
     if let Some(index) = replace_at {
         if messages[index].server_time == message.server_time {
-            if has_matching_content(&messages[index], &message, false) {
-                if let Some(id) = message.id {
-                    messages[index].id = Some(id);
+            if message.deduplicate
+                && has_matching_content(&messages[index], &message, false)
+            {
+                // Perform a minimal update if this is a message from
+                // chathistory (or ZNC playback) and has the same raw content,
+                // since the newly received message will have been parsed
+                // without historical state.
+                if messages[index].id.is_none() {
+                    messages[index].id = message.id;
                 }
+                messages[index].direction = message::Direction::Received;
                 messages[index].received_at = message.received_at;
             } else {
-                messages[index] = message;
+                messages[index] = Message {
+                    id: message.id.or(messages[index].id.clone()),
+                    ..message
+                };
             }
         } else {
             if message_is_unlabeled_echo {
