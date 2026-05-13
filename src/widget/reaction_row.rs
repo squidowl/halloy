@@ -80,10 +80,13 @@ where
             })
             .into();
 
-        let hidden_count =
-            nicks.len().saturating_sub(REACTION_TOOLTIP_MAX_NAMES);
-        let displayed: Vec<_> =
-            nicks.iter().take(REACTION_TOOLTIP_MAX_NAMES).collect();
+        let display_max = if nicks.len() == REACTION_TOOLTIP_MAX_NAMES + 1 {
+            REACTION_TOOLTIP_MAX_NAMES + 1
+        } else {
+            REACTION_TOOLTIP_MAX_NAMES
+        };
+        let hidden_count = nicks.len().saturating_sub(display_max);
+        let displayed: Vec<_> = nicks.iter().take(display_max).collect();
         let total = displayed.len() + usize::from(hidden_count > 0);
         let mut tooltip_nicks: Vec<Element<'a, M>> = vec![];
         for (i, nick) in displayed.iter().enumerate() {
