@@ -192,7 +192,7 @@ fn parse_server_config(url: &url::Url) -> Option<config::Server> {
         server,
         match port {
             Some(port) => NonZeroU16::new(port),
-            None => default_port(use_tls, use_websocket),
+            None => Some(default_port(use_tls, use_websocket)),
         },
         nickname,
         channels,

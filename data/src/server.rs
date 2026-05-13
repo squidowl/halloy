@@ -163,7 +163,7 @@ impl ConfigMap {
         for (i, (server, mut config)) in iter.into_iter().enumerate() {
             if config.port.is_none() {
                 config.port =
-                    default_port(config.use_tls, config.use_websocket);
+                    Some(default_port(config.use_tls, config.use_websocket));
             }
             if let Some(pass_file) = &config.password_file {
                 if config.password.is_some()

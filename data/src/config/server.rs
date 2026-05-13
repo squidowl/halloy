@@ -156,7 +156,7 @@ impl Server {
             nickname,
             server,
             port: match port {
-                None => default_port(use_tls, use_websocket),
+                None => Some(default_port(use_tls, use_websocket)),
                 port => port,
             },
             channels,
@@ -192,7 +192,7 @@ impl Server {
             server: &self.server,
             port: match self.port {
                 Some(port) => port,
-                None => default_port(self.use_tls, self.use_websocket).unwrap(),
+                None => default_port(self.use_tls, self.use_websocket),
             }
             .get(),
             security,
@@ -589,13 +589,14 @@ where
     Ok(Duration::from_secs(seconds))
 }
 
-pub fn default_port(use_tls: bool, use_websocket: bool) -> Option<NonZeroU16> {
+pub fn default_port(use_tls: bool, use_websocket: bool) -> NonZeroU16 {
     NonZeroU16::new(match (use_tls, use_websocket) {
         (true, true) => DEFAULT_WSS_PORT,
         (true, false) => DEFAULT_TLS_PORT,
         (false, true) => DEFAULT_WS_PORT,
         (false, false) => DEFAULT_PORT,
     })
+    .expect("default ports are non-zero")
 }
 
 pub async fn read_from_command(
