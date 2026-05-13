@@ -99,8 +99,11 @@ impl<'de> Deserialize<'de> for Match {
                 case_insensitive,
                 sound,
             } => {
-                let words =
-                    words.iter().map(|s| fancy_regex::escape(s)).join("|");
+                let words = words
+                    .iter()
+                    .sorted_by_key(|s| std::cmp::Reverse(s.len()))
+                    .map(|s| fancy_regex::escape(s))
+                    .join("|");
 
                 let flags = if case_insensitive { "(?i)" } else { "" };
 
