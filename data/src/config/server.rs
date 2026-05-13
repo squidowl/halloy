@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::num::NonZeroU16;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -29,6 +30,8 @@ pub use self::reroute::{Reroute, RerouteRule, RerouteTarget};
 
 const DEFAULT_PORT: u16 = 6667;
 const DEFAULT_TLS_PORT: u16 = 6697;
+const DEFAULT_WS_PORT: u16 = 80;
+const DEFAULT_WSS_PORT: u16 = 443;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(default)]
@@ -57,7 +60,7 @@ pub struct Server {
     /// The server to connect to.
     pub server: String,
     /// The port to connect on.
-    pub port: u16,
+    pub port: Option<NonZeroU16>,
     /// The password to connect to the server.
     pub password: Option<String>,
     /// The file with the password to connect to the server.
@@ -143,21 +146,22 @@ pub struct Server {
 impl Server {
     pub fn new(
         server: String,
-        port: Option<u16>,
+        port: Option<NonZeroU16>,
         nickname: String,
         channels: Vec<String>,
         use_tls: bool,
+        use_websocket: bool,
     ) -> Self {
         Self {
             nickname,
             server,
-            port: port.unwrap_or(if use_tls {
-                DEFAULT_TLS_PORT
-            } else {
-                DEFAULT_PORT
-            }),
+            port: match port {
+                None => Some(default_port(use_tls, use_websocket)),
+                port => port,
+            },
             channels,
             use_tls,
+            use_websocket,
             dangerously_accept_invalid_certs: false,
             ..Default::default()
         }
@@ -186,7 +190,11 @@ impl Server {
 
         connection::Config {
             server: &self.server,
-            port: self.port,
+            port: match self.port {
+                Some(port) => port,
+                None => default_port(self.use_tls, self.use_websocket),
+            }
+            .get(),
             security,
             proxy: proxy.map(From::from),
             websocket: self.use_websocket.then_some(connection::WebSocket {
@@ -228,7 +236,7 @@ impl Default for Server {
             username: Option::default(),
             realname: Option::default(),
             server: String::default(),
-            port: DEFAULT_TLS_PORT,
+            port: None,
             password: Option::default(),
             password_file: Option::default(),
             password_file_first_line_only: true,
@@ -579,6 +587,16 @@ where
     let seconds: u64 = Deserialize::deserialize(deserializer)?;
 
     Ok(Duration::from_secs(seconds))
+}
+
+pub fn default_port(use_tls: bool, use_websocket: bool) -> NonZeroU16 {
+    NonZeroU16::new(match (use_tls, use_websocket) {
+        (true, true) => DEFAULT_WSS_PORT,
+        (true, false) => DEFAULT_TLS_PORT,
+        (false, true) => DEFAULT_WS_PORT,
+        (false, false) => DEFAULT_PORT,
+    })
+    .expect("default ports are non-zero")
 }
 
 pub async fn read_from_command(

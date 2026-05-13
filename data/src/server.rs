@@ -10,7 +10,7 @@ use tokio::fs;
 
 use crate::bouncer::BouncerNetwork;
 use crate::config::buffer::typing::Typing;
-use crate::config::server::{filehost, read_from_command};
+use crate::config::server::{default_port, filehost, read_from_command};
 use crate::config::sidebar::{OrderBy, OrderChannelsBy};
 use crate::config::{self, Error, sidebar};
 
@@ -161,6 +161,10 @@ impl ConfigMap {
     ) -> Result<Self, Error> {
         let mut map = IndexMap::new();
         for (i, (server, mut config)) in iter.into_iter().enumerate() {
+            if config.port.is_none() {
+                config.port =
+                    Some(default_port(config.use_tls, config.use_websocket));
+            }
             if let Some(pass_file) = &config.password_file {
                 if config.password.is_some()
                     || config.password_command.is_some()
