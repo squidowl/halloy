@@ -48,16 +48,10 @@ impl Preview {
         }
     }
 
-    pub fn hide_url_when(
-        &self,
-        preview: &crate::Preview,
-        hide_url_condition: HideUrlCondition,
-    ) -> bool {
+    pub fn hide_url_when(&self, preview: &crate::Preview) -> HideUrlCondition {
         match preview {
-            crate::Preview::Card(_) => self.card.hide_url == hide_url_condition,
-            crate::Preview::Image(_) => {
-                self.image.hide_url == hide_url_condition
-            }
+            crate::Preview::Card(_) => self.card.hide_url,
+            crate::Preview::Image(_) => self.image.hide_url,
         }
     }
 }
@@ -229,6 +223,7 @@ impl Default for ImageCache {
 pub enum HideUrlCondition {
     #[default]
     ContainsOnlyUrl,
+    Trailing,
     Never,
 }
 

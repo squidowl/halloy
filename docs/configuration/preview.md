@@ -85,11 +85,17 @@ include = { channels = ["#halloy"] } # show card previews in #halloy
 
 ### `hide_url`
 
-When set to `"contains-only-url"`, messages that consist of only a URL will have the text of message hidden when the card preview is visible.
+Hides URL(s) in messages when their card preview is visible and the specified condition is met.
+
+| Condition             | Description                                                                       |
+| --------------------- | --------------------------------------------------------------------------------- |
+| `"trailing"`          | URL is hidden when it is at the end of a message and its card preview is visible. |
+| `"contains-only-url"` | URL is hidden when it is the entire message.                                      |
+| `"never"`             | URLs are never hidden.                                                            |
 
 ```toml
 # Type: string
-# Values: "contains-only-url" or "never"
+# Values: "trailing", "contains-only-url", or "never"
 # Default: "never"
 
 [preview.card]
@@ -217,15 +223,21 @@ action = "preview"
 
 ### `hide_url`
 
-When set to `"contains-only-url"`, messages that consist of only a URL will have the text of message hidden when the image preview is visible.
+Hides URL(s) in messages when their image preview is visible and the specified condition is met.
+
+| Condition             | Description                                                                        |
+| --------------------- | ---------------------------------------------------------------------------------- |
+| `"trailing"`          | URL is hidden when it is at the end of a message and its image preview is visible. |
+| `"contains-only-url"` | URL is hidden when it is the entire message.                                       |
+| `"never"`             | URLs are never hidden.                                                             |
 
 ```toml
 # Type: string
-# Values: "contains-only-url" or "never"
+# Values: "trailing", "contains-only-url", or "never"
 # Default: "contains-only-url"
 
 [preview.image]
-hide_url = "never"
+hide_url = "trailing"
 ```
 
 ### `round_corners`

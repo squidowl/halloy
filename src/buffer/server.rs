@@ -124,6 +124,7 @@ pub fn view<'a>(
                     message::Source::Server(server) => {
                         let text_content = message_content(
                             &message.content,
+                            &[],
                             &state.server,
                             registry,
                             chantypes,
@@ -170,6 +171,7 @@ pub fn view<'a>(
                     ) => {
                         let content = message_content(
                             &message.content,
+                            &[],
                             &state.server,
                             registry,
                             chantypes,
@@ -256,6 +258,7 @@ pub fn view<'a>(
 
                         let content = message_content(
                             &message.content,
+                            &[],
                             &state.server,
                             registry,
                             chantypes,

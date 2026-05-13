@@ -165,6 +165,7 @@ pub fn view<'a>(
 
                     let text = message_content::with_context(
                         &message.content,
+                        &[],
                         server,
                         registry,
                         chantypes,
@@ -280,6 +281,7 @@ pub fn view<'a>(
 
                     let text = message_content(
                         &message.content,
+                        &[],
                         server,
                         clients.get_registry(server),
                         chantypes,

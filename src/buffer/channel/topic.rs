@@ -113,6 +113,7 @@ pub fn view<'a>(
     let content = column![
         message_content::with_context(
             content,
+            &[],
             server,
             registry,
             chantypes,

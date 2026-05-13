@@ -546,6 +546,7 @@ impl<'a> ChannelQueryLayout<'a> {
     fn format_user_message(
         &self,
         message: &'a data::Message,
+        hidden_fragments: &[usize],
         right_alignment_middle_width: Option<f32>,
         user: &'a User,
         hide_nickname: bool,
@@ -712,6 +713,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     tooltip(
                         message_content::with_context(
                             &message.content,
+                            hidden_fragments,
                             self.server,
                             self.registry,
                             self.chantypes,
@@ -780,6 +782,7 @@ impl<'a> ChannelQueryLayout<'a> {
     fn format_server_message(
         &self,
         message: &'a data::Message,
+        hidden_fragments: &[usize],
         right_alignment_middle_width: Option<f32>,
         server: Option<&'a message::source::Server>,
     ) -> (
@@ -834,6 +837,7 @@ impl<'a> ChannelQueryLayout<'a> {
 
         let message_content = message_content::with_context(
             &message.content,
+            hidden_fragments,
             formatter.server,
             formatter.registry,
             formatter.chantypes,
@@ -982,6 +986,7 @@ impl<'a> ChannelQueryLayout<'a> {
 
         let message_content = message_content::with_context(
             &message.content,
+            &[],
             formatter.server,
             formatter.registry,
             formatter.chantypes,
@@ -1146,6 +1151,107 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         let right_alignment_middle_width = right_alignment_widths
             .map(|right_alignment_widths| right_alignment_widths.middle);
 
+        let (
+            message_has_urls,
+            enumerated_previews,
+            hidden_fragments,
+            is_visible_url_message,
+        ) = if self.previews_enabled(message)
+            && let message::Content::Fragments(fragments) = &message.content
+        {
+            let urls = eligible_preview_urls(
+                fragments,
+                &message.hidden_urls,
+                self.config.preview.max_per_message,
+            );
+
+            if !urls.is_empty() {
+                let is_visible_url_message =
+                    visible_url_messages.contains_key(&message.hash);
+
+                let enumerated_urls = urls
+                    .into_iter()
+                    .enumerate()
+                    .map(|(url_index, (fragment_index, url))| {
+                        if let Some(preview::State::Loaded(preview)) =
+                            self.previews.get(url)
+                            && visible_for_source.is_none_or(
+                                |visible_for_source| {
+                                    visible_for_source(
+                                        preview,
+                                        message.target.source(),
+                                    )
+                                },
+                            )
+                        {
+                            (fragment_index, url_index, url, Some(preview))
+                        } else {
+                            (fragment_index, url_index, url, None)
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                let mut hidden_fragments: Vec<usize> = vec![];
+                let mut is_trailing_fragment = true;
+
+                for (fragment_index, _, _, preview) in
+                    enumerated_urls.iter().rev()
+                {
+                    if let Some(preview) = preview {
+                        if is_trailing_fragment {
+                            let trailing_fragments: Vec<_> = fragments
+                                .iter()
+                                .enumerate()
+                                .skip(fragment_index.saturating_add(1))
+                                .collect();
+
+                            is_trailing_fragment = trailing_fragments
+                                .is_empty()
+                                || trailing_fragments.iter().all(
+                                    |(index, fragment)| {
+                                        hidden_fragments.contains(index)
+                                            || fragment
+                                                .as_str()
+                                                .trim_end()
+                                                .is_empty()
+                                    },
+                                );
+                        }
+
+                        match self.config.preview.hide_url_when(preview) {
+                            HideUrlCondition::ContainsOnlyUrl => {
+                                if fragments.len() == 1 {
+                                    hidden_fragments.push(*fragment_index);
+                                }
+                            }
+                            HideUrlCondition::Trailing => {
+                                if is_trailing_fragment {
+                                    hidden_fragments.push(*fragment_index);
+                                }
+                            }
+                            HideUrlCondition::Never => (),
+                        }
+                    }
+                }
+
+                (
+                    true,
+                    enumerated_urls
+                        .into_iter()
+                        .map(|(_, url_index, url, preview)| {
+                            (url_index, url, preview)
+                        })
+                        .collect(),
+                    hidden_fragments,
+                    is_visible_url_message,
+                )
+            } else {
+                (false, vec![], vec![], false)
+            }
+        } else {
+            (false, vec![], vec![], false)
+        };
+
         let (middle, content, after_content): (
             Option<Element<'a, Message>>,
             Element<'a, Message>,
@@ -1153,6 +1259,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         ) = match message.target.source() {
             message::Source::User(user) => Some(self.format_user_message(
                 message,
+                &hidden_fragments,
                 right_alignment_middle_width,
                 user,
                 hide_nickname,
@@ -1160,6 +1267,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             message::Source::Server(server_message) => {
                 Some(self.format_server_message(
                     message,
+                    &hidden_fragments,
                     right_alignment_middle_width,
                     server_message.as_ref(),
                 ))
@@ -1202,6 +1310,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
 
                 let message_content = message_content::with_context(
                     &message.content,
+                    &hidden_fragments,
                     formatter.server,
                     formatter.registry,
                     formatter.chantypes,
@@ -1274,6 +1383,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
 
                 let message = message_content(
                     &message.content,
+                    &[],
                     self.server,
                     self.registry,
                     self.chantypes,
@@ -1339,95 +1449,64 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             middle_is_some.then_some(selectable_text(" ")),
         ];
 
-        let content = if self.previews_enabled(message)
-            && let message::Content::Fragments(fragments) = &message.content
-        {
-            let urls = eligible_preview_urls(
-                fragments.iter().filter_map(message::Fragment::url),
-                &message.hidden_urls,
-                self.config.preview.max_per_message,
-            );
+        let content = if message_has_urls {
+            let mut column = column![].spacing(2);
 
-            if !urls.is_empty() {
-                let is_message_visible =
-                    visible_url_messages.contains_key(&message.hash);
+            let show_message_content = if hidden_fragments.is_empty() {
+                true
+            } else if let message::Content::Fragments(fragments) =
+                &message.content
+            {
+                fragments.iter().enumerate().any(|(index, fragment)| {
+                    !hidden_fragments.contains(&index)
+                        && !fragment.as_str().trim_end().is_empty()
+                })
+            } else {
+                true
+            };
 
-                let mut column = column![].spacing(2);
+            if show_message_content {
+                column = column.push(content);
+            }
 
-                if fragments.len() == 1
-                    && urls.len() == 1
-                    && let Some(url) = urls.first()
-                    && let Some(preview::State::Loaded(preview)) =
-                        self.previews.get(url)
-                    && visible_for_source.is_none_or(|visible_for_source| {
-                        visible_for_source(preview, message.target.source())
-                    })
-                    && self.config.preview.hide_url_when(
-                        preview,
-                        HideUrlCondition::ContainsOnlyUrl,
-                    )
-                {
+            for (index, url, preview) in &enumerated_previews {
+                if let Some(preview) = preview {
                     let is_hovered = hovered_preview.is_some_and(
                         |(hovered_hash, hovered_index)| {
-                            hovered_hash == message.hash && hovered_index == 0
+                            hovered_hash == message.hash
+                                && hovered_index == *index
                         },
                     );
 
-                    column = column.push(
-                        self.preview_row(message, preview, url, 0, is_hovered),
-                    );
-                } else {
-                    column = column.push(content);
-
-                    for (index, url) in urls.iter().enumerate() {
-                        if is_message_visible
-                            && let Some(preview::State::Loaded(preview)) =
-                                self.previews.get(url)
-                            && visible_for_source.is_none_or(
-                                |visible_for_source| {
-                                    visible_for_source(
-                                        preview,
-                                        message.target.source(),
-                                    )
-                                },
-                            )
-                        {
-                            let is_hovered = hovered_preview.is_some_and(
-                                |(hovered_hash, hovered_index)| {
-                                    hovered_hash == message.hash
-                                        && hovered_index == index
-                                },
-                            );
-
-                            column = column.push(self.preview_row(
-                                message, preview, url, index, is_hovered,
-                            ));
-                        }
-                    }
+                    column = column.push(self.preview_row(
+                        message, preview, url, *index, is_hovered,
+                    ));
                 }
+            }
 
-                if is_message_visible {
-                    notify_visibility(
-                        column,
-                        2000.0,
-                        notify_visibility::When::NotVisible,
-                        message.hash,
-                        Message::ExitingViewport(message.hash),
-                    )
-                } else {
-                    notify_visibility(
-                        column,
-                        1000.0,
-                        notify_visibility::When::Visible,
-                        message.hash,
-                        Message::EnteringViewport(
-                            message.hash,
-                            urls.into_iter().cloned().collect(),
-                        ),
-                    )
-                }
+            if is_visible_url_message {
+                notify_visibility(
+                    column,
+                    2000.0,
+                    notify_visibility::When::NotVisible,
+                    message.hash,
+                    Message::ExitingViewport(message.hash),
+                )
             } else {
-                content
+                notify_visibility(
+                    column,
+                    1000.0,
+                    notify_visibility::When::Visible,
+                    message.hash,
+                    Message::EnteringViewport(
+                        message.hash,
+                        enumerated_previews
+                            .into_iter()
+                            .map(|(_, url, _)| url)
+                            .cloned()
+                            .collect(),
+                    ),
+                )
             }
         } else {
             content
@@ -1639,12 +1718,15 @@ fn selected_reactions_refs<'a>(
 }
 
 fn eligible_preview_urls<'a>(
-    urls: impl IntoIterator<Item = &'a url::Url>,
+    fragments: &'a [message::Fragment],
     hidden_urls: &HashSet<url::Url>,
     max_per_message: usize,
-) -> Vec<&'a url::Url> {
-    urls.into_iter()
-        .filter(|url| !hidden_urls.contains(*url))
+) -> Vec<(usize, &'a url::Url)> {
+    fragments
+        .iter()
+        .enumerate()
+        .filter_map(|(index, fragment)| fragment.url().map(|url| (index, url)))
+        .filter(|(_, url)| !hidden_urls.contains(*url))
         .take(max_per_message)
         .collect()
 }

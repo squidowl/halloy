@@ -263,6 +263,7 @@ fn channel_list_view<'a>(
                     } else {
                         Some(message_content::with_context(
                             topic_content,
+                            &[],
                             server,
                             metadata::EMPTY,
                             clients.get_server_chantypes_or_default(server),

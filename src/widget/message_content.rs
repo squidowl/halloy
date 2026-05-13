@@ -12,6 +12,7 @@ use crate::{Theme, font, theme};
 
 pub fn message_content<'a, M: 'a + std::clone::Clone>(
     content: &'a message::Content,
+    hidden_fragments: &[usize],
     server: &'a Server,
     registry: &'a dyn metadata::Registry,
     chantypes: &[char],
@@ -26,6 +27,7 @@ pub fn message_content<'a, M: 'a + std::clone::Clone>(
 ) -> Element<'a, M> {
     message_content_impl::<(), M>(
         content,
+        hidden_fragments,
         server,
         registry,
         chantypes,
@@ -43,6 +45,7 @@ pub fn message_content<'a, M: 'a + std::clone::Clone>(
 
 pub fn with_context<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
     content: &'a message::Content,
+    hidden_fragments: &[usize],
     server: &'a Server,
     registry: &'a dyn metadata::Registry,
     chantypes: &[char],
@@ -59,6 +62,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
 ) -> Element<'a, M> {
     message_content_impl(
         content,
+        hidden_fragments,
         server,
         registry,
         chantypes,
@@ -77,6 +81,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
 #[allow(clippy::type_complexity)]
 fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
     content: &'a message::Content,
+    hidden_fragments: &[usize],
     server: &'a Server,
     registry: &'a dyn metadata::Registry,
     chantypes: &[char],
@@ -153,7 +158,12 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
             >(
                 fragments
                     .iter()
-                    .map(|fragment| {
+                    .enumerate()
+                    .filter_map(|(index, fragment)| {
+                        if hidden_fragments.contains(&index) {
+                            return None;
+                        }
+
                         let transform_color = |color: Color| -> Color {
                             if let Some(color_transformation) =
                                 &color_transformation
@@ -331,13 +341,15 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                                 ),
                         };
 
-                        if span.link.is_none()
-                            && let Some(default_link) = &default_link
-                        {
-                            span.link(default_link.clone())
-                        } else {
-                            span
-                        }
+                        Some(
+                            if span.link.is_none()
+                                && let Some(default_link) = &default_link
+                            {
+                                span.link(default_link.clone())
+                            } else {
+                                span
+                            },
+                        )
                     })
                     .collect::<Vec<_>>(),
             )
