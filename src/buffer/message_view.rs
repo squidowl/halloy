@@ -97,12 +97,18 @@ pub struct ChannelQueryLayout<'a> {
 }
 
 impl<'a> ChannelQueryLayout<'a> {
+    fn previews_enabled(&self, message: &data::Message) -> bool {
+        !self.not_sent(message) && message.redaction.is_none()
+    }
+
     fn preview_hidden_for_url(
         &self,
         message: &data::Message,
         url: &str,
     ) -> Option<bool> {
-        if !self.config.preview.is_enabled(url) {
+        if self.previews_enabled(message)
+            || !self.config.preview.is_enabled(url)
+        {
             return None;
         }
 
@@ -129,6 +135,8 @@ impl<'a> ChannelQueryLayout<'a> {
         let can_send_replies = self.can_send_replies && message.id.is_some();
         match link {
             message::Link::Url(url) => context_menu::Entry::url_list(
+                message.redaction.is_some(),
+                message.redaction_expanded(&self.config.buffer.redaction),
                 self.preview_hidden_for_url(message, url),
                 self.can_send_reactions,
                 self.can_redact_message(message),
@@ -481,11 +489,11 @@ impl<'a> ChannelQueryLayout<'a> {
         let content = context_menu::preview(
             content,
             url.as_str(),
-            Some(false),
             self.can_send_replies,
             self.can_send_reactions,
             self.can_redact_message(message),
-            message.hash,
+            &message.server_time,
+            &message.hash,
             message.id.as_ref(),
             message.user(),
             &message.content,
@@ -700,14 +708,6 @@ impl<'a> ChannelQueryLayout<'a> {
                     vec![],
                 )
             } else {
-                let link = (self.config.buffer.redaction.display.is_redacted()
-                    && message.expanded
-                    && redaction_message.is_some())
-                .then_some(message::Link::ContractMessage(
-                    message.server_time,
-                    message.hash,
-                ));
-
                 (
                     tooltip(
                         message_content::with_context(
@@ -718,7 +718,7 @@ impl<'a> ChannelQueryLayout<'a> {
                             self.casemapping,
                             self.theme,
                             Message::Link,
-                            link,
+                            None,
                             message_style,
                             theme::font_style::primary,
                             color_transformation,
@@ -1089,11 +1089,13 @@ impl<'a> ChannelQueryLayout<'a> {
 
             link.url().map(move |url| Context::Url {
                 url,
-                message: Some(message.hash),
+                server_time: Some(&message.server_time),
+                hash: Some(&message.hash),
                 msgid: message.id.as_ref(),
                 selected_reactions: selected_reaction_texts,
                 to_nick,
                 reply_preview,
+                redaction: message.redaction.as_ref(),
             })
         }
     }
@@ -1307,12 +1309,16 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         let content = context_menu::message(
             content,
             message.target.source(),
+            &message.server_time,
+            &message.hash,
             message.id.as_ref(),
             selected_reaction_texts,
             self.can_send_replies,
             self.can_send_reactions,
             self.can_redact_message(message),
             &message.content,
+            message.redaction.as_ref(),
+            message.redaction_expanded(&self.config.buffer.redaction),
             self.config,
             self.theme,
         );
@@ -1333,8 +1339,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             middle_is_some.then_some(selectable_text(" ")),
         ];
 
-        let content = if !(self.not_sent(message)
-            || message.redaction.is_some())
+        let content = if self.previews_enabled(message)
             && let message::Content::Fragments(fragments) = &message.content
         {
             let urls = eligible_preview_urls(

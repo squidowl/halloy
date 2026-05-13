@@ -276,7 +276,7 @@ fn channel_list_view<'a>(
                             move |link| match link {
                                 message::Link::Url(_) => {
                                     context_menu::Entry::url_list(
-                                        None, false, false, false,
+                                        false, None, None, false, false, false,
                                     )
                                 }
                                 _ => vec![],
@@ -286,11 +286,13 @@ fn channel_list_view<'a>(
                                     .view(
                                         link.url().map(|url| Context::Url {
                                             url,
-                                            message: None,
+                                            server_time: None,
+                                            hash: None,
                                             msgid: None,
                                             selected_reactions: vec![],
                                             to_nick: None,
                                             reply_preview: None,
+                                            redaction: None,
                                         }),
                                         length,
                                         config,
