@@ -203,12 +203,13 @@ impl User {
         user: proto::User,
         casemapping: isupport::CaseMap,
         from_bot: bool,
+        accountname: Option<String>,
     ) -> Self {
         User {
             nickname: Nick::from_string(user.nickname, casemapping),
             username: user.username,
             hostname: user.hostname,
-            accountname: None,
+            accountname,
             access_levels: BTreeSet::default(),
             away: false,
             bot: from_bot,
