@@ -453,7 +453,7 @@ impl Message {
             prefix,
         )?;
         let received_at = Posix::now();
-        let hash = Hash::new(&server_time, &content);
+        let hash = Hash::new(&server_time, &content, &received_at);
 
         Some(Message {
             received_at,
@@ -524,7 +524,7 @@ impl Message {
             prefix,
         )?;
         let received_at = Posix::now();
-        let hash = Hash::new(&server_time, &content);
+        let hash = Hash::new(&server_time, &content, &received_at);
 
         let message = Message {
             received_at,
@@ -603,7 +603,7 @@ impl Message {
     ) -> Self {
         let received_at = Posix::now();
         let server_time = Utc::now();
-        let hash = Hash::new(&server_time, &content);
+        let hash = Hash::new(&server_time, &content, &received_at);
 
         Message {
             received_at,
@@ -639,7 +639,7 @@ impl Message {
             "{} wants to send you \"{filename}\"",
             from.nickname()
         ));
-        let hash = Hash::new(&server_time, &content);
+        let hash = Hash::new(&server_time, &content, &received_at);
 
         Message {
             received_at,
@@ -676,7 +676,7 @@ impl Message {
         let server_time = Utc::now();
         let content =
             plain(format!("offering to send {} \"{filename}\"", to.nickname()));
-        let hash = Hash::new(&server_time, &content);
+        let hash = Hash::new(&server_time, &content, &received_at);
 
         Message {
             received_at,
@@ -771,7 +771,7 @@ impl Message {
             source: Source::Internal(source::Internal::Logs(record.level)),
         };
         let content = Content::Log(record);
-        let hash = Hash::new(&server_time, &content);
+        let hash = Hash::new(&server_time, &content, &received_at);
 
         Self {
             received_at,
@@ -950,7 +950,7 @@ impl<'de> Deserialize<'de> for Message {
 
         let is_echo = is_echo.unwrap_or_default();
 
-        let hash = Hash::new(&server_time, &content);
+        let hash = Hash::new(&server_time, &content, &received_at);
 
         Ok(Message {
             received_at,
@@ -1794,10 +1794,15 @@ fn condense_associated_fragments(
 pub struct Hash(u64);
 
 impl Hash {
-    pub fn new(server_time: &DateTime<Utc>, content: &Content) -> Self {
+    pub fn new(
+        server_time: &DateTime<Utc>,
+        content: &Content,
+        received_at: &Posix,
+    ) -> Self {
         let mut hasher = DefaultHasher::new();
         server_time.hash(&mut hasher);
         content.hash(&mut hasher);
+        received_at.hash(&mut hasher);
         Self(hasher.finish())
     }
 }
