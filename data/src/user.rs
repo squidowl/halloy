@@ -136,9 +136,13 @@ impl Serialize for User {
             .hostname()
             .map(|hostname| format!("@{hostname}"))
             .unwrap_or_default();
+        let accountname = self
+            .accountname()
+            .map(ToString::to_string)
+            .unwrap_or_default();
         let is_bot = if self.is_bot() { ":" } else { "" };
 
-        format!("{access_levels}{is_bot} {nickname}{username}{hostname}")
+        format!("{access_levels}{is_bot} {nickname}{username}{hostname} {accountname}")
             .serialize(serializer)
     }
 }
@@ -150,25 +154,52 @@ impl<'de> Deserialize<'de> for User {
     {
         let value = String::deserialize(deserializer)?;
 
-        if let Some((access_levels_and_is_bot, names)) = value.split_once(' ') {
+        if let Some((access_levels_and_is_bot, names_and_accountname)) =
+            value.split_once(' ')
+        {
             let access_levels = access_levels_and_is_bot
                 .chars()
                 .filter_map(|c| AccessLevel::try_from(c).ok())
                 .collect::<BTreeSet<_>>();
             let is_bot = access_levels_and_is_bot.ends_with(':');
 
-            let (nickname, username, hostname) =
-                parse_user_names(names, isupport::CaseMap::default());
+            if let Some((names, accountname)) =
+                names_and_accountname.split_once(' ')
+            {
+                let accountname = if accountname.is_empty() {
+                    None
+                } else {
+                    Some(accountname.to_string())
+                };
 
-            Ok(User {
-                nickname,
-                username,
-                hostname,
-                accountname: None,
-                access_levels,
-                away: false,
-                bot: is_bot,
-            })
+                let (nickname, username, hostname) =
+                    parse_user_names(names, isupport::CaseMap::default());
+
+                Ok(User {
+                    nickname,
+                    username,
+                    hostname,
+                    accountname,
+                    access_levels,
+                    away: false,
+                    bot: is_bot,
+                })
+            } else {
+                let (nickname, username, hostname) = parse_user_names(
+                    names_and_accountname,
+                    isupport::CaseMap::default(),
+                );
+
+                Ok(User {
+                    nickname,
+                    username,
+                    hostname,
+                    accountname: None,
+                    access_levels,
+                    away: false,
+                    bot: is_bot,
+                })
+            }
         } else {
             // Older format for user string, with no space; attempt to parse
             // with default
@@ -840,7 +871,7 @@ mod tests {
                     away: false,
                     bot: false,
                 },
-                [Token::String("+@ dan")],
+                [Token::String("+@ dan ")],
             ),
             (
                 User {
@@ -855,7 +886,7 @@ mod tests {
                     away: false,
                     bot: false,
                 },
-                [Token::String(" dan!d@localhost")],
+                [Token::String(" dan!d@localhost ")],
             ),
             (
                 User {
@@ -872,7 +903,7 @@ mod tests {
                     away: false,
                     bot: false,
                 },
-                [Token::String("@ d@n!d@localhost")],
+                [Token::String("@ d@n!d@localhost ")],
             ),
             (
                 User {
@@ -887,7 +918,7 @@ mod tests {
                     away: false,
                     bot: false,
                 },
-                [Token::String(" foobar")],
+                [Token::String(" foobar ")],
             ),
             (
                 User {
@@ -905,7 +936,7 @@ mod tests {
                     bot: false,
                 },
                 [Token::String(
-                    " foobar!8a027a9a4a@2201:12f1:2:1162:1242:1fg:he11:abde",
+                    " foobar!8a027a9a4a@2201:12f1:2:1162:1242:1fg:he11:abde ",
                 )],
             ),
             (
@@ -924,7 +955,7 @@ mod tests {
                     away: false,
                     bot: false,
                 },
-                [Token::String("+@ foobar!~foobar@12.521.212.521")],
+                [Token::String("+@ foobar!~foobar@12.521.212.521 ")],
             ),
             (
                 User {
@@ -941,7 +972,7 @@ mod tests {
                     away: false,
                     bot: false,
                 },
-                [Token::String("@ H1N5!the.flu@in.you")],
+                [Token::String("@ H1N5!the.flu@in.you ")],
             ),
             (
                 User {
@@ -956,7 +987,7 @@ mod tests {
                     away: false,
                     bot: false,
                 },
-                [Token::String(" *status")],
+                [Token::String(" *status ")],
             ),
             (
                 User {
@@ -973,7 +1004,22 @@ mod tests {
                     away: false,
                     bot: false,
                 },
-                [Token::String("@ 714user")],
+                [Token::String("@ 714user ")],
+            ),
+            (
+                User {
+                    nickname: Nick::from_str(
+                        "alice",
+                        isupport::CaseMap::default(),
+                    ),
+                    username: None,
+                    hostname: None,
+                    accountname: Some("eve".into()),
+                    access_levels: BTreeSet::<AccessLevel>::new(),
+                    away: false,
+                    bot: false,
+                },
+                [Token::String(" alice eve")],
             ),
         ];
 
