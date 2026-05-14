@@ -5,6 +5,7 @@ Added:
 - Improved legibility of the returned values of `MONITOR` list (`/monitor L`)
 - Config option (`preview.card.description_decode_html`) to decode html strings in preview card descriptions
 - Support displaying a larger version of the card images in-app
+- IRCv3 `no-implicit-names` support
 
 Fixed:
 
@@ -95,7 +96,6 @@ Added:
 - Setting to hide the text of messages that contain only a single URL, when the URL's preview is visible (`preview.hide_url`)
 - Nick and channel completion picker
 - Runtime graphics settings (graphic backend, vsync, and antialiasing)
-- IRCv3 `no-implicit-names` support
 
 Fixed:
 

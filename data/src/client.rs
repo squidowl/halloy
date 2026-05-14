@@ -2190,8 +2190,19 @@ impl Client {
 
                     if let Some(client_channel) =
                         self.chanmap.get_mut(&target_channel)
+                        && !client_channel.who_init
                     {
                         client_channel.who_init = true;
+
+                        if self
+                            .capabilities
+                            .acknowledged(Capability::NoImplicitNames)
+                            && let Some((subcommand, priority)) = self
+                                .pending_chathistory_requests
+                                .remove(&Target::Channel(target_channel))
+                        {
+                            self.send_chathistory_request(subcommand, priority);
+                        }
                     }
 
                     if !user_request {
@@ -2430,7 +2441,8 @@ impl Client {
                     self.casemapping(),
                 ));
 
-                if let Some(channel) = self.chanmap.get_mut(&target)
+                if !self.capabilities.acknowledged(Capability::NoImplicitNames)
+                    && let Some(channel) = self.chanmap.get_mut(&target)
                     && !channel.names_init
                 {
                     channel.names_init = true;
@@ -3795,7 +3807,14 @@ impl Client {
                         && let Some(channel) = target
                             .as_channel()
                             .and_then(|channel| self.chanmap.get_mut(channel))
-                        && !channel.names_init
+                        && ((!self
+                            .capabilities
+                            .acknowledged(Capability::NoImplicitNames)
+                            && !channel.names_init)
+                            || (self
+                                .capabilities
+                                .acknowledged(Capability::NoImplicitNames)
+                                && !channel.who_init))
                     {
                         self.pending_chathistory_requests
                             .insert(target.clone(), (subcommand, priority));
