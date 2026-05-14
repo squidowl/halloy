@@ -391,6 +391,7 @@ pub fn view<'a>(
                                             } else {
                                                 0.0
                                             }
+                                            + 1.0
                                     })
                             } else {
                                 None
