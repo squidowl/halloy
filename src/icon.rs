@@ -13,12 +13,18 @@ pub fn error<'a>() -> Text<'a> {
     to_text('\u{E80D}')
 }
 
-pub fn connected<'a>() -> Text<'a> {
-    to_text('\u{E800}')
+pub fn connected<'a>() -> Svg<'a, Theme> {
+    let entypo_globe =
+        include_bytes!("../assets/fontello/entypo-globe.svg").to_vec();
+
+    svg(svg::Handle::from_memory(entypo_globe))
 }
 
-pub fn link() -> Text<'static> {
-    to_text('\u{E814}')
+pub fn link<'a>() -> Svg<'a, Theme> {
+    let entypo_link =
+        include_bytes!("../assets/fontello/entypo-link.svg").to_vec();
+
+    svg(svg::Handle::from_memory(entypo_link))
 }
 
 pub fn cancel<'a>() -> Text<'a> {
@@ -109,32 +115,63 @@ pub fn config<'a>() -> Text<'a> {
     to_text('\u{F1C9}')
 }
 
-pub fn star<'a>() -> Text<'a> {
-    to_text('\u{E819}')
+pub fn star<'a>() -> Svg<'a, Theme> {
+    let fontawesome_star =
+        include_bytes!("../assets/fontello/fontawesome-star.svg").to_vec();
+
+    svg(svg::Handle::from_memory(fontawesome_star))
 }
 
-pub fn certificate<'a>() -> Text<'a> {
-    to_text('\u{F0A3}')
+pub fn certificate<'a>() -> Svg<'a, Theme> {
+    let fontawesome_certificate =
+        include_bytes!("../assets/fontello/fontawesome-certificate.svg")
+            .to_vec();
+
+    svg(svg::Handle::from_memory(fontawesome_certificate))
 }
 
-pub fn circle_empty<'a>() -> Text<'a> {
-    to_text('\u{F10C}')
+pub fn circle<'a>() -> Svg<'a, Theme> {
+    let fontawesome_circle =
+        include_bytes!("../assets/fontello/fontawesome-circle.svg").to_vec();
+
+    svg(svg::Handle::from_memory(fontawesome_circle))
 }
 
-pub fn dot_circled<'a>() -> Text<'a> {
-    to_text('\u{F192}')
+pub fn circle_empty<'a>() -> Svg<'a, Theme> {
+    let fontawesome_circle_empty =
+        include_bytes!("../assets/fontello/fontawesome-circle-empty.svg")
+            .to_vec();
+
+    svg(svg::Handle::from_memory(fontawesome_circle_empty))
 }
 
-pub fn asterisk<'a>() -> Text<'a> {
-    to_text('\u{E815}')
+pub fn dot_circled<'a>() -> Svg<'a, Theme> {
+    let fontawesome_dot_circled =
+        include_bytes!("../assets/fontello/fontawesome-dot-circled.svg")
+            .to_vec();
+
+    svg(svg::Handle::from_memory(fontawesome_dot_circled))
 }
 
-pub fn speaker<'a>() -> Text<'a> {
-    to_text('\u{E818}')
+pub fn asterisk<'a>() -> Svg<'a, Theme> {
+    let fontawesome_asterisk =
+        include_bytes!("../assets/fontello/fontawesome-asterisk.svg").to_vec();
+
+    svg(svg::Handle::from_memory(fontawesome_asterisk))
 }
 
-pub fn lightbulb<'a>() -> Text<'a> {
-    to_text('\u{F0EB}')
+pub fn speaker<'a>() -> Svg<'a, Theme> {
+    let entypo_sound =
+        include_bytes!("../assets/fontello/entypo-sound.svg").to_vec();
+
+    svg(svg::Handle::from_memory(entypo_sound))
+}
+
+pub fn lightbulb<'a>() -> Svg<'a, Theme> {
+    let fontawesome_lightbulb =
+        include_bytes!("../assets/fontello/fontawesome-lightbulb.svg").to_vec();
+
+    svg(svg::Handle::from_memory(fontawesome_lightbulb))
 }
 
 pub fn quit<'a>() -> Text<'a> {
@@ -158,10 +195,10 @@ pub fn reply<'a>() -> Text<'a> {
 }
 
 pub fn not_sent<'a>() -> Svg<'a, Theme> {
-    let fontawesome_attention_circled =
+    let fontawesome_attention =
         include_bytes!("../assets/fontello/fontawesome-attention.svg").to_vec();
 
-    svg(svg::Handle::from_memory(fontawesome_attention_circled))
+    svg(svg::Handle::from_memory(fontawesome_attention))
 }
 
 pub fn spinner<'a>(angle: f32) -> Svg<'a, Theme> {
@@ -180,9 +217,9 @@ fn to_text<'a>(unicode: char) -> Text<'a> {
         .font(*font::ICON)
 }
 
-pub fn from_icon<'a>(icon: config::sidebar::Icon) -> Option<Text<'a>> {
+pub fn from_icon<'a>(icon: config::sidebar::Icon) -> Option<Svg<'a, Theme>> {
     match icon {
-        config::sidebar::Icon::Dot => Some(dot()),
+        config::sidebar::Icon::Dot => Some(circle()),
         config::sidebar::Icon::DotCircled => Some(dot_circled()),
         config::sidebar::Icon::Certificate => Some(certificate()),
         config::sidebar::Icon::Asterisk => Some(asterisk()),

@@ -20,11 +20,13 @@ pub struct Sidebar {
     pub position: Position,
     pub order_by: OrderBy,
     pub scrollbar: Scrollbar,
+    pub font_size: Option<u8>,
     #[serde(
         deserialize_with = "deserialize_server_icon",
         alias = "server_icon_size"
     )]
     pub server_icon: ServerIcon,
+    pub server_font_size: Option<u8>,
     pub user_menu: UserMenu,
     pub padding: Padding,
     pub spacing: Spacing,
@@ -41,7 +43,7 @@ pub enum ServerIcon {
 
 impl Default for ServerIcon {
     fn default() -> Self {
-        Self::Size(12)
+        Self::Size(20)
     }
 }
 
@@ -86,7 +88,7 @@ pub struct Padding {
 
 impl Default for Padding {
     fn default() -> Self {
-        Self { buffer: [4, 4] }
+        Self { buffer: [5, 4] }
     }
 }
 
@@ -98,7 +100,7 @@ pub struct Spacing {
 
 impl Default for Spacing {
     fn default() -> Self {
-        Self { server: 6 }
+        Self { server: 2 }
     }
 }
 

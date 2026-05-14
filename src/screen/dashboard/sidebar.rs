@@ -7,7 +7,7 @@ use data::{
     Version, buffer, file_transfer, history, isupport, server, server_icon,
     target,
 };
-use iced::widget::text::Shaping;
+use iced::widget::text::{LineHeight, Shaping};
 use iced::widget::{
     Column, Row, Scrollable, Space, button, column, container, pane_grid, row,
     rule, scrollable, space, stack,
@@ -16,7 +16,9 @@ use iced::{Alignment, ContentFit, Length, Padding, Task, mouse, padding};
 use tokio::time;
 
 use super::{Focus, Panes, Server};
-use crate::widget::{Element, Text, context_menu, double_pass, image, text};
+use crate::widget::{
+    Element, Text, TextExt, context_menu, double_pass, image, text,
+};
 use crate::{Theme, font, icon, platform_specific, theme, window};
 
 const CONFIG_RELOAD_DELAY: Duration = Duration::from_secs(1);
@@ -890,33 +892,36 @@ fn upstream_buffer_button<'a>(
             .get(server)
             .is_some_and(|server_config| server_config.icon.enabled);
 
-        let icon_widget: Element<'a, Message> = if server_icon_enabled
-            && let Some(server_icon) = server_icons.get(server)
-        {
-            container(image::from_data(server_icon, false, ContentFit::Contain))
-                .width(*size)
-                .height(*size)
-                .into()
-        } else {
-            if server.is_bouncer_network() {
-                icon::link()
+        let icon_widget: Element<'a, Message> = container(
+            if server_icon_enabled
+                && let Some(server_icon) = server_icons.get(server)
+            {
+                image::from_data(server_icon, true, ContentFit::Contain)
             } else {
-                icon::connected()
-            }
-            .style(if connected {
-                if has_highlight {
-                    theme::text::highlight_indicator
-                } else if has_unread {
-                    theme::text::unread_indicator
+                if server.is_bouncer_network() {
+                    icon::link()
                 } else {
-                    theme::text::primary
+                    icon::connected()
                 }
-            } else {
-                theme::text::error
-            })
-            .size(*size)
-            .into()
-        };
+                .style(if connected {
+                    if has_highlight {
+                        theme::svg::highlight_indicator
+                    } else if has_unread {
+                        theme::svg::unread_indicator
+                    } else {
+                        theme::svg::primary
+                    }
+                } else {
+                    theme::svg::error
+                })
+                .width(Length::Shrink)
+                .content_fit(ContentFit::Contain)
+                .into()
+            },
+        )
+        .width(*size)
+        .height(*size)
+        .into();
 
         Some((icon_widget, *size))
     }
@@ -926,10 +931,15 @@ fn upstream_buffer_button<'a>(
             icon::from_icon(config.sidebar.unread_indicator.highlight_icon)
     {
         Some((
-            highlight_icon
-                .style(theme::text::highlight_indicator)
-                .size(config.sidebar.unread_indicator.highlight_icon_size)
-                .into(),
+            container(
+                highlight_icon
+                    .style(theme::svg::highlight_indicator)
+                    .width(Length::Shrink)
+                    .content_fit(ContentFit::Contain),
+            )
+            .width(config.sidebar.unread_indicator.highlight_icon_size)
+            .height(config.sidebar.unread_indicator.highlight_icon_size)
+            .into(),
             config.sidebar.unread_indicator.highlight_icon_size,
         ))
     } else if show_unread_icon
@@ -937,102 +947,130 @@ fn upstream_buffer_button<'a>(
             icon::from_icon(config.sidebar.unread_indicator.icon)
     {
         Some((
-            unread_icon
-                .style(theme::text::unread_indicator)
-                .size(config.sidebar.unread_indicator.icon_size)
-                .into(),
+            container(
+                unread_icon
+                    .style(theme::svg::unread_indicator)
+                    .width(Length::Shrink)
+                    .content_fit(ContentFit::Contain),
+            )
+            .width(config.sidebar.unread_indicator.icon_size)
+            .height(config.sidebar.unread_indicator.icon_size)
+            .into(),
             config.sidebar.unread_indicator.icon_size,
         ))
     } else {
         None
     };
 
-    let (left_padding, icon) = if config.sidebar.position.is_horizontal() {
-        icon_tuple.map_or((0, None), |(icon, icon_size)| {
-            (icon_size + 8, Some(container(icon).center_y(Length::Fill)))
-        })
+    let (icon_spacing, icon) = if config.sidebar.position.is_horizontal() {
+        icon_tuple.map_or((0, None), |(icon, _)| (8, Some(icon)))
     } else {
         let server_icon_size = match config.sidebar.server_icon {
             data::config::sidebar::ServerIcon::Size(size) => size,
             data::config::sidebar::ServerIcon::Hidden => 0,
         };
-        let max_icon_size = server_icon_size.max(
-            config
-                .sidebar
-                .unread_indicator
-                .has_unread_icon()
-                .then_some(config.sidebar.unread_indicator.icon_size)
-                .max(
-                    config
-                        .sidebar
-                        .unread_indicator
-                        .has_unread_highlight_icon()
-                        .then_some(
-                            config.sidebar.unread_indicator.highlight_icon_size,
-                        ),
-                )
-                .unwrap_or(0),
-        );
+        let max_icon_size = server_icon_size
+            .max(if config.sidebar.unread_indicator.has_unread_icon() {
+                config.sidebar.unread_indicator.icon_size
+            } else {
+                0
+            })
+            .max(
+                if config.sidebar.unread_indicator.has_unread_highlight_icon() {
+                    config.sidebar.unread_indicator.highlight_icon_size
+                } else {
+                    0
+                },
+            );
         (
-            max_icon_size + 8,
-            icon_tuple.map(|(icon, _)| {
-                container(icon)
-                    .center_y(Length::Fill)
-                    .center_x(max_icon_size)
-            }),
+            8,
+            Some(icon_tuple.map_or(
+                Space::new().width(max_icon_size).into(),
+                |(icon, _)| {
+                    container(icon)
+                        .width(max_icon_size)
+                        .center_x(max_icon_size)
+                        .into()
+                },
+            )),
         )
     };
 
-    let content = container(stack![
-        container(match &buffer {
-            buffer::Upstream::Server(server) => {
-                if let Some(network) = &server.network {
-                    Element::from(row![
-                        text(network.name.to_string())
-                            .style(buffer_title_style)
-                            .font_maybe(buffer_title_font.clone())
-                            .shaping(Shaping::Advanced),
-                        Space::new().width(6),
-                        text(server.name.to_string())
-                            .style(theme::text::secondary)
-                            .font_maybe(buffer_title_font)
-                            .shaping(Shaping::Advanced),
-                    ])
-                } else {
+    let mut content = row![icon, Space::new().width(icon_spacing)]
+        .align_y(iced::Alignment::Center);
+
+    match &buffer {
+        buffer::Upstream::Server(server) => {
+            let font_size = config
+                .sidebar
+                .server_font_size
+                .or(config.sidebar.font_size.map(|size| size + 1))
+                .or(config.font.size.map(|size| size + 1))
+                .map_or(theme::TEXT_SIZE + 1.0, f32::from);
+
+            if let Some(network) = &server.network {
+                content = content.push(
+                    text(network.name.to_string())
+                        .line_height(LineHeight::Relative(1.0))
+                        .size(font_size)
+                        .style(buffer_title_style)
+                        .font_maybe(buffer_title_font.clone())
+                        .shaping(Shaping::Advanced),
+                );
+                content = content.push(Space::new().width(6));
+                content = content.push(
+                    text(server.name.to_string())
+                        .line_height(LineHeight::Relative(1.0))
+                        .size(font_size)
+                        .style(theme::text::secondary)
+                        .font_maybe(buffer_title_font)
+                        .shaping(Shaping::Advanced),
+                );
+            } else {
+                content = content.push(
                     text(server.to_string())
+                        .line_height(LineHeight::Relative(1.0))
+                        .size(font_size)
                         .style(buffer_title_style)
                         .font_maybe(buffer_title_font)
-                        .shaping(Shaping::Advanced)
-                        .into()
-                }
+                        .shaping(Shaping::Advanced),
+                );
             }
-            buffer::Upstream::Channel(_, channel) => {
-                let raw_channel = channel.as_str();
-                let display_channel =
-                    if let Some(casing) = config.sidebar.channel_name_casing {
-                        casing.apply(raw_channel, casemapping)
-                    } else {
-                        raw_channel.to_owned()
-                    };
+        }
+        buffer::Upstream::Channel(_, channel) => {
+            let font_size =
+                config.sidebar.font_size.or(config.font.size).map(f32::from);
+            let raw_channel = channel.as_str();
+            let display_channel =
+                if let Some(casing) = config.sidebar.channel_name_casing {
+                    casing.apply(raw_channel, casemapping)
+                } else {
+                    raw_channel.to_owned()
+                };
 
+            content = content.push(
                 text(display_channel)
+                    .line_height(LineHeight::Relative(1.0))
+                    .size_maybe(font_size)
                     .style(buffer_title_style)
                     .font_maybe(buffer_title_font)
-                    .shaping(Shaping::Advanced)
-                    .into()
-            }
-            buffer::Upstream::Query(_, query) => {
+                    .shaping(Shaping::Advanced),
+            );
+        }
+        buffer::Upstream::Query(_, query) => {
+            let font_size =
+                config.sidebar.font_size.or(config.font.size).map(f32::from);
+
+            content = content.push(
                 text(query.to_string())
+                    .line_height(LineHeight::Relative(1.0))
+                    .size_maybe(font_size)
                     .style(buffer_title_style)
                     .font_maybe(buffer_title_font)
-                    .shaping(Shaping::Advanced)
-                    .into()
-            }
-        })
-        .padding(Padding::default().left(left_padding))
-        .align_y(iced::Alignment::Center),
-        icon
-    ]);
+                    .shaping(Shaping::Advanced),
+            );
+        }
+    }
 
     let base =
         button(content.width(width).padding(Padding::default().bottom(1)))
