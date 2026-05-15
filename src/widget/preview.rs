@@ -1,8 +1,9 @@
-use data::{Config, Image, Preview, preview};
-use iced::widget::{column, container, image, text};
+use data::{Config, Preview, preview};
+use iced::widget::{column, container, text};
 use iced::{ContentFit, Padding};
 
 use super::Element;
+use crate::widget::image;
 use crate::{Theme, font, theme};
 
 pub fn preview_content<'a, M: 'a>(
@@ -12,7 +13,7 @@ pub fn preview_content<'a, M: 'a>(
 ) -> Element<'a, M> {
     match preview {
         Preview::Card(preview::Card {
-            image: Image { path, .. },
+            image: card_image,
             title,
             description,
             ..
@@ -39,17 +40,11 @@ pub fn preview_content<'a, M: 'a>(
                     .max_height(config.preview.card.description_max_height)
                 }),
                 config.preview.card.show_image.then_some(
-                    container(
-                        image(path)
-                            .border_radius(
-                                if config.preview.card.round_image_corners {
-                                    4
-                                } else {
-                                    0
-                                }
-                            )
-                            .content_fit(ContentFit::ScaleDown),
-                    )
+                    container(image::from_data(
+                        card_image,
+                        config.preview.card.round_image_corners,
+                        ContentFit::ScaleDown,
+                    ))
                     .padding(Padding::default().top(8))
                     .max_height(config.preview.card.image_max_height),
                 ),
@@ -60,15 +55,11 @@ pub fn preview_content<'a, M: 'a>(
         .padding(8)
         .into(),
 
-        Preview::Image(Image { path, .. }) => container(
-            image(path)
-                .border_radius(if config.preview.image.round_corners {
-                    4
-                } else {
-                    0
-                })
-                .content_fit(ContentFit::ScaleDown),
-        )
+        Preview::Image(img) => container(image::from_data(
+            img,
+            config.preview.image.round_corners,
+            ContentFit::ScaleDown,
+        ))
         .max_width(config.preview.image.max_width)
         .max_height(config.preview.image.max_height)
         .into(),

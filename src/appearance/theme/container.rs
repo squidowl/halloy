@@ -160,20 +160,6 @@ pub fn error_tooltip(theme: &Theme) -> Style {
     }
 }
 
-pub fn preview_card(theme: &Theme) -> Style {
-    Style {
-        background: Some(Background::Color(
-            theme.styles().buttons.secondary.background,
-        )),
-        border: Border {
-            radius: 4.0.into(),
-            width: 1.0,
-            color: theme.styles().general.border,
-        },
-        ..Default::default()
-    }
-}
-
 pub fn transparent_overlay(theme: &Theme) -> Style {
     let general = theme.styles().general;
 
