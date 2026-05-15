@@ -985,9 +985,13 @@ metadata = { pronouns = "they/them" }
 
 [^2]: Relative paths are prefixed with the config directory (i.e. if you have your config.toml in `/home/me/.config/halloy/config.toml`, path `.passwd/libera` will be converted to `/home/me/.config/halloy/.passwd/libera`).
 
-### `icon`
+## `icon`
 
-Control whether to use the server provided icon.
+Settings for server icons.
+
+### `enabled`
+
+Control whether to use a custom server icon in the sidebar.
 
 ```toml
 # Type: boolean
@@ -996,4 +1000,17 @@ Control whether to use the server provided icon.
 
 [servers.<name>.icon]
 enabled = true
+```
+
+### `override_url`
+
+Override the server icon URL advertised by the server via ISUPPORT.
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>.icon]
+override_url = "https://libera.chat/static/img/libera-color.svg"
 ```

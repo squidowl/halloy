@@ -94,7 +94,6 @@ pub enum Message {
     ThemeEditor(theme_editor::Message),
     ConfigReloaded(Result<Config, config::Error>),
     Client(client::Message),
-    UpdateServerIcon(Server, Option<String>),
     ServerIcon(server_icon::Message),
     LoadPreview((url::Url, Result<data::Preview, data::preview::LoadError>)),
     NewWindow(window::Id, Pane),
@@ -1630,14 +1629,6 @@ impl Dashboard {
                 {
                     *entry.get_mut() = preview::State::Loaded(preview);
                 }
-            }
-            Message::UpdateServerIcon(server, icon_url) => {
-                return (
-                    self.server_icons
-                        .request(server, icon_url, self.http_client.clone())
-                        .map(Message::ServerIcon),
-                    None,
-                );
             }
             Message::ServerIcon(message) => {
                 self.server_icons.update(message);
@@ -3600,6 +3591,52 @@ impl Dashboard {
         read_marker: ReadMarker,
     ) {
         self.history.update_display_read_marker(kind, read_marker);
+    }
+
+    pub fn request_server_icon(
+        &mut self,
+        clients: &mut client::Map,
+        server: &Server,
+    ) -> Task<Message> {
+        let icon_url = clients.get_icon_url(server);
+
+        let http_client = if clients.get_server_proxy_config(server).is_some() {
+            clients.get_server_http_client(server)
+        } else {
+            self.http_client.clone()
+        };
+
+        self.server_icons
+            .request(server, icon_url, http_client)
+            .map(Message::ServerIcon)
+    }
+
+    pub fn request_override_server_icons(
+        &mut self,
+        servers: &server::Map,
+    ) -> Task<Message> {
+        Task::batch(servers.entries().filter_map(|entry| {
+            if entry.config.icon.enabled
+                && let Some(override_url) = &entry.config.icon.override_url
+            {
+                let http_client =
+                    if let Some(proxy_config) = &entry.config.proxy {
+                        config::proxy::build_client(Some(proxy_config), None)
+                            .ok()
+                            .map(Arc::from)
+                    } else {
+                        self.http_client.clone()
+                    };
+
+                Some(
+                    self.server_icons
+                        .request(&entry.server, Some(override_url), http_client)
+                        .map(Message::ServerIcon),
+                )
+            } else {
+                None
+            }
+        }))
     }
 
     pub fn mark_as_read(
