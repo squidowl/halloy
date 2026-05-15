@@ -101,10 +101,6 @@ pub fn share<'a>() -> Text<'a> {
     to_text('\u{E813}')
 }
 
-pub fn mark_as_read<'a>() -> Text<'a> {
-    to_text('\u{E817}')
-}
-
 pub fn config<'a>() -> Text<'a> {
     to_text('\u{F1C9}')
 }
