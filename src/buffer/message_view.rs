@@ -106,7 +106,7 @@ impl<'a> ChannelQueryLayout<'a> {
         message: &data::Message,
         url: &str,
     ) -> Option<bool> {
-        if self.previews_enabled(message)
+        if !self.previews_enabled(message)
             || !self.config.preview.is_enabled(url)
         {
             return None;
