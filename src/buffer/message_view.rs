@@ -374,6 +374,10 @@ impl<'a> ChannelQueryLayout<'a> {
             on_unreact,
             on_open_picker,
             self.config.tooltips.show_for_buttons(),
+            self.target.users(),
+            self.casemapping,
+            self.config,
+            self.registry,
             self.theme,
         ))
     }

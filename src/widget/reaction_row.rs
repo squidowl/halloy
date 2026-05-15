@@ -1,14 +1,17 @@
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 
-use data::user::NickRef;
+use data::isupport::CaseMap;
+use data::user::{ChannelUsers, Nick, NickRef, User};
+use data::{Config, metadata};
 use iced::widget::text::LineHeight;
 pub use iced::widget::tooltip::Position;
 use iced::widget::{Space, button, container, row};
 use iced::{alignment, padding};
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{Column, Element, Row};
+use super::{Element, Row};
+use crate::widget::user_display::UserDisplay;
 use crate::widget::{text, tooltip};
 use crate::{Theme, icon, theme};
 
@@ -28,6 +31,10 @@ pub fn reaction_row<'a, M, F1, F2>(
     on_unreact: Option<F2>,
     on_open_picker: Option<M>,
     show_tooltips_for_buttons: bool,
+    users: Option<&'a ChannelUsers>,
+    casemapping: CaseMap,
+    config: &'a Config,
+    registry: &'a dyn metadata::Registry,
     theme: &'a Theme,
 ) -> Element<'a, M>
 where
@@ -73,25 +80,79 @@ where
             })
             .into();
 
-        let hidden_count =
-            nicks.len().saturating_sub(REACTION_TOOLTIP_MAX_NAMES);
-        let mut tooltip_content = Column::from_iter(
-            nicks.iter().take(REACTION_TOOLTIP_MAX_NAMES).map(|nick| {
-                text(*nick)
-                    .shaping(iced::widget::text::Shaping::Advanced)
-                    .style(theme::text::secondary)
-                    .line_height(LineHeight::Relative(1.0))
-                    .into()
-            }),
-        );
+        let display_max = if nicks.len() == REACTION_TOOLTIP_MAX_NAMES + 1 {
+            REACTION_TOOLTIP_MAX_NAMES + 1
+        } else {
+            REACTION_TOOLTIP_MAX_NAMES
+        };
+        let hidden_count = nicks.len().saturating_sub(display_max);
+        let displayed: Vec<_> = nicks.iter().take(display_max).collect();
+        let total = displayed.len() + usize::from(hidden_count > 0);
+        let mut tooltip_nicks: Vec<Element<'a, M>> = vec![];
+        for (i, nick) in displayed.iter().enumerate() {
+            let resolved = users.and_then(|u| {
+                u.iter().find(|u| u.nickname().as_str() == **nick)
+            });
+            let fallback;
+            let user: &User = if let Some(user) = resolved {
+                user
+            } else {
+                fallback = User::from(Nick::from_string(
+                    nick.to_string(),
+                    casemapping,
+                ));
+                &fallback
+            };
+            let nick_element = UserDisplay::new(
+                user,
+                config.buffer.nickname.show_access_levels,
+                config.buffer.nickname.show_bot_icon,
+                registry,
+                &config.display.nickname,
+                None,
+                config.display.truncation_character,
+                None,
+                false,
+            )
+            .into_element(
+                user, false, false, None, None, false, false, theme, config,
+            );
+
+            // trailing separator attached to nicks so it never starts a new line alone
+            let position = i + 1;
+            let trailing = if position + 1 == total && hidden_count == 0 {
+                Some(" and")
+            } else if position < displayed.len() {
+                Some(",")
+            } else {
+                None
+            };
+
+            tooltip_nicks.push(match trailing {
+                Some(t) => {
+                    row![nick_element, text(t).style(theme::text::secondary),]
+                        .into()
+                }
+                None => nick_element,
+            });
+
+            // space between items (wrappable, so lines start on the next nick)
+            if position < total {
+                tooltip_nicks
+                    .push(text(" ").style(theme::text::secondary).into());
+            }
+        }
         if hidden_count > 0 {
-            tooltip_content = tooltip_content.push(
-                text(format!("and {hidden_count} others..."))
+            tooltip_nicks.push(
+                text(format!("and {hidden_count} others…"))
                     .shaping(iced::widget::text::Shaping::Advanced)
                     .style(theme::text::secondary)
-                    .line_height(LineHeight::Relative(1.0)),
+                    .into(),
             );
         }
+        let tooltip_content = Row::from_iter(tooltip_nicks)
+            .align_y(alignment::Vertical::Center)
+            .wrap();
 
         let tooltip_emoji_size = if let Some(only_emojis_size) =
             only_emojis_size
@@ -111,14 +172,15 @@ where
                 .style(theme::text::primary),
             tooltip_content,
         ]
-        .spacing(6)
+        .spacing(8.0)
         .align_y(alignment::Vertical::Center);
 
         iced::widget::tooltip(
             content,
             container(tooltip_content)
                 .style(theme::container::tooltip)
-                .padding(8),
+                .padding(8)
+                .max_width(300),
             Position::Bottom,
         )
         .into()
