@@ -3,6 +3,7 @@ use std::string::ToString;
 
 use chrono::{DateTime, Utc};
 use data::dashboard::BufferAction;
+use data::redaction::Redaction;
 use data::user::Nick;
 use data::{
     Config, Server, User, config, ctcp, isupport, message, metadata, preview,
@@ -30,19 +31,24 @@ pub enum Context<'a> {
     },
     Url {
         url: &'a str,
-        message: Option<message::Hash>,
+        server_time: Option<&'a DateTime<Utc>>,
+        hash: Option<&'a message::Hash>,
         msgid: Option<&'a message::Id>,
         selected_reactions: Vec<&'a str>,
         to_nick: Option<String>,
         reply_preview: Option<String>,
+        redaction: Option<&'a Redaction>,
     },
     Timestamp(&'a DateTime<Utc>),
     NotSentMessage(&'a DateTime<Utc>, &'a message::Hash),
     Message {
+        server_time: &'a DateTime<Utc>,
+        hash: &'a message::Hash,
         msgid: Option<&'a message::Id>,
         selected_reactions: &'a [String],
         content: &'a message::Content,
         source: &'a message::Source,
+        redaction: Option<&'a Redaction>,
     },
 }
 
@@ -72,9 +78,12 @@ pub enum Entry {
     ResendMessage,
     // message context
     CopyMessage,
+    CopyRedaction,
     Reply,
     AddReaction,
     Redact,
+    HideWithRedaction,
+    ShowRedactedMessage,
 }
 
 #[derive(Debug, Clone)]
@@ -97,34 +106,69 @@ impl Entry {
     }
 
     pub fn message_list(
+        has_redaction: bool,
+        redaction_expanded: Option<bool>,
         can_send_reactions: bool,
         can_redact: bool,
         can_send_replies: bool,
     ) -> Vec<Self> {
         let mut entries = vec![];
+
+        if let Some(redaction_expanded) = redaction_expanded {
+            entries.push(if redaction_expanded {
+                Entry::HideWithRedaction
+            } else {
+                Entry::ShowRedactedMessage
+            });
+
+            entries.push(Entry::HorizontalRule);
+        }
+
+        entries.push(Entry::CopyMessage);
+        if has_redaction {
+            entries.push(Entry::CopyRedaction);
+        }
+
+        if can_send_replies || can_send_reactions || can_redact {
+            entries.push(Entry::HorizontalRule);
+        }
+
         if can_send_replies {
             entries.push(Entry::Reply);
         }
+
         if can_send_reactions {
             entries.push(Entry::AddReaction);
         }
-        if can_send_replies || can_send_reactions {
-            entries.push(Entry::HorizontalRule);
-        }
-        entries.push(Entry::CopyMessage);
+
         if can_redact {
             entries.push(Entry::Redact);
         }
+
         entries
     }
 
     pub fn url_list(
+        has_redaction: bool,
+        redaction_expanded: Option<bool>,
         preview_hidden: Option<bool>,
         can_send_reactions: bool,
         can_redact: bool,
         can_send_replies: bool,
     ) -> Vec<Self> {
-        let mut entries = vec![Entry::CopyUrl, Entry::OpenUrl];
+        let mut entries = vec![];
+
+        if let Some(redaction_expanded) = redaction_expanded {
+            entries.push(if redaction_expanded {
+                Entry::HideWithRedaction
+            } else {
+                Entry::ShowRedactedMessage
+            });
+            entries.push(Entry::HorizontalRule);
+        }
+
+        entries.push(Entry::CopyUrl);
+        entries.push(Entry::OpenUrl);
 
         if let Some(preview_hidden) = preview_hidden {
             entries.push(Entry::HorizontalRule);
@@ -133,6 +177,12 @@ impl Entry {
             } else {
                 Entry::HidePreview
             });
+        }
+
+        entries.push(Entry::HorizontalRule);
+        entries.push(Entry::CopyMessage);
+        if has_redaction {
+            entries.push(Entry::CopyRedaction);
         }
 
         if can_send_replies || can_send_reactions || can_redact {
@@ -458,10 +508,9 @@ impl Entry {
                     config,
                 )
             }
-            (Entry::HidePreview, Context::Url { url, message, .. }) => {
-                let message = message.map(|message| {
-                    Message::HidePreview(message, url.to_string())
-                });
+            (Entry::HidePreview, Context::Url { url, hash, .. }) => {
+                let message = hash
+                    .map(|hash| Message::HidePreview(*hash, url.to_string()));
 
                 menu_button(
                     "Hide Preview".to_string(),
@@ -471,10 +520,9 @@ impl Entry {
                     config,
                 )
             }
-            (Entry::ShowPreview, Context::Url { url, message, .. }) => {
-                let message = message.map(|message| {
-                    Message::ShowPreview(message, url.to_string())
-                });
+            (Entry::ShowPreview, Context::Url { url, hash, .. }) => {
+                let message = hash
+                    .map(|hash| Message::ShowPreview(*hash, url.to_string()));
 
                 menu_button(
                     "Show Preview".to_string(),
@@ -529,12 +577,29 @@ impl Entry {
             (Entry::CopyMessage, Context::Message { content, .. }) => {
                 menu_button(
                     "Copy message".to_string(),
-                    Some(Message::CopyMessage(content.text().into_owned())),
+                    Some(Message::CopyText(content.text().into_owned())),
                     length,
                     theme,
                     config,
                 )
             }
+            (
+                Entry::CopyRedaction,
+                Context::Message {
+                    redaction: Some(redaction),
+                    ..
+                }
+                | Context::Url {
+                    redaction: Some(redaction),
+                    ..
+                },
+            ) => menu_button(
+                "Copy redaction".to_string(),
+                Some(Message::CopyText(redaction.message())),
+                length,
+                theme,
+                config,
+            ),
             (
                 Entry::Reply,
                 Context::Message {
@@ -644,6 +709,40 @@ impl Entry {
                 theme,
                 config,
             ),
+            (
+                Entry::HideWithRedaction,
+                Context::Message {
+                    server_time, hash, ..
+                }
+                | Context::Url {
+                    server_time: Some(server_time),
+                    hash: Some(hash),
+                    ..
+                },
+            ) => menu_button(
+                "Hide with redaction".to_string(),
+                Some(Message::ContractMessage(*server_time, *hash)),
+                length,
+                theme,
+                config,
+            ),
+            (
+                Entry::ShowRedactedMessage,
+                Context::Message {
+                    server_time, hash, ..
+                }
+                | Context::Url {
+                    server_time: Some(server_time),
+                    hash: Some(hash),
+                    ..
+                },
+            ) => menu_button(
+                "Show redacted message".to_string(),
+                Some(Message::ExpandMessage(*server_time, *hash)),
+                length,
+                theme,
+                config,
+            ),
             _ => row![].into(),
         })
     }
@@ -659,8 +758,7 @@ pub enum Message {
     InsertNickname(Nick),
     CtcpRequest(ctcp::Command, Server, Nick, Option<String>),
     CopyUrl(String),
-    #[allow(clippy::enum_variant_names)]
-    CopyMessage(String),
+    CopyText(String),
     OpenUrl(String),
     HidePreview(message::Hash, String),
     ShowPreview(message::Hash, String),
@@ -678,6 +776,10 @@ pub enum Message {
     },
     LoadUserAvatar(Server, url::Url),
     Link(message::Link),
+    #[allow(clippy::enum_variant_names)]
+    ExpandMessage(DateTime<Utc>, message::Hash),
+    #[allow(clippy::enum_variant_names)]
+    ContractMessage(DateTime<Utc>, message::Hash),
 }
 
 #[derive(Debug, Clone)]
@@ -690,8 +792,7 @@ pub enum Event {
     InsertNickname(Nick),
     CtcpRequest(ctcp::Command, Server, Nick, Option<String>),
     CopyUrl(String),
-    #[allow(clippy::enum_variant_names)]
-    CopyMessage(String),
+    CopyText(String),
     OpenUrl(String),
     HidePreview(message::Hash, String),
     ShowPreview(message::Hash, String),
@@ -706,6 +807,8 @@ pub enum Event {
         reply_preview: String,
     },
     LoadUserAvatar(Server, url::Url),
+    ExpandMessage(DateTime<Utc>, message::Hash),
+    ContractMessage(DateTime<Utc>, message::Hash),
 }
 
 pub fn update(message: Message) -> Option<Event> {
@@ -724,7 +827,7 @@ pub fn update(message: Message) -> Option<Event> {
             Some(Event::CtcpRequest(command, server, nick, params))
         }
         Message::CopyUrl(url) => Some(Event::CopyUrl(url)),
-        Message::CopyMessage(text) => Some(Event::CopyMessage(text)),
+        Message::CopyText(text) => Some(Event::CopyText(text)),
         Message::OpenUrl(url) => Some(Event::OpenUrl(url)),
         Message::HidePreview(message, url) => {
             Some(Event::HidePreview(message, url))
@@ -735,11 +838,11 @@ pub fn update(message: Message) -> Option<Event> {
         Message::CopyTimestamp(date_time) => {
             Some(Event::CopyTimestamp(date_time))
         }
-        Message::DeleteMessage(sesrver_time, hash) => {
-            Some(Event::DeleteMessage(sesrver_time, hash))
+        Message::DeleteMessage(server_time, hash) => {
+            Some(Event::DeleteMessage(server_time, hash))
         }
-        Message::ResendMessage(sesrver_time, hash) => {
-            Some(Event::ResendMessage(sesrver_time, hash))
+        Message::ResendMessage(server_time, hash) => {
+            Some(Event::ResendMessage(server_time, hash))
         }
         Message::OpenReactionModal(msgid, selected_reactions) => {
             Some(Event::OpenReactionModal(msgid, selected_reactions))
@@ -759,18 +862,28 @@ pub fn update(message: Message) -> Option<Event> {
         }
         Message::Link(message::Link::Url(url)) => Some(Event::OpenUrl(url)),
         Message::Link(_) => None,
+        Message::ExpandMessage(server_time, hash) => {
+            Some(Event::ExpandMessage(server_time, hash))
+        }
+        Message::ContractMessage(server_time, hash) => {
+            Some(Event::ContractMessage(server_time, hash))
+        }
     }
 }
 
 pub fn message<'a, M>(
     content: impl Into<Element<'a, M>>,
     source: &'a message::Source,
+    server_time: &'a DateTime<Utc>,
+    hash: &'a message::Hash,
     msgid: Option<&'a message::Id>,
     selected_reactions: Vec<String>,
     can_send_replies: bool,
     can_send_reactions: bool,
     can_redact: bool,
     message_content: &'a message::Content,
+    redaction: Option<&'a Redaction>,
+    redaction_expanded: Option<bool>,
     config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, M>
@@ -782,6 +895,8 @@ where
     }
 
     let entries = Entry::message_list(
+        redaction.is_some(),
+        redaction_expanded,
         can_send_reactions && msgid.is_some(),
         can_redact && msgid.is_some(),
         can_send_replies && msgid.is_some(),
@@ -798,10 +913,71 @@ where
             entry
                 .view(
                     Some(Context::Message {
+                        server_time,
+                        hash,
                         msgid,
                         selected_reactions: &selected_reactions,
                         content: message_content,
+                        redaction,
                         source,
+                    }),
+                    length,
+                    config,
+                    theme,
+                )
+                .map(M::from)
+        },
+    )
+    .into()
+}
+
+pub fn preview<'a, M>(
+    content: impl Into<Element<'a, M>>,
+    url: &'a str,
+    can_send_replies: bool,
+    can_send_reactions: bool,
+    can_redact: bool,
+    server_time: &'a DateTime<Utc>,
+    hash: &'a message::Hash,
+    msgid: Option<&'a message::Id>,
+    user: Option<&'a User>,
+    message_content: &'a message::Content,
+    selected_reactions: Vec<&'a str>,
+    config: &'a Config,
+    theme: &'a Theme,
+) -> Element<'a, M>
+where
+    M: From<Message> + 'a,
+{
+    let entries = Entry::url_list(
+        false, // Previews are hidden if the message is redacted
+        None,  // Previews are hidden if the message is redacted
+        Some(false),
+        can_send_reactions && msgid.is_some(),
+        can_redact && msgid.is_some(),
+        can_send_replies && msgid.is_some(),
+    );
+
+    context_menu(
+        context_menu::MouseButton::Right,
+        context_menu::Anchor::Cursor,
+        context_menu::ToggleBehavior::KeepOpen,
+        None,
+        content,
+        entries,
+        move |entry, length| {
+            entry
+                .view(
+                    Some(Context::Url {
+                        url,
+                        server_time: Some(server_time),
+                        hash: Some(hash),
+                        msgid,
+                        selected_reactions: selected_reactions.clone(),
+                        to_nick: user.map(|user| user.nickname().to_string()),
+                        reply_preview: (can_send_replies && msgid.is_some())
+                            .then_some(message_content.preview_text()),
+                        redaction: None, // Previews are hidden if the message is redacted
                     }),
                     length,
                     config,

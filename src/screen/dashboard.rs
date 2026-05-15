@@ -2176,7 +2176,7 @@ impl Dashboard {
                         tasks.push(clipboard::write(url));
                         None
                     }
-                    buffer::context_menu::Event::CopyMessage(text) => {
+                    buffer::context_menu::Event::CopyText(text) => {
                         tasks.push(clipboard::write(text));
                         None
                     }
@@ -2450,6 +2450,44 @@ impl Dashboard {
                     }
                     buffer::context_menu::Event::Reply { .. } => {
                         tasks.push(self.focus_pane(window, id));
+
+                        None
+                    }
+                    buffer::context_menu::Event::ExpandMessage(
+                        server_time,
+                        hash,
+                    ) => {
+                        if let Some(kind) =
+                            pane.buffer.upstream().map(|buffer| {
+                                history::Kind::from_input_buffer(buffer.clone())
+                            })
+                        {
+                            self.history.expand_message(
+                                kind,
+                                server_time,
+                                hash,
+                                &config.buffer.server_messages.condense,
+                            );
+                        }
+
+                        None
+                    }
+                    buffer::context_menu::Event::ContractMessage(
+                        server_time,
+                        hash,
+                    ) => {
+                        if let Some(kind) =
+                            pane.buffer.upstream().map(|buffer| {
+                                history::Kind::from_input_buffer(buffer.clone())
+                            })
+                        {
+                            self.history.contract_message(
+                                kind,
+                                server_time,
+                                hash,
+                                &config.buffer.server_messages.condense,
+                            );
+                        }
 
                         None
                     }

@@ -83,6 +83,25 @@ exclude = "*" # hide card previews in all channels
 include = { channels = ["#halloy"] } # show card previews in #halloy
 ```
 
+### `hide_url`
+
+Hides URL(s) in messages when their card preview is visible and the specified condition is met.
+
+| Condition             | Description                                                                       |
+| --------------------- | --------------------------------------------------------------------------------- |
+| `"trailing"`          | URL is hidden when it is at the end of a message and its card preview is visible. |
+| `"contains-only-url"` | URL is hidden when it is the entire message.                                      |
+| `"never"`             | URLs are never hidden.                                                            |
+
+```toml
+# Type: string
+# Values: "trailing", "contains-only-url", or "never"
+# Default: "never"
+
+[preview.card]
+hide_url = "contains-only-url"
+```
+
 ### `show_image`
 
 Show image for card previews.
@@ -200,6 +219,25 @@ Action when clicking on a image. `open-url` will open the image in the browser, 
 
 [preview.image]
 action = "preview"
+```
+
+### `hide_url`
+
+Hides URL(s) in messages when their image preview is visible and the specified condition is met.
+
+| Condition             | Description                                                                        |
+| --------------------- | ---------------------------------------------------------------------------------- |
+| `"trailing"`          | URL is hidden when it is at the end of a message and its image preview is visible. |
+| `"contains-only-url"` | URL is hidden when it is the entire message.                                       |
+| `"never"`             | URLs are never hidden.                                                             |
+
+```toml
+# Type: string
+# Values: "trailing", "contains-only-url", or "never"
+# Default: "contains-only-url"
+
+[preview.image]
+hide_url = "trailing"
 ```
 
 ### `round_corners`

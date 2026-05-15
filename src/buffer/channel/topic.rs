@@ -113,6 +113,7 @@ pub fn view<'a>(
     let content = column![
         message_content::with_context(
             content,
+            &[],
             server,
             registry,
             chantypes,
@@ -136,8 +137,9 @@ pub fn view<'a>(
                         context_menu::has_user_metadata(user, registry, config),
                     )
                 }
-                message::Link::Url(_) =>
-                    context_menu::Entry::url_list(None, false, false, false),
+                message::Link::Url(_) => context_menu::Entry::url_list(
+                    false, None, None, false, false, false
+                ),
                 _ => vec![],
             },
             move |link, entry, length| {
@@ -159,11 +161,13 @@ pub fn view<'a>(
                 } else {
                     link.url().map(|url| Context::Url {
                         url,
-                        message: None,
+                        server_time: None,
+                        hash: None,
                         msgid: None,
                         selected_reactions: vec![],
                         to_nick: None,
                         reply_preview: None,
+                        redaction: None,
                     })
                 };
 

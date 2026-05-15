@@ -263,6 +263,7 @@ fn channel_list_view<'a>(
                     } else {
                         Some(message_content::with_context(
                             topic_content,
+                            &[],
                             server,
                             metadata::EMPTY,
                             clients.get_server_chantypes_or_default(server),
@@ -276,7 +277,7 @@ fn channel_list_view<'a>(
                             move |link| match link {
                                 message::Link::Url(_) => {
                                     context_menu::Entry::url_list(
-                                        None, false, false, false,
+                                        false, None, None, false, false, false,
                                     )
                                 }
                                 _ => vec![],
@@ -286,11 +287,13 @@ fn channel_list_view<'a>(
                                     .view(
                                         link.url().map(|url| Context::Url {
                                             url,
-                                            message: None,
+                                            server_time: None,
+                                            hash: None,
                                             msgid: None,
                                             selected_reactions: vec![],
                                             to_nick: None,
                                             reply_preview: None,
+                                            redaction: None,
                                         }),
                                         length,
                                         config,

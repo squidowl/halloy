@@ -1,28 +1,35 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use chrono::{DateTime, TimeDelta, Utc};
 use data::buffer::RightAlignmentWidths;
 use data::config::buffer::nickname::ShownStatus;
 use data::config::buffer::{CondensationIcon, Dimmed};
+use data::config::preview::HideUrlCondition;
 use data::isupport::{CaseMap, PrefixMap};
 use data::preview::{self, Previews};
 use data::redaction::Redaction;
 use data::server::Server;
 use data::user::{ChannelUsers, NickRef};
-use data::{Config, User, message, metadata, target};
+use data::{Config, Preview, User, message, metadata, target};
 use iced::widget::text::Wrapping;
-use iced::widget::{Space, button, column, container, row, text};
-use iced::{Color, Length, alignment};
+use iced::widget::{
+    Space, button, center, column, container, mouse_area, right, row, space,
+    stack, text,
+};
+use iced::{Color, ContentFit, Length, alignment, padding};
 
-use super::context_menu::{self, Context};
-use super::scroll_view::LayoutMessage;
-use crate::buffer::scroll_view::Message;
+use crate::buffer::context_menu::{self, Context};
+use crate::buffer::scroll_view::keyed::{self, keyed};
+use crate::buffer::scroll_view::{LayoutMessage, Message};
 use crate::widget::reaction_row::{has_visible_reactions, reaction_row};
 use crate::widget::user_display::UserDisplay;
 use crate::widget::{
-    Element, Marker, message_content, message_marker, selectable_text, tooltip,
+    Element, Marker, image, message_content, message_marker, notify_visibility,
+    selectable_text, tooltip,
 };
 use crate::{Theme, font, icon, theme};
+
+const HIDE_BUTTON_WIDTH: f32 = 22.0;
 
 #[derive(Clone, Copy)]
 pub enum TargetInfo<'a> {
@@ -90,12 +97,18 @@ pub struct ChannelQueryLayout<'a> {
 }
 
 impl<'a> ChannelQueryLayout<'a> {
+    fn previews_enabled(&self, message: &data::Message) -> bool {
+        !self.not_sent(message) && message.redaction.is_none()
+    }
+
     fn preview_hidden_for_url(
         &self,
         message: &data::Message,
         url: &str,
     ) -> Option<bool> {
-        if !self.config.preview.is_enabled(url) {
+        if !self.previews_enabled(message)
+            || !self.config.preview.is_enabled(url)
+        {
             return None;
         }
 
@@ -122,6 +135,8 @@ impl<'a> ChannelQueryLayout<'a> {
         let can_send_replies = self.can_send_replies && message.id.is_some();
         match link {
             message::Link::Url(url) => context_menu::Entry::url_list(
+                message.redaction.is_some(),
+                message.redaction_expanded(&self.config.buffer.redaction),
                 self.preview_hidden_for_url(message, url),
                 self.can_send_reactions,
                 self.can_redact_message(message),
@@ -280,17 +295,19 @@ impl<'a> ChannelQueryLayout<'a> {
         })
     }
 
+    fn not_sent(&self, message: &data::Message) -> bool {
+        self.confirm_message_delivery
+            && message.command.is_some()
+            && matches!(message.direction, message::Direction::Sent)
+            && Utc::now().signed_duration_since(message.server_time)
+                > TimeDelta::seconds(10)
+    }
+
     fn not_sent_row(
         &self,
         message: &'a data::Message,
     ) -> Option<Element<'a, Message>> {
-        let not_sent = self.confirm_message_delivery
-            && message.command.is_some()
-            && matches!(message.direction, message::Direction::Sent)
-            && Utc::now().signed_duration_since(message.server_time)
-                > TimeDelta::seconds(10);
-
-        if !not_sent {
+        if !self.not_sent(message) {
             return None;
         }
 
@@ -382,13 +399,161 @@ impl<'a> ChannelQueryLayout<'a> {
         ))
     }
 
+    fn preview_row(
+        &self,
+        message: &'a data::Message,
+        preview: &'a Preview,
+        url: &'a url::Url,
+        index: usize,
+        is_hovered: bool,
+    ) -> Element<'a, Message> {
+        let content = match preview {
+            data::Preview::Card(preview::Card {
+                image,
+                title,
+                description,
+                ..
+            }) => keyed(
+                keyed::Key::Preview(message.hash, index),
+                button(
+                    container(
+                        column![
+                            text(title)
+                                .shaping(text::Shaping::Advanced)
+                                .style(theme::text::primary)
+                                .font_maybe(
+                                    theme::font_style::primary(self.theme)
+                                        .map(font::get)
+                                ),
+                            description.as_ref().map(|description| {
+                                container(
+                                    text(description)
+                                        .shaping(text::Shaping::Advanced)
+                                        .wrapping(text::Wrapping::WordOrGlyph)
+                                        .style(theme::text::secondary)
+                                        .font_maybe(
+                                            theme::font_style::secondary(
+                                                self.theme,
+                                            )
+                                            .map(font::get),
+                                        ),
+                                )
+                                .clip(false)
+                                .max_height(
+                                    self.config
+                                        .preview
+                                        .card
+                                        .description_max_height,
+                                )
+                            }),
+                            self.config.preview.card.show_image.then_some(
+                                container(image::from_data(
+                                    image,
+                                    self.config.preview.image.round_corners,
+                                    ContentFit::ScaleDown,
+                                ))
+                                .padding(padding::top(8))
+                                .max_height(
+                                    self.config.preview.card.image_max_height
+                                )
+                            ),
+                        ]
+                        .spacing(8)
+                        .max_width(self.config.preview.card.max_width),
+                    )
+                    .padding(8),
+                )
+                .style(theme::button::preview_card)
+                .on_press(Message::Link(message::Link::Url(url.to_string()))),
+            ),
+            data::Preview::Image(image) => keyed(
+                keyed::Key::Preview(message.hash, index),
+                button(
+                    container(image::from_data(
+                        image,
+                        self.config.preview.image.round_corners,
+                        ContentFit::ScaleDown,
+                    ))
+                    .max_width(self.config.preview.image.max_width)
+                    .max_height(self.config.preview.image.max_height),
+                )
+                .on_press(match self.config.preview.image.action {
+                    data::config::preview::ImageAction::OpenUrl => {
+                        Message::Link(message::Link::Url(image.url.to_string()))
+                    }
+                    data::config::preview::ImageAction::Preview => {
+                        Message::ImagePreview(image.clone())
+                    }
+                })
+                .padding(0)
+                .style(theme::button::bare),
+            ),
+        };
+
+        let content = context_menu::preview(
+            content,
+            url.as_str(),
+            self.can_send_replies,
+            self.can_send_reactions,
+            self.can_redact_message(message),
+            &message.server_time,
+            &message.hash,
+            message.id.as_ref(),
+            message.user(),
+            &message.content,
+            selected_reactions_refs(message, self.our_nick),
+            self.config,
+            self.theme,
+        );
+
+        let hide_button = if is_hovered {
+            container(tooltip(
+                button(center(icon::cancel()))
+                    .padding(5)
+                    .width(HIDE_BUTTON_WIDTH)
+                    .height(HIDE_BUTTON_WIDTH)
+                    .on_press(Message::HidePreview(message.hash, url.clone()))
+                    .style(|theme, status| {
+                        theme::button::secondary(theme, status, false)
+                    }),
+                self.config
+                    .tooltips
+                    .show_for_buttons()
+                    .then_some("Hide Preview"),
+                tooltip::Position::Top,
+                self.theme,
+            ))
+        } else {
+            container(
+                space::horizontal().width(Length::Fixed(HIDE_BUTTON_WIDTH)),
+            )
+        };
+
+        // Iced hack: using a stack with right-aligned hide_button ensures the button always stays visible
+        // at the edge of the content, even when the parent container is resized to a smaller width.
+        let stack = stack![
+            container(content).padding(padding::right(HIDE_BUTTON_WIDTH + 2.0)),
+            right(hide_button),
+        ];
+
+        let content = container(stack)
+            .align_y(alignment::Vertical::Top)
+            .width(Length::Fill)
+            .padding(padding::top(4).bottom(4));
+
+        mouse_area(content)
+            .on_enter(Message::PreviewHovered(message.hash, index))
+            .on_exit(Message::PreviewUnhovered(message.hash, index))
+            .into()
+    }
+
     fn format_user_message(
         &self,
         message: &'a data::Message,
+        hidden_fragments: &[usize],
         right_alignment_middle_width: Option<f32>,
         user: &'a User,
         hide_nickname: bool,
-        registry: &'a dyn metadata::Registry,
     ) -> (
         Option<Element<'a, Message>>,
         Element<'a, Message>,
@@ -428,7 +593,7 @@ impl<'a> ChannelQueryLayout<'a> {
             user,
             self.config.buffer.nickname.show_access_levels,
             self.config.buffer.nickname.show_bot_icon,
-            registry,
+            self.registry,
             &self.config.display.nickname,
             self.config.buffer.nickname.truncate,
             self.config.display.truncation_character,
@@ -548,25 +713,18 @@ impl<'a> ChannelQueryLayout<'a> {
                     vec![],
                 )
             } else {
-                let link = (self.config.buffer.redaction.display.is_redacted()
-                    && message.expanded
-                    && redaction_message.is_some())
-                .then_some(message::Link::ContractMessage(
-                    message.server_time,
-                    message.hash,
-                ));
-
                 (
                     tooltip(
                         message_content::with_context(
                             &message.content,
+                            hidden_fragments,
                             self.server,
                             self.registry,
                             self.chantypes,
                             self.casemapping,
                             self.theme,
                             Message::Link,
-                            link,
+                            None,
                             message_style,
                             theme::font_style::primary,
                             color_transformation,
@@ -628,6 +786,7 @@ impl<'a> ChannelQueryLayout<'a> {
     fn format_server_message(
         &self,
         message: &'a data::Message,
+        hidden_fragments: &[usize],
         right_alignment_middle_width: Option<f32>,
         server: Option<&'a message::source::Server>,
     ) -> (
@@ -682,6 +841,7 @@ impl<'a> ChannelQueryLayout<'a> {
 
         let message_content = message_content::with_context(
             &message.content,
+            hidden_fragments,
             formatter.server,
             formatter.registry,
             formatter.chantypes,
@@ -830,6 +990,7 @@ impl<'a> ChannelQueryLayout<'a> {
 
         let message_content = message_content::with_context(
             &message.content,
+            &[],
             formatter.server,
             formatter.registry,
             formatter.chantypes,
@@ -937,11 +1098,13 @@ impl<'a> ChannelQueryLayout<'a> {
 
             link.url().map(move |url| Context::Url {
                 url,
-                message: Some(message.hash),
+                server_time: Some(&message.server_time),
+                hash: Some(&message.hash),
                 msgid: message.id.as_ref(),
                 selected_reactions: selected_reaction_texts,
                 to_nick,
                 reply_preview,
+                redaction: message.redaction.as_ref(),
             })
         }
     }
@@ -954,7 +1117,11 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         right_alignment_widths: Option<RightAlignmentWidths>,
         hide_timestamp: bool,
         hide_nickname: bool,
-        registry: &'a dyn metadata::Registry,
+        visible_for_source: Option<
+            &impl Fn(&Preview, &message::Source) -> bool,
+        >,
+        visible_url_messages: &HashMap<message::Hash, Vec<url::Url>>,
+        hovered_preview: Option<(message::Hash, usize)>,
     ) -> Option<Element<'a, Message>> {
         let mut prefixes: Option<Element<_>> = self.format_prefixes(message);
 
@@ -988,6 +1155,107 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         let right_alignment_middle_width = right_alignment_widths
             .map(|right_alignment_widths| right_alignment_widths.middle);
 
+        let (
+            message_has_urls,
+            enumerated_previews,
+            hidden_fragments,
+            is_visible_url_message,
+        ) = if self.previews_enabled(message)
+            && let message::Content::Fragments(fragments) = &message.content
+        {
+            let urls = eligible_preview_urls(
+                fragments,
+                &message.hidden_urls,
+                self.config.preview.max_per_message,
+            );
+
+            if !urls.is_empty() {
+                let is_visible_url_message =
+                    visible_url_messages.contains_key(&message.hash);
+
+                let enumerated_urls = urls
+                    .into_iter()
+                    .enumerate()
+                    .map(|(url_index, (fragment_index, url))| {
+                        if let Some(preview::State::Loaded(preview)) =
+                            self.previews.get(url)
+                            && visible_for_source.is_none_or(
+                                |visible_for_source| {
+                                    visible_for_source(
+                                        preview,
+                                        message.target.source(),
+                                    )
+                                },
+                            )
+                        {
+                            (fragment_index, url_index, url, Some(preview))
+                        } else {
+                            (fragment_index, url_index, url, None)
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                let mut hidden_fragments: Vec<usize> = vec![];
+                let mut is_trailing_fragment = true;
+
+                for (fragment_index, _, _, preview) in
+                    enumerated_urls.iter().rev()
+                {
+                    if let Some(preview) = preview {
+                        if is_trailing_fragment {
+                            let trailing_fragments: Vec<_> = fragments
+                                .iter()
+                                .enumerate()
+                                .skip(fragment_index.saturating_add(1))
+                                .collect();
+
+                            is_trailing_fragment = trailing_fragments
+                                .is_empty()
+                                || trailing_fragments.iter().all(
+                                    |(index, fragment)| {
+                                        hidden_fragments.contains(index)
+                                            || fragment
+                                                .as_str()
+                                                .trim_end()
+                                                .is_empty()
+                                    },
+                                );
+                        }
+
+                        match self.config.preview.hide_url_when(preview) {
+                            HideUrlCondition::ContainsOnlyUrl => {
+                                if fragments.len() == 1 {
+                                    hidden_fragments.push(*fragment_index);
+                                }
+                            }
+                            HideUrlCondition::Trailing => {
+                                if is_trailing_fragment {
+                                    hidden_fragments.push(*fragment_index);
+                                }
+                            }
+                            HideUrlCondition::Never => (),
+                        }
+                    }
+                }
+
+                (
+                    true,
+                    enumerated_urls
+                        .into_iter()
+                        .map(|(_, url_index, url, preview)| {
+                            (url_index, url, preview)
+                        })
+                        .collect(),
+                    hidden_fragments,
+                    is_visible_url_message,
+                )
+            } else {
+                (false, vec![], vec![], false)
+            }
+        } else {
+            (false, vec![], vec![], false)
+        };
+
         let (middle, content, after_content): (
             Option<Element<'a, Message>>,
             Element<'a, Message>,
@@ -995,14 +1263,15 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         ) = match message.target.source() {
             message::Source::User(user) => Some(self.format_user_message(
                 message,
+                &hidden_fragments,
                 right_alignment_middle_width,
                 user,
                 hide_nickname,
-                registry,
             )),
             message::Source::Server(server_message) => {
                 Some(self.format_server_message(
                     message,
+                    &hidden_fragments,
                     right_alignment_middle_width,
                     server_message.as_ref(),
                 ))
@@ -1045,6 +1314,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
 
                 let message_content = message_content::with_context(
                     &message.content,
+                    &hidden_fragments,
                     formatter.server,
                     formatter.registry,
                     formatter.chantypes,
@@ -1117,6 +1387,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
 
                 let message = message_content(
                     &message.content,
+                    &[],
                     self.server,
                     self.registry,
                     self.chantypes,
@@ -1148,24 +1419,23 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
 
         let selected_reaction_texts =
             selected_reactions(message, self.our_nick);
+
         let content = context_menu::message(
             content,
             message.target.source(),
+            &message.server_time,
+            &message.hash,
             message.id.as_ref(),
             selected_reaction_texts,
             self.can_send_replies,
             self.can_send_reactions,
             self.can_redact_message(message),
             &message.content,
+            message.redaction.as_ref(),
+            message.redaction_expanded(&self.config.buffer.redaction),
             self.config,
             self.theme,
         );
-
-        let content = if after_content.is_empty() {
-            content
-        } else {
-            column![content].extend(after_content).into()
-        };
 
         let middle_is_some = middle.is_some();
 
@@ -1182,6 +1452,75 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             middle,
             middle_is_some.then_some(selectable_text(" ")),
         ];
+
+        let content = if message_has_urls {
+            let mut column = column![].spacing(2);
+
+            let show_message_content = if hidden_fragments.is_empty() {
+                true
+            } else if let message::Content::Fragments(fragments) =
+                &message.content
+            {
+                fragments.iter().enumerate().any(|(index, fragment)| {
+                    !hidden_fragments.contains(&index)
+                        && !fragment.as_str().trim_end().is_empty()
+                })
+            } else {
+                true
+            };
+
+            if show_message_content {
+                column = column.push(content);
+            }
+
+            for (index, url, preview) in &enumerated_previews {
+                if let Some(preview) = preview {
+                    let is_hovered = hovered_preview.is_some_and(
+                        |(hovered_hash, hovered_index)| {
+                            hovered_hash == message.hash
+                                && hovered_index == *index
+                        },
+                    );
+
+                    column = column.push(self.preview_row(
+                        message, preview, url, *index, is_hovered,
+                    ));
+                }
+            }
+
+            if is_visible_url_message {
+                notify_visibility(
+                    column,
+                    2000.0,
+                    notify_visibility::When::NotVisible,
+                    message.hash,
+                    Message::ExitingViewport(message.hash),
+                )
+            } else {
+                notify_visibility(
+                    column,
+                    1000.0,
+                    notify_visibility::When::Visible,
+                    message.hash,
+                    Message::EnteringViewport(
+                        message.hash,
+                        enumerated_previews
+                            .into_iter()
+                            .map(|(_, url, _)| url)
+                            .cloned()
+                            .collect(),
+                    ),
+                )
+            }
+        } else {
+            content
+        };
+
+        let content = if after_content.is_empty() {
+            content
+        } else {
+            column![content].extend(after_content).into()
+        };
 
         let message_element = if self.content_on_new_line(message) {
             container(column![row, content]).into()
@@ -1379,5 +1718,19 @@ fn selected_reactions_refs<'a>(
     selected
         .into_iter()
         .filter_map(|(text, count)| (count >= 1).then_some(text))
+        .collect()
+}
+
+fn eligible_preview_urls<'a>(
+    fragments: &'a [message::Fragment],
+    hidden_urls: &HashSet<url::Url>,
+    max_per_message: usize,
+) -> Vec<(usize, &'a url::Url)> {
+    fragments
+        .iter()
+        .enumerate()
+        .filter_map(|(index, fragment)| fragment.url().map(|url| (index, url)))
+        .filter(|(_, url)| !hidden_urls.contains(*url))
+        .take(max_per_message)
         .collect()
 }

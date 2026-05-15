@@ -16,22 +16,19 @@ use data::server::Server;
 use data::target::{self, Target};
 use data::{Config, Image, Preview, client, history, metadata, reaction};
 use iced::widget::{
-    self, Scrollable, Space, button, center, column, container, mouse_area,
-    right, row, rule, scrollable, space, stack, text,
+    self, Scrollable, button, column, container, row, rule, scrollable, space,
+    text,
 };
-use iced::{
-    ContentFit, Length, Padding, Size, Task, alignment, mouse, padding,
-};
+use iced::{Length, Size, Task, padding};
 use tokio::time;
 
 use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
 use super::context_menu;
 use crate::widget::user_display::UserDisplay;
-use crate::widget::{Element, image, notify_visibility, on_resize, tooltip};
-use crate::{Theme, buffer, font, icon, theme};
+use crate::widget::{Element, on_resize};
+use crate::{Theme, buffer, font, theme};
 
-const HIDE_BUTTON_WIDTH: f32 = 22.0;
 const SCROLL_TO_TIMEOUT: Duration = Duration::from_millis(200);
 /// Pages of off-screen messages to keep rendered above and below the viewport
 const BUFFER_PAGES: usize = 3;
@@ -134,7 +131,11 @@ pub trait LayoutMessage<'a> {
         right_alignment_widths: Option<RightAlignmentWidths>,
         hide_timestamp: bool,
         hide_nickname: bool,
-        registry: &'a dyn metadata::Registry,
+        visible_for_source: Option<
+            &impl Fn(&Preview, &message::Source) -> bool,
+        >,
+        visible_url_messages: &HashMap<message::Hash, Vec<url::Url>>,
+        hovered_preview: Option<(message::Hash, usize)>,
     ) -> Option<Element<'a, Message>>;
 }
 
@@ -153,7 +154,11 @@ where
         right_alignment_widths: Option<RightAlignmentWidths>,
         hide_timestamp: bool,
         hide_nickname: bool,
-        _registry: &dyn metadata::Registry,
+        _visible_for_source: Option<
+            &impl Fn(&Preview, &message::Source) -> bool,
+        >,
+        _visible_url_messages: &HashMap<message::Hash, Vec<url::Url>>,
+        _hovered_preview: Option<(message::Hash, usize)>,
     ) -> Option<Element<'a, Message>> {
         self(
             message,
@@ -206,18 +211,6 @@ fn has_visible_preview(
         );
     }
     false
-}
-
-fn eligible_preview_urls<'a>(
-    urls: impl IntoIterator<Item = &'a url::Url>,
-    hidden_urls: &HashSet<url::Url>,
-    max_per_message: usize,
-) -> Vec<url::Url> {
-    urls.into_iter()
-        .filter(|url| !hidden_urls.contains(*url))
-        .take(max_per_message)
-        .cloned()
-        .collect()
 }
 
 fn is_consecutive_user_message(
@@ -398,6 +391,7 @@ pub fn view<'a>(
                                             } else {
                                                 0.0
                                             }
+                                            + 1.0
                                     })
                             } else {
                                 None
@@ -481,7 +475,9 @@ pub fn view<'a>(
                             right_alignment_widths,
                             hide_timestamp,
                             hide_nickname,
-                            registry,
+                            visible_for_source.as_ref(),
+                            &state.visible_url_messages,
+                            state.hovered_preview,
                         )
                         .map(|element| (message, element)),
                 )
@@ -494,87 +490,6 @@ pub fn view<'a>(
                 let is_new_day = last_date.is_none_or(|prev| date > prev);
 
                 *last_date = Some(date);
-
-                let content = if let (
-                    message::Content::Fragments(fragments),
-                    Some(previews),
-                ) = (&message.content, previews)
-                {
-                    let urls = eligible_preview_urls(
-                        fragments.iter().filter_map(message::Fragment::url),
-                        &message.hidden_urls,
-                        config.preview.max_per_message,
-                    );
-
-                    if !urls.is_empty() {
-                        let is_message_visible = state
-                            .visible_url_messages
-                            .contains_key(&message.hash);
-
-                        let mut column = column![element].spacing(2);
-
-                        for (idx, url) in urls.iter().enumerate() {
-                            if let (
-                                true,
-                                Some(preview::State::Loaded(preview)),
-                            ) = (is_message_visible, previews.get(url))
-                            {
-                                let is_hovered =
-                                    state.hovered_preview.is_some_and(
-                                        |(a, b)| a == message.hash && b == idx,
-                                    );
-
-                                let is_visible_for_source =
-                                    if let Some(visible_for_source) =
-                                        &visible_for_source
-                                    {
-                                        visible_for_source(
-                                            preview,
-                                            message.target.source(),
-                                        )
-                                    } else {
-                                        true
-                                    };
-
-                                if is_visible_for_source {
-                                    column = column.push(preview_row(
-                                        message,
-                                        preview,
-                                        url,
-                                        idx,
-                                        right_alignment_widths,
-                                        is_hovered,
-                                        config,
-                                        registry,
-                                        theme,
-                                    ));
-                                }
-                            }
-                        }
-
-                        if is_message_visible {
-                            notify_visibility(
-                                column,
-                                2000.0,
-                                notify_visibility::When::NotVisible,
-                                message.hash,
-                                Message::ExitingViewport(message.hash),
-                            )
-                        } else {
-                            notify_visibility(
-                                column,
-                                1000.0,
-                                notify_visibility::When::Visible,
-                                message.hash,
-                                Message::EnteringViewport(message.hash, urls),
-                            )
-                        }
-                    } else {
-                        element
-                    }
-                } else {
-                    element
-                };
 
                 let content = if is_new_day
                     && config.buffer.date_separators.show
@@ -601,11 +516,11 @@ pub fn view<'a>(
                         ]
                         .padding(2)
                         .align_y(iced::Alignment::Center),
-                        content
+                        element
                     ]
                     .into()
                 } else {
-                    content
+                    element
                 };
 
                 Some(keyed(keyed::Key::message(message), content))
@@ -1592,7 +1507,7 @@ fn step_messages(height: f32, config: &Config) -> usize {
     (height / line_height).max(8.0) as usize
 }
 
-mod keyed {
+pub mod keyed {
     use data::message;
     use iced::advanced::widget::{self, Operation};
     use iced::widget::scrollable::{self, AbsoluteOffset};
@@ -1892,222 +1807,6 @@ mod keyed {
             heights: vec![],
         })
     }
-}
-
-fn preview_row<'a>(
-    message: &'a data::Message,
-    preview: &'a Preview,
-    url: &url::Url,
-    idx: usize,
-    right_alignment_widths: Option<RightAlignmentWidths>,
-    is_hovered: bool,
-    config: &'a Config,
-    registry: &'a dyn metadata::Registry,
-    theme: &'a Theme,
-) -> Element<'a, Message> {
-    let content = match preview {
-        data::Preview::Card(preview::Card {
-            image,
-            title,
-            description,
-            ..
-        }) => keyed(
-            keyed::Key::Preview(message.hash, idx),
-            button(
-                container(
-                    column![
-                        text(title)
-                            .shaping(text::Shaping::Advanced)
-                            .style(theme::text::primary)
-                            .font_maybe(
-                                theme::font_style::primary(theme)
-                                    .map(font::get)
-                            ),
-                        description.as_ref().map(|description| {
-                            container(
-                                text(description)
-                                    .shaping(text::Shaping::Advanced)
-                                    .wrapping(text::Wrapping::WordOrGlyph)
-                                    .style(theme::text::secondary)
-                                    .font_maybe(
-                                        theme::font_style::secondary(theme)
-                                            .map(font::get),
-                                    ),
-                            )
-                            .clip(false)
-                            .max_height(
-                                config.preview.card.description_max_height,
-                            )
-                        }),
-                        config.preview.card.show_image.then_some(
-                            container(image::from_data(
-                                image,
-                                config.preview.image.round_corners,
-                                ContentFit::ScaleDown,
-                            ))
-                            .padding(Padding::default().top(8))
-                            .max_height(config.preview.card.image_max_height)
-                        ),
-                    ]
-                    .spacing(8)
-                    .max_width(config.preview.card.max_width),
-                )
-                .padding(8),
-            )
-            .style(theme::button::preview_card)
-            .on_press(Message::Link(message::Link::Url(url.to_string()))),
-        ),
-        data::Preview::Image(image) => keyed(
-            keyed::Key::Preview(message.hash, idx),
-            button(
-                container(image::from_data(
-                    image,
-                    config.preview.image.round_corners,
-                    ContentFit::ScaleDown,
-                ))
-                .max_width(config.preview.image.max_width)
-                .max_height(config.preview.image.max_height),
-            )
-            .on_press(match config.preview.image.action {
-                data::config::preview::ImageAction::OpenUrl => {
-                    Message::Link(message::Link::Url(image.url.to_string()))
-                }
-                data::config::preview::ImageAction::Preview => {
-                    Message::ImagePreview(image.clone())
-                }
-            })
-            .padding(0)
-            .style(theme::button::bare),
-        ),
-    };
-
-    let url_string = url.to_string();
-    let content: Element<'a, Message> =
-        crate::widget::context_menu::context_menu(
-            crate::widget::context_menu::MouseButton::Right,
-            crate::widget::context_menu::Anchor::Cursor,
-            crate::widget::context_menu::ToggleBehavior::KeepOpen,
-            Some(mouse::Interaction::Pointer),
-            content,
-            context_menu::Entry::url_list(
-                config
-                    .preview
-                    .is_enabled(url.as_str())
-                    .then_some(message.hidden_urls.contains(url)),
-                false,
-                false,
-                false,
-            ),
-            move |entry, length| {
-                entry
-                    .view(
-                        Some(context_menu::Context::Url {
-                            url: url_string.as_str(),
-                            message: Some(message.hash),
-                            msgid: None,
-                            selected_reactions: vec![],
-                            to_nick: None,
-                            reply_preview: None,
-                        }),
-                        length,
-                        config,
-                        theme,
-                    )
-                    .map(Message::ContextMenu)
-            },
-        )
-        .into();
-
-    let aligned_content = match &config.buffer.nickname.alignment {
-        data::buffer::Alignment::Left => {
-            let mut alignment_width = 0.0;
-
-            let prefixes_width = prefixes_width(message, config);
-
-            if let Some(prefixes_width) = prefixes_width {
-                alignment_width += prefixes_width;
-            }
-
-            let timestamp_width = timestamp_width(message, config);
-
-            let space_width = font::width_from_str(" ", &config.font);
-
-            if let Some(timestamp_width) = timestamp_width {
-                alignment_width += timestamp_width + space_width;
-            }
-
-            alignment_width +=
-                if let message::Source::User(user) = message.target.source() {
-                    UserDisplay::new(
-                        user,
-                        config.buffer.nickname.show_access_levels,
-                        config.buffer.nickname.show_bot_icon,
-                        registry,
-                        &config.display.nickname,
-                        config.buffer.nickname.truncate,
-                        config.display.truncation_character,
-                        Some(&config.buffer.nickname.brackets),
-                        true,
-                    )
-                    .width(config)
-                } else {
-                    font::width_of_message_marker(&config.font)
-                } + space_width;
-
-            row![Space::new().width(alignment_width), content].into()
-        }
-        data::buffer::Alignment::Right => {
-            let right_alignment_widths =
-                right_alignment_widths.unwrap_or_default();
-
-            let space_width = font::width_from_str(" ", &config.font);
-
-            let alignment_width = right_alignment_widths.prefixes
-                + right_alignment_widths.timestamp
-                + space_width
-                + right_alignment_widths.middle
-                + space_width;
-
-            row![Space::new().width(alignment_width), content].into()
-        }
-        data::buffer::Alignment::Top => content,
-    };
-
-    let hide_button = if is_hovered {
-        container(tooltip(
-            button(center(icon::cancel()))
-                .padding(5)
-                .width(HIDE_BUTTON_WIDTH)
-                .height(HIDE_BUTTON_WIDTH)
-                .on_press(Message::HidePreview(message.hash, url.clone()))
-                .style(|theme, status| {
-                    theme::button::secondary(theme, status, false)
-                }),
-            config.tooltips.show_for_buttons().then_some("Hide Preview"),
-            tooltip::Position::Top,
-            theme,
-        ))
-    } else {
-        container(space::horizontal().width(Length::Fixed(HIDE_BUTTON_WIDTH)))
-    };
-
-    // Iced hack: using a stack with right-aligned hide_button ensures the button always stays visible
-    // at the edge of the content, even when the parent container is resized to a smaller width.
-    let stack = stack![
-        container(aligned_content)
-            .padding(Padding::default().right(HIDE_BUTTON_WIDTH + 2.0)),
-        right(hide_button),
-    ];
-
-    let content = container(stack)
-        .align_y(alignment::Vertical::Top)
-        .width(Length::Fill)
-        .padding(Padding::default().top(4).bottom(4));
-
-    mouse_area(content)
-        .on_enter(Message::PreviewHovered(message.hash, idx))
-        .on_exit(Message::PreviewUnhovered(message.hash, idx))
-        .into()
 }
 
 mod correct_viewport {

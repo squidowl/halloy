@@ -401,6 +401,14 @@ impl Message {
         }
     }
 
+    pub fn redaction_expanded(
+        &self,
+        config: &config::buffer::Redaction,
+    ) -> Option<bool> {
+        (self.redaction.is_some() && config.display.is_redacted())
+            .then_some(self.expanded)
+    }
+
     pub fn references(&self) -> MessageReferences {
         MessageReferences {
             timestamp: self.server_time,
