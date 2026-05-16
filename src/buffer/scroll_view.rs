@@ -50,7 +50,7 @@ pub enum Message {
     RequestOlderChatHistory,
     EnteringViewport(message::Hash, Vec<url::Url>),
     ExitingViewport(message::Hash),
-    ReplyPreviewUrls(Vec<url::Url>),
+    ReplyPreviewUrls(message::Hash, Vec<url::Url>),
     PreviewHovered(message::Hash, usize),
     PreviewUnhovered(message::Hash, usize),
     HidePreview(message::Hash, url::Url),
@@ -725,7 +725,7 @@ pub struct State {
     is_scrolling_to: bool,
     visible_url_messages: HashMap<message::Hash, Vec<url::Url>>,
     pending_preview_exits: HashSet<message::Hash>,
-    reply_preview_urls: HashSet<url::Url>,
+    reply_preview_urls: HashMap<message::Hash, Vec<url::Url>>,
     hovered_preview: Option<(message::Hash, usize)>,
 }
 
@@ -745,7 +745,7 @@ impl State {
             is_scrolling_to: false,
             visible_url_messages: HashMap::new(),
             pending_preview_exits: HashSet::new(),
-            reply_preview_urls: HashSet::new(),
+            reply_preview_urls: HashMap::new(),
             hovered_preview: None,
         }
     }
@@ -1073,13 +1073,11 @@ impl State {
                 }
                 return (Task::none(), None);
             }
-            Message::ReplyPreviewUrls(urls) => {
-                let new = urls
-                    .into_iter()
-                    .filter(|url| !self.reply_preview_urls.contains(url))
-                    .collect::<Vec<_>>();
-                if !new.is_empty() {
-                    self.reply_preview_urls.extend(new);
+            Message::ReplyPreviewUrls(hash, urls) => {
+                if let std::collections::hash_map::Entry::Vacant(e) =
+                    self.reply_preview_urls.entry(hash)
+                {
+                    e.insert(urls);
                     return (Task::none(), Some(Event::PreviewChanged));
                 }
             }
@@ -1128,26 +1126,38 @@ impl State {
 
                 let mut preview_changed = false;
 
-                if !self.pending_preview_exits.is_empty() {
+                if !self.pending_preview_exits.is_empty()
+                    || !self.reply_preview_urls.is_empty()
+                {
                     let rendered_hashes = heights
                         .iter()
                         .map(|(hash, _)| *hash)
                         .collect::<HashSet<_>>();
-                    let mut still_pending = HashSet::new();
 
-                    for hash in self.pending_preview_exits.drain() {
-                        if rendered_hashes.contains(&hash) {
-                            still_pending.insert(hash);
-                        } else if self
-                            .visible_url_messages
-                            .remove(&hash)
-                            .is_some()
-                        {
-                            preview_changed = true;
+                    if !self.pending_preview_exits.is_empty() {
+                        let mut still_pending = HashSet::new();
+
+                        for hash in self.pending_preview_exits.drain() {
+                            if rendered_hashes.contains(&hash) {
+                                still_pending.insert(hash);
+                            } else if self
+                                .visible_url_messages
+                                .remove(&hash)
+                                .is_some()
+                            {
+                                preview_changed = true;
+                            }
                         }
+
+                        self.pending_preview_exits = still_pending;
                     }
 
-                    self.pending_preview_exits = still_pending;
+                    let before = self.reply_preview_urls.len();
+                    self.reply_preview_urls
+                        .retain(|hash, _| rendered_hashes.contains(hash));
+                    if self.reply_preview_urls.len() < before {
+                        preview_changed = true;
+                    }
                 }
 
                 let event = preview_changed.then_some(Event::PreviewChanged);
@@ -1389,7 +1399,7 @@ impl State {
         self.visible_url_messages
             .values()
             .flatten()
-            .chain(self.reply_preview_urls.iter())
+            .chain(self.reply_preview_urls.values().flatten())
     }
 }
 

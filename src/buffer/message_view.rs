@@ -1489,7 +1489,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                 0.0,
                 notify_visibility::When::Visible,
                 message.hash,
-                Message::ReplyPreviewUrls(reply_preview_urls),
+                Message::ReplyPreviewUrls(message.hash, reply_preview_urls),
             )
         } else {
             message_element
@@ -1500,6 +1500,17 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
 }
 
 impl<'a> ChannelQueryLayout<'a> {
+    fn target_kind(&self) -> history::Kind {
+        match self.target {
+            TargetInfo::Channel { channel, .. } => {
+                history::Kind::Channel(self.server.clone(), (*channel).clone())
+            }
+            TargetInfo::Query { query } => {
+                history::Kind::Query(self.server.clone(), (*query).clone())
+            }
+        }
+    }
+
     fn reply_preview_urls(&self, message: &data::Message) -> Vec<url::Url> {
         if !self.config.buffer.reply.tooltip.enabled {
             return vec![];
@@ -1514,14 +1525,7 @@ impl<'a> ChannelQueryLayout<'a> {
         else {
             return vec![];
         };
-        let kind = match self.target {
-            TargetInfo::Channel { channel, .. } => {
-                history::Kind::Channel(self.server.clone(), (*channel).clone())
-            }
-            TargetInfo::Query { query } => {
-                history::Kind::Query(self.server.clone(), (*query).clone())
-            }
-        };
+        let kind = self.target_kind();
         fragments
             .iter()
             .filter_map(message::Fragment::url)
@@ -1530,6 +1534,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     && !self.history.is_preview_hidden(
                         &kind,
                         reply_preview.hash,
+                        reply_preview.server_time,
                         url,
                     )
             })
@@ -1741,14 +1746,7 @@ impl<'a> ChannelQueryLayout<'a> {
         redaction: Option<&'a data::redaction::Redaction>,
         is_blocked: bool,
     ) -> Element<'a, Message> {
-        let kind = match self.target {
-            TargetInfo::Channel { channel, .. } => {
-                history::Kind::Channel(self.server.clone(), (*channel).clone())
-            }
-            TargetInfo::Query { query } => {
-                history::Kind::Query(self.server.clone(), (*query).clone())
-            }
-        };
+        let kind = self.target_kind();
         let text_size =
             self.config.font.size.map_or(theme::TEXT_SIZE, f32::from);
         let preview_text_size = text_size * 0.85;
@@ -1780,7 +1778,12 @@ impl<'a> ChannelQueryLayout<'a> {
                     .enumerate()
                     .filter_map(|(idx, f)| f.url().map(|url| (idx, url)))
                     .filter(|(_, url)| {
-                        !self.history.is_preview_hidden(&kind, reply_hash, url)
+                        !self.history.is_preview_hidden(
+                            &kind,
+                            reply_hash,
+                            server_time,
+                            url,
+                        )
                     })
                     .take(self.config.preview.max_per_message)
                     .filter_map(|(fragment_idx, url)| {
@@ -1882,7 +1885,12 @@ impl<'a> ChannelQueryLayout<'a> {
                 .iter()
                 .filter_map(message::Fragment::url)
                 .filter(|url| {
-                    !self.history.is_preview_hidden(&kind, reply_hash, url)
+                    !self.history.is_preview_hidden(
+                        &kind,
+                        reply_hash,
+                        server_time,
+                        url,
+                    )
                 })
                 .take(self.config.preview.max_per_message)
             {

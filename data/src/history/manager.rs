@@ -809,9 +809,10 @@ impl Manager {
         &self,
         kind: &history::Kind,
         hash: message::Hash,
+        server_time: chrono::DateTime<chrono::Utc>,
         url: &url::Url,
     ) -> bool {
-        self.data.is_preview_hidden(kind, hash, url)
+        self.data.is_preview_hidden(kind, hash, server_time, url)
     }
 
     pub fn hide_preview(
@@ -1848,13 +1849,18 @@ impl Data {
         &self,
         kind: &history::Kind,
         hash: message::Hash,
+        server_time: chrono::DateTime<chrono::Utc>,
         url: &url::Url,
     ) -> bool {
         let Some(History::Full { messages, .. }) = self.map.get(kind) else {
             return false;
         };
-        messages
+        // messages is sorted by server_time, so binary search to the right
+        // timestamp then scan the same-second slice by hash
+        let start = messages.partition_point(|m| m.server_time < server_time);
+        messages[start..]
             .iter()
+            .take_while(|m| m.server_time == server_time)
             .find(|m| m.hash == hash)
             .is_some_and(|m| m.hidden_urls.contains(url))
     }
