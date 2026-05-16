@@ -1140,48 +1140,18 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     })
                     .collect::<Vec<_>>();
 
-                let mut hidden_fragments: Vec<usize> = vec![];
-                let mut is_trailing_fragment = true;
+                let loaded_previews: Vec<(usize, &Preview)> = enumerated_urls
+                    .iter()
+                    .filter_map(|(fragment_index, _, _, preview)| {
+                        preview.map(|p| (*fragment_index, p))
+                    })
+                    .collect();
 
-                for (fragment_index, _, _, preview) in
-                    enumerated_urls.iter().rev()
-                {
-                    if let Some(preview) = preview {
-                        if is_trailing_fragment {
-                            let trailing_fragments: Vec<_> = fragments
-                                .iter()
-                                .enumerate()
-                                .skip(fragment_index.saturating_add(1))
-                                .collect();
-
-                            is_trailing_fragment = trailing_fragments
-                                .is_empty()
-                                || trailing_fragments.iter().all(
-                                    |(index, fragment)| {
-                                        hidden_fragments.contains(index)
-                                            || fragment
-                                                .as_str()
-                                                .trim_end()
-                                                .is_empty()
-                                    },
-                                );
-                        }
-
-                        match self.config.preview.hide_url_when(preview) {
-                            HideUrlCondition::ContainsOnlyUrl => {
-                                if fragments.len() == 1 {
-                                    hidden_fragments.push(*fragment_index);
-                                }
-                            }
-                            HideUrlCondition::Trailing => {
-                                if is_trailing_fragment {
-                                    hidden_fragments.push(*fragment_index);
-                                }
-                            }
-                            HideUrlCondition::Never => (),
-                        }
-                    }
-                }
+                let hidden_fragments = compute_hidden_fragments(
+                    fragments,
+                    &loaded_previews,
+                    self.config,
+                );
 
                 (
                     true,
@@ -1398,8 +1368,6 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             middle_is_some.then_some(selectable_text(" ")),
         ];
 
-        let reply_preview_urls = self.reply_preview_urls(message);
-
         let content = if message_has_urls {
             let mut column = column![].spacing(2);
 
@@ -1479,18 +1447,6 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             self.format_reply_preview(message, right_alignment_middle_width)
         {
             column![reply_row, message_element].into()
-        } else {
-            message_element
-        };
-
-        let message_element = if !reply_preview_urls.is_empty() {
-            notify_visibility(
-                message_element,
-                0.0,
-                notify_visibility::When::Visible,
-                message.hash,
-                Message::ReplyPreviewUrls(message.hash, reply_preview_urls),
-            )
         } else {
             message_element
         };
@@ -1728,12 +1684,28 @@ impl<'a> ChannelQueryLayout<'a> {
             self.config.buffer.reply.tooltip.delay,
         );
 
-        Some(element_tooltip(
+        let element = element_tooltip(
             row,
             tooltip,
             tooltip::Position::FollowCursor,
             delay,
-        ))
+        );
+
+        let reply_urls = self.reply_preview_urls(message);
+
+        let element = if !reply_urls.is_empty() {
+            mouse_area(element)
+                .on_enter(Message::ReplyPreviewHovered(
+                    message.hash,
+                    reply_urls,
+                ))
+                .on_exit(Message::ReplyPreviewUnhovered(message.hash))
+                .into()
+        } else {
+            element
+        };
+
+        Some(element)
     }
 
     fn hover_tooltip(
@@ -1768,11 +1740,8 @@ impl<'a> ChannelQueryLayout<'a> {
             && self.config.buffer.redaction.display
                 == data::config::buffer::redaction::Display::Dimmed;
 
-        let hidden_fragments: Vec<usize> =
+        let (loaded, hidden_fragments) =
             if let message::Content::Fragments(fragments) = reply {
-                let mut hidden = vec![];
-                let mut is_trailing = true;
-
                 let loaded: Vec<(usize, &Preview)> = fragments
                     .iter()
                     .enumerate()
@@ -1796,38 +1765,12 @@ impl<'a> ChannelQueryLayout<'a> {
                     })
                     .collect();
 
-                for (fragment_index, preview) in loaded.iter().rev() {
-                    if is_trailing {
-                        let trailing: Vec<_> = fragments
-                            .iter()
-                            .enumerate()
-                            .skip(fragment_index.saturating_add(1))
-                            .collect();
-                        is_trailing = trailing.is_empty()
-                            || trailing.iter().all(|(index, fragment)| {
-                                hidden.contains(index)
-                                    || fragment.as_str().trim_end().is_empty()
-                            });
-                    }
+                let hidden =
+                    compute_hidden_fragments(fragments, &loaded, self.config);
 
-                    match self.config.preview.hide_url_when(preview) {
-                        HideUrlCondition::ContainsOnlyUrl => {
-                            if fragments.len() == 1 {
-                                hidden.push(*fragment_index);
-                            }
-                        }
-                        HideUrlCondition::Trailing => {
-                            if is_trailing {
-                                hidden.push(*fragment_index);
-                            }
-                        }
-                        HideUrlCondition::Never => (),
-                    }
-                }
-
-                hidden
+                (loaded, hidden)
             } else {
-                vec![]
+                (vec![], vec![])
             };
 
         let (tooltip_content, show_previews): (Element<_>, bool) = if let Some(
@@ -1880,34 +1823,18 @@ impl<'a> ChannelQueryLayout<'a> {
             content_col = content_col.push(tooltip_content);
         }
 
-        if show_previews && let message::Content::Fragments(fragments) = reply {
-            for url in fragments
-                .iter()
-                .filter_map(message::Fragment::url)
-                .filter(|url| {
-                    !self.history.is_preview_hidden(
-                        &kind,
-                        reply_hash,
-                        server_time,
-                        url,
-                    )
-                })
-                .take(self.config.preview.max_per_message)
-            {
-                if let Some(preview::State::Loaded(preview)) =
-                    self.previews.get(url)
-                {
-                    let el = preview_content(preview, self.config, self.theme);
-                    let el: Element<_> =
-                        if matches!(preview, data::Preview::Card(..)) {
-                            container(el)
-                                .style(theme::container::hover_preview_tooltip)
-                                .into()
-                        } else {
-                            container(el).max_height(200).into()
-                        };
-                    content_col = content_col.push(el);
-                }
+        if show_previews {
+            for (_, preview) in &loaded {
+                let el = preview_content(preview, self.config, self.theme);
+                let el: Element<_> =
+                    if matches!(preview, data::Preview::Card(..)) {
+                        container(el)
+                            .style(theme::container::hover_preview_tooltip)
+                            .into()
+                    } else {
+                        container(el).max_height(200).into()
+                    };
+                content_col = content_col.push(el);
             }
         }
 
@@ -2040,4 +1967,45 @@ fn eligible_preview_urls<'a>(
         .filter(|(_, url)| !hidden_urls.contains(*url))
         .take(max_per_message)
         .collect()
+}
+
+// Determines which fragment indices should have their URL text hidden
+fn compute_hidden_fragments(
+    fragments: &[message::Fragment],
+    loaded_previews: &[(usize, &Preview)],
+    config: &data::Config,
+) -> Vec<usize> {
+    let mut hidden = vec![];
+    let mut is_trailing = true;
+
+    for (fragment_index, preview) in loaded_previews.iter().rev() {
+        if is_trailing {
+            let trailing: Vec<_> = fragments
+                .iter()
+                .enumerate()
+                .skip(fragment_index.saturating_add(1))
+                .collect();
+            is_trailing = trailing.is_empty()
+                || trailing.iter().all(|(index, fragment)| {
+                    hidden.contains(index)
+                        || fragment.as_str().trim_end().is_empty()
+                });
+        }
+
+        match config.preview.hide_url_when(preview) {
+            HideUrlCondition::ContainsOnlyUrl => {
+                if fragments.len() == 1 {
+                    hidden.push(*fragment_index);
+                }
+            }
+            HideUrlCondition::Trailing => {
+                if is_trailing {
+                    hidden.push(*fragment_index);
+                }
+            }
+            HideUrlCondition::Never => (),
+        }
+    }
+
+    hidden
 }

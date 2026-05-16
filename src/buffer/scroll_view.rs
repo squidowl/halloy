@@ -50,7 +50,8 @@ pub enum Message {
     RequestOlderChatHistory,
     EnteringViewport(message::Hash, Vec<url::Url>),
     ExitingViewport(message::Hash),
-    ReplyPreviewUrls(message::Hash, Vec<url::Url>),
+    ReplyPreviewHovered(message::Hash, Vec<url::Url>),
+    ReplyPreviewUnhovered(message::Hash),
     PreviewHovered(message::Hash, usize),
     PreviewUnhovered(message::Hash, usize),
     HidePreview(message::Hash, url::Url),
@@ -1073,11 +1074,14 @@ impl State {
                 }
                 return (Task::none(), None);
             }
-            Message::ReplyPreviewUrls(hash, urls) => {
-                if let std::collections::hash_map::Entry::Vacant(e) =
-                    self.reply_preview_urls.entry(hash)
-                {
-                    e.insert(urls);
+            Message::ReplyPreviewHovered(hash, urls) => {
+                let prev = self.reply_preview_urls.insert(hash, urls);
+                if prev.is_none() {
+                    return (Task::none(), Some(Event::PreviewChanged));
+                }
+            }
+            Message::ReplyPreviewUnhovered(hash) => {
+                if self.reply_preview_urls.remove(&hash).is_some() {
                     return (Task::none(), Some(Event::PreviewChanged));
                 }
             }
