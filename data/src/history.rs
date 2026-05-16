@@ -1303,12 +1303,22 @@ impl History {
                 pending_redactions,
                 ..
             } => {
-                if let Some(message) =
-                    pending_messages.iter_mut().rev().find_map(|(m, _)| {
-                        (m.id.as_deref() == Some(&*id)).then_some(m)
-                    })
-                {
-                    message.redaction = Some(redaction);
+                let found_position = pending_messages
+                    .iter()
+                    .rev()
+                    .position(|(m, _)| m.id.as_deref() == Some(&*id))
+                    .map(|rev_pos| pending_messages.len() - 1 - rev_pos);
+
+                if let Some(position) = found_position {
+                    pending_messages[position].0.redaction = Some(redaction);
+
+                    let updated_reply =
+                        pending_messages[position].0.as_reply_preview();
+                    for (message, _) in pending_messages.iter_mut() {
+                        if message.reply_to.as_deref() == Some(&*id) {
+                            message.reply_preview = Some(updated_reply.clone());
+                        }
+                    }
                 } else {
                     let pending = pending_redactions.entry(id).or_insert(
                         redaction::Pending::new(redaction, server_time),
@@ -1325,16 +1335,23 @@ impl History {
                 last_updated_at,
                 ..
             } => {
-                let Some(message) =
-                    find_reply_target_mut(messages, &id, &server_time)
+                let Some(position) =
+                    position_reply_target(messages, &id, &server_time)
                 else {
                     return;
                 };
 
-                message.redaction = Some(redaction);
+                messages[position].redaction = Some(redaction);
 
                 if !display_redacted {
-                    message.blocked = true;
+                    messages[position].blocked = true;
+                }
+
+                let updated_reply = messages[position].as_reply_preview();
+                for message in messages.iter_mut() {
+                    if message.reply_to.as_deref() == Some(&*id) {
+                        message.reply_preview = Some(updated_reply.clone());
+                    }
                 }
 
                 *last_updated_at = Some(Instant::now());
