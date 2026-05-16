@@ -1966,15 +1966,15 @@ impl State {
             .filter_map(data::Input::encoded)
             .collect::<Vec<_>>();
 
-        let reply_id = self
-            .draft_reply
-            .as_ref()
-            .map(|input::DraftReply { id, .. }| id);
-
         let labeled_response_context = if let Some(last_encoded) =
             encoded.last()
         {
             let sent_time = last_encoded.server_time_or_now();
+
+            let reply_id = self
+                .draft_reply
+                .as_ref()
+                .map(|input::DraftReply { id, .. }| id);
 
             let labeled_response_context = clients.send_multiline_batch(
                 buffer,
@@ -2434,16 +2434,12 @@ impl State {
         let labeled_response_context = if let Some(mut encoded) =
             input.encoded()
         {
-            if let Some(input::DraftReply { id: reply_id, .. }) =
-                &self.draft_reply
-            {
-                encoded
-                    .tags
-                    .insert("+reply".to_string(), reply_id.to_string());
-                encoded
-                    .tags
-                    .insert("+draft/reply".to_string(), reply_id.to_string());
-            }
+            let reply_id = self
+                .draft_reply
+                .as_ref()
+                .map(|input::DraftReply { id, .. }| id);
+
+            encoded.set_reply_to(reply_id);
 
             let sent_time = encoded.server_time_or_now();
 

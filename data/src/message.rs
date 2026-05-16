@@ -140,6 +140,13 @@ impl Encoded {
             .map(|val| Id::from(&**val))
     }
 
+    pub fn set_reply_to(&mut self, reply_id: Option<&Id>) {
+        if let Some(id) = reply_id {
+            self.tags.insert("+reply".to_string(), id.to_string());
+            self.tags.insert("+draft/reply".to_string(), id.to_string());
+        }
+    }
+
     pub fn server_time(&self) -> Option<DateTime<Utc>> {
         self.tags
             .get("time")
@@ -604,6 +611,9 @@ impl Message {
         Some((message, highlight, is_reply_to_us))
     }
 
+    // command, if provided, should be the command::Irc that corresponds to
+    // sending only the returned Message.  If the originating command resulted
+    // in other Messages, then it needs to be reformulated.
     pub fn sent(
         target: Target,
         content: Content,

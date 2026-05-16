@@ -726,14 +726,7 @@ impl Client {
             )
             .into();
 
-            if let Some(id) = reply_id {
-                opening_batch
-                    .tags
-                    .insert("+reply".to_string(), id.to_string());
-                opening_batch
-                    .tags
-                    .insert("+draft/reply".to_string(), id.to_string());
-            }
+            opening_batch.set_reply_to(reply_id);
 
             let labeled_response_context = self
                 .set_labeled_response_context(Some(buffer), &mut opening_batch);
