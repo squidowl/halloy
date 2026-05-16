@@ -118,6 +118,11 @@ where
         self
     }
 
+    pub fn wrapping(mut self, wrapping: Wrapping) -> Self {
+        self.format.wrapping = wrapping;
+        self
+    }
+
     pub fn class(mut self, class: impl Into<Theme::Class<'a>>) -> Self {
         self.class = class.into();
         self
