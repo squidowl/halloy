@@ -183,18 +183,6 @@ impl Encoded {
     }
 }
 
-fn received_command(encoded: &Encoded) -> Option<command::Irc> {
-    match &encoded.command {
-        Command::PRIVMSG(target, text) => {
-            Some(command::Irc::Msg(target.clone(), text.clone()))
-        }
-        Command::NOTICE(target, text) => {
-            Some(command::Irc::Notice(target.clone(), text.clone()))
-        }
-        _ => None,
-    }
-}
-
 impl std::ops::Deref for Encoded {
     type Target = proto::Message;
 
@@ -440,7 +428,6 @@ impl Message {
         let server_time = encoded.server_time_or_now();
         let id = encoded.message_id();
         let reply_to = encoded.in_reply_to();
-        let command = received_command(&encoded);
         let is_echo = encoded
             .user(casemapping)
             .is_some_and(|user| user.nickname() == our_nick);
@@ -485,7 +472,7 @@ impl Message {
             blocked: false,
             condensed: None,
             expanded: false,
-            command,
+            command: None,
             reactions: vec![],
             rerouted_from,
             deduplicate,
@@ -511,7 +498,6 @@ impl Message {
         let server_time = encoded.server_time_or_now();
         let id = encoded.message_id();
         let reply_to = encoded.in_reply_to();
-        let command = received_command(&encoded);
         let is_echo = encoded
             .user(casemapping)
             .is_some_and(|user| user.nickname() == our_nick);
@@ -556,7 +542,7 @@ impl Message {
             blocked: false,
             condensed: None,
             expanded: false,
-            command,
+            command: None,
             reactions: vec![],
             rerouted_from,
             deduplicate,

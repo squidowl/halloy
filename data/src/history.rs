@@ -1493,6 +1493,7 @@ pub fn insert_message(
                     messages[index].id = message.id;
                 }
                 messages[index].direction = message::Direction::Received;
+                messages[index].command = None;
                 messages[index].received_at = message.received_at;
             } else {
                 messages[index] = Message {
