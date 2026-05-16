@@ -1325,16 +1325,23 @@ impl History {
                 last_updated_at,
                 ..
             } => {
-                let Some(message) =
-                    find_reply_target_mut(messages, &id, &server_time)
+                let Some(position) =
+                    position_reply_target(messages, &id, &server_time)
                 else {
                     return;
                 };
 
-                message.redaction = Some(redaction);
+                messages[position].redaction = Some(redaction);
 
                 if !display_redacted {
-                    message.blocked = true;
+                    messages[position].blocked = true;
+                }
+
+                let updated_reply = messages[position].as_reply_preview();
+                for message in messages.iter_mut() {
+                    if message.reply_to.as_deref() == Some(&*id) {
+                        message.reply_preview = Some(updated_reply.clone());
+                    }
                 }
 
                 *last_updated_at = Some(Instant::now());
