@@ -1444,7 +1444,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         };
 
         let message_element = if let Some(reply_row) =
-            self.format_reply_preview(message, right_alignment_middle_width)
+            self.reply_line(message, right_alignment_middle_width)
         {
             column![reply_row, message_element].into()
         } else {
@@ -1499,7 +1499,85 @@ impl<'a> ChannelQueryLayout<'a> {
             .collect()
     }
 
-    fn format_reply_preview(
+    /// Generates an element like `↩ alice: hi bob`
+    fn reply_preview_content(
+        &self,
+        reply: Option<&'a message::ReplyPreview>,
+        highlight: bool,
+        show_icon: bool,
+        text_size: f32,
+    ) -> Element<'a, Message> {
+        let char_width = font::width_from_str("a", &self.config.font);
+
+        // the message may not be loaded
+        let Some(reply) = reply else {
+            return text("Replied to a message")
+                .style(theme::text::secondary)
+                .size(text_size)
+                .into();
+        };
+
+        let nick: Option<Element<_>> = (!reply.blocked)
+            .then_some(reply.user.as_ref())
+            .flatten()
+            .map(|user| {
+                let user = self
+                    .target
+                    .users()
+                    .and_then(|users| users.resolve(user))
+                    .unwrap_or(user);
+                UserDisplay::new(
+                    user,
+                    self.config.buffer.nickname.show_access_levels,
+                    self.config.buffer.nickname.show_bot_icon,
+                    self.registry,
+                    &self.config.display.nickname,
+                    self.config.buffer.nickname.truncate,
+                    self.config.display.truncation_character,
+                    Some(&self.config.buffer.nickname.brackets),
+                    false,
+                )
+                .into_element(
+                    user,
+                    false,
+                    false,
+                    None,
+                    Some(text_size),
+                    highlight,
+                    false,
+                    self.theme,
+                    self.config,
+                )
+            });
+
+        let preview_text = text(reply.preview_text())
+            .style(theme::text::secondary)
+            .size(text_size)
+            .wrapping(Wrapping::None)
+            .ellipsis(text::Ellipsis::End);
+
+        let mut row = if show_icon {
+            row![
+                icon::reply()
+                    .size(self.config.buffer.reply.icon_size)
+                    .style(theme::text::primary)
+            ]
+        } else {
+            row![]
+        }
+        .spacing(char_width);
+
+        if let Some(nick) = nick {
+            row = row.push(nick);
+        }
+
+        row.push(preview_text)
+            .align_y(alignment::Vertical::Center)
+            .into()
+    }
+
+    /// Generates the reply line element to be used in buffers: `┌── ↩ alice: hi bob`
+    fn reply_line(
         &self,
         message: &'a data::Message,
         right_aligned_width: Option<f32>,
@@ -1513,11 +1591,11 @@ impl<'a> ChannelQueryLayout<'a> {
         let text_size =
             self.config.font.size.map_or(theme::TEXT_SIZE, f32::from);
         let preview_text_size = text_size * 0.85;
+        let show_reply_icon = self.config.buffer.reply.show_icon;
 
-        let mut nick: Option<Element<'_, _>> = None;
         let mut tooltip: Option<Element<'_, _>> = None;
 
-        let preview_str: String = if let Some(reply_preview) =
+        let preview: Element<'_, _> = if let Some(reply_preview) =
             &message.reply_preview
         {
             let data::message::ReplyPreview {
@@ -1585,7 +1663,7 @@ impl<'a> ChannelQueryLayout<'a> {
                                 self.config,
                             )
                         });
-                    self.hover_tooltip(
+                    self.reply_hover_tooltip(
                         reply_preview.hash,
                         reply_preview.server_time,
                         tooltip_nick,
@@ -1596,51 +1674,29 @@ impl<'a> ChannelQueryLayout<'a> {
                     )
                 });
 
-            if !reply_blocked {
-                nick = nick_info.map(|(user, highlight, display)| {
-                    display.into_element(
-                        user,
-                        false,
-                        false,
-                        None,
-                        Some(preview_text_size),
-                        highlight,
-                        false,
-                        self.theme,
-                        self.config,
-                    )
-                });
-            }
-
-            reply_preview.preview_text()
+            let highlight = nick_info.as_ref().is_some_and(|(_, h, _)| *h);
+            self.reply_preview_content(
+                Some(reply_preview),
+                highlight,
+                show_reply_icon,
+                preview_text_size,
+            )
         } else {
-            // the message may not be loaded into history
-            "Replied to a message".to_string()
+            self.reply_preview_content(
+                None,
+                false,
+                show_reply_icon,
+                preview_text_size,
+            )
         };
 
-        let preview_text = text(preview_str)
-            .style(theme::text::secondary)
-            .size(preview_text_size)
-            .wrapping(Wrapping::None)
-            .ellipsis(text::Ellipsis::End);
-
         let char_width = font::width_from_str("a", &self.config.font);
-
-        let mut preview_row = row![].spacing(char_width);
-        if let Some(nick) = nick {
-            preview_row = preview_row.push(nick);
-        }
-        preview_row = preview_row.push(preview_text);
-        let preview: Element<'_, _> = preview_row.into();
 
         let timestamp_chars = self
             .config
             .buffer
             .format_timestamp(&message.server_time)
             .map_or(0, |s| s.chars().count());
-
-        let show_reply_icon = self.config.buffer.reply.show_icon;
-        let reply_icon_size = self.config.buffer.reply.icon_size;
 
         // right-aligned: fixed short arm offset to content column.
         // left-aligned / top-aligned: arm spans from timestamp midpoint to its edge.
@@ -1670,22 +1726,14 @@ impl<'a> ChannelQueryLayout<'a> {
         }
         .spacing(char_width);
 
-        if show_reply_icon {
-            row = row.push(
-                icon::reply()
-                    .size(reply_icon_size)
-                    .style(theme::text::primary),
-            );
-        }
-
-        row = row.push(preview).align_y(alignment::Vertical::Center);
+        row = row.push(preview);
 
         let delay = iced::time::Duration::from_millis(
             self.config.buffer.reply.tooltip.delay,
         );
 
         let element = element_tooltip(
-            row,
+            row.align_y(alignment::Vertical::Center),
             tooltip,
             tooltip::Position::FollowCursor,
             delay,
@@ -1708,7 +1756,8 @@ impl<'a> ChannelQueryLayout<'a> {
         Some(element)
     }
 
-    fn hover_tooltip(
+    /// Generates the hover preview for a reply
+    fn reply_hover_tooltip(
         &self,
         reply_hash: message::Hash,
         server_time: chrono::DateTime<chrono::Utc>,
@@ -1722,7 +1771,6 @@ impl<'a> ChannelQueryLayout<'a> {
         let text_size =
             self.config.font.size.map_or(theme::TEXT_SIZE, f32::from);
         let preview_text_size = text_size * 0.85;
-        let char_width = font::width_from_str("a", &self.config.font);
 
         let is_muted = redaction.is_some() || is_blocked;
         let dimmed = is_muted.then_some(Dimmed::new(None));
@@ -1839,62 +1887,12 @@ impl<'a> ChannelQueryLayout<'a> {
         }
 
         let in_reply_to_row: Option<Element<_>> = in_reply_to.map(|nested| {
-            let nested_nick: Option<Element<_>> = (!nested.blocked)
-                .then_some(nested.user.as_ref())
-                .flatten()
-                .map(|user| {
-                    let user = self
-                        .target
-                        .users()
-                        .and_then(|users| users.resolve(user))
-                        .unwrap_or(user);
-                    let display = UserDisplay::new(
-                        user,
-                        self.config.buffer.nickname.show_access_levels,
-                        self.config.buffer.nickname.show_bot_icon,
-                        self.registry,
-                        &self.config.display.nickname,
-                        self.config.buffer.nickname.truncate,
-                        self.config.display.truncation_character,
-                        Some(&self.config.buffer.nickname.brackets),
-                        false,
-                    );
-                    display.into_element(
-                        user,
-                        false,
-                        false,
-                        None,
-                        Some(preview_text_size),
-                        false,
-                        false,
-                        self.theme,
-                        self.config,
-                    )
-                });
-
-            let preview_text = text(nested.preview_text())
-                .style(theme::text::secondary)
-                .size(preview_text_size)
-                .wrapping(Wrapping::None)
-                .ellipsis(text::Ellipsis::End)
-                .width(Length::Shrink);
-
-            let mut nested_row = row![
-                icon::reply()
-                    .size(self.config.buffer.reply.icon_size)
-                    .style(theme::text::primary),
-            ]
-            .spacing(char_width);
-
-            if let Some(n) = nested_nick {
-                nested_row = nested_row.push(n);
-            }
-
-            nested_row = nested_row
-                .push(preview_text)
-                .align_y(alignment::Vertical::Center);
-
-            nested_row.into()
+            self.reply_preview_content(
+                Some(nested),
+                false,
+                true,
+                preview_text_size,
+            )
         });
 
         let body: Element<_> = row![]
