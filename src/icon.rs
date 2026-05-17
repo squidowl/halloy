@@ -20,6 +20,13 @@ pub fn connected<'a>() -> Svg<'a, Theme> {
     svg(svg::Handle::from_memory(entypo_globe))
 }
 
+pub fn disconnected<'a>() -> Svg<'a, Theme> {
+    let entypo_cancel =
+        include_bytes!("../assets/fontello/entypo-cancel.svg").to_vec();
+
+    svg(svg::Handle::from_memory(entypo_cancel))
+}
+
 pub fn link<'a>() -> Svg<'a, Theme> {
     let entypo_link =
         include_bytes!("../assets/fontello/entypo-link.svg").to_vec();

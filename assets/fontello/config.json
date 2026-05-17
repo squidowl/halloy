@@ -289,6 +289,12 @@
       "css": "reply-1",
       "code": 59419,
       "src": "entypo"
+    },
+    {
+      "uid": "0f4cae16f34ae243a6144c18a003f2d8",
+      "css": "cancel-circled",
+      "code": 59418,
+      "src": "fontawesome"
     }
   ]
 }

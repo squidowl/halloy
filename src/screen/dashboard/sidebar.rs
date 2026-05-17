@@ -12,7 +12,9 @@ use iced::widget::{
     Column, Row, Scrollable, Space, button, column, container, pane_grid, row,
     rule, scrollable, space, stack,
 };
-use iced::{Alignment, ContentFit, Length, Padding, Task, mouse, padding};
+use iced::{
+    Alignment, Border, ContentFit, Length, Padding, Task, mouse, padding,
+};
 use tokio::time;
 
 use super::{Focus, Panes, Server};
@@ -903,17 +905,7 @@ fn upstream_buffer_button<'a>(
                 } else {
                     icon::connected()
                 }
-                .style(if connected {
-                    if has_highlight {
-                        theme::svg::highlight_indicator
-                    } else if has_unread {
-                        theme::svg::unread_indicator
-                    } else {
-                        theme::svg::primary
-                    }
-                } else {
-                    theme::svg::error
-                })
+                .style(theme::svg::primary)
                 .width(Length::Shrink)
                 .content_fit(ContentFit::Contain)
                 .into()
@@ -921,6 +913,65 @@ fn upstream_buffer_button<'a>(
         )
         .width(*size)
         .height(*size)
+        .into();
+
+        let badge = if connected {
+            if has_highlight {
+                icon::from_icon(config.sidebar.unread_indicator.highlight_icon)
+                    .map(|icon| {
+                        icon.style(theme::svg::highlight_indicator)
+                            .width(Length::Shrink)
+                            .content_fit(ContentFit::Contain)
+                    })
+            } else if has_unread {
+                icon::from_icon(config.sidebar.unread_indicator.icon).map(
+                    |icon| {
+                        icon.style(theme::svg::unread_indicator)
+                            .width(Length::Shrink)
+                            .content_fit(ContentFit::Contain)
+                    },
+                )
+            } else {
+                None
+            }
+        } else {
+            Some(
+                icon::disconnected()
+                    .style(theme::svg::error)
+                    .width(Length::Shrink)
+                    .content_fit(ContentFit::Contain),
+            )
+        };
+
+        let badge_padding = 2;
+        let badge_size = (*size / 3).max(4) + 2 * badge_padding;
+        let badge: Option<Element<'a, Message>> = badge.map(move |badge| {
+            container(badge)
+                .style(move |theme| container::Style {
+                    text_color: None,
+                    background: Some(
+                        theme.styles().buttons.primary.background.into(),
+                    ),
+                    border: Border {
+                        radius: badge_size.into(),
+                        ..Border::default()
+                    },
+                    ..container::Style::default()
+                })
+                .width(badge_size)
+                .height(badge_size)
+                .padding(badge_padding as f32)
+                .into()
+        });
+
+        let icon_widget: Element<'a, Message> = stack![
+            row![
+                Space::new().width(badge_padding),
+                column![Space::new().height(badge_padding), icon_widget]
+            ]
+            .align_y(iced::Alignment::Center),
+            badge,
+        ]
         .into();
 
         Some((icon_widget, *size))
