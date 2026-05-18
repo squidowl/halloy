@@ -221,9 +221,7 @@ impl Completion {
                 .view(input, server, config, theme, on_select_command);
         let emojis_view = self.emojis.view(config, on_select_command);
         let paths_view = self.paths.view(on_select_command);
-        let words_view =
-            self.words
-                .view(input, server, config, theme, on_select_command);
+        let words_view = self.words.view(on_select_command);
 
         if command_view.is_some()
             || emojis_view.is_some()
@@ -2198,10 +2196,6 @@ impl Words {
 
     fn view<'a, Message: Clone + 'a>(
         &'a self,
-        _input: &str,
-        _server: &Server,
-        _config: &Config,
-        _theme: &'a Theme,
         on_select_command: impl Fn(usize) -> Message + Copy + 'a,
     ) -> Option<Element<'a, Message>> {
         match self {
