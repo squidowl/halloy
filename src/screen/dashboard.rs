@@ -905,153 +905,12 @@ impl Dashboard {
                             kind,
                             message,
                         ) => {
-                            if let Some(buffer) =
-                                data::Buffer::from(kind).upstream()
-                                && let Some(user) = clients
-                                    .nickname(buffer.server())
-                                    .map(|nick| User::from(nick.to_owned()))
-                                && let Some(command) = message.command
-                            {
-                                let multiline =
-                                    if let Some((target, text, batch_kind)) =
-                                        match &command {
-                                            data::command::Irc::Msg(
-                                                target,
-                                                text,
-                                            ) => Some((
-                                                target,
-                                                text,
-                                                MultilineBatchKind::PRIVMSG,
-                                            )),
-                                            data::command::Irc::Notice(
-                                                target,
-                                                text,
-                                            ) => Some((
-                                                target,
-                                                text,
-                                                MultilineBatchKind::NOTICE,
-                                            )),
-                                            _ => None,
-                                        }
-                                    {
-                                        if text.lines().count() > 1 {
-                                            true
-                                        } else if let Some(multiline_limits) =
-                                            clients.get_multiline_limits(
-                                                buffer.server(),
-                                            )
-                                        {
-                                            let multiline_concat_bytes =
-                                                multiline_limits.concat_bytes(
-                                                    clients.get_relay_bytes(
-                                                        buffer.server(),
-                                                    ),
-                                                    batch_kind,
-                                                    target,
-                                                );
-
-                                            multiline_concat_lines(
-                                                multiline_concat_bytes,
-                                                text,
-                                            )
-                                            .len()
-                                                > 1
-                                        } else {
-                                            false
-                                        }
-                                    } else {
-                                        false
-                                    };
-
-                                let (user, channel_users) =
-                                    if let buffer::Upstream::Channel(
-                                        server,
-                                        channel,
-                                    ) = &buffer
-                                    {
-                                        (
-                                            clients
-                                                .resolve_user_attributes(
-                                                    server, channel, &user,
-                                                )
-                                                .cloned()
-                                                .unwrap_or(user),
-                                            clients.get_channel_users(
-                                                server, channel,
-                                            ),
-                                        )
-                                    } else {
-                                        (user, None)
-                                    };
-                                let chantypes = clients
-                                    .get_server_chantypes_or_default(
-                                        buffer.server(),
-                                    );
-                                let statusmsg = clients
-                                    .get_server_statusmsg_or_default(
-                                        buffer.server(),
-                                    );
-                                let casemapping = clients
-                                    .get_server_casemapping_or_default(
-                                        buffer.server(),
-                                    );
-                                let supports_echoes = clients
-                                    .get_server_supports_echoes(
-                                        buffer.server(),
-                                    );
-
-                                if let Some(messages) = command.messages(
-                                    user,
-                                    channel_users,
-                                    buffer.server(),
-                                    chantypes,
-                                    statusmsg,
-                                    casemapping,
-                                    supports_echoes,
-                                    self.history.get_reroute_rules(),
-                                ) && let Some(encoded) =
-                                    proto::Command::try_from(command)
-                                        .ok()
-                                        .map(proto::Message::from)
-                                        .map(message::Encoded::from)
-                                {
-                                    let labeled_response_context = if multiline
-                                    {
-                                        clients.send_multiline_batch(
-                                            buffer,
-                                            vec![encoded],
-                                            TokenPriority::User,
-                                            None,
-                                        )
-                                    } else {
-                                        clients.send(
-                                            buffer,
-                                            encoded,
-                                            TokenPriority::User,
-                                        )
-                                    };
-
-                                    return (
-                                        Task::batch(
-                                            messages
-                                                .into_iter()
-                                                .flat_map(|message| {
-                                                    self.history
-                                                        .record_input_message(
-                                                            message,
-                                                            labeled_response_context.clone(),
-                                                            buffer.server(),
-                                                            casemapping,
-                                                            config,
-                                                        )
-                                                })
-                                                .map(Task::future),
-                                        )
-                                        .map(Message::History),
-                                        None,
-                                    );
-                                }
-                            }
+                            return (
+                                self.resend_message(
+                                    clients, kind, message, config,
+                                ),
+                                None,
+                            );
                         }
                         history::manager::Event::EchoEvents(server, events) => {
                             return (
@@ -3355,6 +3214,124 @@ impl Dashboard {
                 .into_iter()
                 .map(|task| Task::perform(task, Message::History)),
         )
+    }
+
+    pub fn resend_message(
+        &mut self,
+        clients: &mut client::Map,
+        kind: history::Kind,
+        message: data::Message,
+        config: &Config,
+    ) -> Task<Message> {
+        if let Some(buffer) = data::Buffer::from(kind).upstream()
+            && let Some(user) = clients
+                .nickname(buffer.server())
+                .map(|nick| User::from(nick.to_owned()))
+            && let Some(command) = message.command
+        {
+            let multiline = if let Some((target, text, batch_kind)) =
+                match &command {
+                    data::command::Irc::Msg(target, text) => {
+                        Some((target, text, MultilineBatchKind::PRIVMSG))
+                    }
+                    data::command::Irc::Notice(target, text) => {
+                        Some((target, text, MultilineBatchKind::NOTICE))
+                    }
+                    _ => None,
+                } {
+                if text.lines().count() > 1 {
+                    true
+                } else if let Some(multiline_limits) =
+                    clients.get_multiline_limits(buffer.server())
+                {
+                    let multiline_concat_bytes = multiline_limits.concat_bytes(
+                        clients.get_relay_bytes(buffer.server()),
+                        batch_kind,
+                        target,
+                    );
+
+                    multiline_concat_lines(multiline_concat_bytes, text).len()
+                        > 1
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+            let reply_id = message.reply_to.as_ref();
+
+            let (user, channel_users) =
+                if let buffer::Upstream::Channel(server, channel) = &buffer {
+                    (
+                        clients
+                            .resolve_user_attributes(server, channel, &user)
+                            .cloned()
+                            .unwrap_or(user),
+                        clients.get_channel_users(server, channel),
+                    )
+                } else {
+                    (user, None)
+                };
+            let chantypes =
+                clients.get_server_chantypes_or_default(buffer.server());
+            let statusmsg =
+                clients.get_server_statusmsg_or_default(buffer.server());
+            let casemapping =
+                clients.get_server_casemapping_or_default(buffer.server());
+            let supports_echoes =
+                clients.get_server_supports_echoes(buffer.server());
+
+            // The command stored with each sent message is expected to
+            // correspond to a single message (i.e. it is not a multi-target
+            // command; if the original command was multi-target, then it was
+            // split into single-target commands).
+            if let Some(message) = command
+                .messages(
+                    user,
+                    channel_users,
+                    buffer.server(),
+                    chantypes,
+                    statusmsg,
+                    casemapping,
+                    supports_echoes,
+                    self.history.get_reroute_rules(),
+                )
+                .and_then(|messages| messages.into_iter().next())
+                && let Some(mut encoded) = proto::Command::try_from(command)
+                    .ok()
+                    .map(proto::Message::from)
+                    .map(message::Encoded::from)
+            {
+                let labeled_response_context = if multiline {
+                    clients.send_multiline_batch(
+                        buffer,
+                        vec![encoded],
+                        TokenPriority::User,
+                        reply_id,
+                    )
+                } else {
+                    encoded.set_reply_to(reply_id);
+
+                    clients.send(buffer, encoded, TokenPriority::User)
+                };
+
+                return Task::batch(
+                    self.history
+                        .record_input_message(
+                            message,
+                            labeled_response_context.clone(),
+                            buffer.server(),
+                            casemapping,
+                            config,
+                        )
+                        .into_iter()
+                        .map(Task::future),
+                )
+                .map(Message::History);
+            }
+        }
+
+        Task::none()
     }
 
     pub fn record_reaction(

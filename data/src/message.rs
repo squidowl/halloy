@@ -140,6 +140,13 @@ impl Encoded {
             .map(|val| Id::from(&**val))
     }
 
+    pub fn set_reply_to(&mut self, reply_id: Option<&Id>) {
+        if let Some(id) = reply_id {
+            self.tags.insert("+reply".to_string(), id.to_string());
+            self.tags.insert("+draft/reply".to_string(), id.to_string());
+        }
+    }
+
     pub fn server_time(&self) -> Option<DateTime<Utc>> {
         self.tags
             .get("time")
@@ -173,18 +180,6 @@ impl Encoded {
                 )
                 .ok()
             })
-    }
-}
-
-fn received_command(encoded: &Encoded) -> Option<command::Irc> {
-    match &encoded.command {
-        Command::PRIVMSG(target, text) => {
-            Some(command::Irc::Msg(target.clone(), text.clone()))
-        }
-        Command::NOTICE(target, text) => {
-            Some(command::Irc::Notice(target.clone(), text.clone()))
-        }
-        _ => None,
     }
 }
 
@@ -433,7 +428,6 @@ impl Message {
         let server_time = encoded.server_time_or_now();
         let id = encoded.message_id();
         let reply_to = encoded.in_reply_to();
-        let command = received_command(&encoded);
         let is_echo = encoded
             .user(casemapping)
             .is_some_and(|user| user.nickname() == our_nick);
@@ -478,7 +472,7 @@ impl Message {
             blocked: false,
             condensed: None,
             expanded: false,
-            command,
+            command: None,
             reactions: vec![],
             rerouted_from,
             deduplicate,
@@ -504,7 +498,6 @@ impl Message {
         let server_time = encoded.server_time_or_now();
         let id = encoded.message_id();
         let reply_to = encoded.in_reply_to();
-        let command = received_command(&encoded);
         let is_echo = encoded
             .user(casemapping)
             .is_some_and(|user| user.nickname() == our_nick);
@@ -549,7 +542,7 @@ impl Message {
             blocked: false,
             condensed: None,
             expanded: false,
-            command,
+            command: None,
             reactions: vec![],
             rerouted_from,
             deduplicate,
@@ -604,6 +597,9 @@ impl Message {
         Some((message, highlight, is_reply_to_us))
     }
 
+    // command, if provided, should be the command::Irc that corresponds to
+    // sending only the returned Message.  If the originating command resulted
+    // in other Messages, then it needs to be reformulated.
     pub fn sent(
         target: Target,
         content: Content,
