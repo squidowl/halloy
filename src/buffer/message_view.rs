@@ -1875,8 +1875,15 @@ impl<'a> ChannelQueryLayout<'a> {
             for (_, preview) in &loaded {
                 let el = preview_content(preview, self.config, self.theme);
                 let el: Element<_> = match preview {
-                    data::Preview::Card(..) => container(el)
-                        .style(theme::container::hover_preview_tooltip)
+                    data::Preview::Card(..) => button(el)
+                        .style(|theme, _| {
+                            theme::button::preview_card(
+                                theme,
+                                // force active state so we don't get the fallback disabled state
+                                // which looks visually different
+                                iced::widget::button::Status::Active,
+                            )
+                        })
                         .into(),
                     data::Preview::Image(..) => {
                         container(el).max_height(200).into()
