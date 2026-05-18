@@ -1874,14 +1874,14 @@ impl<'a> ChannelQueryLayout<'a> {
         if show_previews {
             for (_, preview) in &loaded {
                 let el = preview_content(preview, self.config, self.theme);
-                let el: Element<_> =
-                    if matches!(preview, data::Preview::Card(..)) {
-                        container(el)
-                            .style(theme::container::hover_preview_tooltip)
-                            .into()
-                    } else {
+                let el: Element<_> = match preview {
+                    data::Preview::Card(..) => container(el)
+                        .style(theme::container::hover_preview_tooltip)
+                        .into(),
+                    data::Preview::Image(..) => {
                         container(el).max_height(200).into()
-                    };
+                    }
+                };
                 content_col = content_col.push(el);
             }
         }
