@@ -1944,7 +1944,10 @@ impl Words {
         self.filtered = users
             .into_iter()
             .flatten()
-            .filter(|user| !filters.filter_user(user, current_channel, server))
+            .filter(|user| {
+                !filters.filter_user(user, current_channel, server)
+                    && user.as_normalized_str().starts_with(&nick)
+            })
             .sorted_by(|a, b| {
                 if matches!(autocomplete.order_by, OrderBy::Recent) {
                     if let Some(a_last_seen) =
@@ -1977,7 +1980,6 @@ impl Words {
                     }
                 }
             })
-            .filter(|&user| user.as_normalized_str().starts_with(&nick))
             .map(|user| user.nickname().to_string())
             .collect();
     }
@@ -2000,6 +2002,7 @@ impl Words {
             self.prompt = input_channel.to_string();
             self.filtered = channels
                 .into_iter()
+                .filter(|&channel| channel.as_str().starts_with(input_channel))
                 .sorted_by(|a, b: &&target::Channel| {
                     if let Some(current_channel) = current_channel {
                         let a_is_current_channel = a.as_normalized_str()
@@ -2034,7 +2037,6 @@ impl Words {
                             ),
                     }
                 })
-                .filter(|&channel| channel.as_str().starts_with(input_channel))
                 .map(ToString::to_string)
                 .collect();
 
