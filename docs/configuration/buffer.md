@@ -1691,7 +1691,7 @@ Delay in milliseconds before tooltip appears.
 
 ```toml
 # Type: integer
-# Values: positive integer
+# Values: non-negative integer
 # Default: 500
 
 [buffer.reply.tooltip]
