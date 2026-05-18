@@ -6,6 +6,7 @@ use data::user::AccessLevel;
 use data::{Config, User, metadata};
 use iced::Color;
 use iced::alignment::Vertical;
+use iced::widget::text::Wrapping;
 use iced::widget::{container, row};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -332,6 +333,7 @@ impl UserDisplayData {
                         .font_maybe(f)
                         .size_maybe(size)
                         .line_height(line_height)
+                        .wrapping(Wrapping::None)
                         .into()
                 } else {
                     widget::text(content)
@@ -339,6 +341,7 @@ impl UserDisplayData {
                         .font_maybe(f)
                         .size_maybe(size)
                         .line_height(line_height)
+                        .wrapping(Wrapping::None)
                         .into()
                 }
             };
