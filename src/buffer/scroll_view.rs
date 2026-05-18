@@ -1075,10 +1075,8 @@ impl State {
                 return (Task::none(), None);
             }
             Message::ReplyPreviewHovered(hash, urls) => {
-                let prev = self.reply_preview_urls.insert(hash, urls);
-                if prev.is_none() {
-                    return (Task::none(), Some(Event::PreviewChanged));
-                }
+                self.reply_preview_urls.insert(hash, urls);
+                return (Task::none(), Some(Event::PreviewChanged));
             }
             Message::ReplyPreviewUnhovered(hash) => {
                 if self.reply_preview_urls.remove(&hash).is_some() {
