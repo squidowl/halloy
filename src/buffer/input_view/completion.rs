@@ -30,6 +30,7 @@ use crate::{emoji, font};
 const MAX_SHOWN_COMMAND_ENTRIES: usize = 5;
 const MAX_SHOWN_EMOJI_ENTRIES: usize = 8;
 const MAX_SHOWN_PATH_ENTRIES: usize = 8;
+const MAX_SHOWN_WORD_ENTRIES: usize = 8;
 
 #[derive(Debug, Clone, Default)]
 pub struct Completion {
@@ -136,6 +137,10 @@ impl Completion {
             .select()
             .map(Entry::Command)
             .or(self.emojis.select(config).map(Entry::Emoji))
+            .or(self.words.select().map(|next| Entry::Word {
+                next,
+                append_suffix: true,
+            }))
     }
 
     pub fn select_at(
@@ -148,6 +153,10 @@ impl Completion {
             .map(Entry::Command)
             .or(self.emojis.select_at(index, config).map(Entry::Emoji))
             .or(self.paths.select_at(index).map(Entry::Path))
+            .or(self.words.select_at(index).map(|next| Entry::Word {
+                next,
+                append_suffix: true,
+            }))
     }
 
     pub fn complete_emoji(
@@ -192,6 +201,10 @@ impl Completion {
             return true;
         }
 
+        if self.words.cycle(reverse) {
+            return true;
+        }
+
         false
     }
 
@@ -208,13 +221,17 @@ impl Completion {
                 .view(input, server, config, theme, on_select_command);
         let emojis_view = self.emojis.view(config, on_select_command);
         let paths_view = self.paths.view(on_select_command);
+        let words_view =
+            self.words
+                .view(input, server, config, theme, on_select_command);
 
         if command_view.is_some()
             || emojis_view.is_some()
             || paths_view.is_some()
+            || words_view.is_some()
         {
             Some(
-                column![emojis_view, paths_view, command_view]
+                column![emojis_view, paths_view, command_view, words_view]
                     .spacing(4)
                     .into(),
             )
@@ -230,6 +247,10 @@ impl Completion {
             return true;
         } else if matches!(self.emojis, Emojis::Selecting { .. }) {
             self.emojis = Emojis::Idle;
+
+            return true;
+        } else if matches!(self.words, Words::Selecting { .. }) {
+            self.words = Words::Idle;
 
             return true;
         }
@@ -1875,13 +1896,32 @@ impl fmt::Display for Argument {
 }
 
 #[derive(Debug, Clone, Default)]
-struct Words {
-    prompt: String,
-    filtered: Vec<String>,
-    selected: Option<usize>,
+enum Words {
+    #[default]
+    Idle,
+    Selecting {
+        prompt: String,
+        show_picker: bool,
+        highlighted: Option<usize>,
+        filtered: Vec<String>,
+    },
+    Selected,
 }
 
 impl Words {
+    fn set_selecting(&mut self, prompt: String, filtered: Vec<String>) {
+        if filtered.is_empty() {
+            *self = Self::Idle;
+        } else {
+            *self = Self::Selecting {
+                prompt,
+                show_picker: false,
+                highlighted: None,
+                filtered,
+            };
+        }
+    }
+
     fn process<'a>(
         &mut self,
         input: &str,
@@ -1939,9 +1979,7 @@ impl Words {
 
         let nick = casemapping.normalize(word);
 
-        self.selected = None;
-        self.prompt = word.to_string();
-        self.filtered = users
+        let filtered = users
             .into_iter()
             .flatten()
             .filter(|user| {
@@ -1982,6 +2020,8 @@ impl Words {
             })
             .map(|user| user.nickname().to_string())
             .collect();
+
+        self.set_selecting(word.to_string(), filtered);
     }
 
     fn process_channels<'a>(
@@ -1998,9 +2038,7 @@ impl Words {
         if let Some(input_channel) = get_word(input, cursor_position)
             && input_channel.starts_with(chantypes)
         {
-            self.selected = None;
-            self.prompt = input_channel.to_string();
-            self.filtered = channels
+            let filtered = channels
                 .into_iter()
                 .filter(|&channel| channel.as_str().starts_with(input_channel))
                 .sorted_by(|a, b: &&target::Channel| {
@@ -2040,53 +2078,189 @@ impl Words {
                 .map(ToString::to_string)
                 .collect();
 
-            true
+            self.set_selecting(input_channel.to_string(), filtered);
+
+            matches!(self, Self::Selecting { .. })
         } else {
             false
         }
     }
 
     fn tab(&mut self, reverse: bool) -> Option<Entry> {
-        if !self.filtered.is_empty() {
-            if let Some(index) = &mut self.selected {
+        if let Self::Selecting {
+            prompt,
+            show_picker,
+            highlighted,
+            filtered,
+        } = self
+        {
+            if filtered.is_empty() {
+                return None;
+            }
+
+            *show_picker = true;
+
+            if let Some(index) = highlighted {
                 if reverse {
                     if *index > 0 {
                         *index -= 1;
-                    } else {
-                        self.selected = None;
+
+                        return filtered.get(*index).cloned().map(|next| {
+                            Entry::Word {
+                                next,
+                                append_suffix: true,
+                            }
+                        });
                     }
-                } else if *index < self.filtered.len() - 1 {
-                    *index += 1;
-                } else {
-                    self.selected = None;
+
+                    *highlighted = None;
+
+                    return Some(Entry::Word {
+                        next: prompt.clone(),
+                        append_suffix: false,
+                    });
                 }
-            } else {
-                self.selected =
-                    Some(if reverse { self.filtered.len() - 1 } else { 0 });
+
+                if *index < filtered.len() - 1 {
+                    *index += 1;
+
+                    return filtered.get(*index).cloned().map(|next| {
+                        Entry::Word {
+                            next,
+                            append_suffix: true,
+                        }
+                    });
+                }
+
+                *highlighted = None;
+
+                return Some(Entry::Word {
+                    next: prompt.clone(),
+                    append_suffix: false,
+                });
             }
+
+            let index = if reverse { filtered.len() - 1 } else { 0 };
+            *highlighted = Some(index);
+
+            filtered.get(index).cloned().map(|next| Entry::Word {
+                next,
+                append_suffix: true,
+            })
+        } else {
+            None
+        }
+    }
+
+    fn select(&mut self) -> Option<String> {
+        let index = if let Self::Selecting { highlighted, .. } = self {
+            highlighted.unwrap_or(0)
+        } else {
+            return None;
+        };
+
+        self.select_at(index)
+    }
+
+    fn select_at(&mut self, index: usize) -> Option<String> {
+        if let Self::Selecting { filtered, .. } = self
+            && let Some(next) = filtered.get(index).cloned()
+        {
+            *self = Self::Selected;
+
+            return Some(next);
         }
 
-        self.selected
-            .and_then(|index| {
-                self.filtered.get(index).cloned().map(|next| Entry::Word {
-                    next,
-                    append_suffix: true,
-                })
-            })
-            .or_else(|| {
-                if self.filtered.is_empty() {
-                    None
-                } else {
-                    Some(Entry::Word {
-                        next: self.prompt.clone(),
-                        append_suffix: false,
-                    })
-                }
-            })
+        None
+    }
+
+    fn cycle(&mut self, reverse: bool) -> bool {
+        if let Self::Selecting {
+            highlighted,
+            filtered,
+            ..
+        } = self
+        {
+            selecting_tab(highlighted, filtered, reverse);
+
+            true
+        } else {
+            false
+        }
     }
 
     fn tab_candidate_count(&self) -> usize {
-        self.filtered.len()
+        match self {
+            Self::Selecting { filtered, .. } => filtered.len(),
+            _ => 0,
+        }
+    }
+
+    fn view<'a, Message: Clone + 'a>(
+        &'a self,
+        _input: &str,
+        _server: &Server,
+        _config: &Config,
+        _theme: &'a Theme,
+        on_select_command: impl Fn(usize) -> Message + Copy + 'a,
+    ) -> Option<Element<'a, Message>> {
+        match self {
+            Self::Idle | Self::Selected { .. } => None,
+            Self::Selecting {
+                show_picker: true,
+                highlighted,
+                filtered,
+                ..
+            } => {
+                let skip = {
+                    let index = if let Some(index) = highlighted {
+                        *index
+                    } else {
+                        0
+                    };
+
+                    let to = index.max(MAX_SHOWN_WORD_ENTRIES - 1);
+                    to.saturating_sub(MAX_SHOWN_WORD_ENTRIES - 1)
+                };
+
+                let entries = filtered
+                    .iter()
+                    .enumerate()
+                    .skip(skip)
+                    .take(MAX_SHOWN_WORD_ENTRIES)
+                    .collect::<Vec<_>>();
+
+                let content = |width| {
+                    column(entries.iter().map(|(index, word)| {
+                        let selected = Some(*index) == *highlighted;
+
+                        Element::from(
+                            button(text(word.as_str()))
+                                .width(width)
+                                .padding(6)
+                                .style(move |theme, status| {
+                                    theme::button::picker(
+                                        theme, status, selected,
+                                    )
+                                })
+                                .on_press(on_select_command(*index)),
+                        )
+                    }))
+                };
+
+                (!entries.is_empty()).then(|| {
+                    container(double_pass(
+                        content(Length::Shrink),
+                        content(Length::Fill),
+                    ))
+                    .padding(4)
+                    .style(theme::container::tooltip)
+                    .width(Length::Shrink)
+                    .into()
+                })
+            }
+            Self::Selecting { .. } => None,
+        }
     }
 }
 
