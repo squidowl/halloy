@@ -413,12 +413,9 @@ impl<'a> ChannelQueryLayout<'a> {
         let content = match preview {
             data::Preview::Card(..) => keyed(
                 keyed::Key::Preview(message.hash, index),
-                button(inner)
-                    .padding(0) // remove button padding - preview_content already pads the card
-                    .style(theme::button::preview_card)
-                    .on_press(Message::Link(message::Link::Url(
-                        url.to_string(),
-                    ))),
+                button(inner).style(theme::button::preview_card).on_press(
+                    Message::Link(message::Link::Url(url.to_string())),
+                ),
             ),
             data::Preview::Image(img) => keyed(
                 keyed::Key::Preview(message.hash, index),
@@ -1879,7 +1876,6 @@ impl<'a> ChannelQueryLayout<'a> {
                 let el = preview_content(preview, self.config, self.theme);
                 let el: Element<_> = match preview {
                     data::Preview::Card(..) => button(el)
-                        .padding(0) // remove button padding - preview_content already pads the card
                         .style(|theme, _| {
                             theme::button::preview_card(
                                 theme,
