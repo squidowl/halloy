@@ -686,6 +686,8 @@ impl Dashboard {
                     ),
                     sidebar::Event::ToggleCommandBar => (
                         self.toggle_command_bar(
+                            servers,
+                            clients,
                             &closed_buffers(self, clients),
                             version,
                             config,
@@ -744,17 +746,7 @@ impl Dashboard {
                         (Task::none(), None)
                     }
                     sidebar::Event::Connect(server) => {
-                        if let Some(parent) = server.parent() {
-                            controllers.connect(&parent);
-                        }
-
-                        controllers.connect(&server);
-
-                        for bouncer_network in
-                            servers.get_bouncer_networks(&server)
-                        {
-                            controllers.connect(bouncer_network);
-                        }
+                        connect_server(server, controllers, servers);
 
                         (Task::none(), None)
                     }
@@ -939,111 +931,22 @@ impl Dashboard {
                         }
                     }
                     Some(command_bar::Event::Command(command)) => {
-                        let (command, event) = match command {
-                            command_bar::Command::Version(command) => match command {
-                                command_bar::Version::Application(_) => {
-                                    let _ = open_url::open(RELEASE_WEBSITE);
-                                    (Task::none(), None)
-                                }
-                            },
-                            command_bar::Command::Buffer(command) => match command {
-                                command_bar::Buffer::Maximize(_) => {
-                                    self.maximize_pane();
-                                    (Task::none(), None)
-                                }
-                                command_bar::Buffer::NewHorizontal => {
-                                    (
-                                        self.new_pane(
-                                            pane_grid::Axis::Horizontal,
-                                        ),
-                                        None,
-                                    )
-                                }
-                                command_bar::Buffer::NewVertical => {
-                                    (
-                                        self.new_pane(pane_grid::Axis::Vertical),
-                                        None,
-                                    )
-                                }
-                                command_bar::Buffer::Close => {
-                                    let Focus { window, pane } = self.focus;
-                                    (self.close_pane(clients, config, window, pane), None)
-                                }
-                                command_bar::Buffer::Replace(buffer) => (
-                                    self.open_buffer(
-                                        data::Buffer::Upstream(buffer),
-                                        BufferAction::ReplacePane,
-                                        clients,
-                                        config,
-                                    ),
-                                    None,
-                                ),
-                                command_bar::Buffer::Popout => (self.popout_pane(clients, config), None),
-                                command_bar::Buffer::Merge => (self.merge_pane(clients, config), None),
-                                command_bar::Buffer::ToggleInternal(buffer) => {
-                                    (self.toggle_internal_buffer(clients, config, buffer), None)
-                                }
-                            },
-                            command_bar::Command::Configuration(command) => match command {
-                                command_bar::Configuration::OpenConfigDirectory => {
-                                    let _ = open_url::open(Config::config_dir());
-                                    (Task::none(), None)
-                                }
-                                command_bar::Configuration::OpenCacheDirectory => {
-                                    let _ = open_url::open(environment::cache_dir());
-                                    (Task::none(), None)
-                                }
-                                command_bar::Configuration::OpenDataDirectory => {
-                                    let _ = open_url::open(environment::data_dir());
-                                    (Task::none(), None)
-                                }
-                                command_bar::Configuration::OpenWebsite => {
-                                    let _ = open_url::open(environment::WIKI_WEBSITE);
-                                    (Task::none(), None)
-                                }
-                                command_bar::Configuration::Reload => {
-                                    (Task::perform(Config::load(), Message::ConfigReloaded), None)
-                                }
-                                command_bar::Configuration::OpenConfigFile => {
-                                    let _ = open_url::open(Config::path());
-                                    (Task::none(), None)
-                                },
-                            },
-                            command_bar::Command::Theme(command) => match command {
-                                command_bar::Theme::Switch(new) => {
-                                    *theme = Theme::from(new);
-                                    (Task::none(), None)
-                                }
-                                command_bar::Theme::OpenEditor => {
-                                    if let Some(editor) = &self.theme_editor {
-                                        (window::gain_focus(editor.window), None)
-                                    } else {
-                                        let (editor, task) = ThemeEditor::open(main_window, config);
-
-                                        self.theme_editor = Some(editor);
-
-                                        (task.then(|_| Task::none()), None)
-                                    }
-                                }
-                                command_bar::Theme::OpenThemesWebsite => {
-                                    let _ = open_url::open(environment::THEME_WEBSITE);
-                                    (Task::none(), None)
-                                }
-                            },
-                            command_bar::Command::Application(application) => match application {
-                                command_bar::Application::Quit => (self.exit(clients, config), None),
-                                command_bar::Application::ToggleFullscreen => (window::toggle_fullscreen(), Some(Event::ToggleFullscreen)),
-                                command_bar::Application::ToggleSidebarVisibility => {
-                                    self.side_menu.toggle_visibility();
-                                    (Task::none(), None)
-                                }
-                            },
-                        };
+                        let (command, event) = self.handle_command_bar_command(
+                            command,
+                            clients,
+                            controllers,
+                            servers,
+                            theme,
+                            config,
+                            main_window,
+                        );
 
                         return (
                             Task::batch(vec![
                                 command,
                                 self.toggle_command_bar(
+                                    servers,
+                                    clients,
                                     &closed_buffers(self, clients),
                                     version,
                                     config,
@@ -1056,6 +959,8 @@ impl Dashboard {
                     Some(command_bar::Event::Unfocused) => {
                         return (
                             self.toggle_command_bar(
+                                servers,
+                                clients,
                                 &closed_buffers(self, clients),
                                 version,
                                 config,
@@ -1229,6 +1134,8 @@ impl Dashboard {
                     CommandBar => {
                         return (
                             self.toggle_command_bar(
+                                servers,
+                                clients,
                                 &closed_buffers(self, clients),
                                 version,
                                 config,
@@ -1674,6 +1581,7 @@ impl Dashboard {
     pub fn view_window<'a>(
         &'a self,
         window: window::Id,
+        servers: &'a server::Map,
         clients: &'a client::Map,
         version: &'a Version,
         config: &'a Config,
@@ -1721,7 +1629,7 @@ impl Dashboard {
             let base = Element::new(content)
                 .map(move |message| Message::Pane(window, message));
             let base = self.with_command_bar_overlay(
-                base, window, clients, version, config,
+                base, window, servers, clients, version, config,
             );
 
             return self.with_keyboard_shortcuts(base, config);
@@ -1834,6 +1742,7 @@ impl Dashboard {
         let base = self.with_command_bar_overlay(
             base,
             self.main_window(),
+            servers,
             clients,
             version,
             config,
@@ -1846,6 +1755,7 @@ impl Dashboard {
         &'a self,
         base: Element<'a, Message>,
         window: window::Id,
+        servers: &'a server::Map,
         clients: &'a client::Map,
         version: &'a Version,
         config: &'a Config,
@@ -1869,6 +1779,8 @@ impl Dashboard {
                 background,
                 command_bar
                     .view(
+                        servers,
+                        clients,
                         &all_buffers(clients, &self.history),
                         self.focus,
                         self.buffer_resize_action(),
@@ -2727,6 +2639,7 @@ impl Dashboard {
         &mut self,
         window: window::Id,
         event: event::Event,
+        servers: &server::Map,
         clients: &mut data::client::Map,
         version: &Version,
         config: &Config,
@@ -2744,6 +2657,8 @@ impl Dashboard {
                 // - Restore maximized pane (if main window)
                 if self.command_bar_window == Some(window) {
                     self.toggle_command_bar(
+                        servers,
+                        clients,
                         &closed_buffers(self, clients),
                         version,
                         config,
@@ -2772,6 +2687,139 @@ impl Dashboard {
                     )
                 })
             }
+        }
+    }
+
+    fn handle_command_bar_command(
+        &mut self,
+        command: command_bar::Command,
+        clients: &mut client::Map,
+        controllers: &mut stream::Map,
+        servers: &server::Map,
+        theme: &mut Theme,
+        config: &Config,
+        main_window: &Window,
+    ) -> (Task<Message>, Option<Event>) {
+        match command {
+            command_bar::Command::Version(command) => match command {
+                command_bar::Version::Application(_) => {
+                    let _ = open_url::open(RELEASE_WEBSITE);
+                    (Task::none(), None)
+                }
+            },
+            command_bar::Command::Buffer(command) => match command {
+                command_bar::Buffer::Maximize(_) => {
+                    self.maximize_pane();
+                    (Task::none(), None)
+                }
+                command_bar::Buffer::NewHorizontal => {
+                    (self.new_pane(pane_grid::Axis::Horizontal), None)
+                }
+                command_bar::Buffer::NewVertical => {
+                    (self.new_pane(pane_grid::Axis::Vertical), None)
+                }
+                command_bar::Buffer::Close => {
+                    let Focus { window, pane } = self.focus;
+                    (self.close_pane(clients, config, window, pane), None)
+                }
+                command_bar::Buffer::Replace(buffer) => (
+                    self.open_buffer(
+                        data::Buffer::Upstream(buffer),
+                        BufferAction::ReplacePane,
+                        clients,
+                        config,
+                    ),
+                    None,
+                ),
+                command_bar::Buffer::Popout => {
+                    (self.popout_pane(clients, config), None)
+                }
+                command_bar::Buffer::Merge => {
+                    (self.merge_pane(clients, config), None)
+                }
+                command_bar::Buffer::ToggleInternal(buffer) => {
+                    (self.toggle_internal_buffer(clients, config, buffer), None)
+                }
+            },
+            command_bar::Command::Configuration(command) => match command {
+                command_bar::Configuration::OpenConfigDirectory => {
+                    let _ = open_url::open(Config::config_dir());
+                    (Task::none(), None)
+                }
+                command_bar::Configuration::OpenCacheDirectory => {
+                    let _ = open_url::open(environment::cache_dir());
+                    (Task::none(), None)
+                }
+                command_bar::Configuration::OpenDataDirectory => {
+                    let _ = open_url::open(environment::data_dir());
+                    (Task::none(), None)
+                }
+                command_bar::Configuration::OpenWebsite => {
+                    let _ = open_url::open(environment::WIKI_WEBSITE);
+                    (Task::none(), None)
+                }
+                command_bar::Configuration::Reload => (
+                    Task::perform(Config::load(), Message::ConfigReloaded),
+                    None,
+                ),
+                command_bar::Configuration::OpenConfigFile => {
+                    let _ = open_url::open(Config::path());
+                    (Task::none(), None)
+                }
+            },
+            command_bar::Command::Theme(command) => match command {
+                command_bar::Theme::Switch(new) => {
+                    *theme = Theme::from(new);
+                    (Task::none(), None)
+                }
+                command_bar::Theme::OpenEditor => {
+                    if let Some(editor) = &self.theme_editor {
+                        (window::gain_focus(editor.window), None)
+                    } else {
+                        let (editor, task) =
+                            ThemeEditor::open(main_window, config);
+
+                        self.theme_editor = Some(editor);
+
+                        (task.then(|_| Task::none()), None)
+                    }
+                }
+                command_bar::Theme::OpenThemesWebsite => {
+                    let _ = open_url::open(environment::THEME_WEBSITE);
+                    (Task::none(), None)
+                }
+            },
+            command_bar::Command::Application(application) => match application
+            {
+                command_bar::Application::Quit => {
+                    (self.exit(clients, config), None)
+                }
+                command_bar::Application::ToggleFullscreen => {
+                    (window::toggle_fullscreen(), Some(Event::ToggleFullscreen))
+                }
+                command_bar::Application::ToggleSidebarVisibility => {
+                    self.side_menu.toggle_visibility();
+                    (Task::none(), None)
+                }
+            },
+            command_bar::Command::Server(server) => match server {
+                command_bar::Server::Connect(server) => {
+                    connect_server(server, controllers, servers);
+                    (Task::none(), None)
+                }
+                command_bar::Server::Disconnect(server) => (
+                    Task::none(),
+                    Some(Event::QuitServer(
+                        server,
+                        config.buffer.commands.quit.default_reason.clone(),
+                    )),
+                ),
+                command_bar::Server::ReloadIcon(server) => (
+                    self.remove_server_icon(clients, &server)
+                        .chain(self.request_server_icon(clients, &server)),
+                    None,
+                ),
+            },
         }
     }
 
@@ -3593,6 +3641,18 @@ impl Dashboard {
         self.history.update_display_read_marker(kind, read_marker);
     }
 
+    pub fn remove_server_icon(
+        &mut self,
+        clients: &mut client::Map,
+        server: &Server,
+    ) -> Task<Message> {
+        let icon_url = clients.get_icon_url(server);
+
+        self.server_icons
+            .remove(server, icon_url)
+            .map(Message::ServerIcon)
+    }
+
     pub fn request_server_icon(
         &mut self,
         clients: &mut client::Map,
@@ -4113,6 +4173,8 @@ impl Dashboard {
 
     pub fn toggle_command_bar(
         &mut self,
+        servers: &server::Map,
+        clients: &client::Map,
         buffers: &[buffer::Upstream],
         version: &Version,
         config: &Config,
@@ -4132,12 +4194,16 @@ impl Dashboard {
                 *theme = theme.selected();
 
                 self.close_command_bar();
-                self.open_command_bar(buffers, version, config);
+                self.open_command_bar(
+                    servers, clients, buffers, version, config,
+                );
 
                 Task::none()
             }
             None => {
-                self.open_command_bar(buffers, version, config);
+                self.open_command_bar(
+                    servers, clients, buffers, version, config,
+                );
                 Task::none()
             }
         }
@@ -4145,12 +4211,16 @@ impl Dashboard {
 
     fn open_command_bar(
         &mut self,
+        servers: &server::Map,
+        clients: &client::Map,
         buffers: &[buffer::Upstream],
         version: &Version,
         config: &Config,
     ) {
         self.command_bar_window = Some(self.focus.window);
         self.command_bar = Some(CommandBar::new(
+            servers,
+            clients,
             buffers,
             version,
             config,
@@ -5070,6 +5140,22 @@ fn cycle_previous_unread_buffer(
     previous_before()
         .or_else(|| previous_after().or(None))
         .cloned()
+}
+
+fn connect_server(
+    server: Server,
+    controllers: &mut stream::Map,
+    servers: &server::Map,
+) {
+    if let Some(parent) = server.parent() {
+        controllers.connect(&parent);
+    }
+
+    controllers.connect(&server);
+
+    for bouncer_network in servers.get_bouncer_networks(&server) {
+        controllers.connect(bouncer_network);
+    }
 }
 
 fn http_client_from_config(config: &Config) -> Option<reqwest::Client> {

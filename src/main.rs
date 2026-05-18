@@ -901,6 +901,7 @@ impl Halloy {
                         .handle_event(
                             window,
                             event,
+                            &self.servers,
                             &mut self.clients,
                             &self.version,
                             &self.config,
@@ -1326,6 +1327,7 @@ impl Halloy {
                 dashboard
                     .view_window(
                         id,
+                        &self.servers,
                         &self.clients,
                         &self.version,
                         &self.config,

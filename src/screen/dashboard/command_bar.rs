@@ -1,4 +1,4 @@
-use data::{Config, buffer};
+use data::{Config, buffer, client, server};
 use iced::Length;
 use iced::widget::{column, container, text};
 
@@ -21,6 +21,8 @@ pub enum Message {
 
 impl CommandBar {
     pub fn new(
+        servers: &server::Map,
+        clients: &client::Map,
         buffers: &[buffer::Upstream],
         version: &data::Version,
         config: &Config,
@@ -29,6 +31,8 @@ impl CommandBar {
         main_window: window::Id,
     ) -> Self {
         let state = combo_box::State::new(Command::list(
+            servers,
+            clients,
             buffers,
             config,
             focus,
@@ -55,6 +59,8 @@ impl CommandBar {
 
     pub fn view<'a>(
         &'a self,
+        servers: &server::Map,
+        clients: &client::Map,
         buffers: &[buffer::Upstream],
         focus: Focus,
         resize_buffer: data::buffer::Resize,
@@ -94,6 +100,8 @@ impl CommandBar {
                 )
                 .chain(
                     Command::list(
+                        servers,
+                        clients,
                         buffers,
                         config,
                         focus,
@@ -130,6 +138,7 @@ pub enum Event {
 pub enum Command {
     Application(Application),
     Version(Version),
+    Server(Server),
     Buffer(Buffer),
     Configuration(Configuration),
     Theme(Theme),
@@ -145,6 +154,13 @@ pub enum Application {
 #[derive(Debug, Clone)]
 pub enum Version {
     Application(data::Version),
+}
+
+#[derive(Debug, Clone)]
+pub enum Server {
+    Connect(data::Server),
+    Disconnect(data::Server),
+    ReloadIcon(data::Server),
 }
 
 #[derive(Debug, Clone)]
@@ -178,13 +194,19 @@ pub enum Theme {
 
 impl Command {
     pub fn list(
+        servers: &server::Map,
+        clients: &client::Map,
         buffers: &[buffer::Upstream],
         config: &Config,
         focus: Focus,
-        resize_buffer: data::buffer::Resize,
+        resize_buffer: buffer::Resize,
         version: &data::Version,
         main_window: window::Id,
     ) -> Vec<Self> {
+        let servers = Server::list(clients, servers)
+            .into_iter()
+            .map(Command::Server);
+
         let buffers = Buffer::list(buffers, focus, resize_buffer, main_window)
             .into_iter()
             .map(Command::Buffer);
@@ -203,6 +225,7 @@ impl Command {
         version
             .chain(application)
             .chain(buffers)
+            .chain(servers)
             .chain(configs)
             .chain(themes)
             .collect()
@@ -213,6 +236,7 @@ impl std::fmt::Display for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Command::Buffer(buffer) => write!(f, "Buffer: {buffer}"),
+            Command::Server(server) => write!(f, "Server: {server}"),
             Command::Configuration(config) => {
                 write!(f, "Configuration: {config}")
             }
@@ -222,6 +246,38 @@ impl std::fmt::Display for Command {
             }
             Command::Application(application) => {
                 write!(f, "Application: {application}")
+            }
+        }
+    }
+}
+
+impl Server {
+    fn list(clients: &client::Map, servers: &server::Map) -> Vec<Self> {
+        let mut list = vec![];
+
+        for server in servers.keys() {
+            if clients.get_server_is_connected(server) {
+                list.push(Server::Disconnect(server.clone()));
+
+                if clients.get_icon_url(server).is_some() {
+                    list.push(Server::ReloadIcon(server.clone()));
+                }
+            } else {
+                list.push(Server::Connect(server.clone()));
+            }
+        }
+
+        list
+    }
+}
+
+impl std::fmt::Display for Server {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Server::Connect(server) => write!(f, "Connect to {server}"),
+            Server::Disconnect(server) => write!(f, "Disconnect from {server}"),
+            Server::ReloadIcon(server) => {
+                write!(f, "Reload {server} server icon")
             }
         }
     }
