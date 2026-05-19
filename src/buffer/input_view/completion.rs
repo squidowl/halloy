@@ -3115,7 +3115,7 @@ enum Emojis {
     Idle,
     Selecting {
         highlighted: Option<usize>,
-        filtered: Vec<&'static str>,
+        filtered: Vec<String>,
     },
     Selected {
         emoji: &'static str,
@@ -3176,11 +3176,11 @@ impl Emojis {
 
     fn select_at(&mut self, index: usize, config: &Config) -> Option<String> {
         if let Self::Selecting { filtered, .. } = self
-            && let Some(shortcode) = filtered.get(index).copied()
+            && index < filtered.len()
         {
+            let shortcode = filtered.swap_remove(index);
             *self = Self::Idle;
-
-            return pick_emoji(shortcode, config.buffer.emojis.skin_tone)
+            return pick_emoji(&shortcode, config.buffer.emojis.skin_tone)
                 .map(ToString::to_string);
         }
 
@@ -3493,7 +3493,7 @@ impl Paths {
 }
 
 fn pick_emoji(shortcode: &str, skin_tone: SkinTone) -> Option<&'static str> {
-    emojis::get_by_shortcode(shortcode).map(|emoji| {
+    emoji::get_by_shortcode(shortcode).map(|emoji| {
         if let Some(emoji_with_skin_tone) =
             emoji.with_skin_tone(skin_tone.into())
         {
