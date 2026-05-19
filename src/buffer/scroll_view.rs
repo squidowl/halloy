@@ -50,6 +50,8 @@ pub enum Message {
     RequestOlderChatHistory,
     EnteringViewport(message::Hash, Vec<url::Url>),
     ExitingViewport(message::Hash),
+    ReplyPreviewHovered(message::Hash, Vec<url::Url>),
+    ReplyPreviewUnhovered(message::Hash),
     PreviewHovered(message::Hash, usize),
     PreviewUnhovered(message::Hash, usize),
     HidePreview(message::Hash, url::Url),
@@ -724,6 +726,7 @@ pub struct State {
     is_scrolling_to: bool,
     visible_url_messages: HashMap<message::Hash, Vec<url::Url>>,
     pending_preview_exits: HashSet<message::Hash>,
+    reply_preview_urls: HashMap<message::Hash, Vec<url::Url>>,
     hovered_preview: Option<(message::Hash, usize)>,
 }
 
@@ -743,6 +746,7 @@ impl State {
             is_scrolling_to: false,
             visible_url_messages: HashMap::new(),
             pending_preview_exits: HashSet::new(),
+            reply_preview_urls: HashMap::new(),
             hovered_preview: None,
         }
     }
@@ -1070,6 +1074,17 @@ impl State {
                 }
                 return (Task::none(), None);
             }
+            Message::ReplyPreviewHovered(hash, urls) => {
+                let prev = self.reply_preview_urls.insert(hash, urls);
+                if prev.is_none() {
+                    return (Task::none(), Some(Event::PreviewChanged));
+                }
+            }
+            Message::ReplyPreviewUnhovered(hash) => {
+                if self.reply_preview_urls.remove(&hash).is_some() {
+                    return (Task::none(), Some(Event::PreviewChanged));
+                }
+            }
             Message::PreviewHovered(hash, idx) => {
                 self.hovered_preview = Some((hash, idx));
             }
@@ -1120,6 +1135,7 @@ impl State {
                         .iter()
                         .map(|(hash, _)| *hash)
                         .collect::<HashSet<_>>();
+
                     let mut still_pending = HashSet::new();
 
                     for hash in self.pending_preview_exits.drain() {
@@ -1373,7 +1389,10 @@ impl State {
     }
 
     pub fn visible_urls(&self) -> impl Iterator<Item = &url::Url> {
-        self.visible_url_messages.values().flatten()
+        self.visible_url_messages
+            .values()
+            .flatten()
+            .chain(self.reply_preview_urls.values().flatten())
     }
 }
 

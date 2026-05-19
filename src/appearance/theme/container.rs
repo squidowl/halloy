@@ -130,6 +130,21 @@ pub fn tooltip(theme: &Theme) -> Style {
     }
 }
 
+pub fn hover_preview_tooltip(theme: &Theme) -> Style {
+    let general = theme.styles().general;
+    let buffer = theme.styles().buffer;
+
+    Style {
+        background: Some(Background::Color(buffer.background)),
+        border: Border {
+            radius: 0.0.into(),
+            width: 1.0,
+            color: general.border,
+        },
+        ..Default::default()
+    }
+}
+
 pub fn error_tooltip(theme: &Theme) -> Style {
     let general = theme.styles().general;
     let text = theme.styles().text;

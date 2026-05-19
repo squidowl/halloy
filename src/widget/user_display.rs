@@ -14,6 +14,7 @@ use super::{Element, selectable_text, text};
 use crate::widget::TextExt as _;
 use crate::{Theme, font, theme, widget};
 
+#[derive(Clone)]
 pub struct UserDisplay {
     base: UserDisplayData,
     tooltip: Option<UserDisplayData>,
@@ -49,30 +50,23 @@ impl UserDisplay {
             enabled,
         );
 
-        if !with_tooltip {
-            return Self {
-                base: full.bracket(brackets),
-                tooltip: None,
-                color,
-            };
-        }
-
         if let Some(truncated) = truncate.and_then(|truncation_length| {
             full.truncate(truncation_length as usize, truncation_character)
         }) {
             Self {
                 base: truncated.bracket(brackets),
-                tooltip: Some(full),
+                tooltip: with_tooltip.then_some(full),
                 color,
             }
         } else if full.bot_icon && brackets.is_some() {
             Self {
                 base: full.clone().bracket(brackets),
-                tooltip: Some(full),
+                tooltip: with_tooltip.then_some(full),
                 color,
             }
         } else {
-            let tooltip = full.bot_icon.then_some(full.clone());
+            let tooltip =
+                (with_tooltip && full.bot_icon).then_some(full.clone());
 
             Self {
                 base: full.bracket(brackets),

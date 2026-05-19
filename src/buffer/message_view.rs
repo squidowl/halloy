@@ -10,13 +10,13 @@ use data::preview::{self, Previews};
 use data::redaction::Redaction;
 use data::server::Server;
 use data::user::{ChannelUsers, NickRef};
-use data::{Config, Preview, User, message, metadata, target};
+use data::{Config, Preview, User, history, message, metadata, target};
 use iced::widget::text::Wrapping;
 use iced::widget::{
     Space, button, center, column, container, mouse_area, right, row, space,
     stack, text,
 };
-use iced::{Color, ContentFit, Length, alignment, padding};
+use iced::{Color, Length, alignment, padding};
 
 use crate::buffer::context_menu::{self, Context};
 use crate::buffer::scroll_view::keyed::{self, keyed};
@@ -24,8 +24,8 @@ use crate::buffer::scroll_view::{LayoutMessage, Message};
 use crate::widget::reaction_row::{has_visible_reactions, reaction_row};
 use crate::widget::user_display::UserDisplay;
 use crate::widget::{
-    Element, Marker, image, message_content, message_marker, notify_visibility,
-    selectable_text, tooltip,
+    Element, Marker, message_content, message_marker, notify_visibility,
+    preview_content, selectable_text, tooltip,
 };
 use crate::{Theme, font, icon, theme};
 
@@ -94,6 +94,7 @@ pub struct ChannelQueryLayout<'a> {
     pub theme: &'a Theme,
     pub previews: Previews<'a>,
     pub target: TargetInfo<'a>,
+    pub history: &'a history::Manager,
 }
 
 impl<'a> ChannelQueryLayout<'a> {
@@ -407,86 +408,30 @@ impl<'a> ChannelQueryLayout<'a> {
         index: usize,
         is_hovered: bool,
     ) -> Element<'a, Message> {
+        let inner = preview_content(preview, self.config, self.theme);
+
         let content = match preview {
-            data::Preview::Card(preview::Card {
-                image,
-                title,
-                description,
-                ..
-            }) => keyed(
+            data::Preview::Card(..) => keyed(
                 keyed::Key::Preview(message.hash, index),
-                button(
-                    container(
-                        column![
-                            text(title)
-                                .shaping(text::Shaping::Advanced)
-                                .style(theme::text::primary)
-                                .font_maybe(
-                                    theme::font_style::primary(self.theme)
-                                        .map(font::get)
-                                ),
-                            description.as_ref().map(|description| {
-                                container(
-                                    text(description)
-                                        .shaping(text::Shaping::Advanced)
-                                        .wrapping(text::Wrapping::WordOrGlyph)
-                                        .style(theme::text::secondary)
-                                        .font_maybe(
-                                            theme::font_style::secondary(
-                                                self.theme,
-                                            )
-                                            .map(font::get),
-                                        ),
-                                )
-                                .clip(false)
-                                .max_height(
-                                    self.config
-                                        .preview
-                                        .card
-                                        .description_max_height,
-                                )
-                            }),
-                            self.config.preview.card.show_image.then_some(
-                                container(image::from_data(
-                                    image,
-                                    self.config.preview.image.round_corners,
-                                    ContentFit::ScaleDown,
-                                ))
-                                .padding(padding::top(8))
-                                .max_height(
-                                    self.config.preview.card.image_max_height
-                                )
-                            ),
-                        ]
-                        .spacing(8)
-                        .max_width(self.config.preview.card.max_width),
-                    )
-                    .padding(8),
-                )
-                .style(theme::button::preview_card)
-                .on_press(Message::Link(message::Link::Url(url.to_string()))),
+                button(inner).style(theme::button::preview_card).on_press(
+                    Message::Link(message::Link::Url(url.to_string())),
+                ),
             ),
-            data::Preview::Image(image) => keyed(
+            data::Preview::Image(img) => keyed(
                 keyed::Key::Preview(message.hash, index),
-                button(
-                    container(image::from_data(
-                        image,
-                        self.config.preview.image.round_corners,
-                        ContentFit::ScaleDown,
-                    ))
-                    .max_width(self.config.preview.image.max_width)
-                    .max_height(self.config.preview.image.max_height),
-                )
-                .on_press(match self.config.preview.image.action {
-                    data::config::preview::ImageAction::OpenUrl => {
-                        Message::Link(message::Link::Url(image.url.to_string()))
-                    }
-                    data::config::preview::ImageAction::Preview => {
-                        Message::ImagePreview(image.clone())
-                    }
-                })
-                .padding(0)
-                .style(theme::button::bare),
+                button(inner)
+                    .on_press(match self.config.preview.image.action {
+                        data::config::preview::ImageAction::OpenUrl => {
+                            Message::Link(message::Link::Url(
+                                img.url.to_string(),
+                            ))
+                        }
+                        data::config::preview::ImageAction::Preview => {
+                            Message::ImagePreview(img.clone())
+                        }
+                    })
+                    .padding(0)
+                    .style(theme::button::bare),
             ),
         };
 
@@ -1195,48 +1140,18 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     })
                     .collect::<Vec<_>>();
 
-                let mut hidden_fragments: Vec<usize> = vec![];
-                let mut is_trailing_fragment = true;
+                let loaded_previews: Vec<(usize, &Preview)> = enumerated_urls
+                    .iter()
+                    .filter_map(|(fragment_index, _, _, preview)| {
+                        preview.map(|p| (*fragment_index, p))
+                    })
+                    .collect();
 
-                for (fragment_index, _, _, preview) in
-                    enumerated_urls.iter().rev()
-                {
-                    if let Some(preview) = preview {
-                        if is_trailing_fragment {
-                            let trailing_fragments: Vec<_> = fragments
-                                .iter()
-                                .enumerate()
-                                .skip(fragment_index.saturating_add(1))
-                                .collect();
-
-                            is_trailing_fragment = trailing_fragments
-                                .is_empty()
-                                || trailing_fragments.iter().all(
-                                    |(index, fragment)| {
-                                        hidden_fragments.contains(index)
-                                            || fragment
-                                                .as_str()
-                                                .trim_end()
-                                                .is_empty()
-                                    },
-                                );
-                        }
-
-                        match self.config.preview.hide_url_when(preview) {
-                            HideUrlCondition::ContainsOnlyUrl => {
-                                if fragments.len() == 1 {
-                                    hidden_fragments.push(*fragment_index);
-                                }
-                            }
-                            HideUrlCondition::Trailing => {
-                                if is_trailing_fragment {
-                                    hidden_fragments.push(*fragment_index);
-                                }
-                            }
-                            HideUrlCondition::Never => (),
-                        }
-                    }
-                }
+                let hidden_fragments = compute_hidden_fragments(
+                    fragments,
+                    &loaded_previews,
+                    self.config,
+                );
 
                 (
                     true,
@@ -1529,7 +1444,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         };
 
         let message_element = if let Some(reply_row) =
-            self.format_reply_preview(message, right_alignment_middle_width)
+            self.reply_line(message, right_alignment_middle_width)
         {
             column![reply_row, message_element].into()
         } else {
@@ -1541,7 +1456,128 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
 }
 
 impl<'a> ChannelQueryLayout<'a> {
-    fn format_reply_preview(
+    fn target_kind(&self) -> history::Kind {
+        match self.target {
+            TargetInfo::Channel { channel, .. } => {
+                history::Kind::Channel(self.server.clone(), (*channel).clone())
+            }
+            TargetInfo::Query { query } => {
+                history::Kind::Query(self.server.clone(), (*query).clone())
+            }
+        }
+    }
+
+    fn reply_preview_urls(&self, message: &data::Message) -> Vec<url::Url> {
+        if !self.config.buffer.reply.tooltip.enabled {
+            return vec![];
+        }
+        let Some(reply_preview) = &message.reply_preview else {
+            return vec![];
+        };
+        if reply_preview.blocked {
+            return vec![];
+        }
+        let message::Content::Fragments(fragments) = &reply_preview.content
+        else {
+            return vec![];
+        };
+        let kind = self.target_kind();
+        fragments
+            .iter()
+            .filter_map(message::Fragment::url)
+            .filter(|url| {
+                self.config.preview.is_enabled(url.as_str())
+                    && !self.history.is_preview_hidden(
+                        &kind,
+                        reply_preview.hash,
+                        reply_preview.server_time,
+                        url,
+                    )
+            })
+            .take(self.config.preview.max_per_message)
+            .cloned()
+            .collect()
+    }
+
+    /// Generates an element like `↩ alice: hi bob`
+    fn reply_preview_content(
+        &self,
+        reply: Option<&'a message::ReplyPreview>,
+        highlight: bool,
+        show_icon: bool,
+        text_size: f32,
+    ) -> Element<'a, Message> {
+        let char_width = font::width_from_str("a", &self.config.font);
+
+        // the message may not be loaded
+        let Some(reply) = reply else {
+            return text("Replied to a message")
+                .style(theme::text::secondary)
+                .size(text_size)
+                .into();
+        };
+
+        let nick: Option<Element<_>> = (!reply.blocked)
+            .then_some(reply.user.as_ref())
+            .flatten()
+            .map(|user| {
+                let user = self
+                    .target
+                    .users()
+                    .and_then(|users| users.resolve(user))
+                    .unwrap_or(user);
+                UserDisplay::new(
+                    user,
+                    self.config.buffer.nickname.show_access_levels,
+                    self.config.buffer.nickname.show_bot_icon,
+                    self.registry,
+                    &self.config.display.nickname,
+                    self.config.buffer.nickname.truncate,
+                    self.config.display.truncation_character,
+                    Some(&self.config.buffer.nickname.brackets),
+                    false,
+                )
+                .into_element(
+                    user,
+                    false,
+                    false,
+                    None,
+                    Some(text_size),
+                    highlight,
+                    false,
+                    self.theme,
+                    self.config,
+                )
+            });
+
+        let preview_text = text(reply.preview_text())
+            .style(theme::text::secondary)
+            .size(text_size)
+            .wrapping(Wrapping::None)
+            .ellipsis(text::Ellipsis::End);
+
+        let mut row = if show_icon {
+            row![
+                icon::reply()
+                    .size(self.config.buffer.reply.icon_size)
+                    .style(theme::text::primary)
+            ]
+        } else {
+            row![]
+        }
+        .spacing(char_width);
+
+        if let Some(nick) = nick {
+            row = row.push(nick);
+        }
+
+        row.push(preview_text)
+            .align_y(alignment::Vertical::Center)
+            .into()
+    }
+
+    /// Generates the reply line element to be used in buffers: `┌── ↩ alice: hi bob`
+    fn reply_line(
         &self,
         message: &'a data::Message,
         right_aligned_width: Option<f32>,
@@ -1552,82 +1588,109 @@ impl<'a> ChannelQueryLayout<'a> {
             return None;
         }
 
-        let reg_text_s =
+        let text_size =
             self.config.font.size.map_or(theme::TEXT_SIZE, f32::from);
-        let sm_font_s = reg_text_s * 0.85;
+        let preview_text_size = text_size * 0.85;
+        let show_reply_icon = self.config.buffer.reply.show_icon;
 
-        let content: Element<_> = if let Some(data::message::ReplyPreview {
-            user,
-            text: preview,
-        }) = &message.reply_preview
+        let mut hover_tooltip: Option<Element<'_, _>> = None;
+
+        let preview: Element<'_, _> = if let Some(reply_preview) =
+            &message.reply_preview
         {
-            let nick_element: Option<Element<_>> = if let Some(user) = user {
-                let is_our_nick =
-                    self.our_nick.is_some_and(|our| our == user.nickname())
+            let data::message::ReplyPreview {
+                user,
+                content: reply_content,
+                in_reply_to,
+                redaction: reply_redaction,
+                blocked: reply_blocked,
+                ..
+            } = reply_preview;
+
+            let nick_info: Option<(&User, bool, UserDisplay)> =
+                if let Some(user) = user {
+                    let is_our_nick = self
+                        .our_nick
+                        .is_some_and(|our| our == user.nickname())
                         && !(message.is_echo
                             || message.direction == message::Direction::Sent);
 
-                let user = self
-                    .target
-                    .users()
-                    .and_then(|users| users.resolve(user))
-                    .unwrap_or(user);
+                    let user = self
+                        .target
+                        .users()
+                        .and_then(|users| users.resolve(user))
+                        .unwrap_or(user);
 
-                let user_display = UserDisplay::new(
-                    user,
-                    self.config.buffer.nickname.show_access_levels,
-                    self.config.buffer.nickname.show_bot_icon,
-                    self.registry,
-                    &self.config.display.nickname,
-                    self.config.buffer.nickname.truncate,
-                    self.config.display.truncation_character,
-                    Some(&self.config.buffer.nickname.brackets),
-                    false,
-                );
+                    let highlight = is_our_nick
+                        && self.config.highlights.nickname.is_target_included(
+                            message.user(),
+                            self.target.as_target_ref(),
+                            self.server,
+                            self.casemapping,
+                        );
 
-                let highlight = is_our_nick
-                    && self.config.highlights.nickname.is_target_included(
-                        message.user(),
-                        self.target.as_target_ref(),
-                        self.server,
-                        self.casemapping,
+                    let display = UserDisplay::new(
+                        user,
+                        self.config.buffer.nickname.show_access_levels,
+                        self.config.buffer.nickname.show_bot_icon,
+                        self.registry,
+                        &self.config.display.nickname,
+                        self.config.buffer.nickname.truncate,
+                        self.config.display.truncation_character,
+                        Some(&self.config.buffer.nickname.brackets),
+                        false,
                     );
 
-                Some(user_display.into_element(
-                    user,
-                    false,
-                    false,
-                    None,
-                    Some(sm_font_s),
-                    highlight,
-                    false,
-                    self.theme,
-                    self.config,
-                ))
-            } else {
-                None
-            };
+                    Some((user, highlight, display))
+                } else {
+                    None
+                };
 
-            let preview_text = if nick_element.is_some() {
-                text(format!(" {preview}"))
-            } else {
-                text(preview)
-            }
-            .style(theme::text::secondary)
-            .size(sm_font_s)
-            .wrapping(Wrapping::None)
-            .ellipsis(text::Ellipsis::End)
-            .width(Length::Fill);
+            hover_tooltip = (self.config.buffer.reply.tooltip.enabled
+                && !reply_blocked)
+                .then(|| {
+                    let tooltip_nick =
+                        nick_info.as_ref().map(|(user, _, display)| {
+                            display.clone().into_element(
+                                user,
+                                false,
+                                false,
+                                None,
+                                None,
+                                false,
+                                false,
+                                self.theme,
+                                self.config,
+                            )
+                        });
+                    self.reply_hover_tooltip(
+                        reply_preview.hash,
+                        reply_preview.server_time,
+                        tooltip_nick,
+                        reply_content,
+                        in_reply_to.as_deref(),
+                        reply_redaction.as_ref(),
+                        *reply_blocked,
+                    )
+                });
 
-            row![text(" ").size(sm_font_s), nick_element, preview_text,].into()
+            let highlight = nick_info.as_ref().is_some_and(|(_, h, _)| *h);
+            self.reply_preview_content(
+                Some(reply_preview),
+                highlight,
+                show_reply_icon,
+                preview_text_size,
+            )
         } else {
-            // the message may not be loaded into history
-            text(" replied to a message")
-                .style(theme::text::timestamp)
-                .size(sm_font_s)
-                .width(Length::Fill)
-                .into()
+            self.reply_preview_content(
+                None,
+                false,
+                show_reply_icon,
+                preview_text_size,
+            )
         };
+
+        let char_width = font::width_from_str("a", &self.config.font);
 
         let timestamp_chars = self
             .config
@@ -1635,52 +1698,253 @@ impl<'a> ChannelQueryLayout<'a> {
             .format_timestamp(&message.server_time)
             .map_or(0, |s| s.chars().count());
 
-        let show_reply_icon = self.config.buffer.reply.show_icon;
-        let reply_icon_size = self.config.buffer.reply.icon_size;
-
         // right-aligned: fixed short arm offset to content column.
         // left-aligned / top-aligned: arm spans from timestamp midpoint to its edge.
-        let mut r = if let Some(nick_col_width) = right_aligned_width {
-            let char_width = font::width_from_str("a", &self.config.font);
+        let mut row = if let Some(nick_col_width) = right_aligned_width {
             let nick_col_chars = (nick_col_width / char_width).round() as usize;
             let indent = timestamp_chars + nick_col_chars - 2;
-            let arm = if show_reply_icon {
-                "┌── "
-            } else {
-                "┌──"
-            };
+
             row![
-                text(" ".repeat(indent)).size(reg_text_s),
-                text(arm).style(theme::text::timestamp).size(reg_text_s),
+                text(" ".repeat(indent) + "┌──")
+                    .style(theme::text::timestamp)
+                    .size(text_size),
             ]
         } else {
             let half = timestamp_chars / 2;
-            let trailing = if show_reply_icon { " " } else { "" };
             let arm = format!(
-                "┌{}{}",
+                "┌{}",
                 "─".repeat(
                     half.saturating_sub(1)
                         + usize::from(!timestamp_chars.is_multiple_of(2))
                 ),
-                trailing
             );
             row![
-                text(" ".repeat(half)).size(reg_text_s),
-                text(arm).style(theme::text::timestamp).size(reg_text_s),
+                text(" ".repeat(half) + &arm)
+                    .style(theme::text::timestamp)
+                    .size(text_size),
             ]
+        }
+        .spacing(char_width);
+
+        // add a hover preview
+        let delay = iced::time::Duration::from_millis(
+            self.config.buffer.reply.tooltip.delay,
+        );
+        let reply_urls = self.reply_preview_urls(message);
+
+        let preview: Element<'_, _> = if let Some(tooltip) = hover_tooltip {
+            iced::widget::tooltip(
+                preview,
+                container(tooltip).padding(
+                    iced::Padding::new(0.0).bottom(4.0).top(4.0).right(4.0),
+                ),
+                tooltip::Position::TopLeft,
+            )
+            .smart_placement(true)
+            .padding(0) // this only takes uniform padding; we wrap in a container above to get what we want
+            .delay(delay)
+            .into()
+        } else {
+            preview
         };
 
-        if show_reply_icon {
-            r = r.push(
-                icon::reply()
-                    .size(reply_icon_size)
-                    .style(theme::text::primary),
-            );
+        let preview: Element<'_, _> = if !reply_urls.is_empty() {
+            mouse_area(preview)
+                .on_enter(Message::ReplyPreviewHovered(
+                    message.hash,
+                    reply_urls,
+                ))
+                .on_exit(Message::ReplyPreviewUnhovered(message.hash))
+                .into()
+        } else {
+            preview
+        };
+
+        row = row.push(preview);
+
+        Some(row.align_y(alignment::Vertical::Center).into())
+    }
+
+    /// Generates the hover preview for a reply
+    fn reply_hover_tooltip(
+        &self,
+        reply_hash: message::Hash,
+        server_time: chrono::DateTime<chrono::Utc>,
+        nick: Option<Element<'a, Message>>,
+        reply: &'a message::Content,
+        in_reply_to: Option<&'a message::ReplyPreview>,
+        redaction: Option<&'a data::redaction::Redaction>,
+        is_blocked: bool,
+    ) -> Element<'a, Message> {
+        let kind = self.target_kind();
+        let text_size =
+            self.config.font.size.map_or(theme::TEXT_SIZE, f32::from);
+        let preview_text_size = text_size * 0.85;
+
+        let is_muted = redaction.is_some() || is_blocked;
+        let dimmed = is_muted.then_some(Dimmed::new(None));
+        let bg = self.theme.styles().buffer.background;
+        let dimmed_bg = dimmed.map(|d| (d, bg));
+        let dimmed_style = move |t: &Theme| {
+            theme::selectable_text::dimmed(
+                theme::selectable_text::default(t),
+                t,
+                dimmed_bg,
+            )
+        };
+
+        let use_dimmed_display = redaction.is_some()
+            && self.config.buffer.redaction.display
+                == data::config::buffer::redaction::Display::Dimmed;
+
+        let (loaded, hidden_fragments) =
+            if let message::Content::Fragments(fragments) = reply {
+                let loaded: Vec<(usize, &Preview)> = fragments
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(idx, f)| f.url().map(|url| (idx, url)))
+                    .filter(|(_, url)| {
+                        !self.history.is_preview_hidden(
+                            &kind,
+                            reply_hash,
+                            server_time,
+                            url,
+                        )
+                    })
+                    .take(self.config.preview.max_per_message)
+                    .filter_map(|(fragment_idx, url)| {
+                        match self.previews.get(url) {
+                            Some(preview::State::Loaded(p)) => {
+                                Some((fragment_idx, p as &Preview))
+                            }
+                            _ => None,
+                        }
+                    })
+                    .collect();
+
+                let hidden =
+                    compute_hidden_fragments(fragments, &loaded, self.config);
+
+                (loaded, hidden)
+            } else {
+                (vec![], vec![])
+            };
+
+        let (tooltip_content, show_previews): (Element<_>, bool) = if let Some(
+            redaction,
+        ) =
+            redaction.filter(|_| !use_dimmed_display)
+        {
+            (
+                selectable_text(redaction.message())
+                    .style(dimmed_style)
+                    .into(),
+                false,
+            )
+        } else {
+            let max_chars = self.config.buffer.reply.tooltip.max_chars;
+            let preview = reply.preview_text();
+            let truncated = (max_chars > 0
+                && preview.chars().count() > max_chars)
+                .then(|| {
+                    preview
+                        .chars()
+                        .take(max_chars)
+                        .chain(std::iter::once('…'))
+                        .collect::<String>()
+                });
+
+            if let Some(truncated) = truncated {
+                (selectable_text(truncated).into(), false)
+            } else {
+                (
+                    message_content(
+                        reply,
+                        &hidden_fragments,
+                        self.server,
+                        self.registry,
+                        self.chantypes,
+                        self.casemapping,
+                        self.theme,
+                        Message::Link,
+                        None,
+                        dimmed_style,
+                        theme::font_style::primary,
+                        dimmed.map(|d| {
+                            move |color: Color| d.transform_color(color, bg)
+                        }),
+                        self.config,
+                    ),
+                    true,
+                )
+            }
+        };
+
+        let show_message_content = if hidden_fragments.is_empty() {
+            true
+        } else if let message::Content::Fragments(fragments) = reply {
+            fragments.iter().enumerate().any(|(index, fragment)| {
+                !hidden_fragments.contains(&index)
+                    && !fragment.as_str().trim_end().is_empty()
+            })
+        } else {
+            true
+        };
+
+        let mut content_col = column![].spacing(4);
+        if show_message_content {
+            content_col = content_col.push(tooltip_content);
         }
 
-        let reply_row = r.push(content);
+        if show_previews {
+            for (_, preview) in &loaded {
+                let el = preview_content(preview, self.config, self.theme);
+                let el: Element<_> = match preview {
+                    data::Preview::Card(..) => button(el)
+                        .style(|theme, _| {
+                            theme::button::preview_card(
+                                theme,
+                                // force active state so we don't get the fallback disabled state
+                                // which is unstyled
+                                iced::widget::button::Status::Active,
+                            )
+                        })
+                        .into(),
+                    data::Preview::Image(..) => {
+                        container(el).max_height(200).into()
+                    }
+                };
+                content_col = content_col.push(el);
+            }
+        }
 
-        Some(reply_row.align_y(alignment::Vertical::Center).into())
+        let in_reply_to_row: Option<Element<_>> = in_reply_to.map(|nested| {
+            self.reply_preview_content(
+                Some(nested),
+                false,
+                true,
+                preview_text_size,
+            )
+        });
+
+        let body: Element<_> = row![]
+            .spacing(font::width_from_str(" ", &self.config.font))
+            .extend(self.config.buffer.format_timestamp(&server_time).map(
+                |timestamp| -> Element<_> {
+                    text(timestamp).style(theme::text::timestamp).into()
+                },
+            ))
+            .extend(nick)
+            .push(content_col)
+            .into();
+
+        let outer_col = column![].spacing(4).extend(in_reply_to_row).push(body);
+
+        container(outer_col)
+            .style(theme::container::hover_preview_tooltip)
+            .padding(8)
+            .max_width(self.config.buffer.reply.tooltip.max_width)
+            .into()
     }
 }
 
@@ -1733,4 +1997,45 @@ fn eligible_preview_urls<'a>(
         .filter(|(_, url)| !hidden_urls.contains(*url))
         .take(max_per_message)
         .collect()
+}
+
+// Determines which fragment indices should have their URL text hidden
+fn compute_hidden_fragments(
+    fragments: &[message::Fragment],
+    loaded_previews: &[(usize, &Preview)],
+    config: &data::Config,
+) -> Vec<usize> {
+    let mut hidden = vec![];
+    let mut is_trailing = true;
+
+    for (fragment_index, preview) in loaded_previews.iter().rev() {
+        if is_trailing {
+            let trailing: Vec<_> = fragments
+                .iter()
+                .enumerate()
+                .skip(fragment_index.saturating_add(1))
+                .collect();
+            is_trailing = trailing.is_empty()
+                || trailing.iter().all(|(index, fragment)| {
+                    hidden.contains(index)
+                        || fragment.as_str().trim_end().is_empty()
+                });
+        }
+
+        match config.preview.hide_url_when(preview) {
+            HideUrlCondition::ContainsOnlyUrl => {
+                if fragments.len() == 1 {
+                    hidden.push(*fragment_index);
+                }
+            }
+            HideUrlCondition::Trailing => {
+                if is_trailing {
+                    hidden.push(*fragment_index);
+                }
+            }
+            HideUrlCondition::Never => (),
+        }
+    }
+
+    hidden
 }

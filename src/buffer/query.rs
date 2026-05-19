@@ -113,6 +113,7 @@ pub fn view<'a>(
         theme,
         previews,
         target: TargetInfo::Query { query },
+        history,
     };
 
     let messages = container(

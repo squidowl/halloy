@@ -741,7 +741,7 @@ fn reply_bar<'a>(
         config.buffer.nickname.show_bot_icon,
         registry,
         &config.display.nickname,
-        config.buffer.nickname.truncate,
+        None,
         config.display.truncation_character,
         Some(&config.buffer.nickname.brackets),
         false,

@@ -298,8 +298,25 @@ pub enum Direction {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReplyPreview {
+    pub hash: Hash,
+    pub server_time: DateTime<Utc>,
     pub user: Option<User>,
-    pub text: String,
+    pub content: Content,
+    pub in_reply_to: Option<Box<ReplyPreview>>,
+    pub redaction: Option<Redaction>,
+    pub blocked: bool,
+}
+
+impl ReplyPreview {
+    pub fn preview_text(&self) -> String {
+        if self.blocked {
+            "Message blocked by Halloy configuration".to_string()
+        } else if let Some(redaction) = &self.redaction {
+            redaction.message()
+        } else {
+            self.content.preview_text()
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -829,14 +846,13 @@ impl Message {
 
     pub fn as_reply_preview(&self) -> ReplyPreview {
         ReplyPreview {
+            hash: self.hash,
+            server_time: self.server_time,
             user: self.user().cloned(),
-            text: if self.blocked {
-                "Message blocked by Halloy configuration".to_string()
-            } else if let Some(redaction) = &self.redaction {
-                redaction.message()
-            } else {
-                self.content.preview_text()
-            },
+            content: self.content.clone(),
+            in_reply_to: self.reply_preview.clone().map(Box::new),
+            redaction: self.redaction.clone(),
+            blocked: self.blocked,
         }
     }
 }
