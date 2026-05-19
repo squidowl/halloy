@@ -1735,8 +1735,10 @@ impl<'a> ChannelQueryLayout<'a> {
         let tooltip: Element<'_, _> = if let Some(tooltip) = hover_tooltip {
             iced::widget::tooltip(
                 preview,
-                container(tooltip).padding(iced::Padding::new(0.0).bottom(2.0)),
-                tooltip::Position::TopLeft,
+                container(tooltip).padding(
+                    iced::Padding::new(0.0).bottom(2.0).top(2.0).right(2.0),
+                ),
+                tooltip::Position::SmartTopLeft,
             )
             .delay(delay)
             .padding(0) // this only takes uniform padding; we wrap in a container above to get what we want
