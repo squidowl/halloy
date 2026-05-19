@@ -2151,7 +2151,12 @@ impl Words {
     }
 
     fn select(&mut self) -> Option<String> {
-        let index = if let Self::Selecting { highlighted, .. } = self {
+        let index = if let Self::Selecting {
+            highlighted,
+            show_picker: true,
+            ..
+        } = self
+        {
             highlighted.unwrap_or(0)
         } else {
             return None;
@@ -2161,7 +2166,11 @@ impl Words {
     }
 
     fn select_at(&mut self, index: usize) -> Option<String> {
-        if let Self::Selecting { filtered, .. } = self
+        if let Self::Selecting {
+            filtered,
+            show_picker: true,
+            ..
+        } = self
             && let Some(next) = filtered.get(index).cloned()
         {
             *self = Self::Selected;
@@ -2176,6 +2185,7 @@ impl Words {
         if let Self::Selecting {
             highlighted,
             filtered,
+            show_picker: true,
             ..
         } = self
         {
@@ -2189,7 +2199,11 @@ impl Words {
 
     fn tab_candidate_count(&self) -> Option<usize> {
         match self {
-            Self::Selecting { filtered, .. } => Some(filtered.len()),
+            Self::Selecting {
+                filtered,
+                show_picker: true,
+                ..
+            } => Some(filtered.len()),
             _ => None,
         }
     }
