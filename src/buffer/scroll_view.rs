@@ -26,12 +26,19 @@ use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
 use super::context_menu;
 use crate::widget::user_display::UserDisplay;
-use crate::widget::{Element, on_resize};
+use crate::widget::{Element, notify_visibility, on_resize};
 use crate::{Theme, buffer, font, theme};
 
 const SCROLL_TO_TIMEOUT: Duration = Duration::from_millis(200);
 /// Pages of off-screen messages to keep rendered above and below the viewport
 const BUFFER_PAGES: usize = 3;
+
+const HIGHLIGHT_HOLD_MS: u64 = 2000;
+const HIGHLIGHT_ALPHA_START: f32 = 0.25;
+const HOVER_HIGHLIGHT_ALPHA: f32 = 0.125;
+const HIGHLIGHT_ALPHA_TICK_MS: u64 = 20;
+const HIGHLIGHT_ALPHA_STEP: f32 =
+    HIGHLIGHT_ALPHA_START / (400.0 / HIGHLIGHT_ALPHA_TICK_MS as f32);
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -50,14 +57,17 @@ pub enum Message {
     RequestOlderChatHistory,
     EnteringViewport(message::Hash, Vec<url::Url>),
     ExitingViewport(message::Hash),
-    ReplyPreviewHovered(message::Hash, Vec<url::Url>),
+    ReplyPreviewHovered(message::Hash, message::Hash, Vec<url::Url>),
     ReplyPreviewUnhovered(message::Hash),
+    EnteredViewport(message::Hash),
+    ExitedViewport(message::Hash),
     PreviewHovered(message::Hash, usize),
     PreviewUnhovered(message::Hash, usize),
     HidePreview(message::Hash, url::Url),
     MarkAsRead,
     ContentResized(Size),
     PendingScrollTo,
+    FadeHighlight(message::Hash, u64),
     HeightsCollected(Vec<(message::Hash, f32)>),
     Reacted {
         msgid: message::Id,
@@ -127,6 +137,10 @@ impl From<Kind<'_>> for history::Kind {
 }
 
 pub trait LayoutMessage<'a> {
+    fn should_track_reply_target_visibility(&self) -> bool {
+        false
+    }
+
     fn format(
         &self,
         message: &'a data::Message,
@@ -138,6 +152,7 @@ pub trait LayoutMessage<'a> {
         >,
         visible_url_messages: &HashMap<message::Hash, Vec<url::Url>>,
         hovered_preview: Option<(message::Hash, usize)>,
+        hovered_reply: Option<message::Hash>,
     ) -> Option<Element<'a, Message>>;
 }
 
@@ -161,6 +176,7 @@ where
         >,
         _visible_url_messages: &HashMap<message::Hash, Vec<url::Url>>,
         _hovered_preview: Option<(message::Hash, usize)>,
+        _hovered_reply: Option<message::Hash>,
     ) -> Option<Element<'a, Message>> {
         self(
             message,
@@ -480,6 +496,7 @@ pub fn view<'a>(
                             visible_for_source.as_ref(),
                             &state.visible_url_messages,
                             state.hovered_preview,
+                            state.hover_highlighted_message,
                         )
                         .map(|element| (message, element)),
                 )
@@ -492,6 +509,57 @@ pub fn view<'a>(
                 let is_new_day = last_date.is_none_or(|prev| date > prev);
 
                 *last_date = Some(date);
+
+                let element = if let Some((hash, alpha)) =
+                    state.highlighted_message
+                    && hash == message.hash
+                {
+                    container(element)
+                        .width(Length::Fill)
+                        .style(move |theme| {
+                            theme::container::highlighted_message(theme, alpha)
+                        })
+                        .into()
+                } else if state.hover_highlighted_message == Some(message.hash)
+                {
+                    container(element)
+                        .width(Length::Fill)
+                        .style(move |theme| {
+                            theme::container::highlighted_message(
+                                theme,
+                                HOVER_HIGHLIGHT_ALPHA,
+                            )
+                        })
+                        .into()
+                } else {
+                    element
+                };
+
+                // this prevents flicker when a message sits right at the edge
+                let element =
+                    if formatter.should_track_reply_target_visibility() {
+                        let is_visible =
+                            state.visible_messages.contains(&message.hash);
+                        if is_visible {
+                            notify_visibility(
+                                element,
+                                0.0,
+                                notify_visibility::When::NotContained,
+                                message.hash,
+                                Message::ExitedViewport(message.hash),
+                            )
+                        } else {
+                            notify_visibility(
+                                element,
+                                0.0,
+                                notify_visibility::When::Contained,
+                                message.hash,
+                                Message::EnteredViewport(message.hash),
+                            )
+                        }
+                    } else {
+                        element
+                    };
 
                 let content = if is_new_day
                     && config.buffer.date_separators.show
@@ -724,7 +792,11 @@ pub struct State {
     height_cache: HashMap<message::Hash, f32>,
     pending_scroll_to: Option<keyed::Key>,
     is_scrolling_to: bool,
+    highlighted_message: Option<(message::Hash, f32)>,
+    hover_highlighted_message: Option<message::Hash>,
+    highlight_generation: u64,
     visible_url_messages: HashMap<message::Hash, Vec<url::Url>>,
+    visible_messages: HashSet<message::Hash>,
     pending_preview_exits: HashSet<message::Hash>,
     reply_preview_urls: HashMap<message::Hash, Vec<url::Url>>,
     hovered_preview: Option<(message::Hash, usize)>,
@@ -744,7 +816,12 @@ impl State {
             height_cache: HashMap::new(),
             pending_scroll_to: None,
             is_scrolling_to: false,
+            highlighted_message: None,
+            hover_highlighted_message: None,
+            highlight_generation: 0,
+
             visible_url_messages: HashMap::new(),
+            visible_messages: HashSet::new(),
             pending_preview_exits: HashSet::new(),
             reply_preview_urls: HashMap::new(),
             hovered_preview: None,
@@ -991,19 +1068,41 @@ impl State {
                 );
             }
             Message::ScrollTo(keyed::Hit {
-                key: _,
+                key,
                 hit_bounds,
                 scrollable,
             }) => {
                 self.is_scrolling_to = false;
 
+                let fade_task = if let keyed::Key::Message(hash) = key {
+                    self.highlight_generation += 1;
+                    let generation = self.highlight_generation;
+                    self.highlighted_message =
+                        Some((hash, HIGHLIGHT_ALPHA_START));
+                    Task::perform(
+                        time::sleep(Duration::from_millis(HIGHLIGHT_HOLD_MS)),
+                        move |()| Message::FadeHighlight(hash, generation),
+                    )
+                } else {
+                    Task::none()
+                };
+
                 let max_offset = scrollable.max_vertical_offset();
 
-                let top_inset = theme::resolve_line_height(&config.font) * 0.5;
+                let content_y = hit_bounds.y - scrollable.content.y;
+                let viewport_top = scrollable.offset.y;
+                let viewport_bottom =
+                    scrollable.offset.y + scrollable.viewport.height;
+                let is_visible = content_y >= viewport_top
+                    && content_y + hit_bounds.height <= viewport_bottom;
 
-                let offset = (hit_bounds.y - scrollable.content.y - top_inset)
-                    .max(0.0)
-                    .min(max_offset);
+                if is_visible {
+                    return (fade_task, None);
+                }
+
+                let inset = theme::resolve_line_height(&config.font) * 0.5;
+
+                let offset = (content_y - inset).max(0.0).min(max_offset);
 
                 if (offset - max_offset).abs() <= f32::EPSILON {
                     self.status = Status::Bottom;
@@ -1016,20 +1115,29 @@ impl State {
                     }
 
                     return (
-                        correct_viewport::scroll_to(
-                            self.scrollable.clone(),
-                            scrollable::AbsoluteOffset { x: 0.0, y: 0.0 },
-                        ),
+                        Task::batch([
+                            correct_viewport::scroll_to(
+                                self.scrollable.clone(),
+                                scrollable::AbsoluteOffset { x: 0.0, y: 0.0 },
+                            ),
+                            fade_task,
+                        ]),
                         None,
                     );
                 } else {
                     self.status = Status::Unlocked;
 
                     return (
-                        correct_viewport::scroll_to(
-                            self.scrollable.clone(),
-                            scrollable::AbsoluteOffset { x: 0.0, y: offset },
-                        ),
+                        Task::batch([
+                            correct_viewport::scroll_to(
+                                self.scrollable.clone(),
+                                scrollable::AbsoluteOffset {
+                                    x: 0.0,
+                                    y: offset,
+                                },
+                            ),
+                            fade_task,
+                        ]),
                         None,
                     );
                 }
@@ -1074,13 +1182,29 @@ impl State {
                 }
                 return (Task::none(), None);
             }
-            Message::ReplyPreviewHovered(hash, urls) => {
-                let prev = self.reply_preview_urls.insert(hash, urls);
-                if prev.is_none() {
-                    return (Task::none(), Some(Event::PreviewChanged));
+            Message::EnteredViewport(hash) => {
+                self.visible_messages.insert(hash);
+            }
+            Message::ExitedViewport(hash) => {
+                self.visible_messages.remove(&hash);
+            }
+            Message::ReplyPreviewHovered(hash, reply_hash, urls) => {
+                if config.buffer.reply.highlight_hovered_message
+                    && self.visible_messages.contains(&reply_hash)
+                {
+                    self.hover_highlighted_message = Some(reply_hash);
+                } else {
+                    self.hover_highlighted_message = None;
+                    if !urls.is_empty() {
+                        let prev = self.reply_preview_urls.insert(hash, urls);
+                        if prev.is_none() {
+                            return (Task::none(), Some(Event::PreviewChanged));
+                        }
+                    }
                 }
             }
             Message::ReplyPreviewUnhovered(hash) => {
+                self.hover_highlighted_message = None;
                 if self.reply_preview_urls.remove(&hash).is_some() {
                     return (Task::none(), Some(Event::PreviewChanged));
                 }
@@ -1123,6 +1247,30 @@ impl State {
                     return (scroll_to, None);
                 }
             }
+            Message::FadeHighlight(hash, generation) => {
+                if let Some((current_hash, alpha)) =
+                    &mut self.highlighted_message
+                    && *current_hash == hash
+                    && generation == self.highlight_generation
+                {
+                    *alpha -= HIGHLIGHT_ALPHA_STEP;
+                    if *alpha <= 0.0 {
+                        self.highlighted_message = None;
+                    } else {
+                        return (
+                            Task::perform(
+                                time::sleep(Duration::from_millis(
+                                    HIGHLIGHT_ALPHA_TICK_MS,
+                                )),
+                                move |()| {
+                                    Message::FadeHighlight(hash, generation)
+                                },
+                            ),
+                            None,
+                        );
+                    }
+                }
+            }
             Message::HeightsCollected(heights) => {
                 for (hash, height) in &heights {
                     self.height_cache.insert(*hash, *height);
@@ -1130,7 +1278,9 @@ impl State {
 
                 let mut preview_changed = false;
 
-                if !self.pending_preview_exits.is_empty() {
+                if !self.pending_preview_exits.is_empty()
+                    || !self.visible_messages.is_empty()
+                {
                     let rendered_hashes = heights
                         .iter()
                         .map(|(hash, _)| *hash)
@@ -1151,6 +1301,9 @@ impl State {
                     }
 
                     self.pending_preview_exits = still_pending;
+
+                    self.visible_messages
+                        .retain(|hash| rendered_hashes.contains(hash));
                 }
 
                 let event = preview_changed.then_some(Event::PreviewChanged);

@@ -302,6 +302,9 @@ impl Buffer {
                     channel::Event::ContractMessage(server_time, hash) => {
                         Event::ContractMessage(server_time, hash)
                     }
+                    channel::Event::GoToMessage(server, channel, hash) => {
+                        Event::GoToMessage(server, channel, hash)
+                    }
                     channel::Event::InputSent {
                         history_task,
                         open_buffers,

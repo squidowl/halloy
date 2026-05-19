@@ -195,6 +195,22 @@ pub fn bare(_theme: &Theme, status: Status) -> Style {
     }
 }
 
+pub fn reply_preview(theme: &Theme, status: Status) -> Style {
+    let text = theme.styles().text;
+    Style {
+        background: Some(Background::Color(Color::TRANSPARENT)),
+        text_color: match status {
+            Status::Active | Status::Pressed => text.secondary.color,
+            Status::Hovered => text.primary.color,
+            Status::Disabled => Color {
+                a: 0.2,
+                ..text.secondary.color
+            },
+        },
+        ..Default::default()
+    }
+}
+
 pub fn preview_card(theme: &Theme, status: Status) -> Style {
     let foreground = theme.styles().text.primary.color;
     let background = theme.styles().buttons.secondary.background;
