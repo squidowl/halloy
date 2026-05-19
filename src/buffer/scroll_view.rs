@@ -1075,8 +1075,10 @@ impl State {
                 return (Task::none(), None);
             }
             Message::ReplyPreviewHovered(hash, urls) => {
-                self.reply_preview_urls.insert(hash, urls);
-                return (Task::none(), Some(Event::PreviewChanged));
+                let prev = self.reply_preview_urls.insert(hash, urls);
+                if prev.is_none() {
+                    return (Task::none(), Some(Event::PreviewChanged));
+                }
             }
             Message::ReplyPreviewUnhovered(hash) => {
                 if self.reply_preview_urls.remove(&hash).is_some() {
@@ -1128,38 +1130,27 @@ impl State {
 
                 let mut preview_changed = false;
 
-                if !self.pending_preview_exits.is_empty()
-                    || !self.reply_preview_urls.is_empty()
-                {
+                if !self.pending_preview_exits.is_empty() {
                     let rendered_hashes = heights
                         .iter()
                         .map(|(hash, _)| *hash)
                         .collect::<HashSet<_>>();
 
-                    if !self.pending_preview_exits.is_empty() {
-                        let mut still_pending = HashSet::new();
+                    let mut still_pending = HashSet::new();
 
-                        for hash in self.pending_preview_exits.drain() {
-                            if rendered_hashes.contains(&hash) {
-                                still_pending.insert(hash);
-                            } else if self
-                                .visible_url_messages
-                                .remove(&hash)
-                                .is_some()
-                            {
-                                preview_changed = true;
-                            }
+                    for hash in self.pending_preview_exits.drain() {
+                        if rendered_hashes.contains(&hash) {
+                            still_pending.insert(hash);
+                        } else if self
+                            .visible_url_messages
+                            .remove(&hash)
+                            .is_some()
+                        {
+                            preview_changed = true;
                         }
-
-                        self.pending_preview_exits = still_pending;
                     }
 
-                    let before = self.reply_preview_urls.len();
-                    self.reply_preview_urls
-                        .retain(|hash, _| rendered_hashes.contains(hash));
-                    if self.reply_preview_urls.len() < before {
-                        preview_changed = true;
-                    }
+                    self.pending_preview_exits = still_pending;
                 }
 
                 let event = preview_changed.then_some(Event::PreviewChanged);
