@@ -1710,3 +1710,16 @@ Maximum width of the hover tooltip in pixels.
 [buffer.reply.tooltip]
 max_width = 400.0
 ```
+
+#### `max_chars`
+
+Maximum number of characters to show before truncating. Set to `0` to disable.
+
+```toml
+# Type: integer
+# Values: non-negative integer
+# Default: 1024
+
+[buffer.reply.tooltip]
+max_chars = 0
+```

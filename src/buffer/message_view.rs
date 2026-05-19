@@ -1842,26 +1842,42 @@ impl<'a> ChannelQueryLayout<'a> {
                 false,
             )
         } else {
-            (
-                message_content(
-                    reply,
-                    &hidden_fragments,
-                    self.server,
-                    self.registry,
-                    self.chantypes,
-                    self.casemapping,
-                    self.theme,
-                    Message::Link,
-                    None,
-                    dimmed_style,
-                    theme::font_style::primary,
-                    dimmed.map(|d| {
-                        move |color: Color| d.transform_color(color, bg)
-                    }),
-                    self.config,
-                ),
-                true,
-            )
+            let max_chars = self.config.buffer.reply.tooltip.max_chars;
+            let preview = reply.preview_text();
+            let truncated = (max_chars > 0
+                && preview.chars().count() > max_chars)
+                .then(|| {
+                    preview
+                        .chars()
+                        .take(max_chars)
+                        .chain(std::iter::once('…'))
+                        .collect::<String>()
+                });
+
+            if let Some(truncated) = truncated {
+                (selectable_text(truncated).into(), false)
+            } else {
+                (
+                    message_content(
+                        reply,
+                        &hidden_fragments,
+                        self.server,
+                        self.registry,
+                        self.chantypes,
+                        self.casemapping,
+                        self.theme,
+                        Message::Link,
+                        None,
+                        dimmed_style,
+                        theme::font_style::primary,
+                        dimmed.map(|d| {
+                            move |color: Color| d.transform_color(color, bg)
+                        }),
+                        self.config,
+                    ),
+                    true,
+                )
+            }
         };
 
         let show_message_content = if hidden_fragments.is_empty() {

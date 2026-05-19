@@ -104,6 +104,7 @@ pub struct ReplyTooltip {
     pub enabled: bool,
     pub delay: u64,
     pub max_width: f32,
+    pub max_chars: usize,
 }
 
 impl Default for ReplyTooltip {
@@ -111,7 +112,8 @@ impl Default for ReplyTooltip {
         Self {
             enabled: true,
             delay: 500,
-            max_width: 500.0,
+            max_width: 600.0,
+            max_chars: 1024,
         }
     }
 }
