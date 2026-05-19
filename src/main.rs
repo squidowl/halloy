@@ -305,6 +305,22 @@ pub enum Message {
 }
 
 impl Halloy {
+    fn save_main_window_settings(&self) -> Task<Message> {
+        let main_window = self.main_window;
+
+        iced::window::position(main_window.id).then(move |position| {
+            let mut main_window = main_window;
+            if let Some(position) = position {
+                main_window.position = Some(position);
+            }
+
+            Task::perform(
+                data::Window::from(main_window).save(),
+                Message::WindowSettingsSaved,
+            )
+        })
+    }
+
     fn new(
         config_load: Result<Config, config::Error>,
         window_load: Result<data::Window, window::Error>,
@@ -470,10 +486,7 @@ impl Halloy {
                 let event_task = match event {
                     Some(dashboard::Event::ToggleFullscreen) => {
                         self.main_window.toggle_fullscreen();
-                        Task::perform(
-                            data::Window::from(self.main_window).save(),
-                            Message::WindowSettingsSaved,
-                        )
+                        self.save_main_window_settings()
                     }
                     Some(dashboard::Event::ConfigReloaded(config)) => {
                         self.config_file_reloaded(config)
@@ -1074,10 +1087,7 @@ impl Halloy {
                             self.main_window.opened(position, size);
                         }
                         window::Event::CloseRequested => {
-                            let save = Task::perform(
-                                data::Window::from(self.main_window).save(),
-                                Message::WindowSettingsSaved,
-                            );
+                            let save = self.save_main_window_settings();
 
                             if let Screen::Dashboard(dashboard) =
                                 &mut self.screen
@@ -1152,10 +1162,7 @@ impl Halloy {
             }
             Message::WindowMaximizeChecked(is_maximized) => {
                 self.main_window.update_maximize(is_maximized);
-                Task::perform(
-                    data::Window::from(self.main_window).save(),
-                    Message::WindowSettingsSaved,
-                )
+                self.save_main_window_settings()
             }
             Message::WindowSettingsSaved(result) => {
                 if let Err(err) = result {

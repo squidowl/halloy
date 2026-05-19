@@ -9,6 +9,7 @@ use tokio::fs;
 use crate::environment;
 
 pub const MIN_SIZE: Size = Size::new(426.0, 240.0);
+const MIN_VISIBLE_SIZE: Size = Size::new(64.0, 64.0);
 
 pub mod position;
 pub mod size;
@@ -53,8 +54,8 @@ impl Window {
 
         let size = size.max(MIN_SIZE);
         let position = position
-            .filter(|pos| pos.y.is_sign_positive() && pos.x.is_sign_positive())
-            .filter(|pos| is_position_valid(*pos));
+            .filter(|pos| pos.x.is_finite() && pos.y.is_finite())
+            .filter(|pos| is_position_valid(*pos, size));
 
         Ok(Window {
             position,
@@ -85,9 +86,37 @@ fn path() -> Result<PathBuf, Error> {
 }
 
 /// Check if a window position is valid (within visible screen bounds)
-fn is_position_valid(position: Point) -> bool {
-    display_info::DisplayInfo::from_point(position.x as i32, position.y as i32)
-        .is_ok()
+fn is_position_valid(position: Point, size: Size) -> bool {
+    display_info::DisplayInfo::all().is_ok_and(|displays| {
+        displays
+            .iter()
+            .any(|display| window_has_visible_area(position, size, display))
+    })
+}
+
+/// Returns true if enough of the saved window would be visible to recover it.
+fn window_has_visible_area(
+    position: Point,
+    size: Size,
+    display: &display_info::DisplayInfo,
+) -> bool {
+    let window_left = position.x;
+    let window_top = position.y;
+    let window_right = position.x + size.width;
+    let window_bottom = position.y + size.height;
+
+    let display_left = display.x as f32;
+    let display_top = display.y as f32;
+    let display_right = display_left + display.width as f32;
+    let display_bottom = display_top + display.height as f32;
+
+    let visible_width =
+        window_right.min(display_right) - window_left.max(display_left);
+    let visible_height =
+        window_bottom.min(display_bottom) - window_top.max(display_top);
+
+    visible_width >= MIN_VISIBLE_SIZE.width
+        && visible_height >= MIN_VISIBLE_SIZE.height
 }
 
 #[derive(Debug, Clone, thiserror::Error)]
