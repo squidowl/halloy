@@ -1670,6 +1670,19 @@ This is useful for clients that don't support replies, as they may not otherwise
 insert_nick = false
 ```
 
+### `hide_redundant_mentions`
+
+When a reply message starts with `alice: ` and is directed at the person being replied to, hide the leading mention in the text.
+
+```toml
+# Type: bool
+# Values: true, false
+# Default: true
+
+[buffer.reply]
+hide_redundant_mentions = false
+```
+
 ### `tooltip`
 
 #### `enabled`

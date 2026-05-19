@@ -145,6 +145,7 @@ pub fn view<'a>(
                                 )
                             },
                             Option::<fn(Color) -> Color>::None,
+                            None,
                             config,
                         );
 
@@ -179,6 +180,7 @@ pub fn view<'a>(
                                 theme::font_style::status(theme, *status)
                             },
                             Option::<fn(Color) -> Color>::None,
+                            None,
                             config,
                         );
 
@@ -268,6 +270,7 @@ pub fn view<'a>(
                             },
                             theme::font_style::primary,
                             Option::<fn(Color) -> Color>::None,
+                            None,
                             config,
                         );
 

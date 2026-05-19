@@ -23,6 +23,7 @@ pub fn message_content<'a, M: 'a + std::clone::Clone>(
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
     font_style: impl Fn(&Theme) -> Option<FontStyle>,
     color_transformation: Option<impl Fn(Color) -> Color>,
+    nick_prefix_to_strip: Option<&str>,
     config: &Config,
 ) -> Element<'a, M> {
     message_content_impl::<(), M>(
@@ -39,6 +40,7 @@ pub fn message_content<'a, M: 'a + std::clone::Clone>(
         font_style,
         color_transformation,
         Option::<(fn(&message::Link) -> _, fn(&message::Link, _, _) -> _)>::None,
+        nick_prefix_to_strip,
         config,
     )
 }
@@ -58,6 +60,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
     color_transformation: Option<impl Fn(Color) -> Color>,
     link_entries: impl Fn(&message::Link) -> Vec<T> + 'a,
     entry: impl Fn(&message::Link, T, Length) -> Element<'a, M> + 'a,
+    nick_prefix_to_strip: Option<&str>,
     config: &Config,
 ) -> Element<'a, M> {
     message_content_impl(
@@ -74,6 +77,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
         font_style,
         color_transformation,
         Some((link_entries, entry)),
+        nick_prefix_to_strip,
         config,
     )
 }
@@ -96,6 +100,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
         impl Fn(&message::Link) -> Vec<T> + 'a,
         impl Fn(&message::Link, T, Length) -> Element<'a, M> + 'a,
     )>,
+    nick_prefix_to_strip: Option<&str>,
     config: &Config,
 ) -> Element<'a, M> {
     let color_from_user = |user: &User| -> Color {
@@ -123,17 +128,22 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
 
     match content {
         data::message::Content::Plain(text) => {
+            let display_text: &str = nick_prefix_to_strip
+                .and_then(|nick| strip_leading_nick(text.as_str(), nick))
+                .filter(|s| !s.is_empty())
+                .unwrap_or(text.as_str());
+
             let selectable_text = if let Some(only_emojis_size) =
                 config.font.only_emojis_size
-                && UnicodeSegmentation::graphemes(text.as_str(), true)
+                && UnicodeSegmentation::graphemes(display_text, true)
                     .all(|grapheme| emojis::get(grapheme).is_some())
             {
-                selectable_text(text)
+                selectable_text(display_text)
                     .font_maybe(font_style(theme).map(font::get))
                     .size(f32::from(only_emojis_size))
                     .style(style)
             } else {
-                selectable_text(text)
+                selectable_text(display_text)
                     .font_maybe(font_style(theme).map(font::get))
                     .style(style)
             };
@@ -149,6 +159,10 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
             }
         }
         data::message::Content::Fragments(fragments) => {
+            let (prefix_skip_until, prefix_text_override) =
+                nick_prefix_to_strip.map_or((0, None), |nick| {
+                    leading_nick_offsets(fragments, nick)
+                });
             let mut text = selectable_rich_text::<
                 M,
                 message::Link,
@@ -160,7 +174,9 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                     .iter()
                     .enumerate()
                     .filter_map(|(index, fragment)| {
-                        if hidden_fragments.contains(&index) {
+                        if hidden_fragments.contains(&index)
+                            || index < prefix_skip_until
+                        {
                             return None;
                         }
 
@@ -175,7 +191,14 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                         };
 
                         let span = match fragment {
-                            data::message::Fragment::Text(s) => span(s),
+                            data::message::Fragment::Text(s) => {
+                                let text = prefix_text_override
+                                    .and_then(|(idx, t)| {
+                                        (idx == index).then_some(t)
+                                    })
+                                    .unwrap_or(s.as_str());
+                                span(text)
+                            }
                             data::message::Fragment::Channel(s) => {
                                 span(s.as_str())
                                     .font_maybe(
@@ -373,5 +396,58 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                 .style(style)
                 .into()
         }
+    }
+}
+
+pub(crate) fn strip_leading_nick<'a>(
+    text: &'a str,
+    nick: &str,
+) -> Option<&'a str> {
+    let prefix_len = nick.len() + 2;
+    if text.len() >= prefix_len
+        && text[..nick.len()].eq_ignore_ascii_case(nick)
+        && text[nick.len()..].starts_with(": ")
+    {
+        Some(&text[prefix_len..])
+    } else {
+        None
+    }
+}
+
+fn is_nick_fragment(fragment: &data::message::Fragment, nick: &str) -> bool {
+    match fragment {
+        data::message::Fragment::User(_, text)
+        | data::message::Fragment::HighlightNick(_, text) => {
+            text.eq_ignore_ascii_case(nick)
+        }
+        _ => false,
+    }
+}
+
+fn leading_nick_offsets<'a>(
+    fragments: &'a [data::message::Fragment],
+    nick: &str,
+) -> (usize, Option<(usize, &'a str)>) {
+    match fragments {
+        [data::message::Fragment::Text(text), remaining @ ..] => {
+            match strip_leading_nick(text.as_str(), nick) {
+                Some(rest) if !rest.is_empty() => (0, Some((0, rest))),
+                Some(_) if !remaining.is_empty() => (1, None),
+                _ => (0, None),
+            }
+        }
+        [first, data::message::Fragment::Text(text), remaining @ ..]
+            if is_nick_fragment(first, nick) && text.starts_with(": ") =>
+        {
+            let rest = &text[2..];
+            if !rest.is_empty() {
+                (1, Some((1, rest)))
+            } else if !remaining.is_empty() {
+                (2, None)
+            } else {
+                (0, None)
+            }
+        }
+        _ => (0, None),
     }
 }

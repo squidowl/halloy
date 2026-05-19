@@ -5,7 +5,7 @@ use iced::widget::text::Wrapping;
 use iced::widget::{row, text};
 
 use crate::widget::user_display::UserDisplay;
-use crate::widget::{Element, Marker, message_marker};
+use crate::widget::{Element, Marker, message_content, message_marker};
 use crate::{Theme, font, icon, theme};
 
 /// Generates an element like `↩ alice: hi bob`
@@ -120,7 +120,29 @@ pub fn reply_preview_content<'a, Message: 'a + std::clone::Clone>(
         }
     }
 
-    let preview_text: Element<_> = text(reply.preview_text())
+    let preview_text_str = reply.preview_text();
+    let inline_reply_nick = config
+        .buffer
+        .reply
+        .hide_redundant_mentions
+        .then(|| {
+            reply
+                .in_reply_to
+                .as_deref()
+                .and_then(|p| p.user.as_ref())
+                .map(|u| u.nickname().as_str().to_owned())
+        })
+        .flatten();
+    let preview = inline_reply_nick
+        .as_deref()
+        .and_then(|nick| {
+            message_content::strip_leading_nick(&preview_text_str, nick)
+        })
+        .filter(|s| !s.is_empty())
+        .map(std::borrow::ToOwned::to_owned)
+        .unwrap_or(preview_text_str);
+
+    let preview_text: Element<_> = text(preview)
         .style(move |t: &Theme| {
             if reply.is_action {
                 iced::widget::text::Style {
