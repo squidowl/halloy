@@ -36,6 +36,7 @@ Fixed:
 - `VERSION` and `JOIN` commands on connect are skipped if server is primary soju server
 - `tor` enabled builds
 - Issue where a shorter highlight word would match instead of a longer one sharing the same prefix
+- Emoji pickers not finding newer emoji like 🙂‍↕️
 
 Changed:
 
