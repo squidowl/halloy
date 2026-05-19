@@ -1736,7 +1736,7 @@ impl<'a> ChannelQueryLayout<'a> {
             iced::widget::tooltip(
                 preview,
                 container(tooltip).padding(
-                    iced::Padding::new(0.0).bottom(2.0).top(2.0).right(2.0),
+                    iced::Padding::new(0.0).bottom(4.0).top(4.0).right(4.0),
                 ),
                 tooltip::Position::TopLeft,
             )
