@@ -1880,7 +1880,7 @@ impl<'a> ChannelQueryLayout<'a> {
                             theme::button::preview_card(
                                 theme,
                                 // force active state so we don't get the fallback disabled state
-                                // which looks visually different
+                                // which is unstyled
                                 iced::widget::button::Status::Active,
                             )
                         })
