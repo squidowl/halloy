@@ -1732,7 +1732,7 @@ impl<'a> ChannelQueryLayout<'a> {
         );
         let reply_urls = self.reply_preview_urls(message);
 
-        let tooltip: Element<'_, _> = if let Some(tooltip) = hover_tooltip {
+        let preview: Element<'_, _> = if let Some(tooltip) = hover_tooltip {
             iced::widget::tooltip(
                 preview,
                 container(tooltip).padding(
@@ -1748,8 +1748,8 @@ impl<'a> ChannelQueryLayout<'a> {
             preview
         };
 
-        let tooltip: Element<'_, _> = if !reply_urls.is_empty() {
-            mouse_area(tooltip)
+        let preview: Element<'_, _> = if !reply_urls.is_empty() {
+            mouse_area(preview)
                 .on_enter(Message::ReplyPreviewHovered(
                     message.hash,
                     reply_urls,
@@ -1757,10 +1757,10 @@ impl<'a> ChannelQueryLayout<'a> {
                 .on_exit(Message::ReplyPreviewUnhovered(message.hash))
                 .into()
         } else {
-            tooltip
+            preview
         };
 
-        row = row.push(tooltip);
+        row = row.push(preview);
 
         Some(row.align_y(alignment::Vertical::Center).into())
     }
