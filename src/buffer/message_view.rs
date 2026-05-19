@@ -1738,10 +1738,11 @@ impl<'a> ChannelQueryLayout<'a> {
                 container(tooltip).padding(
                     iced::Padding::new(0.0).bottom(2.0).top(2.0).right(2.0),
                 ),
-                tooltip::Position::SmartTopLeft,
+                tooltip::Position::TopLeft,
             )
-            .delay(delay)
+            .smart_placement(true)
             .padding(0) // this only takes uniform padding; we wrap in a container above to get what we want
+            .delay(delay)
             .into()
         } else {
             preview
