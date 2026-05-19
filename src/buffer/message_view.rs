@@ -24,8 +24,8 @@ use crate::buffer::scroll_view::{LayoutMessage, Message};
 use crate::widget::reaction_row::{has_visible_reactions, reaction_row};
 use crate::widget::user_display::UserDisplay;
 use crate::widget::{
-    Element, Marker, element_tooltip, message_content, message_marker,
-    notify_visibility, preview_content, selectable_text, tooltip,
+    Element, Marker, message_content, message_marker, notify_visibility,
+    preview_content, selectable_text, tooltip,
 };
 use crate::{Theme, font, icon, theme};
 
@@ -1593,7 +1593,7 @@ impl<'a> ChannelQueryLayout<'a> {
         let preview_text_size = text_size * 0.85;
         let show_reply_icon = self.config.buffer.reply.show_icon;
 
-        let mut tooltip: Option<Element<'_, _>> = None;
+        let mut hover_tooltip: Option<Element<'_, _>> = None;
 
         let preview: Element<'_, _> = if let Some(reply_preview) =
             &message.reply_preview
@@ -1646,7 +1646,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     None
                 };
 
-            tooltip = (self.config.buffer.reply.tooltip.enabled
+            hover_tooltip = (self.config.buffer.reply.tooltip.enabled
                 && !reply_blocked)
                 .then(|| {
                     let tooltip_nick =
@@ -1726,23 +1726,27 @@ impl<'a> ChannelQueryLayout<'a> {
         }
         .spacing(char_width);
 
-        row = row.push(preview);
-
+        // add a hover preview
         let delay = iced::time::Duration::from_millis(
             self.config.buffer.reply.tooltip.delay,
         );
-
-        let element = element_tooltip(
-            row.align_y(alignment::Vertical::Center),
-            tooltip,
-            tooltip::Position::FollowCursor,
-            delay,
-        );
-
         let reply_urls = self.reply_preview_urls(message);
 
-        let element = if !reply_urls.is_empty() {
-            mouse_area(element)
+        let tooltip: Element<'_, _> = if let Some(tooltip) = hover_tooltip {
+            iced::widget::tooltip(
+                preview,
+                container(tooltip).padding(iced::Padding::new(0.0).bottom(2.0)),
+                tooltip::Position::TopLeft,
+            )
+            .delay(delay)
+            .padding(0) // this only takes uniform padding; we wrap in a container above to get what we want
+            .into()
+        } else {
+            preview
+        };
+
+        let tooltip: Element<'_, _> = if !reply_urls.is_empty() {
+            mouse_area(tooltip)
                 .on_enter(Message::ReplyPreviewHovered(
                     message.hash,
                     reply_urls,
@@ -1750,10 +1754,12 @@ impl<'a> ChannelQueryLayout<'a> {
                 .on_exit(Message::ReplyPreviewUnhovered(message.hash))
                 .into()
         } else {
-            element
+            tooltip
         };
 
-        Some(element)
+        row = row.push(tooltip);
+
+        Some(row.align_y(alignment::Vertical::Center).into())
     }
 
     /// Generates the hover preview for a reply

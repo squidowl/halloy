@@ -7,20 +7,6 @@ use iced::widget::{container, text};
 use super::Element;
 use crate::{Theme, font, theme};
 
-pub fn element_tooltip<'a, Message: 'a>(
-    content: impl Into<Element<'a, Message>>,
-    tooltip: Option<Element<'a, Message>>,
-    position: Position,
-    delay: iced::time::Duration,
-) -> Element<'a, Message> {
-    match tooltip {
-        Some(tooltip) => iced::widget::tooltip(content, tooltip, position)
-            .delay(delay)
-            .into(),
-        None => content.into(),
-    }
-}
-
 pub fn tooltip<'a, Message: 'a>(
     content: impl Into<Element<'a, Message>>,
     tooltip: Option<impl Into<Cow<'a, str>>>,

@@ -20,7 +20,7 @@ pub use self::preview::preview_content;
 pub use self::selectable_rich_text::selectable_rich_text;
 pub use self::selectable_text::selectable_text;
 pub use self::shortcut::shortcut;
-pub use self::tooltip::{element_tooltip, tooltip};
+pub use self::tooltip::tooltip;
 use crate::appearance::theme::{self, ICON_SIZE, TEXT_SIZE};
 use crate::{Theme, font};
 
