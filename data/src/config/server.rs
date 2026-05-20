@@ -8,6 +8,7 @@ use serde::{Deserialize, Deserializer};
 use tokio::fs;
 use tokio::process::Command;
 
+use self::bouncer::BouncerConfig;
 use self::filehost::Filehost;
 use self::icon::Icon;
 use crate::config::inclusivities::{
@@ -21,6 +22,7 @@ use crate::serde::{
 };
 use crate::{config, isupport, metadata, target};
 
+pub mod bouncer;
 pub mod filehost;
 pub mod filters;
 pub mod icon;
@@ -145,6 +147,7 @@ pub struct Server {
     pub filehost: Filehost,
     pub metadata: HashMap<metadata::Key, String>,
     pub icon: Icon,
+    pub bouncer: Option<BouncerConfig>,
 }
 
 impl Server {
@@ -278,6 +281,7 @@ impl Default for Server {
             filehost: Filehost::default(),
             metadata: HashMap::default(),
             icon: Icon::default(),
+            bouncer: None,
         }
     }
 }

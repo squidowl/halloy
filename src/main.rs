@@ -1931,6 +1931,12 @@ fn handle_client_events(
                 dashboard.set_reroute_rules(servers, clients);
 
                 dashboard.update_filters(servers, clients, &config.buffer);
+
+                commands.push(
+                    dashboard
+                        .request_override_server_icons(servers)
+                        .map(Message::Dashboard),
+                );
             }
             Event::AddToSidebar(query) => {
                 dashboard.add_to_sidebar(server.clone(), query);
