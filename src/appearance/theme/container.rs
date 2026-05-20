@@ -161,10 +161,7 @@ pub fn error_tooltip(theme: &Theme) -> Style {
 }
 
 pub fn highlighted_message(theme: &Theme, alpha: f32) -> Style {
-    let general = theme.styles().general;
-    let color = general
-        .highlight_indicator
-        .unwrap_or(general.unread_indicator);
+    let color = theme.styles().buffer.highlight;
 
     Style {
         background: Some(Background::Color(Color { a: alpha, ..color })),
