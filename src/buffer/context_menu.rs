@@ -19,6 +19,8 @@ use crate::widget::{
 };
 use crate::{Theme, font, theme, widget};
 
+const AVATAR_SIZE: u16 = 36;
+
 pub enum Context<'a> {
     User {
         server: &'a Server,
@@ -1297,26 +1299,24 @@ fn user_metadata<'a>(
     theme: &'a Theme,
     length: Length,
 ) -> Element<'a, Message> {
-    const AVATAR_SIZE: f32 = 36.0;
-
     let query = target::Query::from(user);
     let avatar: Option<Element<'a, Message>> = avatar.map(|avatar| {
         let content: Element<'a, Message> = match avatar {
             UserAvatar::Loaded(data) => {
                 container(image::from_data(data, true, ContentFit::Cover))
-                    .width(AVATAR_SIZE)
-                    .height(AVATAR_SIZE)
+                    .width(f32::from(AVATAR_SIZE))
+                    .height(f32::from(AVATAR_SIZE))
                     .into()
             }
             UserAvatar::Pending => Space::new()
-                .width(Length::Fixed(AVATAR_SIZE))
-                .height(Length::Fixed(AVATAR_SIZE))
+                .width(Length::Fixed(f32::from(AVATAR_SIZE)))
+                .height(Length::Fixed(f32::from(AVATAR_SIZE)))
                 .into(),
         };
 
         container(content)
-            .width(Length::Fixed(AVATAR_SIZE))
-            .height(Length::Fixed(AVATAR_SIZE))
+            .width(Length::Fixed(f32::from(AVATAR_SIZE)))
+            .height(Length::Fixed(f32::from(AVATAR_SIZE)))
             .into()
     });
     let rows = config
@@ -1411,7 +1411,12 @@ fn avatar_url(
 ) -> Option<url::Url> {
     let query = target::Query::from(user);
     let avatar = registry.avatar(target::TargetRef::Query(&query))?;
-    url::Url::parse(avatar).ok()
+
+    // Replace optional `{size}` in the avatar URL with the display size
+    // https://ircv3.net/registry#user-metadata
+    let sized_avatar = avatar.replace("{size}", &format!("{AVATAR_SIZE}"));
+
+    url::Url::parse(&sized_avatar).ok()
 }
 
 pub fn user_avatar<'a>(
