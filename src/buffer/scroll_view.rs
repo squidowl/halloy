@@ -1100,9 +1100,7 @@ impl State {
                     return (fade_task, None);
                 }
 
-                let inset = theme::resolve_line_height(&config.font) * 0.5;
-
-                let offset = (content_y - inset).max(0.0).min(max_offset);
+                let offset = content_y.max(0.0).min(max_offset);
 
                 if (offset - max_offset).abs() <= f32::EPSILON {
                     self.status = Status::Bottom;
