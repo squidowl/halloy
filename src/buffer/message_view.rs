@@ -11,7 +11,7 @@ use data::redaction::Redaction;
 use data::server::Server;
 use data::user::{ChannelUsers, NickRef};
 use data::{Config, Preview, User, history, message, metadata, target};
-use iced::widget::text::LineHeight;
+use iced::widget::text::{LineHeight, Wrapping};
 use iced::widget::{
     Space, button, center, column, container, mouse_area, right, row, space,
     stack, text,
@@ -1620,39 +1620,37 @@ impl<'a> ChannelQueryLayout<'a> {
 
         // right-aligned: fixed short arm offset to content column.
         // left-aligned / top-aligned: arm spans from timestamp midpoint to its edge.
-        let (indent_text, arm_text): (Element<'_, _>, Element<'_, _>) =
-            if let Some(nick_col_width) = right_aligned_width {
-                let nick_col_chars =
-                    (nick_col_width / char_width).round() as usize;
-                let indent = timestamp_chars + nick_col_chars - 2;
-                (
-                    text(" ".repeat(indent)).size(text_size).into(),
-                    text("┌──").size(text_size).into(),
-                )
-            } else {
-                let half = timestamp_chars / 2;
-                let arm = format!(
-                    "┌{}",
-                    "─".repeat(
-                        half.saturating_sub(1)
-                            + usize::from(!timestamp_chars.is_multiple_of(2))
-                    ),
-                );
-                (
-                    text(" ".repeat(half)).size(text_size).into(),
-                    text(arm).size(text_size).into(),
-                )
-            };
+        let arm_text: Element<'_, _> = if let Some(nick_col_width) =
+            right_aligned_width
+        {
+            let nick_col_chars = (nick_col_width / char_width).round() as usize;
+            let indent = timestamp_chars + nick_col_chars - 2;
+            text(" ".repeat(indent) + "┌──")
+                .size(text_size)
+                .style(theme::text::timestamp)
+                .line_height(LineHeight::Relative(1.0))
+                .into()
+        } else {
+            let half = timestamp_chars / 2;
+            let arm = format!(
+                "{}┌{}",
+                " ".repeat(half),
+                "─".repeat(
+                    half.saturating_sub(1)
+                        + usize::from(!timestamp_chars.is_multiple_of(2))
+                ),
+            );
+            text(arm)
+                .size(text_size)
+                .style(theme::text::timestamp)
+                .line_height(LineHeight::Relative(1.0))
+                .into()
+        };
 
         let delay = iced::time::Duration::from_millis(
             self.config.buffer.reply.tooltip.delay,
         );
         let reply_urls = self.reply_preview_urls(message);
-
-        // arm + preview form the interactive part; indent is a plain spacer
-        let inner = row![arm_text, preview]
-            .spacing(char_width)
-            .align_y(alignment::Vertical::Center);
 
         let interactive: Element<'_, _> =
             if let (Some(reply_preview), Some(channel)) =
@@ -1661,7 +1659,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 let server = self.server.clone();
                 let channel = channel.clone();
                 let hash = reply_preview.hash;
-                button(inner)
+                button(preview)
                     .style(theme::button::reply_preview)
                     .padding(0)
                     .on_press(Message::Link(message::Link::GoToMessage(
@@ -1670,7 +1668,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     .into()
             } else {
                 // not interactive — use a container to preserve muted colors
-                container(inner)
+                container(preview)
                     .style(|theme: &Theme| container::Style {
                         text_color: Some(theme.styles().text.secondary.color),
                         ..Default::default()
@@ -1708,9 +1706,8 @@ impl<'a> ChannelQueryLayout<'a> {
                 interactive
             };
 
-        let element: Element<'_, _> = row![indent_text, interactive]
-            .align_y(alignment::Vertical::Center)
-            .into();
+        let element: Element<'_, _> =
+            row![arm_text, interactive].spacing(char_width).into();
 
         Some(element)
     }
