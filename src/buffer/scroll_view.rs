@@ -1421,7 +1421,8 @@ fn send_reaction(
     };
 
     let encoded = message::Encoded::try_from(command).ok()?;
-    clients.send(buffer, encoded, TokenPriority::User);
+    let labeled_response_context =
+        clients.send(buffer, encoded, TokenPriority::User);
 
     if !clients.get_server_supports_echoes(server) {
         let nick = clients.nickname(server)?;
@@ -1432,12 +1433,17 @@ fn send_reaction(
                     sender: nick.to_owned(),
                     text: text.into_owned(),
                     unreact,
+                    id: labeled_response_context
+                        .map(|context| context.label_as_id),
+                    server_time: Utc::now(),
                 },
                 target,
                 in_reply_to: msgid,
-                server_time: Utc::now(),
+                is_echo: false,
+                deduplicate: false,
             },
             false,
+            None,
         );
     }
 
