@@ -1752,12 +1752,13 @@ impl<'a> ChannelQueryLayout<'a> {
                     .enumerate()
                     .filter_map(|(idx, f)| f.url().map(|url| (idx, url)))
                     .filter(|(_, url)| {
-                        !self.history.is_preview_hidden(
-                            &kind,
-                            reply_hash,
-                            server_time,
-                            url,
-                        )
+                        self.config.preview.is_enabled(url.as_str())
+                            && !self.history.is_preview_hidden(
+                                &kind,
+                                reply_hash,
+                                server_time,
+                                url,
+                            )
                     })
                     .take(self.config.preview.max_per_message)
                     .filter_map(|(fragment_idx, url)| {
