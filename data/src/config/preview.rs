@@ -264,11 +264,10 @@ impl Card {
         target_ref: TargetRef,
         server: &Server,
         casemapping: isupport::CaseMap,
-    ) -> bool {
-        is_target_ref_included(
+    ) -> Visibility {
+        Visibility::for_target_ref(
             self.include.as_ref(),
             self.exclude.as_ref(),
-            None,
             target_ref,
             server,
             casemapping,
@@ -335,11 +334,10 @@ impl Image {
         target_ref: TargetRef,
         server: &Server,
         casemapping: isupport::CaseMap,
-    ) -> bool {
-        is_target_ref_included(
+    ) -> Visibility {
+        Visibility::for_target_ref(
             self.include.as_ref(),
             self.exclude.as_ref(),
-            None,
             target_ref,
             server,
             casemapping,
@@ -397,6 +395,63 @@ where
             } else {
                 Ok(integer)
             }
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum Visibility {
+    All,
+    BySource,
+    None,
+}
+
+impl Visibility {
+    pub fn for_target_ref(
+        include: Option<&Inclusivities>,
+        exclude: Option<&Inclusivities>,
+        target_ref: TargetRef,
+        server: &Server,
+        casemapping: isupport::CaseMap,
+    ) -> Visibility {
+        if is_target_ref_included(
+            include,
+            Some(&Inclusivities::all()),
+            None,
+            target_ref,
+            server,
+            casemapping,
+        ) {
+            Visibility::All
+        } else if is_target_ref_included(
+            None,
+            exclude,
+            None,
+            target_ref,
+            server,
+            casemapping,
+        ) {
+            if include.is_some_and(|include| {
+                include.has_user_or_server_message_conditions(
+                    target_ref,
+                    server,
+                    casemapping,
+                )
+            }) {
+                Visibility::BySource
+            } else {
+                Visibility::None
+            }
+        } else if exclude.is_some_and(|exclude| {
+            exclude.has_user_or_server_message_conditions(
+                target_ref,
+                server,
+                casemapping,
+            )
+        }) {
+            Visibility::BySource
+        } else {
+            Visibility::None
         }
     }
 }

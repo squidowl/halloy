@@ -78,6 +78,14 @@ impl PartialEq<Target> for TargetRef<'_> {
     }
 }
 
+impl<'a> TargetRef<'a> {
+    pub fn as_channel(&self) -> Option<&'a Channel> {
+        match self {
+            TargetRef::Channel(channel) => Some(channel),
+            TargetRef::Query(_) => None,
+        }
+    }
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Target {
     Channel(Channel),
