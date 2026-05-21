@@ -18,6 +18,7 @@ Added:
 - Support for `draft/chathistory-end` message tag
 - Setting to mark new messages as read for any open buffer when the buffer is scrolled to the bottom and Halloy is focused (`buffer.mark_as_read.on_message`)
 - Setting to hide the text of messages that contain only a single URL, when the URL's preview is visible (`preview.hide_url`)
+- Nick and channel completion picker
 
 Fixed:
 
