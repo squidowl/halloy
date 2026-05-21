@@ -674,11 +674,38 @@ pub fn view<'a>(
         reply_bar(reply_preview, channel_users, registry, config, theme)
     });
 
+    let input_field: Element<'a, Message> =
+        if config.tooltips.show_for_autocomplete() {
+            let overlay = column![
+                state.completion.view(
+                    state.input_content.text().as_str(),
+                    server,
+                    config,
+                    theme,
+                    Message::SelectCompletion,
+                ),
+                state
+                    .notice
+                    .as_ref()
+                    .map(|notice| notice_view(notice, theme)),
+            ]
+            .spacing(4);
+
+            anchored_overlay(
+                wrapped_input,
+                overlay,
+                anchored_overlay::Anchor::AboveTop,
+                4.0,
+            )
+        } else {
+            wrapped_input
+        };
+
     let input_row = container(
         row![
             maybe_our_user,
             maybe_vertical_rule,
-            wrapped_input,
+            input_field,
             maybe_upload_spinner,
             maybe_upload_button,
         ]
@@ -704,32 +731,7 @@ pub fn view<'a>(
 
     let content = column![input_column].spacing(4).padding(padding::top(4));
 
-    if config.tooltips.show_for_autocomplete() {
-        let overlay = column![
-            state.completion.view(
-                state.input_content.text().as_str(),
-                server,
-                config,
-                theme,
-                Message::SelectCompletion,
-            ),
-            state
-                .notice
-                .as_ref()
-                .map(|notice| notice_view(notice, theme)),
-        ]
-        .padding([0, 8])
-        .spacing(4);
-
-        anchored_overlay(
-            content,
-            overlay,
-            anchored_overlay::Anchor::AboveTop,
-            4.0,
-        )
-    } else {
-        column![content].into()
-    }
+    column![content].into()
 }
 
 fn reply_bar<'a>(
