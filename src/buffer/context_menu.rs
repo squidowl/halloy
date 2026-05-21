@@ -634,7 +634,7 @@ impl Entry {
                 Some(Message::Reply {
                     msgid: msgid.clone(),
                     to_nick: user.nickname().to_string(),
-                    reply_preview: content.preview_text(),
+                    reply_preview: message::action_preview_text(content, user),
                 }),
                 length,
                 theme,

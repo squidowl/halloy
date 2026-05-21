@@ -1036,7 +1036,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 ),
                 message::Source::Action(Some(user)) => (
                     Some(user.nickname().to_string()),
-                    Some(message.content.preview_text()),
+                    Some(message::action_preview_text(&message.content, user)),
                 ),
                 _ => (None, None),
             };
@@ -1604,6 +1604,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 in_reply_to,
                 redaction: reply_redaction,
                 blocked: reply_blocked,
+                is_action: reply_is_action,
                 ..
             } = reply_preview;
 
@@ -1649,20 +1650,23 @@ impl<'a> ChannelQueryLayout<'a> {
             hover_tooltip = (self.config.buffer.reply.tooltip.enabled
                 && !reply_blocked)
                 .then(|| {
-                    let tooltip_nick =
-                        nick_info.as_ref().map(|(user, _, display)| {
-                            display.clone().into_element(
-                                user,
-                                false,
-                                false,
-                                None,
-                                None,
-                                false,
-                                false,
-                                self.theme,
-                                self.config,
-                            )
-                        });
+                    let tooltip_nick = (!reply_is_action)
+                        .then(|| {
+                            nick_info.as_ref().map(|(user, _, display)| {
+                                display.clone().into_element(
+                                    user,
+                                    false,
+                                    false,
+                                    None,
+                                    None,
+                                    false,
+                                    false,
+                                    self.theme,
+                                    self.config,
+                                )
+                            })
+                        })
+                        .flatten();
                     self.reply_hover_tooltip(
                         reply_preview.hash,
                         reply_preview.server_time,
@@ -1671,6 +1675,7 @@ impl<'a> ChannelQueryLayout<'a> {
                         in_reply_to.as_deref(),
                         reply_redaction.as_ref(),
                         *reply_blocked,
+                        *reply_is_action,
                     )
                 });
 
@@ -1775,6 +1780,7 @@ impl<'a> ChannelQueryLayout<'a> {
         in_reply_to: Option<&'a message::ReplyPreview>,
         redaction: Option<&'a data::redaction::Redaction>,
         is_blocked: bool,
+        is_action: bool,
     ) -> Element<'a, Message> {
         let kind = self.target_kind();
         let text_size =
@@ -1842,6 +1848,17 @@ impl<'a> ChannelQueryLayout<'a> {
                 false,
             )
         } else {
+            let content_style = move |t: &Theme| {
+                theme::selectable_text::dimmed(
+                    if is_action {
+                        theme::selectable_text::action(t)
+                    } else {
+                        theme::selectable_text::default(t)
+                    },
+                    t,
+                    dimmed_bg,
+                )
+            };
             let max_chars = self.config.buffer.reply.tooltip.max_chars;
             let preview = reply.preview_text();
             let truncated = (max_chars > 0
@@ -1855,7 +1872,10 @@ impl<'a> ChannelQueryLayout<'a> {
                 });
 
             if let Some(truncated) = truncated {
-                (selectable_text(truncated).into(), false)
+                (
+                    selectable_text(truncated).style(content_style).into(),
+                    false,
+                )
             } else {
                 (
                     message_content(
@@ -1868,14 +1888,18 @@ impl<'a> ChannelQueryLayout<'a> {
                         self.theme,
                         Message::Link,
                         None,
-                        dimmed_style,
-                        theme::font_style::primary,
+                        content_style,
+                        if is_action {
+                            theme::font_style::action
+                        } else {
+                            theme::font_style::primary
+                        },
                         dimmed.map(|d| {
                             move |color: Color| d.transform_color(color, bg)
                         }),
                         self.config,
                     ),
-                    true,
+                    !is_action,
                 )
             }
         };
@@ -1927,6 +1951,16 @@ impl<'a> ChannelQueryLayout<'a> {
             )
         });
 
+        let action_marker: Option<Element<_>> = is_action.then(|| {
+            message_marker(
+                Marker::Dot,
+                None,
+                self.config,
+                theme::selectable_text::action,
+                None::<Message>,
+            )
+        });
+
         let body: Element<_> = row![]
             .spacing(font::width_from_str(" ", &self.config.font))
             .extend(self.config.buffer.format_timestamp(&server_time).map(
@@ -1934,6 +1968,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     text(timestamp).style(theme::text::timestamp).into()
                 },
             ))
+            .extend(action_marker)
             .extend(nick)
             .push(content_col)
             .into();
