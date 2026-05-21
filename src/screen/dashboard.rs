@@ -3339,11 +3339,13 @@ impl Dashboard {
         server: &Server,
         reaction: reaction::Context,
         notification_enabled: bool,
+        labeled_response_context: Option<LabeledResponseContext>,
     ) -> Task<Message> {
         let future = self.history.record_reaction(
             server,
             reaction,
             notification_enabled,
+            labeled_response_context,
         );
         if let Some(f) = future {
             Task::perform(f, Message::History)

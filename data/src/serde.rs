@@ -1,6 +1,7 @@
 use std::path::{self, PathBuf};
 
 use chrono::format::StrftimeItems;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer};
 
 use crate::Config;
@@ -234,6 +235,22 @@ where
 {
     let s = String::deserialize(deserializer)?;
     Ok((!s.is_empty()).then_some(s))
+}
+
+pub fn deserialize_date_time_utc_or_epoch<'de, D>(
+    deserializer: D,
+) -> Result<DateTime<Utc>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let date_time: Result<DateTime<Utc>, D::Error> =
+        Deserialize::deserialize(deserializer);
+
+    if let Ok(date_time) = date_time {
+        Ok(date_time)
+    } else {
+        Ok(DateTime::UNIX_EPOCH)
+    }
 }
 
 #[cfg(test)]

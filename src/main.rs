@@ -1814,10 +1814,13 @@ fn handle_client_events(
                 message,
                 our_nick,
                 notification_enabled,
+                deduplicate,
+                labeled_response_context,
             } => {
                 if let Some(reaction) = Reaction::received(
                     message,
                     our_nick,
+                    deduplicate,
                     clients.get_server_chantypes_or_default(server),
                     clients.get_server_statusmsg_or_default(server),
                     clients.get_server_casemapping_or_default(server),
@@ -1829,6 +1832,7 @@ fn handle_client_events(
                                 server,
                                 reaction,
                                 notification_enabled,
+                                labeled_response_context,
                             )
                             .map(Message::Dashboard),
                     );
@@ -2402,7 +2406,7 @@ fn handle_reaction_to_echo(
             &config.notifications,
             &Notification::Reaction {
                 casemapping,
-                reaction: reaction_to_echo.reaction.clone(),
+                reaction: reaction_to_echo.reaction,
                 message_text: reaction_to_echo.message_text,
             },
             server,

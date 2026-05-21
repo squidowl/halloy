@@ -2,7 +2,7 @@ use crate::target::Channel;
 use crate::user::Nick;
 use crate::{User, isupport, reaction};
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Notification {
     Connected,
     Disconnected,

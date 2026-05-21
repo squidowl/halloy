@@ -43,7 +43,7 @@ impl Resource {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReactionToEcho {
     pub reaction: reaction::Context,
     pub message_text: String,
@@ -478,9 +478,14 @@ impl Manager {
         server: &Server,
         reaction: reaction::Context,
         notification_enabled: bool,
+        labeled_response_context: Option<LabeledResponseContext>,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        self.data
-            .add_reaction(server.clone(), reaction, notification_enabled)
+        self.data.add_reaction(
+            server.clone(),
+            reaction,
+            notification_enabled,
+            labeled_response_context,
+        )
     }
 
     pub fn redact_message(
@@ -1356,17 +1361,25 @@ impl Data {
                     let mut last_seen = last_seen.clone();
 
                     for (id, pending) in std::mem::take(pending_reactions) {
-                        if let Some(message) = history::find_reply_target_mut(
-                            &mut messages,
-                            &id,
-                            &pending.server_time,
-                        ) {
-                            message.reactions.extend(
-                                pending
-                                    .reactions
-                                    .into_iter()
-                                    .map(|(reaction, _)| reaction),
-                            );
+                        if let Some(server_time) = pending.server_time()
+                            && let Some(message) =
+                                history::find_reply_target_mut(
+                                    &mut messages,
+                                    &id,
+                                    &server_time,
+                                )
+                        {
+                            for pending_reaction in
+                                pending.reactions.into_iter()
+                            {
+                                history::insert_reaction(
+                                    &mut message.reactions,
+                                    pending_reaction.reaction,
+                                    pending_reaction.is_echo,
+                                    pending_reaction.deduplicate,
+                                    pending_reaction.labeled_response_context,
+                                );
+                            }
                         }
                     }
 
@@ -1892,14 +1905,17 @@ impl Data {
         server: Server,
         reaction: reaction::Context,
         notification_enabled: bool,
+        labeled_response_context: Option<LabeledResponseContext>,
     ) -> Option<impl Future<Output = Message> + use<>> {
         let kind =
             history::Kind::from_target(server.clone(), reaction.target.clone());
         match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
-                let reactions = entry
-                    .get_mut()
-                    .add_reaction(reaction, notification_enabled);
+                let reactions = entry.get_mut().add_reaction(
+                    reaction,
+                    notification_enabled,
+                    labeled_response_context,
+                );
 
                 if notification_enabled {
                     reactions.map(|reaction| {
@@ -1916,9 +1932,11 @@ impl Data {
                 }
             }
             hash_map::Entry::Vacant(entry) => {
-                entry
-                    .insert(History::partial(kind.clone()))
-                    .add_reaction(reaction, notification_enabled);
+                entry.insert(History::partial(kind.clone())).add_reaction(
+                    reaction,
+                    notification_enabled,
+                    labeled_response_context,
+                );
 
                 Some(
                     async move {

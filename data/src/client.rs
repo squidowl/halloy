@@ -150,6 +150,8 @@ pub enum Event {
         message: message::Encoded,
         our_nick: Nick,
         notification_enabled: bool,
+        deduplicate: bool,
+        labeled_response_context: Option<LabeledResponseContext>,
     },
     Redaction(message::Encoded, Nick),
     WithTarget {
@@ -1148,7 +1150,9 @@ impl Client {
                 return Ok(vec![Event::Reaction {
                     message,
                     our_nick: self.nickname().to_owned(),
-                    notification_enabled: true,
+                    deduplicate: false,
+                    notification_enabled: self.notification_blackout.allowed(),
+                    labeled_response_context: context.and_then(Into::into),
                 }]);
             }
             _ if matches!(message.command, Command::REDACT(_, _, _)) => {
@@ -3343,6 +3347,8 @@ impl Client {
                         message,
                         our_nick: self.nickname().to_owned(),
                         notification_enabled: false,
+                        deduplicate: true,
+                        labeled_response_context: None,
                     }]
                 }
                 Command::REDACT(_, _, _) => {
@@ -3477,6 +3483,8 @@ impl Client {
                     message,
                     our_nick: self.nickname().to_owned(),
                     notification_enabled: false,
+                    deduplicate: true,
+                    labeled_response_context: None,
                 }]
             }
             Command::REDACT(_, _, _) => {

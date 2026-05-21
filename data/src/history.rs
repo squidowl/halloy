@@ -16,6 +16,7 @@ pub use self::manager::{
 pub use self::metadata::{Metadata, ReadMarker};
 use crate::capabilities::LabeledResponseContext;
 use crate::message::{self, Direction, MessageReferences, Source};
+use crate::reaction::Reaction;
 use crate::redaction::Redaction;
 use crate::target::{self, Target};
 use crate::user::Nick;
@@ -282,39 +283,42 @@ pub async fn append(
 
     // pending reactions should only exist for unloaded history entries
     for (id, pending) in pending_reactions.into_iter() {
-        if let Some(message) =
-            find_reply_target_mut(&mut all_messages, &id, &pending.server_time)
+        if let Some(server_time) = pending.server_time()
+            && let Some(message) =
+                find_reply_target_mut(&mut all_messages, &id, &server_time)
         {
             if message.is_echo
                 && message.direction == Direction::Received
                 && let Ok(target) = Target::try_from(message.target.clone())
             {
                 let message_text = message.text();
-                for (reaction, notification_enabled) in
-                    pending.clone().reactions.into_iter()
-                {
-                    if notification_enabled {
+                for pending_reaction in pending.reactions.iter() {
+                    if pending_reaction.notification_enabled {
                         let reaction_to_echo = ReactionToEcho {
                             reaction: reaction::Context {
-                                inner: reaction,
+                                inner: pending_reaction.reaction.clone(),
                                 target: target.clone(),
                                 in_reply_to: id.clone(),
-                                server_time: pending.server_time,
+                                is_echo: pending_reaction.is_echo,
+                                deduplicate: pending_reaction.deduplicate,
                             },
                             message_text: message_text.clone(),
                         };
+
                         echo_events.push(EchoEvent::Reaction(reaction_to_echo));
                     }
                 }
             }
 
-            message.reactions.append(
-                &mut pending
-                    .reactions
-                    .iter()
-                    .map(|(reaction, _)| reaction.clone())
-                    .collect(),
-            );
+            for pending_reaction in pending.reactions.into_iter() {
+                insert_reaction(
+                    &mut message.reactions,
+                    pending_reaction.reaction,
+                    pending_reaction.is_echo,
+                    pending_reaction.deduplicate,
+                    pending_reaction.labeled_response_context,
+                );
+            }
         }
     }
 
@@ -1209,6 +1213,7 @@ impl History {
         &mut self,
         reaction: reaction::Context,
         notification_enabled: bool,
+        labeled_response_context: Option<LabeledResponseContext>,
     ) -> Option<ReactionToEcho> {
         match self {
             History::Partial {
@@ -1246,15 +1251,15 @@ impl History {
                 } else {
                     let pending = pending_reactions
                         .entry(reaction.in_reply_to)
-                        .or_insert(reaction::Pending::new(
-                            reaction.server_time,
-                        ));
+                        .or_insert(reaction::Pending::default());
 
-                    pending.server_time =
-                        (pending.server_time).min(reaction.server_time);
-                    pending
-                        .reactions
-                        .push((reaction.inner, notification_enabled));
+                    pending.reactions.push(reaction::PendingReaction {
+                        reaction: reaction.inner,
+                        is_echo: reaction.is_echo,
+                        deduplicate: reaction.deduplicate,
+                        labeled_response_context,
+                        notification_enabled,
+                    });
                 }
 
                 *last_updated_at = Some(Instant::now());
@@ -1267,7 +1272,7 @@ impl History {
                 let message = find_reply_target_mut(
                     messages,
                     &reaction.in_reply_to,
-                    &reaction.server_time,
+                    &reaction.inner.server_time,
                 )?;
                 message.reactions.push(reaction.inner.clone());
 
@@ -1570,6 +1575,44 @@ fn has_matching_content(
         }
     } else {
         false
+    }
+}
+
+pub fn insert_reaction(
+    reactions: &mut Vec<Reaction>,
+    reaction: Reaction,
+    is_echo: bool,
+    deduplicate: bool,
+    labeled_response_context: Option<LabeledResponseContext>,
+) {
+    if reactions.is_empty() {
+        reactions.push(reaction);
+
+        return;
+    }
+
+    if let Some(labeled_response_context) = &labeled_response_context {
+        if let Some(index) = reactions.iter().position(|reaction| {
+            reaction
+                .id
+                .as_ref()
+                .is_some_and(|id| *id == labeled_response_context.label_as_id)
+        }) {
+            reactions.remove(index);
+        }
+
+        reactions.push(reaction);
+    } else if let Some(index) = reactions.iter().position(|stored| {
+        (stored.id.is_some() && stored.id == reaction.id)
+            || (deduplicate
+                && (stored.server_time == reaction.server_time || is_echo)
+                && stored.sender == reaction.sender
+                && stored.text == reaction.text
+                && stored.unreact == reaction.unreact)
+    }) {
+        reactions[index] = reaction;
+    } else {
+        reactions.push(reaction);
     }
 }
 
