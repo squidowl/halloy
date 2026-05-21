@@ -208,6 +208,16 @@ impl Sidebar {
         }
     }
 
+    fn highlights_button<'a>(&self) -> Element<'a, Message> {
+        button(icon::highlights().size(theme::ICON_SIZE + 2.0))
+            .padding(5)
+            .width(Length::Shrink)
+            .on_press(Message::ToggleInternalBuffer(
+                buffer::Internal::Highlights,
+            ))
+            .into()
+    }
+
     fn user_menu_button<'a>(
         &self,
         config: &'a Config,
@@ -343,14 +353,6 @@ impl Sidebar {
                                     buffer::Internal::FileTransfers,
                                 ),
                             ),
-                            Menu::Highlights => context_button(
-                                text("Highlights"),
-                                Some(&keyboard.highlights),
-                                icon::highlights().style(theme::svg::primary),
-                                Message::ToggleInternalBuffer(
-                                    buffer::Internal::Highlights,
-                                ),
-                            ),
                             Menu::ChannelDiscovery => context_button(
                                 text("Channel Discovery"),
                                 None,
@@ -473,6 +475,8 @@ impl Sidebar {
         }
 
         let content = |width| {
+            let highlights_button = self.highlights_button();
+
             let user_menu_button =
                 config.sidebar.user_menu.enabled.then(|| {
                     self.user_menu_button(
@@ -693,10 +697,10 @@ impl Sidebar {
                         )
                     ];
 
-                    // Wrap buffers in a column with user_menu_button
+                    // Wrap buffers in a column with highlights and user_menu_button side by side
                     let content = column![
                         container(buffers).height(Length::Fill),
-                        user_menu_button,
+                        row![user_menu_button, highlights_button],
                     ];
 
                     container(content)
@@ -721,9 +725,10 @@ impl Sidebar {
                         )
                     ];
 
-                    // Wrap buffers in a row with user_menu_button
+                    // Wrap buffers in a row with highlights and user_menu_button
                     let content = row![
                         container(buffers).width(Length::Fill),
+                        highlights_button,
                         user_menu_button,
                     ]
                     .align_y(Alignment::Center);
@@ -781,7 +786,6 @@ enum Menu {
     RefreshConfig,
     CommandBar,
     ThemeEditor,
-    Highlights,
     ChannelDiscovery,
     Logs,
     FileTransfers,
@@ -813,7 +817,6 @@ impl Menu {
 
         list.extend([
             Self::ChannelDiscovery,
-            Self::Highlights,
             Self::Logs,
             Self::OpenConfigFile,
             Self::RefreshConfig,
