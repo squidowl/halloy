@@ -68,7 +68,7 @@ impl Redaction {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Pending {
     pub redaction: Redaction,
     pub server_time: DateTime<Utc>,

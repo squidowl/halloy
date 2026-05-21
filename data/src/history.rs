@@ -419,6 +419,9 @@ pub enum History {
         pending_reactions: HashMap<message::Id, reaction::Pending>,
         pending_redactions: HashMap<message::Id, redaction::Pending>,
         show_in_sidebar: bool,
+        flushing_messages: Vec<(Message, Option<LabeledResponseContext>)>,
+        flushing_reactions: HashMap<message::Id, reaction::Pending>,
+        flushing_redactions: HashMap<message::Id, redaction::Pending>,
     },
     Full {
         kind: Kind,
@@ -447,6 +450,9 @@ impl History {
             pending_reactions: HashMap::new(),
             pending_redactions: HashMap::new(),
             show_in_sidebar: false,
+            flushing_messages: vec![],
+            flushing_reactions: HashMap::new(),
+            flushing_redactions: HashMap::new(),
         }
     }
 
@@ -772,6 +778,9 @@ impl History {
                 chathistory_references,
                 pending_reactions,
                 pending_redactions,
+                flushing_messages,
+                flushing_reactions,
+                flushing_redactions,
                 ..
             } => {
                 if let Some(last_received) = *last_updated_at
@@ -779,13 +788,19 @@ impl History {
                         now.duration_since(last_received)
                             >= FLUSH_AFTER_LAST_RECEIVED
                     }) || pending_messages.len() > FLUSH_COUNT)
+                    && flushing_messages.is_empty()
+                    && flushing_reactions.is_empty()
+                    && flushing_redactions.is_empty()
                 {
                     let kind = kind.clone();
                     let pending_messages = std::mem::take(pending_messages);
+                    *flushing_messages = pending_messages.clone();
                     let read_marker = *read_marker;
                     let chathistory_references = chathistory_references.clone();
                     let pending_reactions = std::mem::take(pending_reactions);
+                    *flushing_reactions = pending_reactions.clone();
                     let pending_redactions = std::mem::take(pending_redactions);
+                    *flushing_redactions = pending_redactions.clone();
 
                     *last_updated_at = None;
 
@@ -896,6 +911,9 @@ impl History {
                         pending_reactions: HashMap::new(),
                         pending_redactions: HashMap::new(),
                         show_in_sidebar: true,
+                        flushing_messages: vec![],
+                        flushing_reactions: HashMap::new(),
+                        flushing_redactions: HashMap::new(),
                     },
                 );
 
