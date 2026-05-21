@@ -1571,7 +1571,8 @@ fn has_matching_content(
                 | message::source::server::Kind::Quit => {
                     return true;
                 }
-                message::source::server::Kind::ReplyTopic
+                message::source::server::Kind::JoinTopic
+                | message::source::server::Kind::RequestTopic
                 | message::source::server::Kind::ChangeHost
                 | message::source::server::Kind::ChangeNick
                 | message::source::server::Kind::ChangeMode

@@ -162,6 +162,10 @@ impl Encoded {
         self.tags.contains_key("bot")
     }
 
+    pub fn is_join_topic(&self) -> bool {
+        self.tags.contains_key(":join_topic")
+    }
+
     pub fn channel_context(
         &self,
         chantypes: &[char],
@@ -383,14 +387,8 @@ impl Message {
             || matches!(self.target.source(), Source::Internal(_))
         {
             return false;
-        } else if let Source::Server(Some(source)) = self.target.source()
-            && matches!(
-                source.kind(),
-                Kind::ReplyTopic
-                    | Kind::MonitoredOnline
-                    | Kind::MonitoredOffline
-                    | Kind::ChangeHost
-            )
+        } else if let Source::Server(source) = self.target.source()
+            && source.as_ref().is_none_or(|source| !source.can_reference())
         {
             return false;
         }
@@ -2516,7 +2514,10 @@ fn target(
                 None,
             ))
         }
-        Command::Numeric(RPL_TOPIC | RPL_TOPICWHOTIME, params) => {
+        Command::Numeric(
+            RPL_TOPIC | RPL_TOPICWHOTIME | RPL_NOTOPIC,
+            params,
+        ) => {
             let channel = target::Channel::parse(
                 params.get(1)?,
                 chantypes,
@@ -2524,13 +2525,17 @@ fn target(
                 casemapping,
             )
             .ok()?;
+            let kind = if message.is_join_topic() {
+                Kind::JoinTopic
+            } else {
+                Kind::RequestTopic
+            };
+
             Some((
                 Target::Channel {
                     channel,
                     source: Source::Server(Some(source::Server::new(
-                        Kind::ReplyTopic,
-                        None,
-                        None,
+                        kind, None, None,
                     ))),
                 },
                 None,
@@ -3296,7 +3301,7 @@ fn content<'a>(
         Command::Numeric(RPL_TOPIC, params) => {
             let topic = params.get(2)?;
 
-            Some((parse_fragments(format!("topic is {topic}")), None))
+            Some((parse_fragments(format!("Topic is {topic}")), None))
         }
         Command::Numeric(RPL_ENDOFWHOIS, _) => {
             // We skip the end message of a WHOIS.
@@ -3483,12 +3488,15 @@ fn content<'a>(
 
             Some((
                 parse_fragments_with_user(
-                    format!("topic set by {} at {datetime}", user.nickname()),
+                    format!("Topic set by {} at {datetime}", user.nickname()),
                     &user,
                     casemapping,
                 ),
                 None,
             ))
+        }
+        Command::Numeric(RPL_NOTOPIC, _) => {
+            Some((plain("No topic is set".to_string()), None))
         }
         Command::Numeric(RPL_CHANNELMODEIS, params) => {
             let mode = params

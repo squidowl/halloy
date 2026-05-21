@@ -231,8 +231,9 @@ pub struct ServerMessages {
     pub join: OptionalTextStyle,
     pub part: OptionalTextStyle,
     pub quit: OptionalTextStyle,
-    #[serde(alias = "topic")]
-    pub reply_topic: OptionalTextStyle,
+    #[serde(alias = "topic", alias = "reply_topic")]
+    pub join_topic: OptionalTextStyle,
+    pub request_topic: OptionalTextStyle,
     pub change_host: OptionalTextStyle,
     pub change_mode: OptionalTextStyle,
     pub change_nick: OptionalTextStyle,
@@ -808,7 +809,7 @@ mod binary {
         BufferServerMessagesJoin = 22,
         BufferServerMessagesPart = 23,
         BufferServerMessagesQuit = 24,
-        BufferServerMessagesReplyTopic = 25,
+        BufferServerMessagesJoinTopic = 25,
         BufferServerMessagesChangeHost = 26,
         BufferServerMessagesMonitoredOnline = 27,
         BufferServerMessagesMonitoredOffline = 28,
@@ -840,6 +841,7 @@ mod binary {
         BufferBacklogRuleText = 54,
         BufferDateRule = 55,
         BufferDateRuleText = 56,
+        BufferServerMessagesRequestTopic = 57,
     }
 
     impl Tag {
@@ -894,8 +896,11 @@ mod binary {
                 Tag::BufferServerMessagesQuit => {
                     styles.buffer.server_messages.quit.color?
                 }
-                Tag::BufferServerMessagesReplyTopic => {
-                    styles.buffer.server_messages.reply_topic.color?
+                Tag::BufferServerMessagesJoinTopic => {
+                    styles.buffer.server_messages.join_topic.color?
+                }
+                Tag::BufferServerMessagesRequestTopic => {
+                    styles.buffer.server_messages.request_topic.color?
                 }
                 Tag::BufferServerMessagesChangeHost => {
                     styles.buffer.server_messages.change_host.color?
@@ -1030,8 +1035,12 @@ mod binary {
                 Tag::BufferServerMessagesQuit => {
                     styles.buffer.server_messages.quit.color = Some(color);
                 }
-                Tag::BufferServerMessagesReplyTopic => {
-                    styles.buffer.server_messages.reply_topic.color =
+                Tag::BufferServerMessagesJoinTopic => {
+                    styles.buffer.server_messages.join_topic.color =
+                        Some(color);
+                }
+                Tag::BufferServerMessagesRequestTopic => {
+                    styles.buffer.server_messages.request_topic.color =
                         Some(color);
                 }
                 Tag::BufferServerMessagesChangeHost => {
