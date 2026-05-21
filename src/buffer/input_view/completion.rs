@@ -184,7 +184,6 @@ impl Completion {
             .tab_candidate_count()
             .or_else(|| self.emojis.tab_candidate_count())
             .or_else(|| self.paths.tab_candidate_count())
-            .or_else(|| self.words.tab_candidate_count())
     }
 
     pub fn arrow(&mut self, arrow: Arrow) -> bool {
@@ -2194,17 +2193,6 @@ impl Words {
             true
         } else {
             false
-        }
-    }
-
-    fn tab_candidate_count(&self) -> Option<usize> {
-        match self {
-            Self::Selecting {
-                filtered,
-                show_picker: true,
-                ..
-            } => Some(filtered.len()),
-            _ => None,
         }
     }
 
