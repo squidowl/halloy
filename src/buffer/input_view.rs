@@ -23,7 +23,9 @@ use iced::widget::{
     self, button, center, column, container, mouse_area, operation, row, rule,
     text_editor,
 };
-use iced::{Alignment, Length, Task, clipboard, event, keyboard, padding};
+use iced::{
+    Alignment, Length, Point, Task, clipboard, event, keyboard, padding,
+};
 use itertools::Itertools;
 use tokio::time;
 use unicode_segmentation::UnicodeSegmentation;
@@ -694,7 +696,7 @@ pub fn view<'a>(
             anchored_overlay(
                 wrapped_input,
                 overlay,
-                anchored_overlay::Anchor::AboveTop,
+                anchored_overlay::Anchor::Point(cursor_anchor(state, config)),
                 4.0,
             )
         } else {
@@ -732,6 +734,25 @@ pub fn view<'a>(
     let content = column![input_column].spacing(4).padding(padding::top(4));
 
     column![content].into()
+}
+
+fn cursor_anchor(state: &State, config: &Config) -> Point {
+    let cursor_position = state.input_content.cursor().position;
+    let line_height = theme::resolve_line_height(&config.font);
+    let prefix_width = state
+        .input_content
+        .line(cursor_position.line)
+        .map(|line| {
+            let text = line.text;
+            let prefix = text.get(..cursor_position.column).unwrap_or("");
+            font::width_from_str(prefix, &config.font)
+        })
+        .unwrap_or_default();
+
+    Point::new(
+        4.0 + prefix_width,
+        2.0 + cursor_position.line as f32 * line_height,
+    )
 }
 
 fn reply_bar<'a>(
