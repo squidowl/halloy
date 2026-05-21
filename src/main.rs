@@ -308,6 +308,9 @@ impl Halloy {
     fn save_main_window_settings(&self) -> Task<Message> {
         let main_window = self.main_window;
 
+        // In multi-monitor layouts with a display above or offset from the
+        // primary, `Moved` events can be missed. Query the current position
+        // before saving.
         iced::window::position(main_window.id).then(move |position| {
             let mut main_window = main_window;
             if let Some(position) = position {
