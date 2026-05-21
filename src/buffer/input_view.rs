@@ -739,12 +739,14 @@ pub fn view<'a>(
 fn cursor_anchor(state: &State, config: &Config) -> Point {
     let cursor_position = state.input_content.cursor().position;
     let line_height = theme::resolve_line_height(&config.font);
+
     let prefix_width = state
         .input_content
         .line(cursor_position.line)
         .map(|line| {
-            let text = line.text;
-            let prefix = text.get(..cursor_position.column).unwrap_or("");
+            let text = &line.text;
+            let word_start = current_word_start(text, cursor_position.column);
+            let prefix = text.get(..word_start).unwrap_or_default();
             font::width_from_str(prefix, &config.font)
         })
         .unwrap_or_default();
@@ -753,6 +755,16 @@ fn cursor_anchor(state: &State, config: &Config) -> Point {
         4.0 + prefix_width,
         2.0 + cursor_position.line as f32 * line_height,
     )
+}
+
+fn current_word_start(text: &str, cursor_position: usize) -> usize {
+    text.get(..cursor_position)
+        .unwrap_or(text)
+        .trim_end()
+        .char_indices()
+        .rev()
+        .find(|(_, character)| character.is_whitespace())
+        .map_or(0, |(index, character)| index + character.len_utf8())
 }
 
 fn reply_bar<'a>(
