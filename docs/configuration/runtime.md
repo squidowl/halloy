@@ -22,7 +22,7 @@ The hardware backend can be configured to request a specific graphics API:
 
 ```toml
 # Type: object
-# Values: "best", "vulkan", "metal", "direct-x12", "open-gl", "web-gpu"
+# Values: "best", "vulkan", "metal", "directx12", "opengl", "webgpu"
 
 [runtime]
 backend = { hardware = "best" }
