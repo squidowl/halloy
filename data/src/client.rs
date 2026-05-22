@@ -2541,9 +2541,12 @@ impl Client {
                     })
                 {
                     self.mode_requests.swap_remove(position);
-
-                    return Ok(vec![]);
                 }
+
+                // Do not save to buffer as the message is not readily
+                // human-readable and comes bundled with any channel
+                // mode change.
+                return Ok(vec![]);
             }
             Command::Numeric(ERR_NOCHANMODES, args) => {
                 let channel = context!(target::Channel::parse(
