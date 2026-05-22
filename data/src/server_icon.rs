@@ -14,6 +14,7 @@ use crate::{Server, environment};
 #[derive(Debug)]
 pub enum Message {
     Loaded(Server, Url, Result<Image, LoadError>),
+    Removed(Server),
 }
 
 pub struct Manager {
@@ -76,25 +77,56 @@ impl Manager {
         )
     }
 
+    pub fn remove(
+        &mut self,
+        server: &Server,
+        icon_url: Option<&str>,
+    ) -> Task<Message> {
+        self.pending.remove(server);
+        self.icons.remove(server);
+
+        let Some(icon_url) = icon_url else {
+            return Task::none();
+        };
+
+        let Ok(icon_url) = Url::parse(icon_url) else {
+            log::debug!("invalid server icon URL for {server}: {icon_url}");
+            return Task::none();
+        };
+
+        let server = server.clone();
+
+        Task::perform(remove(icon_url.clone(), self.cache.clone()), move |()| {
+            Message::Removed(server)
+        })
+    }
+
     pub fn update(&mut self, message: Message) {
-        let Message::Loaded(server, icon_url, result) = message;
+        match message {
+            Message::Loaded(server, icon_url, result) => {
+                if self.pending.get(&server) != Some(&icon_url) {
+                    log::trace!(
+                        "ignoring stale server icon result for {server}: {icon_url}"
+                    );
+                    return;
+                }
 
-        if self.pending.get(&server) != Some(&icon_url) {
-            log::trace!(
-                "ignoring stale server icon result for {server}: {icon_url}"
-            );
-            return;
-        }
+                self.pending.remove(&server);
 
-        self.pending.remove(&server);
-
-        match result {
-            Ok(icon) => {
-                self.icons.insert(server, icon);
+                match result {
+                    Ok(icon) => {
+                        self.icons.insert(server, icon);
+                    }
+                    Err(error) => {
+                        log::debug!(
+                            "failed to load server icon for {server}: {error}"
+                        );
+                        self.icons.remove(&server);
+                    }
+                }
             }
-            Err(error) => {
-                log::debug!("failed to load server icon for {server}: {error}");
-                self.icons.remove(&server);
+            Message::Removed(server) => {
+                log::trace!("removed server icon for {server}");
             }
         }
     }
@@ -162,6 +194,12 @@ async fn load(
             }
         }
     }
+}
+
+async fn remove(url: Url, cache: Arc<FileCache>) {
+    let cache_key_url = canonical_icon_url(&url);
+
+    cache.remove::<Image>(&cache_key_url).await;
 }
 
 const MAX_ICON_SIZE: usize = 5 * 1024 * 1024; // 5 MiB

@@ -87,6 +87,24 @@ impl FileCache {
         let _ = fs::write(&path, &bytes).await;
     }
 
+    pub async fn remove<T>(&self, url: &Url)
+    where
+        T: CachedAsset + DeserializeOwned,
+    {
+        let path = self.state_path(url);
+
+        if let Ok(bytes) = fs::read(&path).await
+            && let Ok(state) = serde_json::from_slice::<CacheState<T>>(&bytes)
+            && let CacheState::Ok(ref asset) = state
+        {
+            let assets = asset.assets();
+
+            remove_assets(&assets).await;
+        }
+
+        let _ = fs::remove_file(path).await;
+    }
+
     pub fn account_blob(&self, size: u64, blob_path: PathBuf) {
         self.trim.maybe_trim(size, blob_path);
     }
