@@ -54,7 +54,10 @@ Changed:
 - For filehosts, localhost is now treated as a secure transport when using `servers.<name>.filehost.override_url`
 - `buffer.mark_as_read.on_message = true` is now equivalent to `buffer.mark_as_read.on_message = "open"` (previously equivalent to `buffer.mark_as_read.on_message = "focused"`)
 - Tooltips have had their spacing tightened
-- Nicks in reactions have a new layout, and are now colored
+- Reactions are listed in the order they were first added to the message
+- Reaction tooltips:
+  - Display the reaction text in a larger font size (uses `font.only_emojis_size` if set and the reaction is an emoji)
+  - Lists nicks with a new layout, where nicks are now colored and are listed in order of when they reacted
 
 Thanks:
 
