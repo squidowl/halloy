@@ -4,7 +4,7 @@ Sidebar settings for Halloy.
 
 ## `font_size`
 
-Configure the default font size used in the sidebar.  If not set, then [`font.size`](./font#size)`+ 1` will be used.
+Configure the default font size used in the sidebar.  If not set, then [`font.size`](./font#size) will be used.
 
 ```toml
 # Type: integer
@@ -12,12 +12,12 @@ Configure the default font size used in the sidebar.  If not set, then [`font.si
 # Default: not set
 
 [sidebar]
-server_font_size = 12
+font_size = 12
 ```
 
 ## `server_font_size`
 
-Configure the font size used for server titles.  If not set, then [`sidebar.font_size`](./sidebar#font_size)`+ 1` will be used.
+Configure the font size used for server titles.  If not set, then [`sidebar.font_size`](./sidebar#font_size) will be used.
 
 ```toml
 # Type: integer

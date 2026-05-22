@@ -1055,9 +1055,9 @@ fn upstream_buffer_button<'a>(
             let font_size = config
                 .sidebar
                 .server_font_size
-                .or(config.sidebar.font_size.map(|size| size + 1))
-                .or(config.font.size.map(|size| size + 1))
-                .map_or(theme::TEXT_SIZE + 1.0, f32::from);
+                .or(config.sidebar.font_size)
+                .or(config.font.size)
+                .map_or(theme::TEXT_SIZE, f32::from);
 
             if let Some(network) = &server.network {
                 content = content.push(
