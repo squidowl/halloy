@@ -28,6 +28,7 @@ pub use self::pane::Pane;
 pub use self::platform_specific::PlatformSpecific;
 pub use self::preview::Preview;
 pub use self::proxy::Proxy;
+pub use self::runtime::Runtime;
 pub use self::server::Server;
 pub use self::sidebar::Sidebar;
 pub use self::window::Window;
@@ -58,6 +59,7 @@ pub mod pane;
 pub mod platform_specific;
 pub mod preview;
 pub mod proxy;
+pub mod runtime;
 pub mod server;
 pub mod sidebar;
 pub mod window;
@@ -89,6 +91,7 @@ pub struct Config {
     pub display: Display,
     pub logs: Logs,
     pub platform_specific: PlatformSpecific,
+    pub runtime: Runtime,
     pub check_for_update_on_launch: bool,
     pub metadata: Metadata,
 }
@@ -118,6 +121,7 @@ impl Default for Config {
             display: Display::default(),
             logs: Logs::default(),
             platform_specific: PlatformSpecific::default(),
+            runtime: Runtime::default(),
             check_for_update_on_launch: true,
             metadata: Metadata::default(),
         }
@@ -478,6 +482,7 @@ impl Config {
             pub display: Display,
             pub logs: Logs,
             pub platform_specific: PlatformSpecific,
+            pub runtime: Runtime,
             pub check_for_update_on_launch: bool,
             pub metadata: Metadata,
         }
@@ -507,6 +512,7 @@ impl Config {
                     display: Display::default(),
                     logs: Logs::default(),
                     platform_specific: PlatformSpecific::default(),
+                    runtime: Runtime::default(),
                     check_for_update_on_launch: true,
                     metadata: Metadata::default(),
                 }
@@ -547,6 +553,7 @@ impl Config {
             display,
             logs,
             platform_specific,
+            runtime,
             check_for_update_on_launch,
             metadata,
         } = serde_ignored::deserialize(config, |ignored| {
@@ -588,6 +595,7 @@ impl Config {
             display,
             logs,
             platform_specific,
+            runtime,
             check_for_update_on_launch,
             metadata,
         })

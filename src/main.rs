@@ -31,7 +31,7 @@ use appearance::{Theme, theme};
 use data::capabilities::LabeledResponseContext;
 use data::client::{self, Destination};
 use data::config::buffer::OnMessage;
-use data::config::{self, Config};
+use data::config::{self, Config, Runtime, runtime};
 use data::history::filter::FilterChain;
 use data::history::manager::{EchoEvent, ReactionToEcho, ReplyToEcho};
 use data::history::reroute::RerouteRules;
@@ -47,7 +47,6 @@ use data::{
 use iced::widget::{column, container};
 use iced::{Length, Subscription, Task, padding};
 use screen::{dashboard, help, welcome};
-use tokio::runtime;
 use tokio_stream::wrappers::ReceiverStream;
 
 use self::event::{Event, events};
@@ -79,7 +78,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     // spin up a single-threaded tokio runtime to run the logs deletion and
     // config loading tasks to completion we don't want to wrap our whole
     // program with a runtime since iced starts its own.
-    let rt = runtime::Builder::new_current_thread()
+    let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;
 
@@ -162,14 +161,38 @@ fn settings(config_load: &Result<Config, config::Error>) -> iced::Settings {
         .and_then(|config| config.font.size)
         .map_or(theme::TEXT_SIZE, f32::from);
 
+    let runtime = config_load
+        .as_ref()
+        .map_or_else(|_| Runtime::default(), |config| config.runtime);
+
     iced::Settings {
         default_font: font::MONO.clone().into(),
         default_text_size: default_text_size.into(),
+        backend: backend_from_config(runtime.backend),
         id: None,
-        antialiasing: false,
+        antialiasing: runtime.antialiasing,
         fonts: font::load(),
-        vsync: true,
+        vsync: runtime.vsync,
     }
+}
+
+fn backend_from_config(backend: runtime::Backend) -> iced::Backend {
+    match backend {
+        runtime::Backend::Best => iced::Backend::Best,
+        runtime::Backend::Hardware => {
+            iced::Backend::Hardware(iced::backend::Api::Best)
+        }
+        runtime::Backend::Software => iced::Backend::Software,
+    }
+}
+
+fn configure_runtime(runtime: Runtime) -> Task<Message> {
+    iced::backend::configure(iced::backend::Settings {
+        backend: backend_from_config(runtime.backend),
+        antialiasing: runtime.antialiasing,
+        vsync: runtime.vsync,
+    })
+    .map(Message::RuntimeConfigured)
 }
 
 fn handle_irc_error(e: anyhow::Error) {
@@ -251,7 +274,6 @@ impl Halloy {
         };
 
         let notifications = Notifications::new(&config);
-
         (
             Halloy {
                 version: Version::new(),
@@ -302,6 +324,7 @@ pub enum Message {
     OnConnect(Server, client::on_connect::Event),
     UnixSignal(i32),
     ConfigReloaded(Result<Config, config::Error>),
+    RuntimeConfigured(Result<(), iced::backend::Error>),
 }
 
 impl Halloy {
@@ -433,12 +456,22 @@ impl Halloy {
             Message::ConfigReloaded(config) => {
                 self.config_file_reloaded(config)
             }
+            Message::RuntimeConfigured(result) => {
+                if let Err(error) = result {
+                    log::error!("failed to configure runtime: {error}");
+                }
+
+                Task::none()
+            }
             Message::AppearanceReloaded(appearance) => {
                 self.config.appearance = appearance;
                 Task::none()
             }
             Message::ScreenConfigReloaded(updated) => {
                 let saved_window = self.main_window;
+                let runtime =
+                    updated.as_ref().ok().map(|config| config.runtime);
+
                 let (mut halloy, command) = Halloy::load_from_state(
                     self.main_window.id,
                     updated,
@@ -446,7 +479,14 @@ impl Halloy {
                 );
                 halloy.main_window = saved_window;
                 *self = halloy;
-                command
+
+                let mut tasks = vec![command];
+
+                if let Some(runtime) = runtime {
+                    tasks.push(configure_runtime(runtime));
+                }
+
+                Task::batch(tasks)
             }
             Message::Dashboard(message) => {
                 let Screen::Dashboard(dashboard) = &mut self.screen else {
@@ -1410,6 +1450,8 @@ impl Halloy {
     ) -> Task<Message> {
         match config {
             Ok(updated) => {
+                let runtime_task = configure_runtime(updated.runtime);
+
                 let removed_servers = self
                     .servers
                     .extract_if(|server, _| {
@@ -1482,10 +1524,23 @@ impl Halloy {
                     // be reprocessed; that is already performed by
                     // update_filters, so it does not need to be done again.
 
-                    return dashboard
-                        .reload_visible_previews(&self.clients, &self.config)
-                        .map(Message::Dashboard);
+                    let mut tasks = Vec::new();
+
+                    tasks.push(runtime_task);
+
+                    tasks.push(
+                        dashboard
+                            .reload_visible_previews(
+                                &self.clients,
+                                &self.config,
+                            )
+                            .map(Message::Dashboard),
+                    );
+
+                    return Task::batch(tasks);
                 }
+
+                return runtime_task;
             }
             Err(error) => {
                 self.modal = Some(Modal::ReloadConfigurationError(error));
