@@ -4,8 +4,8 @@ Application wide highlights.
 
 ::: tip
 The Highlights Window gathers all highlights in one location.
-It can be accessed using <kbd>⌘</kbd> + <kbd>i</kbd> (MacOS) / <kbd>ctrl</kbd> + <kbd>i</kbd> (other) by default.
-See [Keybord](/configuration/conditions.md) for information on how to configure these shortcuts.
+It can be accessed via the user menu in the sidebar or the shortcut <kbd>⌘</kbd> + <kbd>i</kbd> (MacOS) / <kbd>ctrl</kbd> + <kbd>i</kbd> (other) by default.
+See [Keyboard](/configuration/keyboard.md) for information on how to configure shortcuts.
 :::
 
 ## `match`
