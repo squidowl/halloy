@@ -1517,45 +1517,6 @@ impl<'a> ChannelQueryLayout<'a> {
                 .into();
         };
 
-        let nick: Option<Element<_>> = (!reply.blocked)
-            .then_some(reply.user.as_ref())
-            .flatten()
-            .map(|user| {
-                let user = self
-                    .target
-                    .users()
-                    .and_then(|users| users.resolve(user))
-                    .unwrap_or(user);
-                UserDisplay::new(
-                    user,
-                    self.config.buffer.nickname.show_access_levels,
-                    self.config.buffer.nickname.show_bot_icon,
-                    self.registry,
-                    &self.config.display.nickname,
-                    self.config.buffer.nickname.truncate,
-                    self.config.display.truncation_character,
-                    Some(&self.config.buffer.nickname.brackets),
-                    false,
-                )
-                .into_element(
-                    user,
-                    false,
-                    false,
-                    None,
-                    Some(text_size),
-                    highlight,
-                    false,
-                    self.theme,
-                    self.config,
-                )
-            });
-
-        let preview_text = text(reply.preview_text())
-            .style(theme::text::secondary)
-            .size(text_size)
-            .wrapping(Wrapping::None)
-            .ellipsis(text::Ellipsis::End);
-
         let mut row = if show_icon {
             row![
                 icon::reply()
@@ -1567,9 +1528,115 @@ impl<'a> ChannelQueryLayout<'a> {
         }
         .spacing(char_width);
 
-        if let Some(nick) = nick {
-            row = row.push(nick);
+        if !reply.blocked {
+            if reply.is_action {
+                row = row.push(message_marker(
+                    Marker::Dot,
+                    None,
+                    self.config,
+                    |t: &Theme| {
+                        let style = theme::selectable_text::action(t);
+                        crate::widget::selectable_text::Style {
+                            color: style.color.map(|c| {
+                                data::appearance::theme::alpha_color(c, 0.75)
+                            }),
+                            ..style
+                        }
+                    },
+                    None::<Message>,
+                ));
+            }
+
+            if let Some(user) = reply.user.as_ref() {
+                if reply.is_action {
+                    let metadata_color = self
+                        .registry
+                        .color(&data::target::Query::from(user))
+                        .map(|c| {
+                            self.config.display.adapt_metadata_colors.adapt(
+                                c,
+                                self.theme.styles().buffer.nickname.color,
+                                self.theme.styles().buffer.background,
+                            )
+                        });
+                    let nick_color = theme::selectable_text::nickname(
+                        self.theme,
+                        self.config,
+                        user,
+                        metadata_color,
+                        false,
+                        false,
+                    )
+                    .color;
+                    row = row.push(
+                        text(user.nickname().to_string())
+                            .style(move |_: &Theme| iced::widget::text::Style {
+                                color: nick_color,
+                            })
+                            .size(text_size)
+                            .font_maybe(
+                                theme::font_style::action(self.theme)
+                                    .map(font::get),
+                            ),
+                    );
+                } else {
+                    let user = self
+                        .target
+                        .users()
+                        .and_then(|users| users.resolve(user))
+                        .unwrap_or(user);
+                    row = row.push(
+                        UserDisplay::new(
+                            user,
+                            self.config.buffer.nickname.show_access_levels,
+                            self.config.buffer.nickname.show_bot_icon,
+                            self.registry,
+                            &self.config.display.nickname,
+                            self.config.buffer.nickname.truncate,
+                            self.config.display.truncation_character,
+                            Some(&self.config.buffer.nickname.brackets),
+                            false,
+                        )
+                        .into_element(
+                            user,
+                            false,
+                            false,
+                            None,
+                            Some(text_size),
+                            highlight,
+                            false,
+                            self.theme,
+                            self.config,
+                        ),
+                    );
+                }
+            }
         }
+
+        let preview_text: Element<_> = text(reply.preview_text())
+            .style(move |t: &Theme| {
+                if reply.is_action {
+                    iced::widget::text::Style {
+                        color: theme::text::action(t).color.map(|c| {
+                            data::appearance::theme::alpha_color(c, 0.75)
+                        }),
+                    }
+                } else {
+                    theme::text::secondary(t)
+                }
+            })
+            .size(text_size)
+            .wrapping(Wrapping::None)
+            .ellipsis(text::Ellipsis::End)
+            .font_maybe(
+                reply
+                    .is_action
+                    .then(|| {
+                        theme::font_style::action(self.theme).map(font::get)
+                    })
+                    .flatten(),
+            )
+            .into();
 
         row.push(preview_text)
             .align_y(alignment::Vertical::Center)
@@ -1899,7 +1966,7 @@ impl<'a> ChannelQueryLayout<'a> {
                         }),
                         self.config,
                     ),
-                    !is_action,
+                    true,
                 )
             }
         };
