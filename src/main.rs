@@ -179,9 +179,14 @@ fn settings(config_load: &Result<Config, config::Error>) -> iced::Settings {
 fn backend_from_config(backend: runtime::Backend) -> iced::Backend {
     match backend {
         runtime::Backend::Best => iced::Backend::Best,
-        runtime::Backend::Hardware => {
-            iced::Backend::Hardware(iced::backend::Api::Best)
-        }
+        runtime::Backend::Hardware(api) => iced::Backend::Hardware(match api {
+            runtime::HardwareApi::Best => iced::backend::Api::Best,
+            runtime::HardwareApi::Vulkan => iced::backend::Api::Vulkan,
+            runtime::HardwareApi::Metal => iced::backend::Api::Metal,
+            runtime::HardwareApi::DirectX12 => iced::backend::Api::DirectX12,
+            runtime::HardwareApi::OpenGL => iced::backend::Api::OpenGL,
+            runtime::HardwareApi::WebGPU => iced::backend::Api::WebGPU,
+        }),
         runtime::Backend::Software => iced::Backend::Software,
     }
 }

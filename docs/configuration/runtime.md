@@ -7,7 +7,7 @@ Runtime graphics settings.
 Select the graphics backend.
 
 ```toml
-# Type: String
+# Type: string or object
 # Values: "best", "hardware", "software"
 # Default: "best"
 
@@ -18,12 +18,22 @@ backend = "best"
 `"hardware"` uses your GPU, while `"software"` is quite slower than
 hardware-based backends, but more compatible.
 
+The hardware backend can be configured to request a specific graphics API:
+
+```toml
+# Type: object
+# Values: "best", "vulkan", "metal", "direct-x12", "open-gl", "web-gpu"
+
+[runtime]
+backend = { hardware = "best" }
+```
+
 ## `vsync`
 
 Whether frames synchronizes with your display refresh rate.
 
 ```toml
-# Type: Boolean
+# Type: boolean
 # Values: true, false
 # Default: true
 
@@ -36,7 +46,7 @@ vsync = true
 Whether to enable antialiasing renderer for primitives.
 
 ```toml
-# Type: Boolean
+# Type: boolean
 # Values: true, false
 # Default: false
 
