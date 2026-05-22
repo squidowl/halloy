@@ -39,6 +39,7 @@ Fixed:
 - `tor` enabled builds
 - Issue where a shorter highlight word would match instead of a longer one sharing the same prefix
 - Emoji pickers not finding newer emoji like 🙂‍↕️
+- Selection expansion will take precedence over input history navigation (i.e. shift + ↑ will expand the selection to include the top line of input, rather than navigate to the previous input history entry)
 
 Changed:
 

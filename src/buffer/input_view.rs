@@ -87,8 +87,8 @@ pub enum Message {
     DeleteToStart(bool),
     SelectCompletion(usize),
     Tab(bool),
-    Up,
-    Down,
+    Up(bool),
+    Down(bool),
     Escape,
     SendCommand {
         buffer: Upstream,
@@ -439,7 +439,9 @@ pub fn view<'a>(
                     let cursor_position = state.input_content.cursor().position;
 
                     if cursor_position.line == 0 {
-                        Some(text_editor::Binding::Custom(Message::Up))
+                        Some(text_editor::Binding::Custom(Message::Up(
+                            key_press.modifiers.shift(),
+                        )))
                     } else {
                         text_editor::Binding::from_key_press(key_press)
                     }
@@ -453,7 +455,9 @@ pub fn view<'a>(
                     if cursor_position.line
                         == state.input_content.line_count().saturating_sub(1)
                     {
-                        Some(text_editor::Binding::Custom(Message::Down))
+                        Some(text_editor::Binding::Custom(Message::Down(
+                            key_press.modifiers.shift(),
+                        )))
                     } else {
                         text_editor::Binding::from_key_press(key_press)
                     }
@@ -1178,7 +1182,18 @@ impl State {
                     (Task::none(), None)
                 }
             }
-            Message::Up => {
+            Message::Up(shift) => {
+                // If holding shift, the user presumably wants to adjust the
+                // selection bounds and not navigate history/picker (which do
+                // not utilize shift)
+                if shift {
+                    self.input_content.perform(text_editor::Action::Select(
+                        text_editor::Motion::DocumentStart,
+                    ));
+
+                    return (Task::none(), None);
+                }
+
                 if self.completion.arrow(completion::Arrow::Up) {
                     return (Task::none(), None);
                 }
@@ -1195,6 +1210,7 @@ impl State {
                                     text_editor::Motion::DocumentStart,
                                 ),
                             );
+
                             return (Task::none(), None);
                         }
 
@@ -1209,14 +1225,29 @@ impl State {
                         .unwrap()
                         .clone();
 
-                    return self.on_history_navigation(
+                    self.on_history_navigation(
                         buffer, clients, history, config, &new_input, false,
-                    );
+                    )
+                } else {
+                    self.input_content.perform(text_editor::Action::Move(
+                        text_editor::Motion::DocumentStart,
+                    ));
+
+                    (Task::none(), None)
+                }
+            }
+            Message::Down(shift) => {
+                // If holding shift, the user presumably wants to adjust the
+                // selection bounds and not navigate history/picker (which do
+                // not utilize shift)
+                if shift {
+                    self.input_content.perform(text_editor::Action::Select(
+                        text_editor::Motion::DocumentEnd,
+                    ));
+
+                    return (Task::none(), None);
                 }
 
-                (Task::none(), None)
-            }
-            Message::Down => {
                 if self.completion.arrow(completion::Arrow::Down) {
                     return (Task::none(), None);
                 }
@@ -1234,16 +1265,16 @@ impl State {
                         cache.history.get(*index).unwrap().clone()
                     };
 
-                    return self.on_history_navigation(
+                    self.on_history_navigation(
                         buffer, clients, history, config, &new_input, false,
-                    );
+                    )
                 } else {
                     self.input_content.perform(text_editor::Action::Move(
                         text_editor::Motion::DocumentEnd,
                     ));
-                }
 
-                (Task::none(), None)
+                    (Task::none(), None)
+                }
             }
             // Capture escape so that closing context menu or commands/emojis picker
             // does not defocus input
