@@ -224,15 +224,17 @@ impl Halloy {
             Ok(config) => {
                 let mut servers: server::Map = config.servers.clone().into();
                 servers.set_order(config.sidebar.order_by);
-                let (mut screen, command) = load_dashboard(&config);
+                let (mut screen, mut commands) = load_dashboard(&config);
                 screen.init_filters(&servers, &data::client::Map::default());
                 screen
                     .set_reroute_rules(&servers, &data::client::Map::default());
+                commands = commands
+                    .chain(screen.request_override_server_icons(&servers));
                 (
                     Screen::Dashboard(screen),
                     servers,
                     config,
-                    command.map(Message::Dashboard),
+                    commands.map(Message::Dashboard),
                 )
             }
             // Show regular welcome screen for new users.
@@ -1863,6 +1865,11 @@ fn handle_client_events(
                     );
                 }
             }
+            Event::UpdateIcon => commands.push(
+                dashboard
+                    .request_server_icon(clients, server)
+                    .map(Message::Dashboard),
+            ),
         }
     }
 
@@ -2585,16 +2592,11 @@ fn handle_isupport_param(
         data::isupport::Parameter::SAFELIST => {
             dashboard.update_channel_discoveries(clients, server);
         }
-        data::isupport::Parameter::ICON(_) => {
-            let icon_url = clients.get_icon_url(server);
-
-            let task = Task::done(dashboard::Message::UpdateServerIcon(
-                server.clone(),
-                icon_url.map(ToOwned::to_owned),
-            ));
-
-            commands.push(task.map(Message::Dashboard));
-        }
+        data::isupport::Parameter::ICON(_) => commands.push(
+            dashboard
+                .request_server_icon(clients, server)
+                .map(Message::Dashboard),
+        ),
         _ => (),
     }
 }

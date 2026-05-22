@@ -10,6 +10,7 @@ Added:
 - Support for displaying SVGs
 - Notification for reacts (`notifications.reaction`)
 - Theme colors for horizontal rule text and buffer backlog/date separators
+- Font size settings the sidebar (`sidebar.font_size`) and server titles in the sidebar (`sidebar.server_font_size`)
 - The config `buffer.server_messages.condense.max` may be used to limit the number of user entries shown in condensed messages
 - Setting to close queries when closing query buffer panes (`buffer.close.query`)
 - Configuration options for font stretch (`font.stretch`)
@@ -42,6 +43,10 @@ Fixed:
 Changed:
 
 - On-join topic messages disabled by default (`buffer.server_messages.topic`), instead the topic banner is enabled by default (`buffer.channel.topic_banner`)
+- Effective default for `sidebar.server_font_size` changed from `font.size` to `font.size + 1`
+- Default `sidebar.server_icon.size` changed from `12` → `20`
+- Default `sidebar.spacing.server` changed from `6` → `2`
+- Default `sidebar.padding.buffer` changed from `[4, 4]` to `[5, 4]`
 - For filehosts, localhost is now treated as a secure transport when using `servers.<name>.filehost.override_url`
 - `buffer.mark_as_read.on_message = true` is now equivalent to `buffer.mark_as_read.on_message = "open"` (previously equivalent to `buffer.mark_as_read.on_message = "focused"`)
 - Tooltips have had their spacing tightened

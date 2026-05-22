@@ -35,44 +35,44 @@ impl Default for Manager {
 impl Manager {
     pub fn request(
         &mut self,
-        server: Server,
-        icon_url: Option<String>,
+        server: &Server,
+        icon_url: Option<&str>,
         http_client: Option<Arc<reqwest::Client>>,
     ) -> Task<Message> {
         let Some(icon_url) = icon_url else {
-            self.drop_request(&server);
+            self.drop_request(server);
             return Task::none();
         };
 
-        let Ok(icon_url) = Url::parse(&icon_url) else {
+        let Ok(icon_url) = Url::parse(icon_url) else {
             log::debug!("invalid server icon URL for {server}: {icon_url}");
-            self.drop_request(&server);
+            self.drop_request(server);
             return Task::none();
         };
 
         let Some(http_client) = http_client else {
             log::warn!("server icon fetching disabled for {server}");
-            self.drop_request(&server);
+            self.drop_request(server);
             return Task::none();
         };
 
         if self
             .icons
-            .get(&server)
+            .get(server)
             .is_some_and(|icon| icon.url == icon_url)
-            || self.pending.get(&server) == Some(&icon_url)
+            || self.pending.get(server) == Some(&icon_url)
         {
             return Task::none();
         }
 
-        self.icons.remove(&server);
+        self.icons.remove(server);
         self.pending.insert(server.clone(), icon_url.clone());
+
+        let server = server.clone();
 
         Task::perform(
             load(icon_url.clone(), http_client, self.cache.clone()),
-            move |result| {
-                Message::Loaded(server.clone(), icon_url.clone(), result)
-            },
+            move |result| Message::Loaded(server, icon_url.clone(), result),
         )
     }
 
