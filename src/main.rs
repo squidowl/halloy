@@ -325,6 +325,7 @@ pub enum Message {
     UnixSignal(i32),
     ConfigReloaded(Result<Config, config::Error>),
     RuntimeConfigured(Result<(), iced::backend::Error>),
+    SystemInformation(iced::system::Information),
 }
 
 impl Halloy {
@@ -459,9 +460,35 @@ impl Halloy {
             Message::RuntimeConfigured(result) => {
                 if let Err(error) = result {
                     log::error!("failed to configure runtime: {error}");
+                    Task::none()
+                } else {
+                    iced::system::information().map(Message::SystemInformation)
+                }
+            }
+            Message::SystemInformation(information) => {
+                let mut tasks = vec![];
+
+                if matches!(self.screen, Screen::Dashboard(_)) {
+                    tasks.push(Task::done(Message::Dashboard(
+                        dashboard::Message::Sidebar(
+                            dashboard::sidebar::Message::SystemInformation(
+                                information.clone(),
+                            ),
+                        ),
+                    )));
                 }
 
-                Task::none()
+                if matches!(self.modal, Some(Modal::About(_))) {
+                    tasks.push(Task::done(Message::Modal(
+                        modal::Message::About(
+                            modal::about::Action::SystemInformation(
+                                information,
+                            ),
+                        ),
+                    )));
+                }
+
+                Task::batch(tasks)
             }
             Message::AppearanceReloaded(appearance) => {
                 self.config.appearance = appearance;
@@ -585,6 +612,7 @@ impl Halloy {
                                 version,
                                 commit,
                                 system_information,
+                                self.config.runtime,
                             )));
 
                         Task::none()
