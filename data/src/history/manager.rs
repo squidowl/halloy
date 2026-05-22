@@ -194,6 +194,9 @@ impl Manager {
                 if !matches!(kind, history::Kind::Logs) {
                     log::debug!("flushed history for {kind}",);
                 }
+
+                self.data.flushed(&kind, true);
+
                 if !events.is_empty()
                     && let Some(server) = kind.server()
                 {
@@ -202,6 +205,8 @@ impl Manager {
             }
             Message::Flushed(kind, Err(error)) => {
                 log::warn!("failed to flush history for {kind}: {error}");
+
+                self.data.flushed(&kind, false);
             }
             Message::UpdatePartial(kind, Ok(metadata)) => {
                 log::debug!("loaded metadata for {kind}");
@@ -1346,6 +1351,9 @@ impl Data {
                     last_seen,
                     pending_reactions,
                     pending_redactions,
+                    flushing_messages,
+                    flushing_reactions,
+                    flushing_redactions,
                     ..
                 } => {
                     let read_marker =
@@ -1360,7 +1368,10 @@ impl Data {
 
                     let mut last_seen = last_seen.clone();
 
-                    for (id, pending) in std::mem::take(pending_reactions) {
+                    for (id, pending) in std::mem::take(pending_reactions)
+                        .into_iter()
+                        .chain(std::mem::take(flushing_reactions))
+                    {
                         if let Some(server_time) = pending.server_time()
                             && let Some(message) =
                                 history::find_reply_target_mut(
@@ -1383,7 +1394,10 @@ impl Data {
                         }
                     }
 
-                    for (id, pending) in std::mem::take(pending_redactions) {
+                    for (id, pending) in std::mem::take(pending_redactions)
+                        .into_iter()
+                        .chain(std::mem::take(flushing_redactions))
+                    {
                         if let Some(message) = history::find_reply_target_mut(
                             &mut messages,
                             &id,
@@ -1395,6 +1409,8 @@ impl Data {
 
                     for (message, labeled_response_context) in
                         std::mem::take(pending_messages)
+                            .into_iter()
+                            .chain(std::mem::take(flushing_messages))
                     {
                         history::update_last_seen(&mut last_seen, &message);
 
@@ -1856,6 +1872,39 @@ impl Data {
                 )
             })
             .collect()
+    }
+
+    fn flushed(&mut self, kind: &history::Kind, flush_ok: bool) {
+        if let Some(History::Partial {
+            pending_messages,
+            pending_reactions,
+            pending_redactions,
+            flushing_messages,
+            flushing_reactions,
+            flushing_redactions,
+            ..
+        }) = self.map.get_mut(kind)
+        {
+            if flush_ok {
+                flushing_messages.clear();
+
+                flushing_reactions.clear();
+
+                flushing_redactions.clear();
+            } else {
+                pending_messages.extend(std::mem::take(flushing_messages));
+
+                for (id, flushing) in std::mem::take(flushing_reactions) {
+                    let pending = pending_reactions.entry(id).or_default();
+
+                    pending.reactions.extend(flushing.reactions);
+                }
+
+                for (id, flushing) in std::mem::take(flushing_redactions) {
+                    pending_redactions.entry(id).or_insert(flushing);
+                }
+            }
+        }
     }
 
     fn is_preview_hidden(
