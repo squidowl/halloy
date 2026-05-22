@@ -318,6 +318,39 @@ impl Inclusivities {
         }
     }
 
+    pub fn has_user_or_server_message_conditions(
+        &self,
+        target_ref: TargetRef,
+        server: &Server,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
+        self.users.is_some()
+            || self.server_messages.is_some()
+            || self.criteria.iter().any(|criterion| {
+                (criterion.users.is_some()
+                    || criterion.server_message.is_some())
+                    && criterion.channels.as_ref().is_none_or(
+                        |criterion_channels| {
+                            target_ref.as_channel().is_some_and(|channel| {
+                                criterion_channels.iter().any(
+                                    |criterion_channel| {
+                                        channel.as_normalized_str()
+                                            == casemapping
+                                                .normalize(criterion_channel)
+                                                .as_str()
+                                    },
+                                )
+                            })
+                        },
+                    )
+                    && criterion.server.as_ref().is_none_or(
+                        |criterion_server| {
+                            match_server(server, criterion_server)
+                        },
+                    )
+            })
+    }
+
     pub fn is_channel_inclusive(
         &self,
         channel: &Channel,

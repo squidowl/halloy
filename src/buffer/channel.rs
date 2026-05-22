@@ -144,6 +144,8 @@ pub fn view<'a>(
                     Some(channel),
                     Some(server),
                     casemapping,
+                    previews.cards_visibility(),
+                    previews.images_visibility(),
                     &config.preview,
                 )
             }),

@@ -18,6 +18,7 @@ use url::Url;
 
 pub use self::card::Card;
 use crate::cache::{self, Asset, CacheState, CachedAsset, FileCache};
+use crate::config::preview::Visibility;
 use crate::image::Image;
 use crate::message::Source;
 use crate::server::Server;
@@ -41,8 +42,8 @@ static META_ATTR_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 #[derive(Clone, Copy)]
 pub struct Previews<'a> {
     collection: &'a Collection,
-    cards_are_visible: bool,
-    images_are_visible: bool,
+    cards_are_visible: Visibility,
+    images_are_visible: Visibility,
 }
 
 impl<'a> Previews<'a> {
@@ -71,16 +72,28 @@ impl<'a> Previews<'a> {
     pub fn get(&self, url: &Url) -> Option<&'a State> {
         self.collection.get(url).filter(|state| match state {
             State::Loading => true,
-            State::Loaded(preview) => match preview {
-                Preview::Card(_) => self.cards_are_visible,
-                Preview::Image(_) => self.images_are_visible,
-            },
+            State::Loaded(preview) => {
+                let visibility = match preview {
+                    Preview::Card(_) => self.cards_are_visible,
+                    Preview::Image(_) => self.images_are_visible,
+                };
+
+                matches!(visibility, Visibility::All | Visibility::BySource)
+            }
             State::Error(_) => true,
         })
     }
 
     pub fn collection(&self) -> &'a Collection {
         self.collection
+    }
+
+    pub fn cards_visibility(&self) -> Visibility {
+        self.cards_are_visible
+    }
+
+    pub fn images_visibility(&self) -> Visibility {
+        self.images_are_visible
     }
 }
 
@@ -107,21 +120,31 @@ impl Preview {
         channel: Option<&target::Channel>,
         server: Option<&Server>,
         casemapping: isupport::CaseMap,
+        cards_visibility: Visibility,
+        images_visibility: Visibility,
         config: &config::Preview,
     ) -> bool {
         match self {
-            Self::Card(_) => config.card.visible_for_source(
-                source,
-                channel,
-                server,
-                casemapping,
-            ),
-            Self::Image(_) => config.image.visible_for_source(
-                source,
-                channel,
-                server,
-                casemapping,
-            ),
+            Self::Card(_) => match cards_visibility {
+                Visibility::All => true,
+                Visibility::BySource => config.card.visible_for_source(
+                    source,
+                    channel,
+                    server,
+                    casemapping,
+                ),
+                Visibility::None => false,
+            },
+            Self::Image(_) => match images_visibility {
+                Visibility::All => true,
+                Visibility::BySource => config.image.visible_for_source(
+                    source,
+                    channel,
+                    server,
+                    casemapping,
+                ),
+                Visibility::None => false,
+            },
         }
     }
 }
