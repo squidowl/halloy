@@ -399,7 +399,7 @@ where
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum Visibility {
     All,
     BySource,
@@ -423,7 +423,7 @@ impl Visibility {
             casemapping,
         ) {
             Visibility::All
-        } else if is_target_ref_included(
+        } else if !is_target_ref_included(
             None,
             exclude,
             None,
@@ -451,7 +451,7 @@ impl Visibility {
         }) {
             Visibility::BySource
         } else {
-            Visibility::None
+            Visibility::All
         }
     }
 }
