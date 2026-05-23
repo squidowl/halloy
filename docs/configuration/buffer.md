@@ -1672,7 +1672,7 @@ insert_nick = false
 
 ### `highlight_hovered_message`
 
-When hovering a reply, highlight the target message if it visible in the buffer.
+When hovering a reply, highlight the target message if it visible in the buffer. This takes precedence over the hover preview.
 
 ```toml
 # Type: bool
