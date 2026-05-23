@@ -1557,18 +1557,15 @@ impl Halloy {
                     // be reprocessed; that is already performed by
                     // update_filters, so it does not need to be done again.
 
-                    let mut tasks = Vec::new();
-
-                    tasks.push(runtime_task);
-
-                    tasks.push(
+                    let tasks = vec![
+                        runtime_task,
                         dashboard
                             .reload_visible_previews(
                                 &self.clients,
                                 &self.config,
                             )
                             .map(Message::Dashboard),
-                    );
+                    ];
 
                     return Task::batch(tasks);
                 }
