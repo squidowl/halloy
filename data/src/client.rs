@@ -203,6 +203,8 @@ pub struct Client {
     capabilities: Capabilities,
     features: Features,
     sasl_succeeded: bool,
+    sasl_retry_interval: BackoffInterval,
+    sasl_retry_last_attempt: Option<Instant>,
     pending_chathistory_requests:
         HashMap<Target, (ChatHistorySubcommand, TokenPriority)>,
     chathistory_requests: HashMap<Target, ChatHistoryRequest>,
@@ -268,6 +270,10 @@ impl Client {
             capabilities: Capabilities::default(),
             features: Features::default(),
             sasl_succeeded: false,
+            sasl_retry_interval: BackoffInterval::from(
+                config.sasl_retry_interval,
+            ),
+            sasl_retry_last_attempt: None,
             pending_chathistory_requests: HashMap::new(),
             chathistory_requests: HashMap::new(),
             chathistory_exhausted: HashMap::new(),
@@ -2944,8 +2950,10 @@ impl Client {
                     ))]);
                 }
 
-                self.registration_step = RegistrationStep::End;
-                self.handle.try_send(command!("CAP", "END"))?;
+                self.sasl_retry_interval.too_short();
+
+                // self.registration_step = RegistrationStep::End;
+                // self.handle.try_send(command!("CAP", "END"))?;
             }
             Command::Numeric(RPL_TRYAGAIN, args) => {
                 let command = ok!(args.get(1));
@@ -4362,6 +4370,15 @@ impl Client {
                     log::warn!("[{}] Error sending message: {e}", self.server);
                 }
             }
+        }
+
+        if now.duration_since(self.sasl_retry_last_attempt.unwrap_or(now))
+            >= self.sasl_retry_interval.duration()
+            && self.registration_step == RegistrationStep::Sasl
+            && let Some(sasl) = self.config.sasl.as_ref()
+        {
+            self.handle
+                .try_send(command!("AUTHENTICATE", sasl.command()))?;
         }
 
         Ok(())
