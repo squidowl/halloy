@@ -305,16 +305,24 @@ pub struct ReplyPreview {
     pub in_reply_to: Option<Box<ReplyPreview>>,
     pub redaction: Option<Redaction>,
     pub blocked: bool,
+    pub is_action: bool,
 }
 
 impl ReplyPreview {
     pub fn preview_text(&self) -> String {
-        if self.blocked {
-            "Message blocked by Halloy configuration".to_string()
-        } else if let Some(redaction) = &self.redaction {
-            redaction.message()
-        } else {
-            self.content.preview_text()
+        match self {
+            Self { blocked: true, .. } => {
+                "Message blocked by Halloy configuration".to_string()
+            }
+            Self {
+                redaction: Some(r), ..
+            } => r.message(),
+            Self {
+                is_action: true,
+                user: Some(user),
+                ..
+            } => action_preview_text(&self.content, user),
+            _ => self.content.preview_text(),
         }
     }
 }
@@ -781,8 +789,8 @@ impl Message {
         }
     }
 
-    pub fn text(&self) -> String {
-        self.content.text().to_string()
+    pub fn text(&self) -> Cow<'_, str> {
+        self.content.text()
     }
 
     pub fn log(record: crate::log::Record) -> Self {
@@ -853,6 +861,7 @@ impl Message {
             in_reply_to: self.reply_preview.clone().map(Box::new),
             redaction: self.redaction.clone(),
             blocked: self.blocked,
+            is_action: matches!(self.target.source(), Source::Action(_)),
         }
     }
 }
@@ -3771,6 +3780,13 @@ fn parse_action(
             casemapping,
         ))
     }
+}
+
+/// in preview contexts the nick is added on the side as a `UserDisplay`
+pub fn action_preview_text(content: &Content, user: &User) -> String {
+    let text = content.preview_text();
+    let prefix = format!("{} ", user.nickname());
+    text.strip_prefix(&prefix).unwrap_or(&text).to_string()
 }
 
 pub fn action_text(

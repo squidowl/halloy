@@ -3,6 +3,7 @@ use std::collections::VecDeque;
 use std::convert;
 use std::time::{Duration, Instant};
 
+use chrono::{DateTime, Utc};
 use data::buffer::{self, Upstream};
 use data::capabilities::{MultilineBatchKind, multiline_concat_lines};
 use data::config::buffer::text_input::{AutoFormat, Autocomplete, KeyBindings};
@@ -13,11 +14,11 @@ use data::input::{self, CodeFence, RawInput};
 use data::rate_limit::TokenPriority;
 use data::server::Server;
 use data::target::Target;
-use data::user::Nick;
+use data::user::{ChannelUsers, Nick};
 use data::{Config, User, client, command, message, metadata, shortcut};
 use iced::advanced::widget::Tree;
 use iced::advanced::{Clipboard, Layout, Shell, mouse};
-use iced::widget::text::{Ellipsis, Shaping, Wrapping};
+use iced::widget::text::{Shaping, Wrapping};
 use iced::widget::{
     self, button, center, column, container, mouse_area, operation, row, rule,
     text_editor,
@@ -32,8 +33,8 @@ use self::exec::run as execute_shell_command;
 use crate::widget::key_press::is_numpad;
 use crate::widget::user_display::UserDisplay;
 use crate::widget::{
-    Element, Renderer, Text, anchored_overlay, context_menu, decorate, text,
-    tooltip,
+    Element, Renderer, Text, anchored_overlay, context_menu, decorate,
+    reply_preview_content, text, tooltip,
 };
 use crate::window::Window;
 use crate::{Theme, font, theme, window};
@@ -115,8 +116,8 @@ pub enum Message {
     SpinnerHovered(bool),
     SetDraftReply {
         msgid: message::Id,
+        server_time: DateTime<Utc>,
         to_nick: String,
-        reply_preview: String,
     },
     ClearDraftReply,
 }
@@ -344,12 +345,13 @@ fn platform_specific_key_bindings(
 pub fn view<'a>(
     state: &'a State,
     our_user: Option<&User>,
+    channel_users: Option<&'a ChannelUsers>,
     server: &'a Server,
-    registry: &dyn metadata::Registry,
+    registry: &'a dyn metadata::Registry,
     config: &'a Config,
     theme: &'a Theme,
     filehost_url: Option<&'a str>,
-    reply_user: Option<User>,
+    reply_preview: Option<&'a message::ReplyPreview>,
 ) -> Element<'a, Message> {
     let style = if let Some(notice) = &state.notice {
         match notice {
@@ -669,8 +671,9 @@ pub fn view<'a>(
             )
         });
 
-    let maybe_reply_bar = reply_user
-        .and_then(|user| reply_bar(state, user, registry, config, theme));
+    let maybe_reply_bar = reply_preview.map(|reply_preview| {
+        reply_bar(reply_preview, channel_users, registry, config, theme)
+    });
 
     let input_row = container(
         row![
@@ -731,74 +734,54 @@ pub fn view<'a>(
 }
 
 fn reply_bar<'a>(
-    state: &'a State,
-    user: User,
-    registry: &dyn data::metadata::Registry,
+    reply_preview: &'a message::ReplyPreview,
+    channel_users: Option<&'a ChannelUsers>,
+    registry: &'a dyn metadata::Registry,
     config: &'a Config,
     theme: &'a Theme,
-) -> Option<crate::widget::Element<'a, Message>> {
-    let input::DraftReply { preview, .. } = state.draft_reply.as_ref()?;
+) -> crate::widget::Element<'a, Message> {
     let font_size = config.font.size.map_or(theme::TEXT_SIZE, f32::from) * 0.85;
-    let user_display = UserDisplay::new(
-        &user,
-        config.buffer.nickname.show_access_levels,
-        config.buffer.nickname.show_bot_icon,
+
+    let reply_preview = reply_preview_content(
+        Some(reply_preview),
+        false,
+        false,
+        font_size,
+        channel_users,
         registry,
-        &config.display.nickname,
-        None,
-        config.display.truncation_character,
-        Some(&config.buffer.nickname.brackets),
-        false,
-    );
-    let nick_element: Element<_> = user_display.into_element(
-        &user,
-        false,
-        false,
-        None,
-        Some(font_size),
-        false,
-        false,
-        theme,
         config,
+        theme,
     );
 
-    Some(
-        container(
+    container(
+        row![
+            crate::icon::reply().style(theme::text::primary),
             row![
-                crate::icon::reply().style(theme::text::primary),
-                row![
-                    text("Replying to ")
-                        .style(theme::text::primary)
-                        .size(font_size),
-                    nick_element,
-                    text(format!(" {preview}"))
-                        .style(theme::text::secondary)
-                        .size(font_size)
-                        .wrapping(Wrapping::None)
-                        .ellipsis(Ellipsis::End)
-                        .width(Length::Fill),
-                ]
-                .width(Length::Fill),
-                tooltip(
-                    button(center(crate::icon::cancel()))
-                        .on_press(Message::ClearDraftReply)
-                        .width(20)
-                        .height(20)
-                        .style(|theme, status| {
-                            theme::button::secondary(theme, status, false)
-                        })
-                        .padding(5),
-                    Some("Remove reply"),
-                    widget::tooltip::Position::Top,
-                    theme,
-                )
+                text("Replying to ")
+                    .style(theme::text::primary)
+                    .size(font_size),
+                reply_preview
             ]
-            .spacing(6)
-            .align_y(Alignment::Center),
-        )
-        .padding([2, 8])
-        .into(),
+            .width(Length::Fill),
+            tooltip(
+                button(center(crate::icon::cancel()))
+                    .on_press(Message::ClearDraftReply)
+                    .width(20)
+                    .height(20)
+                    .style(|theme, status| {
+                        theme::button::secondary(theme, status, false)
+                    })
+                    .padding(5),
+                Some("Remove reply"),
+                widget::tooltip::Position::Top,
+                theme,
+            )
+        ]
+        .spacing(6)
+        .align_y(Alignment::Center),
     )
+    .padding([2, 8])
+    .into()
 }
 
 fn notice_view<'a, 'b, Message: 'a>(
@@ -1443,8 +1426,8 @@ impl State {
             }
             Message::SetDraftReply {
                 msgid,
+                server_time,
                 to_nick,
-                reply_preview,
             } => {
                 let is_insert_nick = config.buffer.reply.insert_nick;
                 let suffix =
@@ -1470,11 +1453,13 @@ impl State {
                         self.input_content.move_to(cursor);
                     }
                 }
+
                 self.draft_reply = Some(input::DraftReply {
                     id: msgid,
+                    server_time,
                     nick: to_nick.clone(),
-                    preview: reply_preview,
                 });
+
                 if is_insert_nick {
                     let prefix_str = format!("{to_nick}{suffix}");
                     let current_text = self.input_content.text();
@@ -1498,6 +1483,7 @@ impl State {
                         });
                     }
                 }
+
                 (self.focus(), None)
             }
             Message::ClearDraftReply => {

@@ -591,6 +591,24 @@ impl Manager {
         self.data.contract_message(kind, server_time, hash, config);
     }
 
+    pub fn get_reply_preview(
+        &self,
+        kind: history::Kind,
+        id: &message::Id,
+        server_time: &DateTime<Utc>,
+    ) -> Option<&message::ReplyPreview> {
+        self.data.get_reply_preview(kind, id, server_time)
+    }
+
+    pub fn generate_reply_preview(
+        &mut self,
+        kind: history::Kind,
+        id: &message::Id,
+        server_time: &DateTime<Utc>,
+    ) {
+        self.data.generate_reply_preview(kind, id, server_time);
+    }
+
     pub fn update_chathistory_references<T: Into<history::Kind>>(
         &mut self,
         kind: T,
@@ -1694,6 +1712,33 @@ impl Data {
                 .for_each(|message| {
                     message.expanded = false;
                 });
+        }
+    }
+
+    fn get_reply_preview(
+        &self,
+        kind: history::Kind,
+        id: &message::Id,
+        server_time: &DateTime<Utc>,
+    ) -> Option<&message::ReplyPreview> {
+        self.map
+            .get(&kind)
+            .and_then(|history| history.find_reply_target(id, server_time))
+            .and_then(|message| message.reply_preview.as_ref())
+    }
+
+    fn generate_reply_preview(
+        &mut self,
+        kind: history::Kind,
+        id: &message::Id,
+        server_time: &DateTime<Utc>,
+    ) {
+        if let Some(message) = self
+            .map
+            .get_mut(&kind)
+            .and_then(|history| history.find_reply_target_mut(id, server_time))
+        {
+            message.reply_preview = Some(message.as_reply_preview());
         }
     }
 

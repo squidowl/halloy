@@ -11,7 +11,7 @@ use data::redaction::Redaction;
 use data::server::Server;
 use data::user::{ChannelUsers, NickRef};
 use data::{Config, Preview, User, history, message, metadata, target};
-use iced::widget::text::{LineHeight, Wrapping};
+use iced::widget::text::LineHeight;
 use iced::widget::{
     Space, button, center, column, container, mouse_area, right, row, space,
     stack, text,
@@ -25,7 +25,7 @@ use crate::widget::reaction_row::{has_visible_reactions, reaction_row};
 use crate::widget::user_display::UserDisplay;
 use crate::widget::{
     Element, Marker, message_content, message_marker, notify_visibility,
-    preview_content, selectable_text, tooltip,
+    preview_content, reply_preview_content, selectable_text, tooltip,
 };
 use crate::{Theme, font, icon, theme};
 
@@ -441,11 +441,7 @@ impl<'a> ChannelQueryLayout<'a> {
             self.can_send_replies,
             self.can_send_reactions,
             self.can_redact_message(message),
-            &message.server_time,
-            &message.hash,
-            message.id.as_ref(),
-            message.user(),
-            &message.content,
+            message,
             selected_reactions_refs(message, self.our_nick),
             self.config,
             self.theme,
@@ -1029,27 +1025,10 @@ impl<'a> ChannelQueryLayout<'a> {
             let selected_reaction_texts =
                 selected_reactions_refs(message, self.our_nick);
 
-            let (to_nick, reply_preview) = match message.target.source() {
-                message::Source::User(user) => (
-                    Some(user.nickname().to_string()),
-                    Some(message.content.preview_text()),
-                ),
-                message::Source::Action(Some(user)) => (
-                    Some(user.nickname().to_string()),
-                    Some(message.content.preview_text()),
-                ),
-                _ => (None, None),
-            };
-
             link.url().map(move |url| Context::Url {
                 url,
-                server_time: Some(&message.server_time),
-                hash: Some(&message.hash),
-                msgid: message.id.as_ref(),
+                message: Some(message),
                 selected_reactions: selected_reaction_texts,
-                to_nick,
-                reply_preview,
-                redaction: message.redaction.as_ref(),
             })
         }
     }
@@ -1337,17 +1316,11 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
 
         let content = context_menu::message(
             content,
-            message.target.source(),
-            &message.server_time,
-            &message.hash,
-            message.id.as_ref(),
+            message,
             selected_reaction_texts,
             self.can_send_replies,
             self.can_send_reactions,
             self.can_redact_message(message),
-            &message.content,
-            message.redaction.as_ref(),
-            message.redaction_expanded(&self.config.buffer.redaction),
             self.config,
             self.theme,
         );
@@ -1499,83 +1472,6 @@ impl<'a> ChannelQueryLayout<'a> {
             .collect()
     }
 
-    /// Generates an element like `↩ alice: hi bob`
-    fn reply_preview_content(
-        &self,
-        reply: Option<&'a message::ReplyPreview>,
-        highlight: bool,
-        show_icon: bool,
-        text_size: f32,
-    ) -> Element<'a, Message> {
-        let char_width = font::width_from_str("a", &self.config.font);
-
-        // the message may not be loaded
-        let Some(reply) = reply else {
-            return text("Replied to a message")
-                .style(theme::text::secondary)
-                .size(text_size)
-                .into();
-        };
-
-        let nick: Option<Element<_>> = (!reply.blocked)
-            .then_some(reply.user.as_ref())
-            .flatten()
-            .map(|user| {
-                let user = self
-                    .target
-                    .users()
-                    .and_then(|users| users.resolve(user))
-                    .unwrap_or(user);
-                UserDisplay::new(
-                    user,
-                    self.config.buffer.nickname.show_access_levels,
-                    self.config.buffer.nickname.show_bot_icon,
-                    self.registry,
-                    &self.config.display.nickname,
-                    self.config.buffer.nickname.truncate,
-                    self.config.display.truncation_character,
-                    Some(&self.config.buffer.nickname.brackets),
-                    false,
-                )
-                .into_element(
-                    user,
-                    false,
-                    false,
-                    None,
-                    Some(text_size),
-                    highlight,
-                    false,
-                    self.theme,
-                    self.config,
-                )
-            });
-
-        let preview_text = text(reply.preview_text())
-            .style(theme::text::secondary)
-            .size(text_size)
-            .wrapping(Wrapping::None)
-            .ellipsis(text::Ellipsis::End);
-
-        let mut row = if show_icon {
-            row![
-                icon::reply()
-                    .size(self.config.buffer.reply.icon_size)
-                    .style(theme::text::primary)
-            ]
-        } else {
-            row![]
-        }
-        .spacing(char_width);
-
-        if let Some(nick) = nick {
-            row = row.push(nick);
-        }
-
-        row.push(preview_text)
-            .align_y(alignment::Vertical::Center)
-            .into()
-    }
-
     /// Generates the reply line element to be used in buffers: `┌── ↩ alice: hi bob`
     fn reply_line(
         &self,
@@ -1604,6 +1500,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 in_reply_to,
                 redaction: reply_redaction,
                 blocked: reply_blocked,
+                is_action: reply_is_action,
                 ..
             } = reply_preview;
 
@@ -1649,20 +1546,23 @@ impl<'a> ChannelQueryLayout<'a> {
             hover_tooltip = (self.config.buffer.reply.tooltip.enabled
                 && !reply_blocked)
                 .then(|| {
-                    let tooltip_nick =
-                        nick_info.as_ref().map(|(user, _, display)| {
-                            display.clone().into_element(
-                                user,
-                                false,
-                                false,
-                                None,
-                                None,
-                                false,
-                                false,
-                                self.theme,
-                                self.config,
-                            )
-                        });
+                    let tooltip_nick = (!reply_is_action)
+                        .then(|| {
+                            nick_info.as_ref().map(|(user, _, display)| {
+                                display.clone().into_element(
+                                    user,
+                                    false,
+                                    false,
+                                    None,
+                                    None,
+                                    false,
+                                    false,
+                                    self.theme,
+                                    self.config,
+                                )
+                            })
+                        })
+                        .flatten();
                     self.reply_hover_tooltip(
                         reply_preview.hash,
                         reply_preview.server_time,
@@ -1671,22 +1571,31 @@ impl<'a> ChannelQueryLayout<'a> {
                         in_reply_to.as_deref(),
                         reply_redaction.as_ref(),
                         *reply_blocked,
+                        *reply_is_action,
                     )
                 });
 
             let highlight = nick_info.as_ref().is_some_and(|(_, h, _)| *h);
-            self.reply_preview_content(
+            reply_preview_content(
                 Some(reply_preview),
                 highlight,
                 show_reply_icon,
                 preview_text_size,
+                self.target.users(),
+                self.registry,
+                self.config,
+                self.theme,
             )
         } else {
-            self.reply_preview_content(
+            reply_preview_content(
                 None,
                 false,
                 show_reply_icon,
                 preview_text_size,
+                self.target.users(),
+                self.registry,
+                self.config,
+                self.theme,
             )
         };
 
@@ -1775,6 +1684,7 @@ impl<'a> ChannelQueryLayout<'a> {
         in_reply_to: Option<&'a message::ReplyPreview>,
         redaction: Option<&'a data::redaction::Redaction>,
         is_blocked: bool,
+        is_action: bool,
     ) -> Element<'a, Message> {
         let kind = self.target_kind();
         let text_size =
@@ -1842,6 +1752,17 @@ impl<'a> ChannelQueryLayout<'a> {
                 false,
             )
         } else {
+            let content_style = move |t: &Theme| {
+                theme::selectable_text::dimmed(
+                    if is_action {
+                        theme::selectable_text::action(t)
+                    } else {
+                        theme::selectable_text::default(t)
+                    },
+                    t,
+                    dimmed_bg,
+                )
+            };
             let max_chars = self.config.buffer.reply.tooltip.max_chars;
             let preview = reply.preview_text();
             let truncated = (max_chars > 0
@@ -1855,7 +1776,10 @@ impl<'a> ChannelQueryLayout<'a> {
                 });
 
             if let Some(truncated) = truncated {
-                (selectable_text(truncated).into(), false)
+                (
+                    selectable_text(truncated).style(content_style).into(),
+                    false,
+                )
             } else {
                 (
                     message_content(
@@ -1868,8 +1792,12 @@ impl<'a> ChannelQueryLayout<'a> {
                         self.theme,
                         Message::Link,
                         None,
-                        dimmed_style,
-                        theme::font_style::primary,
+                        content_style,
+                        if is_action {
+                            theme::font_style::action
+                        } else {
+                            theme::font_style::primary
+                        },
                         dimmed.map(|d| {
                             move |color: Color| d.transform_color(color, bg)
                         }),
@@ -1919,11 +1847,25 @@ impl<'a> ChannelQueryLayout<'a> {
         }
 
         let in_reply_to_row: Option<Element<_>> = in_reply_to.map(|nested| {
-            self.reply_preview_content(
+            reply_preview_content(
                 Some(nested),
                 false,
                 true,
                 preview_text_size,
+                self.target.users(),
+                self.registry,
+                self.config,
+                self.theme,
+            )
+        });
+
+        let action_marker: Option<Element<_>> = is_action.then(|| {
+            message_marker(
+                Marker::Dot,
+                None,
+                self.config,
+                theme::selectable_text::action,
+                None::<Message>,
             )
         });
 
@@ -1934,6 +1876,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     text(timestamp).style(theme::text::timestamp).into()
                 },
             ))
+            .extend(action_marker)
             .extend(nick)
             .push(content_col)
             .into();

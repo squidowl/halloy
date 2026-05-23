@@ -302,7 +302,7 @@ pub async fn append(
                                 is_echo: pending_reaction.is_echo,
                                 deduplicate: pending_reaction.deduplicate,
                             },
-                            message_text: message_text.clone(),
+                            message_text: message_text.to_string(),
                         };
 
                         echo_events.push(EchoEvent::Reaction(reaction_to_echo));
@@ -616,7 +616,7 @@ impl History {
         }
     }
 
-    fn find_reply_target(
+    pub fn find_reply_target(
         &self,
         id: &message::Id,
         server_time: &DateTime<Utc>,
@@ -630,6 +630,24 @@ impl History {
                 .map(|(m, _)| m),
             History::Full { messages, .. } => {
                 find_reply_target(messages, id, server_time)
+            }
+        }
+    }
+
+    pub fn find_reply_target_mut(
+        &mut self,
+        id: &message::Id,
+        server_time: &DateTime<Utc>,
+    ) -> Option<&mut Message> {
+        match self {
+            History::Partial {
+                pending_messages, ..
+            } => pending_messages
+                .iter_mut()
+                .find(|(m, _)| m.id.as_deref() == Some(id))
+                .map(|(m, _)| m),
+            History::Full { messages, .. } => {
+                find_reply_target_mut(messages, id, server_time)
             }
         }
     }
@@ -1249,7 +1267,7 @@ impl History {
                     let message_text = if message.is_echo
                         && message.direction == Direction::Received
                     {
-                        Some(message.text())
+                        Some(message.text().to_string())
                     } else {
                         None
                     };
@@ -1302,7 +1320,7 @@ impl History {
                 {
                     return Some(ReactionToEcho {
                         reaction,
-                        message_text: message.text(),
+                        message_text: message.text().to_string(),
                     });
                 } else {
                     return None;

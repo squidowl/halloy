@@ -150,18 +150,11 @@ pub fn view<'a>(
 
                         Some(context_menu::message(
                             row_with_timestamp(timestamp, text_content),
-                            message.target.source(),
-                            &message.server_time,
-                            &message.hash,
-                            None,
+                            message,
                             vec![],
                             false,
                             false,
                             false,
-                            &message.content,
-                            message.redaction.as_ref(),
-                            message
-                                .redaction_expanded(&config.buffer.redaction),
                             config,
                             theme,
                         ))
@@ -282,18 +275,11 @@ pub fn view<'a>(
                             row_with_timestamp_and_nick(
                                 timestamp, nick, content,
                             ),
-                            message.target.source(),
-                            &message.server_time,
-                            &message.hash,
-                            None,
+                            message,
                             vec![],
                             false,
                             false,
                             false,
-                            &message.content,
-                            message.redaction.as_ref(),
-                            message
-                                .redaction_expanded(&config.buffer.redaction),
                             config,
                             theme,
                         ))
@@ -321,6 +307,7 @@ pub fn view<'a>(
             input_view::view(
                 &state.input_view,
                 our_user.as_ref(),
+                None,
                 &state.server,
                 registry,
                 config,

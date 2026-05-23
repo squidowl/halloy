@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use chrono::{DateTime, Utc};
 use irc::proto;
 use irc::proto::format;
 use nom::character::complete::char;
@@ -363,8 +364,8 @@ impl Content {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DraftReply {
     pub id: message::Id,
+    pub server_time: DateTime<Utc>,
     pub nick: String,
-    pub preview: String,
 }
 
 #[derive(Debug, Clone)]

@@ -147,18 +147,31 @@ pub fn view<'a>(
 
     let filehost_url = clients.get_filehost(server);
 
+    let reply_preview =
+        state.input_view.draft_reply().and_then(|draft_reply| {
+            let kind = history::Kind::from_target(
+                state.server.clone(),
+                Target::Query(state.target.clone()),
+            );
+
+            history.get_reply_preview(
+                kind,
+                &draft_reply.id,
+                &draft_reply.server_time,
+            )
+        });
+
     let text_input = show_text_input.then(|| {
         input_view::view(
             &state.input_view,
             our_user.as_ref(),
+            None,
             &state.server,
             registry,
             config,
             theme,
             filehost_url,
-            state.input_view.draft_reply().map(|draft_reply| {
-                User::from(Nick::from_str(&draft_reply.nick, casemapping))
-            }),
+            reply_preview,
         )
         .map(Message::InputView)
     });
@@ -243,16 +256,16 @@ impl Query {
                 if let Some(scroll_view::Event::ContextMenu(
                     context_menu::Event::Reply {
                         msgid,
+                        server_time,
                         to_nick,
-                        reply_preview,
                     },
-                )) = &event
+                )) = event
                 {
                     let (reply_task, _) = self.input_view.update(
                         input_view::Message::SetDraftReply {
                             msgid: msgid.clone(),
+                            server_time,
                             to_nick: to_nick.clone(),
-                            reply_preview: reply_preview.clone(),
                         },
                         &self.buffer,
                         clients,
@@ -260,15 +273,16 @@ impl Query {
                         main_window,
                         config,
                     );
+
                     return (
                         Task::batch([
                             command.map(Message::ScrollView),
                             reply_task.map(Message::InputView),
                         ]),
                         Some(Event::ContextMenu(context_menu::Event::Reply {
-                            msgid: msgid.clone(),
-                            to_nick: to_nick.clone(),
-                            reply_preview: reply_preview.clone(),
+                            msgid,
+                            server_time,
+                            to_nick,
                         })),
                     );
                 }

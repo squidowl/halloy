@@ -287,13 +287,8 @@ fn channel_list_view<'a>(
                                     .view(
                                         link.url().map(|url| Context::Url {
                                             url,
-                                            server_time: None,
-                                            hash: None,
-                                            msgid: None,
+                                            message: None,
                                             selected_reactions: vec![],
-                                            to_nick: None,
-                                            reply_preview: None,
-                                            redaction: None,
                                         }),
                                         length,
                                         config,
