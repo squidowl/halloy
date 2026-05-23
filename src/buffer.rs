@@ -7,7 +7,9 @@ use data::config::buffer::text_input::Autocomplete;
 use data::dashboard::BufferAction;
 use data::target::{self, Target};
 use data::user::Nick;
-use data::{Config, Image, buffer, file_transfer, history, message, preview};
+use data::{
+    Config, Image, buffer, file_transfer, history, input, message, preview,
+};
 use iced::{Size, Task};
 
 pub use self::channel::Channel;
@@ -1156,6 +1158,19 @@ impl Buffer {
             Buffer::Highlights(highlights) => {
                 highlights.scroll_view.update_pane_size(pane_size, config);
             }
+        }
+    }
+
+    pub fn get_draft_reply(&mut self) -> Option<&input::DraftReply> {
+        match self {
+            Buffer::Empty
+            | Buffer::FileTransfers(_)
+            | Buffer::Logs(_)
+            | Buffer::Highlights(_)
+            | Buffer::ChannelDiscovery(_) => None,
+            Buffer::Server(state) => state.input_view.draft_reply(),
+            Buffer::Channel(state) => state.input_view.draft_reply(),
+            Buffer::Query(state) => state.input_view.draft_reply(),
         }
     }
 }

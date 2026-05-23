@@ -3,7 +3,6 @@ use std::string::ToString;
 
 use chrono::{DateTime, Utc};
 use data::dashboard::BufferAction;
-use data::redaction::Redaction;
 use data::user::Nick;
 use data::{
     Config, Server, User, config, ctcp, isupport, message, metadata, preview,
@@ -33,24 +32,14 @@ pub enum Context<'a> {
     },
     Url {
         url: &'a str,
-        server_time: Option<&'a DateTime<Utc>>,
-        hash: Option<&'a message::Hash>,
-        msgid: Option<&'a message::Id>,
+        message: Option<&'a message::Message>,
         selected_reactions: Vec<&'a str>,
-        to_nick: Option<String>,
-        reply_preview: Option<String>,
-        redaction: Option<&'a Redaction>,
     },
     Timestamp(&'a DateTime<Utc>),
     NotSentMessage(&'a DateTime<Utc>, &'a message::Hash),
     Message {
-        server_time: &'a DateTime<Utc>,
-        hash: &'a message::Hash,
-        msgid: Option<&'a message::Id>,
+        message: &'a message::Message,
         selected_reactions: &'a [String],
-        content: &'a message::Content,
-        source: &'a message::Source,
-        redaction: Option<&'a Redaction>,
     },
 }
 
@@ -510,9 +499,10 @@ impl Entry {
                     config,
                 )
             }
-            (Entry::HidePreview, Context::Url { url, hash, .. }) => {
-                let message = hash
-                    .map(|hash| Message::HidePreview(*hash, url.to_string()));
+            (Entry::HidePreview, Context::Url { url, message, .. }) => {
+                let message = message.map(|message| {
+                    Message::HidePreview(message.hash, url.to_string())
+                });
 
                 menu_button(
                     "Hide Preview".to_string(),
@@ -522,9 +512,10 @@ impl Entry {
                     config,
                 )
             }
-            (Entry::ShowPreview, Context::Url { url, hash, .. }) => {
-                let message = hash
-                    .map(|hash| Message::ShowPreview(*hash, url.to_string()));
+            (Entry::ShowPreview, Context::Url { url, message, .. }) => {
+                let message = message.map(|message| {
+                    Message::ShowPreview(message.hash, url.to_string())
+                });
 
                 menu_button(
                     "Show Preview".to_string(),
@@ -576,10 +567,10 @@ impl Entry {
                     config,
                 )
             }
-            (Entry::CopyMessage, Context::Message { content, .. }) => {
+            (Entry::CopyMessage, Context::Message { message, .. }) => {
                 menu_button(
                     "Copy message".to_string(),
-                    Some(Message::CopyText(content.text().into_owned())),
+                    Some(Message::CopyText(message.text().into_owned())),
                     length,
                     theme,
                     config,
@@ -587,67 +578,50 @@ impl Entry {
             }
             (
                 Entry::CopyRedaction,
-                Context::Message {
-                    redaction: Some(redaction),
-                    ..
-                }
+                Context::Message { message, .. }
                 | Context::Url {
-                    redaction: Some(redaction),
+                    message: Some(message),
                     ..
                 },
-            ) => menu_button(
-                "Copy redaction".to_string(),
-                Some(Message::CopyText(redaction.message())),
-                length,
-                theme,
-                config,
-            ),
+            ) if let Some(redaction) = message.redaction.as_ref() => {
+                menu_button(
+                    "Copy redaction".to_string(),
+                    Some(Message::CopyText(redaction.message())),
+                    length,
+                    theme,
+                    config,
+                )
+            }
             (
                 Entry::Reply,
-                Context::Message {
-                    msgid: Some(msgid),
-                    source: message::Source::User(user),
-                    content,
+                Context::Message { message, .. }
+                | Context::Url {
+                    message: Some(message),
                     ..
                 },
-            ) => menu_button(
-                "Reply".to_string(),
-                Some(Message::Reply {
-                    msgid: msgid.clone(),
-                    to_nick: user.nickname().to_string(),
-                    reply_preview: content.preview_text(),
-                }),
-                length,
-                theme,
-                config,
-            ),
-            (
-                Entry::Reply,
-                Context::Message {
-                    msgid: Some(msgid),
-                    source: message::Source::Action(Some(user)),
-                    content,
-                    ..
-                },
-            ) => menu_button(
-                "Reply".to_string(),
-                Some(Message::Reply {
-                    msgid: msgid.clone(),
-                    to_nick: user.nickname().to_string(),
-                    reply_preview: message::action_preview_text(content, user),
-                }),
-                length,
-                theme,
-                config,
-            ),
+            ) if let Some(msgid) = message.id.as_ref()
+                && let Some(user) = message.target.source().user() =>
+            {
+                menu_button(
+                    "Reply".to_string(),
+                    Some(Message::Reply {
+                        msgid: msgid.clone(),
+                        server_time: message.server_time,
+                        to_nick: user.nickname().to_string(),
+                    }),
+                    length,
+                    theme,
+                    config,
+                )
+            }
             (
                 Entry::AddReaction,
                 Context::Message {
-                    msgid: Some(msgid),
+                    message,
                     selected_reactions,
                     ..
                 },
-            ) => menu_button(
+            ) if let Some(msgid) = message.id.as_ref() => menu_button(
                 "Add reaction".to_string(),
                 Some(Message::OpenReactionModal(
                     msgid.clone(),
@@ -658,32 +632,13 @@ impl Entry {
                 config,
             ),
             (
-                Entry::Reply,
-                Context::Url {
-                    msgid: Some(msgid),
-                    to_nick: Some(to_nick),
-                    reply_preview: Some(reply_preview),
-                    ..
-                },
-            ) => menu_button(
-                "Reply".to_string(),
-                Some(Message::Reply {
-                    msgid: msgid.clone(),
-                    to_nick,
-                    reply_preview,
-                }),
-                length,
-                theme,
-                config,
-            ),
-            (
                 Entry::AddReaction,
                 Context::Url {
-                    msgid: Some(msgid),
+                    message: Some(message),
                     selected_reactions,
                     ..
                 },
-            ) => menu_button(
+            ) if let Some(msgid) = message.id.as_ref() => menu_button(
                 "Add reaction".to_string(),
                 Some(Message::OpenReactionModal(
                     msgid.clone(),
@@ -698,13 +653,12 @@ impl Entry {
             ),
             (
                 Entry::Redact,
-                Context::Message {
-                    msgid: Some(msgid), ..
-                }
+                Context::Message { message, .. }
                 | Context::Url {
-                    msgid: Some(msgid), ..
+                    message: Some(message),
+                    ..
                 },
-            ) => menu_button(
+            ) if let Some(msgid) = message.id.as_ref() => menu_button(
                 "Redact message".to_string(),
                 Some(Message::Redact(msgid.clone())),
                 length,
@@ -713,34 +667,31 @@ impl Entry {
             ),
             (
                 Entry::HideWithRedaction,
-                Context::Message {
-                    server_time, hash, ..
-                }
+                Context::Message { message, .. }
                 | Context::Url {
-                    server_time: Some(server_time),
-                    hash: Some(hash),
+                    message: Some(message),
                     ..
                 },
             ) => menu_button(
                 "Hide with redaction".to_string(),
-                Some(Message::ContractMessage(*server_time, *hash)),
+                Some(Message::ContractMessage(
+                    message.server_time,
+                    message.hash,
+                )),
                 length,
                 theme,
                 config,
             ),
             (
                 Entry::ShowRedactedMessage,
-                Context::Message {
-                    server_time, hash, ..
-                }
+                Context::Message { message, .. }
                 | Context::Url {
-                    server_time: Some(server_time),
-                    hash: Some(hash),
+                    message: Some(message),
                     ..
                 },
             ) => menu_button(
                 "Show redacted message".to_string(),
-                Some(Message::ExpandMessage(*server_time, *hash)),
+                Some(Message::ExpandMessage(message.server_time, message.hash)),
                 length,
                 theme,
                 config,
@@ -773,8 +724,8 @@ pub enum Message {
     Redact(message::Id),
     Reply {
         msgid: message::Id,
+        server_time: DateTime<Utc>,
         to_nick: String,
-        reply_preview: String,
     },
     LoadUserAvatar(Server, url::Url),
     Link(message::Link),
@@ -805,8 +756,8 @@ pub enum Event {
     RedactMessage(message::Id),
     Reply {
         msgid: message::Id,
+        server_time: DateTime<Utc>,
         to_nick: String,
-        reply_preview: String,
     },
     LoadUserAvatar(Server, url::Url),
     ExpandMessage(DateTime<Utc>, message::Hash),
@@ -852,12 +803,12 @@ pub fn update(message: Message) -> Option<Event> {
         Message::Redact(msgid) => Some(Event::RedactMessage(msgid)),
         Message::Reply {
             msgid,
+            server_time,
             to_nick,
-            reply_preview,
         } => Some(Event::Reply {
             msgid,
+            server_time,
             to_nick,
-            reply_preview,
         }),
         Message::LoadUserAvatar(server, url) => {
             Some(Event::LoadUserAvatar(server, url))
@@ -875,33 +826,27 @@ pub fn update(message: Message) -> Option<Event> {
 
 pub fn message<'a, M>(
     content: impl Into<Element<'a, M>>,
-    source: &'a message::Source,
-    server_time: &'a DateTime<Utc>,
-    hash: &'a message::Hash,
-    msgid: Option<&'a message::Id>,
+    message: &'a message::Message,
     selected_reactions: Vec<String>,
     can_send_replies: bool,
     can_send_reactions: bool,
     can_redact: bool,
-    message_content: &'a message::Content,
-    redaction: Option<&'a Redaction>,
-    redaction_expanded: Option<bool>,
     config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, M>
 where
     M: From<Message> + 'a,
 {
-    if matches!(source, message::Source::Internal(_)) {
+    if matches!(message.target.source(), message::Source::Internal(_)) {
         return content.into();
     }
 
     let entries = Entry::message_list(
-        redaction.is_some(),
-        redaction_expanded,
-        can_send_reactions && msgid.is_some(),
-        can_redact && msgid.is_some(),
-        can_send_replies && msgid.is_some(),
+        message.redaction.is_some(),
+        message.redaction_expanded(&config.buffer.redaction),
+        can_send_reactions && message.id.is_some(),
+        can_redact && message.id.is_some(),
+        can_send_replies && message.id.is_some(),
     );
 
     context_menu(
@@ -915,13 +860,8 @@ where
             entry
                 .view(
                     Some(Context::Message {
-                        server_time,
-                        hash,
-                        msgid,
+                        message,
                         selected_reactions: &selected_reactions,
-                        content: message_content,
-                        redaction,
-                        source,
                     }),
                     length,
                     config,
@@ -939,11 +879,7 @@ pub fn preview<'a, M>(
     can_send_replies: bool,
     can_send_reactions: bool,
     can_redact: bool,
-    server_time: &'a DateTime<Utc>,
-    hash: &'a message::Hash,
-    msgid: Option<&'a message::Id>,
-    user: Option<&'a User>,
-    message_content: &'a message::Content,
+    message: &'a message::Message,
     selected_reactions: Vec<&'a str>,
     config: &'a Config,
     theme: &'a Theme,
@@ -955,9 +891,9 @@ where
         false, // Previews are hidden if the message is redacted
         None,  // Previews are hidden if the message is redacted
         Some(false),
-        can_send_reactions && msgid.is_some(),
-        can_redact && msgid.is_some(),
-        can_send_replies && msgid.is_some(),
+        can_send_reactions && message.id.is_some(),
+        can_redact && message.id.is_some(),
+        can_send_replies && message.id.is_some(),
     );
 
     context_menu(
@@ -972,14 +908,8 @@ where
                 .view(
                     Some(Context::Url {
                         url,
-                        server_time: Some(server_time),
-                        hash: Some(hash),
-                        msgid,
+                        message: Some(message),
                         selected_reactions: selected_reactions.clone(),
-                        to_nick: user.map(|user| user.nickname().to_string()),
-                        reply_preview: (can_send_replies && msgid.is_some())
-                            .then_some(message_content.preview_text()),
-                        redaction: None, // Previews are hidden if the message is redacted
                     }),
                     length,
                     config,

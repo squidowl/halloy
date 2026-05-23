@@ -819,11 +819,21 @@ impl Dashboard {
                 {
                     match event {
                         history::manager::Event::Loaded(kind) => {
-                            let buffer = kind.into();
+                            let buffer = kind.clone().into();
 
                             if let Some((window, pane, state)) =
                                 self.panes.get_mut_by_buffer(&buffer)
                             {
+                                if let Some(draft_reply) =
+                                    state.buffer.get_draft_reply()
+                                {
+                                    self.history.generate_reply_preview(
+                                        kind,
+                                        &draft_reply.id,
+                                        &draft_reply.server_time,
+                                    );
+                                }
+
                                 if state.buffer.has_pending_scroll_to() {
                                     return (
                                         state
@@ -2210,7 +2220,23 @@ impl Dashboard {
 
                         None
                     }
-                    buffer::context_menu::Event::Reply { .. } => {
+                    buffer::context_menu::Event::Reply {
+                        msgid,
+                        server_time,
+                        ..
+                    } => {
+                        if let Some(kind) =
+                            pane.buffer.upstream().map(|buffer| {
+                                history::Kind::from_input_buffer(buffer.clone())
+                            })
+                        {
+                            self.history.generate_reply_preview(
+                                kind,
+                                &msgid,
+                                &server_time,
+                            );
+                        }
+
                         tasks.push(self.focus_pane(window, id));
 
                         None

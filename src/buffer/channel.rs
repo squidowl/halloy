@@ -201,25 +201,31 @@ pub fn view<'a>(
 
     let filehost_url = clients.get_filehost(server);
 
-    let reply_user = state.input_view.draft_reply().map(|draft_reply| {
-        let nick_obj = Nick::from_str(draft_reply.nick.as_str(), casemapping);
-        clients
-            .get_channel_users(server, &state.target)
-            .and_then(|users| users.get_by_nick(nick_obj.as_nickref()))
-            .cloned()
-            .unwrap_or_else(|| User::from(nick_obj))
-    });
+    let reply_preview =
+        state.input_view.draft_reply().and_then(|draft_reply| {
+            let kind = history::Kind::from_target(
+                state.server.clone(),
+                Target::Channel(state.target.clone()),
+            );
+
+            history.get_reply_preview(
+                kind,
+                &draft_reply.id,
+                &draft_reply.server_time,
+            )
+        });
 
     let text_input = show_text_input.then(move || {
         input_view::view(
             &state.input_view,
             our_user,
+            users,
             &state.server,
             registry,
             config,
             theme,
             filehost_url,
-            reply_user,
+            reply_preview,
         )
         .map(Message::InputView)
     });
@@ -318,16 +324,16 @@ impl Channel {
                 if let Some(scroll_view::Event::ContextMenu(
                     context_menu::Event::Reply {
                         msgid,
+                        server_time,
                         to_nick,
-                        reply_preview,
                     },
-                )) = &event
+                )) = event
                 {
                     let (reply_task, _) = self.input_view.update(
                         input_view::Message::SetDraftReply {
                             msgid: msgid.clone(),
+                            server_time,
                             to_nick: to_nick.clone(),
-                            reply_preview: reply_preview.clone(),
                         },
                         &self.buffer,
                         clients,
@@ -335,15 +341,16 @@ impl Channel {
                         main_window,
                         config,
                     );
+
                     return (
                         Task::batch([
                             command.map(Message::ScrollView),
                             reply_task.map(Message::InputView),
                         ]),
                         Some(Event::ContextMenu(context_menu::Event::Reply {
-                            msgid: msgid.clone(),
-                            to_nick: to_nick.clone(),
-                            reply_preview: reply_preview.clone(),
+                            msgid,
+                            server_time,
+                            to_nick,
                         })),
                     );
                 }

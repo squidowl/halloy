@@ -12,6 +12,17 @@ pub enum Source {
     Internal(Internal),
 }
 
+impl Source {
+    pub fn user(&self) -> Option<&User> {
+        match self {
+            Source::User(user) | Source::Action(Some(user)) => Some(user),
+            Source::Server(_) | Source::Action(None) | Source::Internal(_) => {
+                None
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Internal {
     Status(Status),

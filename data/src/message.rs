@@ -789,8 +789,8 @@ impl Message {
         }
     }
 
-    pub fn text(&self) -> String {
-        self.content.text().to_string()
+    pub fn text(&self) -> Cow<'_, str> {
+        self.content.text()
     }
 
     pub fn log(record: crate::log::Record) -> Self {
