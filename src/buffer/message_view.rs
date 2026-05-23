@@ -11,7 +11,7 @@ use data::redaction::Redaction;
 use data::server::Server;
 use data::user::{ChannelUsers, NickRef};
 use data::{Config, Preview, User, history, message, metadata, target};
-use iced::widget::text::{LineHeight, Wrapping};
+use iced::widget::text::LineHeight;
 use iced::widget::{
     Space, button, center, column, container, mouse_area, right, row, space,
     stack, text,
@@ -1556,35 +1556,35 @@ impl<'a> ChannelQueryLayout<'a> {
             hover_tooltip = (self.config.buffer.reply.tooltip.enabled
                 && !reply_blocked
                 && hovered_reply != Some(reply_preview.hash))
-                .then(|| {
-                    let tooltip_nick = (!reply_is_action)
-                        .then(|| {
-                            nick_info.as_ref().map(|(user, _, display)| {
-                                display.clone().into_element(
-                                    user,
-                                    false,
-                                    false,
-                                    None,
-                                    None,
-                                    false,
-                                    false,
-                                    self.theme,
-                                    self.config,
-                                )
-                            })
+            .then(|| {
+                let tooltip_nick = (!reply_is_action)
+                    .then(|| {
+                        nick_info.as_ref().map(|(user, _, display)| {
+                            display.clone().into_element(
+                                user,
+                                false,
+                                false,
+                                None,
+                                None,
+                                false,
+                                false,
+                                self.theme,
+                                self.config,
+                            )
                         })
-                        .flatten();
-                    self.reply_hover_tooltip(
-                        reply_preview.hash,
-                        reply_preview.server_time,
-                        tooltip_nick,
-                        reply_content,
-                        in_reply_to.as_deref(),
-                        reply_redaction.as_ref(),
-                        *reply_blocked,
-                        *reply_is_action,
-                    )
-                });
+                    })
+                    .flatten();
+                self.reply_hover_tooltip(
+                    reply_preview.hash,
+                    reply_preview.server_time,
+                    tooltip_nick,
+                    reply_content,
+                    in_reply_to.as_deref(),
+                    reply_redaction.as_ref(),
+                    *reply_blocked,
+                    *reply_is_action,
+                )
+            });
 
             let highlight = nick_info.as_ref().is_some_and(|(_, h, _)| *h);
             reply_preview_content(
