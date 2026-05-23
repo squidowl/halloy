@@ -124,6 +124,7 @@ impl Encoded {
                 user.clone(),
                 casemapping,
                 self.from_bot(),
+                self.accountname(),
             )),
             _ => None,
         }
@@ -160,6 +161,10 @@ impl Encoded {
 
     pub fn from_bot(&self) -> bool {
         self.tags.contains_key("bot")
+    }
+
+    pub fn accountname(&self) -> Option<String> {
+        self.tags.get("account").map(ToString::to_string)
     }
 
     pub fn channel_context(

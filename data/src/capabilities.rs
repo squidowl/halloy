@@ -19,6 +19,7 @@ pub static DEFAULT: LazyLock<Capabilities> =
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub enum Capability {
     AccountNotify,
+    AccountTag,
     AwayNotify,
     Batch,
     BouncerNetworks,
@@ -48,6 +49,7 @@ impl FromStr for Capability {
     fn from_str(cap: &str) -> Result<Self, Self::Err> {
         match cap {
             "account-notify" => Ok(Self::AccountNotify),
+            "account-tag" => Ok(Self::AccountTag),
             "away-notify" => Ok(Self::AwayNotify),
             "batch" => Ok(Self::Batch),
             "chghost" => Ok(Self::Chghost),
@@ -349,6 +351,12 @@ impl Capabilities {
             {
                 requested.push("extended-join");
             }
+        }
+
+        if self.pending.contains_key("account-tag")
+            && !self.acknowledged(Capability::AccountTag)
+        {
+            requested.push("account-tag");
         }
 
         if self.pending.contains_key("batch")

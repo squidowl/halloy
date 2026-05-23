@@ -493,6 +493,21 @@ mod test {
                     ),
                 },
             ),
+            (
+                Vec::from(b"@account=hax0r :user PRIVMSG #atheme :Now I'm logged in.\r\n"),
+                Message {
+                    tags: tags!["account" => "hax0r"],
+                    source: Some(Source::User(User {
+                        nickname: "user".into(),
+                        username: None,
+                        hostname: None,
+                    })),
+                    command: Command::PRIVMSG(
+                        "#atheme".to_string(),
+                        "Now I'm logged in.".to_string(),
+                    ),
+                },
+            ),
         ];
 
         for (test, expected) in tests {
