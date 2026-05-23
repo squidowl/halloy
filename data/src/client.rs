@@ -29,6 +29,7 @@ use crate::isupport::{
     ChatHistoryState, ChatHistorySubcommand, MessageReference, WhoToken,
     WhoXPollParameters, find_target_limit, format_optional_message_reference,
 };
+use crate::message::source;
 use crate::rate_limit::{BackoffInterval, TokenBucket, TokenPriority};
 use crate::target::{self, Target};
 use crate::time::Posix;
@@ -2437,13 +2438,29 @@ impl Client {
                         self.casemapping(),
                     )))
                 {
+                    let is_join_topic = channel.topic.content.is_none();
+
                     channel.topic.content = Some(message::parse_fragments(
                         ok!(args.get(2)).to_owned(),
                     ));
+
+                    if is_join_topic {
+                        if config
+                            .buffer
+                            .server_messages
+                            .should_drop(Some(source::server::Kind::JoinTopic))
+                        {
+                            return Ok(vec![]);
+                        } else {
+                            // Prefix ':' to ensure it cannot match any valid
+                            // message tag
+                            message.tags.insert(
+                                ":join_topic".to_string(),
+                                String::new(),
+                            );
+                        }
+                    }
                 }
-                // Exclude topic message from history to prevent spam during dev
-                #[cfg(debug_assertions)]
-                return Ok(vec![]);
             }
             Command::Numeric(RPL_TOPICWHOTIME, args) => {
                 let channel = ok!(args.get(1));
@@ -2456,21 +2473,39 @@ impl Client {
                         self.casemapping(),
                     )))
                 {
+                    let is_join_topic = channel.topic.who.is_none()
+                        || channel.topic.time.is_none();
+
                     channel.topic.who = Some(context!(User::parse(
                         ok!(args.get(2)),
                         isupport::get_casemapping_or_default(&self.isupport),
                         isupport::get_prefix(&self.isupport),
                     )));
+
                     let timestamp =
                         Posix::from_seconds(ok!(args.get(3)).parse::<u64>()?);
                     channel.topic.time =
                         Some(timestamp.datetime().ok_or_else(|| {
                             anyhow!("Unable to parse timestamp: {timestamp:?}")
                         })?);
+
+                    if is_join_topic {
+                        if config
+                            .buffer
+                            .server_messages
+                            .should_drop(Some(source::server::Kind::JoinTopic))
+                        {
+                            return Ok(vec![]);
+                        } else {
+                            // Prefix ':' to ensure it cannot match any valid
+                            // message tag
+                            message.tags.insert(
+                                ":join_topic".to_string(),
+                                String::new(),
+                            );
+                        }
+                    }
                 }
-                // Exclude topic message from history to prevent spam during dev
-                #[cfg(debug_assertions)]
-                return Ok(vec![]);
             }
             Command::Numeric(RPL_NOTOPIC, args) => {
                 let channel = ok!(args.get(1));
