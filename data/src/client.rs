@@ -146,6 +146,7 @@ pub enum Event {
         notification_enabled: bool,
         deduplicate: bool,
         labeled_response_context: Option<LabeledResponseContext>,
+        is_playback: bool,
     },
     Reaction {
         message: message::Encoded,
@@ -1475,6 +1476,7 @@ impl Client {
                                         .allowed(),
                                     deduplicate: false,
                                     labeled_response_context: None,
+                                    is_playback: false,
                                 };
 
                                 return Ok(vec![event]);
@@ -1636,6 +1638,7 @@ impl Client {
                             .allowed(),
                         deduplicate: false,
                         labeled_response_context: context.and_then(Into::into),
+                        is_playback: false,
                     };
 
                     // Event::DirectMessage is currently only used to send a
@@ -3442,6 +3445,7 @@ impl Client {
                             notification_enabled: false,
                             deduplicate: true,
                             labeled_response_context: None,
+                            is_playback: true,
                         }]
                     }
                 }
@@ -3577,6 +3581,7 @@ impl Client {
                         notification_enabled: false,
                         deduplicate: true,
                         labeled_response_context: None,
+                        is_playback: true,
                     }]
                 }
             }

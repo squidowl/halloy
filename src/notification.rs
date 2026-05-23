@@ -26,6 +26,7 @@ enum NotificationDelayKey {
     Channel(Box<str>),
     Reaction,
     Reply(Box<str>),
+    Script(Box<str>),
 }
 
 impl From<&Notification> for NotificationDelayKey {
@@ -64,6 +65,9 @@ impl From<&Notification> for NotificationDelayKey {
             Notification::Reply { channel, .. } => {
                 NotificationDelayKey::Reply(channel.as_normalized_str().into())
             }
+            Notification::Script { script, .. } => {
+                NotificationDelayKey::Script(script.as_str().into())
+            }
         }
     }
 }
@@ -97,6 +101,21 @@ impl Notifications {
         window_id: window::Id,
     ) -> Option<Task<Message>> {
         let request_attention = match notification {
+            Notification::Script {
+                script,
+                title,
+                body,
+            } => {
+                let config = &config
+                    .scripts
+                    .get(script.as_str())
+                    .cloned()
+                    .unwrap_or_default();
+
+                self.execute(config, notification, title, None, body, None);
+
+                config.request_attention
+            }
             Notification::Connected => {
                 self.execute(
                     &config.connected,
