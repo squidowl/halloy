@@ -19,19 +19,17 @@ impl Default for Runtime {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum HardwareApi {
-    #[serde(rename = "best")]
     #[default]
     Best,
-    #[serde(rename = "vulkan")]
     Vulkan,
-    #[serde(rename = "metal")]
     Metal,
-    #[serde(rename = "direct-x12", alias = "directx12")]
+    #[serde(alias = "direct-x12")]
     DirectX12,
-    #[serde(rename = "open-gl", alias = "opengl")]
+    #[serde(alias = "open-gl")]
     OpenGL,
-    #[serde(rename = "web-gpu", alias = "webgpu")]
+    #[serde(alias = "web-gpu")]
     WebGPU,
 }
 
