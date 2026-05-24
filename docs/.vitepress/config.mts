@@ -143,6 +143,7 @@ export default defineConfig({
             text: "Proxy",
             link: "/configuration/proxy",
           },
+          { text: "Runtime", link: "/configuration/runtime" },
           { text: "Scale factor", link: "/configuration/scale-factor" },
           {
             text: "Servers",
