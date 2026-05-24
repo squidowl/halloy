@@ -35,6 +35,7 @@ pub use self::window::Window;
 use crate::appearance::theme::Styles;
 use crate::appearance::{self, Appearance};
 use crate::audio::{self};
+use crate::config::broadcast::Broadcast;
 use crate::config::metadata::Metadata;
 use crate::serde::{
     deserialize_f32_positive_float_maybe, deserialize_u8_positive_integer_maybe,
@@ -43,6 +44,7 @@ use crate::server::{ConfigMap as ServerMap, ServerName};
 use crate::{Theme, environment};
 
 pub mod actions;
+pub mod broadcast;
 pub mod buffer;
 pub mod context_menu;
 pub mod ctcp;
@@ -94,6 +96,7 @@ pub struct Config {
     pub runtime: Runtime,
     pub check_for_update_on_launch: bool,
     pub metadata: Metadata,
+    pub broadcast: Broadcast,
 }
 
 impl Default for Config {
@@ -124,6 +127,7 @@ impl Default for Config {
             runtime: Runtime::default(),
             check_for_update_on_launch: true,
             metadata: Metadata::default(),
+            broadcast: Broadcast::default(),
         }
     }
 }
@@ -485,6 +489,7 @@ impl Config {
             pub runtime: Runtime,
             pub check_for_update_on_launch: bool,
             pub metadata: Metadata,
+            pub broadcast: Broadcast,
         }
 
         impl Default for Configuration {
@@ -515,6 +520,7 @@ impl Config {
                     runtime: Runtime::default(),
                     check_for_update_on_launch: true,
                     metadata: Metadata::default(),
+                    broadcast: Broadcast::default(),
                 }
             }
         }
@@ -556,6 +562,7 @@ impl Config {
             runtime,
             check_for_update_on_launch,
             metadata,
+            broadcast,
         } = serde_ignored::deserialize(config, |ignored| {
             log::warn!("[config.toml] Ignoring unknown setting: {ignored}");
         })
@@ -598,6 +605,7 @@ impl Config {
             runtime,
             check_for_update_on_launch,
             metadata,
+            broadcast,
         })
     }
 

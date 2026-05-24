@@ -130,6 +130,7 @@ pub fn connection_failed(
 }
 
 pub fn disconnected(
+    config: &Config,
     channels: impl IntoIterator<Item = target::Channel>,
     queries: impl IntoIterator<Item = target::Query>,
     error: Option<String>,
@@ -137,30 +138,55 @@ pub fn disconnected(
 ) -> Vec<Message> {
     let error = error.map(|error| format!(" ({error})")).unwrap_or_default();
     let content = plain(format!("connection to server lost{error}"));
-    expand(
-        channels,
-        queries,
-        true,
-        Cause::Status(source::Status::Error),
-        content,
-        sent_time,
-    )
+
+    if !config.broadcast.disconnected {
+        expand(
+            [],
+            [],
+            true,
+            Cause::Status(source::Status::Error),
+            content,
+            sent_time,
+        )
+    } else {
+        expand(
+            channels,
+            queries,
+            true,
+            Cause::Status(source::Status::Error),
+            content,
+            sent_time,
+        )
+    }
 }
 
 pub fn reconnected(
+    config: &Config,
     channels: impl IntoIterator<Item = target::Channel>,
     queries: impl IntoIterator<Item = target::Query>,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
     let content = plain("connection to server restored".into());
-    expand(
-        channels,
-        queries,
-        true,
-        Cause::Status(source::Status::Success),
-        content,
-        sent_time,
-    )
+
+    if !config.broadcast.reconnected {
+        expand(
+            [],
+            [],
+            true,
+            Cause::Status(source::Status::Success),
+            content,
+            sent_time,
+        )
+    } else {
+        expand(
+            channels,
+            queries,
+            true,
+            Cause::Status(source::Status::Success),
+            content,
+            sent_time,
+        )
+    }
 }
 
 pub fn quit(
@@ -342,9 +368,11 @@ pub fn into_messages(
             connection_failed(error, sent_time)
         }
         Broadcast::Disconnected { error } => {
-            disconnected(channels, queries, error, sent_time)
+            disconnected(config, channels, queries, error, sent_time)
         }
-        Broadcast::Reconnected => reconnected(channels, queries, sent_time),
+        Broadcast::Reconnected => {
+            reconnected(config, channels, queries, sent_time)
+        }
         Broadcast::Quit {
             user,
             comment,
