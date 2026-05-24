@@ -15,8 +15,7 @@ pub fn setup(
     let env_rust_log = env::var("RUST_LOG")
         .ok()
         .as_deref()
-        .map(str::parse::<log::Level>)
-        .transpose()?;
+        .and_then(|rust_log| str::parse::<log::Level>(rust_log).ok());
 
     let file_level_filter = env_rust_log
         .map_or(log::LevelFilter::from(config.file_level), |env| {
