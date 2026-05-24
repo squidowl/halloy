@@ -216,9 +216,19 @@ impl Sidebar {
         theme: &'a Theme,
     ) -> Element<'a, Message> {
         let keyboard = &config.keyboard;
-        let base = button(icon::menu().size(theme::ICON_SIZE + 2.0))
-            .padding(5)
-            .width(Length::Shrink);
+        let menu_icon_size = theme::ICON_SIZE + 2.0;
+        let base = button(
+            container(
+                icon::menu()
+                    .style(theme::svg::primary)
+                    .width(Length::Shrink)
+                    .content_fit(ContentFit::Contain),
+            )
+            .width(menu_icon_size)
+            .height(menu_icon_size),
+        )
+        .padding(5)
+        .width(Length::Shrink);
 
         let menu = Menu::list(version.is_old(), config.file_transfer.enabled);
 

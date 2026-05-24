@@ -94,8 +94,11 @@ pub fn logs<'a>() -> Text<'a> {
     to_text('\u{E810}')
 }
 
-pub fn menu<'a>() -> Text<'a> {
-    to_text('\u{E81E}')
+pub fn menu<'a>() -> Svg<'a, Theme> {
+    let typicons_menu =
+        include_bytes!("../assets/fontello/typicons-menu.svg").to_vec();
+
+    svg(svg::Handle::from_memory(typicons_menu))
 }
 
 pub fn documentation<'a>() -> Text<'a> {
