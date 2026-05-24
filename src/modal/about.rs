@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use data::config::Runtime;
 use iced::widget::{
     Space, button, center, column, container, image, row, rule, text,
 };
@@ -16,6 +17,8 @@ pub enum Field {
     Commit,
     GpuBackend,
     GpuAdapter,
+    Vsync,
+    Antialiasing,
     All,
     Mail,
 }
@@ -24,6 +27,7 @@ pub enum Field {
 pub enum Action {
     Copy(Field, String),
     Clear(Field),
+    SystemInformation(iced::system::Information),
 }
 
 #[derive(Debug, Clone)]
@@ -32,6 +36,7 @@ pub struct About {
     version: String,
     commit: String,
     system_information: Option<iced::system::Information>,
+    runtime: Runtime,
     copied: Option<Field>,
 }
 
@@ -40,6 +45,7 @@ impl About {
         version: String,
         commit: String,
         system_information: Option<iced::system::Information>,
+        runtime: Runtime,
     ) -> Self {
         let logo_bytes = include_bytes!("../../assets/logo-256.png").to_vec();
         let logo = image::Handle::from_bytes(logo_bytes);
@@ -49,12 +55,18 @@ impl About {
             version,
             commit,
             system_information,
+            runtime,
             copied: None,
         }
     }
 
     pub fn update(&mut self, action: Action) -> Task<ModalMessage> {
         match action {
+            Action::SystemInformation(information) => {
+                self.system_information = Some(information);
+
+                Task::none()
+            }
             Action::Copy(field, value) => {
                 self.copied = Some(field);
 
@@ -95,6 +107,18 @@ impl About {
             .map(|info| info.graphics_adapter.trim())
             .filter(|adapter| !adapter.is_empty())
             .unwrap_or("Unknown");
+
+        let vsync = if self.runtime.vsync {
+            "Enabled"
+        } else {
+            "Disabled"
+        };
+
+        let antialiasing = if self.runtime.antialiasing {
+            "Enabled"
+        } else {
+            "Disabled"
+        };
 
         let item = |label: &'a str, value: &'a str, field: Field| {
             let icon = if self.copied == Some(field) {
@@ -140,8 +164,13 @@ impl About {
         };
 
         let copy_all_payload = format!(
-            "Version: {}\nCommit: {}\nGPU Backend: {}\nGPU Adapter: {}",
-            self.version, self.commit, gpu_backend, gpu_adapter
+            "Version: {}\nCommit: {}\nGPU Backend: {}\nGPU Adapter: {}\nVSync: {}\nAntialiasing: {}",
+            self.version,
+            self.commit,
+            gpu_backend,
+            gpu_adapter,
+            vsync,
+            antialiasing
         );
 
         let copy_all_content = if self.copied == Some(Field::All) {
@@ -190,6 +219,8 @@ impl About {
                     item("Commit", &self.commit, Field::Commit),
                     item("GPU Backend", gpu_backend, Field::GpuBackend),
                     item("GPU Adapter", gpu_adapter, Field::GpuAdapter),
+                    item("VSync", vsync, Field::Vsync),
+                    item("Antialiasing", antialiasing, Field::Antialiasing),
                     container(rule::horizontal(1))
                         .padding([6, 0])
                         .width(Length::Fill),

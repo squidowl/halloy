@@ -20,6 +20,7 @@ Added:
 - Setting to mark new messages as read for any open buffer when the buffer is scrolled to the bottom and Halloy is focused (`buffer.mark_as_read.on_message`)
 - Setting to hide the text of messages that contain only a single URL, when the URL's preview is visible (`preview.hide_url`)
 - Nick and channel completion picker
+- Runtime graphics settings (graphic backend, vsync, and antialiasing)
 
 Fixed:
 
@@ -44,8 +45,8 @@ Fixed:
 
 Changed:
 
-- On-join topic messages disabled by default (`buffer.server_messages.topic`), instead the topic banner is enabled by default (`buffer.channel.topic_banner`)
-- Effective default for `sidebar.server_font_size` changed from `font.size` to `font.size + 1`
+- On-join topic messages dropped by default (`buffer.server_messages.join_topic`), instead the topic banner is enabled by default (`buffer.channel.topic_banner`)
+- Topic messages manually requested via `/topic` have a distinct setting from topic messages received on join (`buffer.server_messages.topic` → `buffer.server_messages.request_topic` & `buffer.server_messages.join_topic`)
 - Default `sidebar.server_icon.size` changed from `12` → `20`
 - Default `sidebar.spacing.server` changed from `6` → `2`
 - Default `sidebar.padding.buffer` changed from `[4, 4]` to `[5, 4]`

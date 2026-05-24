@@ -92,6 +92,27 @@ pub mod server {
                 }
             }
         }
+
+        pub fn can_reference(&self) -> bool {
+            match self.kind() {
+                Kind::Join
+                | Kind::Part
+                | Kind::Quit
+                | Kind::ChangeHost
+                | Kind::ChangeMode
+                | Kind::ChangeNick
+                | Kind::WAllOps
+                | Kind::Kick
+                | Kind::ChangeTopic => true,
+                Kind::JoinTopic
+                | Kind::MonitoredOnline
+                | Kind::MonitoredOffline
+                | Kind::StandardReply(_)
+                | Kind::Away
+                | Kind::Invite
+                | Kind::RequestTopic => false,
+            }
+        }
     }
 
     #[derive(
@@ -111,8 +132,8 @@ pub mod server {
         Join,
         Part,
         Quit,
-        #[strum(serialize = "topic")]
-        ReplyTopic,
+        #[serde(rename = "replytopic")]
+        JoinTopic,
         ChangeHost,
         ChangeMode,
         ChangeNick,
@@ -126,6 +147,7 @@ pub mod server {
         ChangeTopic,
         Away,
         Invite,
+        RequestTopic,
     }
 
     impl Kind {
@@ -134,7 +156,7 @@ pub mod server {
                 Kind::Join
                 | Kind::Part
                 | Kind::Quit
-                | Kind::ReplyTopic
+                | Kind::JoinTopic
                 | Kind::ChangeHost
                 | Kind::ChangeMode
                 | Kind::ChangeNick
@@ -145,7 +167,8 @@ pub mod server {
                 | Kind::WAllOps
                 | Kind::Kick
                 | Kind::ChangeTopic
-                | Kind::Invite => true,
+                | Kind::Invite
+                | Kind::RequestTopic => true,
             }
         }
     }

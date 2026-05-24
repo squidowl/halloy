@@ -907,8 +907,8 @@ pub enum ServerMessages {
     Join,
     Part,
     Quit,
-    #[strum(serialize = "topic")]
-    ReplyTopic,
+    JoinTopic,
+    RequestTopic,
     ChangeHost,
     ChangeMode,
     ChangeNick,
@@ -931,7 +931,8 @@ impl ServerMessages {
             ServerMessages::Join => styles.join.color,
             ServerMessages::Part => styles.part.color,
             ServerMessages::Quit => styles.quit.color,
-            ServerMessages::ReplyTopic => styles.reply_topic.color,
+            ServerMessages::JoinTopic => styles.join_topic.color,
+            ServerMessages::RequestTopic => styles.request_topic.color,
             ServerMessages::ChangeHost => styles.change_host.color,
             ServerMessages::ChangeMode => styles.change_mode.color,
             ServerMessages::ChangeTopic => styles.change_topic.color,
@@ -960,7 +961,8 @@ impl ServerMessages {
             ServerMessages::Join => styles.join.font_style,
             ServerMessages::Part => styles.part.font_style,
             ServerMessages::Quit => styles.quit.font_style,
-            ServerMessages::ReplyTopic => styles.reply_topic.font_style,
+            ServerMessages::JoinTopic => styles.join_topic.font_style,
+            ServerMessages::RequestTopic => styles.request_topic.font_style,
             ServerMessages::ChangeHost => styles.change_host.font_style,
             ServerMessages::ChangeMode => styles.change_mode.font_style,
             ServerMessages::ChangeNick => styles.change_nick.font_style,
@@ -1007,9 +1009,13 @@ impl ServerMessages {
                 styles.quit.color = color;
                 styles.quit.font_style = font_style;
             }
-            ServerMessages::ReplyTopic => {
-                styles.reply_topic.color = color;
-                styles.reply_topic.font_style = font_style;
+            ServerMessages::JoinTopic => {
+                styles.join_topic.color = color;
+                styles.join_topic.font_style = font_style;
+            }
+            ServerMessages::RequestTopic => {
+                styles.request_topic.color = color;
+                styles.request_topic.font_style = font_style;
             }
             ServerMessages::ChangeHost => {
                 styles.change_host.color = color;
