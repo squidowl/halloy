@@ -971,41 +971,42 @@ enabled = false
 
 ### Types
 
-| **Event Type**        | **Description**                                                                                                                |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `away`                | Message is an automated reply to a direct message, sent when a user is away                                                    |
-| `change_host`         | Message is sent when a user changes host                                                                                       |
-| `change_mode`         | Message is sent when a mode is set                                                                                             |
-| `change_nick`         | Message is sent when a user changes nick                                                                                       |
-| `change_topic`        | Message is sent when a channel topic is changed                                                                                |
-| `join`                | Message is sent when a user joins a channel                                                                                    |
-| `kick`                | Message is sent when a user is kicked from a channel                                                                           |
-| `invite`              | Message is sent when a user is invited to a channel                                                                            |
-| `monitored_offline`   | Message is sent when a monitored user goes offline                                                                             |
-| `monitored_online`    | Message is sent when a monitored user goes online                                                                              |
-| `part`                | Message is sent when a user leaves a channel                                                                                   |
-| `quit`                | Message is sent when a user closes the connection to a channel or server                                                       |
-| `standard_reply_fail` | Message is sent when a command/function fails or an error with the session                                                     |
-| `standard_reply_note` | Message is sent when there is information about a command/function or session                                                  |
-| `standard_reply_warn` | Message is sent when there is feedback about a command/function or session                                                     |
-| `topic`               | Message is sent when the client joins a channel to inform them of the topic (does not include message sent when topic changes) |
-| `wallops`             | Message is sent by operators to all users with mode +w on the network                                                          |
-| `default`             | Pseudo-type to provide fallback settings for when a specific event type has not been configured                                |
+| **Event Type**        | **Description**                                                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `away`                | Message is an automated reply to a direct message, sent when a user is away                                               |
+| `change_host`         | Message is sent when a user changes host                                                                                  |
+| `change_mode`         | Message is sent when a mode is set                                                                                        |
+| `change_nick`         | Message is sent when a user changes nick                                                                                  |
+| `change_topic`        | Message is sent when a channel topic is changed (or the topic is requested via /topic)                                    |
+| `join`                | Message is sent when a user joins a channel                                                                               |
+| `join_topic`          | Message is sent when the client joins a channel (does not include message sent when topic changes)                        |
+| `kick`                | Message is sent when a user is kicked from a channel                                                                      |
+| `invite`              | Message is sent when a user is invited to a channel                                                                       |
+| `monitored_offline`   | Message is sent when a monitored user goes offline                                                                        |
+| `monitored_online`    | Message is sent when a monitored user goes online                                                                         |
+| `part`                | Message is sent when a user leaves a channel                                                                              |
+| `quit`                | Message is sent when a user closes the connection to a channel or server                                                  |
+| `request_topic`       | Message is response to a `/topic` request for the channel topic                                                           |
+| `standard_reply_fail` | Message is sent when a command/function fails or an error with the session                                                |
+| `standard_reply_note` | Message is sent when there is information about a command/function or session                                             |
+| `standard_reply_warn` | Message is sent when there is feedback about a command/function or session                                                |
+| `wallops`             | Message is sent by operators to all users with mode +w on the network                                                     |
+| `default`             | Pseudo-type to provide fallback settings for when a specific event type has not been configured                           |
 
-### `enabled`
+#### `enabled`
 
-Control if server message type is enabled.
+Control if server message type is enabled;  if set to `false` then the received messages can still be revealed when later set to `true`.  For `join_topic` in particular: if set to `"drop"`, then the message is excluded from the channel history entirely (not just hidden).
 
 ```toml
 # Type: boolean
 # Values: true, false
-# Default: true (except for topic, which is false)
+# Default: true (except for join_topic, which is "drop")
 
 [buffer.server_messages.<server_message>]
 enabled = true
 ```
 
-### `smart`
+#### `smart`
 
 | **Event Type**        | **Behavior**                                                                                                             |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------ |
@@ -1021,7 +1022,7 @@ enabled = true
 smart = 180
 ```
 
-### `exclude`
+#### `exclude`
 
 [Exclusion conditions](/configuration/conditions.md) in which the server message
 will be hidden. Inclusion conditions will take precedence over exclusion
@@ -1036,7 +1037,7 @@ conditions. You can also exclude all conditions by setting to `"all"` or `"*"`.
 exclude = "*"
 ```
 
-### `include`
+#### `include`
 
 [Inclusion conditions](/configuration/conditions.md) in which the server message
 will be shown. Server messages will be shown in all conditions (when enabled)
@@ -1052,7 +1053,7 @@ the `exclude` setting.
 include = { channels = ["#halloy"] }
 ```
 
-### `dimmed`
+#### `dimmed`
 
 Dim server message.  Either automatically, based on text/background colors (by setting to `true`), or specify a dimming value in the range `0.0` (transparent) to `1.0` (no dimming).
 
@@ -1077,18 +1078,19 @@ The default server message type (`buffer.server_messages.default`) splits this s
 |                        | `change_mode`                | `kick`                |
 |                        | `change_nick`                | `monitored_offline`   |
 |                        | `join`                       | `monitored_online`    |
-|                        | `part`                       | `standard_reply_fail` |
-|                        | `quit`                       | `standard_reply_note` |
-|                        | `topic`                      | `standard_reply_warn` |
+|                        | `join_topic`                 | `request_topic`       |
+|                        | `quit`                       | `standard_reply_fail` |
+|                        | `part`                       | `standard_reply_note` |
+|                        |                              | `standard_reply_warn` |
 |                        |                              | `wallops`             |
 :::
 
-### `username_format`
+#### `username_format`
 
 Adjust the amount of information displayed for a username in server messages. If you choose `"short"`, only the nickname will be shown. If you choose `"full"`, the nickname, username, and hostname (if available) will be displayed.
 
 ::: info
-Not all server messages uses this setting.
+Not all server messages use this setting.
 :::
 
 ```toml
@@ -1133,7 +1135,7 @@ messages = ["change-nick", "join", "part", "quit"]
 Dim condensed messages.  Either automatically, based on text/background colors (by setting to `true`), or specify a dimming value in the range `0.0` (transparent) to `1.0` (no dimming).
 
 ```toml
-# Type: bool or float
+# Type: boolean or float
 # Values: true, false, or float
 # Default: true
 

@@ -6,14 +6,19 @@ use iced::Color;
 use serde::{Deserialize, Deserializer};
 
 pub use self::channel::{Channel, ChannelNameCasing};
+pub use self::hide_consecutive::{HideConsecutive, HideConsecutiveEnabled};
 pub use self::redaction::Redaction;
 pub use self::typing::{Animation, Style, Typing};
 pub use crate::appearance::theme::{alpha_color, alpha_color_calculate};
+use crate::buffer::{
+    BacklogSeparator, DateSeparators, SkinTone, StatusMessagePrefix, Timestamp,
+};
 use crate::config::buffer::nickname::Nickname;
 use crate::config::buffer::text_input::TextInput;
 use crate::config::inclusivities::{
     Inclusivities, is_target_channel_included, is_target_query_included,
 };
+use crate::message::source;
 use crate::target::TargetRef;
 use crate::user::Nick;
 use crate::{Server, isupport};
@@ -24,12 +29,6 @@ pub mod nickname;
 pub mod redaction;
 pub mod text_input;
 pub mod typing;
-
-pub use self::hide_consecutive::{HideConsecutive, HideConsecutiveEnabled};
-use crate::buffer::{
-    BacklogSeparator, DateSeparators, SkinTone, StatusMessagePrefix, Timestamp,
-};
-use crate::message::source;
 
 #[derive(Debug, Default, Clone, Deserialize)]
 #[serde(default)]
@@ -456,7 +455,7 @@ impl<'de> Deserialize<'de> for Away {
 #[serde(default)]
 pub struct ServerMessages {
     pub condense: Condensation,
-    pub topic: ServerMessage,
+    pub join_topic: ServerMessage,
     pub join: ServerMessage,
     pub part: ServerMessage,
     pub quit: ServerMessage,
@@ -471,6 +470,7 @@ pub struct ServerMessages {
     pub wallops: ServerMessage,
     pub kick: ServerMessage,
     pub change_topic: ServerMessage,
+    pub request_topic: ServerMessage,
     pub away: ServerMessage,
     pub invite: ServerMessage,
     pub default: ServerMessageDefault,
@@ -480,8 +480,8 @@ impl Default for ServerMessages {
     fn default() -> Self {
         Self {
             condense: Condensation::default(),
-            topic: ServerMessage {
-                enabled: Some(false),
+            join_topic: ServerMessage {
+                enabled: Some(ServerMessageEnabled::Drop),
                 ..ServerMessage::default()
             },
             join: ServerMessage::default(),
@@ -498,6 +498,7 @@ impl Default for ServerMessages {
             wallops: ServerMessage::default(),
             kick: ServerMessage::default(),
             change_topic: ServerMessage::default(),
+            request_topic: ServerMessage::default(),
             away: ServerMessage::default(),
             invite: ServerMessage::default(),
             default: ServerMessageDefault::default(),
@@ -508,7 +509,7 @@ impl Default for ServerMessages {
 impl ServerMessages {
     pub fn get(&self, kind: source::server::Kind) -> &ServerMessage {
         match kind {
-            source::server::Kind::ReplyTopic => &self.topic,
+            source::server::Kind::JoinTopic => &self.join_topic,
             source::server::Kind::Join => &self.join,
             source::server::Kind::Part => &self.part,
             source::server::Kind::Quit => &self.quit,
@@ -529,6 +530,7 @@ impl ServerMessages {
             source::server::Kind::WAllOps => &self.wallops,
             source::server::Kind::Kick => &self.kick,
             source::server::Kind::ChangeTopic => &self.change_topic,
+            source::server::Kind::RequestTopic => &self.request_topic,
             source::server::Kind::Away => &self.away,
             source::server::Kind::Invite => &self.invite,
         }
@@ -549,11 +551,21 @@ impl ServerMessages {
 
     pub fn enabled(&self, kind: Option<source::server::Kind>) -> bool {
         if let Some(kind) = kind
-            && let Some(enabled) = self.get(kind).enabled
+            && let Some(enabled) = self.get(kind).is_enabled()
         {
             enabled
         } else {
             self.default.enabled
+        }
+    }
+
+    pub fn should_drop(&self, kind: Option<source::server::Kind>) -> bool {
+        if let Some(kind) = kind
+            && let Some(should_drop) = self.get(kind).should_drop()
+        {
+            should_drop
+        } else {
+            false
         }
     }
 
@@ -670,13 +682,14 @@ impl Condensation {
             source::server::Kind::Kick => {
                 self.messages.contains(&CondensationMessage::Kick)
             }
-            source::server::Kind::ReplyTopic
+            source::server::Kind::JoinTopic
             | source::server::Kind::ChangeMode
             | source::server::Kind::MonitoredOnline
             | source::server::Kind::MonitoredOffline
             | source::server::Kind::StandardReply(_)
             | source::server::Kind::WAllOps
             | source::server::Kind::ChangeTopic
+            | source::server::Kind::RequestTopic
             | source::server::Kind::Away
             | source::server::Kind::Invite => false,
         }
@@ -721,13 +734,63 @@ pub enum CondensationIcon {
 #[derive(Debug, Default, Clone, Deserialize)]
 #[serde(default)]
 pub struct ServerMessage {
-    pub enabled: Option<bool>,
+    pub enabled: Option<ServerMessageEnabled>,
     pub smart: Option<i64>,
     pub username_format: Option<UsernameFormat>,
     pub exclude: Option<Inclusivities>,
     pub include: Option<Inclusivities>,
     #[serde(deserialize_with = "deserialize_dimmed_maybe")]
     pub dimmed: Option<Dimmed>,
+}
+
+impl ServerMessage {
+    pub fn is_enabled(&self) -> Option<bool> {
+        self.enabled
+            .map(|enabled| matches!(enabled, ServerMessageEnabled::Enabled))
+    }
+
+    pub fn should_drop(&self) -> Option<bool> {
+        self.enabled
+            .map(|enabled| matches!(enabled, ServerMessageEnabled::Drop))
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ServerMessageEnabled {
+    Enabled,
+    Disabled,
+    Drop,
+}
+
+impl<'de> Deserialize<'de> for ServerMessageEnabled {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "kebab-case")]
+        pub enum Enabled {
+            Drop,
+        }
+
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Inner {
+            Boolean(bool),
+            Enum(Enabled),
+        }
+
+        match Inner::deserialize(deserializer)? {
+            Inner::Boolean(b) => {
+                if b {
+                    Ok(ServerMessageEnabled::Enabled)
+                } else {
+                    Ok(ServerMessageEnabled::Disabled)
+                }
+            }
+            Inner::Enum(_enabled) => Ok(ServerMessageEnabled::Drop),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
