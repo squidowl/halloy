@@ -1,3 +1,4 @@
+use data::config::buffer::AccessLevelFormat;
 use data::user::ChannelUsers;
 use data::{Config, message, metadata};
 use iced::alignment;
@@ -60,63 +61,45 @@ pub fn reply_preview_content<'a, Message: 'a + std::clone::Clone>(
         }
 
         if let Some(user) = reply.user.as_ref() {
-            if reply.is_action {
-                let metadata_color =
-                    registry.color(&data::target::Query::from(user)).map(|c| {
-                        config.display.adapt_metadata_colors.adapt(
-                            c,
-                            theme.styles().buffer.nickname.color,
-                            theme.styles().buffer.background,
-                        )
-                    });
-                let nick_color = theme::selectable_text::nickname(
-                    theme,
-                    config,
+            let user = channel_users
+                .and_then(|users| users.resolve(user))
+                .unwrap_or(user);
+            let user_display = if reply.is_action {
+                UserDisplay::new(
                     user,
-                    metadata_color,
+                    AccessLevelFormat::None,
                     false,
+                    registry,
+                    &config.display.nickname,
+                    None,
+                    config.display.truncation_character,
+                    None,
                     false,
                 )
-                .color;
-                row = row.push(
-                    text(user.nickname().to_string())
-                        .style(move |_: &Theme| iced::widget::text::Style {
-                            color: nick_color,
-                        })
-                        .size(text_size)
-                        .font_maybe(
-                            theme::font_style::action(theme).map(font::get),
-                        ),
-                );
             } else {
-                let user = channel_users
-                    .and_then(|users| users.resolve(user))
-                    .unwrap_or(user);
-                row = row.push(
-                    UserDisplay::new(
-                        user,
-                        config.buffer.nickname.show_access_levels,
-                        config.buffer.nickname.show_bot_icon,
-                        registry,
-                        &config.display.nickname,
-                        config.buffer.nickname.truncate,
-                        config.display.truncation_character,
-                        Some(&config.buffer.nickname.brackets),
-                        false,
-                    )
-                    .into_element(
-                        user,
-                        false,
-                        false,
-                        None,
-                        Some(text_size),
-                        highlight,
-                        false,
-                        theme,
-                        config,
-                    ),
-                );
-            }
+                UserDisplay::new(
+                    user,
+                    config.buffer.nickname.show_access_levels,
+                    config.buffer.nickname.show_bot_icon,
+                    registry,
+                    &config.display.nickname,
+                    config.buffer.nickname.truncate,
+                    config.display.truncation_character,
+                    Some(&config.buffer.nickname.brackets),
+                    false,
+                )
+            };
+            row = row.push(user_display.into_element(
+                user,
+                false,
+                false,
+                None,
+                Some(text_size),
+                highlight,
+                false,
+                theme,
+                config,
+            ));
         }
     }
 
