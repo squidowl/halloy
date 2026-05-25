@@ -609,55 +609,45 @@ impl Sidebar {
                 }
 
                 for internal_buffer in config.sidebar.internal_buffers.iter() {
+                    let button =
+                        |buffer: buffer::Internal,
+                         title: &'static str,
+                         icon: Text<'a>| {
+                            internal_buffer_button(
+                                config, panes, focus, buffer, title, icon,
+                                width, theme,
+                            )
+                        };
+
                     let button = match internal_buffer {
                         data::config::sidebar::InternalBuffer::FileTransfer => {
                             config.file_transfer.enabled.then(|| {
-                                internal_buffer_button(
-                                    config,
-                                    panes,
-                                    focus,
+                                button(
                                     buffer::Internal::FileTransfers,
                                     "File Transfers",
                                     icon::file_transfer(),
-                                    width,
-                                    theme,
                                 )
                             })
                         }
                         data::config::sidebar::InternalBuffer::ChannelDiscovery => {
-                            Some(internal_buffer_button(
-                                config,
-                                panes,
-                                focus,
+                            Some(button(
                                 buffer::Internal::ChannelDiscovery(None),
                                 "Channel Discovery",
                                 icon::channel_discovery(),
-                                width,
-                                theme,
                             ))
                         }
                         data::config::sidebar::InternalBuffer::Highlights => {
-                            Some(internal_buffer_button(
-                                config,
-                                panes,
-                                focus,
+                            Some(button(
                                 buffer::Internal::Highlights,
                                 "Highlights",
                                 icon::highlights(),
-                                width,
-                                theme,
                             ))
                         }
                         data::config::sidebar::InternalBuffer::Logs => {
-                            Some(internal_buffer_button(
-                                config,
-                                panes,
-                                focus,
+                            Some(button(
                                 buffer::Internal::Logs,
                                 "Logs",
                                 icon::logs(),
-                                width,
-                                theme,
                             ))
                         }
                     };
@@ -1516,7 +1506,7 @@ fn internal_buffer_button<'a>(
     focus: Focus,
     buffer: buffer::Internal,
     title: &'a str,
-    icon: crate::widget::Text<'a>,
+    icon: Text<'a>,
     width: Length,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
