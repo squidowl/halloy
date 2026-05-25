@@ -4815,6 +4815,7 @@ impl Dashboard {
             self.focus_history
                 .front()
                 .and_then(|pane| self.panes.get(w, *pane))
+                .filter(|pane| !matches!(pane.buffer, Buffer::Empty))
                 .map(|pane| pane.buffer.to_string())
         } else {
             self.panes.iter().find_map(|(win, _, pane)| {
