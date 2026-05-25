@@ -709,7 +709,7 @@ impl Dashboard {
                         self.toggle_command_bar(
                             servers,
                             clients,
-                            &closed_buffers(self, clients),
+                            &closed_upstream_buffers(self, clients),
                             version,
                             config,
                             theme,
@@ -982,7 +982,7 @@ impl Dashboard {
                                 self.toggle_command_bar(
                                     servers,
                                     clients,
-                                    &closed_buffers(self, clients),
+                                    &closed_upstream_buffers(self, clients),
                                     version,
                                     config,
                                     theme,
@@ -996,7 +996,7 @@ impl Dashboard {
                             self.toggle_command_bar(
                                 servers,
                                 clients,
-                                &closed_buffers(self, clients),
+                                &closed_upstream_buffers(self, clients),
                                 version,
                                 config,
                                 theme,
@@ -1159,7 +1159,7 @@ impl Dashboard {
                             self.toggle_command_bar(
                                 servers,
                                 clients,
-                                &closed_buffers(self, clients),
+                                &closed_upstream_buffers(self, clients),
                                 version,
                                 config,
                                 theme,
@@ -2704,7 +2704,7 @@ impl Dashboard {
                     self.toggle_command_bar(
                         servers,
                         clients,
-                        &closed_buffers(self, clients),
+                        &closed_upstream_buffers(self, clients),
                         version,
                         config,
                         theme,
@@ -5203,7 +5203,7 @@ fn open_upstream_buffers(dashboard: &Dashboard) -> Vec<buffer::Upstream> {
         .collect()
 }
 
-fn closed_buffers(
+fn closed_upstream_buffers(
     dashboard: &Dashboard,
     clients: &client::Map,
 ) -> Vec<buffer::Upstream> {
