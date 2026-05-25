@@ -595,6 +595,79 @@ impl Sidebar {
                 }
             }
 
+            if !config.sidebar.internal_buffers.is_empty() {
+                if !buffers.is_empty() {
+                    buffers.push(if config.sidebar.position.is_horizontal() {
+                        space::horizontal()
+                            .width(config.sidebar.spacing.server)
+                            .into()
+                    } else {
+                        space::vertical()
+                            .height(config.sidebar.spacing.server)
+                            .into()
+                    });
+                }
+
+                for internal_buffer in config.sidebar.internal_buffers.iter() {
+                    let button = match internal_buffer {
+                        data::config::sidebar::InternalBuffer::FileTransfer => {
+                            config.file_transfer.enabled.then(|| {
+                                internal_buffer_button(
+                                    config,
+                                    panes,
+                                    focus,
+                                    buffer::Internal::FileTransfers,
+                                    "File Transfers",
+                                    icon::file_transfer(),
+                                    width,
+                                    theme,
+                                )
+                            })
+                        }
+                        data::config::sidebar::InternalBuffer::ChannelDiscovery => {
+                            Some(internal_buffer_button(
+                                config,
+                                panes,
+                                focus,
+                                buffer::Internal::ChannelDiscovery(None),
+                                "Channel Discovery",
+                                icon::channel_discovery(),
+                                width,
+                                theme,
+                            ))
+                        }
+                        data::config::sidebar::InternalBuffer::Highlights => {
+                            Some(internal_buffer_button(
+                                config,
+                                panes,
+                                focus,
+                                buffer::Internal::Highlights,
+                                "Highlights",
+                                icon::highlights(),
+                                width,
+                                theme,
+                            ))
+                        }
+                        data::config::sidebar::InternalBuffer::Logs => {
+                            Some(internal_buffer_button(
+                                config,
+                                panes,
+                                focus,
+                                buffer::Internal::Logs,
+                                "Logs",
+                                icon::logs(),
+                                width,
+                                theme,
+                            ))
+                        }
+                    };
+
+                    if let Some(button) = button {
+                        buffers.push(button);
+                    }
+                }
+            }
+
             match config.sidebar.position {
                 sidebar::Position::Left | sidebar::Position::Right => {
                     let column_padding = if matches!(
@@ -1435,4 +1508,77 @@ fn upstream_buffer_button<'a>(
         )
         .into()
     }
+}
+
+fn internal_buffer_button<'a>(
+    config: &'a Config,
+    panes: &'a Panes,
+    focus: Focus,
+    buffer: buffer::Internal,
+    title: &'a str,
+    icon: crate::widget::Text<'a>,
+    width: Length,
+    theme: &'a Theme,
+) -> Element<'a, Message> {
+    let open = panes.iter().find_map(|(window_id, pane, state)| {
+        (state.buffer.internal() == Some(buffer.clone()))
+            .then_some((window_id, pane))
+    });
+
+    let is_focused = panes.iter().find_map(|(window_id, pane, state)| {
+        (Focus {
+            window: window_id,
+            pane,
+        } == focus
+            && state.buffer.internal() == Some(buffer.clone()))
+        .then_some((window_id, pane))
+    });
+
+    let content = row![
+        icon.style(theme::text::primary),
+        Space::new().width(8),
+        text(title)
+            .line_height(LineHeight::Relative(1.0))
+            .size_maybe(
+                config.sidebar.font_size.or(config.font.size).map(f32::from)
+            )
+            .style(theme::text::primary)
+            .font_maybe(theme::font_style::primary(theme).map(font::get))
+            .shaping(Shaping::Advanced),
+    ]
+    .align_y(iced::Alignment::Center);
+
+    button(content.width(width).padding(Padding::default().bottom(1)))
+        .style(move |theme, status| {
+            theme::button::sidebar_buffer(
+                theme,
+                status,
+                is_focused.is_some(),
+                open.is_some(),
+            )
+        })
+        .padding(config.sidebar.padding.buffer)
+        .on_press(match is_focused {
+            Some((window, pane)) => {
+                if let Some(focus_action) =
+                    config.actions.sidebar.focused_buffer
+                {
+                    match focus_action {
+                        BufferFocusedAction::ClosePane => {
+                            Message::Close(window, pane)
+                        }
+                    }
+                } else {
+                    Message::Focus(window, pane)
+                }
+            }
+            None => {
+                if let Some((window, pane)) = open {
+                    Message::Focus(window, pane)
+                } else {
+                    Message::ToggleInternalBuffer(buffer)
+                }
+            }
+        })
+        .into()
 }

@@ -1067,19 +1067,20 @@ impl Dashboard {
                         self.panes.main.restore();
                     }
                     CycleNextBuffer => {
-                        let all_buffers = all_buffers(clients, &self.history);
+                        let all_buffers =
+                            all_buffers(config, clients, &self.history);
                         let open_buffers = open_buffers(self);
 
                         if let Some((_, _, state)) = self.get_focused_mut()
                             && let Some(buffer) = cycle_next_buffer(
-                                state.buffer.upstream(),
+                                state.buffer.data().as_ref(),
                                 all_buffers,
                                 &open_buffers,
                             )
                         {
                             return (
                                 self.open_buffer(
-                                    data::Buffer::Upstream(buffer.clone()),
+                                    buffer,
                                     BufferAction::ReplacePane,
                                     clients,
                                     config,
@@ -1089,19 +1090,20 @@ impl Dashboard {
                         }
                     }
                     CyclePreviousBuffer => {
-                        let all_buffers = all_buffers(clients, &self.history);
+                        let all_buffers =
+                            all_buffers(config, clients, &self.history);
                         let open_buffers = open_buffers(self);
 
                         if let Some((_, _, state)) = self.get_focused_mut()
                             && let Some(buffer) = cycle_previous_buffer(
-                                state.buffer.upstream(),
+                                state.buffer.data().as_ref(),
                                 all_buffers,
                                 &open_buffers,
                             )
                         {
                             return (
                                 self.open_buffer(
-                                    data::Buffer::Upstream(buffer.clone()),
+                                    buffer,
                                     BufferAction::ReplacePane,
                                     clients,
                                     config,
@@ -1327,13 +1329,13 @@ impl Dashboard {
                     CycleNextUnreadBuffer => {
                         let all_buffers =
                             all_buffers_with_has_unread(clients, &self.history);
-                        let open_buffers = open_buffers(self);
+                        let open_upstream_buffers = open_upstream_buffers(self);
 
                         if let Some((_, _, state)) = self.get_focused_mut()
                             && let Some(buffer) = cycle_next_unread_buffer(
                                 state.buffer.upstream(),
                                 all_buffers,
-                                &open_buffers,
+                                &open_upstream_buffers,
                             )
                         {
                             return (
@@ -1350,13 +1352,13 @@ impl Dashboard {
                     CyclePreviousUnreadBuffer => {
                         let all_buffers =
                             all_buffers_with_has_unread(clients, &self.history);
-                        let open_buffers = open_buffers(self);
+                        let open_upstream_buffers = open_upstream_buffers(self);
 
                         if let Some((_, _, state)) = self.get_focused_mut()
                             && let Some(buffer) = cycle_previous_unread_buffer(
                                 state.buffer.upstream(),
                                 all_buffers,
-                                &open_buffers,
+                                &open_upstream_buffers,
                             )
                         {
                             return (
@@ -1803,7 +1805,7 @@ impl Dashboard {
                     .view(
                         servers,
                         clients,
-                        &all_buffers(clients, &self.history),
+                        &all_upstream_buffers(clients, &self.history),
                         self.focus,
                         self.buffer_resize_action(),
                         version,
@@ -5112,6 +5114,24 @@ impl Panes {
 }
 
 fn all_buffers(
+    config: &Config,
+    clients: &client::Map,
+    history: &history::Manager,
+) -> Vec<data::Buffer> {
+    all_upstream_buffers(clients, history)
+        .into_iter()
+        .map(data::Buffer::Upstream)
+        .chain(
+            config
+                .sidebar
+                .internal_buffers
+                .iter()
+                .map(|&kind| data::Buffer::Internal(kind.into())),
+        )
+        .collect()
+}
+
+fn all_upstream_buffers(
     clients: &client::Map,
     history: &history::Manager,
 ) -> Vec<buffer::Upstream> {
@@ -5166,7 +5186,15 @@ fn all_buffers_with_has_unread(
         .collect()
 }
 
-fn open_buffers(dashboard: &Dashboard) -> Vec<buffer::Upstream> {
+fn open_buffers(dashboard: &Dashboard) -> Vec<data::Buffer> {
+    dashboard
+        .panes
+        .iter()
+        .filter_map(|(_, _, pane)| pane.buffer.data())
+        .collect()
+}
+
+fn open_upstream_buffers(dashboard: &Dashboard) -> Vec<buffer::Upstream> {
     dashboard
         .panes
         .iter()
@@ -5179,19 +5207,19 @@ fn closed_buffers(
     dashboard: &Dashboard,
     clients: &client::Map,
 ) -> Vec<buffer::Upstream> {
-    let open_buffers = open_buffers(dashboard);
+    let open_buffers = open_upstream_buffers(dashboard);
 
-    all_buffers(clients, &dashboard.history)
+    all_upstream_buffers(clients, &dashboard.history)
         .into_iter()
         .filter(|buffer| !open_buffers.contains(buffer))
         .collect()
 }
 
 fn cycle_next_buffer(
-    current: Option<&buffer::Upstream>,
-    mut all: Vec<buffer::Upstream>,
-    opened: &[buffer::Upstream],
-) -> Option<buffer::Upstream> {
+    current: Option<&data::Buffer>,
+    mut all: Vec<data::Buffer>,
+    opened: &[data::Buffer],
+) -> Option<data::Buffer> {
     all.retain(|buffer| Some(buffer) == current || !opened.contains(buffer));
 
     let next = || {
@@ -5204,10 +5232,10 @@ fn cycle_next_buffer(
 }
 
 fn cycle_previous_buffer(
-    current: Option<&buffer::Upstream>,
-    mut all: Vec<buffer::Upstream>,
-    opened: &[buffer::Upstream],
-) -> Option<buffer::Upstream> {
+    current: Option<&data::Buffer>,
+    mut all: Vec<data::Buffer>,
+    opened: &[data::Buffer],
+) -> Option<data::Buffer> {
     all.retain(|buffer| Some(buffer) == current || !opened.contains(buffer));
 
     let previous = || {

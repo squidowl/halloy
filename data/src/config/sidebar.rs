@@ -32,6 +32,7 @@ pub struct Sidebar {
     pub spacing: Spacing,
     pub order_channels_by: OrderChannelsBy,
     pub channel_name_casing: Option<ChannelNameCasing>,
+    pub internal_buffers: Vec<InternalBuffer>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -267,4 +268,13 @@ pub enum OrderChannelsBy {
     Name,
     NameAndPrefix,
     Config,
+}
+
+#[derive(Debug, Copy, Clone, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum InternalBuffer {
+    FileTransfer,
+    ChannelDiscovery,
+    Highlights,
+    Logs,
 }
