@@ -138,7 +138,7 @@ impl UserDisplay {
                             config,
                             iced::widget::text::LineHeight::Relative(1.0),
                         ),
-                        text(String::from(" has marked itself as a bot"))
+                        text(String::from(" is marked as a bot"))
                             .style(theme::text::secondary)
                             .line_height(
                                 iced::widget::text::LineHeight::Relative(1.0),
