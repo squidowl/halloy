@@ -170,6 +170,7 @@ pub fn view<'a>(
                     .view(link_context, length, config, theme)
                     .map(Message::ContextMenu)
             },
+            None,
             config,
         ),
         set_by

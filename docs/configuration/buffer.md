@@ -1685,6 +1685,31 @@ When hovering a reply, highlight the target message if it visible in the buffer.
 highlight_hovered_message = false
 ```
 
+### `hide_redundant_nicks`
+
+When a reply message starts with `alice: ` and is directed at that same nick, hide the leading mention in the text.
+
+```
+┌── <alice> hi bob
+<bob> alice: hello, alice
+```
+
+becomes
+
+```
+┌── <alice> hi bob
+<bob> hello, alice
+```
+
+```toml
+# Type: bool
+# Values: true, false
+# Default: true
+
+[buffer.reply]
+hide_redundant_nicks = false
+```
+
 ### `tooltip`
 
 #### `enabled`

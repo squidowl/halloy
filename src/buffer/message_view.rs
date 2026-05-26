@@ -98,6 +98,21 @@ pub struct ChannelQueryLayout<'a> {
 }
 
 impl<'a> ChannelQueryLayout<'a> {
+    fn reply_nick_to_strip<'m>(
+        &self,
+        message: &'m data::Message,
+    ) -> Option<&'m str> {
+        if self.config.buffer.reply.hide_redundant_nicks {
+            message
+                .reply_preview
+                .as_ref()
+                .and_then(|reply_preview| reply_preview.user.as_ref())
+                .map(User::as_str)
+        } else {
+            None
+        }
+    }
+
     fn previews_enabled(&self, message: &data::Message) -> bool {
         !self.not_sent(message) && message.redaction.is_none()
     }
@@ -495,6 +510,7 @@ impl<'a> ChannelQueryLayout<'a> {
         right_alignment_middle_width: Option<f32>,
         user: &'a User,
         hide_nickname: bool,
+        nick_prefix_to_strip: Option<&str>,
     ) -> (
         Option<Element<'a, Message>>,
         Element<'a, Message>,
@@ -708,6 +724,7 @@ impl<'a> ChannelQueryLayout<'a> {
                                     )
                                     .map(Message::ContextMenu)
                             },
+                            nick_prefix_to_strip,
                             self.config,
                         ),
                         redaction_message,
@@ -832,6 +849,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     )
                     .map(Message::ContextMenu)
             },
+            None,
             self.config,
         );
 
@@ -981,6 +999,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     )
                     .map(Message::ContextMenu)
             },
+            None,
             self.config,
         );
 
@@ -1157,6 +1176,8 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             (false, vec![], vec![], false)
         };
 
+        let reply_nick_to_strip = self.reply_nick_to_strip(message);
+
         let (middle, content, after_content): (
             Option<Element<'a, Message>>,
             Element<'a, Message>,
@@ -1168,6 +1189,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                 right_alignment_middle_width,
                 user,
                 hide_nickname,
+                reply_nick_to_strip,
             )),
             message::Source::Server(server_message) => {
                 Some(self.format_server_message(
@@ -1260,6 +1282,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                             )
                             .map(Message::ContextMenu)
                     },
+                    None,
                     formatter.config,
                 );
 
@@ -1299,6 +1322,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     message_style,
                     message_font_style,
                     Option::<fn(Color) -> Color>::None,
+                    None,
                     self.config,
                 );
 
@@ -1802,8 +1826,18 @@ impl<'a> ChannelQueryLayout<'a> {
                     dimmed_bg,
                 )
             };
+            let tooltip_nick =
+                self.config.buffer.reply.hide_redundant_nicks.then(|| {
+                    in_reply_to
+                        .and_then(|p| p.user.as_ref())
+                        .map(|u| u.nickname().as_str().to_owned())
+                });
+            let tooltip_nick = tooltip_nick.flatten();
             let max_chars = self.config.buffer.reply.tooltip.max_chars;
-            let preview = reply.preview_text();
+            let preview = strip_leading_nick_from_preview(
+                reply.preview_text(),
+                tooltip_nick.as_deref(),
+            );
             let truncated = (max_chars > 0
                 && preview.chars().count() > max_chars)
                 .then(|| {
@@ -1840,6 +1874,7 @@ impl<'a> ChannelQueryLayout<'a> {
                         dimmed.map(|d| {
                             move |color: Color| d.transform_color(color, bg)
                         }),
+                        tooltip_nick.as_deref(),
                         self.config,
                     ),
                     true,
@@ -2020,4 +2055,12 @@ fn compute_hidden_fragments(
     }
 
     hidden
+}
+
+fn strip_leading_nick_from_preview(text: String, nick: Option<&str>) -> String {
+    let Some(nick) = nick else { return text };
+    message_content::strip_leading_nick(&text, nick)
+        .filter(|s| !s.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or(text)
 }

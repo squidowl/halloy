@@ -224,6 +224,7 @@ pub fn view<'a>(
                                 .view(context, length, config, theme)
                                 .map(scroll_view::Message::ContextMenu)
                         },
+                        None,
                         config,
                     );
 
@@ -287,6 +288,7 @@ pub fn view<'a>(
                         theme::selectable_text::action,
                         theme::font_style::action,
                         Option::<fn(Color) -> Color>::None,
+                        None,
                         config,
                     );
 
