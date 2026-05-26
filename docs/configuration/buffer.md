@@ -1672,6 +1672,19 @@ This is useful for clients that don't support replies, as they may not otherwise
 insert_nick = false
 ```
 
+### `highlight_hovered_message`
+
+When hovering a reply, highlight the target message if it visible in the buffer. This takes precedence over the tooltip.
+
+```toml
+# Type: bool
+# Values: true, false
+# Default: true
+
+[buffer.reply]
+highlight_hovered_message = false
+```
+
 ### `tooltip`
 
 #### `enabled`

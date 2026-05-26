@@ -82,6 +82,7 @@ pub struct Reply {
     pub show_icon: bool,
     pub icon_size: f32,
     pub insert_nick: bool,
+    pub highlight_hovered_message: bool,
     pub tooltip: ReplyTooltip,
 }
 
@@ -92,6 +93,7 @@ impl Default for Reply {
             show_icon: false,
             icon_size: 10.0,
             insert_nick: true,
+            highlight_hovered_message: true,
             tooltip: ReplyTooltip::default(),
         }
     }
