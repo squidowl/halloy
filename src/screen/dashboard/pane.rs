@@ -363,7 +363,7 @@ impl TitleBar {
 
                     let topic_button_with_tooltip = tooltip(
                         topic_button,
-                        show_tooltips.then_some("Topic Banner"),
+                        show_tooltips.then_some("Topic banner"),
                         tooltip::Position::Bottom,
                         theme,
                     );
@@ -460,7 +460,7 @@ impl TitleBar {
 
                 let popout_button_with_tooltip = tooltip(
                     popout_button,
-                    show_tooltips.then_some("Pop Out"),
+                    show_tooltips.then_some("Pop out"),
                     tooltip::Position::Bottom,
                     theme,
                 );

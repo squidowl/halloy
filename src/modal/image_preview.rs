@@ -47,7 +47,7 @@ pub fn view<'a>(
                                     )
                                 }
                             ),
-                            Some("Save Image"),
+                            Some("Save image"),
                             tooltip::Position::Bottom,
                             theme,
                         ),
@@ -64,7 +64,7 @@ pub fn view<'a>(
                                         theme, status, false,
                                     )
                                 }),
-                            Some("Open in Browser"),
+                            Some("Open in browser"),
                             tooltip::Position::Bottom,
                             theme,
                         ),

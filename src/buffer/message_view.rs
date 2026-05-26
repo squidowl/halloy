@@ -475,7 +475,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 self.config
                     .tooltips
                     .show_for_buttons()
-                    .then_some("Hide Preview"),
+                    .then_some("Hide preview"),
                 tooltip::Position::Top,
                 self.theme,
             ))
