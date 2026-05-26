@@ -1,5 +1,6 @@
 use data::user::{ChannelUsers, User};
 use data::{Config, file_transfer, history, preview};
+use iced::widget::text::Wrapping;
 use iced::widget::{button, center, column, container, pane_grid, row, text};
 use iced::{Length, Size, Task, padding};
 
@@ -82,9 +83,13 @@ impl Pane {
 
                 let server = &state.server;
                 row![
-                    text(display_channel).style(theme::text::url).font_maybe(
-                        theme::font_style::url(theme).map(font::get),
-                    ),
+                    text(display_channel)
+                        .style(theme::text::url)
+                        .font_maybe(
+                            theme::font_style::url(theme).map(font::get),
+                        )
+                        .wrapping(Wrapping::None)
+                        .ellipsis(text::Ellipsis::End),
                     if let Some(mode) =
                         clients.get_channel_mode(&state.server, &state.target)
                     {
@@ -94,8 +99,12 @@ impl Pane {
                             .unwrap_or_default();
 
                         text(format!(" ({mode}) @ {server} - {users} users"))
+                            .wrapping(Wrapping::None)
+                            .ellipsis(text::Ellipsis::End)
                     } else {
                         text(format!(" @ {server}"))
+                            .wrapping(Wrapping::None)
+                            .ellipsis(text::Ellipsis::End)
                     }
                 ]
                 .into()
@@ -105,6 +114,8 @@ impl Pane {
                 .font_maybe(
                     theme::font_style::server(theme, None).map(font::get),
                 )
+                .wrapping(Wrapping::None)
+                .ellipsis(text::Ellipsis::End)
                 .into(),
             Buffer::Query(state) => query_title(
                 &state.server,
@@ -113,7 +124,10 @@ impl Pane {
                 config,
                 theme,
             ),
-            Buffer::FileTransfers(_) => text("File Transfers").into(),
+            Buffer::FileTransfers(_) => text("File Transfers")
+                .wrapping(Wrapping::None)
+                .ellipsis(text::Ellipsis::End)
+                .into(),
             Buffer::ChannelDiscovery(state) => {
                 let base = "Channel Discovery";
                 if let Some(server) = state.server.as_ref() {
@@ -124,16 +138,30 @@ impl Pane {
                         .unwrap_or_default();
                     if channel_count > 0 {
                         text(format!("{base} - {channel_count} channels"))
+                            .wrapping(Wrapping::None)
+                            .ellipsis(text::Ellipsis::End)
                             .into()
                     } else {
-                        text(base).into()
+                        text(base)
+                            .wrapping(Wrapping::None)
+                            .ellipsis(text::Ellipsis::End)
+                            .into()
                     }
                 } else {
-                    text(base).into()
+                    text(base)
+                        .wrapping(Wrapping::None)
+                        .ellipsis(text::Ellipsis::End)
+                        .into()
                 }
             }
-            Buffer::Logs(_) => text("Logs").into(),
-            Buffer::Highlights(_) => text("Highlights").into(),
+            Buffer::Logs(_) => text("Logs")
+                .wrapping(Wrapping::None)
+                .ellipsis(text::Ellipsis::End)
+                .into(),
+            Buffer::Highlights(_) => text("Highlights")
+                .wrapping(Wrapping::None)
+                .ellipsis(text::Ellipsis::End)
+                .into(),
         };
 
         let title_bar = self.title_bar.view(
@@ -544,7 +572,9 @@ fn query_title<'a>(
         .font_maybe(
             theme::font_style::nickname(theme, is_user_offline).map(font::get),
         )
-        .shaping(text::Shaping::Advanced);
+        .shaping(text::Shaping::Advanced)
+        .wrapping(Wrapping::None)
+        .ellipsis(text::Ellipsis::End);
 
     row![
         nickname,
@@ -564,6 +594,8 @@ fn query_title<'a>(
                                 )
                             })
                             .line_height(1.0)
+                            .wrapping(Wrapping::None)
+                            .ellipsis(text::Ellipsis::End)
                     ]
                     .padding(padding::horizontal(4))
                     .align_y(iced::Alignment::Center),
@@ -576,7 +608,9 @@ fn query_title<'a>(
                             .font_maybe(
                                 theme::font_style::secondary(theme)
                                     .map(font::get),
-                            ),
+                            )
+                            .wrapping(Wrapping::None)
+                            .ellipsis(text::Ellipsis::End),
                     )
                     .style(theme::container::tooltip)
                     .padding(8),
@@ -591,7 +625,9 @@ fn query_title<'a>(
             .font_maybe(
                 theme::font_style::buffer_title_bar(theme).map(font::get)
             )
-            .shaping(text::Shaping::Advanced),
+            .shaping(text::Shaping::Advanced)
+            .wrapping(Wrapping::None)
+            .ellipsis(text::Ellipsis::End),
     ]
     .width(Length::Shrink)
     .align_y(iced::Alignment::Center)
