@@ -351,7 +351,6 @@ pub fn view<'a>(
     config: &'a Config,
     theme: &'a Theme,
     filehost_url: Option<&'a str>,
-    reply_preview: Option<&'a message::ReplyPreview>,
 ) -> Element<'a, Message> {
     let style = if let Some(notice) = &state.notice {
         match notice {
@@ -671,7 +670,7 @@ pub fn view<'a>(
             )
         });
 
-    let maybe_reply_bar = reply_preview.map(|reply_preview| {
+    let maybe_reply_bar = state.reply_preview.as_ref().map(|reply_preview| {
         reply_bar(reply_preview, channel_users, registry, config, theme)
     });
 
@@ -816,6 +815,7 @@ pub struct State {
     spinner_hovered: bool,
     upload_abort_handles: Vec<futures::future::AbortHandle>,
     draft_reply: Option<input::DraftReply>,
+    reply_preview: Option<message::ReplyPreview>,
 }
 
 impl Default for State {
@@ -844,11 +844,16 @@ impl State {
             spinner_hovered: false,
             upload_abort_handles: Vec::new(),
             draft_reply: cache.and_then(|c| c.draft_reply).cloned(),
+            reply_preview: None,
         }
     }
 
     pub fn draft_reply(&self) -> Option<&input::DraftReply> {
         self.draft_reply.as_ref()
+    }
+
+    pub fn set_reply_preview(&mut self, reply_preview: message::ReplyPreview) {
+        self.reply_preview = Some(reply_preview);
     }
 
     pub fn update(
@@ -2159,6 +2164,7 @@ impl State {
                 ));
             }
 
+            self.reply_preview = None;
             self.draft_reply = None;
 
             history_task =
@@ -2553,6 +2559,7 @@ impl State {
                 }
             }
 
+            self.reply_preview = None;
             self.draft_reply = None;
 
             history_task =
@@ -2792,6 +2799,8 @@ impl State {
         history: &mut history::Manager,
         config: &Config,
     ) -> bool {
+        self.reply_preview = None;
+
         if self.draft_reply.is_some() {
             if config.buffer.reply.insert_nick
                 && let Some(draft_reply) = &self.draft_reply

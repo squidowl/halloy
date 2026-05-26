@@ -13,7 +13,7 @@ use super::reroute::RerouteRules;
 use crate::capabilities::LabeledResponseContext;
 use crate::history::{self, History, MessageReferences, ReadMarker, metadata};
 use crate::message::broadcast::{self, Broadcast};
-use crate::message::{self, Limit};
+use crate::message::{self, Limit, ReplyPreview};
 use crate::redaction::Redaction;
 use crate::target::{self, Target};
 use crate::user::Nick;
@@ -605,8 +605,8 @@ impl Manager {
         kind: history::Kind,
         id: &message::Id,
         server_time: &DateTime<Utc>,
-    ) {
-        self.data.generate_reply_preview(kind, id, server_time);
+    ) -> Option<ReplyPreview> {
+        self.data.generate_reply_preview(kind, id, server_time)
     }
 
     pub fn update_chathistory_references<T: Into<history::Kind>>(
@@ -1732,14 +1732,11 @@ impl Data {
         kind: history::Kind,
         id: &message::Id,
         server_time: &DateTime<Utc>,
-    ) {
-        if let Some(message) = self
-            .map
+    ) -> Option<ReplyPreview> {
+        self.map
             .get_mut(&kind)
             .and_then(|history| history.find_reply_target_mut(id, server_time))
-        {
-            message.reply_preview = Some(message.as_reply_preview());
-        }
+            .map(|message| message.as_reply_preview())
     }
 
     fn update_chathistory_references<T: Into<history::Kind>>(
