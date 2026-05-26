@@ -42,6 +42,7 @@ Fixed:
 - Emoji pickers not finding newer emoji like 🙂‍↕️
 - Selection expansion will take precedence over input history navigation (i.e. shift + ↑ will expand the selection to include the top line of input, rather than navigate to the previous input history entry)
 - Preview inclusion conditions would require both channel and user/server_message be specified, when one or the other should be sufficient
+- Window title displays buffer name after closing previously last pane
 
 Changed:
 
@@ -57,8 +58,8 @@ Changed:
 
 Thanks:
 
-- Contributions: @bb010g, @furudean, @englut, @luca020400, @4e554c4c, @stephenfin
-- Bug reports: @bb010g, daniiooo, @e00E, belthesar, @Fingel, @death916, @furudean
+- Contributions: @bb010g, @furudean, @englut, @luca020400, @4e554c4c, @stephenfin, @achille
+- Bug reports: @bb010g, daniiooo, @e00E, belthesar, @Fingel, @death916, @furudean, @ncfavier
 - Feature requests: @WinnerWind, Shyny, @classabbyamp, @4e554c4c, @furudean, @englut, @esden
 
 # 2026.6 (2026-04-21)

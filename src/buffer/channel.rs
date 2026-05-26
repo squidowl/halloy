@@ -202,20 +202,6 @@ pub fn view<'a>(
 
     let filehost_url = clients.get_filehost(server);
 
-    let reply_preview =
-        state.input_view.draft_reply().and_then(|draft_reply| {
-            let kind = history::Kind::from_target(
-                state.server.clone(),
-                Target::Channel(state.target.clone()),
-            );
-
-            history.get_reply_preview(
-                kind,
-                &draft_reply.id,
-                &draft_reply.server_time,
-            )
-        });
-
     let text_input = show_text_input.then(move || {
         input_view::view(
             &state.input_view,
@@ -226,7 +212,6 @@ pub fn view<'a>(
             config,
             theme,
             filehost_url,
-            reply_preview,
         )
         .map(Message::InputView)
     });

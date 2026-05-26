@@ -826,12 +826,16 @@ impl Dashboard {
                             {
                                 if let Some(draft_reply) =
                                     state.buffer.get_draft_reply()
+                                    && let Some(reply_preview) =
+                                        self.history.generate_reply_preview(
+                                            kind,
+                                            &draft_reply.id,
+                                            &draft_reply.server_time,
+                                        )
                                 {
-                                    self.history.generate_reply_preview(
-                                        kind,
-                                        &draft_reply.id,
-                                        &draft_reply.server_time,
-                                    );
+                                    state
+                                        .buffer
+                                        .set_reply_preview(reply_preview);
                                 }
 
                                 if state.buffer.has_pending_scroll_to() {
@@ -2229,12 +2233,14 @@ impl Dashboard {
                             pane.buffer.upstream().map(|buffer| {
                                 history::Kind::from_input_buffer(buffer.clone())
                             })
+                            && let Some(reply_preview) =
+                                self.history.generate_reply_preview(
+                                    kind,
+                                    &msgid,
+                                    &server_time,
+                                )
                         {
-                            self.history.generate_reply_preview(
-                                kind,
-                                &msgid,
-                                &server_time,
-                            );
+                            pane.buffer.set_reply_preview(reply_preview);
                         }
 
                         tasks.push(self.focus_pane(window, id));
@@ -3846,7 +3852,9 @@ impl Dashboard {
         window: window::Id,
         pane: pane_grid::Pane,
     ) -> Task<Message> {
-        if (self.focus != Focus { window, pane }) {
+        if (self.focus != Focus { window, pane })
+            || self.focus_history.is_empty()
+        {
             self.focus = Focus { window, pane };
 
             self.last_changed = Some(Instant::now());
@@ -4813,6 +4821,7 @@ impl Dashboard {
             self.focus_history
                 .front()
                 .and_then(|pane| self.panes.get(w, *pane))
+                .filter(|pane| !matches!(pane.buffer, Buffer::Empty))
                 .map(|pane| pane.buffer.to_string())
         } else {
             self.panes.iter().find_map(|(win, _, pane)| {

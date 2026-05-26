@@ -316,7 +316,6 @@ pub fn view<'a>(
                 config,
                 theme,
                 filehost_url,
-                None,
             )
             .map(Message::InputView)
         ]

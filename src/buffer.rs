@@ -1176,6 +1176,25 @@ impl Buffer {
             Buffer::Query(state) => state.input_view.draft_reply(),
         }
     }
+
+    pub fn set_reply_preview(&mut self, reply_preview: message::ReplyPreview) {
+        match self {
+            Buffer::Empty
+            | Buffer::FileTransfers(_)
+            | Buffer::Logs(_)
+            | Buffer::Highlights(_)
+            | Buffer::ChannelDiscovery(_) => (),
+            Buffer::Server(state) => {
+                state.input_view.set_reply_preview(reply_preview);
+            }
+            Buffer::Channel(state) => {
+                state.input_view.set_reply_preview(reply_preview);
+            }
+            Buffer::Query(state) => {
+                state.input_view.set_reply_preview(reply_preview);
+            }
+        }
+    }
 }
 
 impl fmt::Display for Buffer {
