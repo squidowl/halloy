@@ -391,7 +391,11 @@ impl TitleBar {
 
                     let topic_button_with_tooltip = tooltip(
                         topic_button,
-                        show_tooltips.then_some("Topic banner"),
+                        show_tooltips.then_some(if topic_enabled {
+                            "Hide topic banner"
+                        } else {
+                            "Show topic banner"
+                        }),
                         tooltip::Position::Bottom,
                         theme,
                     );
@@ -423,7 +427,11 @@ impl TitleBar {
 
                 let nicklist_button_with_tooltip = tooltip(
                     nicklist_button,
-                    show_tooltips.then_some("Nicklist"),
+                    show_tooltips.then_some(if nicklist_enabled {
+                        "Hide nicklist"
+                    } else {
+                        "Show nicklist"
+                    }),
                     tooltip::Position::Bottom,
                     theme,
                 );
