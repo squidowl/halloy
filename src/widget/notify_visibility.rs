@@ -5,8 +5,14 @@ use super::{Element, Renderer, decorate};
 
 #[derive(Debug, Clone, Copy)]
 pub enum When {
-    Visible,
-    NotVisible,
+    /// Element bounds intersect the viewport (any part is visible, including fully)
+    Intersecting,
+    /// Element bounds are fully outside viewport
+    Disjoint,
+    /// Element bounds are fully contained within the viewport
+    Contained,
+    /// Element is not fully contained by the viewport (partially or fully outside)
+    NotContained,
 }
 
 pub fn notify_visibility<'a, Message, Id>(
@@ -44,9 +50,19 @@ where
                     let is_visible =
                         viewport.expand(margin).intersects(&layout.bounds());
 
+                    let bounds = layout.bounds();
+                    let is_fully_visible = viewport.x <= bounds.x
+                        && viewport.y <= bounds.y
+                        && viewport.x + viewport.width
+                            >= bounds.x + bounds.width
+                        && viewport.y + viewport.height
+                            >= bounds.y + bounds.height;
+
                     let should_notify = match when {
-                        When::Visible => is_visible,
-                        When::NotVisible => !is_visible,
+                        When::Intersecting => is_visible,
+                        When::Disjoint => !is_visible,
+                        When::Contained => is_fully_visible,
+                        When::NotContained => !is_fully_visible,
                     };
 
                     if should_notify && !state.1 {

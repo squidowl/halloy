@@ -43,6 +43,7 @@ pub enum Event {
     ImagePreview(Image),
     ExpandMessage(DateTime<Utc>, message::Hash),
     ContractMessage(DateTime<Utc>, message::Hash),
+    GoToMessage(Server, target::Channel, message::Hash),
     InputSent {
         history_task: Task<history::manager::Message>,
         open_buffers: Vec<(Target, BufferAction)>,
@@ -367,7 +368,9 @@ impl Channel {
                         server,
                         vec![(target, buffer_action)],
                     )),
-                    scroll_view::Event::GoToMessage(..) => None,
+                    scroll_view::Event::GoToMessage(server, channel, hash) => {
+                        Some(Event::GoToMessage(server, channel, hash))
+                    }
                     scroll_view::Event::RequestOlderChatHistory => {
                         Some(Event::RequestOlderChatHistory)
                     }

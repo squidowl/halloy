@@ -8,15 +8,17 @@ use data::{
     Config, Server, User, config, ctcp, isupport, message, metadata, preview,
     target,
 };
-use iced::widget::{Space, button, column, container, row, rule, span};
-use iced::{Color, ContentFit, Length, Padding, alignment, mouse};
+use iced::widget::{Space, button, center, column, container, row, rule, span};
+use iced::{
+    Background, Border, Color, ContentFit, Length, Padding, alignment, mouse,
+};
 use url::Url;
 
 use crate::widget::{
     Element, Renderer, color_dot, context_menu, double_pass, image,
     selectable_rich_text, selectable_text, text,
 };
-use crate::{Theme, font, theme, widget};
+use crate::{Theme, font, icon, theme, widget};
 
 const AVATAR_SIZE: u16 = 36;
 
@@ -1238,10 +1240,7 @@ fn user_metadata<'a>(
                     .height(f32::from(AVATAR_SIZE))
                     .into()
             }
-            UserAvatar::Pending => Space::new()
-                .width(Length::Fixed(f32::from(AVATAR_SIZE)))
-                .height(Length::Fixed(f32::from(AVATAR_SIZE)))
-                .into(),
+            UserAvatar::Pending => avatar_placeholder(),
         };
 
         container(content)
@@ -1360,4 +1359,25 @@ pub fn user_avatar<'a>(
         }
         _ => UserAvatar::Pending,
     })
+}
+
+fn avatar_placeholder<'a>() -> Element<'a, Message> {
+    center(icon::people().size(16).style(theme::text::secondary))
+        .width(Length::Fixed(f32::from(AVATAR_SIZE)))
+        .height(Length::Fixed(f32::from(AVATAR_SIZE)))
+        .style(|theme| {
+            let general = theme.styles().general;
+            let text = theme.styles().text;
+
+            container::Style {
+                background: Some(Background::Color(general.background)),
+                border: Border {
+                    radius: 4.0.into(),
+                    width: 0.5,
+                    color: text.secondary.color,
+                },
+                ..Default::default()
+            }
+        })
+        .into()
 }
