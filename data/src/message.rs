@@ -48,7 +48,10 @@ static URL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         r#"[\p{Letter}\p{Number}\-@:%._+~#=]{1,256}"#,
         r#"(?:\.[\p{Letter}\p{Number}]{1,63})?"#,
         r#"\b(?:"#,
-        r#"["#, URL_PATH_UNRESERVED, URL_PATH_RESERVED, r#"%\/#]"#,
+        r#"["#,
+        URL_PATH_UNRESERVED,
+        URL_PATH_RESERVED,
+        r#"%\/#]"#,
         r#"*)|halloy:\/\/[^ ]*)"#
     ))
     .delegate_size_limit(15728640) // 1.5x default size_limit
@@ -2019,9 +2022,9 @@ fn parse_fragments_inner<'a>(
             if let Fragment::Text(text) = &fragment {
                 return Either::Left(
                     parse_regex_fragments(&URL_REGEX, text, |url| {
-                        Url::parse(url)
-                            .ok()
-                            .map(|canonical| Fragment::Url(canonical, url.to_string()))
+                        Url::parse(url).ok().map(|canonical| {
+                            Fragment::Url(canonical, url.to_string())
+                        })
                     })
                     .into_iter(),
                 );
@@ -4437,6 +4440,12 @@ pub mod tests {
                 "ws://localhost:9000/socket",
                 vec![Fragment::Url(
                     "ws://localhost:9000/socket".parse().unwrap(), "ws://localhost:9000/socket".to_string(),
+                )],
+            ),
+            (
+                "http://127.0.0.1:8080/api",
+                vec![Fragment::Url(
+                    "http://127.0.0.1:8080/api".parse().unwrap(), "http://127.0.0.1:8080/api".to_string(),
                 )],
             ),
         ];
