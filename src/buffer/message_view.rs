@@ -98,19 +98,16 @@ pub struct ChannelQueryLayout<'a> {
 }
 
 impl<'a> ChannelQueryLayout<'a> {
-    fn reply_nick_to_strip(&self, message: &data::Message) -> Option<String> {
-        self.config
-            .buffer
-            .reply
-            .hide_redundant_mentions
-            .then(|| {
-                message
-                    .reply_preview
-                    .as_ref()
-                    .and_then(|rp| rp.user.as_ref())
-                    .map(|u| u.nickname().as_str().to_owned())
-            })
-            .flatten()
+    fn reply_nick_to_strip<'m>(&self, message: &'m data::Message) -> Option<&'m str> {
+        if self.config.buffer.reply.hide_redundant_mentions {
+            message
+                .reply_preview
+                .as_ref()
+                .and_then(|reply_preview| reply_preview.user.as_ref())
+                .map(User::as_str)
+        } else {
+            None
+        }
     }
 
     fn previews_enabled(&self, message: &data::Message) -> bool {
@@ -1189,7 +1186,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                 right_alignment_middle_width,
                 user,
                 hide_nickname,
-                reply_nick_to_strip.as_deref(),
+                reply_nick_to_strip,
             )),
             message::Source::Server(server_message) => {
                 Some(self.format_server_message(
