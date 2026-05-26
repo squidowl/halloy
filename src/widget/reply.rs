@@ -24,7 +24,7 @@ pub fn reply_preview_content<'a, Message: 'a + std::clone::Clone>(
 
     // the message may not be loaded
     let Some(reply) = reply else {
-        return text("Replied to a message")
+        return text("Replied to an unknown message")
             .style(theme::text::secondary)
             .size(text_size)
             .into();
