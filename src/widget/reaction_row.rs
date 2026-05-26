@@ -128,7 +128,11 @@ where
                 // trailing separator attached to nicks so it never starts a new line alone
                 let position = i + 1;
                 let trailing = if position + 1 == total && hidden_count == 0 {
-                    Some(" and")
+                    if total > 2 {
+                        Some(", and")
+                    } else {
+                        Some(" and")
+                    }
                 } else if position < displayed.len() {
                     Some(",")
                 } else {
