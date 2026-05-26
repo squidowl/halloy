@@ -43,9 +43,15 @@ const URL_PATH_RESERVED: &str = r#":?@!&'()*+,;=\[\]"#;
 
 static URL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     RegexBuilder::new(concatcp!(
-        r#"(?i)(((https?|ircs?|wss?):\/\/|www\.)[\p{Letter}\p{Number}\-@:%._+~#=]{1,256}\.[\p{Letter}\p{Number}]{1,63}\b"#,
-        r#"(?:"#,
-        r#"["#, URL_PATH_UNRESERVED, URL_PATH_RESERVED, r#"%\/#]"#,
+        r#"(?i)("#,
+        r#"(?:https?|ircs?|wss?):\/\/"#,
+        r#"[\p{Letter}\p{Number}\-@:%._+~#=]{1,256}"#,
+        r#"(?:\.[\p{Letter}\p{Number}]{1,63})?"#,
+        r#"\b(?:"#,
+        r#"["#,
+        URL_PATH_UNRESERVED,
+        URL_PATH_RESERVED,
+        r#"%\/#]"#,
         r#"*)|halloy:\/\/[^ ]*)"#
     ))
     .delegate_size_limit(15728640) // 1.5x default size_limit
@@ -2023,15 +2029,9 @@ fn parse_fragments_inner<'a>(
             if let Fragment::Text(text) = &fragment {
                 return Either::Left(
                     parse_regex_fragments(&URL_REGEX, text, |url| {
-                        let url = if url.starts_with("www") {
-                            format!("https://{url}")
-                        } else {
-                            url.to_string()
-                        };
-
-                        Url::parse(&url)
-                            .ok()
-                            .map(|canonical| Fragment::Url(canonical, url))
+                        Url::parse(url).ok().map(|canonical| {
+                            Fragment::Url(canonical, url.to_string())
+                        })
                     })
                     .into_iter(),
                 );
@@ -4438,6 +4438,38 @@ pub mod tests {
                 "https://en.wiktionary.org/wiki/百聞は一見に如かず",
                 vec![Fragment::Url(
                     "https://en.wiktionary.org/wiki/百聞は一見に如かず".parse().unwrap(), "https://en.wiktionary.org/wiki/百聞は一見に如かず".to_string()
+                )],
+            ),
+            (
+                "open http://localhost/foo in a browser",
+                vec![
+                    Fragment::Text("open ".into()),
+                    Fragment::Url("http://localhost/foo".parse().unwrap(), "http://localhost/foo".to_string()),
+                    Fragment::Text(" in a browser".into()),
+                ],
+            ),
+            (
+                "http://localhost:8080/api",
+                vec![Fragment::Url(
+                    "http://localhost:8080/api".parse().unwrap(), "http://localhost:8080/api".to_string(),
+                )],
+            ),
+            (
+                "https://localhost/secure",
+                vec![Fragment::Url(
+                    "https://localhost/secure".parse().unwrap(), "https://localhost/secure".to_string(),
+                )],
+            ),
+            (
+                "ws://localhost:9000/socket",
+                vec![Fragment::Url(
+                    "ws://localhost:9000/socket".parse().unwrap(), "ws://localhost:9000/socket".to_string(),
+                )],
+            ),
+            (
+                "http://127.0.0.1:8080/api",
+                vec![Fragment::Url(
+                    "http://127.0.0.1:8080/api".parse().unwrap(), "http://127.0.0.1:8080/api".to_string(),
                 )],
             ),
         ];
