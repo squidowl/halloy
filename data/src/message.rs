@@ -708,7 +708,7 @@ impl Message {
         let received_at = Posix::now();
         let server_time = Utc::now();
         let content =
-            plain(format!("offering to send {} \"{filename}\"", to.nickname()));
+            plain(format!("Offering to send {} \"{filename}\"", to.nickname()));
         let hash = Hash::new(&server_time, &content, &received_at);
 
         Message {
@@ -3851,7 +3851,7 @@ fn invite_text(
         if invitee.nickname() == *our_nick {
             format!("{} has invited you to {channel}", inviter.as_str())
         } else if inviter.nickname() == *our_nick {
-            format!("you have invited {} to {channel}", invitee.as_str())
+            format!("You have invited {} to {channel}", invitee.as_str())
         } else {
             format!(
                 "{} has been invited to {channel} by {}",
@@ -3874,11 +3874,7 @@ fn kick_text(
     casemapping: isupport::CaseMap,
 ) -> Content {
     let target = if ourself {
-        if channel.is_some() {
-            "You have".to_string()
-        } else {
-            "you have".to_string()
-        }
+        "You have".to_string()
     } else {
         format!("{} has", victim.nickname())
     };
@@ -3934,10 +3930,10 @@ fn monitored_targets_text(targets: Vec<String>) -> Option<String> {
     if targets.is_empty() {
         None
     } else if targets.len() == 1 {
-        Some(format!("user {} is", targets.first()?))
+        Some(format!("User {} is", targets.first()?))
     } else {
         Some(format!(
-            "users {} are",
+            "Users {} are",
             join_targets(targets.iter().map(String::as_ref).collect())
         ))
     }
