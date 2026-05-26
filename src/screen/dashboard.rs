@@ -826,12 +826,16 @@ impl Dashboard {
                             {
                                 if let Some(draft_reply) =
                                     state.buffer.get_draft_reply()
+                                    && let Some(reply_preview) =
+                                        self.history.generate_reply_preview(
+                                            kind,
+                                            &draft_reply.id,
+                                            &draft_reply.server_time,
+                                        )
                                 {
-                                    self.history.generate_reply_preview(
-                                        kind,
-                                        &draft_reply.id,
-                                        &draft_reply.server_time,
-                                    );
+                                    state
+                                        .buffer
+                                        .set_reply_preview(reply_preview);
                                 }
 
                                 if state.buffer.has_pending_scroll_to() {
@@ -2229,12 +2233,14 @@ impl Dashboard {
                             pane.buffer.upstream().map(|buffer| {
                                 history::Kind::from_input_buffer(buffer.clone())
                             })
+                            && let Some(reply_preview) =
+                                self.history.generate_reply_preview(
+                                    kind,
+                                    &msgid,
+                                    &server_time,
+                                )
                         {
-                            self.history.generate_reply_preview(
-                                kind,
-                                &msgid,
-                                &server_time,
-                            );
+                            pane.buffer.set_reply_preview(reply_preview);
                         }
 
                         tasks.push(self.focus_pane(window, id));
