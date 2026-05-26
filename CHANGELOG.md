@@ -59,7 +59,7 @@ Changed:
 Thanks:
 
 - Contributions: @bb010g, @furudean, @englut, @luca020400, @4e554c4c, @stephenfin, @achille
-- Bug reports: @bb010g, daniiooo, @e00E, belthesar, @Fingel, @death916, @furudean
+- Bug reports: @bb010g, daniiooo, @e00E, belthesar, @Fingel, @death916, @furudean, @ncfavier
 - Feature requests: @WinnerWind, Shyny, @classabbyamp, @4e554c4c, @furudean, @englut, @esden
 
 # 2026.6 (2026-04-21)
