@@ -848,7 +848,9 @@ where
         message.redaction_expanded(&config.buffer.redaction),
         can_send_reactions && message.id.is_some(),
         can_redact && message.id.is_some(),
-        can_send_replies && message.id.is_some(),
+        can_send_replies
+            && message.id.is_some()
+            && message.rerouted_from.is_none(),
     );
 
     context_menu(
