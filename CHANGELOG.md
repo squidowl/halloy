@@ -27,21 +27,22 @@ Fixed:
 - Issue where duplicate messages could appear for sent messages when connecting to a soju bouncer
 - Issue where ZNC playback would produce duplicate messages
 - Record `NICK` and `QUIT` messages returned by `draft/event-playback` (`chathistory`)
-- Allow multiple file uploads when pasting on macOs
+- Allow multiple file uploads when pasting on macOS
+- Preview inclusion conditions would require both channel and user/server_message be specified, when one or the other should be sufficient
 - Matching against `users` for some include/exclude conditions
 - Do not hide consecutive nicknames if the user's displayed access levels or bot mode changes
-- Channel link matching on single line only
-- Fix link matching for both end of line delimiters & punctuations
-- Handle URLs ending with paired delimiters chars when matching links
-- Handle leading delimiters when parsing link fragments to match nicks after quotes
+- Link matching:
+  - Channel link matching on single line only
+  - Fix link matching for both end of line delimiters & punctuations
+  - Handle URLs ending with paired delimiters chars when matching links
+  - Handle leading delimiters when parsing link fragments to match nicks after quotes
+- Issue where a shorter highlight word would match instead of a longer one sharing the same prefix
 - Issue where unread indicator could appear in sidebar for an open pane that does not have unread messages
 - Issue where backlog divider in highlights or logs pane would not update when marking the pane as read
 - `VERSION` and `JOIN` commands on connect are skipped if server is primary soju server
 - `tor` enabled builds
-- Issue where a shorter highlight word would match instead of a longer one sharing the same prefix
 - Emoji pickers not finding newer emoji like 🙂‍↕️
 - Selection expansion will take precedence over input history navigation (i.e. shift + ↑ will expand the selection to include the top line of input, rather than navigate to the previous input history entry)
-- Preview inclusion conditions would require both channel and user/server_message be specified, when one or the other should be sufficient
 - Window title displays buffer name after closing previously last pane
 
 Changed:
