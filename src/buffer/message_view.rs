@@ -98,8 +98,11 @@ pub struct ChannelQueryLayout<'a> {
 }
 
 impl<'a> ChannelQueryLayout<'a> {
-    fn reply_nick_to_strip<'m>(&self, message: &'m data::Message) -> Option<&'m str> {
-        if self.config.buffer.reply.hide_redundant_mentions {
+    fn reply_nick_to_strip<'m>(
+        &self,
+        message: &'m data::Message,
+    ) -> Option<&'m str> {
+        if self.config.buffer.reply.hide_redundant_nicks {
             message
                 .reply_preview
                 .as_ref()
@@ -1824,7 +1827,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 )
             };
             let tooltip_nick =
-                self.config.buffer.reply.hide_redundant_mentions.then(|| {
+                self.config.buffer.reply.hide_redundant_nicks.then(|| {
                     in_reply_to
                         .and_then(|p| p.user.as_ref())
                         .map(|u| u.nickname().as_str().to_owned())

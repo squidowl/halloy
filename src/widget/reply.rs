@@ -107,7 +107,7 @@ pub fn reply_preview_content<'a, Message: 'a + std::clone::Clone>(
     let inline_reply_nick = config
         .buffer
         .reply
-        .hide_redundant_mentions
+        .hide_redundant_nicks
         .then(|| {
             reply
                 .in_reply_to
