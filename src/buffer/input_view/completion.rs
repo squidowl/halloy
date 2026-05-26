@@ -228,7 +228,7 @@ impl Completion {
             || words_view.is_some()
         {
             Some(
-                column![emojis_view, paths_view, command_view, words_view]
+                column![emojis_view, paths_view, words_view, command_view]
                     .spacing(4)
                     .into(),
             )

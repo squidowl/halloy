@@ -91,7 +91,7 @@ fn expand(
 }
 
 pub fn connecting(sent_time: DateTime<Utc>) -> Vec<Message> {
-    let content = plain("connecting to server...".into());
+    let content = plain("Connecting to server...".into());
     expand(
         [],
         [],
@@ -103,7 +103,7 @@ pub fn connecting(sent_time: DateTime<Utc>) -> Vec<Message> {
 }
 
 pub fn connected(sent_time: DateTime<Utc>) -> Vec<Message> {
-    let content = plain("connected".into());
+    let content = plain("Connected".into());
     expand(
         [],
         [],
@@ -118,7 +118,7 @@ pub fn connection_failed(
     error: String,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
-    let content = plain(format!("connection to server failed ({error})"));
+    let content = plain(format!("Connection to server failed ({error})"));
     expand(
         [],
         [],
@@ -136,7 +136,7 @@ pub fn disconnected(
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
     let error = error.map(|error| format!(" ({error})")).unwrap_or_default();
-    let content = plain(format!("connection to server lost{error}"));
+    let content = plain(format!("Connection to server lost{error}"));
     expand(
         channels,
         queries,
@@ -152,7 +152,7 @@ pub fn reconnected(
     queries: impl IntoIterator<Item = target::Query>,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
-    let content = plain("connection to server restored".into());
+    let content = plain("Connection to server restored".into());
     expand(
         channels,
         queries,
@@ -465,7 +465,7 @@ pub fn upload_failed(
     target: Option<target::Target>,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
-    let content = plain(format!("upload failed: {error}"));
+    let content = plain(format!("Upload failed: {error}"));
     match target {
         Some(target::Target::Channel(channel)) => expand(
             [channel],

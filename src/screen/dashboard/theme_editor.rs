@@ -299,9 +299,9 @@ impl ThemeEditor {
         let undo = icon(
             icon::undo(),
             if font_style.is_some() {
-                "Revert Color & Font Style"
+                "Revert color & font style"
             } else {
-                "Revert Color"
+                "Revert color"
             },
             Message::Revert,
             theme,
@@ -322,7 +322,7 @@ impl ThemeEditor {
 
         let share = icon(
             icon::share(),
-            "Share Theme with community",
+            "Share theme with community",
             Message::Share,
             theme,
         );
