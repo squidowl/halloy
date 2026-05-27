@@ -24,6 +24,7 @@ pub enum Message {
     Merge,
     ScrollToBottom,
     MarkAsRead,
+    ClearBuffer,
     ContentResized(pane_grid::Pane, Size),
     Modal(pane_grid::Pane, super::modal::Message),
     CloseBufferModal(pane_grid::Pane),
@@ -362,6 +363,28 @@ impl TitleBar {
                         theme,
                     );
                     Some(scroll_to_bottom_button_with_tooltip)
+                } else {
+                    None
+                }
+            },
+            {
+                if maybe_buffer_kind.is_some() {
+                    let clear_history_button = button(center(icon::eraser()))
+                        .padding(5)
+                        .width(22)
+                        .height(22)
+                        .on_press(Message::ClearBuffer)
+                        .style(|theme, status| {
+                            theme::button::secondary(theme, status, false)
+                        });
+
+                    let clear_history_button_with_tooltip = tooltip(
+                        clear_history_button,
+                        show_tooltips.then_some("Clear buffer"),
+                        tooltip::Position::Bottom,
+                        theme,
+                    );
+                    Some(clear_history_button_with_tooltip)
                 } else {
                     None
                 }

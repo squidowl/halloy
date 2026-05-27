@@ -485,6 +485,23 @@ impl Dashboard {
                             );
                         }
                     }
+                    pane::Message::ClearBuffer => {
+                        if let Some((_, _, pane)) = self.get_focused_mut()
+                            && let Some(kind) = pane
+                                .buffer
+                                .data()
+                                .and_then(history::Kind::from_buffer)
+                        {
+                            let task = self
+                                .history
+                                .clear_messages(kind, clients)
+                                .map_or_else(Task::none, |task| {
+                                    Task::perform(task, Message::History)
+                                });
+
+                            return (task, None);
+                        }
+                    }
                     pane::Message::ContentResized(id, size) => {
                         if let Some(state) = self.panes.get_mut(window, id) {
                             state.size = size;
