@@ -585,14 +585,18 @@ impl Entry {
                     message: Some(message),
                     ..
                 },
-            ) if let Some(redaction) = message.redaction.as_ref() => {
-                menu_button(
-                    "Copy redaction".to_string(),
-                    Some(Message::CopyText(redaction.message())),
-                    length,
-                    theme,
-                    config,
-                )
+            ) => {
+                if let Some(redaction) = message.redaction.as_ref() {
+                    menu_button(
+                        "Copy redaction".to_string(),
+                        Some(Message::CopyText(redaction.message())),
+                        length,
+                        theme,
+                        config,
+                    )
+                } else {
+                    row![].into()
+                }
             }
             (
                 Entry::Reply,
@@ -601,20 +605,24 @@ impl Entry {
                     message: Some(message),
                     ..
                 },
-            ) if let Some(msgid) = message.id.as_ref()
-                && let Some(user) = message.target.source().user() =>
-            {
-                menu_button(
-                    "Reply".to_string(),
-                    Some(Message::Reply {
-                        msgid: msgid.clone(),
-                        server_time: message.server_time,
-                        to_nick: user.nickname().to_string(),
-                    }),
-                    length,
-                    theme,
-                    config,
-                )
+            ) => {
+                if let Some(msgid) = message.id.as_ref()
+                    && let Some(user) = message.target.source().user()
+                {
+                    menu_button(
+                        "Reply".to_string(),
+                        Some(Message::Reply {
+                            msgid: msgid.clone(),
+                            server_time: message.server_time,
+                            to_nick: user.nickname().to_string(),
+                        }),
+                        length,
+                        theme,
+                        config,
+                    )
+                } else {
+                    row![].into()
+                }
             }
             (
                 Entry::AddReaction,
@@ -623,16 +631,22 @@ impl Entry {
                     selected_reactions,
                     ..
                 },
-            ) if let Some(msgid) = message.id.as_ref() => menu_button(
-                "Add reaction".to_string(),
-                Some(Message::OpenReactionModal(
-                    msgid.clone(),
-                    selected_reactions.to_vec(),
-                )),
-                length,
-                theme,
-                config,
-            ),
+            ) => {
+                if let Some(msgid) = message.id.as_ref() {
+                    menu_button(
+                        "Add reaction".to_string(),
+                        Some(Message::OpenReactionModal(
+                            msgid.clone(),
+                            selected_reactions.to_vec(),
+                        )),
+                        length,
+                        theme,
+                        config,
+                    )
+                } else {
+                    row![].into()
+                }
+            }
             (
                 Entry::AddReaction,
                 Context::Url {
@@ -640,19 +654,25 @@ impl Entry {
                     selected_reactions,
                     ..
                 },
-            ) if let Some(msgid) = message.id.as_ref() => menu_button(
-                "Add reaction".to_string(),
-                Some(Message::OpenReactionModal(
-                    msgid.clone(),
-                    selected_reactions
-                        .into_iter()
-                        .map(ToString::to_string)
-                        .collect(),
-                )),
-                length,
-                theme,
-                config,
-            ),
+            ) => {
+                if let Some(msgid) = message.id.as_ref() {
+                    menu_button(
+                        "Add reaction".to_string(),
+                        Some(Message::OpenReactionModal(
+                            msgid.clone(),
+                            selected_reactions
+                                .into_iter()
+                                .map(ToString::to_string)
+                                .collect(),
+                        )),
+                        length,
+                        theme,
+                        config,
+                    )
+                } else {
+                    row![].into()
+                }
+            }
             (
                 Entry::Redact,
                 Context::Message { message, .. }
@@ -660,13 +680,19 @@ impl Entry {
                     message: Some(message),
                     ..
                 },
-            ) if let Some(msgid) = message.id.as_ref() => menu_button(
-                "Redact message".to_string(),
-                Some(Message::Redact(msgid.clone())),
-                length,
-                theme,
-                config,
-            ),
+            ) => {
+                if let Some(msgid) = message.id.as_ref() {
+                    menu_button(
+                        "Redact message".to_string(),
+                        Some(Message::Redact(msgid.clone())),
+                        length,
+                        theme,
+                        config,
+                    )
+                } else {
+                    row![].into()
+                }
+            }
             (
                 Entry::HideWithRedaction,
                 Context::Message { message, .. }
