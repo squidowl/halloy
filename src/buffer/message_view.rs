@@ -21,6 +21,7 @@ use iced::{Color, ContentFit, Length, alignment, padding};
 use crate::buffer::context_menu::{self, Context};
 use crate::buffer::scroll_view::keyed::{self, keyed};
 use crate::buffer::scroll_view::{LayoutMessage, Message};
+use crate::widget::preview::preview_card_parts;
 use crate::widget::reaction_row::{has_visible_reactions, reaction_row};
 use crate::widget::user_display::UserDisplay;
 use crate::widget::{
@@ -423,31 +424,79 @@ impl<'a> ChannelQueryLayout<'a> {
         index: usize,
         is_hovered: bool,
     ) -> Element<'a, Message> {
-        let inner = preview_content(preview, self.config, self.theme);
-
         let content = match preview {
-            data::Preview::Card(..) => keyed(
-                keyed::Key::Preview(message.hash, index),
-                button(inner).style(theme::button::preview_card).on_press(
-                    Message::Link(message::Link::Url(url.to_string())),
-                ),
-            ),
-            data::Preview::Image(img) => keyed(
-                keyed::Key::Preview(message.hash, index),
-                button(inner)
-                    .on_press(match self.config.preview.image.action {
-                        data::config::preview::ImageAction::OpenUrl => {
-                            Message::Link(message::Link::Url(
-                                img.url.to_string(),
-                            ))
-                        }
-                        data::config::preview::ImageAction::Preview => {
-                            Message::ImagePreview(img.clone())
-                        }
-                    })
-                    .padding(0)
-                    .style(theme::button::bare),
-            ),
+            data::Preview::Card(card) => {
+                let (body, image) =
+                    preview_card_parts(card, self.config, self.theme);
+
+                let mut card_content = column![
+                    button(body)
+                        .on_press(Message::Link(message::Link::Url(
+                            url.to_string(),
+                        )))
+                        .padding(0)
+                        .style(theme::button::bare),
+                ]
+                .spacing(8)
+                .max_width(self.config.preview.card.max_width);
+
+                if let Some(image) = image {
+                    card_content = card_content.push(
+                        button(image)
+                            .on_press(match self.config.preview.card.image_action
+                            {
+                                data::config::preview::CardImageAction::OpenUrl => {
+                                    Message::Link(message::Link::Url(
+                                        url.to_string(),
+                                    ))
+                                }
+                                data::config::preview::CardImageAction::Preview => {
+                                    Message::ImagePreview(card.image.clone())
+                                }
+                            })
+                            .padding(0)
+                            .style(theme::button::bare),
+                    );
+                }
+
+                keyed(
+                    keyed::Key::Preview(message.hash, index),
+                    container(card_content).padding(8).style(
+                        |theme: &Theme| iced::widget::container::Style {
+                            background: Some(iced::Background::Color(
+                                theme.styles().buttons.secondary.background,
+                            )),
+                            text_color: Some(theme.styles().text.primary.color),
+                            border: iced::Border {
+                                radius: 4.0.into(),
+                                width: 1.0,
+                                color: theme.styles().general.border,
+                            },
+                            ..Default::default()
+                        },
+                    ),
+                )
+            }
+            data::Preview::Image(img) => {
+                let inner = preview_content(preview, self.config, self.theme);
+
+                keyed(
+                    keyed::Key::Preview(message.hash, index),
+                    button(inner)
+                        .on_press(match self.config.preview.image.action {
+                            data::config::preview::ImageAction::OpenUrl => {
+                                Message::Link(message::Link::Url(
+                                    img.url.to_string(),
+                                ))
+                            }
+                            data::config::preview::ImageAction::Preview => {
+                                Message::ImagePreview(img.clone())
+                            }
+                        })
+                        .padding(0)
+                        .style(theme::button::bare),
+                )
+            }
         };
 
         let content = context_menu::preview(
