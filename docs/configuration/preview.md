@@ -167,6 +167,19 @@ Maximum height of the image in the card preview in pixels.
 image_max_height = 200.0
 ```
 
+### `image_action`
+
+Action when clicking on the card preview image. `open-url` will open the image in the browser, and `preview` will display a larger version of the image in-app.
+
+```toml
+# Type: string
+# Values: "open-url", "preview"
+# Default: "open-url"
+
+[preview.card]
+image_action = "preview"
+```
+
 ### `exclude`
 
 [Exclusion conditions](/configuration/conditions.md) for when card previews will
