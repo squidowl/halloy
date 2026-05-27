@@ -236,10 +236,10 @@ Note: If set larger than the line height of the specified [font](/configuration/
 ```toml
 # Type: integer
 # Values: any positive integer"
-# Default: 8
+# Default: 6
 
 [sidebar.unread_indicator]
-highlight_icon_size = 8
+highlight_icon_size = 6
 ```
 
 ### `show_on_open_buffers`

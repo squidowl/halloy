@@ -893,11 +893,35 @@ fn upstream_buffer_button<'a>(
 
     let buffer_title_font = theme::font_style::primary(theme).map(font::get);
 
+    let server_icon_size = match config.sidebar.server_icon {
+        data::config::sidebar::ServerIcon::Size(size) => size,
+        data::config::sidebar::ServerIcon::Hidden => 0,
+    };
+
+    let badge_padding = 2;
+    let badge_size = (server_icon_size / 3).max(4) + 2 * badge_padding;
+
+    let max_indicator_size = if server_icon_size > 0 { badge_size } else { 0 }
+        .max(if config.sidebar.unread_indicator.has_unread_icon() {
+            config.sidebar.unread_indicator.icon_size
+        } else {
+            0
+        })
+        .max(
+            if config.sidebar.unread_indicator.has_unread_highlight_icon() {
+                config.sidebar.unread_indicator.highlight_icon_size
+            } else {
+                0
+            },
+        );
+
     // check for server icon first (only for server buffers with icon size configured)
-    let icon_tuple = if let (
-        buffer::Upstream::Server(server),
-        data::config::sidebar::ServerIcon::Size(size),
-    ) = (&buffer, &config.sidebar.server_icon)
+    let (icon, icon_height, icon_left_spacing): (
+        Option<Element<'a, Message>>,
+        u32,
+        f32,
+    ) = if let buffer::Upstream::Server(server) = &buffer
+        && server_icon_size > 0
     {
         let server_icon_enabled = config
             .servers
@@ -921,8 +945,8 @@ fn upstream_buffer_button<'a>(
                 .into()
             },
         )
-        .width(*size)
-        .height(*size)
+        .width(server_icon_size)
+        .height(server_icon_size)
         .into();
 
         let badge = if connected {
@@ -953,8 +977,6 @@ fn upstream_buffer_button<'a>(
             )
         };
 
-        let badge_padding = 2;
-        let badge_size = (*size / 3).max(4) + 2 * badge_padding;
         let badge: Option<Element<'a, Message>> = badge.map(move |badge| {
             container(badge)
                 .style(move |theme| container::Style {
@@ -974,57 +996,76 @@ fn upstream_buffer_button<'a>(
                 .into()
         });
 
-        let icon_widget: Element<'a, Message> = stack![
-            row![
-                Space::new().width(badge_padding),
-                column![Space::new().height(badge_padding), icon_widget]
-            ]
-            .align_y(iced::Alignment::Center),
-            badge,
-        ]
-        .into();
-
-        Some((icon_widget, *size))
+        (
+            Some(
+                stack![
+                    row![
+                        Space::new().width(badge_padding),
+                        column![
+                            Space::new().height(badge_padding),
+                            icon_widget
+                        ]
+                    ]
+                    .align_y(iced::Alignment::Center),
+                    badge,
+                ]
+                .into(),
+            ),
+            server_icon_size,
+            max_indicator_size.saturating_sub(badge_size) as f32 / 2.0,
+        )
     }
     // fall through to unread/highlight icons for all buffers (including server)
     else if show_highlight_icon
         && let Some(highlight_icon) =
             icon::from_icon(config.sidebar.unread_indicator.highlight_icon)
     {
-        Some((
-            container(
-                highlight_icon
-                    .style(theme::svg::highlight_indicator)
-                    .width(Length::Shrink)
-                    .content_fit(ContentFit::Contain),
-            )
-            .width(config.sidebar.unread_indicator.highlight_icon_size)
-            .height(config.sidebar.unread_indicator.highlight_icon_size)
-            .into(),
+        (
+            Some(
+                container(
+                    highlight_icon
+                        .style(theme::svg::highlight_indicator)
+                        .width(Length::Shrink)
+                        .content_fit(ContentFit::Contain),
+                )
+                .width(config.sidebar.unread_indicator.highlight_icon_size)
+                .height(config.sidebar.unread_indicator.highlight_icon_size)
+                .into(),
+            ),
             config.sidebar.unread_indicator.highlight_icon_size,
-        ))
+            max_indicator_size.saturating_sub(
+                config.sidebar.unread_indicator.highlight_icon_size,
+            ) as f32
+                / 2.0,
+        )
     } else if show_unread_icon
         && let Some(unread_icon) =
             icon::from_icon(config.sidebar.unread_indicator.icon)
     {
-        Some((
-            container(
-                unread_icon
-                    .style(theme::svg::unread_indicator)
-                    .width(Length::Shrink)
-                    .content_fit(ContentFit::Contain),
-            )
-            .width(config.sidebar.unread_indicator.icon_size)
-            .height(config.sidebar.unread_indicator.icon_size)
-            .into(),
+        (
+            Some(
+                container(
+                    unread_icon
+                        .style(theme::svg::unread_indicator)
+                        .width(Length::Shrink)
+                        .content_fit(ContentFit::Contain),
+                )
+                .width(config.sidebar.unread_indicator.icon_size)
+                .height(config.sidebar.unread_indicator.icon_size)
+                .into(),
+            ),
             config.sidebar.unread_indicator.icon_size,
-        ))
+            max_indicator_size
+                .saturating_sub(config.sidebar.unread_indicator.icon_size)
+                as f32
+                / 2.0,
+        )
     } else {
-        None
+        (None, 1, 0.0)
     };
 
     let (icon_spacing, icon) = if config.sidebar.position.is_horizontal() {
-        icon_tuple.map_or((0, None), |(icon, _)| (8, Some(icon)))
+        icon.map_or((0, None), |icon| (8, Some(icon)))
     } else {
         let server_icon_size = match config.sidebar.server_icon {
             data::config::sidebar::ServerIcon::Size(size) => size,
@@ -1045,15 +1086,16 @@ fn upstream_buffer_button<'a>(
             );
         (
             8,
-            Some(icon_tuple.map_or(
-                Space::new().width(max_icon_size).into(),
-                |(icon, _)| {
-                    container(icon)
-                        .width(max_icon_size)
-                        .center_x(max_icon_size)
-                        .into()
-                },
-            )),
+            Some(
+                stack![
+                    Space::new().width(max_icon_size).height(icon_height),
+                    icon.map(|icon| row![
+                        Space::new().width(icon_left_spacing),
+                        icon
+                    ])
+                ]
+                .into(),
+            ),
         )
     };
 
