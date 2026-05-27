@@ -23,6 +23,7 @@ Added:
 - Setting to hide the text of messages that contain only a single URL, when the URL's preview is visible (`preview.hide_url`)
 - Nick and channel completion picker
 - Runtime graphics settings (graphic backend, vsync, and antialiasing)
+- Add clear buffer shortcut to title bar
 
 Fixed:
 
@@ -66,7 +67,7 @@ Thanks:
 
 - Contributions: @bb010g, @furudean, @englut, @luca020400, @4e554c4c, @stephenfin, @achille, @ncfavier
 - Bug reports: @bb010g, daniiooo, @e00E, belthesar, @Fingel, @death916, @furudean, @ncfavier, @WinnerWind, @alexaandru, @kasper93
-- Feature requests: @WinnerWind, Shyny, @classabbyamp, @4e554c4c, @furudean, @englut, @esden, @Erroneuz
+- Feature requests: @WinnerWind, Shyny, @classabbyamp, @4e554c4c, @furudean, @englut, @esden, @Erroneuz, @g00s
 
 # 2026.6 (2026-04-21)
 
