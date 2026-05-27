@@ -51,12 +51,14 @@ background = "<color string>"
 background_hover = "<color string>"
 background_selected = "<color string>"
 background_selected_hover = "<color string>"
+border_active = "<color string>"
 
 [buttons.secondary]
 background = "<color string>"
 background_hover = "<color string>"
 background_selected = "<color string>"
 background_selected_hover = "<color string>"
+border_active = "<color string>"
 
 [buffer]
 action = <text style>

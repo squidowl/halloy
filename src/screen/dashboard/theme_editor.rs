@@ -468,7 +468,7 @@ impl Component {
             Component::General(general) => Some(general.color(styles)),
             Component::Text(text) => text.color(styles),
             Component::Buffer(buffer) => buffer.color(styles),
-            Component::Buttons(buttons) => Some(buttons.color(styles)),
+            Component::Buttons(buttons) => buttons.color(styles),
             Component::Formatting(formatting) => formatting.color(styles),
         }
     }
@@ -1090,7 +1090,7 @@ pub enum Buttons {
 }
 
 impl Buttons {
-    fn color(&self, styles: &Styles) -> Color {
+    fn color(&self, styles: &Styles) -> Option<Color> {
         match self {
             Buttons::Primary(button) => button.color(&styles.buttons.primary),
             Buttons::Secondary(button) => {
@@ -1121,15 +1121,19 @@ pub enum Button {
     BackgroundHover,
     BackgroundSelected,
     BackgroundSelectedHover,
+    BorderActive,
 }
 
 impl Button {
-    fn color(&self, styles: &theme::Button) -> Color {
+    fn color(&self, styles: &theme::Button) -> Option<Color> {
         match self {
-            Button::Background => styles.background,
-            Button::BackgroundHover => styles.background_hover,
-            Button::BackgroundSelected => styles.background_selected,
-            Button::BackgroundSelectedHover => styles.background_selected_hover,
+            Button::Background => Some(styles.background),
+            Button::BackgroundHover => Some(styles.background_hover),
+            Button::BackgroundSelected => Some(styles.background_selected),
+            Button::BackgroundSelectedHover => {
+                Some(styles.background_selected_hover)
+            }
+            Button::BorderActive => styles.border_active,
         }
     }
 
@@ -1154,6 +1158,9 @@ impl Button {
                 if let Some(color) = color {
                     styles.background_selected_hover = color;
                 }
+            }
+            Button::BorderActive => {
+                styles.border_active = color;
             }
         }
     }

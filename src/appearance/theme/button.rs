@@ -106,10 +106,11 @@ pub fn sidebar_buffer(
         } else {
             is_focused
         }
-        .then_some(Color {
-            a: 0.2,
-            ..foreground
-        }),
+        .then_some(
+            button_colors
+                .border_active
+                .unwrap_or(theme.styles().buffer.border_selected),
+        ),
         status,
     )
 }
@@ -243,7 +244,7 @@ pub fn reaction(
         } else {
             already_reacted
         }
-        .then_some(foreground),
+        .then_some(button_colors.border_active.unwrap_or(foreground)),
         status,
     )
 }

@@ -11,6 +11,8 @@ Added:
 - Notification for reacts (`notifications.reaction`)
 - Theme colors for horizontal rule text and buffer backlog/date separators
 - Font size settings the sidebar (`sidebar.font_size`) and server titles in the sidebar (`sidebar.server_font_size`)
+- The focused buffer is indicated in the sidebar by a thin border (can be configured with the optional theme color `buttons.primary.border_active`, falls back to `buffer.border_selected` if no color is configured)
+- Two new optional theme colors, `buttons.primary.border_active` and `buttons.secondary.border_active` that define border color used to signal secondary state
 - The config `buffer.server_messages.condense.max` may be used to limit the number of user entries shown in condensed messages
 - Setting to close queries when closing query buffer panes (`buffer.close.query`)
 - Configuration options for font stretch (`font.stretch`)
