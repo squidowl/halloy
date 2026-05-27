@@ -118,6 +118,8 @@ pub struct Button {
     pub background_selected: Color,
     #[serde(with = "color_serde")]
     pub background_selected_hover: Color,
+    #[serde(with = "color_serde_maybe")]
+    pub border_active: Option<Color>,
 }
 
 impl Default for Button {
@@ -127,6 +129,7 @@ impl Default for Button {
             background_hover: Color::TRANSPARENT,
             background_selected: Color::TRANSPARENT,
             background_selected_hover: Color::TRANSPARENT,
+            border_active: None,
         }
     }
 }
@@ -842,6 +845,8 @@ mod binary {
         BufferDateRule = 55,
         BufferDateRuleText = 56,
         BufferServerMessagesRequestTopic = 57,
+        ButtonsPrimaryBorderActive = 58,
+        ButtonsSecondaryBorderActive = 59,
     }
 
     impl Tag {
@@ -944,6 +949,9 @@ mod binary {
                 Tag::ButtonsPrimaryBackgroundSelectedHover => {
                     styles.buttons.primary.background_selected_hover
                 }
+                Tag::ButtonsPrimaryBorderActive => {
+                    styles.buttons.primary.border_active?
+                }
                 Tag::ButtonsSecondaryBackground => {
                     styles.buttons.secondary.background
                 }
@@ -955,6 +963,9 @@ mod binary {
                 }
                 Tag::ButtonsSecondaryBackgroundSelectedHover => {
                     styles.buttons.secondary.background_selected_hover
+                }
+                Tag::ButtonsSecondaryBorderActive => {
+                    styles.buttons.secondary.border_active?
                 }
                 Tag::GeneralScrollbar => styles.general.scrollbar?,
                 Tag::GeneralHighlightIndicator => {
@@ -1093,6 +1104,9 @@ mod binary {
                 Tag::ButtonsPrimaryBackgroundSelectedHover => {
                     styles.buttons.primary.background_selected_hover = color;
                 }
+                Tag::ButtonsPrimaryBorderActive => {
+                    styles.buttons.primary.border_active = Some(color);
+                }
                 Tag::ButtonsSecondaryBackground => {
                     styles.buttons.secondary.background = color;
                 }
@@ -1104,6 +1118,9 @@ mod binary {
                 }
                 Tag::ButtonsSecondaryBackgroundSelectedHover => {
                     styles.buttons.secondary.background_selected_hover = color;
+                }
+                Tag::ButtonsSecondaryBorderActive => {
+                    styles.buttons.secondary.border_active = Some(color);
                 }
                 Tag::GeneralScrollbar => styles.general.scrollbar = Some(color),
                 Tag::GeneralHighlightIndicator => {
