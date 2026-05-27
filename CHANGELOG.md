@@ -51,7 +51,9 @@ Changed:
 
 - On-join topic messages dropped by default (`buffer.server_messages.join_topic`), instead the topic banner is enabled by default (`buffer.channel.topic_banner`)
 - Topic messages manually requested via `/topic` have a distinct setting from topic messages received on join (`buffer.server_messages.topic` → `buffer.server_messages.request_topic` & `buffer.server_messages.join_topic`)
+- Badging on server icons used to indicate unread/highlight state (instead of the color of the server icon); unread indicators positioned to be aligned with server badge
 - Default `sidebar.server_icon.size` changed from `12` → `20`
+- Default `sidebar.unread_indicator.highlight_icon_size` changed from `8` → `6`
 - Default `sidebar.spacing.server` changed from `6` → `2`
 - Default `sidebar.padding.buffer` changed from `[4, 4]` to `[5, 4]`
 - For filehosts, localhost is now treated as a secure transport when using `servers.<name>.filehost.override_url`
