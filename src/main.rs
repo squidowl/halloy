@@ -522,6 +522,7 @@ impl Halloy {
             }
             Message::ScreenConfigReloaded(updated) => {
                 let saved_window = self.main_window;
+                let current_runtime = self.config.runtime;
                 let runtime =
                     updated.as_ref().ok().map(|config| config.runtime);
 
@@ -535,7 +536,12 @@ impl Halloy {
 
                 let mut tasks = vec![command];
 
-                if let Some(runtime) = runtime {
+                // Only reload the runtime when needed.
+                // TODO: Can crash with NVIDIA Vulkan
+                // Maybe related: https://github.com/gfx-rs/wgpu/issues/9277
+                if let Some(runtime) = runtime
+                    && runtime != current_runtime
+                {
                     tasks.push(configure_runtime(runtime));
                 }
 
@@ -1497,7 +1503,11 @@ impl Halloy {
     ) -> Task<Message> {
         match config {
             Ok(updated) => {
-                let runtime_task = configure_runtime(updated.runtime);
+                // Only reload the runtime when needed.
+                // TODO: Can crash with NVIDIA Vulkan
+                // Maybe related: https://github.com/gfx-rs/wgpu/issues/9277
+                let runtime_task = (self.config.runtime != updated.runtime)
+                    .then(|| configure_runtime(updated.runtime));
 
                 let removed_servers = self
                     .servers
@@ -1571,20 +1581,25 @@ impl Halloy {
                     // be reprocessed; that is already performed by
                     // update_filters, so it does not need to be done again.
 
-                    let tasks = vec![
-                        runtime_task,
+                    let mut tasks = Vec::new();
+
+                    if let Some(runtime_task) = runtime_task {
+                        tasks.push(runtime_task);
+                    }
+
+                    tasks.push(
                         dashboard
                             .reload_visible_previews(
                                 &self.clients,
                                 &self.config,
                             )
                             .map(Message::Dashboard),
-                    ];
+                    );
 
                     return Task::batch(tasks);
                 }
 
-                return runtime_task;
+                return runtime_task.unwrap_or_else(Task::none);
             }
             Err(error) => {
                 self.modal = Some(Modal::ReloadConfigurationError(error));
