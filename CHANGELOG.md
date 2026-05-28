@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2026.7 (2026-05-28)
+
 Added:
 
 - Support for IRCv3 `reply` client tag
