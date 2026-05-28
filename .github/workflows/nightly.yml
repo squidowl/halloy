@@ -1,0 +1,169 @@
+name: "Nightly Release"
+
+on:
+  workflow_run:
+    workflows:
+      - Build
+    types:
+      - completed
+    branches:
+      - main
+
+# We must only run one release workflow at a time to prevent corrupting
+# our release artifacts.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build
+    strategy:
+      matrix:
+        target:
+          - target: macos
+            os: macos-latest
+            make: bash scripts/build-macos.sh
+            artifact_path: |
+              echo "ARTIFACT_PATH=target/packaging/macos/halloy.dmg" >> "$GITHUB_ENV"
+          - target: windows
+            os: windows-latest
+            make: bash scripts/build-windows-installer.sh
+            artifact_path: |
+              echo "ARTIFACT_PATH=target/packaging/halloy-installer.msi" >> $env:GITHUB_ENV
+          - target: linux
+            os: ubuntu-latest
+            make: bash scripts/package-linux.sh package
+            artifact_path: |
+              echo "ARTIFACT_PATH=$(bash scripts/package-linux.sh archive_path)" >> "$GITHUB_ENV"
+    runs-on: ${{ matrix.target.os }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set version to nightly
+        run: cp NIGHTLY VERSION
+
+      - uses: dtolnay/rust-toolchain@master # recommended when specifying toolchain
+        with:
+          toolchain: stable
+
+      - name: Install linux deps
+        if: matrix.target.target == 'linux'
+        run: |
+          sudo apt update
+          sudo apt install $(cat .github/linux-deps.txt) git
+
+      - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-release-
+
+      - name: Install cargo-edit
+        if: matrix.target.target == 'windows'
+        uses: taiki-e/install-action@e0eafa9a0d485c37f97c0f7beb930a58a2facbac # v2
+        with:
+          tool: cargo-edit
+
+      - name: Build
+        run: ${{ matrix.target.make }}
+
+      - name: Sign macOS
+        if: matrix.target.target == 'macos'
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          MACOS_CERTIFICATE_NAME: ${{ secrets.MACOS_CERTIFICATE_NAME }}
+          MACOS_CI_KEYCHAIN_PWD: ${{ secrets.MACOS_CI_KEYCHAIN_PWD }}
+          MACOS_NOTARIZATION_APPLE_ID: ${{ secrets.MACOS_NOTARIZATION_APPLE_ID }}
+          MACOS_NOTARIZATION_TEAM_ID: ${{ secrets.MACOS_NOTARIZATION_TEAM_ID }}
+          MACOS_NOTARIZATION_PWD: ${{ secrets.MACOS_NOTARIZATION_PWD }}
+        run: bash scripts/sign-macos.sh
+
+      - name: Package macOS
+        if: matrix.target.target == 'macos'
+        run: bash scripts/package-macos.sh
+
+      - name: Set artifact path
+        run: ${{ matrix.target.artifact_path }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ matrix.target.target }}
+          path: ${{ env.ARTIFACT_PATH }}
+
+  update-release:
+    needs: build
+    name: Update Release
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Update Tag
+        id: update-tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -fa nightly -m "Nightly" ${{ github.sha }}
+          git push --force origin nightly
+
+      - name: Update Release
+        id: update-release
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v2
+        with:
+          tag_name: nightly
+          name: Nightly
+          prerelease: true
+          target_commitish: ${{ github.sha }}
+
+  add-assets:
+    needs: update-release
+    name: Add Assets
+
+    strategy:
+      matrix:
+        target:
+          - artifact: macos
+            artifact_name: |
+              echo "ARTIFACT_NAME=halloy.dmg" >> "$GITHUB_ENV"
+            asset_type: application/octet-stream
+          - artifact: windows
+            artifact_name: |
+              echo "ARTIFACT_NAME=halloy-installer.msi" >> "$GITHUB_ENV"
+            asset_type: application/x-dosexec
+          - artifact: linux
+            artifact_name: |
+              echo "ARTIFACT_NAME=$(bash scripts/package-linux.sh archive_name)" >> "$GITHUB_ENV"
+            asset_type: application/gzip
+
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set version to nightly
+        run: cp NIGHTLY VERSION
+
+      - name: Download artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ matrix.target.artifact }}
+          path: ${{ matrix.target.artifact }}
+
+      - name: Set artifact name
+        run: ${{ matrix.target.artifact_name }}
+
+      - name: Upload asset
+        run: |
+          gh release upload nightly ./${{ matrix.target.artifact }}/${{ env.ARTIFACT_NAME }} --clobber
