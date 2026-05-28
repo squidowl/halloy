@@ -32,13 +32,19 @@ pub mod reroute;
 
 // TODO: Make this configurable?
 /// Max # messages to persist
-const MAX_MESSAGES: usize = 10_000;
+pub(crate) const MAX_MESSAGES: usize = 10_000;
 /// # messages to truncate after hitting [`MAX_MESSAGES`]
 const TRUNC_COUNT: usize = 500;
 /// Duration to wait after receiving last message before flushing
 const FLUSH_AFTER_LAST_RECEIVED: Duration = Duration::from_secs(5);
 /// # new messages to trigger flush even if FLUSH_AFTER_LAST_RECEIVED has not passed
 const FLUSH_COUNT: usize = 1000;
+
+pub(crate) fn truncate_messages(messages: &mut Vec<Message>) {
+    if messages.len() > MAX_MESSAGES {
+        messages.drain(0..messages.len() - (MAX_MESSAGES - TRUNC_COUNT));
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Kind {
@@ -47,6 +53,7 @@ pub enum Kind {
     Query(Server, target::Query),
     Logs,
     Highlights,
+    ChannelMonitor,
 }
 
 impl Kind {
@@ -112,6 +119,7 @@ impl Kind {
             }
             message::Target::Logs { .. } => None,
             message::Target::Highlights { .. } => None,
+            message::Target::ChannelMonitor { .. } => None,
         }
     }
 
@@ -131,6 +139,9 @@ impl Kind {
                 Some(Kind::Highlights)
             }
             Buffer::Internal(buffer::Internal::FileTransfers) => None,
+            Buffer::Internal(buffer::Internal::ChannelMonitor) => {
+                Some(Kind::ChannelMonitor)
+            }
             Buffer::Internal(buffer::Internal::ChannelDiscovery(_)) => None,
             Buffer::Internal(buffer::Internal::ConfigEditor) => None,
         }
@@ -145,6 +156,7 @@ impl Kind {
             Kind::Query(server, _) => Some(server),
             Kind::Logs => None,
             Kind::Highlights => None,
+            Kind::ChannelMonitor => None,
         }
     }
 
@@ -155,6 +167,7 @@ impl Kind {
             Kind::Query(_, nick) => Some(Target::Query(nick.clone())),
             Kind::Logs => None,
             Kind::Highlights => None,
+            Kind::ChannelMonitor => None,
         }
     }
 }
@@ -169,6 +182,7 @@ impl fmt::Display for Kind {
             Kind::Query(server, nick) => write!(f, "user {nick} on {server}"),
             Kind::Logs => write!(f, "logs"),
             Kind::Highlights => write!(f, "highlights"),
+            Kind::ChannelMonitor => write!(f, "channel monitor"),
         }
     }
 }
@@ -187,6 +201,9 @@ impl From<Kind> for Buffer {
             }
             Kind::Logs => Buffer::Internal(buffer::Internal::Logs),
             Kind::Highlights => Buffer::Internal(buffer::Internal::Highlights),
+            Kind::ChannelMonitor => {
+                Buffer::Internal(buffer::Internal::ChannelMonitor)
+            }
         }
     }
 }
@@ -225,7 +242,8 @@ fn renormalize_messages<'a>(
     match seed {
         Seed::Multiple(casemappings) => {
             messages.for_each(|message| {
-                if let message::Target::Highlights { server, .. } =
+                if let message::Target::Highlights { server, .. }
+                | message::Target::ChannelMonitor { server, .. } =
                     &message.target
                     && let Some(casemapping) = casemappings.get(server)
                 {
@@ -424,6 +442,7 @@ async fn path(kind: &Kind) -> Result<PathBuf, Error> {
         }
         Kind::Logs => "logs".to_string(),
         Kind::Highlights => "highlights".to_string(),
+        Kind::ChannelMonitor => "channel_monitor".to_string(),
     };
 
     let hashed_name = seahash::hash(name.as_bytes());
@@ -894,11 +913,7 @@ impl History {
                     let chathistory_references = chathistory_references.clone();
                     *last_updated_at = None;
 
-                    if messages.len() > MAX_MESSAGES {
-                        messages.drain(
-                            0..messages.len() - (MAX_MESSAGES - TRUNC_COUNT),
-                        );
-                    }
+                    truncate_messages(messages);
 
                     let messages = messages.clone();
 

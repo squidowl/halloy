@@ -22,6 +22,8 @@ use crate::{
     redaction, server,
 };
 
+mod channel_monitor;
+
 const DRAFT_SAVE_EVERY: Duration = Duration::from_secs(10);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -39,6 +41,12 @@ impl Resource {
     pub fn highlights() -> Self {
         Self {
             kind: history::Kind::Highlights,
+        }
+    }
+
+    pub fn channel_monitor() -> Self {
+        Self {
+            kind: history::Kind::ChannelMonitor,
         }
     }
 }
@@ -63,6 +71,7 @@ pub enum EchoEvent {
 #[derive(Debug)]
 pub enum Message {
     LoadFull(history::Kind, Result<history::Loaded, history::Error>),
+    LoadChannelMonitor(u64, history::Loaded),
     UpdatePartial(history::Kind, Result<history::Metadata, history::Error>),
     UpdateChatHistoryReferences(
         history::Kind,
@@ -94,6 +103,7 @@ pub enum Event {
 #[derive(Debug, Default)]
 pub struct Manager {
     resources: HashSet<Resource>,
+    channel_monitor: channel_monitor::ChannelMonitor,
     filters: Vec<Filter>,
     reroute_rules: RerouteRules,
     data: Data,
@@ -106,6 +116,11 @@ impl Manager {
         kind: history::Kind,
         clients: &client::Map,
     ) -> Option<BoxFuture<'static, Message>> {
+        if matches!(kind, history::Kind::ChannelMonitor) {
+            self.channel_monitor.clear(&mut self.data);
+            return None;
+        }
+
         if let Some(history) = self.data.map.get_mut(&kind) {
             let task = history.flush(None, clients.get_seed(&kind));
 
@@ -132,36 +147,78 @@ impl Manager {
 
     pub fn track(
         &mut self,
-        new_resources: HashSet<Resource>,
+        mut new_resources: HashSet<Resource>,
         clients: Option<&client::Map>,
     ) -> Vec<BoxFuture<'static, Message>> {
-        let added = new_resources.difference(&self.resources).cloned();
-        let removed = self.resources.difference(&new_resources).cloned();
+        let channel_monitor = Resource::channel_monitor();
 
-        let added = added.into_iter().map(|resource| {
-            let seed =
-                clients.and_then(|clients| clients.get_seed(&resource.kind));
+        // Wait until joined channels are available.
+        if clients.is_none() {
+            new_resources.remove(&channel_monitor);
+        }
 
-            async move {
-                history::load(resource.kind.clone(), seed)
-                    .map(move |result| Message::LoadFull(resource.kind, result))
-                    .await
+        let added = new_resources
+            .difference(&self.resources)
+            .cloned()
+            .collect::<Vec<_>>();
+        let removed = self
+            .resources
+            .difference(&new_resources)
+            .cloned()
+            .collect::<Vec<_>>();
+        let mut tasks = vec![];
+
+        for resource in added {
+            if resource == channel_monitor {
+                let Some(clients) = clients else {
+                    continue;
+                };
+                tasks.push(self.channel_monitor.open(&self.data, clients));
+            } else {
+                let seed = clients
+                    .and_then(|clients| clients.get_seed(&resource.kind));
+
+                tasks.push(
+                    async move {
+                        history::load(resource.kind.clone(), seed)
+                            .map(move |result| {
+                                Message::LoadFull(resource.kind, result)
+                            })
+                            .await
+                    }
+                    .boxed(),
+                );
             }
-            .boxed()
-        });
+        }
 
-        let removed = removed.into_iter().filter_map(|resource| {
-            self.data.untrack(&resource.kind).map(|task| {
-                task.map(|result| Message::Closed(resource.kind, result))
-                    .boxed()
-            })
-        });
-
-        let tasks = added.chain(removed).collect();
+        for resource in removed {
+            if resource == channel_monitor {
+                self.channel_monitor.close(&mut self.data);
+            } else if let Some(task) = self.data.untrack(&resource.kind) {
+                tasks.push(
+                    task.map(|result| Message::Closed(resource.kind, result))
+                        .boxed(),
+                );
+            }
+        }
 
         self.resources = new_resources;
 
         tasks
+    }
+
+    pub fn track_channel_monitor_channel(
+        &mut self,
+        server: &Server,
+        channel: &target::Channel,
+        clients: &client::Map,
+    ) -> Option<BoxFuture<'static, Message>> {
+        self.channel_monitor
+            .load_channel(&self.data, server, channel, clients)
+    }
+
+    fn is_tracked(&self, kind: &history::Kind) -> bool {
+        self.resources.contains(&Resource { kind: kind.clone() })
     }
 
     pub fn update(
@@ -172,6 +229,10 @@ impl Manager {
     ) -> Option<Event> {
         match message {
             Message::LoadFull(kind, Ok(loaded)) => {
+                if !self.is_tracked(&kind) {
+                    return None;
+                }
+
                 let len = loaded.messages.len();
 
                 self.data.load_full(
@@ -188,6 +249,16 @@ impl Manager {
             }
             Message::LoadFull(kind, Err(error)) => {
                 log::warn!("failed to load history for {kind}: {error}");
+            }
+            Message::LoadChannelMonitor(generation, result) => {
+                return self.channel_monitor.finish_load(
+                    generation,
+                    result,
+                    &mut self.data,
+                    FilterChain::borrow(&self.filters),
+                    clients,
+                    buffer_config,
+                );
             }
             Message::Closed(kind, Ok(())) => {
                 log::debug!("closed history for {kind}",);
@@ -347,12 +418,17 @@ impl Manager {
     ) -> impl Future<Output = Message> + use<> {
         let data = std::mem::take(&mut self.data);
         let drafts = data.input.clone_drafts();
-        let seeds: Vec<Option<history::Seed>> =
-            data.map.keys().map(|kind| clients.get_seed(kind)).collect();
-        let seeded_map = data.map.into_iter().zip(seeds);
+        let seeded_map = data
+            .map
+            .into_iter()
+            .filter_map(|(kind, state)| {
+                (!matches!(kind, history::Kind::ChannelMonitor))
+                    .then(|| (clients.get_seed(&kind), kind, state))
+            })
+            .collect::<Vec<_>>();
 
         async move {
-            let tasks = seeded_map.into_iter().map(|((kind, state), seed)| {
+            let tasks = seeded_map.into_iter().map(|(seed, kind, state)| {
                 state.close(seed).map(move |result| (kind, result))
             });
 
@@ -451,47 +527,57 @@ impl Manager {
         labeled_response_context: Option<LabeledResponseContext>,
         buffer_config: &config::Buffer,
     ) -> Vec<BoxFuture<'static, Message>> {
-        history::Kind::from_server_message_rerouted_from(server, &message)
-            .and_then(|kind| {
-                if message.can_reference() {
-                    self.data
-                        .update_chathistory_references(
-                            kind,
-                            message.references(),
-                        )
-                        .map(futures::FutureExt::boxed)
-                } else {
-                    None
-                }
-            })
-            .into_iter()
-            .chain(
-                history::Kind::from_server_message(server, &message).and_then(
-                    |kind| {
-                        let condensers = (message.can_condense(
-                            &buffer_config.server_messages.condense,
-                        ) && !message.blocked)
-                            .then_some((kind.clone(), message.clone()));
-
-                        let future = self.data.add_message(
-                            kind,
-                            message,
-                            labeled_response_context,
-                        );
-
-                        if let Some((kind, message)) = condensers {
-                            self.condense_message(
-                                message,
-                                &kind,
+        let channel_monitor = self.channel_monitor.record(
+            &mut self.data,
+            &self.filters,
+            server,
+            &message,
+            labeled_response_context.as_ref(),
+        );
+        let mut tasks =
+            history::Kind::from_server_message_rerouted_from(server, &message)
+                .and_then(|kind| {
+                    if message.can_reference() {
+                        self.data
+                            .update_chathistory_references(
+                                kind,
+                                message.references(),
+                            )
+                            .map(futures::FutureExt::boxed)
+                    } else {
+                        None
+                    }
+                })
+                .into_iter()
+                .chain(
+                    history::Kind::from_server_message(server, &message)
+                        .and_then(|kind| {
+                            let condensers = (message.can_condense(
                                 &buffer_config.server_messages.condense,
-                            );
-                        }
+                            ) && !message.blocked)
+                                .then_some((kind.clone(), message.clone()));
 
-                        future.map(futures::FutureExt::boxed)
-                    },
-                ),
-            )
-            .collect()
+                            let future = self.data.add_message(
+                                kind,
+                                message,
+                                labeled_response_context,
+                            );
+
+                            if let Some((kind, message)) = condensers {
+                                self.condense_message(
+                                    message,
+                                    &kind,
+                                    &buffer_config.server_messages.condense,
+                                );
+                            }
+
+                            future.map(futures::FutureExt::boxed)
+                        }),
+                )
+                .collect::<Vec<_>>();
+
+        tasks.extend(channel_monitor);
+        tasks
     }
 
     pub fn record_reaction(
@@ -515,17 +601,28 @@ impl Manager {
         redaction: redaction::Context,
         display_redacted: bool,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        let kind = history::Kind::from_target(
-            server.clone(),
-            redaction.target.clone(),
-        );
-        self.data.redact_message(
-            kind,
-            redaction.id,
-            redaction.inner,
-            redaction.server_time,
-            display_redacted,
-        )
+        let redaction::Context {
+            inner,
+            target,
+            id,
+            server_time,
+        } = redaction;
+        let kind = history::Kind::from_target(server.clone(), target.clone());
+
+        if let Target::Channel(channel) = &target {
+            self.channel_monitor.redact(
+                &mut self.data,
+                server,
+                channel,
+                &id,
+                &inner,
+                server_time,
+                display_redacted,
+            );
+        }
+
+        self.data
+            .redact_message(kind, id, inner, server_time, display_redacted)
     }
 
     pub fn block_and_record_message(
@@ -897,7 +994,8 @@ impl Manager {
             // Check if target is included/excluded.
             let target_ref = match &message.target {
                 message::Target::Channel { channel, .. }
-                | message::Target::Highlights { channel, .. } => {
+                | message::Target::Highlights { channel, .. }
+                | message::Target::ChannelMonitor { channel, .. } => {
                     Some(channel.as_target_ref())
                 }
 
@@ -1166,6 +1264,10 @@ impl Manager {
                         } else if let message::Target::Highlights {
                             server,
                             ..
+                        }
+                        | message::Target::ChannelMonitor {
+                            server,
+                            ..
                         } = &message.target
                         {
                             Some(server)
@@ -1179,6 +1281,9 @@ impl Manager {
                         // Check if target is included/excluded.
                         let target_ref = match &message.target {
                             message::Target::Channel { channel, .. }
+                            | message::Target::ChannelMonitor {
+                                channel, ..
+                            }
                             | message::Target::Highlights { channel, .. } => {
                                 Some(channel.as_target_ref())
                             }
@@ -1944,6 +2049,10 @@ impl Data {
         self.map
             .iter_mut()
             .filter_map(|(kind, state)| {
+                if matches!(kind, history::Kind::ChannelMonitor) {
+                    return None;
+                }
+
                 let kind = kind.clone();
 
                 state.flush(Some(now), clients.get_seed(&kind)).map(

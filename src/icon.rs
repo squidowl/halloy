@@ -150,6 +150,12 @@ pub fn highlights<'a>() -> TextColorSvg<'a, Theme> {
     text_color_svg(svg::Handle::from_memory(entypo_bell))
 }
 
+pub fn channel_monitor<'a>() -> TextColorSvg<'a, Theme> {
+    text_color_svg(svg::Handle::from_memory(
+        include_bytes!("../assets/fontello/fontawesome-desktop.svg").as_slice(),
+    ))
+}
+
 pub fn scroll_to_bottom<'a>() -> Text<'a> {
     to_text('\u{F103}')
 }

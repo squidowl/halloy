@@ -2,6 +2,7 @@
 
 Added:
 
+- Channel Monitor internal buffer for viewing messages from all joined channels
 - Internal buffers (logs, highlights, etc) can be added to sidebar
   - They can optionally be hidden depending on the presence of unread messages
 - Config editor pane for editing the config file in-app

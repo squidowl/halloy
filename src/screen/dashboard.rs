@@ -271,7 +271,7 @@ impl Dashboard {
         clients: &client::Map,
         buffer_config: &config::Buffer,
     ) {
-        let open_pane_kinds: Vec<history::Kind> = self
+        let open_pane_kinds: HashSet<history::Kind> = self
             .panes
             .iter()
             .filter_map(|(_window_id, _grid_pane, pane)| {
@@ -281,6 +281,7 @@ impl Dashboard {
                         | Buffer::Server(_)
                         | Buffer::Query(_)
                         | Buffer::Highlights(_)
+                        | Buffer::ChannelMonitor(_)
                 ) {
                     pane.buffer.data().and_then(history::Kind::from_buffer)
                 } else {
@@ -302,7 +303,7 @@ impl Dashboard {
         server: &data::Server,
         clients: &client::Map,
     ) {
-        let open_pane_kinds: Vec<history::Kind> = self
+        let open_pane_kinds: HashSet<history::Kind> = self
             .panes
             .iter()
             .filter_map(|(_window_id, _grid_pane, pane)| {
@@ -310,7 +311,10 @@ impl Dashboard {
                     .buffer
                     .server()
                     .is_some_and(|buffer_server| buffer_server == *server)
-                    || matches!(pane.buffer, Buffer::Highlights(_))
+                    || matches!(
+                        pane.buffer,
+                        Buffer::Highlights(_) | Buffer::ChannelMonitor(_)
+                    )
                 {
                     pane.buffer.data().and_then(history::Kind::from_buffer)
                 } else {
@@ -851,7 +855,7 @@ impl Dashboard {
                                     state.buffer.get_draft_reply()
                                     && let Some(reply_preview) =
                                         self.history.generate_reply_preview(
-                                            kind,
+                                            kind.clone(),
                                             &draft_reply.id,
                                             &draft_reply.server_time,
                                         )
@@ -880,31 +884,37 @@ impl Dashboard {
                                         None,
                                     );
                                 } else {
-                                    return (
+                                    let task = if matches!(
+                                        kind,
+                                        history::Kind::ChannelMonitor
+                                    ) {
+                                        state.buffer.scroll_to_end(config)
+                                    } else {
                                         match config
                                             .buffer
                                             .scroll_position_on_open
                                         {
                                             ScrollPosition::OldestUnread => {
-                                                state
-                                                    .buffer
-                                                    .scroll_to_backlog(
-                                                        &self.history,
-                                                        config,
-                                                    )
-                                                    .map(move |message| {
-                                                        Message::Pane(
-                                                    window,
-                                                    pane::Message::Buffer(
-                                                        pane, message,
-                                                    ),
+                                                state.buffer.scroll_to_backlog(
+                                                    &self.history,
+                                                    config,
                                                 )
-                                                    })
                                             }
                                             ScrollPosition::Newest => {
                                                 Task::none()
                                             }
-                                        },
+                                        }
+                                    };
+
+                                    return (
+                                        task.map(move |message| {
+                                            Message::Pane(
+                                                window,
+                                                pane::Message::Buffer(
+                                                    pane, message,
+                                                ),
+                                            )
+                                        }),
                                         None,
                                     );
                                 }
@@ -3566,6 +3576,19 @@ impl Dashboard {
         }
 
         Task::none()
+    }
+
+    pub fn track_channel_monitor_channel(
+        &mut self,
+        server: &Server,
+        channel: &target::Channel,
+        clients: &client::Map,
+    ) -> Task<Message> {
+        self.history
+            .track_channel_monitor_channel(server, channel, clients)
+            .map_or_else(Task::none, |task| {
+                Task::perform(task, Message::History)
+            })
     }
 
     pub fn record_reaction(

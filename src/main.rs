@@ -1927,6 +1927,16 @@ fn handle_client_events(
             Event::JoinedChannel(channel, server_time) => {
                 commands.push(
                     dashboard
+                        .track_channel_monitor_channel(
+                            server, &channel, clients,
+                        )
+                        .map(Message::Dashboard),
+                );
+                commands.push(
+                    dashboard.track(Some(clients)).map(Message::Dashboard),
+                );
+                commands.push(
+                    dashboard
                         .load_metadata_and_request_newer_chathistory(
                             clients,
                             server.clone(),

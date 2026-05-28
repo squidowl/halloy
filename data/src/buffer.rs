@@ -47,6 +47,8 @@ pub enum Internal {
     FileTransfers,
     Logs,
     Highlights,
+    #[strum(serialize = "Channel Monitor")]
+    ChannelMonitor,
     #[strum(serialize = "Channel Discovery")]
     ChannelDiscovery(Option<Server>),
     #[strum(serialize = "Config Editor")]
@@ -127,6 +129,7 @@ impl Internal {
         Self::FileTransfers,
         Self::Logs,
         Self::Highlights,
+        Self::ChannelMonitor,
         Self::ChannelDiscovery(None),
         Self::ConfigEditor,
     ];
@@ -136,6 +139,7 @@ impl Internal {
             Internal::FileTransfers => "file-transfers",
             Internal::Logs => "logs",
             Internal::Highlights => "highlights",
+            Internal::ChannelMonitor => "channel-monitor",
             Internal::ChannelDiscovery(_) => "channel-discovery",
             Internal::ConfigEditor => "config-editor",
         }
@@ -152,6 +156,9 @@ impl From<config::sidebar::InternalBuffer> for Internal {
             }
             config::sidebar::InternalBuffer::Logs => Self::Logs,
             config::sidebar::InternalBuffer::Highlights => Self::Highlights,
+            config::sidebar::InternalBuffer::ChannelMonitor => {
+                Self::ChannelMonitor
+            }
             config::sidebar::InternalBuffer::ChannelDiscovery => {
                 Self::ChannelDiscovery(None)
             }

@@ -287,6 +287,7 @@ impl Filter {
                 | Kind::Channel(server, _)
                 | Kind::Query(server, _) => target_server == server,
                 Kind::Highlights | Kind::Logs => false,
+                Kind::ChannelMonitor => false,
             },
         }
     }
@@ -369,6 +370,9 @@ impl<'f> FilterChain<'f> {
             .iter()
             .filter(|f| {
                 if let message::Target::Highlights {
+                    server, channel, ..
+                }
+                | message::Target::ChannelMonitor {
                     server, channel, ..
                 } = &message.target
                 {

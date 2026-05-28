@@ -411,6 +411,14 @@ impl Sidebar {
                                 buffer::Internal::ChannelDiscovery(None).into(),
                             ),
                         ),
+                        Menu::ChannelMonitor => context_button(
+                            text("Channel Monitor"),
+                            None,
+                            icon::channel_monitor(),
+                            Message::Replace(
+                                buffer::Internal::ChannelMonitor.into(),
+                            ),
+                        ),
                         Menu::Logs => context_button(
                             text("Logs")
                                 .style(if logs_has_unread {
@@ -679,6 +687,10 @@ impl Sidebar {
                             buffer::Internal::Highlights,
                             "Highlights",
                         ),
+                        data::config::sidebar::InternalBuffer::ChannelMonitor => (
+                            buffer::Internal::ChannelMonitor,
+                            "Channel Monitor",
+                        ),
                         data::config::sidebar::InternalBuffer::Logs => (
                             buffer::Internal::Logs,
                             "Logs",
@@ -836,6 +848,7 @@ enum Menu {
     ThemeEditor,
     Highlights,
     ChannelDiscovery,
+    ChannelMonitor,
     Logs,
     FileTransfers,
     Version,
@@ -876,6 +889,12 @@ impl Menu {
             .contains(&config::sidebar::InternalBuffer::ChannelDiscovery)
         {
             list.push(Self::ChannelDiscovery);
+        }
+
+        if !internal_buffers_in_sidebar
+            .contains(&config::sidebar::InternalBuffer::ChannelMonitor)
+        {
+            list.push(Self::ChannelMonitor);
         }
 
         if !internal_buffers_in_sidebar
@@ -1620,6 +1639,11 @@ fn internal_buffer_button<'a>(
             };
 
             (show_icon.then_some(icon::logs()), badge)
+        }
+        buffer::Internal::ChannelMonitor => {
+            let badge = None;
+
+            (show_icon.then_some(icon::channel_monitor()), badge)
         }
     };
 
