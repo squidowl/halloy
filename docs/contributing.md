@@ -37,5 +37,5 @@ AI-generated content is not allowed in contributions. This includes code, docume
 
 ## Contact
 
-For further questions or support please visit the \#halloy channel on Libera.Chat: ircs://irc.libera.chat/\#halloy.
-You can also reach out to us at casper@rogildstorm.com and andymandias@vastandtrunkless.systems.
+For further questions or support please visit the \#halloy channel on Libera.Chat: <ircs://irc.libera.chat/#halloy>.
+You can also reach out to us at casper@rogildstorm.com and <andymandias@vastandtrunkless.systems>.

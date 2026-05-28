@@ -158,10 +158,10 @@ If you leave `port` unset, default ports will be chosen based on `use_tls` and
 
 | `use_tls` | `use_websocket` | `port` |
 | --------- | --------------- | ------ |
-| `"true"`  | `"false"`       | `6697` |
-| `"false"` | `"false"`       | `6667` |
-| `"true"`  | `"true"`        | `443`  |
-| `"false"` | `"true"`        | `80`   |
+| `true`    | `false`         | `6697` |
+| `false`   | `false`         | `6667` |
+| `true`    | `true`          | `443`  |
+| `false`   | `true`          | `80`   |
 
 :::
 
