@@ -1,6 +1,14 @@
 import footnote from "markdown-it-footnote";
 import { defineConfig } from "vitepress";
 
+const releaseLabel = process.env.DOCS_VERSION ?? "Latest Release";
+const releaseLink = process.env.DOCS_CHANNEL === "nightly" ? "https://halloy.chat" : "/";
+const nightlyLabel = process.env.DOCS_SHA
+  ? `Nightly (${process.env.DOCS_SHA.slice(0, 7)})`
+  : "Nightly";
+const nightlyLink = process.env.DOCS_CHANNEL === "nightly" ? "/" : "https://nightly.halloy.chat";
+const docsChannel = process.env.DOCS_CHANNEL === "nightly" ? nightlyLabel : releaseLabel;
+
 export default defineConfig({
   title: "Halloy",
   description:
@@ -30,6 +38,13 @@ export default defineConfig({
       level: [2, 4],
     },
     nav: [
+      {
+        text: docsChannel,
+        items: [
+          { text: releaseLabel, link: releaseLink },
+          { text: nightlyLabel, link: nightlyLink },
+        ],
+      },
       {
         text: "Themes",
         link: "https://themes.halloy.chat/",
