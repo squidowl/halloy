@@ -37,6 +37,7 @@ const DEFAULT_WSS_PORT: u16 = 443;
 #[serde(default)]
 pub struct Server {
     /// The client's nickname.
+    #[serde(alias = "nick")]
     pub nickname: String,
     /// The client's NICKSERV password.
     pub nick_password: Option<String>,
