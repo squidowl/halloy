@@ -597,10 +597,21 @@ impl Sidebar {
 
             match config.sidebar.position {
                 sidebar::Position::Left | sidebar::Position::Right => {
+                    let column_padding = if matches!(
+                        config.sidebar.position,
+                        sidebar::Position::Left
+                    ) {
+                        padding::right(2)
+                    } else {
+                        padding::left(2)
+                    };
+
                     // Add buffers to a column.
                     let buffers = column![
                         Scrollable::new(
-                            Column::with_children(buffers).spacing(1)
+                            Column::with_children(buffers)
+                                .spacing(1)
+                                .padding(column_padding)
                         )
                         .direction(
                             scrollable::Direction::Vertical(
@@ -609,6 +620,7 @@ impl Sidebar {
                                     .scroller_width(
                                         config.sidebar.scrollbar.scroller_width
                                     )
+                                    .spacing(4)
                             )
                         )
                     ];
@@ -624,14 +636,21 @@ impl Sidebar {
                 sidebar::Position::Top | sidebar::Position::Bottom => {
                     // Add buffers to a row.
                     let buffers = row![
-                        Scrollable::new(Row::with_children(buffers).spacing(2))
-                            .direction(scrollable::Direction::Horizontal(
+                        Scrollable::new(
+                            Row::with_children(buffers)
+                                .spacing(2)
+                                .align_y(Alignment::Center)
+                        )
+                        .direction(
+                            scrollable::Direction::Horizontal(
                                 scrollable::Scrollbar::default()
                                     .width(config.sidebar.scrollbar.width)
                                     .scroller_width(
                                         config.sidebar.scrollbar.scroller_width
                                     )
-                            ))
+                                    .spacing(4)
+                            )
+                        )
                     ];
 
                     // Wrap buffers in a row with user_menu_button
