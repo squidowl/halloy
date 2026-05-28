@@ -205,6 +205,12 @@
       "css": "reply-1",
       "code": 59419,
       "src": "entypo"
+    },
+    {
+      "uid": "757afacc32d82967975cbb3b45cfb41b",
+      "css": "desktop",
+      "code": 61704,
+      "src": "fontawesome"
     }
   ]
 }

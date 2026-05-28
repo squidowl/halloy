@@ -47,6 +47,7 @@ pub enum Kind {
     Query(Server, target::Query),
     Logs,
     Highlights,
+    ChannelMonitor,
 }
 
 impl Kind {
@@ -112,6 +113,7 @@ impl Kind {
             }
             message::Target::Logs { .. } => None,
             message::Target::Highlights { .. } => None,
+            message::Target::ChannelMonitor { .. } => None,
         }
     }
 
@@ -131,6 +133,9 @@ impl Kind {
                 Some(Kind::Highlights)
             }
             Buffer::Internal(buffer::Internal::FileTransfers) => None,
+            Buffer::Internal(buffer::Internal::ChannelMonitor) => {
+                Some(Kind::ChannelMonitor)
+            }
             Buffer::Internal(buffer::Internal::ChannelDiscovery(_)) => None,
         }
     }
@@ -144,6 +149,7 @@ impl Kind {
             Kind::Query(server, _) => Some(server),
             Kind::Logs => None,
             Kind::Highlights => None,
+            Kind::ChannelMonitor => None,
         }
     }
 
@@ -154,6 +160,7 @@ impl Kind {
             Kind::Query(_, nick) => Some(Target::Query(nick.clone())),
             Kind::Logs => None,
             Kind::Highlights => None,
+            Kind::ChannelMonitor => None,
         }
     }
 }
@@ -168,6 +175,7 @@ impl fmt::Display for Kind {
             Kind::Query(server, nick) => write!(f, "user {nick} on {server}"),
             Kind::Logs => write!(f, "logs"),
             Kind::Highlights => write!(f, "highlights"),
+            Kind::ChannelMonitor => write!(f, "channel monitor"),
         }
     }
 }
@@ -186,6 +194,9 @@ impl From<Kind> for Buffer {
             }
             Kind::Logs => Buffer::Internal(buffer::Internal::Logs),
             Kind::Highlights => Buffer::Internal(buffer::Internal::Highlights),
+            Kind::ChannelMonitor => {
+                Buffer::Internal(buffer::Internal::ChannelMonitor)
+            }
         }
     }
 }
@@ -398,6 +409,7 @@ async fn path(kind: &Kind) -> Result<PathBuf, Error> {
         }
         Kind::Logs => "logs".to_string(),
         Kind::Highlights => "highlights".to_string(),
+        Kind::ChannelMonitor => "channel_monitor".to_string(),
     };
 
     let hashed_name = seahash::hash(name.as_bytes());

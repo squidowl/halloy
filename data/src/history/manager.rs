@@ -478,6 +478,14 @@ impl Manager {
             .collect()
     }
 
+    pub fn record_channel_monitor_message(
+        &mut self,
+        message: crate::Message,
+    ) -> Option<impl Future<Output = Message> + use<>> {
+        self.data
+            .add_message(history::Kind::ChannelMonitor, message, None)
+    }
+
     pub fn record_reaction(
         &mut self,
         server: &Server,
@@ -875,7 +883,8 @@ impl Manager {
             // Check if target is included/excluded.
             let target_ref = match &message.target {
                 message::Target::Channel { channel, .. }
-                | message::Target::Highlights { channel, .. } => {
+                | message::Target::Highlights { channel, .. }
+                | message::Target::ChannelMonitor { channel, .. } => {
                     Some(channel.as_target_ref())
                 }
 
@@ -1144,6 +1153,10 @@ impl Manager {
                                 }
                                 | message::Target::Highlights {
                                     channel, ..
+                                }
+                                | message::Target::ChannelMonitor {
+                                    channel,
+                                    ..
                                 } => Some(channel.as_target_ref()),
 
                                 message::Target::Query { query, .. } => {

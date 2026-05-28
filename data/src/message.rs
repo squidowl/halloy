@@ -219,7 +219,7 @@ impl From<Encoded> for proto::Message {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Target {
     Server {
         source: Source,
@@ -240,6 +240,11 @@ pub enum Target {
         channel: target::Channel,
         source: Source,
     },
+    ChannelMonitor {
+        server: Server,
+        channel: target::Channel,
+        source: Source,
+    },
 }
 
 impl Target {
@@ -256,6 +261,7 @@ impl Target {
             Target::Query { .. } => None,
             Target::Logs { .. } => None,
             Target::Highlights { .. } => None,
+            Target::ChannelMonitor { .. } => None,
         }
     }
 
@@ -266,6 +272,7 @@ impl Target {
             Target::Query { source, .. } => source,
             Target::Logs { source } => source,
             Target::Highlights { source, .. } => source,
+            Target::ChannelMonitor { source, .. } => source,
         }
     }
 
@@ -276,6 +283,7 @@ impl Target {
             Target::Query { source, .. } => source,
             Target::Logs { source } => source,
             Target::Highlights { source, .. } => source,
+            Target::ChannelMonitor { source, .. } => source,
         }
     }
 
@@ -285,7 +293,8 @@ impl Target {
             Target::Query { query, .. } => Some(query.as_str()),
             Target::Server { .. }
             | Target::Logs { .. }
-            | Target::Highlights { .. } => None,
+            | Target::Highlights { .. }
+            | Target::ChannelMonitor { .. } => None,
         }
     }
 
@@ -295,7 +304,8 @@ impl Target {
             Target::Query { .. }
             | Target::Server { .. }
             | Target::Logs { .. }
-            | Target::Highlights { .. } => None,
+            | Target::Highlights { .. }
+            | Target::ChannelMonitor { .. } => None,
         }
     }
 }
@@ -1034,6 +1044,13 @@ pub fn condense(
             Target::Highlights {
                 server, channel, ..
             } => Target::Highlights {
+                server: server.clone(),
+                channel: channel.clone(),
+                source,
+            },
+            Target::ChannelMonitor {
+                server, channel, ..
+            } => Target::ChannelMonitor {
                 server: server.clone(),
                 channel: channel.clone(),
                 source,
