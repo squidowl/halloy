@@ -49,6 +49,7 @@ We strive to be a leading irc client with a rich IRCv3 feature set. Currently su
 - [msgid](https://ircv3.net/specs/extensions/message-ids)
 - [multi-prefix](https://ircv3.net/specs/extensions/multi-prefix)
 - [multiline](https://ircv3.net/specs/extensions/multiline)
+- [network-icon](https://ircv3.net/specs/extensions/network-icon)
 - [react](https://ircv3.net/specs/client-tags/react.html)
 - [read-marker](https://ircv3.net/specs/extensions/read-marker)
 - [reply](https://ircv3.net/specs/client-tags/reply)
