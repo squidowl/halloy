@@ -298,7 +298,7 @@ The amount of inactivity in seconds before the client will ping the server.
 
 ```toml
 # Type: integer
-# Values: any non-negative integer
+# Values: any positive integer
 # Default: 180
 
 [servers.<name>]
@@ -311,7 +311,7 @@ The amount of time in seconds to wait for a ping response before attempting to r
 
 ```toml
 # Type: integer
-# Values: any non-negative integer
+# Values: any positive integer
 # Default: 20
 
 [servers.<name>]
@@ -324,7 +324,7 @@ The amount of time in seconds before attempting to reconnect to the server when 
 
 ```toml
 # Type: integer
-# Values: any non-negative integer
+# Values: any positive integer
 # Default: 10
 
 [servers.<name>]

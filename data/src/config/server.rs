@@ -17,6 +17,7 @@ use crate::config::sidebar::OrderChannelsBy;
 use crate::serde::{
     deserialize_path_buf_with_path_transformations,
     deserialize_path_buf_with_path_transformations_maybe,
+    deserialize_u64_positive_integer,
 };
 use crate::{config, isupport, metadata, target};
 
@@ -86,8 +87,10 @@ pub struct Server {
     /// A list of queries to add to the sidebar on connection.
     pub queries: Vec<String>,
     /// The amount of inactivity in seconds before the client will ping the server.
+    #[serde(deserialize_with = "deserialize_u64_positive_integer")]
     pub ping_time: u64,
     /// The amount of time in seconds for a client to reconnect due to no ping response.
+    #[serde(deserialize_with = "deserialize_u64_positive_integer")]
     pub ping_timeout: u64,
     /// The amount of time in seconds before attempting to reconnect to the server when disconnected.
     #[serde(deserialize_with = "deserialize_duration_from_secs")]
@@ -587,7 +590,14 @@ where
 {
     let seconds: u64 = Deserialize::deserialize(deserializer)?;
 
-    Ok(Duration::from_secs(seconds))
+    if seconds == 0 {
+        Err(serde::de::Error::invalid_value(
+            serde::de::Unexpected::Unsigned(seconds),
+            &"any positive number of seconds",
+        ))
+    } else {
+        Ok(Duration::from_secs(seconds))
+    }
 }
 
 pub fn default_port(use_tls: bool, use_websocket: bool) -> NonZeroU16 {
