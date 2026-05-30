@@ -1,13 +1,13 @@
 name: Deploy Documentation
 
 on:
-  push:
-    tags:
-      - "*"
-    paths:
-      - "docs/**"
-      - ".github/workflows/pages.yml"
-  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - Docs Check
+    types:
+      - completed
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -22,6 +22,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
+      DOCS_CHANNEL: nightly
+      DOCS_SHA: ${{ github.sha }}
       DOCS_BASE: /
     steps:
       - name: Checkout
