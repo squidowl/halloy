@@ -179,6 +179,11 @@ pub enum Event {
     UpdateIcon,
 }
 
+struct MonitoredUser {
+    online: bool,
+    query: bool,
+}
+
 struct ChatHistoryRequest {
     subcommand: ChatHistorySubcommand,
     requested_at: Instant,
@@ -221,6 +226,7 @@ pub struct Client {
     channel_discovery_manager: channel_discovery::Manager,
     http_client: Option<Arc<reqwest::Client>>, // Only Some if config.proxy.is_some()
     registry: metadata::ServerRegistry,
+    monitored_users: HashMap<User, MonitoredUser>,
 }
 
 impl fmt::Debug for Client {
@@ -292,6 +298,7 @@ impl Client {
             config,
             channel_discovery_manager: channel_discovery::Manager::new(),
             registry: metadata::ServerRegistry::new(),
+            monitored_users: HashMap::new(),
         }
     }
 
@@ -2870,10 +2877,28 @@ impl Client {
 
                 let targets = ok!(args.get(1))
                     .split(',')
-                    .map(|target| {
-                        User::parse(target, casemapping, prefix).unwrap_or(
-                            User::from(Nick::from_str(target, casemapping)),
-                        )
+                    .filter_map(|target| {
+                        let user =
+                            User::parse(target, casemapping, prefix).unwrap_or(
+                                User::from(Nick::from_str(target, casemapping)),
+                            );
+
+                        let mut should_notify = true;
+                        if let Some(monitored_user) =
+                            self.monitored_users.get_mut(&user)
+                        {
+                            monitored_user.online = true;
+                            should_notify = !monitored_user.query;
+                        } else {
+                            self.monitored_users.insert(
+                                user.clone(),
+                                MonitoredUser {
+                                    online: true,
+                                    query: false,
+                                },
+                            );
+                        }
+                        if should_notify { Some(user) } else { None }
                     })
                     .collect::<Vec<_>>();
 
@@ -2887,9 +2912,34 @@ impl Client {
                 ]);
             }
             Command::Numeric(RPL_MONOFFLINE, args) => {
+                let casemapping =
+                    isupport::get_casemapping_or_default(&self.isupport);
+                let prefix = isupport::get_prefix(&self.isupport);
                 let targets = ok!(args.get(1))
                     .split(',')
-                    .map(|target| Nick::from_str(target, self.casemapping()))
+                    .filter_map(|target| {
+                        let nick = Nick::from_str(target, casemapping);
+                        let user = User::parse(target, casemapping, prefix)
+                            .unwrap_or(nick.clone().into());
+
+                        let mut should_notify = true;
+                        if let Some(monitored_user) =
+                            self.monitored_users.get_mut(&user)
+                        {
+                            monitored_user.online = false;
+                            should_notify = !monitored_user.query;
+                        } else {
+                            self.monitored_users.insert(
+                                user.clone(),
+                                MonitoredUser {
+                                    online: false,
+                                    query: false,
+                                },
+                            );
+                        }
+
+                        if should_notify { Some(nick) } else { None }
+                    })
                     .collect::<Vec<_>>();
 
                 return Ok(vec![
