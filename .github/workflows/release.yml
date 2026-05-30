@@ -31,7 +31,7 @@ jobs:
     runs-on: ${{ matrix.target.os }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: dtolnay/rust-toolchain@0f1b44df7e9cbb178d781a242338dfa5e243ad7f # master
+      - uses: dtolnay/rust-toolchain@master # recommended when specifying toolchain
         with:
           toolchain: stable
 
