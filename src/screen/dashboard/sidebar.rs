@@ -208,14 +208,35 @@ impl Sidebar {
         }
     }
 
-    fn highlights_button<'a>(&self) -> Element<'a, Message> {
-        button(icon::highlights().size(theme::ICON_SIZE + 2.0))
+    fn highlights_button<'a>(
+        &self,
+        history: &'a history::Manager,
+    ) -> Element<'a, Message> {
+        let has_unread = history.has_highlight(&history::Kind::Highlights);
+
+        let base = button(icon::highlights().size(theme::ICON_SIZE + 2.0))
             .padding(5)
             .width(Length::Shrink)
             .on_press(Message::ToggleInternalBuffer(
                 buffer::Internal::Highlights,
-            ))
-            .into()
+            ));
+
+        stack![
+            base,
+            if has_unread {
+                Some(
+                    container(
+                        icon::dot()
+                            .style(theme::text::highlight_indicator)
+                            .size(8),
+                    )
+                    .padding(padding::left(13).top(2)),
+                )
+            } else {
+                None
+            },
+        ]
+        .into()
     }
 
     fn user_menu_button<'a>(
@@ -475,7 +496,7 @@ impl Sidebar {
         }
 
         let content = |width| {
-            let highlights_button = self.highlights_button();
+            let highlights_button = self.highlights_button(history);
 
             let user_menu_button =
                 config.sidebar.user_menu.enabled.then(|| {
