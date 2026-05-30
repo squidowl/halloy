@@ -2900,6 +2900,15 @@ impl Client {
                         }
                         if should_notify { Some(user) } else { None }
                     })
+                    .filter_map(|user| {
+                        self.config
+                            .monitor
+                            .iter()
+                            .any(|monitored_user| {
+                                monitored_user == user.as_normalized_str()
+                            })
+                            .then_some(user)
+                    })
                     .collect::<Vec<_>>();
 
                 return Ok(vec![
@@ -2939,6 +2948,15 @@ impl Client {
                         }
 
                         if should_notify { Some(nick) } else { None }
+                    })
+                    .filter_map(|nick| {
+                        self.config
+                            .monitor
+                            .iter()
+                            .any(|monitored_user| {
+                                monitored_user == nick.as_normalized_str()
+                            })
+                            .then_some(nick)
                     })
                     .collect::<Vec<_>>();
 
@@ -4556,6 +4574,12 @@ impl Client {
 
     pub fn multiline_limits(&self) -> Option<MultilineLimits> {
         self.capabilities.multiline_limits()
+    }
+
+    pub fn is_monitored_user_online(&self, user: &User) -> bool {
+        self.monitored_users
+            .get(user)
+            .is_some_and(|monitored_user| monitored_user.online)
     }
 }
 
