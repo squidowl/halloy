@@ -31,6 +31,7 @@ pub struct Sidebar {
     #[serde(alias = "server_font_size")]
     pub primary_font_size: Option<u8>,
     pub user_menu: UserMenu,
+    pub highlights_button: HighlightsButton,
     pub padding: Padding,
     pub spacing: Spacing,
     pub order_channels_by: OrderChannelsBy,
@@ -136,6 +137,18 @@ pub struct UserMenu {
 }
 
 impl Default for UserMenu {
+    fn default() -> Self {
+        Self { enabled: true }
+    }
+}
+
+#[derive(Debug, Copy, Clone, Deserialize)]
+#[serde(default)]
+pub struct HighlightsButton {
+    pub enabled: bool,
+}
+
+impl Default for HighlightsButton {
     fn default() -> Self {
         Self { enabled: true }
     }

@@ -496,7 +496,10 @@ impl Sidebar {
         }
 
         let content = |width| {
-            let highlights_button = self.highlights_button(history);
+            let highlights_button =
+                config.sidebar.highlights_button.enabled.then(|| {
+                    self.highlights_button(history)
+                });
 
             let user_menu_button =
                 config.sidebar.user_menu.enabled.then(|| {

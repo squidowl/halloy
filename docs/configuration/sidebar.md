@@ -359,6 +359,23 @@ Controls whether the user menu is shown in the sidebar or hidden
 enabled = true
 ```
 
+## `highlights_button`
+
+Highlights button in sidebar settings.
+
+### `enabled`
+
+Controls whether the highlights button is shown in the sidebar or hidden
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[sidebar.highlights_button]
+enabled = true
+```
+
 ## `padding`
 
 Adjust padding for sidebar
