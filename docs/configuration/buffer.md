@@ -1119,8 +1119,6 @@ Condense multiple consecutive server messages into a single abbreviated message.
 | `quit`         | `-`        |
 | `kick`         | `!`        |
 
-The color and font style of the symbols is taken from the theme setting for that event type.
-
 ```toml
 # Type: array of strings
 # Values: ["change-host", "change-nick", "join", "kick", "part", "quit"]
@@ -1128,6 +1126,15 @@ The color and font style of the symbols is taken from the theme setting for that
 
 [buffer.server_messages.condense]
 messages = ["change-nick", "join", "part", "quit"]
+```
+
+The color and font style of the symbols is taken from the theme setting for that event type. It is recommended that you specify colors for the condensed messages in your [theme](../configuration/themes).  Those colors will be used for the abbreviations used in the condensed messages.  For example, these theme settings could be added:
+
+```toml
+[buffer.server_messages]
+join = "#efff95"
+part = "#ff6b77"
+quit = "#ff6b77"
 ```
 
 #### `dimmed`
