@@ -10,7 +10,7 @@ pub fn preview_card_parts<'a, M: 'a>(
     preview: &'a preview::Card,
     config: &'a Config,
     theme: &'a Theme,
-) -> (Element<'a, M>, Option<Element<'a, M>>) {
+) -> (Element<'a, M>, Element<'a, M>, Option<Element<'a, M>>) {
     let preview::Card {
         image: card_image,
         title,
@@ -18,29 +18,28 @@ pub fn preview_card_parts<'a, M: 'a>(
         ..
     } = preview;
 
-    let body = container(
-        column![
-            text(title)
-                .shaping(text::Shaping::Advanced)
-                .style(theme::text::primary)
-                .font_maybe(theme::font_style::primary(theme).map(font::get)),
-            description.as_ref().map(|description| {
-                container(
-                    text(description)
-                        .shaping(text::Shaping::Advanced)
-                        .wrapping(text::Wrapping::WordOrGlyph)
-                        .style(theme::text::secondary)
-                        .font_maybe(
-                            theme::font_style::secondary(theme).map(font::get),
-                        ),
-                )
-                .clip(false)
-            }),
-        ]
-        .spacing(8)
-        .max_width(config.preview.card.max_width),
-    )
-    .into();
+    let title = text(title)
+        .shaping(text::Shaping::Advanced)
+        .style(theme::text::primary)
+        .font_maybe(theme::font_style::primary(theme).map(font::get))
+        .into();
+
+    let description = description
+        .as_ref()
+        .map(|description| {
+            container(
+                text(description)
+                    .shaping(text::Shaping::Advanced)
+                    .wrapping(text::Wrapping::WordOrGlyph)
+                    .style(theme::text::secondary)
+                    .font_maybe(
+                        theme::font_style::secondary(theme).map(font::get),
+                    ),
+            )
+            .clip(false)
+            .max_height(config.preview.card.description_max_height)
+        })
+        .into();
 
     let image = config.preview.card.show_image.then_some(
         container(image::from_data(
@@ -53,7 +52,7 @@ pub fn preview_card_parts<'a, M: 'a>(
         .into(),
     );
 
-    (body, image)
+    (title, description, image)
 }
 
 pub fn preview_content<'a, M: 'a>(
@@ -63,10 +62,11 @@ pub fn preview_content<'a, M: 'a>(
 ) -> Element<'a, M> {
     match preview {
         Preview::Card(preview) => {
-            let (body, image) = preview_card_parts(preview, config, theme);
+            let (title, description, image) =
+                preview_card_parts(preview, config, theme);
 
             container(
-                column![body, image]
+                column![title, description, image]
                     .spacing(8)
                     .max_width(config.preview.card.max_width),
             )

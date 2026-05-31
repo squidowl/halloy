@@ -426,19 +426,23 @@ impl<'a> ChannelQueryLayout<'a> {
     ) -> Element<'a, Message> {
         let content = match preview {
             data::Preview::Card(card) => {
-                let (body, image) =
+                let (title, description, image) =
                     preview_card_parts(card, self.config, self.theme);
 
-                let mut card_content = column![
-                    button(body)
-                        .on_press(Message::Link(message::Link::Url(
-                            url.to_string(),
-                        )))
-                        .padding(0)
-                        .style(theme::button::bare),
-                ]
-                .spacing(8)
-                .max_width(self.config.preview.card.max_width);
+                let text_inner = column![title, description]
+                    .spacing(8)
+                    .max_width(self.config.preview.card.max_width);
+
+                let text_button = button(text_inner)
+                    .on_press(Message::Link(message::Link::Url(
+                        url.to_string(),
+                    )))
+                    .padding(0)
+                    .style(theme::button::bare);
+
+                let mut card_content = column![text_button]
+                    .spacing(8)
+                    .max_width(self.config.preview.card.max_width);
 
                 if let Some(image) = image {
                     card_content = card_content.push(
@@ -466,7 +470,7 @@ impl<'a> ChannelQueryLayout<'a> {
 
                 keyed(
                     keyed::Key::Preview(message.hash, index),
-                    container(card_content).padding(8).style(
+                    container(card_content).padding(16).style(
                         |theme: &Theme| iced::widget::container::Style {
                             background: Some(iced::Background::Color(
                                 theme.styles().buttons.secondary.background,
