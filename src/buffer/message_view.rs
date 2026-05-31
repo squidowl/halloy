@@ -429,11 +429,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 let (title, description, image) =
                     preview_card_parts(card, self.config, self.theme);
 
-                let text_inner = column![title, description]
-                    .spacing(8)
-                    .max_width(self.config.preview.card.max_width);
-
-                let mut card_content = column![text_inner]
+                let mut card_content = column![title, description]
                     .spacing(8)
                     .max_width(self.config.preview.card.max_width);
 
