@@ -433,14 +433,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     .spacing(8)
                     .max_width(self.config.preview.card.max_width);
 
-                let text_button = button(text_inner)
-                    .on_press(Message::Link(message::Link::Url(
-                        url.to_string(),
-                    )))
-                    .padding(0)
-                    .style(theme::button::bare);
-
-                let mut card_content = column![text_button]
+                let mut card_content = column![text_inner]
                     .spacing(8)
                     .max_width(self.config.preview.card.max_width);
 
@@ -470,20 +463,11 @@ impl<'a> ChannelQueryLayout<'a> {
 
                 keyed(
                     keyed::Key::Preview(message.hash, index),
-                    container(card_content).padding(16).style(
-                        |theme: &Theme| iced::widget::container::Style {
-                            background: Some(iced::Background::Color(
-                                theme.styles().buttons.secondary.background,
-                            )),
-                            text_color: Some(theme.styles().text.primary.color),
-                            border: iced::Border {
-                                radius: 4.0.into(),
-                                width: 1.0,
-                                color: theme.styles().general.border,
-                            },
-                            ..Default::default()
-                        },
-                    ),
+                    button(container(card_content).padding(8))
+                        .style(theme::button::preview_card)
+                        .on_press(Message::Link(message::Link::Url(
+                            url.to_string(),
+                        ))),
                 )
             }
             data::Preview::Image(img) => {
