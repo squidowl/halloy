@@ -66,8 +66,10 @@ static CHANNEL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         .unwrap()
 });
 
+// Regex for nicks per spec: https://modern.ircdocs.horse/#clients
+// The capturing group is split in `MUST NOT start with` and `MUST NOT contain`
 static USER_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    RegexBuilder::new(r#"(?i)(?<!\w)([\w"\-\[\]\\`^{|}\/]+)(?!\w)"#)
+    RegexBuilder::new(r#"(?i)(?<!\w)([^ ,*?!@$:#&~%+][^ ,*?!@\.]*)(?!\w)"#)
         .build()
         .unwrap()
 });
