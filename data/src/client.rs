@@ -179,15 +179,16 @@ pub enum Event {
     UpdateIcon,
 }
 
-struct MonitoredUser {
-    online: bool,
-    query: bool,
-}
-
 struct ChatHistoryRequest {
     subcommand: ChatHistorySubcommand,
     requested_at: Instant,
     autorequest: bool,
+}
+
+#[derive(Debug)]
+struct MonitoredUser {
+    online: bool,
+    query: bool,
 }
 
 pub struct Client {
@@ -2883,12 +2884,15 @@ impl Client {
                                 User::from(Nick::from_str(target, casemapping)),
                             );
 
-                        let mut should_notify = true;
                         if let Some(monitored_user) =
                             self.monitored_users.get_mut(&user)
                         {
                             monitored_user.online = true;
-                            should_notify = !monitored_user.query;
+                            if !monitored_user.query {
+                                Some(user)
+                            } else {
+                                None
+                            }
                         } else {
                             self.monitored_users.insert(
                                 user.clone(),
@@ -2897,28 +2901,20 @@ impl Client {
                                     query: false,
                                 },
                             );
+                            None
                         }
-                        if should_notify { Some(user) } else { None }
-                    })
-                    .filter_map(|user| {
-                        self.config
-                            .monitor
-                            .iter()
-                            .any(|monitored_user| {
-                                monitored_user == user.as_normalized_str()
-                            })
-                            .then_some(user)
                     })
                     .collect::<Vec<_>>();
 
-                return Ok(vec![
-                    Event::Single {
-                        message: message.clone(),
-                        our_nick: self.nickname().to_owned(),
-                        deduplicate: false,
-                    },
-                    Event::MonitoredOnline(targets),
-                ]);
+                let mut events = vec![Event::Single {
+                    message: message.clone(),
+                    our_nick: self.nickname().to_owned(),
+                    deduplicate: false,
+                }];
+                if !targets.is_empty() {
+                    events.push(Event::MonitoredOnline(targets));
+                }
+                return Ok(events);
             }
             Command::Numeric(RPL_MONOFFLINE, args) => {
                 let casemapping =
@@ -2931,12 +2927,15 @@ impl Client {
                         let user = User::parse(target, casemapping, prefix)
                             .unwrap_or(nick.clone().into());
 
-                        let mut should_notify = true;
                         if let Some(monitored_user) =
                             self.monitored_users.get_mut(&user)
                         {
                             monitored_user.online = false;
-                            should_notify = !monitored_user.query;
+                            if !monitored_user.query {
+                                Some(nick)
+                            } else {
+                                None
+                            }
                         } else {
                             self.monitored_users.insert(
                                 user.clone(),
@@ -2945,29 +2944,20 @@ impl Client {
                                     query: false,
                                 },
                             );
+                            None
                         }
-
-                        if should_notify { Some(nick) } else { None }
-                    })
-                    .filter_map(|nick| {
-                        self.config
-                            .monitor
-                            .iter()
-                            .any(|monitored_user| {
-                                monitored_user == nick.as_normalized_str()
-                            })
-                            .then_some(nick)
                     })
                     .collect::<Vec<_>>();
 
-                return Ok(vec![
-                    Event::Single {
-                        message: message.clone(),
-                        our_nick: self.nickname().to_owned(),
-                        deduplicate: false,
-                    },
-                    Event::MonitoredOffline(targets),
-                ]);
+                let mut events = vec![Event::Single {
+                    message: message.clone(),
+                    our_nick: self.nickname().to_owned(),
+                    deduplicate: false,
+                }];
+                if !targets.is_empty() {
+                    events.push(Event::MonitoredOffline(targets));
+                }
+                return Ok(events);
             }
             Command::Numeric(RPL_ENDOFMONLIST, _) => {
                 return Ok(vec![]);
@@ -4580,6 +4570,35 @@ impl Client {
         self.monitored_users
             .get(user)
             .is_some_and(|monitored_user| monitored_user.online)
+    }
+
+    pub fn is_monitored_user_query(&self, user: &User) -> bool {
+        self.monitored_users
+            .get(user)
+            .is_some_and(|monitored_user| monitored_user.query)
+    }
+
+    pub fn add_monitored_user_query(&mut self, user: &User) {
+        self.monitored_users.insert(
+            user.clone(),
+            MonitoredUser {
+                online: false,
+                query: true,
+            },
+        );
+
+        let message = command!("MONITOR", "+", user.as_normalized_str());
+        if let Err(e) = self.handle.try_send(message) {
+            log::warn!("[{}] Error sending monitor: {e}", self.server);
+        }
+    }
+
+    pub fn remove_monitored_user(&mut self, user: &User) {
+        self.monitored_users.remove(user);
+        let message = command!("MONITOR", "-", user.as_normalized_str());
+        if let Err(e) = self.handle.try_send(message) {
+            log::warn!("[{}] Error sending monitor: {e}", self.server);
+        }
     }
 }
 

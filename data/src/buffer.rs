@@ -99,6 +99,13 @@ impl Upstream {
             Self::Server(_) => None,
         }
     }
+
+    pub fn query(&self) -> Option<Target> {
+        match self {
+            Self::Query(_, query) => Some(Target::Query(query.clone())),
+            _ => None,
+        }
+    }
 }
 
 impl Internal {

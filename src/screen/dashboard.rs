@@ -20,6 +20,7 @@ use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::message::{self, Broadcast};
 use data::rate_limit::TokenPriority;
 use data::target::{self, Target};
+use data::user::Nick;
 use data::{
     Config, Image, Notification, Server, User, Version, cache, client, command,
     config, environment, file_transfer, history, preview, reaction, redaction,
@@ -2979,6 +2980,17 @@ impl Dashboard {
 
         self.last_changed = Some(Instant::now());
 
+        if let Some(upstream) = buffer.upstream()
+            && let server = upstream.server()
+            && let Some(query) = upstream.query()
+            && let Some(client) = clients.client_mut(server)
+            && let user =
+                User::from(Nick::from_str(query.as_str(), client.casemapping()))
+            && !client.is_monitored_user_query(&user)
+        {
+            client.add_monitored_user_query(&user);
+        }
+
         match buffer_action {
             BufferAction::ReplacePane => {
                 // If buffer already is open, we swap it with focused pane.
@@ -3223,6 +3235,16 @@ impl Dashboard {
                 (Task::batch(tasks), None)
             }
             buffer::Upstream::Query(server, nick) => {
+                if let Some(client) = clients.client_mut(&server)
+                    && let user = User::from(Nick::from_str(
+                        nick.as_str(),
+                        client.casemapping(),
+                    ))
+                    && client.is_monitored_user_query(&user)
+                {
+                    client.remove_monitored_user(&user);
+                }
+
                 tasks.push(
                     self.history
                         .close(history::Kind::Query(server, nick), clients)
