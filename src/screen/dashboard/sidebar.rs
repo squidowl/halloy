@@ -619,7 +619,7 @@ impl Sidebar {
                                 buffer::Internal::FileTransfers,
                                 "File Transfers",
                                 icon::file_transfer(),
-                            ))
+                            ));
                         });
                     }
                     data::config::sidebar::InternalBuffer::ChannelDiscovery => {
@@ -627,21 +627,21 @@ impl Sidebar {
                             buffer::Internal::ChannelDiscovery(None),
                             "Channel Discovery",
                             icon::channel_discovery(),
-                        ))
+                        ));
                     }
                     data::config::sidebar::InternalBuffer::Highlights => {
                         internal_buffers.push(button(
                             buffer::Internal::Highlights,
                             "Highlights",
                             icon::highlights(),
-                        ))
+                        ));
                     }
                     data::config::sidebar::InternalBuffer::Logs => {
                         internal_buffers.push(button(
                             buffer::Internal::Logs,
                             "Logs",
                             icon::logs(),
-                        ))
+                        ));
                     }
                 }
             }
