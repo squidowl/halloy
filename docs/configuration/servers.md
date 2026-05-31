@@ -972,6 +972,11 @@ show = true
 
 Set values for metadata keys (`"display-name"`, `"avatar"`, `"pronouns"`, `"homepage"`, `"color"`, or `"status"`).
 
+For more details see the IRCv3 metadata registries:
+
+- [Channel metadata](https://ircv3.net/registry.html#channel-metadata)
+- [User metadata](https://ircv3.net/registry.html#user-metadata)
+
 ```toml
 # Type: map
 # Values: metadata key & string value key-value pairs
