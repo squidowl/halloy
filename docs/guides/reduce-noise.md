@@ -20,7 +20,7 @@ Some server message types can't be condensed, in which case [smart filters](../c
 smart = 900 # seconds = 15 minutes
 ```
 
-For example, mmany channels join, part, quit, and nickname changes make up a lot of noise and usually aren't relevant if the user hasn't been active.  To smart filter those messages these settings can be used:
+For example, many channels join, part, quit, and nickname changes make up a lot of noise and usually aren't relevant if the user hasn't been active.  To smart filter those messages these settings can be used:
 
 ```toml
 [buffer.server_messages]
