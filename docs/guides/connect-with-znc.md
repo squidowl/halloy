@@ -9,13 +9,14 @@ below can be used as a template. Simply change so it fits your credentials.
 
 ```toml
 [servers.libera]
-nickname = "<znc-user>/<znc-network>"
+nickname ="<nickname-on-network>"
 server = "znc.example.com"
+username = "<znc-user>/<znc-network>"
 password = "<your-password>"
 ```
 
 
-ZNC 1.10.0 and newer allow sasl plain authentication if the `saslplainauth` module is loaded in ZNC.
+ZNC 1.10.0 and newer allow sasl plain authentication if the [`saslplainauth`](https://wiki.znc.in/Saslplainauth) module is loaded in ZNC.
 
 ```toml
 [servers.libera.sasl.plain]
