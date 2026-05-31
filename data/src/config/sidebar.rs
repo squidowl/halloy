@@ -32,7 +32,28 @@ pub struct Sidebar {
     pub spacing: Spacing,
     pub order_channels_by: OrderChannelsBy,
     pub channel_name_casing: Option<ChannelNameCasing>,
-    pub internal_buffers: Vec<InternalBuffer>,
+    pub internal_buffers: InternalBuffers,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(default)]
+pub struct InternalBuffers {
+    pub position: InternalBufferPosition,
+    pub buffers: Vec<InternalBuffer>,
+}
+
+impl InternalBuffers {
+    pub fn is_before_servers(&self) -> bool {
+        matches!(self.position, InternalBufferPosition::BeforeServers)
+    }
+}
+
+#[derive(Debug, Copy, Clone, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum InternalBufferPosition {
+    BeforeServers,
+    #[default]
+    AfterServers,
 }
 
 #[derive(Debug, Clone, Deserialize)]

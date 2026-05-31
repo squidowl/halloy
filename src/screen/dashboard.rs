@@ -5118,17 +5118,22 @@ fn all_buffers(
     clients: &client::Map,
     history: &history::Manager,
 ) -> Vec<data::Buffer> {
-    all_upstream_buffers(clients, history)
+    let upstream_buffers = all_upstream_buffers(clients, history)
         .into_iter()
-        .map(data::Buffer::Upstream)
-        .chain(
-            config
-                .sidebar
-                .internal_buffers
-                .iter()
-                .map(|&kind| data::Buffer::Internal(kind.into())),
-        )
-        .collect()
+        .map(data::Buffer::Upstream);
+
+    let internal_buffers = config
+        .sidebar
+        .internal_buffers
+        .buffers
+        .iter()
+        .map(|&kind| data::Buffer::Internal(kind.into()));
+
+    if config.sidebar.internal_buffers.is_before_servers() {
+        internal_buffers.chain(upstream_buffers).collect()
+    } else {
+        upstream_buffers.chain(internal_buffers).collect()
+    }
 }
 
 fn all_upstream_buffers(

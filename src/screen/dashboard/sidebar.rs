@@ -483,11 +483,11 @@ impl Sidebar {
                     )
                 });
 
-            let mut buffers = vec![];
+            let mut upstream_buffers = vec![];
             let mut client_enumeration = 0;
 
             if config.sidebar.position.is_horizontal() {
-                buffers.push(space::horizontal().width(4).into());
+                upstream_buffers.push(space::horizontal().width(4).into());
             }
 
             for server in servers.keys() {
@@ -523,7 +523,7 @@ impl Sidebar {
                     match state {
                         data::client::State::Disconnected => {
                             // Disconnected server.
-                            buffers.push(button(
+                            upstream_buffers.push(button(
                                 buffer::Upstream::Server(server.clone()),
                                 history::Kind::Server(server.clone()),
                                 false,
@@ -531,7 +531,7 @@ impl Sidebar {
                         }
                         data::client::State::Ready(connection) => {
                             // Connected server.
-                            buffers.push(button(
+                            upstream_buffers.push(button(
                                 buffer::Upstream::Server(server.clone()),
                                 history::Kind::Server(server.clone()),
                                 true,
@@ -539,7 +539,7 @@ impl Sidebar {
 
                             // Channels from the connected server.
                             for channel in connection.channels() {
-                                buffers.push(button(
+                                upstream_buffers.push(button(
                                     buffer::Upstream::Channel(
                                         server.clone(),
                                         channel.clone(),
@@ -559,7 +559,7 @@ impl Sidebar {
                                     .resolve_query(server, query)
                                     .unwrap_or(query);
 
-                                buffers.push(button(
+                                upstream_buffers.push(button(
                                     buffer::Upstream::Query(
                                         server.clone(),
                                         query.clone(),
@@ -575,7 +575,7 @@ impl Sidebar {
                             // Separator between servers.
                             if config.sidebar.position.is_horizontal() {
                                 if client_enumeration < clients.len() {
-                                    buffers.push(
+                                    upstream_buffers.push(
                                         space::horizontal()
                                             .width(
                                                 config.sidebar.spacing.server,
@@ -584,7 +584,7 @@ impl Sidebar {
                                     );
                                 }
                             } else {
-                                buffers.push(
+                                upstream_buffers.push(
                                     space::vertical()
                                         .height(config.sidebar.spacing.server)
                                         .into(),
@@ -595,68 +595,76 @@ impl Sidebar {
                 }
             }
 
-            if !config.sidebar.internal_buffers.is_empty() {
-                if !buffers.is_empty() {
-                    buffers.push(if config.sidebar.position.is_horizontal() {
-                        space::horizontal()
-                            .width(config.sidebar.spacing.server)
-                            .into()
-                    } else {
-                        space::vertical()
-                            .height(config.sidebar.spacing.server)
-                            .into()
-                    });
-                }
+            let mut internal_buffers = vec![];
 
-                for internal_buffer in config.sidebar.internal_buffers.iter() {
-                    let button =
-                        |buffer: buffer::Internal,
-                         title: &'static str,
-                         icon: Text<'a>| {
-                            internal_buffer_button(
-                                config, panes, focus, buffer, title, icon,
-                                width, theme,
-                            )
-                        };
+            for internal_buffer in
+                config.sidebar.internal_buffers.buffers.iter()
+            {
+                let button = |buffer: buffer::Internal,
+                              title: &'static str,
+                              icon: Text<'a>| {
+                    internal_buffer_button(
+                        config, panes, focus, buffer, title, icon, width, theme,
+                    )
+                };
 
-                    let button = match internal_buffer {
-                        data::config::sidebar::InternalBuffer::FileTransfer => {
-                            config.file_transfer.enabled.then(|| {
-                                button(
-                                    buffer::Internal::FileTransfers,
-                                    "File Transfers",
-                                    icon::file_transfer(),
-                                )
-                            })
-                        }
-                        data::config::sidebar::InternalBuffer::ChannelDiscovery => {
-                            Some(button(
-                                buffer::Internal::ChannelDiscovery(None),
-                                "Channel Discovery",
-                                icon::channel_discovery(),
+                match internal_buffer {
+                    data::config::sidebar::InternalBuffer::FileTransfer => {
+                        config.file_transfer.enabled.then(|| {
+                            internal_buffers.push(button(
+                                buffer::Internal::FileTransfers,
+                                "File Transfers",
+                                icon::file_transfer(),
                             ))
-                        }
-                        data::config::sidebar::InternalBuffer::Highlights => {
-                            Some(button(
-                                buffer::Internal::Highlights,
-                                "Highlights",
-                                icon::highlights(),
-                            ))
-                        }
-                        data::config::sidebar::InternalBuffer::Logs => {
-                            Some(button(
-                                buffer::Internal::Logs,
-                                "Logs",
-                                icon::logs(),
-                            ))
-                        }
-                    };
-
-                    if let Some(button) = button {
-                        buffers.push(button);
+                        });
+                    }
+                    data::config::sidebar::InternalBuffer::ChannelDiscovery => {
+                        internal_buffers.push(button(
+                            buffer::Internal::ChannelDiscovery(None),
+                            "Channel Discovery",
+                            icon::channel_discovery(),
+                        ))
+                    }
+                    data::config::sidebar::InternalBuffer::Highlights => {
+                        internal_buffers.push(button(
+                            buffer::Internal::Highlights,
+                            "Highlights",
+                            icon::highlights(),
+                        ))
+                    }
+                    data::config::sidebar::InternalBuffer::Logs => {
+                        internal_buffers.push(button(
+                            buffer::Internal::Logs,
+                            "Logs",
+                            icon::logs(),
+                        ))
                     }
                 }
             }
+
+            let spacer = if config.sidebar.position.is_horizontal() {
+                space::horizontal()
+                    .width(config.sidebar.spacing.server)
+                    .into()
+            } else {
+                space::vertical()
+                    .height(config.sidebar.spacing.server)
+                    .into()
+            };
+
+            let (left, right) =
+                if config.sidebar.internal_buffers.is_before_servers() {
+                    (internal_buffers, upstream_buffers)
+                } else {
+                    (upstream_buffers, internal_buffers)
+                };
+
+            let mut buffers = Vec::with_capacity(left.len() + right.len() + 1);
+            buffers.extend(left);
+            if !buffers.is_empty() && !right.is_empty() {
+                buffers.push(spacer);
+            }
+            buffers.extend(right);
 
             match config.sidebar.position {
                 sidebar::Position::Left | sidebar::Position::Right => {
