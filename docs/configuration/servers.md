@@ -981,10 +981,6 @@ Set values for metadata keys (`"display-name"`, `"avatar"`, `"pronouns"`, `"home
 metadata = { pronouns = "they/them" }
 ```
 
-[^1]: Windows path strings should usually be specified as literal strings (e.g. `'C:\Users\Default\'`), otherwise directory separators will need to be escaped (e.g. `"C:\\Users\\Default\\"`).
-
-[^2]: Relative paths are prefixed with the config directory (i.e. if you have your config.toml in `/home/me/.config/halloy/config.toml`, path `.passwd/libera` will be converted to `/home/me/.config/halloy/.passwd/libera`).
-
 ## `icon`
 
 Settings for server icons.
@@ -1014,3 +1010,7 @@ Override the server icon URL advertised by the server via ISUPPORT.
 [servers.<name>.icon]
 override_url = "https://libera.chat/static/img/libera-color.svg"
 ```
+
+[^1]: Windows path strings should usually be specified as literal strings (e.g. `'C:\Users\Default\'`), otherwise directory separators will need to be escaped (e.g. `"C:\\Users\\Default\\"`).
+
+[^2]: Relative paths are prefixed with the config directory (i.e. if you have your config.toml in `/home/me/.config/halloy/config.toml`, path `.passwd/libera` will be converted to `/home/me/.config/halloy/.passwd/libera`).
