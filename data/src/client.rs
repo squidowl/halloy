@@ -2901,17 +2901,18 @@ impl Client {
                                     query: false,
                                 },
                             );
-                            None
+                            Some(user)
                         }
                     })
                     .collect::<Vec<_>>();
 
-                let mut events = vec![Event::Single {
-                    message: message.clone(),
-                    our_nick: self.nickname().to_owned(),
-                    deduplicate: false,
-                }];
+                let mut events = vec![];
                 if !targets.is_empty() {
+                    events.push(Event::Single {
+                        message: message.clone(),
+                        our_nick: self.nickname().to_owned(),
+                        deduplicate: false,
+                    });
                     events.push(Event::MonitoredOnline(targets));
                 }
                 return Ok(events);
@@ -2944,17 +2945,18 @@ impl Client {
                                     query: false,
                                 },
                             );
-                            None
+                            Some(nick)
                         }
                     })
                     .collect::<Vec<_>>();
 
-                let mut events = vec![Event::Single {
-                    message: message.clone(),
-                    our_nick: self.nickname().to_owned(),
-                    deduplicate: false,
-                }];
+                let mut events = vec![];
                 if !targets.is_empty() {
+                    events.push(Event::Single {
+                        message: message.clone(),
+                        our_nick: self.nickname().to_owned(),
+                        deduplicate: false,
+                    });
                     events.push(Event::MonitoredOffline(targets));
                 }
                 return Ok(events);
@@ -4579,10 +4581,11 @@ impl Client {
     }
 
     pub fn add_monitored_user_query(&mut self, user: &User) {
+        let is_online = self.is_monitored_user_online(user);
         self.monitored_users.insert(
             user.clone(),
             MonitoredUser {
-                online: false,
+                online: is_online,
                 query: true,
             },
         );

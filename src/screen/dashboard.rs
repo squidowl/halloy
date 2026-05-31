@@ -2986,7 +2986,11 @@ impl Dashboard {
             && let Some(client) = clients.client_mut(server)
             && let user =
                 User::from(Nick::from_str(query.as_str(), client.casemapping()))
-            && !client.is_monitored_user_query(&user)
+            && let Some(server_config) = config.servers.get(server)
+            && !server_config
+                .monitor
+                .iter()
+                .any(|nick| nick == user.as_normalized_str())
         {
             client.add_monitored_user_query(&user);
         }
@@ -4883,6 +4887,23 @@ impl Dashboard {
                     .then_some(pane.buffer.to_string())
             })
         }
+    }
+
+    pub fn open_pane_server_queries(
+        &self,
+        server: &Server,
+    ) -> Vec<&target::Query> {
+        self.panes
+            .iter()
+            .filter_map(|(_, _, pane)| match pane.buffer.upstream() {
+                Some(buffer::Upstream::Query(buffer_server, query))
+                    if buffer_server == server =>
+                {
+                    Some(query)
+                }
+                _ => None,
+            })
+            .collect()
     }
 }
 
