@@ -4568,10 +4568,17 @@ impl Client {
         self.capabilities.multiline_limits()
     }
 
+    pub fn has_monitor_support(&self) -> bool {
+        self.isupport.contains_key(&isupport::Kind::MONITOR)
+    }
+
     pub fn is_monitored_user_online(&self, user: &User) -> bool {
-        self.monitored_users
-            .get(user)
-            .is_some_and(|monitored_user| monitored_user.online)
+        // falling back to assume nick is `online` if we don't have monitor support
+        !self.has_monitor_support()
+            || self
+                .monitored_users
+                .get(user)
+                .is_some_and(|monitored_user| monitored_user.online)
     }
 
     pub fn is_monitored_user_query(&self, user: &User) -> bool {
@@ -4581,26 +4588,28 @@ impl Client {
     }
 
     pub fn add_monitored_user_query(&mut self, user: &User) {
-        let is_online = self.is_monitored_user_online(user);
         self.monitored_users.insert(
             user.clone(),
             MonitoredUser {
-                online: is_online,
+                online: self.is_monitored_user_online(user),
                 query: true,
             },
         );
-
-        let message = command!("MONITOR", "+", user.as_normalized_str());
-        if let Err(e) = self.handle.try_send(message) {
-            log::warn!("[{}] Error sending monitor: {e}", self.server);
+        if self.has_monitor_support() {
+            let message = command!("MONITOR", "+", user.as_normalized_str());
+            if let Err(e) = self.handle.try_send(message) {
+                log::warn!("[{}] Error sending monitor: {e}", self.server);
+            }
         }
     }
 
     pub fn remove_monitored_user(&mut self, user: &User) {
         self.monitored_users.remove(user);
-        let message = command!("MONITOR", "-", user.as_normalized_str());
-        if let Err(e) = self.handle.try_send(message) {
-            log::warn!("[{}] Error sending monitor: {e}", self.server);
+        if self.has_monitor_support() {
+            let message = command!("MONITOR", "-", user.as_normalized_str());
+            if let Err(e) = self.handle.try_send(message) {
+                log::warn!("[{}] Error sending monitor: {e}", self.server);
+            }
         }
     }
 }

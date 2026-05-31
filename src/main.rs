@@ -1894,12 +1894,11 @@ fn handle_client_events(
             Event::OnConnect(on_connect) => {
                 let server = server.clone();
                 for query in dashboard.open_pane_server_queries(&server) {
-                    if let Some(client) = clients.client_mut(&server)
-                        && let user = User::from(Nick::from_str(
+                    if let Some(client) = clients.client_mut(&server) {
+                        let user = User::from(Nick::from_str(
                             query.as_str(),
                             client.casemapping(),
-                        ))
-                    {
+                        ));
                         client.add_monitored_user_query(&user);
                     }
                 }
