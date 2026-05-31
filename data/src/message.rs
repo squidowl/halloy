@@ -4594,6 +4594,25 @@ pub mod tests {
                     Fragment::Text(", where are you?\"".into()),
                 ],
             ),
+            (
+                (
+                    "This shouldn't match but t _his_ should!".to_string(),
+                    ["t"]
+                        .into_iter()
+                        .map(|nick| {
+                            User::from(Nick::from_str(nick, casemapping))
+                        })
+                        .collect::<ChannelUsers>(),
+                ),
+                vec![
+                    Fragment::Text("This shouldn't match but ".into()),
+                    Fragment::User(
+                        User::from(Nick::from_str("t", casemapping)),
+                        "t".into(),
+                    ),
+                    Fragment::Text(" _his_ should!".into()),
+                ],
+            ),
         ];
         for ((text, channel_users), expected) in tests {
             if let Content::Fragments(actual) = parse_fragments_with_users(
