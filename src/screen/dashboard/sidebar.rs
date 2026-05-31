@@ -483,12 +483,14 @@ impl Sidebar {
                     )
                 });
 
-            let mut upstream_buffers = vec![];
-            let mut client_enumeration = 0;
+            let mut buffers = vec![];
 
             if config.sidebar.position.is_horizontal() {
-                upstream_buffers.push(space::horizontal().width(4).into());
+                buffers.push(space::horizontal().width(4).into());
             }
+
+            let mut upstream_buffers = vec![];
+            let mut client_enumeration = 0;
 
             for server in servers.keys() {
                 let server_has_unread = history.server_has_unread(server);
@@ -661,7 +663,6 @@ impl Sidebar {
                     (upstream_buffers, internal_buffers)
                 };
 
-            let mut buffers = Vec::with_capacity(left.len() + right.len() + 1);
             buffers.extend(left);
             if !buffers.is_empty() && !right.is_empty() {
                 buffers.push(spacer);
