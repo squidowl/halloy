@@ -573,8 +573,8 @@ impl Sidebar {
                             }
 
                             // Separator between servers.
-                            if config.sidebar.position.is_horizontal() {
-                                if client_enumeration < clients.len() {
+                            if client_enumeration < clients.len() {
+                                if config.sidebar.position.is_horizontal() {
                                     upstream_buffers.push(
                                         space::horizontal()
                                             .width(
@@ -582,13 +582,15 @@ impl Sidebar {
                                             )
                                             .into(),
                                     );
+                                } else {
+                                    upstream_buffers.push(
+                                        space::vertical()
+                                            .height(
+                                                config.sidebar.spacing.server,
+                                            )
+                                            .into(),
+                                    );
                                 }
-                            } else {
-                                upstream_buffers.push(
-                                    space::vertical()
-                                        .height(config.sidebar.spacing.server)
-                                        .into(),
-                                );
                             }
                         }
                     }
