@@ -126,6 +126,47 @@ channels = ["#rust", "#halloy", "#halloy-test"]
 # Result: #rust → #halloy → #halloy-test → (any other channels are sorted by "name")
 ```
 
+## `internal_buffers`
+
+Configure which internal buffers appear in the sidebar and whether they are
+placed before or after IRC servers.
+
+```toml
+# Type: table
+# Values: `position` and `buffers`
+# Default: `{ position = "after-servers", buffers = [] }`
+
+[sidebar.internal_buffers]
+position = "after-servers"
+buffers = ["logs", "highlights"]
+```
+
+### `position`
+
+Controls whether internal buffers appear before or after IRC servers in the sidebar.
+
+```toml
+# Type: string
+# Values: "before-servers", "after-servers"
+# Default: "after-servers"
+
+[sidebar.internal_buffers]
+position = "before-servers"
+```
+
+### `buffers`
+
+Internal buffers shown in the sidebar.
+
+```toml
+# Type: array
+# Values: `file-transfer`, `channel-discovery`, `highlights`, `logs`
+# Default: []
+
+[sidebar.internal_buffers]
+buffers = ["logs", "highlights"]
+```
+
 ## `channel_name_casing`
 
 Transform the channel name casing in the sidebar channel entries.
