@@ -1737,6 +1737,9 @@ impl State {
                 .get_channels(buffer.server())
                 .any(|channel| target == channel)
         });
+        let mode = buffer.channel().and_then(|target| {
+            clients.get_channel_mode(buffer.server(), target)
+        });
         let is_connected = clients.get_server_is_connected(buffer.server());
         let isupport = clients.get_isupport_ref(buffer.server());
         let capabilities = clients.get_capabilities_ref(buffer.server());
@@ -1748,6 +1751,12 @@ impl State {
             self.parsed = Vec::new();
             return;
         }
+
+        let auto_format = if mode.is_some_and(|m| m.contains("c")) {
+            AutoFormat::ForceDisabled
+        } else {
+            config.buffer.text_input.auto_format
+        };
 
         let text = self.input_content.text();
 
@@ -1764,7 +1773,7 @@ impl State {
 
                 let parsed = input::parse(
                     buffer.clone(),
-                    config.buffer.text_input.auto_format,
+                    auto_format,
                     &line,
                     open_code_fence.as_ref(),
                     nickname,
