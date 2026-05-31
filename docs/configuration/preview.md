@@ -169,11 +169,17 @@ image_max_height = 200.0
 
 ### `image_action`
 
-Action when clicking on the card preview image. `open-url` will open the image in the browser, and `preview` will display a larger version of the image in-app.
+Action when clicking on the card preview image.
+
+| Action                | Description                                                                       |
+| --------------------- | --------------------------------------------------------------------------------- |
+| `"open-url"`          | Open the URL in the browser.                                                      |
+| `"open-image-url"`    | Open the image URL in the browser.                                                |
+| `"preview"`           | Display a larger version of the image in-app.                                     |
 
 ```toml
 # Type: string
-# Values: "open-url", "preview"
+# Values: "open-url", "open-image-url", "preview"
 # Default: "open-url"
 
 [preview.card]

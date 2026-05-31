@@ -450,6 +450,11 @@ impl<'a> ChannelQueryLayout<'a> {
                                         url.to_string(),
                                     ))
                                 }
+                                data::config::preview::CardImageAction::OpenImageUrl => {
+                                    Message::Link(message::Link::Url(
+                                        card.image.url.to_string(),
+                                    ))
+                                }
                                 data::config::preview::CardImageAction::Preview => {
                                     Message::ImagePreview(card.image.clone())
                                 }

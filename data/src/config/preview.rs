@@ -269,6 +269,7 @@ impl Default for Card {
 pub enum CardImageAction {
     #[default]
     OpenUrl,
+    OpenImageUrl,
     Preview,
 }
 
