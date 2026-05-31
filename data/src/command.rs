@@ -591,7 +591,8 @@ fn parse_command(
                             Kind::FormatMsg => formatting::encode(&msg, false),
                             Kind::PlainMsg => msg,
                             _ => match auto_format {
-                                AutoFormat::Disabled => msg,
+                                AutoFormat::Disabled
+                                | AutoFormat::ForceDisabled => msg,
                                 AutoFormat::Markdown => {
                                     formatting::encode(&msg, true)
                                 }
@@ -630,7 +631,8 @@ fn parse_command(
                 if let Some(target) = buffer.and_then(Upstream::target) {
                     validated::<1, 0, true>(args, |[text], _| {
                         let text = match auto_format {
-                            AutoFormat::Disabled => text,
+                            AutoFormat::Disabled
+                            | AutoFormat::ForceDisabled => text,
                             AutoFormat::Markdown => {
                                 formatting::encode(&text, true)
                             }
@@ -1041,7 +1043,8 @@ fn parse_command(
                             }
                             Kind::PlainNotice => msg,
                             _ => match auto_format {
-                                AutoFormat::Disabled => msg,
+                                AutoFormat::Disabled
+                                | AutoFormat::ForceDisabled => msg,
                                 AutoFormat::Markdown => {
                                     formatting::encode(&msg, true)
                                 }
@@ -1082,7 +1085,10 @@ fn parse_command(
                     Ok(Command::Irc(
                         Irc::Msg(
                             target.to_string(),
-                            formatting::encode(raw, false),
+                            match auto_format {
+                                AutoFormat::ForceDisabled => raw.to_string(),
+                                _ => formatting::encode(raw, false),
+                            },
                         ),
                         None,
                     ))
@@ -1095,7 +1101,10 @@ fn parse_command(
                     Ok(Command::Irc(
                         Irc::Me(
                             target.to_string(),
-                            formatting::encode(raw, false),
+                            match auto_format {
+                                AutoFormat::ForceDisabled => raw.to_string(),
+                                _ => formatting::encode(raw, false),
+                            },
                         ),
                         None,
                     ))

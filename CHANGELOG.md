@@ -1,5 +1,15 @@
 # Unreleased
 
+Fixed:
+
+- Ensure messages don't get formatted if channel has +c mode (colour filter)
+
+Thanks:
+
+- Contributions: @luca020400
+- Bug reports: @WinnerWind
+
+
 # 2026.7 (2026-05-28)
 
 Added:
