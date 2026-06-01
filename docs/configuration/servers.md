@@ -981,9 +981,20 @@ Set values for metadata keys (`"display-name"`, `"avatar"`, `"pronouns"`, `"home
 metadata = { pronouns = "they/them" }
 ```
 
-[^1]: Windows path strings should usually be specified as literal strings (e.g. `'C:\Users\Default\'`), otherwise directory separators will need to be escaped (e.g. `"C:\\Users\\Default\\"`).
+| **Key**        | **Utilization in Halloy** | **Value Format** | **Example Value** |
+| -------------- | ------------------------- | ---------------- | ----------------- |
+| `avatar`       | Avatar that is shown in the user's context menu | URL for an image, with an optional {size} substitution denoting the size to load in pixels | `https://example.com/avatar/{size}/asdf.jpg` |
+| `color`        | Color used to style nickname ([`display.adapt_metadata_colors`](/configuration/display#adapt_metadata_colors)), and shown in the user's context menu | HTML-style 6 hexadecimal digits | `#800040` |
+| `display-name` | Name that can be displayed as the primary identifier for a user ([`display.nickname`](/configuration/display#nickname) & [`display.nicklist_nickname`](/configuration/display#nicklist_nickname)), and shown in the user's context menu | Any string | Cio Cioelle Estrella Von Maximus the Third |
+| `homepage`     | Shown as a clickable link in the user's context menu | Any URL | `https:://personal-site.meow/` |
+| `pronouns`     | Pronouns that can be displayed by the user's name ([`display.nickname`](/configuration/display#nickname) & [`display.nicklist_nickname`](/configuration/display#nicklist_nickname)), and shown in the user's context menu | Any string | `she/her (妳/她)` |
+| `status`       | Shown in the user's context menu | Any string | `awaiting a new life in the off-world colonies` |
 
-[^2]: Relative paths are prefixed with the config directory (i.e. if you have your config.toml in `/home/me/.config/halloy/config.toml`, path `.passwd/libera` will be converted to `/home/me/.config/halloy/.passwd/libera`).
+For more details, see the IRCv3 [user metadata](https://ircv3.net/registry.html#user-metadata) registry.
+
+:::info
+For configuring metadata key subscriptions, see [`metadata`](/configuration/metadata).
+:::
 
 ## `icon`
 
@@ -1014,3 +1025,7 @@ Override the server icon URL advertised by the server via ISUPPORT.
 [servers.<name>.icon]
 override_url = "https://libera.chat/static/img/libera-color.svg"
 ```
+
+[^1]: Windows path strings should usually be specified as literal strings (e.g. `'C:\Users\Default\'`), otherwise directory separators will need to be escaped (e.g. `"C:\\Users\\Default\\"`).
+
+[^2]: Relative paths are prefixed with the config directory (i.e. if you have your config.toml in `/home/me/.config/halloy/config.toml`, path `.passwd/libera` will be converted to `/home/me/.config/halloy/.passwd/libera`).

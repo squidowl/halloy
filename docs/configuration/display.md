@@ -87,6 +87,12 @@ This renders as:
 - `["display-name", "pronouns"]` -> `Casper (casperstorm, he/him)`, omitting missing metadata
 - `["display-name"]` -> `Casper (casperstorm)` when display name (`Casper`) is set, with text color as specified by the user's metadata
 
+:::info
+For configuring your own metadata values, see [`servers.<name>.metadata`](/configuration/servers#metadata).
+
+For configuring metadata key subscriptions, see [`metadata`](/configuration/metadata).
+:::
+
 ## `nicklist_nickname`
 
 Metadata to include when rendering user nicknames in the nicklist.
@@ -100,6 +106,12 @@ Metadata to include when rendering user nicknames in the nicklist.
 nicklist_nickname = ["display-name"]
 ```
 
+:::info
+For configuring your own metadata values, see [`servers.<name>.metadata`](/configuration/servers#metadata).
+
+For configuring metadata key subscriptions, see [`metadata`](/configuration/metadata).
+:::
+
 ## `adapt_metadata_colors`
 
 Whether to adapt metadata colors to the configured theme (only applies if `"color"` has been specified for [`nickname`](#nickname) or [`nicklist_nickname`](#nicklist_nickname)).  Will modify colors from what the user has specified as their color metadata to ensure legibility and better fit in with the configured theme. If set to `"illegible"` then only colors determined to not be readable will be modified.
@@ -112,3 +124,9 @@ Whether to adapt metadata colors to the configured theme (only applies if `"colo
 [display]
 adapt_metadata_colors = "illegible"
 ```
+
+:::info
+For configuring your own metadata values, see [`servers.<name>.metadata`](/configuration/servers#metadata).
+
+For configuring metadata key subscriptions, see [`metadata`](/configuration/metadata).
+:::
