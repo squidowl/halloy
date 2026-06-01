@@ -41,8 +41,8 @@ export default defineConfig({
       {
         text: docsChannel,
         items: [
-          { text: releaseLabel, link: releaseLink },
-          { text: nightlyLabel, link: nightlyLink },
+          { text: releaseLabel, link: releaseLink, target: "_self" },
+          { text: nightlyLabel, link: nightlyLink, target: "_self" },
         ],
       },
       {
