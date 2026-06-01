@@ -5,6 +5,12 @@ IRCv3 metadata settings.
 Metadata support depends on the server advertising the `draft/metadata-2`
 capability.
 
+:::info
+For configuring your own metadata values, see [`servers.<name>.metadata`](/configuration/servers#metadata).
+
+For configuring how the metadata keys are displayed, see [`display.nickname`](/configuration/display#nickname), [`display.nicklist_nickname`](/configuration/display#nicklist_nickname), and [`display.adapt_metadata_colors`](/configuration/display#adapt_metadata_colors).
+:::
+
 ## `preferred_keys`
 
 Metadata keys to subscribe to, in order of preference.

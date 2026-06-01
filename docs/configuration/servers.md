@@ -972,11 +972,6 @@ show = true
 
 Set values for metadata keys (`"display-name"`, `"avatar"`, `"pronouns"`, `"homepage"`, `"color"`, or `"status"`).
 
-For more details see the IRCv3 metadata registries:
-
-- [Channel metadata](https://ircv3.net/registry.html#channel-metadata)
-- [User metadata](https://ircv3.net/registry.html#user-metadata)
-
 ```toml
 # Type: map
 # Values: metadata key & string value key-value pairs
@@ -985,6 +980,21 @@ For more details see the IRCv3 metadata registries:
 [servers.<name>]
 metadata = { pronouns = "they/them" }
 ```
+
+| **Key**        | **Utilization in Halloy** | **Value Format** | **Example Value** |
+| -------------- | ------------------------- | ---------------- | ----------------- |
+| `avatar`       | Avatar that is shown in the user's context menu | URL for an image, with an optional {size} substitution denoting the size to load in pixels | `https://example.com/avatar/{size}/asdf.jpg` |
+| `color`        | Color used to style nickname ([`display.adapt_metadata_colors`](/configuration/display#adapt_metadata_colors)), and shown in the user's context menu | HTML-style 6 hexadecimal digits | `#800040` |
+| `display-name` | Name that can be displayed as the primary identifier for a user ([`display.nickname`](/configuration/display#nickname) & [`display.nicklist_nickname`](/configuration/display#nicklist_nickname)), and shown in the user's context menu | Any string | Cio Cioelle Estrella Von Maximus the Third |
+| `homepage`     | Shown as a clickable link in the user's context menu | Any URL | `https:://personal-site.meow/` |
+| `pronouns`     | Pronouns that can be displayed by the user's name ([`display.nickname`](/configuration/display#nickname) & [`display.nicklist_nickname`](/configuration/display#nicklist_nickname)), and shown in the user's context menu | Any string | `she/her (妳/她)` |
+| `status`       | Shown in the user's context menu | Any string | `awaiting a new life in the off-world colonies` |
+
+For more details, see the IRCv3 [user metadata](https://ircv3.net/registry.html#user-metadata) registry.
+
+:::info
+For configuring metadata key subscriptions, see [`metadata`](/configuration/metadata).
+:::
 
 ## `icon`
 
