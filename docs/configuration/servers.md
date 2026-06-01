@@ -24,7 +24,7 @@ nickname = ""
 
 ## `nick_password`
 
-The client's NICKSERV password. Whenever possible, using [`sasl.plain`](#saslplain) or [`sasl.external`](#saslexternal) instead of NICKSERV is recommended.
+The client's NICKSERV password. Whenever possible, using [`sasl.plain`](#sasl-plain) or [`sasl.external`](#sasl-external) instead of NICKSERV is recommended.
 
 ```toml
 # Type: string
