@@ -2883,38 +2883,32 @@ impl Client {
                             User::parse(target, casemapping, prefix).unwrap_or(
                                 User::from(Nick::from_str(target, casemapping)),
                             );
-
-                        if let Some(monitored_user) =
-                            self.monitored_users.get_mut(&user)
-                        {
-                            monitored_user.online = true;
-                            if !monitored_user.query {
-                                Some(user)
-                            } else {
-                                None
-                            }
-                        } else {
-                            self.monitored_users.insert(
-                                user.clone(),
-                                MonitoredUser {
-                                    online: true,
-                                    query: false,
-                                },
-                            );
-                            Some(user)
-                        }
+                        let entry = self
+                            .monitored_users
+                            .entry(user.clone())
+                            .and_modify(|monitored_user| {
+                                monitored_user.online = true;
+                            })
+                            .or_insert_with(|| MonitoredUser {
+                                online: true,
+                                query: false,
+                            });
+                        (!entry.query).then_some(user)
                     })
                     .collect::<Vec<_>>();
 
-                let mut events = vec![];
-                if !targets.is_empty() {
-                    events.push(Event::Single {
-                        message: message.clone(),
-                        our_nick: self.nickname().to_owned(),
-                        deduplicate: false,
-                    });
-                    events.push(Event::MonitoredOnline(targets));
-                }
+                let events = if !targets.is_empty() {
+                    vec![
+                        Event::Single {
+                            message: message.clone(),
+                            our_nick: self.nickname().to_owned(),
+                            deduplicate: false,
+                        },
+                        Event::MonitoredOnline(targets),
+                    ]
+                } else {
+                    vec![]
+                };
                 return Ok(events);
             }
             Command::Numeric(RPL_MONOFFLINE, args) => {
@@ -2925,40 +2919,35 @@ impl Client {
                     .split(',')
                     .filter_map(|target| {
                         let nick = Nick::from_str(target, casemapping);
-                        let user = User::parse(target, casemapping, prefix)
-                            .unwrap_or(nick.clone().into());
-
-                        if let Some(monitored_user) =
-                            self.monitored_users.get_mut(&user)
-                        {
-                            monitored_user.online = false;
-                            if !monitored_user.query {
-                                Some(nick)
-                            } else {
-                                None
-                            }
-                        } else {
-                            self.monitored_users.insert(
-                                user.clone(),
-                                MonitoredUser {
-                                    online: false,
-                                    query: false,
-                                },
-                            );
-                            Some(nick)
-                        }
+                        let entry = self
+                            .monitored_users
+                            .entry(
+                                User::parse(target, casemapping, prefix)
+                                    .unwrap_or(nick.clone().into()),
+                            )
+                            .and_modify(|monitored_user| {
+                                monitored_user.online = false;
+                            })
+                            .or_insert_with(|| MonitoredUser {
+                                online: false,
+                                query: false,
+                            });
+                        (!entry.query).then_some(nick)
                     })
                     .collect::<Vec<_>>();
 
-                let mut events = vec![];
-                if !targets.is_empty() {
-                    events.push(Event::Single {
-                        message: message.clone(),
-                        our_nick: self.nickname().to_owned(),
-                        deduplicate: false,
-                    });
-                    events.push(Event::MonitoredOffline(targets));
-                }
+                let events = if !targets.is_empty() {
+                    vec![
+                        Event::Single {
+                            message: message.clone(),
+                            our_nick: self.nickname().to_owned(),
+                            deduplicate: false,
+                        },
+                        Event::MonitoredOffline(targets),
+                    ]
+                } else {
+                    vec![]
+                };
                 return Ok(events);
             }
             Command::Numeric(RPL_ENDOFMONLIST, _) => {
@@ -4568,13 +4557,13 @@ impl Client {
         self.capabilities.multiline_limits()
     }
 
-    pub fn has_monitor_support(&self) -> bool {
+    pub fn has_isupport_monitor(&self) -> bool {
         self.isupport.contains_key(&isupport::Kind::MONITOR)
     }
 
     pub fn is_monitored_user_online(&self, user: &User) -> bool {
         // falling back to assume nick is `online` if we don't have monitor support
-        !self.has_monitor_support()
+        !self.has_isupport_monitor()
             || self
                 .monitored_users
                 .get(user)
@@ -4595,7 +4584,7 @@ impl Client {
                 query: true,
             },
         );
-        if self.has_monitor_support() {
+        if self.has_isupport_monitor() {
             let message = command!("MONITOR", "+", user.as_normalized_str());
             if let Err(e) = self.handle.try_send(message) {
                 log::warn!("[{}] Error sending monitor: {e}", self.server);
@@ -4605,7 +4594,7 @@ impl Client {
 
     pub fn remove_monitored_user(&mut self, user: &User) {
         self.monitored_users.remove(user);
-        if self.has_monitor_support() {
+        if self.has_isupport_monitor() {
             let message = command!("MONITOR", "-", user.as_normalized_str());
             if let Err(e) = self.handle.try_send(message) {
                 log::warn!("[{}] Error sending monitor: {e}", self.server);
