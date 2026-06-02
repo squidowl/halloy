@@ -8,8 +8,7 @@ Fixed:
 Thanks:
 
 - Contributions: @luca020400
-- Bug reports: @WinnerWind, @sco1
-
+- Bug reports: @WinnerWind, @sco1, @classabbyamp
 
 # 2026.7 (2026-05-28)
 
