@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2026.7.1 (2026-06-02)
+
 Fixed:
 
 - Panic when a reply contains a multibyte character near the start of message
