@@ -211,6 +211,10 @@ pub fn not_sent<'a>() -> Svg<'a, Theme> {
     svg(svg::Handle::from_memory(fontawesome_attention))
 }
 
+pub fn eraser<'a>() -> Text<'a> {
+    to_text('\u{F12D}')
+}
+
 pub fn spinner<'a>(angle: f32) -> Svg<'a, Theme> {
     let bytes = include_bytes!("../assets/spinner.svg").to_vec();
 
