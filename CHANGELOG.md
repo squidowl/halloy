@@ -1,5 +1,14 @@
 # Unreleased
 
+Added:
+
+- Add clear buffer shortcut to title bar
+
+Thanks:
+
+- Contributions: @luca020400
+- Feature requests: @g00s
+
 # 2026.7.1 (2026-06-02)
 
 Fixed:
@@ -7,8 +16,7 @@ Fixed:
 - Panic when a reply contains a multibyte character near the start of message
 - Ensure messages don't get formatted if channel has +c mode (colour filter)
 - User highlighting incorrectly matching contraction suffixes
-- Add clear buffer shortcut to title bar
-- 
+
 Thanks:
 
 - Contributions: @luca020400, @aniketkotal
@@ -83,8 +91,8 @@ Changed:
 Thanks:
 
 - Contributions: @bb010g, @furudean, @englut, @luca020400, @4e554c4c, @stephenfin, @achille, @ncfavier
-- Bug reports: @bb010g, daniiooo, @e00E, belthesar, @Fingel, @death916, @furudean, @ncfavier, @WinnerWind, @alexaandru, @kasper93
-- Feature requests: @WinnerWind, Shyny, @classabbyamp, @4e554c4c, @furudean, @englut, @esden, @Erroneuz, @g00s
+- Bug reports: @bb010g, daniiooo, @e00E, belthesar, @Fingel, @death916, @furudean, @ncfavier, @WinnerWind, @alexaandru, @kasper93, tranzystorekk
+- Feature requests: @WinnerWind, Shyny, @classabbyamp, @4e554c4c, @furudean, @englut, @esden, @Erroneuz
 
 # 2026.6 (2026-04-21)
 
