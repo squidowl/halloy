@@ -693,6 +693,8 @@ impl Client {
         let labeled_response_context =
             self.set_labeled_response_context(buffer, &mut message);
 
+        let mut restore_automated_monitored_users: Vec<String> = vec![];
+
         if matches!(priority, TokenPriority::User) {
             match &message.command {
                 Command::LIST(..) => {
@@ -793,7 +795,12 @@ impl Client {
                             }
                         }
                         (_, "C" | "c") => {
-                            self.monitored_users.clear();
+                            for (user, _) in self.monitored_users.iter().filter(
+                                |(_, monitored_user)| monitored_user.automated,
+                            ) {
+                                restore_automated_monitored_users
+                                    .push(user.as_normalized_str().to_owned());
+                            }
                         }
                         _ => (),
                     }
@@ -806,6 +813,26 @@ impl Client {
             anti_flood.add_token(message, priority);
         } else if let Err(e) = self.handle.try_send(message.into()) {
             log::warn!("[{}] Error sending message: {e}", self.server);
+        }
+
+        if !restore_automated_monitored_users.is_empty()
+            && let Some(isupport::Parameter::MONITOR(monitor_limit)) =
+                self.isupport.get(&isupport::Kind::MONITOR)
+        {
+            let messages = group_monitors(
+                &restore_automated_monitored_users,
+                *monitor_limit,
+                find_target_limit(&self.isupport, "MONITOR"),
+                &self.server,
+                None,
+            );
+            for message in messages {
+                if let Some(ref mut anti_flood) = self.anti_flood {
+                    anti_flood.add_token(message.into(), priority);
+                } else if let Err(e) = self.handle.try_send(message) {
+                    log::warn!("[{}] Error sending message: {e}", self.server);
+                }
+            }
         }
 
         labeled_response_context
