@@ -3016,9 +3016,8 @@ impl Dashboard {
 
         self.last_changed = Some(Instant::now());
 
-        if let Some(upstream) = buffer.upstream()
-            && let server = upstream.server()
-            && let Some(channel) = upstream.channel()
+        if let Some(buffer::Upstream::Channel(server, channel)) =
+            buffer.upstream()
             && let Some(client) = clients.client_mut(server)
         {
             let opened_channels = &self.open_pane_channels();

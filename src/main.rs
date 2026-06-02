@@ -1828,11 +1828,12 @@ fn handle_client_events(
                         server,
                         &channel.as_normalized_str(),
                     );
-                    clients.prioritize_channel_who_poll(
-                        server,
-                        &channel,
-                        &opened_channels,
-                    );
+                    if let Some(client) = clients.client_mut(server) {
+                        client.prioritize_joined_who_poll(
+                            &channel,
+                            &opened_channels,
+                        );
+                    }
                 }
             }
             Event::LoggedIn(server_time) => {
