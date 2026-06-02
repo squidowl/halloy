@@ -66,8 +66,10 @@ static CHANNEL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         .unwrap()
 });
 
+// Regex for nicks per spec: https://modern.ircdocs.horse/#clients
+// The capturing group is split in `MUST NOT start with` and `MUST NOT contain`
 static USER_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    RegexBuilder::new(r#"(?i)(?<!\w)([\w"\-\[\]\\`^{|}\/]+)(?!\w)"#)
+    RegexBuilder::new(r#"(?i)(?<!\w)([^ ,*?!@$:#&~%+][^ ,*?!@\.]*)(?!\w)"#)
         .build()
         .unwrap()
 });
@@ -4590,6 +4592,25 @@ pub mod tests {
                         "Susan".into(),
                     ),
                     Fragment::Text(", where are you?\"".into()),
+                ],
+            ),
+            (
+                (
+                    "This shouldn't match but t _his_ should!".to_string(),
+                    ["t"]
+                        .into_iter()
+                        .map(|nick| {
+                            User::from(Nick::from_str(nick, casemapping))
+                        })
+                        .collect::<ChannelUsers>(),
+                ),
+                vec![
+                    Fragment::Text("This shouldn't match but ".into()),
+                    Fragment::User(
+                        User::from(Nick::from_str("t", casemapping)),
+                        "t".into(),
+                    ),
+                    Fragment::Text(" _his_ should!".into()),
                 ],
             ),
         ];

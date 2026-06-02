@@ -7,4 +7,7 @@ exclude_path = ["docs/node_modules/**", "docs/.vitepress/**"]
 include_fragments = true
 
 exclude_all_private = true
-exclude = [ '^http://.*', '^https://.*', '^irc://.*', '^ircs://.*' ]
+exclude = [ '^http://.*', '^https://.*', '^irc://.*', '^ircs://.*',
+						'/configuration/servers.md#sasl-plain',   # Incorrectly flagged as invalid
+						'/configuration/servers.md#sasl-external' # Incorrectly flagged as invalid
+					]

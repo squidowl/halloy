@@ -19,5 +19,5 @@ Here are a few useful IRC commands for a new user[^2]
 | `/list *keyword*` | `/list *linux*`        | List channels. Keyword is optional         |
 
 
-[^1]: Channel names always start with a `#` symbol and do not contain spaces.
+[^1]: Channel names typically start with a `#` symbol and do not contain spaces.
 [^2]: Find more commands [here](https://en.wikipedia.org/wiki/List_of_Internet_Relay_Chat_commands).

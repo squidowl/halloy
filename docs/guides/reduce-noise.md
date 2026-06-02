@@ -2,35 +2,25 @@
 
 It's not uncommon for channels to have many server messages for every regular message, resulting in a low signal to noise ratio.  Halloy has various settings that can help reduce the number of visible server messages in the chat log.  This guide will cover some of those settings.
 
-## Disable Topic Messages
+## Condense Server Messages
 
-Most servers and bouncers will send a message with the topic every time Halloy joins a channel.  Since topics rarely change, it's often useful to hide these messages altogether with disabling the topic [server message setting](../configuration/buffer#server_messages):
-
-```toml
-[buffer.server_messages.topic]
-enabled = false
-```
-
-Note, this will not hide the messages sent when a topic changes, only the topic messages sent on first connection to a channel.
-
-If topic messages are hidden but a reminder of the current topic is still desired, then a topic banner can be enabled to appear at the top of each pane.  Either with the label icon button in the pane's title bar, or with the [topic banner settings](../configuration/buffer#topic_banner):
+Enabled by default, [condensing](../configuration/buffer#condense) server messages keeps them visible while reducing their visual impact.  However, if a channel is very active then lists of condensed messages can still grow long. The [`max`](../configuration/buffer#max) setting will limit how many condensed messages are shown in each block:
 
 ```toml
-[buffer.channel.topic_banner]
-enabled = true
-max_lines = 2
+[buffer.server_messages.condense]
+max = 15
 ```
 
 ## Smart Filters
 
-[Smart filters](../configuration/buffer#smart) can be used for server messages to hide messages for users that have not sent a message recently.  For example, to hide part messages for any user that has not sent a message within the 15 minutes prior to their parting:
+Some server message types can't be condensed, in which case [smart filters](../configuration/buffer#smart) can be used to hide messages for users that have not sent a message recently.  For example, to hide part messages for any user that has not sent a message within the 15 minutes prior to their parting:
 
 ```toml
 [buffer.server_messages.part]
-smart = 900
+smart = 900 # seconds = 15 minutes
 ```
 
-For many channels join, part, quit, and nickname changes make up a lot of noise and usually aren't relevant if the user hasn't been active.  To smart filter those messages these settings can be used:
+For example, many channels join, part, quit, and nickname changes make up a lot of noise and usually aren't relevant if the user hasn't been active.  To smart filter those messages these settings can be used:
 
 ```toml
 [buffer.server_messages]
@@ -40,38 +30,28 @@ quit.smart = 900
 change_nick.smart = 900
 ```
 
-Smart filters can also be applied to [internal messages](../configuration/buffer#internal_messages) as well.  For example, to hide any connect or disconnect message older than five minutes, use these settings:
+Automated away messages will often by sent in response to every message received.  A smart filter for away messages will hide new away messages if an away message has been received within the specified time frame.  So, to hide away messages if one has already been received in the last 12 minutes, the following setting can be used:
+
+```toml
+[buffer.server_messages.away]
+smart = 720 # seconds = 12 minutes
+```
+
+Smart filters can also be applied to [internal messages](../configuration/buffer#internal_messages).  These settings can be used to hide old connect & disconnect messages which are no longer pertinent.  For example, to hide any connect or disconnect message older than five minutes, use these settings:
 
 ```toml
 [buffer.internal_messages]
-success.smart = 300
-error.smart = 300
+success.smart = 300 # seconds = 5 minutes
+error.smart = 300 # seconds = 5 minutes
 ```
 
-## Condense Server Messages
+## Disable
 
-It may be preferable to not hide any server messages, in which case an alternative to filtering is to [condense server messages](../configuration/buffer#condense).  This setting will combine multiple server messages into a one server message with a shortened style.  To enable condensed messages these settings can be used:
-
-```toml
-[buffer.server_messages.condense]
-messages = ["join", "part", "quit"]
-dimmed = true
-```
-
-If a channel is very active, lists of condensed messages can still grow long. The [`max`](../configuration/buffer#max) setting can limits how many condensed messages are shown:
+Some server messages may not be of interest, in which case they can be hidden by disabling them;  when server messages are disabled they will be hidden, but they are not discarded and can be revealed again when they are re-enabled.  For example, host change server messages are often not of interest and can be hidden with:
 
 ```toml
-[buffer.server_messages.condense]
-max = 15
-```
-
-When using condensed messages, it is recommended that you specify colors for the condensed messages in your [theme](../configuration/themes).  Those colors will be used for the abbreviations used in the condensed messages.  For example, these theme settings could be added:
-
-```toml
-[buffer.server_messages]
-join = "#efff95"
-part = "#ff6b77"
-quit = "#ff6b77"
+[buffer.server_messages.change_host]
+enabled = false
 ```
 
 ## Ignore
@@ -80,5 +60,5 @@ If dealing with a noisy user or bot, an [ignore filter](../configuration/servers
 
 ```toml
 [servers.libera.filters]
-ignore = ["#halloy ChanServ"]
+ignore = [ { user = "ChanServ", channel = "#halloy" } ]
 ```

@@ -46,20 +46,24 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-debug-
 
+      - uses: dtolnay/rust-toolchain@master # recommended when specifying toolchain
+        with:
+          toolchain: stable minus 3 releases
+          components: clippy
       - name: Check
-        run: cargo check --locked --profile ci
-
+        run: cargo check --locked --profile ci; cargo version
       - name: Clippy
-        run: cargo clippy --locked --profile ci --workspace --all-targets -- -D warnings
+        run: cargo clippy --locked --profile ci --workspace --all-targets -- -D warnings; cargo version
 
-      - uses: taiki-e/install-action@e0eafa9a0d485c37f97c0f7beb930a58a2facbac # v2
+      - uses: taiki-e/install-action@15413b256f995d819248ea62704771a959284285 # v2
         with:
           tool: cargo-nextest
       - name: Test
-        run: cargo nextest run --locked --profile ci --workspace --all-targets
+        run: cargo nextest run --locked --profile ci --workspace --all-targets; cargo version
 
-      - uses: dtolnay/rust-toolchain@0f1b44df7e9cbb178d781a242338dfa5e243ad7f # nightly
+      - uses: dtolnay/rust-toolchain@master # recommended when specifying toolchain
         with:
+          toolchain: nightly
           components: rustfmt
       - name: Format
-        run: cargo +nightly fmt --all -- --check --color=always
+        run: cargo +nightly fmt --all -- --check --color=always; cargo version

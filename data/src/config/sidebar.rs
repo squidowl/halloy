@@ -139,7 +139,7 @@ impl Default for UnreadIndicator {
             icon: Icon::Dot,
             icon_size: 6,
             highlight_icon: Icon::CircleEmpty,
-            highlight_icon_size: 8,
+            highlight_icon_size: 6,
             show_on_open_buffers: true,
             query_as_highlight: false,
             exclude: None,

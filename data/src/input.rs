@@ -58,7 +58,7 @@ pub fn parse(
         ))
     } else {
         match auto_format {
-            AutoFormat::Disabled => (),
+            AutoFormat::Disabled | AutoFormat::ForceDisabled => (),
             AutoFormat::Markdown | AutoFormat::All => {
                 if let Some(open_code_fence) = parse_code_fence(input)
                     .finish()
@@ -108,7 +108,9 @@ pub fn parse(
             }
             Err(command::Error::MissingSlash) => {
                 let text = match auto_format {
-                    AutoFormat::Disabled => input.to_string(),
+                    AutoFormat::Disabled | AutoFormat::ForceDisabled => {
+                        input.to_string()
+                    }
                     AutoFormat::Markdown => formatting::encode(input, true),
                     AutoFormat::All => formatting::encode(input, false),
                 };
@@ -121,7 +123,7 @@ pub fn parse(
                     .map_or(input.to_string(), ToString::to_string);
 
                 let text = match auto_format {
-                    AutoFormat::Disabled => text,
+                    AutoFormat::Disabled | AutoFormat::ForceDisabled => text,
                     AutoFormat::Markdown => formatting::encode(&text, true),
                     AutoFormat::All => formatting::encode(&text, false),
                 };

@@ -27,7 +27,7 @@ use data::{
 };
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{Space, center, column, container, row, stack, text};
-use iced::{Length, Padding, Size, Task, Vector, advanced, clipboard};
+use iced::{Length, Size, Task, Vector, advanced, clipboard, padding};
 use irc::proto;
 
 use self::command_bar::CommandBar;
@@ -1621,9 +1621,8 @@ impl Dashboard {
         if let Some(state) = self.panes.popout.get(&window) {
             let pane_gap = config.pane.gap.outer;
             let top_padding =
-                platform_specific::popped_out_window_padding(config)
-                    + u32::from(pane_gap);
-            let padding = Padding::new(pane_gap.into()).top(top_padding as f32);
+                platform_specific::popped_out_window_padding(config) + pane_gap;
+            let padding = padding::all(pane_gap).top(top_padding as f32);
 
             let content = container(
                 PaneGrid::new(state, |id, pane, _maximized| {
@@ -1716,13 +1715,29 @@ impl Dashboard {
             .spacing(config.pane.gap.inner)
             .into();
 
+        let pane_padding = match config.sidebar.position {
+            data::config::sidebar::Position::Left => {
+                padding::all(config.pane.gap.outer).left(config.pane.gap.inner)
+            }
+            data::config::sidebar::Position::Top => {
+                padding::all(config.pane.gap.outer).top(config.pane.gap.inner)
+            }
+            data::config::sidebar::Position::Right => {
+                padding::all(config.pane.gap.outer).right(config.pane.gap.inner)
+            }
+            data::config::sidebar::Position::Bottom => {
+                padding::all(config.pane.gap.outer)
+                    .bottom(config.pane.gap.inner)
+            }
+        };
+
         let pane_grid =
             container(pane_grid.map(move |message| {
                 Message::Pane(self.main_window(), message)
             }))
             .width(Length::Fill)
             .height(Length::Fill)
-            .padding(config.pane.gap.outer);
+            .padding(pane_padding);
 
         let side_menu = self
             .side_menu

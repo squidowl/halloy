@@ -83,6 +83,8 @@ pub enum AutoFormat {
     Disabled,
     Markdown,
     All,
+    #[serde(skip)]
+    ForceDisabled,
 }
 
 #[derive(Debug, Clone, Deserialize)]

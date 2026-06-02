@@ -1,5 +1,21 @@
 # Unreleased
 
+# 2026.7.1 (2026-06-02)
+
+Fixed:
+
+- Panic when a reply contains a multibyte character near the start of message
+- Ensure messages don't get formatted if channel has +c mode (colour filter)
+- User highlighting incorrectly matching contraction suffixes
+- Add clear buffer shortcut to title bar
+- 
+Thanks:
+
+- Contributions: @luca020400, @aniketkotal
+- Bug reports: @WinnerWind, @sco1, @classabbyamp, @aniketkotal
+
+# 2026.7 (2026-05-28)
+
 Added:
 
 - Support for IRCv3 `reply` client tag
@@ -23,7 +39,6 @@ Added:
 - Setting to hide the text of messages that contain only a single URL, when the URL's preview is visible (`preview.hide_url`)
 - Nick and channel completion picker
 - Runtime graphics settings (graphic backend, vsync, and antialiasing)
-- Add clear buffer shortcut to title bar
 
 Fixed:
 
@@ -52,7 +67,9 @@ Changed:
 
 - On-join topic messages dropped by default (`buffer.server_messages.join_topic`), instead the topic banner is enabled by default (`buffer.channel.topic_banner`)
 - Topic messages manually requested via `/topic` have a distinct setting from topic messages received on join (`buffer.server_messages.topic` → `buffer.server_messages.request_topic` & `buffer.server_messages.join_topic`)
+- Badging on server icons used to indicate unread/highlight state (instead of the color of the server icon); unread indicators positioned to be aligned with server badge
 - Default `sidebar.server_icon.size` changed from `12` → `20`
+- Default `sidebar.unread_indicator.highlight_icon_size` changed from `8` → `6`
 - Default `sidebar.spacing.server` changed from `6` → `2`
 - Default `sidebar.padding.buffer` changed from `[4, 4]` to `[5, 4]`
 - For filehosts, localhost is now treated as a secure transport when using `servers.<name>.filehost.override_url`

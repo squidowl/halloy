@@ -15,17 +15,21 @@
         </p>
     </description>
     <launchable type="desktop-id">org.squidowl.halloy.desktop</launchable>
-    <url type="homepage">https://github.com/squidowl/halloy</url>
+    <url type="homepage">https://halloy.chat</url>
+    <url type="faq">https://halloy.chat/getting-started</url>
+    <url type="vcs-browser">https://github.com/squidowl/halloy</url>
     <url type="bugtracker">https://github.com/squidowl/halloy/issues</url>
+    <url type="contribute">https://halloy.chat/contributing</url>
     <screenshots>
         <screenshot type="default">
-            <caption>halloy logo</caption>
             <image>https://raw.githubusercontent.com/squidowl/halloy/7aec18d29ffb1d3605131667c6e11d8cef6ada7b/assets/screenshot.png</image>
+            <caption>Main Halloy Interface</caption>
         </screenshot>
     </screenshots>
     <developer_name>The Squidowl Development Team</developer_name>
     <releases>
-        <release version="2026.6"
-                 date="2026-04-21" />
+        <release version="2026.7.1" date="2026-06-02">
+            <url type="details">https://github.com/squidowl/halloy/releases/tag/2026.7.1</url>
+        </release>
     </releases>
 </component>

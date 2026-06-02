@@ -27,7 +27,7 @@ impl Default for Pane {
 #[serde(default)]
 pub struct Gap {
     pub inner: u32,
-    pub outer: u16,
+    pub outer: u32,
 }
 
 impl Default for Gap {

@@ -27,6 +27,7 @@ We strive to be a leading irc client with a rich IRCv3 feature set. Currently su
 - [account-notify](https://ircv3.net/specs/extensions/account-notify)
 - [away-notify](https://ircv3.net/specs/extensions/away-notify)
 - [batch](https://ircv3.net/specs/extensions/batch)
+- [bot mode](https://ircv3.net/specs/extensions/bot-mode)
 - [cap-notify](https://ircv3.net/specs/extensions/capability-negotiation.html#cap-notify)
 - [channel-context](https://ircv3.net/specs/client-tags/channel-context)
 - [chathistory](https://ircv3.net/specs/extensions/chathistory)
@@ -37,12 +38,21 @@ We strive to be a leading irc client with a rich IRCv3 feature set. Currently su
 - [labeled-response](https://ircv3.net/specs/extensions/labeled-response)
 - [message-redaction](https://ircv3.net/specs/extensions/message-redaction)
 - [message-tags](https://ircv3.net/specs/extensions/message-tags)
+- [metadata](https://ircv3.net/specs/extensions/metadata)
+  - `display-name`
+  - `avatar`
+  - `pronouns`
+  - `homepage`
+  - `color`
+  - `status`
 - [Monitor](https://ircv3.net/specs/extensions/monitor)
 - [msgid](https://ircv3.net/specs/extensions/message-ids)
 - [multi-prefix](https://ircv3.net/specs/extensions/multi-prefix)
 - [multiline](https://ircv3.net/specs/extensions/multiline)
+- [network-icon](https://ircv3.net/specs/extensions/network-icon)
 - [react](https://ircv3.net/specs/client-tags/react.html)
 - [read-marker](https://ircv3.net/specs/extensions/read-marker)
+- [reply](https://ircv3.net/specs/client-tags/reply)
 - [sasl-3.1](https://ircv3.net/specs/extensions/sasl-3.1)
 - [server-time](https://ircv3.net/specs/extensions/server-time)
 - [setname](https://ircv3.net/specs/extensions/setname.html)
