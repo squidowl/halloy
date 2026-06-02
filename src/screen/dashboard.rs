@@ -2991,8 +2991,9 @@ impl Dashboard {
                 .monitor
                 .iter()
                 .any(|nick| nick == user.as_normalized_str())
+            && !client.is_monitored_user(&user)
         {
-            client.add_monitored_user_query(&user);
+            client.add_monitored_user_automated(&user);
         }
 
         match buffer_action {
@@ -3244,7 +3245,7 @@ impl Dashboard {
                         nick.as_str(),
                         client.casemapping(),
                     ))
-                    && client.is_monitored_user_query(&user)
+                    && client.is_monitored_user_automated(&user)
                 {
                     client.remove_monitored_user(&user);
                 }

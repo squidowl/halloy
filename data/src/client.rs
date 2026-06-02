@@ -185,10 +185,10 @@ struct ChatHistoryRequest {
     autorequest: bool,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct MonitoredUser {
     online: bool,
-    query: bool,
+    automated: bool,
 }
 
 pub struct Client {
@@ -371,21 +371,62 @@ impl Client {
                 if let Some(isupport::Parameter::MONITOR(monitor_limit)) =
                     self.isupport.get(&isupport::Kind::MONITOR)
                 {
-                    if let Err(e) =
-                        self.handle.try_send(command!("MONITOR", "C"))
-                    {
-                        log::warn!(
-                            "[{}] Error clearing monitor: {e}",
-                            self.server
-                        );
+                    let casemapping =
+                        isupport::get_casemapping_or_default(&self.isupport);
+                    let prefix = isupport::get_prefix(&self.isupport);
+
+                    let remove_monitors = self
+                        .config
+                        .monitor
+                        .iter()
+                        .filter(|existing_monitor| {
+                            let user = User::parse(
+                                existing_monitor,
+                                casemapping,
+                                prefix,
+                            )
+                            .unwrap_or(User::from(Nick::from_str(
+                                existing_monitor,
+                                casemapping,
+                            )));
+                            !config.monitor.contains(existing_monitor)
+                                && !self.is_monitored_user_automated(&user)
+                        })
+                        .cloned()
+                        .collect::<Vec<_>>();
+
+                    let monitored_users_keys: Vec<User> =
+                        self.monitored_users.keys().cloned().collect();
+                    for user in monitored_users_keys {
+                        if remove_monitors.iter().any(|remove_monitor| {
+                            remove_monitor == user.as_normalized_str()
+                        }) {
+                            self.monitored_users.remove(&user);
+                        } else {
+                            self.monitored_users.entry(user).and_modify(
+                                |monitored_user| {
+                                    monitored_user.automated = false;
+                                },
+                            );
+                        }
                     }
 
-                    let messages = group_monitors(
+                    let mut messages = group_monitors(
                         &config.monitor,
                         *monitor_limit,
                         find_target_limit(&self.isupport, "MONITOR"),
                         &self.server,
-                    );
+                        Some(self.monitored_users.len()),
+                    )
+                    .collect::<Vec<_>>();
+
+                    if !remove_monitors.is_empty() {
+                        messages.push(command!(
+                            "MONITOR",
+                            "-",
+                            remove_monitors.into_iter().join(",")
+                        ));
+                    }
 
                     for message in messages {
                         if let Err(e) = self.handle.try_send(message) {
@@ -701,6 +742,60 @@ impl Client {
                                     .push_front(WhoPoll { channel, status });
                             }
                         }
+                    }
+                }
+                Command::MONITOR(subcommand, targets) => {
+                    match (targets, subcommand.as_str()) {
+                        (Some(targets), "+") => {
+                            let casemapping =
+                                isupport::get_casemapping_or_default(
+                                    &self.isupport,
+                                );
+                            let prefix = isupport::get_prefix(&self.isupport);
+                            for target in targets.split(",") {
+                                self.monitored_users
+                                    .entry(
+                                        User::parse(
+                                            target,
+                                            casemapping,
+                                            prefix,
+                                        )
+                                        .unwrap_or(User::from(Nick::from_str(
+                                            target,
+                                            casemapping,
+                                        ))),
+                                    )
+                                    .and_modify(|monitored_user| {
+                                        monitored_user.automated = false;
+                                    })
+                                    .or_insert_with(|| MonitoredUser {
+                                        online: false,
+                                        automated: false,
+                                    });
+                            }
+                        }
+                        (Some(targets), "-") => {
+                            let casemapping =
+                                isupport::get_casemapping_or_default(
+                                    &self.isupport,
+                                );
+                            let prefix = isupport::get_prefix(&self.isupport);
+                            for target in
+                                targets.split(',').filter(|s| !s.is_empty())
+                            {
+                                self.monitored_users.remove(
+                                    &User::parse(target, casemapping, prefix)
+                                        .unwrap_or(User::from(Nick::from_str(
+                                            target,
+                                            casemapping,
+                                        ))),
+                                );
+                            }
+                        }
+                        (_, "C" | "c") => {
+                            self.monitored_users.clear();
+                        }
+                        _ => (),
                     }
                 }
                 _ => (),
@@ -2891,9 +2986,9 @@ impl Client {
                             })
                             .or_insert_with(|| MonitoredUser {
                                 online: true,
-                                query: false,
+                                automated: false,
                             });
-                        (!entry.query).then_some(user)
+                        (!entry.automated).then_some(user)
                     })
                     .collect::<Vec<_>>();
 
@@ -2930,9 +3025,9 @@ impl Client {
                             })
                             .or_insert_with(|| MonitoredUser {
                                 online: false,
-                                query: false,
+                                automated: false,
                             });
-                        (!entry.query).then_some(nick)
+                        (!entry.automated).then_some(nick)
                     })
                     .collect::<Vec<_>>();
 
@@ -3236,6 +3331,7 @@ impl Client {
                             *monitor_limit,
                             find_target_limit(&self.isupport, "MONITOR"),
                             &self.server,
+                            None,
                         );
                         for message in messages {
                             self.handle.try_send(message)?;
@@ -4561,6 +4657,10 @@ impl Client {
         self.isupport.contains_key(&isupport::Kind::MONITOR)
     }
 
+    pub fn is_monitored_user(&self, user: &User) -> bool {
+        self.monitored_users.contains_key(user)
+    }
+
     pub fn is_monitored_user_online(&self, user: &User) -> bool {
         // falling back to assume nick is `online` if we don't have monitor support
         !self.has_isupport_monitor()
@@ -4570,35 +4670,37 @@ impl Client {
                 .is_some_and(|monitored_user| monitored_user.online)
     }
 
-    pub fn is_monitored_user_query(&self, user: &User) -> bool {
+    pub fn is_monitored_user_automated(&self, user: &User) -> bool {
         self.monitored_users
             .get(user)
-            .is_some_and(|monitored_user| monitored_user.query)
+            .is_some_and(|monitored_user| monitored_user.automated)
     }
 
-    pub fn add_monitored_user_query(&mut self, user: &User) {
+    pub fn add_monitored_user_automated(&mut self, user: &User) {
         self.monitored_users.insert(
             user.clone(),
             MonitoredUser {
                 online: self.is_monitored_user_online(user),
-                query: true,
+                automated: true,
             },
         );
         if self.has_isupport_monitor() {
-            let message = command!("MONITOR", "+", user.as_normalized_str());
-            if let Err(e) = self.handle.try_send(message) {
-                log::warn!("[{}] Error sending monitor: {e}", self.server);
-            }
+            self.send(
+                None,
+                command!("MONITOR", "+", user.as_normalized_str()).into(),
+                TokenPriority::Low,
+            );
         }
     }
 
     pub fn remove_monitored_user(&mut self, user: &User) {
         self.monitored_users.remove(user);
         if self.has_isupport_monitor() {
-            let message = command!("MONITOR", "-", user.as_normalized_str());
-            if let Err(e) = self.handle.try_send(message) {
-                log::warn!("[{}] Error sending monitor: {e}", self.server);
-            }
+            self.send(
+                None,
+                command!("MONITOR", "-", user.as_normalized_str()).into(),
+                TokenPriority::Low,
+            );
         }
     }
 }
@@ -5882,16 +5984,19 @@ fn group_monitors<'a>(
     monitor_limit: Option<u16>,
     target_limit: Option<u16>,
     server: &Server,
+    num_existing_monitors: Option<usize>,
 ) -> impl Iterator<Item = proto::Message> + 'a {
     const MAX_LEN: usize = proto::format::BYTE_LIMIT - b"MONITOR + \r\n".len();
 
     if let Some(monitor_limit) = monitor_limit.map(usize::from) {
-        if monitor_limit < users.len() {
+        let mut total_monitor_count = users.len();
+        if let Some(num_existing_monitors) = num_existing_monitors {
+            total_monitor_count += num_existing_monitors;
+        }
+        if monitor_limit < total_monitor_count {
             log::warn!(
-                "[{}] More users in monitor list than permitted by the server \
-                      ({} users in monitor list, {monitor_limit} permitted)",
-                server,
-                users.len(),
+                "[{server}] More users in monitor list than permitted by the server \
+                      ({total_monitor_count} users in monitor list, {monitor_limit} permitted)",
             );
         }
 

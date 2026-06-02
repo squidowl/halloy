@@ -1899,7 +1899,7 @@ fn handle_client_events(
                             query.as_str(),
                             client.casemapping(),
                         ));
-                        client.add_monitored_user_query(&user);
+                        client.add_monitored_user_automated(&user);
                     }
                 }
                 commands.push(Task::stream(on_connect).map(move |event| {
