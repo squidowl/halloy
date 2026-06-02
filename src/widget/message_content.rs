@@ -403,12 +403,9 @@ pub(crate) fn strip_leading_nick<'a>(
     text: &'a str,
     nick: &str,
 ) -> Option<&'a str> {
-    let prefix_len = nick.len() + 2;
-    if text.len() >= prefix_len
-        && text[..nick.len()].eq_ignore_ascii_case(nick)
-        && text[nick.len()..].starts_with(": ")
-    {
-        Some(&text[prefix_len..])
+    let (head, rest) = text.split_at_checked(nick.len())?;
+    if head.eq_ignore_ascii_case(nick) {
+        rest.strip_prefix(": ")
     } else {
         None
     }
