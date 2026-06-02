@@ -2,13 +2,14 @@
 
 Fixed:
 
+- Panic when a reply contains a multibyte character near the start of message
 - Ensure messages don't get formatted if channel has +c mode (colour filter)
 - User highlighting incorrectly matching contraction suffixes
 
 Thanks:
 
-- Contributions: @luca020400
-- Bug reports: @WinnerWind, @sco1, @classabbyamp
+- Contributions: @luca020400, @aniketkotal
+- Bug reports: @WinnerWind, @sco1, @classabbyamp, @aniketkotal
 
 # 2026.7 (2026-05-28)
 
