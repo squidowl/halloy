@@ -538,7 +538,7 @@ impl Client {
     }
 
     fn quit(&mut self, reason: Option<String>) {
-        self.who_queue.quit();
+        self.who_queue.clear_queues();
 
         if let Err(e) = if let Some(reason) = reason {
             self.handle.try_send(command!("QUIT", reason))
@@ -706,7 +706,7 @@ impl Client {
 
                         if let Some(channel) = channel {
                             self.who_queue
-                                .requested_channel_poll(params, channel);
+                                .user_requested_channel_poll(params, channel);
                         }
                     }
                 }
@@ -1940,7 +1940,7 @@ impl Client {
                     );
 
                     // Add channel to WHO poll queue
-                    self.who_queue.queue_channel_poll(&target_channel);
+                    self.who_queue.queue_joined_who_poll(&target_channel);
 
                     if !self.mode_requests.iter().any(|mode_request| {
                         mode_request.channel == target_channel
@@ -2067,10 +2067,8 @@ impl Client {
                             );
                         }
 
-                        self.who_queue.receiving_channel_poll(
-                            &self.server,
-                            &target_channel,
-                        );
+                        self.who_queue
+                            .receiving_who_poll(&self.server, &target_channel);
 
                         if self
                             .capabilities
@@ -3743,8 +3741,14 @@ impl Client {
     }
 
     fn user_who_request(&self, channel: &target::Channel) -> bool {
-        self.who_queue
-            .any_matching_inflight(|who_poll| who_poll.channel == *channel)
+        self.who_queue.any_matching_inflight(|who_poll| {
+            who_poll.channel == *channel
+                && matches!(
+                    who_poll.status,
+                    WhoStatus::Requested(WhoSource::User, _, _)
+                        | WhoStatus::Receiving(WhoSource::User, _)
+                )
+        })
     }
 
     pub fn is_who_init(&self, channel: &target::Channel) -> bool {
@@ -4585,14 +4589,14 @@ impl Client {
         channel: &target::Channel,
         opened_channels: &Vec<(&Server, &target::Channel)>,
     ) {
-        self.who_queue
-            .prioritize_joined_who_poll(&self.server, channel);
-
         self.who_queue.reprioritize_joined_who_polls(
             &self.server,
             opened_channels,
             channel,
         );
+
+        self.who_queue
+            .prioritize_joined_who_poll(&self.server, channel);
     }
 
     pub fn has_isupport_monitor(&self) -> bool {
