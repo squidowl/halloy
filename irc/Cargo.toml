@@ -15,7 +15,7 @@ futures = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 bytes = { workspace = true }
 
-arti-client = { version = "0.41", default-features = false, features = [
+arti-client = { version = "0.42", default-features = false, features = [
     "rustls",
     "compression",
     "tokio",
@@ -31,7 +31,7 @@ tokio-rustls = { version = "0.26.0", default-features = false, features = [
     "tls12",
     "ring",
 ] }
-tokio-tungstenite = { version = "0.28.0", default-features = false, features = [
+tokio-tungstenite = { version = "0.29.0", default-features = false, features = [
     "handshake",
 ] }
 tokio-util = { version = "0.7", features = ["codec"] }
