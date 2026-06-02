@@ -287,6 +287,7 @@ impl Filter {
                 | Kind::Channel(server, _)
                 | Kind::Query(server, _) => target_server == server,
                 Kind::Highlights | Kind::Logs => false,
+                Kind::ChannelMonitor => false,
             },
         }
     }
