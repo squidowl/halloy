@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::convert;
+use std::ops::RangeInclusive;
 use std::time::{Duration, Instant};
 
 use chrono::{DateTime, Utc};
@@ -740,31 +741,71 @@ fn cursor_anchor(state: &State, config: &Config) -> Point {
     let cursor_position = state.input_content.cursor().position;
     let line_height = theme::resolve_line_height(&config.font);
 
-    let prefix_width = state
+    let width_of_line_before_word = state
         .input_content
         .line(cursor_position.line)
-        .map(|line| {
-            let text = &line.text;
-            let word_start = current_word_start(text, cursor_position.column);
-            let prefix = text.get(..word_start).unwrap_or_default();
-            font::width_from_str(prefix, &config.font)
+        .and_then(|line| {
+            get_line_before_word(&line.text, cursor_position.column).map(
+                |line_before_word| {
+                    font::width_from_str(line_before_word, &config.font)
+                },
+            )
         })
         .unwrap_or_default();
 
     Point::new(
-        4.0 + prefix_width,
+        4.0 + width_of_line_before_word,
         2.0 + cursor_position.line as f32 * line_height,
     )
 }
 
-fn current_word_start(text: &str, cursor_position: usize) -> usize {
-    text.get(..cursor_position)
-        .unwrap_or(text)
-        .trim_end()
-        .char_indices()
-        .rev()
-        .find(|(_, character)| character.is_whitespace())
-        .map_or(0, |(index, character)| index + character.len_utf8())
+fn get_line_before_word(line: &str, cursor_position: usize) -> Option<&str> {
+    let mut previous_word_bounds = Option::<RangeInclusive<usize>>::None;
+
+    if cursor_position == line.len() {
+        let mut trailing_spaces = 0;
+
+        let word_bounds_start = line
+            .split(' ')
+            .rfind(|word| {
+                if word.is_empty() {
+                    trailing_spaces += 1;
+                    false
+                } else {
+                    true
+                }
+            })
+            .map(|word| {
+                line.len().saturating_sub(word.len() + trailing_spaces)
+            });
+
+        return word_bounds_start.and_then(|word_bounds_start| {
+            line.split_at_checked(word_bounds_start)
+                .map(|(line_before_word, _)| line_before_word)
+        });
+    }
+
+    for word in line.split(' ') {
+        let word_bounds =
+            if let Some(previous_word_bounds) = previous_word_bounds {
+                RangeInclusive::new(
+                    previous_word_bounds.end() + 1,
+                    previous_word_bounds.end() + 1 + word.len(),
+                )
+            } else {
+                RangeInclusive::new(0, word.len())
+            };
+
+        if word_bounds.contains(&cursor_position) {
+            return line
+                .split_at_checked(*word_bounds.start())
+                .map(|(line_before_word, _)| line_before_word);
+        }
+
+        previous_word_bounds = Some(word_bounds);
+    }
+
+    None
 }
 
 fn reply_bar<'a>(
