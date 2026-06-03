@@ -533,7 +533,11 @@ impl Commands {
                             isupport::get_chantypes_or_default(isupport);
 
                         if let Some(channel_arg) = command.args.get_mut(0) {
-                            let skip = !proto::is_channel(channel, chantypes);
+                            let skip =
+                                matches!(
+                                    current_target,
+                                    Some(Target::Channel(_))
+                                ) && !proto::is_channel(channel, chantypes);
 
                             channel_arg.kind.skip(skip);
                         }
