@@ -836,19 +836,9 @@ pub struct State {
 
 impl Default for State {
     fn default() -> Self {
-        Self::new(None)
-    }
-}
-
-impl State {
-    pub fn new(cache: Option<input::Cache<'_>>) -> Self {
         Self {
             input_id: widget::Id::unique(),
-            input_content: cache
-                .filter(|c| !c.draft_message.is_empty())
-                .map_or(text_editor::Content::new(), |c| {
-                    text_editor::Content::with_text(c.draft_message)
-                }),
+            input_content: text_editor::Content::new(),
             parsed: Vec::new(),
             notice: None,
             completion: Completion::default(),
@@ -859,9 +849,33 @@ impl State {
             upload_anim: 0.0,
             spinner_hovered: false,
             upload_abort_handles: Vec::new(),
-            draft_reply: cache.and_then(|c| c.draft_reply).cloned(),
+            draft_reply: None,
             reply_preview: None,
         }
+    }
+}
+
+impl State {
+    pub fn new(
+        cache: input::Cache<'_>,
+        buffer: &buffer::Upstream,
+        clients: &client::Map,
+        history: &history::Manager,
+        config: &Config,
+    ) -> Self {
+        let mut state = Self {
+            input_content: if cache.draft_message.is_empty() {
+                text_editor::Content::new()
+            } else {
+                text_editor::Content::with_text(cache.draft_message)
+            },
+            draft_reply: cache.draft_reply.cloned(),
+            ..Self::default()
+        };
+
+        state.process_completion_and_notice(buffer, clients, history, config);
+
+        state
     }
 
     pub fn draft_reply(&self) -> Option<&input::DraftReply> {
@@ -2640,7 +2654,7 @@ impl State {
         )
     }
 
-    fn process_completion_and_notice(
+    pub fn process_completion_and_notice(
         &mut self,
         buffer: &buffer::Upstream,
         clients: &client::Map,

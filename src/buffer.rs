@@ -96,6 +96,7 @@ pub enum Event {
 impl Buffer {
     pub fn from_data(
         buffer: data::Buffer,
+        clients: &data::client::Map,
         history: &history::Manager,
         pane_size: Size,
         config: &Config,
@@ -103,14 +104,18 @@ impl Buffer {
         match buffer {
             data::Buffer::Upstream(upstream) => match upstream {
                 buffer::Upstream::Server(server) => Self::Server(Server::new(
-                    server, history, pane_size, config,
+                    server, clients, history, pane_size, config,
                 )),
-                buffer::Upstream::Channel(server, channel) => Self::Channel(
-                    Channel::new(server, channel, history, pane_size, config),
-                ),
-                buffer::Upstream::Query(server, query) => Self::Query(
-                    Query::new(server, query, history, pane_size, config),
-                ),
+                buffer::Upstream::Channel(server, channel) => {
+                    Self::Channel(Channel::new(
+                        server, channel, clients, history, pane_size, config,
+                    ))
+                }
+                buffer::Upstream::Query(server, query) => {
+                    Self::Query(Query::new(
+                        server, query, clients, history, pane_size, config,
+                    ))
+                }
             },
             data::Buffer::Internal(internal) => match internal {
                 buffer::Internal::FileTransfers => {
@@ -725,6 +730,45 @@ impl Buffer {
                 history,
                 autocomplete,
             ),
+        }
+    }
+
+    pub fn process_input_completion_and_notice(
+        &mut self,
+        clients: &data::client::Map,
+        history: &history::Manager,
+        config: &Config,
+    ) {
+        match self {
+            Buffer::Empty
+            | Buffer::FileTransfers(_)
+            | Buffer::Logs(_)
+            | Buffer::Highlights(_)
+            | Buffer::ChannelDiscovery(_) => (),
+            Buffer::Server(state) => {
+                state.input_view.process_completion_and_notice(
+                    &state.buffer,
+                    clients,
+                    history,
+                    config,
+                );
+            }
+            Buffer::Channel(state) => {
+                state.input_view.process_completion_and_notice(
+                    &state.buffer,
+                    clients,
+                    history,
+                    config,
+                );
+            }
+            Buffer::Query(state) => {
+                state.input_view.process_completion_and_notice(
+                    &state.buffer,
+                    clients,
+                    history,
+                    config,
+                );
+            }
         }
     }
 

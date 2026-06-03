@@ -272,6 +272,7 @@ impl Channel {
     pub fn new(
         server: Server,
         target: target::Channel,
+        clients: &data::client::Map,
         history: &history::Manager,
         pane_size: Size,
         config: &Config,
@@ -279,7 +280,13 @@ impl Channel {
         let buffer = buffer::Upstream::Channel(server.clone(), target.clone());
 
         Self {
-            input_view: input_view::State::new(Some(history.input(&buffer))),
+            input_view: input_view::State::new(
+                history.input(&buffer),
+                &buffer,
+                clients,
+                history,
+                config,
+            ),
             buffer,
             server,
             target,
