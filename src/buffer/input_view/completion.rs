@@ -221,6 +221,7 @@ impl Completion {
     pub fn view<'a, Message: Clone + 'a>(
         &'a self,
         input: &str,
+        cursor_position: usize,
         cursor_is_selection: bool,
         server: &Server,
         config: &Config,
@@ -229,6 +230,7 @@ impl Completion {
     ) -> Option<Element<'a, Message>> {
         let command_view = self.commands.view(
             input,
+            cursor_position,
             cursor_is_selection,
             server,
             config,
@@ -709,6 +711,7 @@ impl Commands {
     fn view<'a, Message: Clone + 'a>(
         &'a self,
         input: &str,
+        cursor_position: usize,
         cursor_is_selection: bool,
         server: &Server,
         config: &Config,
@@ -763,6 +766,7 @@ impl Commands {
                         filtered.get(index).map(|(_, command)| {
                             command.view(
                                 input,
+                                cursor_position,
                                 cursor_is_selection,
                                 None,
                                 server,
@@ -800,6 +804,7 @@ impl Commands {
                 if config.buffer.commands.show_description {
                     Some(command.view(
                         input,
+                        cursor_position,
                         cursor_is_selection,
                         subcommand.as_ref(),
                         server,
@@ -1716,6 +1721,7 @@ impl Command {
     fn view<'a, Message: 'a>(
         &self,
         input: &str,
+        cursor_position: usize,
         cursor_is_selection: bool,
         subcommand: Option<&'a Command>,
         server: &Server,
@@ -1737,26 +1743,28 @@ impl Command {
         let active_arg = if cursor_is_selection {
             None
         } else {
-            Some(
-                [
-                    "_",
-                    input
+            input.split_at_checked(cursor_position).and_then(
+                |(before_cursor, _)| {
+                    before_cursor
                         .to_lowercase()
                         .strip_prefix(&command_prefix)
-                        .unwrap_or(input),
-                    "_",
-                ]
-                .concat()
-                .split_ascii_whitespace()
-                .count()
-                .saturating_add(num_skipped)
-                .saturating_sub(2)
-                .min(
-                    (self.args.len()
-                        + subcommand
-                            .map_or(0, |subcommand| subcommand.args.len()))
-                    .saturating_sub(1),
-                ),
+                        .and_then(|before_cursor| {
+                            let index = ["_", before_cursor, "_"]
+                                .concat()
+                                .split_ascii_whitespace()
+                                .count()
+                                .saturating_add(num_skipped)
+                                .saturating_sub(1)
+                                .min(
+                                    self.args.len()
+                                        + subcommand.map_or(0, |subcommand| {
+                                            subcommand.args.len()
+                                        }),
+                                );
+
+                            (index > 0).then_some(index.saturating_sub(1))
+                        })
+                },
             )
         };
 
@@ -3871,10 +3879,40 @@ pub enum Arrow {
 }
 
 fn get_word(input: &str, cursor_position: usize) -> Option<&str> {
+    get_word_bounds(input, cursor_position).and_then(|word_bounds| {
+        input.get(*word_bounds.start()..*word_bounds.end())
+    })
+}
+
+fn get_word_bounds(
+    input: &str,
+    cursor_position: usize,
+) -> Option<RangeInclusive<usize>> {
     let mut previous_word_bounds = Option::<RangeInclusive<usize>>::None;
 
     if cursor_position == input.len() {
-        return input.split(' ').rfind(|word| !word.is_empty());
+        let mut trailing_spaces = 0;
+
+        let word_bounds_start = input
+            .split(' ')
+            .rfind(|word| {
+                if word.is_empty() {
+                    trailing_spaces += 1;
+                    false
+                } else {
+                    true
+                }
+            })
+            .map(|word| {
+                input.len().saturating_sub(word.len() + trailing_spaces)
+            });
+
+        return word_bounds_start.map(|word_bounds_start| {
+            RangeInclusive::new(
+                word_bounds_start,
+                input.len().saturating_sub(trailing_spaces),
+            )
+        });
     }
 
     for word in input.split(' ') {
@@ -3889,7 +3927,7 @@ fn get_word(input: &str, cursor_position: usize) -> Option<&str> {
             };
 
         if word_bounds.contains(&cursor_position) {
-            return (!word.is_empty()).then_some(word);
+            return Some(word_bounds);
         }
 
         previous_word_bounds = Some(word_bounds);

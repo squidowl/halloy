@@ -715,6 +715,7 @@ pub fn view<'a>(
             column![
                 state.completion.view(
                     state.input_content.text().as_str(),
+                    cursor.position.column,
                     cursor.selection.is_some(),
                     server,
                     config,
