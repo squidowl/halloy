@@ -185,6 +185,12 @@ struct ChatHistoryRequest {
     autorequest: bool,
 }
 
+#[derive(Clone, Debug)]
+struct MonitoredUser {
+    online: bool,
+    automated: bool,
+}
+
 pub struct Client {
     server: Server,
     config: Arc<config::Server>,
@@ -221,6 +227,7 @@ pub struct Client {
     channel_discovery_manager: channel_discovery::Manager,
     http_client: Option<Arc<reqwest::Client>>, // Only Some if config.proxy.is_some()
     registry: metadata::ServerRegistry,
+    monitored_users: HashMap<User, MonitoredUser>,
 }
 
 impl fmt::Debug for Client {
@@ -292,6 +299,7 @@ impl Client {
             config,
             channel_discovery_manager: channel_discovery::Manager::new(),
             registry: metadata::ServerRegistry::new(),
+            monitored_users: HashMap::new(),
         }
     }
 
@@ -363,21 +371,66 @@ impl Client {
                 if let Some(isupport::Parameter::MONITOR(monitor_limit)) =
                     self.isupport.get(&isupport::Kind::MONITOR)
                 {
-                    if let Err(e) =
-                        self.handle.try_send(command!("MONITOR", "C"))
-                    {
-                        log::warn!(
-                            "[{}] Error clearing monitor: {e}",
-                            self.server
-                        );
+                    let casemapping =
+                        isupport::get_casemapping_or_default(&self.isupport);
+                    let prefix = isupport::get_prefix(&self.isupport);
+
+                    let remove_monitors = self
+                        .config
+                        .monitor
+                        .iter()
+                        .filter_map(|existing_monitor| {
+                            let user = User::parse_or_force(
+                                existing_monitor,
+                                casemapping,
+                                prefix,
+                            );
+                            if !config.monitor.contains(existing_monitor)
+                                && !self.is_monitored_user_automated(&user)
+                            {
+                                Some(user)
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<Vec<_>>();
+
+                    let monitored_users_keys: Vec<User> =
+                        self.monitored_users.keys().cloned().collect();
+                    for user in monitored_users_keys {
+                        if remove_monitors
+                            .iter()
+                            .any(|remove_monitor| remove_monitor == &user)
+                        {
+                            self.monitored_users.remove(&user);
+                        } else {
+                            self.monitored_users.entry(user).and_modify(
+                                |monitored_user| {
+                                    monitored_user.automated = false;
+                                },
+                            );
+                        }
                     }
 
-                    let messages = group_monitors(
+                    let mut messages = group_monitors(
                         &config.monitor,
                         *monitor_limit,
                         find_target_limit(&self.isupport, "MONITOR"),
                         &self.server,
-                    );
+                        self.monitored_users.len(),
+                    )
+                    .collect::<Vec<_>>();
+
+                    if !remove_monitors.is_empty() {
+                        messages.push(command!(
+                            "MONITOR",
+                            "-",
+                            remove_monitors
+                                .iter()
+                                .map(super::user::User::as_normalized_str)
+                                .join(",")
+                        ));
+                    }
 
                     for message in messages {
                         if let Err(e) = self.handle.try_send(message) {
@@ -644,6 +697,8 @@ impl Client {
         let labeled_response_context =
             self.set_labeled_response_context(buffer, &mut message);
 
+        let mut restore_automated_monitored_users: Vec<String> = vec![];
+
         if matches!(priority, TokenPriority::User) {
             match &message.command {
                 Command::LIST(..) => {
@@ -695,6 +750,65 @@ impl Client {
                         }
                     }
                 }
+                Command::MONITOR(subcommand, targets) => {
+                    match (targets, subcommand.as_str()) {
+                        (Some(targets), "+") => {
+                            let casemapping =
+                                isupport::get_casemapping_or_default(
+                                    &self.isupport,
+                                );
+                            let prefix = isupport::get_prefix(&self.isupport);
+                            for target in targets.split(",") {
+                                self.monitored_users
+                                    .entry(User::parse_or_force(
+                                        target,
+                                        casemapping,
+                                        prefix,
+                                    ))
+                                    .and_modify(|monitored_user| {
+                                        monitored_user.automated = false;
+                                    })
+                                    .or_insert_with(|| MonitoredUser {
+                                        online: false,
+                                        automated: false,
+                                    });
+                            }
+                        }
+                        (Some(targets), "-") => {
+                            let casemapping =
+                                isupport::get_casemapping_or_default(
+                                    &self.isupport,
+                                );
+                            let prefix = isupport::get_prefix(&self.isupport);
+                            for target in
+                                targets.split(',').filter(|s| !s.is_empty())
+                            {
+                                self.monitored_users.remove(
+                                    &User::parse_or_force(
+                                        target,
+                                        casemapping,
+                                        prefix,
+                                    ),
+                                );
+                            }
+                        }
+                        (_, "C" | "c") => {
+                            self.monitored_users.retain(
+                                |user, monitored_user| {
+                                    if monitored_user.automated {
+                                        restore_automated_monitored_users.push(
+                                            user.as_normalized_str().to_owned(),
+                                        );
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                },
+                            );
+                        }
+                        _ => (),
+                    }
+                }
                 _ => (),
             }
         }
@@ -703,6 +817,26 @@ impl Client {
             anti_flood.add_token(message, priority);
         } else if let Err(e) = self.handle.try_send(message.into()) {
             log::warn!("[{}] Error sending message: {e}", self.server);
+        }
+
+        if !restore_automated_monitored_users.is_empty()
+            && let Some(isupport::Parameter::MONITOR(monitor_limit)) =
+                self.isupport.get(&isupport::Kind::MONITOR)
+        {
+            let messages = group_monitors(
+                &restore_automated_monitored_users,
+                *monitor_limit,
+                find_target_limit(&self.isupport, "MONITOR"),
+                &self.server,
+                0,
+            );
+            for message in messages {
+                if let Some(ref mut anti_flood) = self.anti_flood {
+                    anti_flood.add_token(message.into(), TokenPriority::Low);
+                } else if let Err(e) = self.handle.try_send(message) {
+                    log::warn!("[{}] Error sending message: {e}", self.server);
+                }
+            }
         }
 
         labeled_response_context
@@ -2870,36 +3004,76 @@ impl Client {
 
                 let targets = ok!(args.get(1))
                     .split(',')
-                    .map(|target| {
-                        User::parse(target, casemapping, prefix).unwrap_or(
-                            User::from(Nick::from_str(target, casemapping)),
-                        )
+                    .filter_map(|target| {
+                        let user =
+                            User::parse_or_force(target, casemapping, prefix);
+                        let entry = self
+                            .monitored_users
+                            .entry(user.clone())
+                            .and_modify(|monitored_user| {
+                                monitored_user.online = true;
+                            })
+                            .or_insert_with(|| MonitoredUser {
+                                online: true,
+                                automated: false,
+                            });
+                        (!entry.automated).then_some(user)
                     })
                     .collect::<Vec<_>>();
 
-                return Ok(vec![
-                    Event::Single {
-                        message: message.clone(),
-                        our_nick: self.nickname().to_owned(),
-                        deduplicate: false,
-                    },
-                    Event::MonitoredOnline(targets),
-                ]);
+                let events = if !targets.is_empty() {
+                    vec![
+                        Event::Single {
+                            message: message.clone(),
+                            our_nick: self.nickname().to_owned(),
+                            deduplicate: false,
+                        },
+                        Event::MonitoredOnline(targets),
+                    ]
+                } else {
+                    vec![]
+                };
+                return Ok(events);
             }
             Command::Numeric(RPL_MONOFFLINE, args) => {
+                let casemapping =
+                    isupport::get_casemapping_or_default(&self.isupport);
+                let prefix = isupport::get_prefix(&self.isupport);
                 let targets = ok!(args.get(1))
                     .split(',')
-                    .map(|target| Nick::from_str(target, self.casemapping()))
+                    .filter_map(|target| {
+                        let nick = Nick::from_str(target, casemapping);
+                        let entry = self
+                            .monitored_users
+                            .entry(User::parse_or_force(
+                                target,
+                                casemapping,
+                                prefix,
+                            ))
+                            .and_modify(|monitored_user| {
+                                monitored_user.online = false;
+                            })
+                            .or_insert_with(|| MonitoredUser {
+                                online: false,
+                                automated: false,
+                            });
+                        (!entry.automated).then_some(nick)
+                    })
                     .collect::<Vec<_>>();
 
-                return Ok(vec![
-                    Event::Single {
-                        message: message.clone(),
-                        our_nick: self.nickname().to_owned(),
-                        deduplicate: false,
-                    },
-                    Event::MonitoredOffline(targets),
-                ]);
+                let events = if !targets.is_empty() {
+                    vec![
+                        Event::Single {
+                            message: message.clone(),
+                            our_nick: self.nickname().to_owned(),
+                            deduplicate: false,
+                        },
+                        Event::MonitoredOffline(targets),
+                    ]
+                } else {
+                    vec![]
+                };
+                return Ok(events);
             }
             Command::Numeric(RPL_ENDOFMONLIST, _) => {
                 return Ok(vec![]);
@@ -3187,6 +3361,7 @@ impl Client {
                             *monitor_limit,
                             find_target_limit(&self.isupport, "MONITOR"),
                             &self.server,
+                            0,
                         );
                         for message in messages {
                             self.handle.try_send(message)?;
@@ -4507,6 +4682,57 @@ impl Client {
     pub fn multiline_limits(&self) -> Option<MultilineLimits> {
         self.capabilities.multiline_limits()
     }
+
+    pub fn has_isupport_monitor(&self) -> bool {
+        self.isupport.contains_key(&isupport::Kind::MONITOR)
+    }
+
+    pub fn is_monitored_user(&self, user: &User) -> bool {
+        self.monitored_users.contains_key(user)
+    }
+
+    pub fn is_monitored_user_online(&self, user: &User) -> bool {
+        // falling back to assume nick is `online` if we don't have monitor support
+        !self.has_isupport_monitor()
+            || self
+                .monitored_users
+                .get(user)
+                .is_some_and(|monitored_user| monitored_user.online)
+    }
+
+    pub fn is_monitored_user_automated(&self, user: &User) -> bool {
+        self.monitored_users
+            .get(user)
+            .is_some_and(|monitored_user| monitored_user.automated)
+    }
+
+    pub fn add_monitored_user_automated(&mut self, user: &User) {
+        if self.has_isupport_monitor() {
+            self.monitored_users.insert(
+                user.clone(),
+                MonitoredUser {
+                    online: self.is_monitored_user_online(user),
+                    automated: true,
+                },
+            );
+            self.send(
+                None,
+                command!("MONITOR", "+", user.as_normalized_str()).into(),
+                TokenPriority::Low,
+            );
+        }
+    }
+
+    pub fn remove_monitored_user(&mut self, user: &User) {
+        if self.has_isupport_monitor() {
+            self.monitored_users.remove(user);
+            self.send(
+                None,
+                command!("MONITOR", "-", user.as_normalized_str()).into(),
+                TokenPriority::Low,
+            );
+        }
+    }
 }
 
 fn compare_channels_default(chantypes: &[char], a: &str, b: &str) -> Ordering {
@@ -5788,24 +6014,24 @@ fn group_monitors<'a>(
     monitor_limit: Option<u16>,
     target_limit: Option<u16>,
     server: &Server,
+    num_existing_monitors: usize,
 ) -> impl Iterator<Item = proto::Message> + 'a {
     const MAX_LEN: usize = proto::format::BYTE_LIMIT - b"MONITOR + \r\n".len();
 
     if let Some(monitor_limit) = monitor_limit.map(usize::from) {
-        if monitor_limit < users.len() {
+        let total_monitor_count = users.len() + num_existing_monitors;
+        let remove_target_count = total_monitor_count.saturating_sub(monitor_limit);
+        if remove_target_count > 0 {
             log::warn!(
-                "[{}] More users in monitor list than permitted by the server \
-                      ({} users in monitor list, {monitor_limit} permitted)",
-                server,
-                users.len(),
+                "[{server}] More users in monitor list than permitted by the server \
+                      ({total_monitor_count} users in monitor list, {monitor_limit} permitted)",
             );
         }
 
-        &users[0..std::cmp::min(monitor_limit, users.len())]
+        users.iter().take(users.len().saturating_sub(remove_target_count))
     } else {
-        users
+        users.iter().take(users.len())
     }
-    .iter()
     .scan((0, 0, 0), |(char_count, target_count, chunk), target| {
         // Target + a comma
         *char_count += target.len() + 1;

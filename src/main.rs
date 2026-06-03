@@ -1893,6 +1893,12 @@ fn handle_client_events(
             }
             Event::OnConnect(on_connect) => {
                 let server = server.clone();
+                for query in dashboard.open_pane_server_queries(&server) {
+                    if let Some(client) = clients.client_mut(&server) {
+                        let user = User::from(Nick::from(query));
+                        client.add_monitored_user_automated(&user);
+                    }
+                }
                 commands.push(Task::stream(on_connect).map(move |event| {
                     Message::OnConnect(server.clone(), event)
                 }));

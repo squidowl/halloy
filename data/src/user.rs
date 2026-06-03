@@ -446,6 +446,15 @@ impl User {
             bot: false,
         })
     }
+
+    pub fn parse_or_force(
+        value: &str,
+        casemapping: isupport::CaseMap,
+        prefix: Option<&[isupport::PrefixMap]>,
+    ) -> User {
+        User::parse(value, casemapping, prefix)
+            .unwrap_or(User::from(Nick::from_str(value, casemapping)))
+    }
 }
 
 fn parse_user_names(

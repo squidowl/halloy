@@ -3,10 +3,11 @@
 Added:
 
 - Add clear buffer shortcut to title bar
+- Indicate in query if user is offline
 
 Thanks:
 
-- Contributions: @luca020400
+- Contributions: @luca020400, @englut
 - Feature requests: @g00s
 
 # 2026.7.1 (2026-06-02)

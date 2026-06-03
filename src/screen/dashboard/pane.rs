@@ -2,7 +2,7 @@ use data::user::{ChannelUsers, User};
 use data::{Config, file_transfer, history, preview};
 use iced::widget::text::Wrapping;
 use iced::widget::{button, center, column, container, pane_grid, row, text};
-use iced::{Length, Size, Task, padding};
+use iced::{Length, Padding, Size, Task, padding};
 
 use super::sidebar;
 use crate::buffer::{self, Buffer};
@@ -584,11 +584,25 @@ fn query_title<'a>(
         .nickname
         .away
         .is_away(current_user.is_some_and(User::is_away));
-    // It's generally not possible to tell whether another user is offline or
-    // just not in the any shared channels.  Unless/until user offline status is
-    // monitored (via IRCv3 MONITOR or otherwise), do not display users as
-    // offline in query titles as it may be misleading.
-    let is_user_offline = config.buffer.nickname.offline.is_offline(false);
+    let is_user_offline = config.buffer.nickname.offline.is_offline(
+        shared_channels.is_empty()
+            && !clients
+                .client(server)
+                .is_some_and(|client| client.is_monitored_user_online(&user)),
+    );
+
+    let state = if is_user_offline {
+        Some(
+            container(
+                text("(Offline)").style(theme::text::secondary).font_maybe(
+                    theme::font_style::secondary(theme).map(font::get),
+                ),
+            )
+            .padding(Padding::default().left(5)),
+        )
+    } else {
+        None
+    };
 
     let nickname = text(resolved_query.as_str())
         .style(move |_| {
@@ -651,6 +665,7 @@ fn query_title<'a>(
                 .into()
             }
         ),
+        state,
         text(format!(" @ {server}"))
             .style(theme::text::buffer_title_bar)
             .font_maybe(

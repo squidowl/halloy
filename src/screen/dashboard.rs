@@ -20,6 +20,7 @@ use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::message::{self, Broadcast};
 use data::rate_limit::TokenPriority;
 use data::target::{self, Target};
+use data::user::Nick;
 use data::{
     Config, Image, Notification, Server, User, Version, cache, client, command,
     config, environment, file_transfer, history, preview, reaction, redaction,
@@ -2979,6 +2980,14 @@ impl Dashboard {
 
         self.last_changed = Some(Instant::now());
 
+        if let Some(buffer::Upstream::Query(server, query)) = buffer.upstream()
+            && let Some(client) = clients.client_mut(server)
+            && let user = User::from(Nick::from(query))
+            && !client.is_monitored_user(&user)
+        {
+            client.add_monitored_user_automated(&user);
+        }
+
         match buffer_action {
             BufferAction::ReplacePane => {
                 // If buffer already is open, we swap it with focused pane.
@@ -3223,6 +3232,13 @@ impl Dashboard {
                 (Task::batch(tasks), None)
             }
             buffer::Upstream::Query(server, nick) => {
+                if let Some(client) = clients.client_mut(&server)
+                    && let user = User::from(Nick::from(&nick))
+                    && client.is_monitored_user_automated(&user)
+                {
+                    client.remove_monitored_user(&user);
+                }
+
                 tasks.push(
                     self.history
                         .close(history::Kind::Query(server, nick), clients)
@@ -4861,6 +4877,23 @@ impl Dashboard {
                     .then_some(pane.buffer.to_string())
             })
         }
+    }
+
+    pub fn open_pane_server_queries(
+        &self,
+        server: &Server,
+    ) -> Vec<&target::Query> {
+        self.panes
+            .iter()
+            .filter_map(|(_, _, pane)| match pane.buffer.upstream() {
+                Some(buffer::Upstream::Query(buffer_server, query))
+                    if buffer_server == server =>
+                {
+                    Some(query)
+                }
+                _ => None,
+            })
+            .collect()
     }
 }
 
