@@ -18,7 +18,9 @@ use data::user::{ChannelUsers, Nick, NickRef};
 use data::{Config, command, mode};
 use iced::Length;
 use iced::widget::text::Shaping;
-use iced::widget::{button, column, container, row, text_editor, tooltip};
+use iced::widget::{
+    Space, button, column, container, row, text_editor, tooltip,
+};
 use irc::proto;
 use itertools::{Either, Itertools};
 use unicode_segmentation::UnicodeSegmentation;
@@ -210,6 +212,7 @@ impl Completion {
     pub fn view<'a, Message: Clone + 'a>(
         &'a self,
         input: &str,
+        inset: f32,
         server: &Server,
         config: &Config,
         theme: &'a Theme,
@@ -218,9 +221,15 @@ impl Completion {
         let command_view =
             self.commands
                 .view(input, server, config, theme, on_select_command);
-        let emojis_view = self.emojis.view(config, on_select_command);
+        let emojis_view = self
+            .emojis
+            .view(config, on_select_command)
+            .map(|emojis_view| row![Space::new().width(inset), emojis_view]);
         let paths_view = self.paths.view(on_select_command);
-        let words_view = self.words.view(on_select_command);
+        let words_view = self
+            .words
+            .view(on_select_command)
+            .map(|words_view| row![Space::new().width(inset), words_view]);
 
         if command_view.is_some()
             || emojis_view.is_some()

@@ -679,9 +679,23 @@ pub fn view<'a>(
 
     let input_field: Element<'a, Message> =
         if config.tooltips.show_for_autocomplete() {
+            let cursor_position = state.input_content.cursor().position;
+
+            let width_of_line_before_word = state
+                .input_content
+                .line(cursor_position.line)
+                .and_then(|line| {
+                    get_line_before_word(&line.text, cursor_position.column)
+                        .map(|line_before_word| {
+                            font::width_from_str(line_before_word, &config.font)
+                        })
+                })
+                .unwrap_or_default();
+
             let overlay = column![
                 state.completion.view(
                     state.input_content.text().as_str(),
+                    width_of_line_before_word,
                     server,
                     config,
                     theme,
@@ -697,7 +711,7 @@ pub fn view<'a>(
             anchored_overlay(
                 wrapped_input,
                 overlay,
-                anchored_overlay::Anchor::Point(cursor_anchor(state, config)),
+                anchored_overlay::Anchor::Point(line_anchor(state, config)),
                 4.0,
             )
         } else {
@@ -737,26 +751,11 @@ pub fn view<'a>(
     column![content].into()
 }
 
-fn cursor_anchor(state: &State, config: &Config) -> Point {
+fn line_anchor(state: &State, config: &Config) -> Point {
     let cursor_position = state.input_content.cursor().position;
     let line_height = theme::resolve_line_height(&config.font);
 
-    let width_of_line_before_word = state
-        .input_content
-        .line(cursor_position.line)
-        .and_then(|line| {
-            get_line_before_word(&line.text, cursor_position.column).map(
-                |line_before_word| {
-                    font::width_from_str(line_before_word, &config.font)
-                },
-            )
-        })
-        .unwrap_or_default();
-
-    Point::new(
-        4.0 + width_of_line_before_word,
-        2.0 + cursor_position.line as f32 * line_height,
-    )
+    Point::new(4.0, 2.0 + cursor_position.line as f32 * line_height)
 }
 
 fn get_line_before_word(line: &str, cursor_position: usize) -> Option<&str> {
