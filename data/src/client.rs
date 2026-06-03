@@ -379,28 +379,29 @@ impl Client {
                         .config
                         .monitor
                         .iter()
-                        .filter(|existing_monitor| {
-                            let user = User::parse(
+                        .filter_map(|existing_monitor| {
+                            let user = User::parse_or_force(
                                 existing_monitor,
                                 casemapping,
                                 prefix,
-                            )
-                            .unwrap_or(User::from(Nick::from_str(
-                                existing_monitor,
-                                casemapping,
-                            )));
-                            !config.monitor.contains(existing_monitor)
+                            );
+                            if !config.monitor.contains(existing_monitor)
                                 && !self.is_monitored_user_automated(&user)
+                            {
+                                Some(user)
+                            } else {
+                                None
+                            }
                         })
-                        .cloned()
                         .collect::<Vec<_>>();
 
                     let monitored_users_keys: Vec<User> =
                         self.monitored_users.keys().cloned().collect();
                     for user in monitored_users_keys {
-                        if remove_monitors.iter().any(|remove_monitor| {
-                            remove_monitor == user.as_normalized_str()
-                        }) {
+                        if remove_monitors
+                            .iter()
+                            .any(|remove_monitor| remove_monitor == &user)
+                        {
                             self.monitored_users.remove(&user);
                         } else {
                             self.monitored_users.entry(user).and_modify(
@@ -416,7 +417,7 @@ impl Client {
                         *monitor_limit,
                         find_target_limit(&self.isupport, "MONITOR"),
                         &self.server,
-                        Some(self.monitored_users.len()),
+                        self.monitored_users.len(),
                     )
                     .collect::<Vec<_>>();
 
@@ -424,7 +425,10 @@ impl Client {
                         messages.push(command!(
                             "MONITOR",
                             "-",
-                            remove_monitors.into_iter().join(",")
+                            remove_monitors
+                                .iter()
+                                .map(super::user::User::as_normalized_str)
+                                .join(",")
                         ));
                     }
 
@@ -756,17 +760,11 @@ impl Client {
                             let prefix = isupport::get_prefix(&self.isupport);
                             for target in targets.split(",") {
                                 self.monitored_users
-                                    .entry(
-                                        User::parse(
-                                            target,
-                                            casemapping,
-                                            prefix,
-                                        )
-                                        .unwrap_or(User::from(Nick::from_str(
-                                            target,
-                                            casemapping,
-                                        ))),
-                                    )
+                                    .entry(User::parse_or_force(
+                                        target,
+                                        casemapping,
+                                        prefix,
+                                    ))
                                     .and_modify(|monitored_user| {
                                         monitored_user.automated = false;
                                     })
@@ -786,21 +784,27 @@ impl Client {
                                 targets.split(',').filter(|s| !s.is_empty())
                             {
                                 self.monitored_users.remove(
-                                    &User::parse(target, casemapping, prefix)
-                                        .unwrap_or(User::from(Nick::from_str(
-                                            target,
-                                            casemapping,
-                                        ))),
+                                    &User::parse_or_force(
+                                        target,
+                                        casemapping,
+                                        prefix,
+                                    ),
                                 );
                             }
                         }
                         (_, "C" | "c") => {
-                            for (user, _) in self.monitored_users.iter().filter(
-                                |(_, monitored_user)| monitored_user.automated,
-                            ) {
-                                restore_automated_monitored_users
-                                    .push(user.as_normalized_str().to_owned());
-                            }
+                            self.monitored_users.retain(
+                                |user, monitored_user| {
+                                    if monitored_user.automated {
+                                        restore_automated_monitored_users.push(
+                                            user.as_normalized_str().to_owned(),
+                                        );
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                },
+                            );
                         }
                         _ => (),
                     }
@@ -824,11 +828,11 @@ impl Client {
                 *monitor_limit,
                 find_target_limit(&self.isupport, "MONITOR"),
                 &self.server,
-                None,
+                0,
             );
             for message in messages {
                 if let Some(ref mut anti_flood) = self.anti_flood {
-                    anti_flood.add_token(message.into(), priority);
+                    anti_flood.add_token(message.into(), TokenPriority::Low);
                 } else if let Err(e) = self.handle.try_send(message) {
                     log::warn!("[{}] Error sending message: {e}", self.server);
                 }
@@ -3002,9 +3006,7 @@ impl Client {
                     .split(',')
                     .filter_map(|target| {
                         let user =
-                            User::parse(target, casemapping, prefix).unwrap_or(
-                                User::from(Nick::from_str(target, casemapping)),
-                            );
+                            User::parse_or_force(target, casemapping, prefix);
                         let entry = self
                             .monitored_users
                             .entry(user.clone())
@@ -3043,10 +3045,11 @@ impl Client {
                         let nick = Nick::from_str(target, casemapping);
                         let entry = self
                             .monitored_users
-                            .entry(
-                                User::parse(target, casemapping, prefix)
-                                    .unwrap_or(nick.clone().into()),
-                            )
+                            .entry(User::parse_or_force(
+                                target,
+                                casemapping,
+                                prefix,
+                            ))
                             .and_modify(|monitored_user| {
                                 monitored_user.online = false;
                             })
@@ -3358,7 +3361,7 @@ impl Client {
                             *monitor_limit,
                             find_target_limit(&self.isupport, "MONITOR"),
                             &self.server,
-                            None,
+                            0,
                         );
                         for message in messages {
                             self.handle.try_send(message)?;
@@ -4704,14 +4707,14 @@ impl Client {
     }
 
     pub fn add_monitored_user_automated(&mut self, user: &User) {
-        self.monitored_users.insert(
-            user.clone(),
-            MonitoredUser {
-                online: self.is_monitored_user_online(user),
-                automated: true,
-            },
-        );
         if self.has_isupport_monitor() {
+            self.monitored_users.insert(
+                user.clone(),
+                MonitoredUser {
+                    online: self.is_monitored_user_online(user),
+                    automated: true,
+                },
+            );
             self.send(
                 None,
                 command!("MONITOR", "+", user.as_normalized_str()).into(),
@@ -4721,8 +4724,8 @@ impl Client {
     }
 
     pub fn remove_monitored_user(&mut self, user: &User) {
-        self.monitored_users.remove(user);
         if self.has_isupport_monitor() {
+            self.monitored_users.remove(user);
             self.send(
                 None,
                 command!("MONITOR", "-", user.as_normalized_str()).into(),
@@ -6011,27 +6014,24 @@ fn group_monitors<'a>(
     monitor_limit: Option<u16>,
     target_limit: Option<u16>,
     server: &Server,
-    num_existing_monitors: Option<usize>,
+    num_existing_monitors: usize,
 ) -> impl Iterator<Item = proto::Message> + 'a {
     const MAX_LEN: usize = proto::format::BYTE_LIMIT - b"MONITOR + \r\n".len();
 
     if let Some(monitor_limit) = monitor_limit.map(usize::from) {
-        let mut total_monitor_count = users.len();
-        if let Some(num_existing_monitors) = num_existing_monitors {
-            total_monitor_count += num_existing_monitors;
-        }
-        if monitor_limit < total_monitor_count {
+        let total_monitor_count = users.len() + num_existing_monitors;
+        let remove_target_count = total_monitor_count.saturating_sub(monitor_limit);
+        if remove_target_count > 0 {
             log::warn!(
                 "[{server}] More users in monitor list than permitted by the server \
                       ({total_monitor_count} users in monitor list, {monitor_limit} permitted)",
             );
         }
 
-        &users[0..std::cmp::min(monitor_limit, users.len())]
+        users.iter().take(users.len().saturating_sub(remove_target_count))
     } else {
-        users
+        users.iter().take(users.len())
     }
-    .iter()
     .scan((0, 0, 0), |(char_count, target_count, chunk), target| {
         // Target + a comma
         *char_count += target.len() + 1;

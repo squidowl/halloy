@@ -2980,17 +2980,9 @@ impl Dashboard {
 
         self.last_changed = Some(Instant::now());
 
-        if let Some(upstream) = buffer.upstream()
-            && let server = upstream.server()
-            && let Some(query) = upstream.query()
+        if let Some(buffer::Upstream::Query(server, query)) = buffer.upstream()
             && let Some(client) = clients.client_mut(server)
-            && let user =
-                User::from(Nick::from_str(query.as_str(), client.casemapping()))
-            && let Some(server_config) = config.servers.get(server)
-            && !server_config
-                .monitor
-                .iter()
-                .any(|nick| nick == user.as_normalized_str())
+            && let user = User::from(Nick::from(query))
             && !client.is_monitored_user(&user)
         {
             client.add_monitored_user_automated(&user);
@@ -3241,10 +3233,7 @@ impl Dashboard {
             }
             buffer::Upstream::Query(server, nick) => {
                 if let Some(client) = clients.client_mut(&server)
-                    && let user = User::from(Nick::from_str(
-                        nick.as_str(),
-                        client.casemapping(),
-                    ))
+                    && let user = User::from(Nick::from(&nick))
                     && client.is_monitored_user_automated(&user)
                 {
                     client.remove_monitored_user(&user);

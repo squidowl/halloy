@@ -586,8 +586,6 @@ fn query_title<'a>(
         .is_away(current_user.is_some_and(User::is_away));
     let is_user_offline = config.buffer.nickname.offline.is_offline(
         shared_channels.is_empty()
-            && current_user.is_none()
-            && current_user.and_then(User::accountname).is_none()
             && !clients
                 .client(server)
                 .is_some_and(|client| client.is_monitored_user_online(&user)),

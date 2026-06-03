@@ -1895,10 +1895,7 @@ fn handle_client_events(
                 let server = server.clone();
                 for query in dashboard.open_pane_server_queries(&server) {
                     if let Some(client) = clients.client_mut(&server) {
-                        let user = User::from(Nick::from_str(
-                            query.as_str(),
-                            client.casemapping(),
-                        ));
+                        let user = User::from(Nick::from(query));
                         client.add_monitored_user_automated(&user);
                     }
                 }
