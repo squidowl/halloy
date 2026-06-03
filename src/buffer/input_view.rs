@@ -863,12 +863,18 @@ impl State {
         history: &history::Manager,
         config: &Config,
     ) -> Self {
+        let mut input_content = if cache.draft_message.is_empty() {
+            text_editor::Content::new()
+        } else {
+            text_editor::Content::with_text(cache.draft_message)
+        };
+
+        input_content.perform(text_editor::Action::Move(
+            text_editor::Motion::DocumentEnd,
+        ));
+
         let mut state = Self {
-            input_content: if cache.draft_message.is_empty() {
-                text_editor::Content::new()
-            } else {
-                text_editor::Content::with_text(cache.draft_message)
-            },
+            input_content,
             draft_reply: cache.draft_reply.cloned(),
             ..Self::default()
         };
