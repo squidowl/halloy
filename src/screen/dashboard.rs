@@ -530,15 +530,14 @@ impl Dashboard {
                                     text,
                                     unreact,
                                 } => {
+                                    pane.close_buffer_modal();
+
                                     let Some(buffer_message) = pane
                                         .buffer
                                         .reaction_message(msgid, text, unreact)
                                     else {
-                                        pane.close_buffer_modal();
-                                        return (Task::none(), None);
+                                        return (self.refocus_pane(), None);
                                     };
-
-                                    pane.close_buffer_modal();
 
                                     let (command, event) = pane.buffer.update(
                                         buffer_message,
@@ -549,12 +548,16 @@ impl Dashboard {
                                         config,
                                     );
 
-                                    let task = command.map(move |message| {
-                                        Message::Pane(
-                                            window,
-                                            pane::Message::Buffer(id, message),
-                                        )
-                                    });
+                                    let task = self.refocus_pane().chain(
+                                        command.map(move |message| {
+                                            Message::Pane(
+                                                window,
+                                                pane::Message::Buffer(
+                                                    id, message,
+                                                ),
+                                            )
+                                        }),
+                                    );
 
                                     (task, event)
                                 }
@@ -592,7 +595,7 @@ impl Dashboard {
                                         }
                                     }
 
-                                    (Task::none(), None)
+                                    (self.refocus_pane(), None)
                                 }
                             }
                         };
@@ -620,7 +623,7 @@ impl Dashboard {
                         if let Some(state) = self.panes.get_mut(window, id) {
                             state.close_buffer_modal();
                         }
-                        return (Task::none(), None);
+                        return (self.refocus_pane(), None);
                     }
                 }
             }
