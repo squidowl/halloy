@@ -69,6 +69,7 @@ impl Completion {
         if is_command {
             self.commands.process(
                 input,
+                cursor_position,
                 cursor_is_selection,
                 our_nickname,
                 channels.iter().copied(),
@@ -358,6 +359,7 @@ impl Commands {
     fn process<'a>(
         &mut self,
         input: &str,
+        cursor_position: usize,
         cursor_is_selection: bool,
         our_nickname: Option<NickRef>,
         channels: impl IntoIterator<Item = &'a target::Channel>,
@@ -379,10 +381,15 @@ impl Commands {
             return;
         }
 
-        let (cmd, has_space) = if let Some(index) = rest.find(' ') {
-            (&rest[0..index], true)
+        let editing_command = !rest
+            .get(..cursor_position.saturating_sub(1))
+            .unwrap_or(rest)
+            .contains(' ');
+
+        let cmd = if let Some(index) = rest.find(' ') {
+            &rest[0..index]
         } else {
-            (rest, false)
+            rest
         };
 
         let aliases = command::alias::list(config);
@@ -407,7 +414,7 @@ impl Commands {
 
         match self {
             // Command not fully typed, show filtered entries
-            _ if !has_space => {
+            _ if editing_command => {
                 if let Some(command) = command_list.iter().find(|command| {
                     command.title().to_lowercase() == cmd.to_lowercase()
                         || command.aliases().iter().any(|alias| {
@@ -1728,8 +1735,6 @@ impl Command {
         config: &Config,
         theme: &'a Theme,
     ) -> Element<'a, Message> {
-        let command_prefix = format!("/{}", self.title.to_lowercase());
-
         let num_skipped =
             self.args.iter().filter(|arg| arg.kind.skipped()).count()
                 + subcommand.map_or(0, |subcommand| {
@@ -1745,25 +1750,20 @@ impl Command {
         } else {
             input.split_at_checked(cursor_position).and_then(
                 |(before_cursor, _)| {
-                    before_cursor
-                        .to_lowercase()
-                        .strip_prefix(&command_prefix)
-                        .and_then(|before_cursor| {
-                            let index = ["_", before_cursor, "_"]
-                                .concat()
-                                .split_ascii_whitespace()
-                                .count()
-                                .saturating_add(num_skipped)
-                                .saturating_sub(1)
-                                .min(
-                                    self.args.len()
-                                        + subcommand.map_or(0, |subcommand| {
-                                            subcommand.args.len()
-                                        }),
-                                );
+                    let index = [before_cursor, "_"]
+                        .concat()
+                        .split_ascii_whitespace()
+                        .count()
+                        .saturating_add(num_skipped)
+                        .saturating_sub(1)
+                        .min(
+                            self.args.len()
+                                + subcommand.map_or(0, |subcommand| {
+                                    subcommand.args.len()
+                                }),
+                        );
 
-                            (index > 0).then_some(index.saturating_sub(1))
-                        })
+                    (index > 0).then_some(index.saturating_sub(1))
                 },
             )
         };
