@@ -224,6 +224,7 @@ pub struct Client {
     anti_flood: Option<TokenBucket<message::Encoded>>,
     mode_requests: Vec<ModeRequest>,
     metadata_sub_requests: HashSet<String>,
+    metadata_syncs: Vec<MetadataSync>,
     channel_discovery_manager: channel_discovery::Manager,
     http_client: Option<Arc<reqwest::Client>>, // Only Some if config.proxy.is_some()
     registry: metadata::ServerRegistry,
@@ -295,6 +296,7 @@ impl Client {
             anti_flood: Some(TokenBucket::new(config.anti_flood, 10)),
             mode_requests: Vec::new(),
             metadata_sub_requests: HashSet::new(),
+            metadata_syncs: Vec::new(),
             http_client: http_client.map(Arc::new),
             config,
             channel_discovery_manager: channel_discovery::Manager::new(),
@@ -3524,6 +3526,44 @@ impl Client {
 
                 return Ok(vec![]);
             }
+            Command::Numeric(RPL_METADATASYNCLATER, args) => {
+                // args: <Client> <Target> [<RetryAfter>]
+                // https://ircv3.net/specs/extensions/metadata#postponed-synchronization
+                if let Some(target) = args.get(1) {
+                    let target = Target::parse(
+                        target,
+                        self.chantypes(),
+                        self.statusmsg(),
+                        self.casemapping(),
+                    );
+
+                    // waiting at least <RetryAfter> seconds if provided
+                    let retry_after = args
+                        .get(2)
+                        .and_then(|secs| secs.parse::<u64>().ok())
+                        .map_or(Duration::ZERO, Duration::from_secs);
+
+                    let ready_at = Instant::now() + retry_after;
+
+                    log::debug!(
+                        "[{}] Metadata sync postponed for [{target}], retrying in {retry_after:?}",
+                        self.server
+                    );
+
+                    if let Some(sync) = self
+                        .metadata_syncs
+                        .iter_mut()
+                        .find(|sync| sync.target == target)
+                    {
+                        sync.ready_at = ready_at;
+                    } else {
+                        self.metadata_syncs
+                            .push(MetadataSync { target, ready_at });
+                    }
+                }
+
+                return Ok(vec![]);
+            }
             _ => {}
         }
 
@@ -4557,6 +4597,34 @@ impl Client {
 
         for mode_request in mode_requests {
             self.send(None, mode_request.into(), TokenPriority::Low);
+        }
+
+        if self.capabilities.acknowledged(Capability::Metadata) {
+            let mut metadata_syncs = Vec::new();
+
+            self.metadata_syncs.retain(|sync| {
+                if now >= sync.ready_at {
+                    log::debug!(
+                        "[{}] Sending METADATA SYNC for [{}]",
+                        self.server,
+                        sync.target
+                    );
+                    metadata_syncs.push(command!(
+                        "METADATA",
+                        sync.target.to_string(),
+                        "SYNC"
+                    ));
+                    false
+                } else {
+                    true
+                }
+            });
+
+            for metadata_sync in metadata_syncs {
+                self.send(None, metadata_sync.into(), TokenPriority::Low);
+            }
+        } else {
+            self.metadata_syncs.clear();
         }
 
         self.chathistory_requests.retain(|_, chathistory_request| {
@@ -5910,6 +5978,12 @@ pub enum ModeStatus {
     Joined(Instant),
     Requested(Instant),
     Received(Instant),
+}
+
+#[derive(Debug, Clone)]
+pub struct MetadataSync {
+    pub target: Target,
+    pub ready_at: Instant,
 }
 
 fn group_capability_requests<'a>(

@@ -5,6 +5,10 @@ Added:
 - Add clear buffer shortcut to title bar
 - Indicate in query if user is offline
 
+Fixed:
+
+- Correctly support `RPL_METADATASYNCLATER`
+
 Thanks:
 
 - Contributions: @luca020400, @englut
