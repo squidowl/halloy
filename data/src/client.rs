@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::binary_heap::PeekMut;
+use std::collections::{BTreeMap, BinaryHeap, HashMap, HashSet, VecDeque};
 use std::mem::take;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -296,7 +297,7 @@ impl Client {
             anti_flood: Some(TokenBucket::new(config.anti_flood, 10)),
             mode_requests: Vec::new(),
             metadata_sub_requests: HashSet::new(),
-            metadata_syncs: Vec::new(),
+            metadata_syncs: BinaryHeap::new(),
             http_client: http_client.map(Arc::new),
             config,
             channel_discovery_manager: channel_discovery::Manager::new(),
@@ -3550,13 +3551,11 @@ impl Client {
                         self.server
                     );
 
-                    if let Some(sync) = self
+                    if !self
                         .metadata_syncs
-                        .iter_mut()
-                        .find(|sync| sync.target == target)
+                        .iter()
+                        .any(|sync| sync.target == target)
                     {
-                        sync.ready_at = ready_at;
-                    } else {
                         self.metadata_syncs
                             .push(MetadataSync { target, ready_at });
                     }
@@ -4599,8 +4598,17 @@ impl Client {
             self.send(None, mode_request.into(), TokenPriority::Low);
         }
 
-        while let Some(sync) = heap.peek_mut() && sync.ready_at < now {
+        loop {
+            let Some(sync) = self.metadata_syncs.peek_mut() else {
+                break;
+            };
+
+            if sync.ready_at > now {
+                break;
+            }
+
             let sync = PeekMut::pop(sync);
+
             log::debug!(
                 "[{}] Sending METADATA SYNC for [{}]",
                 self.server,
@@ -5971,6 +5979,26 @@ pub struct MetadataSync {
     pub target: Target,
     pub ready_at: Instant,
 }
+
+impl Ord for MetadataSync {
+    fn cmp(&self, other: &Self) -> Ordering {
+        other.ready_at.cmp(&self.ready_at)
+    }
+}
+
+impl PartialOrd for MetadataSync {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for MetadataSync {
+    fn eq(&self, other: &Self) -> bool {
+        self.ready_at == other.ready_at
+    }
+}
+
+impl Eq for MetadataSync {}
 
 fn group_capability_requests<'a>(
     capabilities: &'a [&'a str],
