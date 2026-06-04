@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::convert;
-use std::ops::RangeInclusive;
 use std::time::{Duration, Instant};
 
 use chrono::{DateTime, Utc};
@@ -24,9 +23,7 @@ use iced::widget::{
     self, button, center, column, container, mouse_area, operation, row, rule,
     text_editor,
 };
-use iced::{
-    Alignment, Length, Point, Task, clipboard, event, keyboard, padding,
-};
+use iced::{Alignment, Length, Task, clipboard, event, keyboard, padding};
 use itertools::Itertools;
 use tokio::time;
 use unicode_segmentation::UnicodeSegmentation;
@@ -679,23 +676,9 @@ pub fn view<'a>(
 
     let input_field: Element<'a, Message> =
         if config.tooltips.show_for_autocomplete() {
-            let cursor_position = state.input_content.cursor().position;
-
-            let width_of_line_before_word = state
-                .input_content
-                .line(cursor_position.line)
-                .and_then(|line| {
-                    get_line_before_word(&line.text, cursor_position.column)
-                        .map(|line_before_word| {
-                            font::width_from_str(line_before_word, &config.font)
-                        })
-                })
-                .unwrap_or_default();
-
             let overlay = column![
                 state.completion.view(
                     state.input_content.text().as_str(),
-                    width_of_line_before_word,
                     server,
                     config,
                     theme,
@@ -711,7 +694,7 @@ pub fn view<'a>(
             anchored_overlay(
                 wrapped_input,
                 overlay,
-                anchored_overlay::Anchor::Point(line_anchor(state, config)),
+                anchored_overlay::Anchor::AboveTop,
                 4.0,
             )
         } else {
@@ -749,62 +732,6 @@ pub fn view<'a>(
     let content = column![input_column].spacing(4).padding(padding::top(4));
 
     column![content].into()
-}
-
-fn line_anchor(state: &State, config: &Config) -> Point {
-    let cursor_position = state.input_content.cursor().position;
-    let line_height = theme::resolve_line_height(&config.font);
-
-    Point::new(4.0, 2.0 + cursor_position.line as f32 * line_height)
-}
-
-fn get_line_before_word(line: &str, cursor_position: usize) -> Option<&str> {
-    let mut previous_word_bounds = Option::<RangeInclusive<usize>>::None;
-
-    if cursor_position == line.len() {
-        let mut trailing_spaces = 0;
-
-        let word_bounds_start = line
-            .split(' ')
-            .rfind(|word| {
-                if word.is_empty() {
-                    trailing_spaces += 1;
-                    false
-                } else {
-                    true
-                }
-            })
-            .map(|word| {
-                line.len().saturating_sub(word.len() + trailing_spaces)
-            });
-
-        return word_bounds_start.and_then(|word_bounds_start| {
-            line.split_at_checked(word_bounds_start)
-                .map(|(line_before_word, _)| line_before_word)
-        });
-    }
-
-    for word in line.split(' ') {
-        let word_bounds =
-            if let Some(previous_word_bounds) = previous_word_bounds {
-                RangeInclusive::new(
-                    previous_word_bounds.end() + 1,
-                    previous_word_bounds.end() + 1 + word.len(),
-                )
-            } else {
-                RangeInclusive::new(0, word.len())
-            };
-
-        if word_bounds.contains(&cursor_position) {
-            return line
-                .split_at_checked(*word_bounds.start())
-                .map(|(line_before_word, _)| line_before_word);
-        }
-
-        previous_word_bounds = Some(word_bounds);
-    }
-
-    None
 }
 
 fn reply_bar<'a>(
