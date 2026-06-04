@@ -224,7 +224,7 @@ pub struct Client {
     anti_flood: Option<TokenBucket<message::Encoded>>,
     mode_requests: Vec<ModeRequest>,
     metadata_sub_requests: HashSet<String>,
-    metadata_syncs: Vec<MetadataSync>,
+    metadata_syncs: BinaryHeap<MetadataSync>,
     channel_discovery_manager: channel_discovery::Manager,
     http_client: Option<Arc<reqwest::Client>>, // Only Some if config.proxy.is_some()
     registry: metadata::ServerRegistry,
