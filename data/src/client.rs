@@ -4599,32 +4599,24 @@ impl Client {
             self.send(None, mode_request.into(), TokenPriority::Low);
         }
 
-        if self.capabilities.acknowledged(Capability::Metadata) {
-            let mut metadata_syncs = Vec::new();
+        let (ready, pending): (Vec<_>, Vec<_>) = self
+            .metadata_syncs
+            .drain(..)
+            .partition(|sync| now >= sync.ready_at);
 
-            self.metadata_syncs.retain(|sync| {
-                if now >= sync.ready_at {
-                    log::debug!(
-                        "[{}] Sending METADATA SYNC for [{}]",
-                        self.server,
-                        sync.target
-                    );
-                    metadata_syncs.push(command!(
-                        "METADATA",
-                        sync.target.to_string(),
-                        "SYNC"
-                    ));
-                    false
-                } else {
-                    true
-                }
-            });
+        self.metadata_syncs = pending;
 
-            for metadata_sync in metadata_syncs {
-                self.send(None, metadata_sync.into(), TokenPriority::Low);
-            }
-        } else {
-            self.metadata_syncs.clear();
+        for sync in ready {
+            log::debug!(
+                "[{}] Sending METADATA SYNC for [{}]",
+                self.server,
+                sync.target
+            );
+            self.send(
+                None,
+                command!("METADATA", sync.target.to_string(), "SYNC").into(),
+                TokenPriority::Low,
+            );
         }
 
         self.chathistory_requests.retain(|_, chathistory_request| {
