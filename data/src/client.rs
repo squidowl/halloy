@@ -4599,14 +4599,8 @@ impl Client {
             self.send(None, mode_request.into(), TokenPriority::Low);
         }
 
-        let (ready, pending): (Vec<_>, Vec<_>) = self
-            .metadata_syncs
-            .drain(..)
-            .partition(|sync| now >= sync.ready_at);
-
-        self.metadata_syncs = pending;
-
-        for sync in ready {
+        while let Some(sync) = heap.peek_mut() && sync.ready_at < now {
+            let sync = PeekMut::pop(sync);
             log::debug!(
                 "[{}] Sending METADATA SYNC for [{}]",
                 self.server,
