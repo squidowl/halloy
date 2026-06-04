@@ -22,7 +22,7 @@ jobs:
             os: windows-latest
             make: bash scripts/build-windows-installer.sh
             artifact_path: |
-              echo "ARTIFACT_PATH=target/packaging/halloy-installer.msi" >> $env:GITHUB_ENV
+              echo "ARTIFACT_PATH=target/packaging/halloy-installer.exe" >> $env:GITHUB_ENV
           - target: linux
             os: ubuntu-latest
             make: bash scripts/package-linux.sh package
@@ -58,6 +58,10 @@ jobs:
         uses: taiki-e/install-action@4bc351f7f2614e48088386e2a0ad917ca3a7e4ba # v2
         with:
           tool: cargo-edit
+
+      - name: Install Inno Setup
+        if: matrix.target.target == 'windows'
+        run: choco install innosetup --no-progress --yes
 
       - name: Build
         run: ${{ matrix.target.make }}
@@ -117,7 +121,7 @@ jobs:
             asset_type: application/octet-stream
           - artifact: windows
             artifact_name: |
-              echo "ARTIFACT_NAME=halloy-installer.msi" >> "$GITHUB_ENV"
+              echo "ARTIFACT_NAME=halloy-installer.exe" >> "$GITHUB_ENV"
             asset_type: application/x-dosexec
           - artifact: linux
             artifact_name: |

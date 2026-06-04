@@ -19,6 +19,7 @@ Changed:
 - `buffer.reply.insert_nick` no longer inserts nick when replying in query buffers or to yourself
 - Input tooltips are aligned with the input (i.e. inset when `text_input.nickname.enabled = true`)
 - `servers.<name>.sasl.plain.username` setting will fall back to `servers.<name>.nickname` if not set
+- Replace the Windows MSI package with a per-user Inno Setup installer
 
 Thanks:
 
