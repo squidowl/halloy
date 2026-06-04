@@ -3,12 +3,17 @@
 ARCH="x86_64"
 TARGET="halloy"
 VERSION=$(cat VERSION)
+NIGHTLY=$(cat NIGHTLY)
 PROFILE="packaging"
 ASSETS_DIR="assets/linux"
 RELEASE_DIR="target/$PROFILE"
 BINARY="$RELEASE_DIR/$TARGET"
 ARCHIVE_DIR="$RELEASE_DIR/archive"
-ARCHIVE_NAME="$TARGET-$VERSION-$ARCH-linux.tar.gz"
+if [ "$VERSION" = "$NIGHTLY" ]; then
+  ARCHIVE_NAME="$TARGET-nightly-$ARCH-linux.tar.gz"
+else
+  ARCHIVE_NAME="$TARGET-$VERSION-$ARCH-linux.tar.gz"
+fi
 ARCHIVE_PATH="$RELEASE_DIR/$ARCHIVE_NAME"
 
 build() {

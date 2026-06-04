@@ -15,7 +15,7 @@ APP_EXTRAS_DIR="$APP_DIR/$APP_NAME/Contents/Resources"
 DMG_NAME="halloy.dmg"
 DMG_DIR="$RELEASE_DIR/macos"
 
-VERSION=$(cat VERSION)
+VERSION=$(grep -q '\..*\.' VERSION && cat VERSION || echo "$(cat VERSION).0")
 BUILD=$(git describe --always --dirty --exclude='*')
 
 # update version and build

@@ -1,11 +1,19 @@
-name: "Release"
+name: "Nightly Release"
 
 on:
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "Specify tag to create"
-        required: true
+  workflow_run:
+    workflows:
+      - Build
+    types:
+      - completed
+    branches:
+      - main
+
+# We must only run one release workflow at a time to prevent corrupting
+# our release artifacts.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -31,6 +39,10 @@ jobs:
     runs-on: ${{ matrix.target.os }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set version to nightly
+        run: cp NIGHTLY VERSION
+
       - uses: dtolnay/rust-toolchain@master # recommended when specifying toolchain
         with:
           toolchain: stable
@@ -55,7 +67,7 @@ jobs:
 
       - name: Install cargo-edit
         if: matrix.target.target == 'windows'
-        uses: taiki-e/install-action@15413b256f995d819248ea62704771a959284285 # v2
+        uses: taiki-e/install-action@e0eafa9a0d485c37f97c0f7beb930a58a2facbac # v2
         with:
           tool: cargo-edit
 
@@ -87,25 +99,34 @@ jobs:
           name: ${{ matrix.target.target }}
           path: ${{ env.ARTIFACT_PATH }}
 
-  create-release:
+  update-release:
     needs: build
-    name: Create Release
+    name: Update Release
     runs-on: ubuntu-latest
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-      - name: Create Release
-        id: create-release
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Update Tag
+        id: update-tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -fa nightly -m "Nightly" ${{ github.sha }}
+          git push --force origin nightly
+
+      - name: Update Release
+        id: update-release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v2
         with:
-          tag_name: ${{ github.event.inputs.tag }}
-          name: ${{ github.event.inputs.tag }}
-          draft: true
-          prerelease: false
+          tag_name: nightly
+          name: Nightly
+          prerelease: true
+          target_commitish: ${{ github.sha }}
 
   add-assets:
-    needs: create-release
+    needs: update-release
     name: Add Assets
 
     strategy:
@@ -131,6 +152,9 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
+      - name: Set version to nightly
+        run: cp NIGHTLY VERSION
+
       - name: Download artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -142,4 +166,4 @@ jobs:
 
       - name: Upload asset
         run: |
-          gh release upload ${{ github.event.inputs.tag }} ./${{ matrix.target.artifact }}/${{ env.ARTIFACT_NAME }}
+          gh release upload nightly ./${{ matrix.target.artifact }}/${{ env.ARTIFACT_NAME }} --clobber
