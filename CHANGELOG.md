@@ -8,6 +8,7 @@ Added:
 Fixed:
 
 - Correctly support `RPL_METADATASYNCLATER`
+- Show `Display` in `Configuration` docs menu
 
 Changed:
 
@@ -17,6 +18,7 @@ Thanks:
 
 - Contributions: @luca020400, @englut, @furudean
 - Feature requests: @g00s
+- Bug reports: wwWraith
 
 # 2026.7.1 (2026-06-02)
 

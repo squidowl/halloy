@@ -2,12 +2,15 @@ import footnote from "markdown-it-footnote";
 import { defineConfig } from "vitepress";
 
 const releaseLabel = process.env.DOCS_VERSION ?? "Latest Release";
-const releaseLink = process.env.DOCS_CHANNEL === "nightly" ? "https://halloy.chat" : "/";
+const releaseLink =
+  process.env.DOCS_CHANNEL === "nightly" ? "https://halloy.chat" : "/";
 const nightlyLabel = process.env.DOCS_SHA
   ? `Nightly (${process.env.DOCS_SHA.slice(0, 7)})`
   : "Nightly";
-const nightlyLink = process.env.DOCS_CHANNEL === "nightly" ? "/" : "https://nightly.halloy.chat";
-const docsChannel = process.env.DOCS_CHANNEL === "nightly" ? nightlyLabel : releaseLabel;
+const nightlyLink =
+  process.env.DOCS_CHANNEL === "nightly" ? "/" : "https://nightly.halloy.chat";
+const docsChannel =
+  process.env.DOCS_CHANNEL === "nightly" ? nightlyLabel : releaseLabel;
 
 const guidesItems = [
   { text: "Building for Flatpak", link: "/guides/flatpaks" },
@@ -60,6 +63,7 @@ const configurationItems = [
     link: "/configuration/context-menu",
   },
   { text: "CTCP", link: "/configuration/cctp" },
+  { text: "Display", link: "/configuration/display" },
   {
     text: "File Transfer",
     link: "/configuration/file-transfer",
@@ -159,12 +163,13 @@ export default defineConfig({
       { icon: "github", link: "https://github.com/squidowl/halloy" },
     ],
     sidebar: {
-      '/configuration': [
+      "/configuration": [
         {
           items: [
             { text: "Installation", link: "/installation" },
             { text: "Getting Started", link: "/getting-started" },
-            { text: "Configuration",
+            {
+              text: "Configuration",
               link: "/configuration",
               collapsed: false,
               items: configurationItems,
@@ -179,12 +184,13 @@ export default defineConfig({
           ],
         },
       ],
-      '/': [
+      "/": [
         {
           items: [
             { text: "Installation", link: "/installation" },
             { text: "Getting Started", link: "/getting-started" },
-            { text: "Configuration",
+            {
+              text: "Configuration",
               link: "/configuration",
               collapsed: true,
               items: configurationItems,
