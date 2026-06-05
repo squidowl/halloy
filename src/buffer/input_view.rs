@@ -117,7 +117,7 @@ pub enum Message {
     SetDraftReply {
         msgid: message::Id,
         server_time: DateTime<Utc>,
-        to_nick: String,
+        to_nick: Nick,
     },
     ClearDraftReply,
 }
@@ -1434,12 +1434,18 @@ impl State {
                 server_time,
                 to_nick,
             } => {
-                let is_insert_nick = config.buffer.reply.insert_nick;
+                let is_self_reply = clients
+                    .nickname(buffer.server())
+                    .is_some_and(|own| own == to_nick);
+                let should_insert_nick = config.buffer.reply.insert_nick
+                    && !matches!(buffer, buffer::Upstream::Query(..))
+                    && !is_self_reply;
                 let suffix =
                     &config.buffer.text_input.autocomplete.completion_suffixes
                         [0];
                 // Strip old nick prefix if replacing an existing reply
-                if is_insert_nick && let Some(old_reply) = &self.draft_reply {
+                if should_insert_nick && let Some(old_reply) = &self.draft_reply
+                {
                     let old_prefix_str = format!("{}{suffix}", old_reply.nick);
                     let current_text = self.input_content.text();
                     if current_text.starts_with(&old_prefix_str) {
@@ -1462,10 +1468,10 @@ impl State {
                 self.draft_reply = Some(input::DraftReply {
                     id: msgid,
                     server_time,
-                    nick: to_nick.clone(),
+                    nick: to_nick.to_string(),
                 });
 
-                if is_insert_nick {
+                if should_insert_nick {
                     let prefix_str = format!("{to_nick}{suffix}");
                     let current_text = self.input_content.text();
                     if !current_text.starts_with(&prefix_str) {
@@ -2812,6 +2818,7 @@ impl State {
 
         if self.draft_reply.is_some() {
             if config.buffer.reply.insert_nick
+                && !matches!(buffer, buffer::Upstream::Query(..))
                 && let Some(draft_reply) = &self.draft_reply
             {
                 let suffix =

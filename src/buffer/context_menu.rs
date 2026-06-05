@@ -614,7 +614,7 @@ impl Entry {
                         Some(Message::Reply {
                             msgid: msgid.clone(),
                             server_time: message.server_time,
-                            to_nick: user.nickname().to_string(),
+                            to_nick: user.nickname().to_owned(),
                         }),
                         length,
                         theme,
@@ -753,7 +753,7 @@ pub enum Message {
     Reply {
         msgid: message::Id,
         server_time: DateTime<Utc>,
-        to_nick: String,
+        to_nick: Nick,
     },
     LoadUserAvatar(Server, url::Url),
     Link(message::Link),
@@ -785,7 +785,7 @@ pub enum Event {
     Reply {
         msgid: message::Id,
         server_time: DateTime<Utc>,
-        to_nick: String,
+        to_nick: Nick,
     },
     LoadUserAvatar(Server, url::Url),
     ExpandMessage(DateTime<Utc>, message::Hash),

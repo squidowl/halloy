@@ -9,9 +9,13 @@ Fixed:
 
 - Correctly support `RPL_METADATASYNCLATER`
 
+Changed:
+
+- `buffer.reply.insert_nick` no longer inserts nick when replying in query buffers or to yourself
+
 Thanks:
 
-- Contributions: @luca020400, @englut
+- Contributions: @luca020400, @englut, @furudean
 - Feature requests: @g00s
 
 # 2026.7.1 (2026-06-02)
