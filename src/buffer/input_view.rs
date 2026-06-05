@@ -117,7 +117,7 @@ pub enum Message {
     SetDraftReply {
         msgid: message::Id,
         server_time: DateTime<Utc>,
-        to_nick: String,
+        to_nick: Nick,
     },
     ClearDraftReply,
 }
@@ -1436,7 +1436,7 @@ impl State {
             } => {
                 let is_self_reply = clients
                     .nickname(buffer.server())
-                    .is_some_and(|own| own.as_str() == to_nick);
+                    .is_some_and(|own| own == to_nick);
                 let should_insert_nick = config.buffer.reply.insert_nick
                     && !matches!(buffer, buffer::Upstream::Query(..))
                     && !is_self_reply;
@@ -1468,7 +1468,7 @@ impl State {
                 self.draft_reply = Some(input::DraftReply {
                     id: msgid,
                     server_time,
-                    nick: to_nick.clone(),
+                    nick: to_nick.to_string(),
                 });
 
                 if should_insert_nick {
