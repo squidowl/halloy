@@ -1891,7 +1891,8 @@ impl Dashboard {
             ]
             .into()
         } else {
-            base
+            // Wrap in stack so iced can track base properly
+            stack![base].into()
         }
     }
 
