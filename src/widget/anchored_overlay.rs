@@ -25,7 +25,6 @@ pub fn anchored_overlay<'a, Message: 'a>(
 pub enum Anchor {
     AboveTop,
     BelowTopCentered,
-    Point(Point),
 }
 
 struct AnchoredOverlay<'a, Message> {
@@ -211,8 +210,6 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
             Anchor::AboveTop => self.position.y,
             // From top of base to bottom of viewport
             Anchor::BelowTopCentered => bounds.height - self.position.y,
-            // From the anchor point to the top of viewport
-            Anchor::Point(point) => self.position.y + point.y,
         };
 
         let limits = layout::Limits::new(
@@ -240,10 +237,6 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
                 self.base_layout.width / 2.0 - node.size().width / 2.0,
                 self.offset,
             ),
-            // Overlay above the point
-            Anchor::Point(point) => {
-                Vector::new(point.x, point.y - node.size().height - self.offset)
-            }
         };
 
         node.move_to(self.position + translation)
