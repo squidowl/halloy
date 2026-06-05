@@ -817,6 +817,7 @@ impl Halloy {
                                         ),
                                     &self.config,
                                     sent_time,
+                                    false,
                                     Broadcast::Disconnected { error },
                                 )
                                 .map(Message::Dashboard),
@@ -842,6 +843,7 @@ impl Halloy {
                                 .get_server_casemapping_or_default(&server),
                             &self.config,
                             sent_time,
+                            false,
                             Broadcast::Connecting,
                         )
                         .map(Message::Dashboard)
@@ -890,6 +892,7 @@ impl Halloy {
                                 .get_server_casemapping_or_default(&server),
                             &self.config,
                             sent_time,
+                            false,
                             broadcast_kind,
                         )
                         .map(Message::Dashboard);
@@ -921,6 +924,7 @@ impl Halloy {
                                 .get_server_casemapping_or_default(&server),
                             &self.config,
                             sent_time,
+                            false,
                             Broadcast::ConnectionFailed { error },
                         )
                         .map(Message::Dashboard)
@@ -2405,12 +2409,14 @@ fn handle_broadcast(
             user,
             comment,
             channels,
-            sent_time,
+            server_time,
+            received_with_server_time,
         } => dashboard.broadcast(
             server,
             casemapping,
             config,
-            sent_time,
+            server_time,
+            received_with_server_time,
             Broadcast::Quit {
                 user,
                 comment,
@@ -2423,14 +2429,16 @@ fn handle_broadcast(
             new_nick,
             ourself,
             channels,
-            sent_time,
+            server_time,
+            received_with_server_time,
         } => {
             let old_nick = old_user.nickname().to_owned();
             dashboard.broadcast(
                 server,
                 casemapping,
                 config,
-                sent_time,
+                server_time,
+                received_with_server_time,
                 Broadcast::Nickname {
                     old_nick,
                     new_nick,
@@ -2447,12 +2455,14 @@ fn handle_broadcast(
             ourself,
             logged_in,
             channels,
-            sent_time,
+            server_time,
+            received_with_server_time,
         } => dashboard.broadcast(
             server,
             casemapping,
             config,
-            sent_time,
+            server_time,
+            received_with_server_time,
             Broadcast::ChangeHost {
                 old_user,
                 new_username,
@@ -2468,12 +2478,14 @@ fn handle_broadcast(
             victim,
             reason,
             channel,
-            sent_time,
+            server_time,
+            received_with_server_time,
         } => dashboard.broadcast(
             server,
             casemapping,
             config,
-            sent_time,
+            server_time,
+            received_with_server_time,
             Broadcast::Kick {
                 kicker,
                 victim,

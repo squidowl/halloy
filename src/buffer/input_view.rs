@@ -2066,7 +2066,7 @@ impl State {
         let labeled_response_context = if let Some(last_encoded) =
             encoded.last()
         {
-            let sent_time = last_encoded.server_time_or_now();
+            let sent_time = last_encoded.server_time_or_now().0;
 
             let reply_id = self
                 .draft_reply
@@ -2539,7 +2539,7 @@ impl State {
 
             encoded.set_reply_to(reply_id);
 
-            let sent_time = encoded.server_time_or_now();
+            let sent_time = encoded.server_time_or_now().0;
 
             let labeled_response_context =
                 clients.send(buffer, encoded, TokenPriority::User);

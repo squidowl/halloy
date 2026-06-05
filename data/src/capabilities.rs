@@ -3,7 +3,7 @@ use std::str::FromStr;
 use std::string::ToString;
 use std::sync::LazyLock;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 use irc::proto::{self, Tags, command, format};
 
 use crate::message::formatting::{Modifier, update_formatting_with_modifier};
@@ -491,7 +491,26 @@ impl LabeledResponseContext {
         Self {
             // Prefix ':' to ensure it cannot match any valid message id
             label_as_id: format!(":label={label}").into(),
-            server_time: message.server_time_or_now(),
+            server_time: message.server_time_or_now().0,
         }
+    }
+}
+
+// Server time from a message that indicates entry to a server or channel (i.e.
+// RPL_LOGGEDIN or JOIN);  if the message does not have a server_time tag, then
+// the server_time generated from local time will be shifted into the future.
+// If the resultant server_time is ahead of the time on the server, then
+// deduplication should take care of any duplicate messages we receive.
+pub fn chathistory_entry_server_time(
+    message: message::Encoded,
+) -> DateTime<Utc> {
+    let (server_time, received_with_server_time) = message.server_time_or_now();
+
+    if received_with_server_time {
+        server_time
+    } else {
+        TimeDelta::try_minutes(90)
+            .and_then(|time_delta| server_time.checked_add_signed(time_delta))
+            .unwrap_or(server_time)
     }
 }

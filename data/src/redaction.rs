@@ -41,7 +41,7 @@ impl Redaction {
         casemapping: isupport::CaseMap,
     ) -> Option<Context> {
         let user = message.user(casemapping)?;
-        let server_time = message.server_time_or_now();
+        let server_time = message.server_time_or_now().0;
 
         let Command::REDACT(target, msgid, reason) = message.0.command else {
             return None;

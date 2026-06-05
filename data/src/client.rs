@@ -20,7 +20,8 @@ pub use self::on_connect::on_connect;
 use crate::bouncer::{self, BouncerNetwork};
 use crate::capabilities::{
     self, Capabilities, Capability, LabeledResponseContext, MultilineBatchKind,
-    MultilineLimits, multiline_concat_lines, multiline_encoded,
+    MultilineLimits, chathistory_entry_server_time, multiline_concat_lines,
+    multiline_encoded,
 };
 use crate::config::server::filehost;
 use crate::environment::{SOURCE_WEBSITE, VERSION};
@@ -75,14 +76,16 @@ pub enum Broadcast {
         user: User,
         comment: Option<String>,
         channels: Vec<target::Channel>,
-        sent_time: DateTime<Utc>,
+        server_time: DateTime<Utc>,
+        received_with_server_time: bool,
     },
     Nickname {
         old_user: User,
         new_nick: Nick,
         ourself: bool,
         channels: Vec<target::Channel>,
-        sent_time: DateTime<Utc>,
+        server_time: DateTime<Utc>,
+        received_with_server_time: bool,
     },
     ChangeHost {
         old_user: User,
@@ -91,14 +94,16 @@ pub enum Broadcast {
         ourself: bool,
         logged_in: bool,
         channels: Vec<target::Channel>,
-        sent_time: DateTime<Utc>,
+        server_time: DateTime<Utc>,
+        received_with_server_time: bool,
     },
     Kick {
         kicker: User,
         victim: User,
         reason: Option<String>,
         channel: target::Channel,
-        sent_time: DateTime<Utc>,
+        server_time: DateTime<Utc>,
+        received_with_server_time: bool,
     },
 }
 
@@ -1530,7 +1535,9 @@ impl Client {
                     });
                 }
 
-                return Ok(vec![Event::LoggedIn(message.server_time_or_now())]);
+                return Ok(vec![Event::LoggedIn(
+                    chathistory_entry_server_time(message),
+                )]);
             }
             Command::Numeric(RPL_LOGGEDOUT, _) => {
                 log::info!("[{}] logged out", self.server);
@@ -1846,12 +1853,16 @@ impl Client {
                     }
                 });
 
+                let (server_time, received_with_server_time) =
+                    message.server_time_or_now();
+
                 return Ok(vec![Event::Broadcast(Broadcast::Nickname {
                     old_user,
                     new_nick,
                     ourself,
                     channels,
-                    sent_time: message.server_time_or_now(),
+                    server_time,
+                    received_with_server_time,
                 })]);
             }
             Command::Numeric(ERR_NICKNAMEINUSE | ERR_ERRONEUSNICKNAME, _)
@@ -1901,11 +1912,15 @@ impl Client {
                     channel.users.remove(&user);
                 });
 
+                let (server_time, received_with_server_time) =
+                    message.server_time_or_now();
+
                 return Ok(vec![Event::Broadcast(Broadcast::Quit {
                     user,
                     comment: comment.clone(),
                     channels,
-                    sent_time: message.server_time_or_now(),
+                    server_time,
+                    received_with_server_time,
                 })]);
             }
             Command::PART(channel, _) => {
@@ -1983,7 +1998,7 @@ impl Client {
 
                     return Ok(vec![Event::JoinedChannel(
                         target_channel,
-                        message.server_time_or_now(),
+                        chathistory_entry_server_time(message),
                     )]);
                 } else if let Some(channel) =
                     self.chanmap.get_mut(&target_channel)
@@ -2022,13 +2037,17 @@ impl Client {
                     {
                         self.chanmap.shift_remove(&channel);
 
+                        let (server_time, received_with_server_time) =
+                            message.server_time_or_now();
+
                         return Ok(vec![
                             Event::Broadcast(Broadcast::Kick {
                                 kicker: ok!(message.user(casemapping)),
                                 victim: User::from(self.nickname().to_owned()),
                                 reason: reason.clone(),
                                 channel,
-                                sent_time: message.server_time_or_now(),
+                                server_time,
+                                received_with_server_time,
                             }),
                             Event::Single {
                                 message,
@@ -2556,7 +2575,8 @@ impl Client {
                         channel.topic.content =
                             Some(message::parse_fragments(text.clone()));
                         channel.topic.who = message.user(casemapping);
-                        channel.topic.time = Some(message.server_time_or_now());
+                        channel.topic.time =
+                            Some(message.server_time_or_now().0);
                     } else {
                         channel.topic.content = None;
                         channel.topic.who = None;
@@ -2962,6 +2982,9 @@ impl Client {
 
                 let channels = self.user_channels(old_user.nickname());
 
+                let (server_time, received_with_server_time) =
+                    message.server_time_or_now();
+
                 return Ok(vec![Event::Broadcast(Broadcast::ChangeHost {
                     old_user,
                     new_username: new_username.clone(),
@@ -2969,7 +2992,8 @@ impl Client {
                     ourself,
                     logged_in: self.logged_in,
                     channels,
-                    sent_time: message.server_time_or_now(),
+                    server_time,
+                    received_with_server_time,
                 })]);
             }
             Command::Numeric(RPL_VISIBLEHOST, args) => {

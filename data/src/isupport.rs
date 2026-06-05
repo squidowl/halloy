@@ -948,15 +948,6 @@ pub enum MessageReference {
     MessageId(message::Id),
 }
 
-// impl fmt::Display for Option<MessageReference> {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         match self {
-//             Some(message_reference) => write!(f, "{message_reference}"),
-//             None => write!(f, "*"),
-//         }
-//     }
-// }
-
 impl fmt::Display for MessageReference {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

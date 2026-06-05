@@ -162,8 +162,14 @@ impl Encoded {
             .map(|dt| dt.with_timezone(&Utc))
     }
 
-    pub fn server_time_or_now(&self) -> DateTime<Utc> {
-        self.server_time().unwrap_or_else(Utc::now)
+    pub fn server_time_or_now(&self) -> (DateTime<Utc>, bool) {
+        let server_time = self.server_time();
+        let received_with_server_time = server_time.is_some();
+
+        (
+            server_time.unwrap_or_else(Utc::now),
+            received_with_server_time,
+        )
     }
 
     pub fn from_bot(&self) -> bool {
@@ -352,6 +358,7 @@ pub struct Message {
     pub hash: Hash,
     pub hidden_urls: HashSet<Url>,
     pub is_echo: bool, // Only relevant if direction == Direction::Received
+    pub received_with_server_time: bool, // Only relevant if direction == Direction::Received
     pub blocked: bool,
     pub condensed: Option<Arc<Message>>,
     pub expanded: bool, // Only relevant if can_condense or redaction.is_some()
@@ -409,7 +416,7 @@ impl Message {
             return false;
         }
 
-        true
+        self.received_with_server_time || self.id.is_some()
     }
 
     pub fn is_rerouted(&self) -> bool {
@@ -456,7 +463,8 @@ impl Message {
         casemapping: isupport::CaseMap,
         prefix: &[isupport::PrefixMap],
     ) -> Option<Message> {
-        let server_time = encoded.server_time_or_now();
+        let (server_time, received_with_server_time) =
+            encoded.server_time_or_now();
         let id = encoded.message_id();
         let reply_to = encoded.in_reply_to();
         let is_echo = encoded
@@ -500,6 +508,7 @@ impl Message {
             hash,
             hidden_urls: HashSet::default(),
             is_echo,
+            received_with_server_time,
             blocked: false,
             condensed: None,
             expanded: false,
@@ -526,7 +535,8 @@ impl Message {
         casemapping: isupport::CaseMap,
         prefix: &[isupport::PrefixMap],
     ) -> Option<(Message, Option<Highlight>, bool)> {
-        let server_time = encoded.server_time_or_now();
+        let (server_time, received_with_server_time) =
+            encoded.server_time_or_now();
         let id = encoded.message_id();
         let reply_to = encoded.in_reply_to();
         let is_echo = encoded
@@ -570,6 +580,7 @@ impl Message {
             hash,
             hidden_urls: HashSet::default(),
             is_echo,
+            received_with_server_time,
             blocked: false,
             condensed: None,
             expanded: false,
@@ -652,6 +663,7 @@ impl Message {
             hash,
             hidden_urls: HashSet::default(),
             is_echo: false,
+            received_with_server_time: false,
             blocked: false,
             condensed: None,
             expanded: false,
@@ -691,6 +703,7 @@ impl Message {
             hash,
             hidden_urls: HashSet::default(),
             is_echo: false,
+            received_with_server_time: false,
             blocked: false,
             condensed: None,
             expanded: false,
@@ -728,6 +741,7 @@ impl Message {
             hash,
             hidden_urls: HashSet::default(),
             is_echo: false,
+            received_with_server_time: false,
             blocked: false,
             condensed: None,
             expanded: false,
@@ -820,6 +834,7 @@ impl Message {
             hash,
             hidden_urls: HashSet::default(),
             is_echo: false,
+            received_with_server_time: false,
             blocked: false,
             condensed: None,
             expanded: false,
@@ -895,6 +910,7 @@ impl Serialize for Message {
             text: Cow<'a, str>,
             hidden_urls: &'a HashSet<url::Url>,
             is_echo: &'a bool,
+            received_with_server_time: &'a bool,
             command: &'a Option<command::Irc>,
             #[serde(skip_serializing_if = "<[_]>::is_empty")]
             reactions: &'a [Reaction],
@@ -913,6 +929,7 @@ impl Serialize for Message {
             text: self.content.text(),
             hidden_urls: &self.hidden_urls,
             is_echo: &self.is_echo,
+            received_with_server_time: &self.received_with_server_time,
             command: &self.command,
             reactions: &self.reactions,
             rerouted_from: &self.rerouted_from,
@@ -943,9 +960,10 @@ impl<'de> Deserialize<'de> for Message {
             reply_to: Option<Id>,
             #[serde(default)]
             hidden_urls: HashSet<url::Url>,
-            // New field, optional for upgrade compatibility
-            #[serde(default, deserialize_with = "fail_as_none")]
-            is_echo: Option<bool>,
+            #[serde(default)]
+            is_echo: bool,
+            #[serde(default)]
+            received_with_server_time: bool,
             #[serde(default, deserialize_with = "fail_as_none")]
             command: Option<command::Irc>,
             #[serde(default)]
@@ -967,6 +985,7 @@ impl<'de> Deserialize<'de> for Message {
             reply_to,
             hidden_urls,
             is_echo,
+            received_with_server_time,
             command,
             reactions,
             rerouted_from,
@@ -983,8 +1002,6 @@ impl<'de> Deserialize<'de> for Message {
             Content::Plain(String::new())
         };
 
-        let is_echo = is_echo.unwrap_or_default();
-
         let hash = Hash::new(&server_time, &content, &received_at);
 
         Ok(Message {
@@ -999,6 +1016,7 @@ impl<'de> Deserialize<'de> for Message {
             hash,
             hidden_urls,
             is_echo,
+            received_with_server_time,
             blocked: false,
             condensed: None,
             expanded: false,
@@ -1223,6 +1241,7 @@ pub fn condense(
             hash: first_message.hash,
             hidden_urls: HashSet::default(),
             is_echo: false,
+            received_with_server_time: false,
             blocked: false,
             condensed: None,
             expanded: false,
@@ -5006,6 +5025,7 @@ pub mod tests {
             broadcast,
             &Config::default(),
             Utc::now(),
+            false,
             channels,
             queries,
         )
