@@ -4598,17 +4598,10 @@ impl Client {
             self.send(None, mode_request.into(), TokenPriority::Low);
         }
 
-        loop {
-            let Some(sync) = self.metadata_syncs.peek_mut() else {
-                break;
-            };
-
-            if sync.ready_at > now {
-                break;
-            }
-
-            let sync = PeekMut::pop(sync);
-
+        // NOTE(pounce): change to `BinaryHeap::pop_if` when stabilized
+        while let Some(sync) = self.metadata_syncs.peek_mut().and_then(|sync| {
+            (sync.ready_at <= now).then_some(PeekMut::pop(sync))
+        }) {
             log::debug!(
                 "[{}] Sending METADATA SYNC for [{}]",
                 self.server,
@@ -5980,9 +5973,13 @@ pub struct MetadataSync {
     pub ready_at: Instant,
 }
 
+// A reverse order on ready_at, so we get a min-heap
 impl Ord for MetadataSync {
     fn cmp(&self, other: &Self) -> Ordering {
-        other.ready_at.cmp(&self.ready_at)
+        other
+            .ready_at
+            .cmp(&self.ready_at)
+            .then(self.target.cmp(&other.target))
     }
 }
 
@@ -5994,7 +5991,7 @@ impl PartialOrd for MetadataSync {
 
 impl PartialEq for MetadataSync {
     fn eq(&self, other: &Self) -> bool {
-        self.ready_at == other.ready_at
+        self.ready_at == other.ready_at && self.target == other.target
     }
 }
 
@@ -6460,5 +6457,49 @@ mod tests {
 
         assert!(client.querymap.contains_key(&query("foobar")));
         assert_eq!(client.resolve_query(&query("foobar")), Some(&canonical));
+    }
+
+    #[test]
+    fn ordered_metadata_syncs() {
+        let ready_at = Instant::now();
+        let foo = Target::parse(
+            "#foo",
+            isupport::DEFAULT_CHANTYPES,
+            isupport::DEFAULT_STATUSMSG,
+            isupport::CaseMap::default(),
+        );
+        let bar = Target::parse(
+            "#bar",
+            isupport::DEFAULT_CHANTYPES,
+            isupport::DEFAULT_STATUSMSG,
+            isupport::CaseMap::default(),
+        );
+        let mut heap = BinaryHeap::from([
+            MetadataSync {
+                ready_at: ready_at + Duration::from_secs(5),
+                target: foo.clone(),
+            },
+            MetadataSync {
+                ready_at,
+                target: bar.clone(),
+            },
+        ]);
+
+        // the earlier item should be popped first
+        assert!(heap.pop().is_some_and(|sync| sync.target == bar));
+
+        heap.clear();
+
+        // make sure that we can have two targets at the same time
+        heap.push(MetadataSync {
+            ready_at,
+            target: bar,
+        });
+        heap.push(MetadataSync {
+            ready_at,
+            target: foo,
+        });
+
+        assert_eq!(heap.len(), 2);
     }
 }
