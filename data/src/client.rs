@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::binary_heap::PeekMut;
+use std::collections::{BTreeMap, BinaryHeap, HashMap, HashSet, VecDeque};
 use std::mem::take;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -224,6 +225,7 @@ pub struct Client {
     anti_flood: Option<TokenBucket<message::Encoded>>,
     mode_requests: Vec<ModeRequest>,
     metadata_sub_requests: HashSet<String>,
+    metadata_syncs: BinaryHeap<MetadataSync>,
     channel_discovery_manager: channel_discovery::Manager,
     http_client: Option<Arc<reqwest::Client>>, // Only Some if config.proxy.is_some()
     registry: metadata::ServerRegistry,
@@ -295,6 +297,7 @@ impl Client {
             anti_flood: Some(TokenBucket::new(config.anti_flood, 10)),
             mode_requests: Vec::new(),
             metadata_sub_requests: HashSet::new(),
+            metadata_syncs: BinaryHeap::new(),
             http_client: http_client.map(Arc::new),
             config,
             channel_discovery_manager: channel_discovery::Manager::new(),
@@ -3524,6 +3527,42 @@ impl Client {
 
                 return Ok(vec![]);
             }
+            Command::Numeric(RPL_METADATASYNCLATER, args) => {
+                // args: <Client> <Target> [<RetryAfter>]
+                // https://ircv3.net/specs/extensions/metadata#postponed-synchronization
+                if let Some(target) = args.get(1) {
+                    let target = Target::parse(
+                        target,
+                        self.chantypes(),
+                        self.statusmsg(),
+                        self.casemapping(),
+                    );
+
+                    // waiting at least <RetryAfter> seconds if provided
+                    let retry_after = args
+                        .get(2)
+                        .and_then(|secs| secs.parse::<u64>().ok())
+                        .map_or(Duration::ZERO, Duration::from_secs);
+
+                    let ready_at = Instant::now() + retry_after;
+
+                    log::debug!(
+                        "[{}] Metadata sync postponed for [{target}], retrying in {retry_after:?}",
+                        self.server
+                    );
+
+                    if !self
+                        .metadata_syncs
+                        .iter()
+                        .any(|sync| sync.target == target)
+                    {
+                        self.metadata_syncs
+                            .push(MetadataSync { target, ready_at });
+                    }
+                }
+
+                return Ok(vec![]);
+            }
             _ => {}
         }
 
@@ -4557,6 +4596,22 @@ impl Client {
 
         for mode_request in mode_requests {
             self.send(None, mode_request.into(), TokenPriority::Low);
+        }
+
+        // NOTE(pounce): change to `BinaryHeap::pop_if` when stabilized
+        while let Some(sync) = self.metadata_syncs.peek_mut().and_then(|sync| {
+            (sync.ready_at <= now).then_some(PeekMut::pop(sync))
+        }) {
+            log::debug!(
+                "[{}] Sending METADATA SYNC for [{}]",
+                self.server,
+                sync.target
+            );
+            self.send(
+                None,
+                command!("METADATA", sync.target.to_string(), "SYNC").into(),
+                TokenPriority::Low,
+            );
         }
 
         self.chathistory_requests.retain(|_, chathistory_request| {
@@ -5912,6 +5967,36 @@ pub enum ModeStatus {
     Received(Instant),
 }
 
+#[derive(Debug, Clone)]
+pub struct MetadataSync {
+    pub target: Target,
+    pub ready_at: Instant,
+}
+
+// A reverse order on ready_at, so we get a min-heap
+impl Ord for MetadataSync {
+    fn cmp(&self, other: &Self) -> Ordering {
+        other
+            .ready_at
+            .cmp(&self.ready_at)
+            .then(self.target.cmp(&other.target))
+    }
+}
+
+impl PartialOrd for MetadataSync {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for MetadataSync {
+    fn eq(&self, other: &Self) -> bool {
+        self.ready_at == other.ready_at && self.target == other.target
+    }
+}
+
+impl Eq for MetadataSync {}
+
 fn group_capability_requests<'a>(
     capabilities: &'a [&'a str],
 ) -> impl Iterator<Item = proto::Message> + 'a {
@@ -6372,5 +6457,49 @@ mod tests {
 
         assert!(client.querymap.contains_key(&query("foobar")));
         assert_eq!(client.resolve_query(&query("foobar")), Some(&canonical));
+    }
+
+    #[test]
+    fn ordered_metadata_syncs() {
+        let ready_at = Instant::now();
+        let foo = Target::parse(
+            "#foo",
+            isupport::DEFAULT_CHANTYPES,
+            isupport::DEFAULT_STATUSMSG,
+            isupport::CaseMap::default(),
+        );
+        let bar = Target::parse(
+            "#bar",
+            isupport::DEFAULT_CHANTYPES,
+            isupport::DEFAULT_STATUSMSG,
+            isupport::CaseMap::default(),
+        );
+        let mut heap = BinaryHeap::from([
+            MetadataSync {
+                ready_at: ready_at + Duration::from_secs(5),
+                target: foo.clone(),
+            },
+            MetadataSync {
+                ready_at,
+                target: bar.clone(),
+            },
+        ]);
+
+        // the earlier item should be popped first
+        assert!(heap.pop().is_some_and(|sync| sync.target == bar));
+
+        heap.clear();
+
+        // make sure that we can have two targets at the same time
+        heap.push(MetadataSync {
+            ready_at,
+            target: bar,
+        });
+        heap.push(MetadataSync {
+            ready_at,
+            target: foo,
+        });
+
+        assert_eq!(heap.len(), 2);
     }
 }
