@@ -55,7 +55,7 @@ pub struct Server {
     pub nick_identify_syntax: Option<IdentifySyntax>,
     /// Alternative nicknames for the client, if the default is taken.
     pub alt_nicks: Vec<String>,
-    /// The client's username.
+    /// The client's username (falls back to nickname if needed & not provided).
     pub username: Option<String>,
     /// The client's real name.
     pub realname: Option<String>,
@@ -293,8 +293,8 @@ pub enum IdentifySyntax {
 #[serde(rename_all = "kebab-case")]
 pub enum Sasl {
     Plain {
-        /// Account name
-        username: String,
+        /// Account name (falls back to nickname if not provided)
+        username: Option<String>,
         /// Account password,
         password: Option<String>,
         /// Account password file
@@ -425,7 +425,7 @@ impl Sasl {
         }
     }
 
-    pub fn params(&self) -> Vec<String> {
+    pub fn params(&self, nickname: &str) -> Vec<String> {
         const CHUNK_SIZE: usize = 400;
 
         match self {
@@ -441,7 +441,12 @@ impl Sasl {
                 // Exclude authorization ID, to use the authentication ID as the authorization ID
                 // https://datatracker.ietf.org/doc/html/rfc4616#section-2
                 let encoding = base64::engine::general_purpose::STANDARD
-                    .encode(format!("\x00{username}\x00{password}"));
+                    .encode(format!(
+                        "\x00{}\x00{password}",
+                        username
+                            .as_ref()
+                            .map_or(nickname, |username| username.as_str())
+                    ));
 
                 let chunks = encoding
                     .as_bytes()

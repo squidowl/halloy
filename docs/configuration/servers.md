@@ -102,7 +102,7 @@ alt_nicks = ["Foo", "Bar"]
 
 ## `username`
 
-The client's username.
+The client's username.  If not set, then the configured [`nickname`](#nickname) will be used.
 
 ```toml
 # Type: string
@@ -669,7 +669,7 @@ Plain SASL auth using a username and password. See the [guide by Libera.Chat](ht
 
 ### `username`
 
-The account name used for authentication.
+The account name used for authentication.  If not set, then the configured [`nickname`](#nickname) will be used.
 
 ```toml
 # Type: string
