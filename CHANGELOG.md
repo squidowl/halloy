@@ -3,22 +3,28 @@
 Added:
 
 - Add clear buffer shortcut to title bar
-- Indicate in query if user is offline
+- Indicate in query if user is offline in its title bar
 
 Fixed:
 
+- Issue where large window size could cause Halloy to crash in certain scenarios
 - Correctly support `RPL_METADATASYNCLATER`
+- Issue where input box could lose focus after a filehost, reply, or reaction modal
+- Minor issues where input tooltips could fail to reflect current caret position, highlight the correct active argument, show when first the input is first loaded, etc
 - Show `Display` in `Configuration` docs menu
+- Document that `servers.<name>.username` setting will fall back to `servers.<name>.nickname` if not set
 
 Changed:
 
 - `buffer.reply.insert_nick` no longer inserts nick when replying in query buffers or to yourself
+- Input tooltips are aligned with the input (i.e. inset when `text_input.nickname.enabled = true`)
+- `servers.<name>.sasl.plain.username` setting will fall back to `servers.<name>.nickname` if not set
 
 Thanks:
 
 - Contributions: @luca020400, @englut, @furudean
 - Feature requests: @g00s
-- Bug reports: wwWraith
+- Bug reports: wwWraith, @skizzerz, @ncfavier, @account1009
 
 # 2026.7.1 (2026-06-02)
 
