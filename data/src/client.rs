@@ -1466,7 +1466,7 @@ impl Client {
                         sasl.command()
                     );
 
-                    for param in sasl.params() {
+                    for param in sasl.params(&self.config.nickname) {
                         self.handle
                             .try_send(command!("AUTHENTICATE", param))?;
                     }
@@ -5310,10 +5310,18 @@ impl Map {
                         .and_then(|parent| self.get_filehost_auth(parent));
                 }
 
-                fileupload::Auth::try_from(client.config.sasl.as_ref()?).ok()
+                fileupload::Auth::from_sasl(
+                    client.config.sasl.as_ref()?,
+                    &client.config.nickname,
+                )
+                .ok()
             }
             filehost::Credentials::Sasl(credentials) => {
-                fileupload::Auth::try_from(credentials).ok()
+                fileupload::Auth::from_sasl(
+                    credentials,
+                    &client.config.nickname,
+                )
+                .ok()
             }
             filehost::Credentials::None => None,
         }
