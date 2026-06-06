@@ -20,8 +20,8 @@ use iced::advanced::widget::Tree;
 use iced::advanced::{Clipboard, Layout, Shell, mouse};
 use iced::widget::text::{Shaping, Wrapping};
 use iced::widget::{
-    self, button, center, column, container, mouse_area, operation, row, rule,
-    text_editor,
+    self, Space, button, center, column, container, mouse_area, operation, row,
+    rule, text_editor,
 };
 use iced::{Alignment, Length, Task, clipboard, event, keyboard, padding};
 use itertools::Itertools;
@@ -34,7 +34,7 @@ use crate::widget::key_press::is_numpad;
 use crate::widget::user_display::UserDisplay;
 use crate::widget::{
     Element, Renderer, Text, anchored_overlay, context_menu, decorate,
-    reply_preview_content, text, tooltip,
+    double_pass, reply_preview_content, text, tooltip,
 };
 use crate::window::Window;
 use crate::{Theme, font, theme, window};
@@ -352,6 +352,8 @@ pub fn view<'a>(
     theme: &'a Theme,
     filehost_url: Option<&'a str>,
 ) -> Element<'a, Message> {
+    const INPUT_ROW_SPACING: u32 = 4;
+
     let style = if let Some(notice) = &state.notice {
         match notice {
             Notice::Warning(_) => theme::text_editor::warning,
@@ -569,41 +571,44 @@ pub fn view<'a>(
     )
     .into();
 
-    let maybe_our_user = config
-        .buffer
-        .text_input
-        .nickname
-        .enabled
-        .then_some(our_user.map(|user| {
-            let user_display = UserDisplay::new(
-                user,
-                config.buffer.text_input.nickname.show_access_levels,
-                config.buffer.nickname.show_bot_icon,
-                registry,
-                &config.display.nickname,
-                None,
-                config.display.truncation_character,
-                None,
-                true,
-            );
+    let maybe_our_user = || -> Option<Element<'a, Message>> {
+        if config.buffer.text_input.nickname.enabled {
+            our_user.map(|user| {
+                let user_display = UserDisplay::new(
+                    user,
+                    config.buffer.text_input.nickname.show_access_levels,
+                    config.buffer.nickname.show_bot_icon,
+                    registry,
+                    &config.display.nickname,
+                    None,
+                    config.display.truncation_character,
+                    None,
+                    true,
+                );
 
-            container(user_display.into_element(
-                user,
-                user.is_away(),
-                false,
-                None,
-                None,
-                false,
-                false,
-                theme,
-                config,
-            ))
-            .padding(padding::right(4))
-        }))
-        .flatten();
-
-    let maybe_vertical_rule =
-        maybe_our_user.is_some().then(move || rule::vertical(1.0));
+                row![
+                    container(user_display.into_element(
+                        user,
+                        user.is_away(),
+                        false,
+                        None,
+                        None,
+                        false,
+                        false,
+                        theme,
+                        config,
+                    ))
+                    .padding(padding::right(4)),
+                    rule::vertical(1.0),
+                ]
+                .align_y(Alignment::Center)
+                .spacing(INPUT_ROW_SPACING)
+                .into()
+            })
+        } else {
+            None
+        }
+    };
 
     let maybe_upload_spinner: Option<crate::widget::Element<'a, Message>> =
         (filehost_url.is_some() && state.uploading > 0).then(|| {
@@ -676,13 +681,12 @@ pub fn view<'a>(
 
     let input_row = container(
         row![
-            maybe_our_user,
-            maybe_vertical_rule,
+            maybe_our_user(),
             wrapped_input,
             maybe_upload_spinner,
             maybe_upload_button,
         ]
-        .spacing(4)
+        .spacing(INPUT_ROW_SPACING)
         .height(Length::Shrink)
         .align_y(Alignment::Center),
     )
@@ -705,21 +709,29 @@ pub fn view<'a>(
     let content = column![input_column].spacing(4).padding(padding::top(4));
 
     if config.tooltips.show_for_autocomplete() {
-        let overlay = column![
-            state.completion.view(
-                state.input_content.text().as_str(),
-                server,
-                config,
-                theme,
-                Message::SelectCompletion,
-            ),
-            state
-                .notice
-                .as_ref()
-                .map(|notice| notice_view(notice, theme)),
-        ]
-        .padding([0, 8])
-        .spacing(4);
+        let overlay = || -> Element<'a, Message> {
+            column![
+                state.completion.view(
+                    state.input_content.text().as_str(),
+                    server,
+                    config,
+                    theme,
+                    Message::SelectCompletion,
+                ),
+                state
+                    .notice
+                    .as_ref()
+                    .map(|notice| notice_view(notice, theme)),
+            ]
+            .padding([0, 8])
+            .spacing(4)
+            .into()
+        };
+
+        let overlay = double_pass(
+            row![maybe_our_user(), overlay()].spacing(INPUT_ROW_SPACING),
+            row![Space::new().width(Length::Fill), overlay()],
+        );
 
         anchored_overlay(
             content,
@@ -728,6 +740,7 @@ pub fn view<'a>(
             4.0,
         )
     } else {
+        // Wrap in column so iced can track content properly
         column![content].into()
     }
 }
