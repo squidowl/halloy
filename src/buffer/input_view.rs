@@ -571,7 +571,7 @@ pub fn view<'a>(
     )
     .into();
 
-    let maybe_our_user = || -> Option<Element<'a, Message>> {
+    let new_maybe_our_user = || -> Option<Element<'a, Message>> {
         if config.buffer.text_input.nickname.enabled {
             our_user.map(|user| {
                 let user_display = UserDisplay::new(
@@ -586,29 +586,37 @@ pub fn view<'a>(
                     true,
                 );
 
-                row![
-                    container(user_display.into_element(
-                        user,
-                        user.is_away(),
-                        false,
-                        None,
-                        None,
-                        false,
-                        false,
-                        theme,
-                        config,
-                    ))
-                    .padding(padding::right(4)),
-                    rule::vertical(1.0),
-                ]
-                .align_y(Alignment::Center)
-                .spacing(INPUT_ROW_SPACING)
+                container(user_display.into_element(
+                    user,
+                    user.is_away(),
+                    false,
+                    None,
+                    None,
+                    false,
+                    false,
+                    theme,
+                    config,
+                ))
+                .padding(padding::right(4))
                 .into()
             })
         } else {
             None
         }
     };
+
+    let new_maybe_vertical_rule = |maybe_our_user: &Option<
+        Element<'a, Message>,
+    >|
+     -> Option<Element<'a, Message>> {
+        maybe_our_user
+            .is_some()
+            .then_some(rule::vertical(1.0).into())
+    };
+
+    let maybe_our_user = new_maybe_our_user();
+
+    let maybe_vertical_rule = new_maybe_vertical_rule(&maybe_our_user);
 
     let maybe_upload_spinner: Option<crate::widget::Element<'a, Message>> =
         (filehost_url.is_some() && state.uploading > 0).then(|| {
@@ -681,7 +689,8 @@ pub fn view<'a>(
 
     let input_row = container(
         row![
-            maybe_our_user(),
+            maybe_our_user,
+            maybe_vertical_rule,
             wrapped_input,
             maybe_upload_spinner,
             maybe_upload_button,
@@ -732,8 +741,13 @@ pub fn view<'a>(
             .into()
         };
 
+        let maybe_our_user = new_maybe_our_user();
+
+        let maybe_vertical_rule = new_maybe_vertical_rule(&maybe_our_user);
+
         let overlay = double_pass(
-            row![maybe_our_user(), overlay()].spacing(INPUT_ROW_SPACING),
+            row![maybe_our_user, maybe_vertical_rule, overlay()]
+                .spacing(INPUT_ROW_SPACING),
             row![Space::new().width(Length::Fill), overlay()],
         );
 
