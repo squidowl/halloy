@@ -3231,7 +3231,7 @@ dependencies = [
 [[package]]
 name = "iced"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=fcfa87cb35b615715919c8b4da408b6488f195de#fcfa87cb35b615715919c8b4da408b6488f195de"
+source = "git+https://github.com/squidowl/iced?rev=c04ada082b67ddb7e372fabe91ee3b3edc8c61b7#c04ada082b67ddb7e372fabe91ee3b3edc8c61b7"
 dependencies = [
  "iced_core",
  "iced_debug",
@@ -3248,7 +3248,7 @@ dependencies = [
 [[package]]
 name = "iced_beacon"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=fcfa87cb35b615715919c8b4da408b6488f195de#fcfa87cb35b615715919c8b4da408b6488f195de"
+source = "git+https://github.com/squidowl/iced?rev=c04ada082b67ddb7e372fabe91ee3b3edc8c61b7#c04ada082b67ddb7e372fabe91ee3b3edc8c61b7"
 dependencies = [
  "bincode 1.3.3",
  "futures",
@@ -3263,7 +3263,7 @@ dependencies = [
 [[package]]
 name = "iced_core"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=fcfa87cb35b615715919c8b4da408b6488f195de#fcfa87cb35b615715919c8b4da408b6488f195de"
+source = "git+https://github.com/squidowl/iced?rev=c04ada082b67ddb7e372fabe91ee3b3edc8c61b7#c04ada082b67ddb7e372fabe91ee3b3edc8c61b7"
 dependencies = [
  "bitflags 2.11.0",
  "bytes",
@@ -3281,7 +3281,7 @@ dependencies = [
 [[package]]
 name = "iced_debug"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=fcfa87cb35b615715919c8b4da408b6488f195de#fcfa87cb35b615715919c8b4da408b6488f195de"
+source = "git+https://github.com/squidowl/iced?rev=c04ada082b67ddb7e372fabe91ee3b3edc8c61b7#c04ada082b67ddb7e372fabe91ee3b3edc8c61b7"
 dependencies = [
  "iced_beacon",
  "iced_core",
@@ -3292,7 +3292,7 @@ dependencies = [
 [[package]]
 name = "iced_devtools"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=fcfa87cb35b615715919c8b4da408b6488f195de#fcfa87cb35b615715919c8b4da408b6488f195de"
+source = "git+https://github.com/squidowl/iced?rev=c04ada082b67ddb7e372fabe91ee3b3edc8c61b7#c04ada082b67ddb7e372fabe91ee3b3edc8c61b7"
 dependencies = [
  "iced_debug",
  "iced_program",
@@ -3303,7 +3303,7 @@ dependencies = [
 [[package]]
 name = "iced_futures"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=fcfa87cb35b615715919c8b4da408b6488f195de#fcfa87cb35b615715919c8b4da408b6488f195de"
+source = "git+https://github.com/squidowl/iced?rev=c04ada082b67ddb7e372fabe91ee3b3edc8c61b7#c04ada082b67ddb7e372fabe91ee3b3edc8c61b7"
 dependencies = [
  "futures",
  "iced_core",
@@ -3317,7 +3317,7 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=fcfa87cb35b615715919c8b4da408b6488f195de#fcfa87cb35b615715919c8b4da408b6488f195de"
+source = "git+https://github.com/squidowl/iced?rev=c04ada082b67ddb7e372fabe91ee3b3edc8c61b7#c04ada082b67ddb7e372fabe91ee3b3edc8c61b7"
 dependencies = [
  "bitflags 2.11.0",
  "bytemuck",
@@ -3337,7 +3337,7 @@ dependencies = [
 [[package]]
 name = "iced_program"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=fcfa87cb35b615715919c8b4da408b6488f195de#fcfa87cb35b615715919c8b4da408b6488f195de"
+source = "git+https://github.com/squidowl/iced?rev=c04ada082b67ddb7e372fabe91ee3b3edc8c61b7#c04ada082b67ddb7e372fabe91ee3b3edc8c61b7"
 dependencies = [
  "iced_graphics",
  "iced_runtime",
@@ -3346,7 +3346,7 @@ dependencies = [
 [[package]]
 name = "iced_renderer"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=fcfa87cb35b615715919c8b4da408b6488f195de#fcfa87cb35b615715919c8b4da408b6488f195de"
+source = "git+https://github.com/squidowl/iced?rev=c04ada082b67ddb7e372fabe91ee3b3edc8c61b7#c04ada082b67ddb7e372fabe91ee3b3edc8c61b7"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
@@ -3358,7 +3358,7 @@ dependencies = [
 [[package]]
 name = "iced_runtime"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=fcfa87cb35b615715919c8b4da408b6488f195de#fcfa87cb35b615715919c8b4da408b6488f195de"
+source = "git+https://github.com/squidowl/iced?rev=c04ada082b67ddb7e372fabe91ee3b3edc8c61b7#c04ada082b67ddb7e372fabe91ee3b3edc8c61b7"
 dependencies = [
  "bytes",
  "iced_core",
@@ -3370,7 +3370,7 @@ dependencies = [
 [[package]]
 name = "iced_tiny_skia"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=fcfa87cb35b615715919c8b4da408b6488f195de#fcfa87cb35b615715919c8b4da408b6488f195de"
+source = "git+https://github.com/squidowl/iced?rev=c04ada082b67ddb7e372fabe91ee3b3edc8c61b7#c04ada082b67ddb7e372fabe91ee3b3edc8c61b7"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -3387,7 +3387,7 @@ dependencies = [
 [[package]]
 name = "iced_wgpu"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=fcfa87cb35b615715919c8b4da408b6488f195de#fcfa87cb35b615715919c8b4da408b6488f195de"
+source = "git+https://github.com/squidowl/iced?rev=c04ada082b67ddb7e372fabe91ee3b3edc8c61b7#c04ada082b67ddb7e372fabe91ee3b3edc8c61b7"
 dependencies = [
  "bitflags 2.11.0",
  "bytemuck",
@@ -3407,7 +3407,7 @@ dependencies = [
 [[package]]
 name = "iced_widget"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=fcfa87cb35b615715919c8b4da408b6488f195de#fcfa87cb35b615715919c8b4da408b6488f195de"
+source = "git+https://github.com/squidowl/iced?rev=c04ada082b67ddb7e372fabe91ee3b3edc8c61b7#c04ada082b67ddb7e372fabe91ee3b3edc8c61b7"
 dependencies = [
  "iced_renderer",
  "log",
@@ -3421,7 +3421,7 @@ dependencies = [
 [[package]]
 name = "iced_winit"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=fcfa87cb35b615715919c8b4da408b6488f195de#fcfa87cb35b615715919c8b4da408b6488f195de"
+source = "git+https://github.com/squidowl/iced?rev=c04ada082b67ddb7e372fabe91ee3b3edc8c61b7#c04ada082b67ddb7e372fabe91ee3b3edc8c61b7"
 dependencies = [
  "iced_debug",
  "iced_program",
