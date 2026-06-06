@@ -2175,7 +2175,7 @@ fn fmt_channel_name_requirements(chantypes: &[char]) -> String {
     let mut requirements = String::from("must start with ");
 
     for (index, chantype) in chantypes.iter().enumerate() {
-        if index == 1 {
+        if index == 0 {
             requirements.push_str(&format!("'{chantype}'"));
         } else if index == chantypes.len() {
             if chantypes.len() == 2 {

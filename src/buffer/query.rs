@@ -203,6 +203,7 @@ impl Query {
     pub fn new(
         server: Server,
         target: target::Query,
+        clients: &data::client::Map,
         history: &history::Manager,
         pane_size: Size,
         config: &Config,
@@ -210,7 +211,13 @@ impl Query {
         let buffer = buffer::Upstream::Query(server.clone(), target.clone());
 
         Self {
-            input_view: input_view::State::new(Some(history.input(&buffer))),
+            input_view: input_view::State::new(
+                history.input(&buffer),
+                &buffer,
+                clients,
+                history,
+                config,
+            ),
             buffer,
             server,
             target,

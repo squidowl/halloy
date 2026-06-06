@@ -785,6 +785,12 @@ impl Halloy {
                         return Task::none();
                     };
 
+                    dashboard.process_server_inputs_completion_and_notice(
+                        &server,
+                        &self.clients,
+                        &self.config,
+                    );
+
                     if is_initial {
                         Task::none()
                     } else {
@@ -851,6 +857,12 @@ impl Halloy {
                     let Screen::Dashboard(dashboard) = &mut self.screen else {
                         return Task::none();
                     };
+
+                    dashboard.process_server_inputs_completion_and_notice(
+                        &server,
+                        &self.clients,
+                        &self.config,
+                    );
 
                     let (notification, broadcast_kind) = if is_initial {
                         (Notification::Connected, Broadcast::Connected)

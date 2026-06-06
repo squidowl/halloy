@@ -3,7 +3,9 @@ use data::buffer::RightAlignmentWidths;
 use data::dashboard::BufferAction;
 use data::target::Target;
 use data::user::Nick;
-use data::{Config, Image, Preview, User, buffer, history, message, preview};
+use data::{
+    Config, Image, Preview, User, buffer, client, history, message, preview,
+};
 use iced::advanced::text;
 use iced::widget::{Space, column, container, row, space};
 use iced::{Color, Length, Size, Task, padding};
@@ -341,6 +343,7 @@ pub struct Server {
 impl Server {
     pub fn new(
         server: data::server::Server,
+        clients: &client::Map,
         history: &history::Manager,
         pane_size: Size,
         config: &Config,
@@ -348,7 +351,13 @@ impl Server {
         let buffer = buffer::Upstream::Server(server.clone());
 
         Self {
-            input_view: input_view::State::new(Some(history.input(&buffer))),
+            input_view: input_view::State::new(
+                history.input(&buffer),
+                &buffer,
+                clients,
+                history,
+                config,
+            ),
             buffer,
             server,
             scroll_view: scroll_view::State::new(pane_size, config),

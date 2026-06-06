@@ -571,7 +571,7 @@ pub fn view<'a>(
     )
     .into();
 
-    let maybe_our_user = || -> Option<Element<'a, Message>> {
+    let new_maybe_our_user = || -> Option<Element<'a, Message>> {
         if config.buffer.text_input.nickname.enabled {
             our_user.map(|user| {
                 let user_display = UserDisplay::new(
@@ -586,29 +586,37 @@ pub fn view<'a>(
                     true,
                 );
 
-                row![
-                    container(user_display.into_element(
-                        user,
-                        user.is_away(),
-                        false,
-                        None,
-                        None,
-                        false,
-                        false,
-                        theme,
-                        config,
-                    ))
-                    .padding(padding::right(4)),
-                    rule::vertical(1.0),
-                ]
-                .align_y(Alignment::Center)
-                .spacing(INPUT_ROW_SPACING)
+                container(user_display.into_element(
+                    user,
+                    user.is_away(),
+                    false,
+                    None,
+                    None,
+                    false,
+                    false,
+                    theme,
+                    config,
+                ))
+                .padding(padding::right(4))
                 .into()
             })
         } else {
             None
         }
     };
+
+    let new_maybe_vertical_rule = |maybe_our_user: &Option<
+        Element<'a, Message>,
+    >|
+     -> Option<Element<'a, Message>> {
+        maybe_our_user
+            .is_some()
+            .then_some(rule::vertical(1.0).into())
+    };
+
+    let maybe_our_user = new_maybe_our_user();
+
+    let maybe_vertical_rule = new_maybe_vertical_rule(&maybe_our_user);
 
     let maybe_upload_spinner: Option<crate::widget::Element<'a, Message>> =
         (filehost_url.is_some() && state.uploading > 0).then(|| {
@@ -681,7 +689,8 @@ pub fn view<'a>(
 
     let input_row = container(
         row![
-            maybe_our_user(),
+            maybe_our_user,
+            maybe_vertical_rule,
             wrapped_input,
             maybe_upload_spinner,
             maybe_upload_button,
@@ -710,9 +719,13 @@ pub fn view<'a>(
 
     if config.tooltips.show_for_autocomplete() {
         let overlay = || -> Element<'a, Message> {
+            let cursor = state.input_content.cursor();
+
             column![
                 state.completion.view(
                     state.input_content.text().as_str(),
+                    cursor.position.column,
+                    cursor.selection.is_some(),
                     server,
                     config,
                     theme,
@@ -728,8 +741,13 @@ pub fn view<'a>(
             .into()
         };
 
+        let maybe_our_user = new_maybe_our_user();
+
+        let maybe_vertical_rule = new_maybe_vertical_rule(&maybe_our_user);
+
         let overlay = double_pass(
-            row![maybe_our_user(), overlay()].spacing(INPUT_ROW_SPACING),
+            row![maybe_our_user, maybe_vertical_rule, overlay()]
+                .spacing(INPUT_ROW_SPACING),
             row![Space::new().width(Length::Fill), overlay()],
         );
 
@@ -833,19 +851,9 @@ pub struct State {
 
 impl Default for State {
     fn default() -> Self {
-        Self::new(None)
-    }
-}
-
-impl State {
-    pub fn new(cache: Option<input::Cache<'_>>) -> Self {
         Self {
             input_id: widget::Id::unique(),
-            input_content: cache
-                .filter(|c| !c.draft_message.is_empty())
-                .map_or(text_editor::Content::new(), |c| {
-                    text_editor::Content::with_text(c.draft_message)
-                }),
+            input_content: text_editor::Content::new(),
             parsed: Vec::new(),
             notice: None,
             completion: Completion::default(),
@@ -856,9 +864,39 @@ impl State {
             upload_anim: 0.0,
             spinner_hovered: false,
             upload_abort_handles: Vec::new(),
-            draft_reply: cache.and_then(|c| c.draft_reply).cloned(),
+            draft_reply: None,
             reply_preview: None,
         }
+    }
+}
+
+impl State {
+    pub fn new(
+        cache: input::Cache<'_>,
+        buffer: &buffer::Upstream,
+        clients: &client::Map,
+        history: &history::Manager,
+        config: &Config,
+    ) -> Self {
+        let mut input_content = if cache.draft_message.is_empty() {
+            text_editor::Content::new()
+        } else {
+            text_editor::Content::with_text(cache.draft_message)
+        };
+
+        input_content.perform(text_editor::Action::Move(
+            text_editor::Motion::DocumentEnd,
+        ));
+
+        let mut state = Self {
+            input_content,
+            draft_reply: cache.draft_reply.cloned(),
+            ..Self::default()
+        };
+
+        state.process_completion_and_notice(buffer, clients, history, config);
+
+        state
     }
 
     pub fn draft_reply(&self) -> Option<&input::DraftReply> {
@@ -1664,15 +1702,14 @@ impl State {
                             buffer, clients, config,
                         );
 
-                        let cursor_position =
-                            self.input_content.cursor().position;
+                        let cursor = self.input_content.cursor();
 
                         self.notice = None;
                         self.selected_history = None;
 
                         if let Some(line) = self
                             .input_content
-                            .line(cursor_position.line)
+                            .line(cursor.position.line)
                             .map(|line| line.text)
                         {
                             let users = buffer.channel().and_then(|channel| {
@@ -1691,7 +1728,8 @@ impl State {
 
                             self.completion.process(
                                 &line,
-                                cursor_position.column,
+                                cursor.position.column,
+                                cursor.selection.is_some(),
                                 clients.nickname(buffer.server()),
                                 users,
                                 filters,
@@ -1707,9 +1745,9 @@ impl State {
 
                             let actions = self
                                 .completion
-                                .complete_emoji(&line, cursor_position.column);
+                                .complete_emoji(&line, cursor.position.column);
 
-                            self.set_notice(cursor_position.line);
+                            self.set_notice(cursor.position.line);
 
                             if let Some(actions) = actions {
                                 for action in actions.into_iter() {
@@ -1729,7 +1767,12 @@ impl State {
                         (Task::none(), None)
                     }
                     text_editor::Action::Move(_)
-                    | text_editor::Action::Click(_) => {
+                    | text_editor::Action::Click(_)
+                    | text_editor::Action::Drag(_)
+                    | text_editor::Action::Select(_)
+                    | text_editor::Action::SelectWord
+                    | text_editor::Action::SelectLine
+                    | text_editor::Action::SelectAll => {
                         self.process_completion_and_notice(
                             buffer, clients, history, config,
                         );
@@ -2632,18 +2675,18 @@ impl State {
         )
     }
 
-    fn process_completion_and_notice(
+    pub fn process_completion_and_notice(
         &mut self,
         buffer: &buffer::Upstream,
-        clients: &mut client::Map,
-        history: &mut history::Manager,
+        clients: &client::Map,
+        history: &history::Manager,
         config: &Config,
     ) {
-        let cursor_position = self.input_content.cursor().position;
+        let cursor = self.input_content.cursor();
 
         if let Some(line) = self
             .input_content
-            .line(cursor_position.line)
+            .line(cursor.position.line)
             .map(|line| line.text)
         {
             let current_target = buffer.target();
@@ -2651,14 +2694,15 @@ impl State {
                 clients.get_channel_users(buffer.server(), channel)
             });
             let last_seen = history.get_last_seen(buffer);
-            let filters = FilterChain::borrow(history.get_filters());
+            let filters = FilterChain::borrow(history.filters());
             let is_connected = clients.get_server_is_connected(buffer.server());
             let isupport = clients.get_isupport_ref(buffer.server());
             let features = clients.get_features_ref(buffer.server());
 
             self.completion.process(
                 &line,
-                cursor_position.column,
+                cursor.position.column,
+                cursor.selection.is_some(),
                 clients.nickname(buffer.server()),
                 users,
                 filters,
@@ -2675,7 +2719,7 @@ impl State {
             // Reset notice state
             self.notice = None;
 
-            self.set_notice(cursor_position.line);
+            self.set_notice(cursor.position.line);
         }
     }
 

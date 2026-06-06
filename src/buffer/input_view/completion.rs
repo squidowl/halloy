@@ -50,6 +50,7 @@ impl Completion {
         &mut self,
         input: &str,
         cursor_position: usize,
+        cursor_is_selection: bool,
         our_nickname: Option<NickRef>,
         users: Option<&ChannelUsers>,
         filters: FilterChain,
@@ -68,6 +69,8 @@ impl Completion {
         if is_command {
             self.commands.process(
                 input,
+                cursor_position,
+                cursor_is_selection,
                 our_nickname,
                 channels.iter().copied(),
                 current_target,
@@ -88,6 +91,15 @@ impl Completion {
             }
         } else {
             self.commands = Commands::default();
+        }
+
+        // If the text input has a selection, then don't show pickers
+        if cursor_is_selection {
+            self.words = Words::default();
+            self.emojis = Emojis::default();
+            self.paths = Paths::default();
+
+            return;
         }
 
         if let Some(shortcode) = (config.buffer.emojis.show_picker
@@ -210,14 +222,22 @@ impl Completion {
     pub fn view<'a, Message: Clone + 'a>(
         &'a self,
         input: &str,
+        cursor_position: usize,
+        cursor_is_selection: bool,
         server: &Server,
         config: &Config,
         theme: &'a Theme,
         on_select_command: impl Fn(usize) -> Message + Copy + 'a,
     ) -> Option<Element<'a, Message>> {
-        let command_view =
-            self.commands
-                .view(input, server, config, theme, on_select_command);
+        let command_view = self.commands.view(
+            input,
+            cursor_position,
+            cursor_is_selection,
+            server,
+            config,
+            theme,
+            on_select_command,
+        );
         let emojis_view = self.emojis.view(config, on_select_command);
         let paths_view = self.paths.view(on_select_command);
         let words_view = self.words.view(on_select_command);
@@ -339,6 +359,8 @@ impl Commands {
     fn process<'a>(
         &mut self,
         input: &str,
+        cursor_position: usize,
+        cursor_is_selection: bool,
         our_nickname: Option<NickRef>,
         channels: impl IntoIterator<Item = &'a target::Channel>,
         current_target: Option<&Target>,
@@ -359,10 +381,15 @@ impl Commands {
             return;
         }
 
-        let (cmd, has_space) = if let Some(index) = rest.find(' ') {
-            (&rest[0..index], true)
+        let editing_command = !rest
+            .get(..cursor_position.saturating_sub(1))
+            .unwrap_or(rest)
+            .contains(' ');
+
+        let cmd = if let Some(index) = rest.find(' ') {
+            &rest[0..index]
         } else {
-            (rest, false)
+            rest
         };
 
         let aliases = command::alias::list(config);
@@ -387,7 +414,7 @@ impl Commands {
 
         match self {
             // Command not fully typed, show filtered entries
-            _ if !has_space => {
+            _ if editing_command => {
                 if let Some(command) = command_list.iter().find(|command| {
                     command.title().to_lowercase() == cmd.to_lowercase()
                         || command.aliases().iter().any(|alias| {
@@ -533,7 +560,11 @@ impl Commands {
                             isupport::get_chantypes_or_default(isupport);
 
                         if let Some(channel_arg) = command.args.get_mut(0) {
-                            let skip = !proto::is_channel(channel, chantypes);
+                            let skip =
+                                matches!(
+                                    current_target,
+                                    Some(Target::Channel(_))
+                                ) && !proto::is_channel(channel, chantypes);
 
                             channel_arg.kind.skip(skip);
                         }
@@ -612,6 +643,10 @@ impl Commands {
                 }
             }
         }
+
+        if cursor_is_selection && !matches!(self, Self::Selected { .. }) {
+            *self = Self::Idle;
+        }
     }
 
     fn select(&mut self) -> Option<String> {
@@ -683,6 +718,8 @@ impl Commands {
     fn view<'a, Message: Clone + 'a>(
         &'a self,
         input: &str,
+        cursor_position: usize,
+        cursor_is_selection: bool,
         server: &Server,
         config: &Config,
         theme: &'a Theme,
@@ -734,7 +771,15 @@ impl Commands {
                 let description = if config.buffer.commands.show_description {
                     highlighted.and_then(|index| {
                         filtered.get(index).map(|(_, command)| {
-                            command.view(input, None, server, config, theme)
+                            command.view(
+                                input,
+                                cursor_position,
+                                cursor_is_selection,
+                                None,
+                                server,
+                                config,
+                                theme,
+                            )
                         })
                     })
                 } else {
@@ -766,6 +811,8 @@ impl Commands {
                 if config.buffer.commands.show_description {
                     Some(command.view(
                         input,
+                        cursor_position,
+                        cursor_is_selection,
                         subcommand.as_ref(),
                         server,
                         config,
@@ -1681,13 +1728,13 @@ impl Command {
     fn view<'a, Message: 'a>(
         &self,
         input: &str,
+        cursor_position: usize,
+        cursor_is_selection: bool,
         subcommand: Option<&'a Command>,
         server: &Server,
         config: &Config,
         theme: &'a Theme,
     ) -> Element<'a, Message> {
-        let command_prefix = format!("/{}", self.title.to_lowercase());
-
         let num_skipped =
             self.args.iter().filter(|arg| arg.kind.skipped()).count()
                 + subcommand.map_or(0, |subcommand| {
@@ -1698,31 +1745,39 @@ impl Command {
                         .count()
                 });
 
-        let active_arg = [
-            "_",
-            input
-                .to_lowercase()
-                .strip_prefix(&command_prefix)
-                .unwrap_or(input),
-            "_",
-        ]
-        .concat()
-        .split_ascii_whitespace()
-        .count()
-        .saturating_add(num_skipped)
-        .saturating_sub(2)
-        .min(
-            (self.args.len()
-                + subcommand.map_or(0, |subcommand| subcommand.args.len()))
-            .saturating_sub(1),
-        );
+        let active_arg = if cursor_is_selection {
+            None
+        } else {
+            input.split_at_checked(cursor_position).and_then(
+                |(before_cursor, _)| {
+                    let index = [before_cursor, "_"]
+                        .concat()
+                        .split_ascii_whitespace()
+                        .count()
+                        .saturating_add(num_skipped)
+                        .saturating_sub(1)
+                        .min(
+                            self.args.len()
+                                + subcommand.map_or(0, |subcommand| {
+                                    subcommand.args.len()
+                                }),
+                        );
+
+                    (index > 0).then_some(index.saturating_sub(1))
+                },
+            )
+        };
 
         let title = Some(Element::from(text(self.title.to_string())));
+
+        let is_active_arg = move |index: usize| -> bool {
+            active_arg.is_some_and(|active_arg| active_arg == index)
+        };
 
         let arg_text = |index: usize, arg: &Argument| {
             let content = text(format!("{arg}"))
                 .style(move |theme| {
-                    if index == active_arg {
+                    if is_active_arg(index) {
                         theme::text::tertiary(theme)
                     } else {
                         theme::text::none(theme)
@@ -1730,14 +1785,14 @@ impl Command {
                 })
                 .font_maybe(
                     theme::font_style::tertiary(theme)
-                        .filter(|_| index == active_arg)
+                        .filter(|_| is_active_arg(index))
                         .map(font::get),
                 );
 
             if let Some(arg_tooltip) = &arg.tooltip {
                 let tooltip_indicator = text("*")
                     .style(move |theme| {
-                        if index == active_arg {
+                        if is_active_arg(index) {
                             theme::text::tertiary(theme)
                         } else {
                             theme::text::none(theme)
@@ -1745,7 +1800,7 @@ impl Command {
                     })
                     .font_maybe(
                         theme::font_style::tertiary(theme)
-                            .filter(|_| index == active_arg)
+                            .filter(|_| is_active_arg(index))
                             .map(font::get),
                     )
                     .size(8);
@@ -1758,13 +1813,13 @@ impl Command {
                         container(
                             text(arg_tooltip.clone())
                                 .style(move |theme| {
-                                    if index == active_arg {
+                                    if is_active_arg(index) {
                                         theme::text::tertiary(theme)
                                     } else {
                                         theme::text::secondary(theme)
                                     }
                                 })
-                                .font_maybe(if index == active_arg {
+                                .font_maybe(if is_active_arg(index) {
                                     theme::font_style::tertiary(theme)
                                         .map(font::get)
                                 } else {
@@ -1798,7 +1853,7 @@ impl Command {
                                 .unwrap_or_default(),
                         )
                         .style(move |theme| {
-                            if 0 == active_arg {
+                            if is_active_arg(0) {
                                 theme::text::tertiary(theme)
                             } else {
                                 theme::text::none(theme)
@@ -3824,10 +3879,40 @@ pub enum Arrow {
 }
 
 fn get_word(input: &str, cursor_position: usize) -> Option<&str> {
+    get_word_bounds(input, cursor_position).and_then(|word_bounds| {
+        input.get(*word_bounds.start()..*word_bounds.end())
+    })
+}
+
+fn get_word_bounds(
+    input: &str,
+    cursor_position: usize,
+) -> Option<RangeInclusive<usize>> {
     let mut previous_word_bounds = Option::<RangeInclusive<usize>>::None;
 
     if cursor_position == input.len() {
-        return input.split(' ').rfind(|word| !word.is_empty());
+        let mut trailing_spaces = 0;
+
+        let word_bounds_start = input
+            .split(' ')
+            .rfind(|word| {
+                if word.is_empty() {
+                    trailing_spaces += 1;
+                    false
+                } else {
+                    true
+                }
+            })
+            .map(|word| {
+                input.len().saturating_sub(word.len() + trailing_spaces)
+            });
+
+        return word_bounds_start.map(|word_bounds_start| {
+            RangeInclusive::new(
+                word_bounds_start,
+                input.len().saturating_sub(trailing_spaces),
+            )
+        });
     }
 
     for word in input.split(' ') {
@@ -3842,7 +3927,7 @@ fn get_word(input: &str, cursor_position: usize) -> Option<&str> {
             };
 
         if word_bounds.contains(&cursor_position) {
-            return (!word.is_empty()).then_some(word);
+            return Some(word_bounds);
         }
 
         previous_word_bounds = Some(word_bounds);

@@ -1084,6 +1084,7 @@ impl Dashboard {
 
                             state.buffer = Buffer::from_data(
                                 data::Buffer::Upstream(buffer),
+                                clients,
                                 history,
                                 state.size,
                                 config,
@@ -1113,6 +1114,7 @@ impl Dashboard {
 
                             state.buffer = Buffer::from_data(
                                 data::Buffer::Upstream(buffer),
+                                clients,
                                 history,
                                 state.size,
                                 config,
@@ -1357,6 +1359,7 @@ impl Dashboard {
 
                             state.buffer = Buffer::from_data(
                                 data::Buffer::Upstream(buffer),
+                                clients,
                                 history,
                                 state.size,
                                 config,
@@ -1387,6 +1390,7 @@ impl Dashboard {
 
                             state.buffer = Buffer::from_data(
                                 data::Buffer::Upstream(buffer),
+                                clients,
                                 history,
                                 state.size,
                                 config,
@@ -3014,6 +3018,7 @@ impl Dashboard {
 
                     state.buffer = Buffer::from_data(
                         buffer,
+                        clients,
                         &self.history,
                         state.size,
                         config,
@@ -3046,6 +3051,7 @@ impl Dashboard {
                             self.panes.main.panes.entry(*id).and_modify(|p| {
                                 p.buffer = Buffer::from_data(
                                     buffer.clone(),
+                                    clients,
                                     &self.history,
                                     p.size,
                                     config,
@@ -3118,6 +3124,7 @@ impl Dashboard {
                     pane_to_split,
                     Pane::new(Buffer::from_data(
                         buffer,
+                        clients,
                         &self.history,
                         pane_to_split_state.size,
                         config,
@@ -3134,6 +3141,7 @@ impl Dashboard {
                 iced::window::position(self.main_window()).then({
                     let pane = Pane::new(Buffer::from_data(
                         buffer.clone(),
+                        clients,
                         &self.history,
                         Size::default(),
                         config,
@@ -4434,6 +4442,7 @@ impl Dashboard {
 
         fn configuration(
             pane: data::Pane,
+            clients: &data::client::Map,
             history: &history::Manager,
             config: &Config,
         ) -> Configuration<Pane> {
@@ -4449,13 +4458,18 @@ impl Dashboard {
                             }
                         },
                         ratio,
-                        a: Box::new(configuration(*a, history, config)),
-                        b: Box::new(configuration(*b, history, config)),
+                        a: Box::new(configuration(
+                            *a, clients, history, config,
+                        )),
+                        b: Box::new(configuration(
+                            *b, clients, history, config,
+                        )),
                     }
                 }
                 data::Pane::Buffer { buffer } => {
                     Configuration::Pane(Pane::new(Buffer::from_data(
                         buffer,
+                        clients,
                         history,
                         Size::default(),
                         config,
@@ -4475,7 +4489,10 @@ impl Dashboard {
         let panes = Panes {
             main_window: main_window.id,
             main: pane_grid::State::with_configuration(configuration(
-                data.pane, &history, config,
+                data.pane,
+                &data::client::Map::default(),
+                &history,
+                config,
             )),
             popout: HashMap::new(),
         };
@@ -4524,9 +4541,12 @@ impl Dashboard {
 
         for pane in data.popout_panes {
             // Popouts are only a single pane
-            let Configuration::Pane(pane) =
-                configuration(pane, &dashboard.history, config)
-            else {
+            let Configuration::Pane(pane) = configuration(
+                pane,
+                &data::client::Map::default(),
+                &dashboard.history,
+                config,
+            ) else {
                 continue;
             };
 
@@ -4821,6 +4841,27 @@ impl Dashboard {
                 .is_some_and(|pane_server| pane_server == *server)
                 .then_some(window_id)
         })
+    }
+
+    pub fn process_server_inputs_completion_and_notice(
+        &mut self,
+        server: &Server,
+        clients: &client::Map,
+        config: &Config,
+    ) {
+        for buffer in self.panes.iter_mut().filter_map(|(_, _, state)| {
+            state
+                .buffer
+                .server()
+                .is_some_and(|pane_server| pane_server == *server)
+                .then_some(&mut state.buffer)
+        }) {
+            buffer.process_input_completion_and_notice(
+                clients,
+                &self.history,
+                config,
+            );
+        }
     }
 
     fn main_window(&self) -> window::Id {
