@@ -784,7 +784,8 @@ impl Manager {
         casemapping: isupport::CaseMap,
         broadcast: Broadcast,
         config: &Config,
-        sent_time: DateTime<Utc>,
+        server_time: DateTime<Utc>,
+        received_with_server_time: bool,
     ) -> Vec<impl Future<Output = Message> + use<>> {
         let channels = self
             .data
@@ -812,7 +813,12 @@ impl Manager {
             .cloned();
 
         let messages = broadcast::into_messages(
-            broadcast, config, sent_time, channels, queries,
+            broadcast,
+            config,
+            server_time,
+            received_with_server_time,
+            channels,
+            queries,
         );
 
         messages

@@ -23,15 +23,16 @@ fn expand(
     include_server: bool,
     cause: Cause,
     content: Content,
-    sent_time: DateTime<Utc>,
+    server_time: DateTime<Utc>,
+    received_with_server_time: bool,
 ) -> Vec<Message> {
     let message = |target, content| -> Message {
         let received_at = Posix::now();
-        let hash = message::Hash::new(&sent_time, &content, &received_at);
+        let hash = message::Hash::new(&server_time, &content, &received_at);
 
         Message {
             received_at,
-            server_time: sent_time,
+            server_time,
             direction: Direction::Received,
             target,
             content,
@@ -41,6 +42,7 @@ fn expand(
             hash,
             hidden_urls: HashSet::default(),
             is_echo: false,
+            received_with_server_time,
             blocked: false,
             condensed: None,
             expanded: false,
@@ -99,6 +101,7 @@ pub fn connecting(sent_time: DateTime<Utc>) -> Vec<Message> {
         Cause::Status(source::Status::Success),
         content,
         sent_time,
+        false,
     )
 }
 
@@ -111,6 +114,7 @@ pub fn connected(sent_time: DateTime<Utc>) -> Vec<Message> {
         Cause::Status(source::Status::Success),
         content,
         sent_time,
+        false,
     )
 }
 
@@ -126,6 +130,7 @@ pub fn connection_failed(
         Cause::Status(source::Status::Error),
         content,
         sent_time,
+        false,
     )
 }
 
@@ -144,6 +149,7 @@ pub fn disconnected(
         Cause::Status(source::Status::Error),
         content,
         sent_time,
+        false,
     )
 }
 
@@ -160,6 +166,7 @@ pub fn reconnected(
         Cause::Status(source::Status::Success),
         content,
         sent_time,
+        false,
     )
 }
 
@@ -170,7 +177,8 @@ pub fn quit(
     comment: &Option<String>,
     config: &Config,
     casemapping: isupport::CaseMap,
-    sent_time: DateTime<Utc>,
+    server_time: DateTime<Utc>,
+    received_with_server_time: bool,
 ) -> Vec<Message> {
     let content = quit_text(user, comment, config, casemapping);
 
@@ -184,7 +192,8 @@ pub fn quit(
             None,
         ))),
         content,
-        sent_time,
+        server_time,
+        received_with_server_time,
     )
 }
 
@@ -195,7 +204,8 @@ pub fn nickname(
     new_nick: &Nick,
     ourself: bool,
     casemapping: isupport::CaseMap,
-    sent_time: DateTime<Utc>,
+    server_time: DateTime<Utc>,
+    received_with_server_time: bool,
 ) -> Vec<Message> {
     let content =
         nickname_text(old_nick.into(), new_nick.into(), ourself, casemapping);
@@ -206,7 +216,15 @@ pub fn nickname(
         Some(source::server::Change::Nick(new_nick.clone())),
     )));
 
-    expand(channels, queries, false, cause, content, sent_time)
+    expand(
+        channels,
+        queries,
+        false,
+        cause,
+        content,
+        server_time,
+        received_with_server_time,
+    )
 }
 
 pub fn change_host(
@@ -218,7 +236,8 @@ pub fn change_host(
     ourself: bool,
     logged_in: bool,
     casemapping: isupport::CaseMap,
-    sent_time: DateTime<Utc>,
+    server_time: DateTime<Utc>,
+    received_with_server_time: bool,
 ) -> Vec<Message> {
     let cause = Cause::Server(Some(source::Server::new(
         source::server::Kind::ChangeHost,
@@ -247,9 +266,25 @@ pub fn change_host(
     };
 
     if ourself && !logged_in {
-        expand([], [], true, cause, content, sent_time)
+        expand(
+            [],
+            [],
+            true,
+            cause,
+            content,
+            server_time,
+            received_with_server_time,
+        )
     } else {
-        expand(channels, queries, false, cause, content, sent_time)
+        expand(
+            channels,
+            queries,
+            false,
+            cause,
+            content,
+            server_time,
+            received_with_server_time,
+        )
     }
 }
 
@@ -260,7 +295,8 @@ pub fn kick(
     channel: target::Channel,
     config: &Config,
     casemapping: isupport::CaseMap,
-    sent_time: DateTime<Utc>,
+    server_time: DateTime<Utc>,
+    received_with_server_time: bool,
 ) -> Vec<Message> {
     let cause = Cause::Server(Some(source::Server::new(
         source::server::Kind::Kick,
@@ -278,7 +314,15 @@ pub fn kick(
         casemapping,
     );
 
-    expand([], [], true, cause, content, sent_time)
+    expand(
+        [],
+        [],
+        true,
+        cause,
+        content,
+        server_time,
+        received_with_server_time,
+    )
 }
 
 #[derive(Debug, Clone)]
@@ -330,21 +374,22 @@ pub enum Broadcast {
 pub fn into_messages(
     broadcast: Broadcast,
     config: &Config,
-    sent_time: DateTime<Utc>,
+    server_time: DateTime<Utc>,
+    received_with_server_time: bool,
     channels: impl IntoIterator<Item = target::Channel>,
     mut queries: impl IntoIterator<Item = target::Query>
     + std::iter::Iterator<Item = target::Query>,
 ) -> Vec<Message> {
     match broadcast {
-        Broadcast::Connecting => connecting(sent_time),
-        Broadcast::Connected => connected(sent_time),
+        Broadcast::Connecting => connecting(server_time),
+        Broadcast::Connected => connected(server_time),
         Broadcast::ConnectionFailed { error } => {
-            connection_failed(error, sent_time)
+            connection_failed(error, server_time)
         }
         Broadcast::Disconnected { error } => {
-            disconnected(channels, queries, error, sent_time)
+            disconnected(channels, queries, error, server_time)
         }
-        Broadcast::Reconnected => reconnected(channels, queries, sent_time),
+        Broadcast::Reconnected => reconnected(channels, queries, server_time),
         Broadcast::Quit {
             user,
             comment,
@@ -362,7 +407,8 @@ pub fn into_messages(
                 &comment,
                 config,
                 casemapping,
-                sent_time,
+                server_time,
+                received_with_server_time,
             )
         }
         Broadcast::Nickname {
@@ -381,7 +427,8 @@ pub fn into_messages(
                     &new_nick,
                     ourself,
                     casemapping,
-                    sent_time,
+                    server_time,
+                    received_with_server_time,
                 )
             } else {
                 // Otherwise just the query channel of the user w/ nick change
@@ -395,7 +442,8 @@ pub fn into_messages(
                     &new_nick,
                     ourself,
                     casemapping,
-                    sent_time,
+                    server_time,
+                    received_with_server_time,
                 )
             }
         }
@@ -419,7 +467,8 @@ pub fn into_messages(
                     ourself,
                     logged_in,
                     casemapping,
-                    sent_time,
+                    server_time,
+                    received_with_server_time,
                 )
             } else {
                 // Otherwise just the query channel of the user w/ host change
@@ -435,7 +484,8 @@ pub fn into_messages(
                     ourself,
                     logged_in,
                     casemapping,
-                    sent_time,
+                    server_time,
+                    received_with_server_time,
                 )
             }
         }
@@ -452,10 +502,11 @@ pub fn into_messages(
             channel,
             config,
             casemapping,
-            sent_time,
+            server_time,
+            received_with_server_time,
         ),
         Broadcast::FilehostUploadFailed { error, target } => {
-            upload_failed(error, target, sent_time)
+            upload_failed(error, target, server_time)
         }
     }
 }
@@ -474,6 +525,7 @@ pub fn upload_failed(
             Cause::Status(source::Status::Error),
             content,
             sent_time,
+            false,
         ),
         Some(target::Target::Query(query)) => expand(
             [],
@@ -482,6 +534,7 @@ pub fn upload_failed(
             Cause::Status(source::Status::Error),
             content,
             sent_time,
+            false,
         ),
         None => expand(
             [],
@@ -490,6 +543,7 @@ pub fn upload_failed(
             Cause::Status(source::Status::Error),
             content,
             sent_time,
+            false,
         ),
     }
 }

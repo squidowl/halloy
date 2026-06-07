@@ -2564,6 +2564,7 @@ impl Dashboard {
                         casemapping,
                         config,
                         Utc::now(),
+                        false,
                         Broadcast::FilehostUploadFailed {
                             error: format!(
                                 "no filehost configured for server {server}"
@@ -2669,6 +2670,7 @@ impl Dashboard {
                     casemapping,
                     config,
                     Utc::now(),
+                    false,
                     Broadcast::FilehostUploadFailed {
                         error,
                         target: target.clone(),
@@ -3685,12 +3687,20 @@ impl Dashboard {
         server: &Server,
         casemapping: isupport::CaseMap,
         config: &Config,
-        sent_time: DateTime<Utc>,
+        server_time: DateTime<Utc>,
+        received_with_server_time: bool,
         broadcast: Broadcast,
     ) -> Task<Message> {
         Task::batch(
             self.history
-                .broadcast(server, casemapping, broadcast, config, sent_time)
+                .broadcast(
+                    server,
+                    casemapping,
+                    broadcast,
+                    config,
+                    server_time,
+                    received_with_server_time,
+                )
                 .into_iter()
                 .map(|task| Task::perform(task, Message::History)),
         )
