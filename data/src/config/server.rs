@@ -11,6 +11,7 @@ use tokio::process::Command;
 use self::bouncer::BouncerConfig;
 use self::filehost::Filehost;
 use self::icon::Icon;
+use crate::bouncer::BouncerNetwork;
 use crate::config::inclusivities::{
     Inclusivities, is_target_channel_included, is_target_query_included,
 };
@@ -211,7 +212,7 @@ impl Server {
         }
     }
 
-    pub fn bouncer_config(&self) -> Self {
+    fn bouncer_config(&self) -> Self {
         Self {
             // nickserv info not relevant to the bounced network
             nick_password_file: Option::default(),
@@ -226,6 +227,18 @@ impl Server {
             ghost_sequence: Server::default().ghost_sequence,
 
             ..self.clone()
+        }
+    }
+
+    pub fn bouncer_network_config(
+        &self,
+        bouncer_network: &BouncerNetwork,
+    ) -> Self {
+        match self.bouncer_networks.as_ref() {
+            Some(bouncer_config) => {
+                bouncer_config.overlay(bouncer_network, &self.bouncer_config())
+            }
+            None => self.bouncer_config(),
         }
     }
 }
