@@ -16,10 +16,8 @@ impl BouncerConfig {
     pub fn overlay(
         &self,
         bouncer_network: &BouncerNetwork,
-        server: &Server,
-    ) -> Server {
-        let mut server = server.clone();
-
+        server: &mut Server,
+    ) {
         if let Some(bouncer_network_config) =
             self.networks.get(&bouncer_network.name)
         {
@@ -37,8 +35,6 @@ impl BouncerConfig {
                 server.order_channels_by = Some(order_channels_by);
             }
         }
-
-        server
     }
 }
 

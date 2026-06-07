@@ -212,7 +212,7 @@ impl Server {
         }
     }
 
-    fn bouncer_config(&self) -> Self {
+    fn default_bouncer_config(&self) -> Self {
         Self {
             // nickserv info not relevant to the bounced network
             nick_password_file: Option::default(),
@@ -233,13 +233,14 @@ impl Server {
     pub fn bouncer_network_config(
         &self,
         bouncer_network: &BouncerNetwork,
-    ) -> Self {
-        match self.bouncer_networks.as_ref() {
-            Some(bouncer_config) => {
-                bouncer_config.overlay(bouncer_network, &self.bouncer_config())
-            }
-            None => self.bouncer_config(),
+    ) -> Server {
+        let mut config = self.default_bouncer_config();
+
+        if let Some(bouncer_config) = self.bouncer_networks.as_ref() {
+            bouncer_config.overlay(bouncer_network, &mut config);
         }
+
+        config
     }
 }
 
