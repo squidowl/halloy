@@ -28,7 +28,7 @@ pub enum Proxy {
 }
 
 impl Proxy {
-    pub fn set_password(
+    pub async fn set_password(
         &mut self,
         default_key: impl Fn(&str) -> String,
         context: &str,
@@ -38,24 +38,30 @@ impl Proxy {
                 password,
                 password_keyring,
                 ..
-            } => set_password(
-                password,
-                password_keyring,
-                default_key("http"),
-                "HTTP proxy password",
-                context,
-            ),
+            } => {
+                set_password(
+                    password,
+                    password_keyring,
+                    default_key("http"),
+                    "HTTP proxy password",
+                    context,
+                )
+                .await
+            }
             Proxy::Socks5 {
                 password,
                 password_keyring,
                 ..
-            } => set_password(
-                password,
-                password_keyring,
-                default_key("socks5"),
-                "SOCKS5 proxy password",
-                context,
-            ),
+            } => {
+                set_password(
+                    password,
+                    password_keyring,
+                    default_key("socks5"),
+                    "SOCKS5 proxy password",
+                    context,
+                )
+                .await
+            }
             #[cfg(feature = "tor")]
             Proxy::Tor => Ok(()),
         }
@@ -173,7 +179,7 @@ pub enum BuildError {
     Reqwest(#[from] reqwest::Error),
 }
 
-fn set_password(
+async fn set_password(
     password: &mut Option<String>,
     password_keyring: &keyring::Password,
     default_key: String,
@@ -191,7 +197,7 @@ fn set_password(
         });
     }
 
-    let pass = keyring::get_password(&key)?.ok_or_else(|| {
+    let pass = keyring::get_password(&key).await?.ok_or_else(|| {
         config::Error::MissingKeyringPasswordEntry {
             label: label.to_string(),
             context: context.to_string(),

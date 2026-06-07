@@ -86,7 +86,34 @@ pub fn server_proxy_password_key(server: &str, kind: &str) -> String {
     format!("servers.{server}.proxy.{kind}.password")
 }
 
-pub fn get_password(key: &str) -> Result<Option<String>, Error> {
+pub async fn get_password(key: &str) -> Result<Option<String>, Error> {
+    let key = key.to_string();
+    let task_key = key.clone();
+
+    tokio::task::spawn_blocking(move || get_password_blocking(&task_key))
+        .await
+        .map_err(|error| Error::Keyring {
+            key,
+            error: error.to_string(),
+        })?
+}
+
+pub async fn set_password(key: &str, password: &str) -> Result<(), Error> {
+    let key = key.to_string();
+    let password = password.to_string();
+    let task_key = key.clone();
+
+    tokio::task::spawn_blocking(move || {
+        set_password_blocking(&task_key, &password)
+    })
+    .await
+    .map_err(|error| Error::Keyring {
+        key,
+        error: error.to_string(),
+    })?
+}
+
+fn get_password_blocking(key: &str) -> Result<Option<String>, Error> {
     ensure_default_store(key)?;
 
     let entry = keyring_core::Entry::new(SERVICE, key).map_err(|error| {
@@ -106,7 +133,7 @@ pub fn get_password(key: &str) -> Result<Option<String>, Error> {
     }
 }
 
-pub fn set_password(key: &str, password: &str) -> Result<(), Error> {
+fn set_password_blocking(key: &str, password: &str) -> Result<(), Error> {
     ensure_default_store(key)?;
 
     let entry = keyring_core::Entry::new(SERVICE, key).map_err(|error| {

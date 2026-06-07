@@ -166,14 +166,16 @@ impl ConfigMap {
                     Some(default_port(config.use_tls, config.use_websocket));
             }
             if let Some(proxy) = &mut config.proxy {
-                proxy.set_password(
-                    |kind| {
-                        config::keyring::server_proxy_password_key(
-                            &server, kind,
-                        )
-                    },
-                    &format!("server `{server}`"),
-                )?;
+                proxy
+                    .set_password(
+                        |kind| {
+                            config::keyring::server_proxy_password_key(
+                                &server, kind,
+                            )
+                        },
+                        &format!("server `{server}`"),
+                    )
+                    .await?;
             }
             if let Some(pass_file) = &config.password_file {
                 if config.password.is_some()
@@ -212,7 +214,8 @@ impl ConfigMap {
                     return Err(Error::DuplicatePassword);
                 }
 
-                let password = config::keyring::get_password(&key)?
+                let password = config::keyring::get_password(&key)
+                    .await?
                     .ok_or_else(|| Error::MissingKeyringPasswordEntry {
                         label: "Server password".to_string(),
                         context: format!("server `{server}`"),
@@ -260,7 +263,8 @@ impl ConfigMap {
                     return Err(Error::DuplicateNickPassword);
                 }
 
-                let password = config::keyring::get_password(&key)?
+                let password = config::keyring::get_password(&key)
+                    .await?
                     .ok_or_else(|| Error::MissingKeyringPasswordEntry {
                         label: "NickServ password".to_string(),
                         context: format!("server `{server}`"),
@@ -285,7 +289,8 @@ impl ConfigMap {
                     });
                 }
 
-                let password = config::keyring::get_password(&key)?
+                let password = config::keyring::get_password(&key)
+                    .await?
                     .ok_or_else(|| Error::MissingKeyringPasswordEntry {
                         label: format!("Channel key {channel}"),
                         context: format!("server `{server}`"),

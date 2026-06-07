@@ -567,10 +567,12 @@ impl Config {
 
         let mut proxy = proxy;
         if let Some(proxy) = &mut proxy {
-            proxy.set_password(
-                keyring::proxy_password_key,
-                "global proxy configuration",
-            )?;
+            proxy
+                .set_password(
+                    keyring::proxy_password_key,
+                    "global proxy configuration",
+                )
+                .await?;
         }
 
         let servers = ServerMap::new(

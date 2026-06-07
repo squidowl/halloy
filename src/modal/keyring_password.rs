@@ -57,6 +57,7 @@ impl KeyringPassword {
                     Task::perform(
                         async move {
                             config::keyring::set_password(&key, &password)
+                                .await
                                 .map_err(|error| error.to_string())
                         },
                         |result| {
