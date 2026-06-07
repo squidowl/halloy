@@ -47,6 +47,7 @@ iced = { workspace = true, features = [
 ] }
 nom = { workspace = true }
 percent-encoding = { workspace = true }
+keyring-core = "1"
 
 base64 = "0.22.1"
 dirs-next = "2.0.0"
@@ -74,6 +75,17 @@ mime_guess = "2.0.5"
 any_ascii = "0.3.3"
 idna = "1.1.0"
 unicode-security = "0.1.2"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+apple-native-keyring-store = { version = "1", default-features = false, features = [
+    "keychain",
+] }
+
+[target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
+zbus-secret-service-keyring-store = "1"
+
+[target.'cfg(windows)'.dependencies]
+windows-native-keyring-store = { version = "1", default-features = false }
 
 [dev-dependencies]
 serde_test = "1.0"

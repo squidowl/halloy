@@ -35,6 +35,19 @@ The client's NICKSERV password. Whenever possible, using [`sasl.plain`](#sasl-pl
 nick_password = ""
 ```
 
+## `nick_password_keyring`
+
+Read `nick_password` from the system keyring. Set to `true` to use the automatic keyring entry name `servers.<name>.nick_password`, or set a string to use a custom keyring entry name.
+
+```toml
+# Type: boolean or string
+# Values: true, false, or any non-empty string
+# Default: false
+
+[servers.<name>]
+nick_password_keyring = true
+```
+
 ## `nick_password_file`
 
 Read `nick_password` from the file at the given path.[^1] [^2]
@@ -178,6 +191,19 @@ The password to connect to the server.
 password = ""
 ```
 
+## `password_keyring`
+
+Read `password` from the system keyring. Set to `true` to use the automatic keyring entry name `servers.<name>.password`, or set a string to use a custom keyring entry name.
+
+```toml
+# Type: boolean or string
+# Values: true, false, or any non-empty string
+# Default: false
+
+[servers.<name>]
+password_keyring = true
+```
+
 ## `password_file`
 
 Read password from the file at the given path.[^1] [^2]
@@ -253,6 +279,19 @@ A mapping of channel names to keys (passwords) for join-on-connect.
 
 [servers.<name>]
 channel_keys = { "#foo" = "password" }
+```
+
+## `channel_keys_keyring`
+
+A mapping of channel names to system keyring entries for join-on-connect. Set a channel to `true` to use the automatic keyring entry name `servers.<name>.channel_keys.<channel>`, or set a string to use a custom keyring entry name.
+
+```toml
+# Type: map
+# Values: map with string key and boolean or string value
+# Default: {}
+
+[servers.<name>]
+channel_keys_keyring = { "#foo" = true }
 ```
 
 ## `order_channels_by`
@@ -547,7 +586,7 @@ The configuration syntax and supported proxy types are similar to the global [Pr
 host = "192.168.1.100"
 port = 1080
 username = "username"
-password = "password"
+password_keyring = true
 ```
 
 or
@@ -557,8 +596,10 @@ or
 host = "192.168.1.100"
 port = 1080
 username = "username"
-password = "password"
+password_keyring = true
 ```
+
+With `password_keyring = true`, the automatic keyring entry names are `servers.<name>.proxy.http.password` and `servers.<name>.proxy.socks5.password`.
 
 ## `autoconnect`
 
@@ -738,6 +779,19 @@ The password associated with the account used for authentication.
 password = "password"
 ```
 
+### `password_keyring`
+
+Read `password` from the system keyring. Set to `true` to use the automatic keyring entry name `servers.<name>.sasl.plain.password`, or set a string to use a custom keyring entry name.
+
+```toml
+# Type: boolean or string
+# Values: true, false, or any non-empty string
+# Default: false
+
+[servers.<name>.sasl.plain]
+password_keyring = true
+```
+
 ### `password_file`
 
 Read `password` from the file at the given path.[^1] [^2]
@@ -912,6 +966,19 @@ The password associated with the account used for authentication.
 
 [servers.<name>.filehost.credentials.plain]
 password = "password"
+```
+
+##### `password_keyring`
+
+Read `password` from the system keyring. Set to `true` to use the automatic keyring entry name `servers.<name>.filehost.credentials.plain.password`, or set a string to use a custom keyring entry name.
+
+```toml
+# Type: boolean or string
+# Values: true, false, or any non-empty string
+# Default: false
+
+[servers.<name>.filehost.credentials.plain]
+password_keyring = true
 ```
 
 ##### `password_file`

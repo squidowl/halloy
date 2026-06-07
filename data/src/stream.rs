@@ -450,6 +450,8 @@ async fn _run(
                                         .password_file_first_line_only
                                 || config.password_command
                                     != updated_config.password_command
+                                || config.password_keyring
+                                    != updated_config.password_keyring
                                 || config.sasl != updated_config.sasl
                             {
                                 let _ = sender.unbounded_send(
