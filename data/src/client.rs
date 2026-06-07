@@ -1357,19 +1357,21 @@ impl Client {
                 let network = BouncerNetwork::parse(netid, network)?;
                 let mut network_config = self.config.bouncer_config();
 
-                if let Some(bouncer_config) = self.config.bouncer.as_ref() {
-                    let applied_config =
-                        bouncer_config.apply(&network, &network_config);
+                if let Some(bouncer_config) =
+                    self.config.bouncer_networks.as_ref()
+                {
+                    let new_config =
+                        bouncer_config.overlay(&network, &network_config);
 
-                    if applied_config != network_config {
+                    if new_config != network_config {
                         log::info!(
                             "[{}] Applying bouncer config for network {}",
                             self.server,
                             network.name,
                         );
-                    }
 
-                    network_config = applied_config;
+                        network_config = new_config;
+                    }
                 }
 
                 return Ok(vec![Event::BouncerNetwork(

@@ -147,7 +147,7 @@ pub struct Server {
     pub filehost: Filehost,
     pub metadata: HashMap<metadata::Key, String>,
     pub icon: Icon,
-    pub bouncer: Option<BouncerConfig>,
+    pub bouncer_networks: Option<BouncerConfig>,
 }
 
 impl Server {
@@ -281,7 +281,7 @@ impl Default for Server {
             filehost: Filehost::default(),
             metadata: HashMap::default(),
             icon: Icon::default(),
-            bouncer: None,
+            bouncer_networks: None,
         }
     }
 }
