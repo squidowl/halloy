@@ -13,6 +13,7 @@ Fixed:
 - Minor issues where input tooltips could fail to reflect current caret position, highlight the correct active argument, show when first the input is first loaded, etc
 - Show `Display` in `Configuration` docs menu
 - Document that `servers.<name>.username` setting will fall back to `servers.<name>.nickname` if not set
+- Nick completion tooltip no longer shows when there is only a single match
 
 Changed:
 
