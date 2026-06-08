@@ -2262,7 +2262,7 @@ impl Words {
                 highlighted,
                 filtered,
                 ..
-            } => {
+            } if filtered.len() > 1 => {
                 let skip = {
                     let index = if let Some(index) = highlighted {
                         *index
