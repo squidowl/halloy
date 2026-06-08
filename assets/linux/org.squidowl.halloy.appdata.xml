@@ -28,8 +28,8 @@
     </screenshots>
     <developer_name>The Squidowl Development Team</developer_name>
     <releases>
-        <release version="2026.7.1" date="2026-06-02">
-            <url type="details">https://github.com/squidowl/halloy/releases/tag/2026.7.1</url>
+        <release version="2026.7.2" date="2026-06-08">
+            <url type="details">https://github.com/squidowl/halloy/releases/tag/2026.7.2</url>
         </release>
     </releases>
 </component>

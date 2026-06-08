@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2026.7.2 (2026-06-08)
+
 Added:
 
 - Add clear buffer shortcut to title bar
