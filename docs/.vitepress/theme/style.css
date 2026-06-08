@@ -174,8 +174,10 @@ body,
   color: #f6b6c9;
   background: rgba(50, 48, 52, 0.9);
 }
+.mobile-only { display: none; }
 
 @media (max-width: 640px) {
+  .mobile-only { display: inline-block; }
   .vp-doc div[class*="language-"] {
     margin-left: 0;
     margin-right: 0;
