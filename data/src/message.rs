@@ -3675,6 +3675,18 @@ fn content<'a>(
                 None,
             ))
         }
+        Command::Numeric(RPL_MONLIST, params) => {
+            let user = User::from(Nick::from_str(params.get(1)?, casemapping));
+
+            Some((
+                parse_fragments_with_user(
+                    format!("{} is being monitored", user.nickname()),
+                    &user,
+                    casemapping,
+                ),
+                None,
+            ))
+        }
         Command::CHATHISTORY(sub, args) => {
             if sub == "TARGETS" {
                 let target = args.first()?;
