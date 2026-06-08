@@ -12,11 +12,16 @@ APP_BINARY="$RELEASE_DIR/$TARGET"
 APP_BINARY_DIR="$APP_DIR/$APP_NAME/Contents/MacOS"
 APP_EXTRAS_DIR="$APP_DIR/$APP_NAME/Contents/Resources"
 
-DMG_NAME="halloy.dmg"
-DMG_DIR="$RELEASE_DIR/macos"
-
 VERSION=$(grep -q '\..*\.' VERSION && cat VERSION || echo "$(cat VERSION).0")
+NIGHTLY=$(cat NIGHTLY)
 BUILD=$(git describe --always --dirty --exclude='*')
+
+if [ "$VERSION" = "$NIGHTLY" ]; then
+  DMG_NAME="halloy-nightly.dmg"
+else
+  DMG_NAME="halloy.dmg"
+fi
+DMG_DIR="$RELEASE_DIR/macos"
 
 # update version and build
 sed -i '' -e "s/{{ VERSION }}/$VERSION/g" "$APP_TEMPLATE_PLIST"

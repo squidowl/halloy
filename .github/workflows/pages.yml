@@ -20,11 +20,15 @@ concurrency:
 
 jobs:
   build:
+    if: github.repository == 'squidowl/halloy'
+    name: Build
+
     runs-on: ubuntu-latest
     env:
       DOCS_CHANNEL: nightly
       DOCS_SHA: ${{ github.sha }}
       DOCS_BASE: /
+
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -52,10 +56,13 @@ jobs:
 
   deploy:
     needs: build
+    name: Deploy
+
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
