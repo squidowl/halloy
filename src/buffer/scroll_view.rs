@@ -68,7 +68,7 @@ pub enum Message {
     ContentResized(Size),
     PendingScrollTo,
     FadeHighlight(message::Hash, u64),
-    HeightsCollected(Vec<(message::Hash, f32)>),
+    HeightsCollected(Vec<(keyed::Key, f32)>),
     Reacted {
         msgid: message::Id,
         text: Cow<'static, str>,
@@ -612,10 +612,15 @@ pub fn view<'a>(
     let msg_height = |m: &&data::Message| -> f32 {
         state
             .height_cache
-            .get(&m.hash)
+            .get(&keyed::Key::Message(m.hash))
             .copied()
             .map_or(row_height, |h| h + line_spacing as f32)
     };
+    let div_height = state
+        .height_cache
+        .get(&keyed::Key::Divider)
+        .copied()
+        .unwrap_or_default();
 
     let (render_start, render_end) = if state.pending_scroll_to.is_some()
         || state.is_scrolling_to
@@ -629,6 +634,13 @@ pub fn view<'a>(
                 let mut acc = 0.0_f32;
                 let mut from_bottom = 0;
                 for m in old_messages.iter().chain(&new_messages).rev() {
+                    if from_bottom == new_messages.len() {
+                        acc += div_height;
+                        if acc > offset {
+                            break;
+                        }
+                    }
+
                     acc += msg_height(m);
                     if acc > offset {
                         break;
@@ -642,6 +654,13 @@ pub fn view<'a>(
                 let mut acc = 0.0_f32;
                 let mut idx = 0;
                 for m in old_messages.iter().chain(&new_messages) {
+                    if idx == old_messages.len() {
+                        acc += div_height;
+                        if acc > offset {
+                            break;
+                        }
+                    }
+
                     acc += msg_height(m);
                     if acc > offset {
                         break;
@@ -789,7 +808,7 @@ pub struct State {
     limit: Limit,
     status: Status,
     last_scroll_offset: f32,
-    height_cache: HashMap<message::Hash, f32>,
+    height_cache: HashMap<keyed::Key, f32>,
     pending_scroll_to: Option<keyed::Key>,
     is_scrolling_to: bool,
     highlighted_message: Option<(message::Hash, f32)>,
@@ -1270,8 +1289,8 @@ impl State {
                 }
             }
             Message::HeightsCollected(heights) => {
-                for (hash, height) in &heights {
-                    self.height_cache.insert(*hash, *height);
+                for (key, height) in &heights {
+                    self.height_cache.insert(*key, *height);
                 }
 
                 let mut preview_changed = false;
@@ -1281,7 +1300,13 @@ impl State {
                 {
                     let rendered_hashes = heights
                         .iter()
-                        .map(|(hash, _)| *hash)
+                        .filter_map(|(key, _)| {
+                            if let keyed::Key::Message(hash) = key {
+                                Some(*hash)
+                            } else {
+                                None
+                            }
+                        })
                         .collect::<HashSet<_>>();
 
                     let mut still_pending = HashSet::new();
@@ -1691,7 +1716,7 @@ pub mod keyed {
 
     use crate::widget::{Element, Renderer, decorate};
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub enum Key {
         Divider,
         Message(message::Hash),
@@ -1924,10 +1949,10 @@ pub mod keyed {
     pub struct CollectHeights {
         active: bool,
         scrollable_id: widget::Id,
-        heights: Vec<(message::Hash, f32)>,
+        heights: Vec<(Key, f32)>,
     }
 
-    impl Operation<Vec<(message::Hash, f32)>> for CollectHeights {
+    impl Operation<Vec<(Key, f32)>> for CollectHeights {
         fn scrollable(
             &mut self,
             id: Option<&widget::Id>,
@@ -1943,9 +1968,7 @@ pub mod keyed {
 
         fn traverse(
             &mut self,
-            operate: &mut dyn FnMut(
-                &mut dyn Operation<Vec<(message::Hash, f32)>>,
-            ),
+            operate: &mut dyn FnMut(&mut dyn Operation<Vec<(Key, f32)>>),
         ) {
             operate(self);
         }
@@ -1957,15 +1980,14 @@ pub mod keyed {
             state: &mut dyn std::any::Any,
         ) {
             if self.active
-                && let Some(Key::Message(hash)) = state.downcast_ref::<Key>()
+                && let Some(key) = state.downcast_ref::<Key>()
+                && matches!(key, Key::Message(_) | Key::Divider)
             {
-                self.heights.push((*hash, bounds.height));
+                self.heights.push((*key, bounds.height));
             }
         }
 
-        fn finish(
-            &self,
-        ) -> widget::operation::Outcome<Vec<(message::Hash, f32)>> {
+        fn finish(&self) -> widget::operation::Outcome<Vec<(Key, f32)>> {
             if self.heights.is_empty() {
                 widget::operation::Outcome::None
             } else {
@@ -1974,9 +1996,7 @@ pub mod keyed {
         }
     }
 
-    pub fn collect_heights(
-        scrollable: widget::Id,
-    ) -> Task<Vec<(message::Hash, f32)>> {
+    pub fn collect_heights(scrollable: widget::Id) -> Task<Vec<(Key, f32)>> {
         widget::operate(CollectHeights {
             active: false,
             scrollable_id: scrollable,

@@ -10,6 +10,7 @@ Fixed:
 - Issue where large window size could cause Halloy to crash in certain scenarios
 - Correctly support `RPL_METADATASYNCLATER`
 - Issue where input box could lose focus after a filehost, reply, or reaction modal
+- Issue where a buffer could jitter in certain particular scroll positions
 - Minor issues where input tooltips could fail to reflect current caret position, highlight the correct active argument, show when first the input is first loaded, etc
 - Show `Display` in `Configuration` docs menu
 - Document that `servers.<name>.username` setting will fall back to `servers.<name>.nickname` if not set
