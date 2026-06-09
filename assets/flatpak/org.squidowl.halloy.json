@@ -14,7 +14,8 @@
         "--socket=fallback-x11",
         "--socket=pulseaudio",
         "--socket=wayland",
-        "--talk-name=org.freedesktop.Notifications"
+        "--talk-name=org.freedesktop.Notifications",
+        "--talk-name=org.freedesktop.secrets"
     ],
     "build-options": {
         "append-path" : "/usr/lib/sdk/rust-stable/bin"
