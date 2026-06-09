@@ -687,3 +687,67 @@ pub async fn read_from_command(
         )?))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::*;
+
+    fn plain_sasl(
+        password: Option<&str>,
+        password_keyring: config::keyring::Password,
+        password_file: Option<PathBuf>,
+        password_command: Option<&str>,
+    ) -> Sasl {
+        Sasl::Plain {
+            username: Some("user".to_string()),
+            password: password.map(str::to_string),
+            password_keyring,
+            password_file,
+            password_file_first_line_only: None,
+            password_command: password_command.map(str::to_string),
+            disconnect_on_failure: None,
+        }
+    }
+
+    fn assert_duplicate_sasl_password(mut sasl: Sasl) {
+        let result = futures::executor::block_on(sasl.set_password(
+            "libera",
+            config::keyring::sasl_plain_password_key,
+            "SASL password",
+        ));
+
+        assert!(matches!(result, Err(config::Error::DuplicateSaslPassword)));
+    }
+
+    #[test]
+    fn sasl_plain_password_and_keyring_are_duplicate() {
+        assert_duplicate_sasl_password(plain_sasl(
+            Some("password"),
+            config::keyring::Password::Enabled,
+            None,
+            None,
+        ));
+    }
+
+    #[test]
+    fn sasl_plain_password_file_and_keyring_are_duplicate() {
+        assert_duplicate_sasl_password(plain_sasl(
+            None,
+            config::keyring::Password::Enabled,
+            Some(PathBuf::from("unused")),
+            None,
+        ));
+    }
+
+    #[test]
+    fn sasl_plain_password_command_and_keyring_are_duplicate() {
+        assert_duplicate_sasl_password(plain_sasl(
+            None,
+            config::keyring::Password::Enabled,
+            None,
+            Some("unused"),
+        ));
+    }
+}

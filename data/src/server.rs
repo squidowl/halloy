@@ -461,3 +461,70 @@ impl Map {
         self.0.extract_if(0.., pred)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
+    use super::*;
+
+    fn server_config() -> config::Server {
+        config::Server {
+            server: "irc.example.com".to_string(),
+            ..Default::default()
+        }
+    }
+
+    fn load_server(config: config::Server) -> Result<ConfigMap, Error> {
+        futures::executor::block_on(ConfigMap::new(
+            vec![(Arc::<str>::from("libera"), config)],
+            OrderChannelsBy::Name,
+            Typing::default(),
+        ))
+    }
+
+    #[test]
+    fn password_and_keyring_are_duplicate() {
+        let mut config = server_config();
+        config.password = Some("password".to_string());
+        config.password_keyring = config::keyring::Password::Enabled;
+
+        assert!(matches!(load_server(config), Err(Error::DuplicatePassword)));
+    }
+
+    #[test]
+    fn password_file_and_keyring_are_duplicate() {
+        let mut config = server_config();
+        config.password_file = Some(PathBuf::from("unused"));
+        config.password_keyring = config::keyring::Password::Enabled;
+
+        assert!(matches!(load_server(config), Err(Error::DuplicatePassword)));
+    }
+
+    #[test]
+    fn password_command_and_keyring_are_duplicate() {
+        let mut config = server_config();
+        config.password_command = Some("unused".to_string());
+        config.password_keyring = config::keyring::Password::Enabled;
+
+        assert!(matches!(load_server(config), Err(Error::DuplicatePassword)));
+    }
+
+    #[test]
+    fn channel_key_and_keyring_are_duplicate_for_same_channel() {
+        let mut config = server_config();
+        config
+            .channel_keys
+            .insert("#halloy".to_string(), "password".to_string());
+        config
+            .channel_keys_keyring
+            .insert("#halloy".to_string(), config::keyring::Password::Enabled);
+
+        assert!(matches!(
+            load_server(config),
+            Err(Error::DuplicateChannelKey { server, channel })
+                if server == "libera" && channel == "#halloy"
+        ));
+    }
+}

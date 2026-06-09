@@ -220,6 +220,14 @@ mod tests {
     }
 
     #[test]
+    fn password_deserializes_disabled_boolean() {
+        let fixture: PasswordFixture =
+            toml::from_str("password_keyring = false").unwrap();
+
+        assert_eq!(fixture.password_keyring, Password::Disabled);
+    }
+
+    #[test]
     fn password_deserializes_custom_key() {
         let fixture: PasswordFixture =
             toml::from_str(r#"password_keyring = "custom.secret""#).unwrap();
@@ -227,6 +235,36 @@ mod tests {
         assert_eq!(
             fixture.password_keyring,
             Password::Key("custom.secret".to_string())
+        );
+    }
+
+    #[test]
+    fn password_enabled_uses_default_key() {
+        let password = Password::Enabled;
+
+        assert_eq!(
+            password.key_or_default(|| "default.secret".to_string()),
+            Some("default.secret".to_string())
+        );
+    }
+
+    #[test]
+    fn password_custom_key_overrides_default_key() {
+        let password = Password::Key("custom.secret".to_string());
+
+        assert_eq!(
+            password.key_or_default(|| "default.secret".to_string()),
+            Some("custom.secret".to_string())
+        );
+    }
+
+    #[test]
+    fn password_disabled_uses_no_key() {
+        let password = Password::Disabled;
+
+        assert_eq!(
+            password.key_or_default(|| "default.secret".to_string()),
+            None
         );
     }
 
