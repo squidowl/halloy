@@ -1,5 +1,15 @@
 # Unreleased
 
+Fixed:
+
+- Nick highlight improvements
+  - Handle nick possessives `<nick>'s` (`<nick>` should be parsed)
+  - Skip parsing nicks inside abbreviations (`e.g.` shouldn't have highlights)
+
+Thanks:
+
+- Contributions: @englut
+
 # 2026.7.2 (2026-06-08)
 
 Added:
