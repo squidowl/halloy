@@ -3,6 +3,7 @@
 Added:
 
 - Improved legibility of the returned values of `MONITOR` list (`/monitor L`)
+- Config option (`preview.card.description_decode_html`) to decode html strings in preview card descriptions
 
 Fixed:
 

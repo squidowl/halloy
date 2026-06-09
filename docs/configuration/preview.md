@@ -26,7 +26,7 @@ Without literal strings, you'd have to write the above as `"\\bfoo'd\\b"`
 ```toml
 [preview]
 enabled = [
-    '''https?://(www\.)?imgur\.com/.*''', 
+    '''https?://(www\.)?imgur\.com/.*''',
     '''https?://(www\.)?dr\.dk/.*'''
 ]
 ```
@@ -55,7 +55,7 @@ Without literal strings, you'd have to write the above as `"\\bfoo'd\\b"`
 ```toml
 [preview]
 exclude = [
-    '''https?://(www\.)?example\.com/.*''', 
+    '''https?://(www\.)?example\.com/.*''',
     '''https?://(www\.)?spam-site\.net/.*'''
 ]
 ```
@@ -198,6 +198,41 @@ explicitly excluded, so this setting is only relevant when combined with the
 include = { users = ["BridgeBot"] }
 ```
 
+### `description_decode_html`
+
+`og:description` is always a string, but due to it being in HTML it needs to be
+escaped. Sometimes you may get double-escaped entries in this field, this
+setting will allow you to handle this scenario.
+
+::: warning
+Using this option may break purposely created `og:description` entries meant to include
+HTML escape codes.
+:::
+
+```toml
+# Type: boolean or array of strings
+# Values: true, false, or array of regex patterns
+# Default: false
+
+[preview.card]
+description_decode_html = true
+```
+
+To whitelist specific domains, you can use an array of regex patterns.
+
+::: tip
+Use toml multi-line literal strings `'''\bfoo'd\b'''` when writing a regex. This allows you to write the regex without escaping. You can also use a literal string `'\bfoo\b'`, but then you can't use `'` inside the string.
+
+Without literal strings, you'd have to write the above as `"\\bfoo'd\\b"`
+:::
+
+```toml
+[preview.card]
+description_decode_html = [
+    '''https?://(www\.)?github\.com/.*''',
+]
+```
+
 ## `image`
 
 Specific image preview settings.
@@ -312,11 +347,11 @@ include = { users = ["BridgeBot"] }
 
 ## `image_cache`
 
-Settings to control how the image cache is managed.  The cache is stored in:
+Settings to control how the image cache is managed. The cache is stored in:
 
-* Windows: `%AppData%\Roaming\Local\halloy\previews\images\`
-* Mac: `~/Library/Caches/halloy/previews/images/` or `$HOME/.cache/halloy/previews/images/`
-* Linux: `$XDG_CACHE_HOME/halloy/previews/images/`, `$HOME/.cache/halloy/previews/images/`, or `$HOME/.var/app/org.squidowl.halloy/cache/halloy/previews/images/` (Flatpak)
+- Windows: `%AppData%\Roaming\Local\halloy\previews\images\`
+- Mac: `~/Library/Caches/halloy/previews/images/` or `$HOME/.cache/halloy/previews/images/`
+- Linux: `$XDG_CACHE_HOME/halloy/previews/images/`, `$HOME/.cache/halloy/previews/images/`, or `$HOME/.var/app/org.squidowl.halloy/cache/halloy/previews/images/` (Flatpak)
 
 ### `max_size`
 
@@ -373,7 +408,7 @@ Request timeout in milliseconds. Defaults is 10s.
 [preview.request]
 timeout_ms = 10000
 ```
- 
+
 ### `max_image_size`
 
 Max image size in bytes. This prevents downloading responses that are too big. Default is 10mb.

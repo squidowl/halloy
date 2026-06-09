@@ -18,7 +18,7 @@ use url::Url;
 
 pub use self::card::Card;
 use crate::cache::{self, Asset, CacheState, CachedAsset, FileCache};
-use crate::config::preview::Visibility;
+use crate::config::preview::{Enabled, Visibility};
 use crate::image::Image;
 use crate::message::Source;
 use crate::server::Server;
@@ -321,6 +321,22 @@ async fn load_uncached(
                 fetch(image_url, client, config, cache).await?
             else {
                 return Err(LoadError::NotImage);
+            };
+
+            let description = match &config.card.description_decode_html {
+                Enabled::Boolean(true) => description
+                    .map(|description| decode_html_string(&description)),
+                Enabled::Regex(regexes) => {
+                    if regexes.iter().any(|regex| {
+                        regex.is_match(url.as_str()).unwrap_or(false)
+                    }) {
+                        description
+                            .map(|description| decode_html_string(&description))
+                    } else {
+                        description
+                    }
+                }
+                _ => description,
             };
 
             Ok(Preview::Card(Card {
