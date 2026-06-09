@@ -329,7 +329,8 @@ async fn load_uncached(
                     .ok_or(LoadError::MissingProperty("url"))?,
                 image,
                 title: title.ok_or(LoadError::MissingProperty("title"))?,
-                description,
+                description: description
+                    .map(|description| decode_html_string(&description)),
             }))
         }
     }

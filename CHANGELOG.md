@@ -1,5 +1,13 @@
 # Unreleased
 
+Fixed:
+
+- Decode html strings in preview card descriptions
+
+Thanks:
+
+- Contributions: @englut
+
 # 2026.7.2 (2026-06-08)
 
 Added:
