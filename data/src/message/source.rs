@@ -158,7 +158,6 @@ pub mod server {
                 | Kind::Quit
                 | Kind::JoinTopic
                 | Kind::ChangeHost
-                | Kind::ChangeMode
                 | Kind::ChangeNick
                 | Kind::Away => false,
                 Kind::MonitoredOnline
@@ -166,6 +165,7 @@ pub mod server {
                 | Kind::StandardReply(_)
                 | Kind::WAllOps
                 | Kind::Kick
+                | Kind::ChangeMode
                 | Kind::ChangeTopic
                 | Kind::Invite
                 | Kind::RequestTopic => true,
