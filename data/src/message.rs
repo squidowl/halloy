@@ -1944,6 +1944,7 @@ pub fn parse_fragments_with_highlights(
                                 Some(Fragment::HighlightMatch(text.to_owned()))
                             },
                             |_| false,
+                            |_| None,
                         )
                         .into_iter(),
                     );
@@ -2040,16 +2041,26 @@ fn parse_fragments_with_users_inner(
                         {
                             return true;
                         }
-                        // skip if followed by period and non-whitespace: `<match>.\S`
+                        // skip if followed by period and non-period/whitespace: `<match>.[^\S\.]`
                         if text[re_match.end()..].starts_with('.')
                             && text[re_match.end() + 1..]
                                 .chars()
                                 .next()
-                                .is_some_and(|c| !c.is_whitespace())
+                                .is_some_and(|c| !c.is_whitespace() && c != '.')
                         {
                             return true;
                         }
                         false
+                    },
+                    |matching: &str| {
+                        // extend filtering to strip possessives
+                        if let Some(stripped_matching) =
+                            matching.strip_suffix("'s")
+                        {
+                            Some((stripped_matching, Some("'s")))
+                        } else {
+                            Some((matching, None))
+                        }
                     },
                 )
                 .into_iter(),
@@ -2087,6 +2098,7 @@ fn parse_fragments_inner<'a>(
                             })
                         },
                         |_| false,
+                        |_| None,
                     )
                     .into_iter(),
                 );
@@ -2102,6 +2114,7 @@ fn parse_fragments_inner<'a>(
                         text,
                         |channel| Some(Fragment::Channel(channel.to_owned())),
                         |_| false,
+                        |_| None,
                     )
                     .into_iter(),
                 );
@@ -2162,19 +2175,12 @@ fn parse_fragments_inner<'a>(
         })
 }
 
-fn filter_trailing_possessive(matching: &str) -> (&str, Option<&str>) {
-    if let Some(stripped_matching) = matching.strip_suffix("'s") {
-        (stripped_matching, Some("'s"))
-    } else {
-        (matching, None)
-    }
-}
-
 fn parse_regex_fragments<'a>(
     regex: &Regex,
     text: impl Into<Cow<'a, str>>,
-    mut f: impl FnMut(&str) -> Option<Fragment>,
+    mut fragment_match: impl FnMut(&str) -> Option<Fragment>,
     should_skip: impl Fn((&Match, &str)) -> bool,
+    filter_trailing_extended: impl Fn(&str) -> Option<(&str, Option<&str>)>,
 ) -> Vec<Fragment> {
     let text: Cow<'a, str> = text.into();
 
@@ -2191,14 +2197,20 @@ fn parse_regex_fragments<'a>(
             &text,
         );
         let (matching, leading_delimiter) = filter_leading_delimiter(matching);
-        let (matching, trailing_possessive) =
-            filter_trailing_possessive(matching);
+        let (matching, trailing_extended) =
+            if let Some((matching, trailing_extended)) =
+                filter_trailing_extended(matching)
+            {
+                (matching, trailing_extended)
+            } else {
+                (matching, None)
+            };
 
         if should_skip((&re_match, &text)) {
             continue;
         }
 
-        if let Some(fragment) = (f)(matching) {
+        if let Some(fragment) = fragment_match(matching) {
             let mut leading_text = String::new();
             if i < re_match.start() {
                 leading_text.push_str(&text[i..re_match.start()]);
@@ -2214,17 +2226,17 @@ fn parse_regex_fragments<'a>(
 
             if trailing_delimiter.is_some()
                 || trailing_punctuation.is_some()
-                || trailing_possessive.is_some()
+                || trailing_extended.is_some()
             {
                 let mut trailing = String::new();
-                if let Some(possessive) = trailing_possessive {
-                    trailing.push_str(possessive);
-                }
                 if let Some(delimiter) = trailing_delimiter {
                     trailing.push_str(delimiter);
                 }
                 if let Some(punctuation) = trailing_punctuation {
                     trailing.push_str(punctuation);
+                }
+                if let Some(extended) = trailing_extended {
+                    trailing.push_str(extended);
                 }
                 fragments.push(Fragment::Text(trailing));
             }
@@ -4224,12 +4236,13 @@ pub mod tests {
     fn fragments_parsing() {
         let tests = [
             (
-                r##"#channel: "#foo""##,
+                r##"#channel: "#foo" #foo's"##,
                 vec![
                     Fragment::Channel("#channel".into()),
                     Fragment::Text(": \"".into()),
                     Fragment::Channel("#foo".into()),
-                    Fragment::Text("\"".into()),
+                    Fragment::Text("\" ".into()),
+                    Fragment::Channel("#foo's".into()),
                 ],
             ),
             (
@@ -4654,7 +4667,8 @@ pub mod tests {
             ),
             (
                 (
-                    "And they said: \"Susan, where are you?\"".to_string(),
+                    "And they said: \"Susan, where are you?\" Susan..."
+                        .to_string(),
                     ["Susan"]
                         .into_iter()
                         .map(|nick| {
@@ -4668,7 +4682,12 @@ pub mod tests {
                         User::from(Nick::from_str("Susan", casemapping)),
                         "Susan".into(),
                     ),
-                    Fragment::Text(", where are you?\"".into()),
+                    Fragment::Text(", where are you?\" ".into()),
+                    Fragment::User(
+                        User::from(Nick::from_str("Susan", casemapping)),
+                        "Susan".into(),
+                    ),
+                    Fragment::Text("...".into()),
                 ],
             ),
             (
