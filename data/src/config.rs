@@ -834,9 +834,13 @@ pub enum Error {
     )]
     DuplicateProxyPassword { label: String, context: String },
     #[error(
-        "Exactly one of sasl.plain.password, sasl.plain.password_file, sasl.plain.password_command or sasl.plain.password_keyring must be set."
+        "Only one of password, password_file, password_command and password_keyring can be set for {label} in {context}."
     )]
-    DuplicateSaslPassword,
+    DuplicateSaslPassword { label: String, context: String },
+    #[error(
+        "{label} must be set for {context}; configure one of password, password_file, password_command or password_keyring."
+    )]
+    MissingSaslPassword { label: String, context: String },
     #[error("Keybind \"{}\" is assigned to multiple actions: {}", keybind.as_config_string(), actions.as_config_string())]
     KeyBindConflict { keybind: KeyBind, actions: Commands },
     #[error("{label} keyring entry `{key}` is missing for {context}.")]

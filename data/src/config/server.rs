@@ -377,6 +377,8 @@ impl Sasl {
         default_key: fn(&str) -> String,
         label: &'static str,
     ) -> Result<(), config::Error> {
+        let context = format!("server `{server}`");
+
         match self {
             Sasl::Plain {
                 password: Some(_),
@@ -395,14 +397,17 @@ impl Sasl {
                 let Some(key) =
                     password_keyring.key_or_default(|| default_key(server))
                 else {
-                    return Err(config::Error::DuplicateSaslPassword);
+                    return Err(config::Error::MissingSaslPassword {
+                        label: label.to_string(),
+                        context,
+                    });
                 };
 
                 let pass =
                     config::keyring::get_password(&key).await?.ok_or_else(
                         || config::Error::MissingKeyringPasswordEntry {
                             label: label.to_string(),
-                            context: format!("server `{server}`"),
+                            context: context.clone(),
                             key: key.clone(),
                         },
                     )?;
@@ -443,7 +448,10 @@ impl Sasl {
                 *password = Some(pass);
             }
             Sasl::Plain { .. } => {
-                return Err(config::Error::DuplicateSaslPassword);
+                return Err(config::Error::DuplicateSaslPassword {
+                    label: label.to_string(),
+                    context,
+                });
             }
             Sasl::External { .. } => {}
         }
@@ -718,7 +726,11 @@ mod tests {
             "SASL password",
         ));
 
-        assert!(matches!(result, Err(config::Error::DuplicateSaslPassword)));
+        assert!(matches!(
+            result,
+            Err(config::Error::DuplicateSaslPassword { label, context })
+                if label == "SASL password" && context == "server `libera`"
+        ));
     }
 
     #[test]
@@ -748,6 +760,43 @@ mod tests {
             config::keyring::Password::Enabled,
             None,
             Some("unused"),
+        ));
+    }
+
+    #[test]
+    fn sasl_plain_without_password_source_is_missing() {
+        let mut sasl =
+            plain_sasl(None, config::keyring::Password::Disabled, None, None);
+
+        let result = futures::executor::block_on(sasl.set_password(
+            "libera",
+            config::keyring::sasl_plain_password_key,
+            "SASL password",
+        ));
+
+        assert!(matches!(
+            result,
+            Err(config::Error::MissingSaslPassword { label, context })
+                if label == "SASL password" && context == "server `libera`"
+        ));
+    }
+
+    #[test]
+    fn filehost_plain_without_password_source_is_missing() {
+        let mut sasl =
+            plain_sasl(None, config::keyring::Password::Disabled, None, None);
+
+        let result = futures::executor::block_on(sasl.set_password(
+            "libera",
+            config::keyring::filehost_credentials_plain_password_key,
+            "Filehost credentials password",
+        ));
+
+        assert!(matches!(
+            result,
+            Err(config::Error::MissingSaslPassword { label, context })
+                if label == "Filehost credentials password"
+                    && context == "server `libera`"
         ));
     }
 }
