@@ -1,6 +1,7 @@
 {
   "dependencies": {},
   "devDependencies": {
+    "@types/node": "^25.9.2",
     "markdown-it-footnote": "^4.0.0",
     "vitepress": "^2.0.0-alpha.16"
   },

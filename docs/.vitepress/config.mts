@@ -137,6 +137,7 @@ export default defineConfig({
   },
   themeConfig: {
     logo: "/logo.png",
+    siteTitle: `Halloy <span class="VPBadge info mobile-only">${releaseLabel}</span>`,
     search: {
       provider: "local",
     },

@@ -23,7 +23,7 @@ Bug reports should be reported on our repository on GitHub in the [issue tracker
 
 All patches have to be sent on GitHub as [pull requests](https://github.com/squidowl/halloy/pulls).
 
-Should you wish to work on an issue, please leave a comment on it or let us know on ircs://irc.libera.chat/\#halloy in order to claim the issue.  Significant new features, especially those not specified by IRCv3, should be discussed before submission to ensure they fit with the project.
+Should you wish to work on an issue, please leave a comment on it or let us know on <ircs://irc.libera.chat/#halloy> in order to claim the issue.  Significant new features, especially those not specified by IRCv3, should be discussed before submission to ensure they fit with the project.
 
 If you are looking for a place to start contributing, take a look at the [easy](https://github.com/squidowl/halloy/issues?q=is%3Aissue%20state%3Aopen%20label%3Aeasy) issues.
 
