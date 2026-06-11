@@ -1535,9 +1535,97 @@ fn internal_buffer_button<'a>(
         .then_some((window_id, pane))
     });
 
+    let server_icon_size = match config.sidebar.server_icon {
+        data::config::sidebar::ServerIcon::Size(size) => size,
+        data::config::sidebar::ServerIcon::Hidden => 0,
+    };
+
+    let badge_padding = 2;
+    let badge_size = (server_icon_size / 3).max(4) + 2 * badge_padding;
+
+    let max_indicator_size = if server_icon_size > 0 { badge_size } else { 0 }
+        .max(if config.sidebar.unread_indicator.has_unread_icon() {
+            config.sidebar.unread_indicator.icon_size
+        } else {
+            0
+        })
+        .max(
+            if config.sidebar.unread_indicator.has_unread_highlight_icon() {
+                config.sidebar.unread_indicator.highlight_icon_size
+            } else {
+                0
+            },
+        );
+
+    let (icon, icon_height, icon_left_spacing): (
+        Option<Element<'a, Message>>,
+        u32,
+        f32,
+    ) = if server_icon_size > 0 {
+        let icon_widget: Element<'a, Message> = icon
+            .style(theme::text::primary)
+            .size(server_icon_size)
+            .into();
+
+        (
+            Some(
+                stack![
+                    row![
+                        Space::new().width(badge_padding),
+                        column![
+                            Space::new().height(badge_padding),
+                            icon_widget
+                        ]
+                    ]
+                    .align_y(iced::Alignment::Center),
+                ]
+                .into(),
+            ),
+            server_icon_size,
+            max_indicator_size.saturating_sub(badge_size) as f32 / 2.0,
+        )
+    } else {
+        (None, 1, 0.0)
+    };
+
+    let (icon_spacing, icon) = if config.sidebar.position.is_horizontal() {
+        icon.map_or((0, None), |icon| (8, Some(icon)))
+    } else {
+        let server_icon_size = match config.sidebar.server_icon {
+            data::config::sidebar::ServerIcon::Size(size) => size,
+            data::config::sidebar::ServerIcon::Hidden => 0,
+        };
+        let max_icon_size = server_icon_size
+            .max(if config.sidebar.unread_indicator.has_unread_icon() {
+                config.sidebar.unread_indicator.icon_size
+            } else {
+                0
+            })
+            .max(
+                if config.sidebar.unread_indicator.has_unread_highlight_icon() {
+                    config.sidebar.unread_indicator.highlight_icon_size
+                } else {
+                    0
+                },
+            );
+        (
+            8,
+            Some(
+                stack![
+                    Space::new().width(max_icon_size).height(icon_height),
+                    icon.map(|icon| row![
+                        Space::new().width(icon_left_spacing),
+                        icon
+                    ])
+                ]
+                .into(),
+            ),
+        )
+    };
+
     let content = row![
-        icon.style(theme::text::primary),
-        Space::new().width(8),
+        icon,
+        Space::new().width(icon_spacing),
         text(title)
             .line_height(LineHeight::Relative(1.0))
             .size_maybe(
