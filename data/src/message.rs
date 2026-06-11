@@ -385,6 +385,7 @@ impl Message {
                 }
                 _ => false,
             }
+            && !self.blocked
     }
 
     pub fn triggers_highlight(&self) -> bool {
@@ -397,6 +398,7 @@ impl Message {
                     Fragment::HighlightNick(_, _) | Fragment::HighlightMatch(_)
                 )
             })
+            && !self.blocked
         {
             true
         } else {
