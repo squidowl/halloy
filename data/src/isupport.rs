@@ -1147,6 +1147,10 @@ pub enum WhoXPollParameters {
 }
 
 impl WhoXPollParameters {
+    // Fields are listed in return order here for ease of reference, but
+    // return order is not dependent on the order provided in a WHOX
+    // request.  Returned field ordering is defined by the WHOX
+    // specification: https://ircv3.net/specs/extensions/whox
     pub fn fields(&self) -> &'static str {
         match self {
             WhoXPollParameters::Default => "tcnf",
