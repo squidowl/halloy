@@ -153,6 +153,10 @@ pub fn config<'a>() -> TextColorSvg<'a, Theme> {
     text_color_svg(svg::Handle::from_memory(fontawesome_file_code))
 }
 
+pub fn open<'a>() -> Text<'a> {
+    to_text('\u{F115}')
+}
+
 pub fn star<'a>() -> TextColorSvg<'a, Theme> {
     let fontawesome_star =
         include_bytes!("../assets/fontello/fontawesome-star.svg").to_vec();

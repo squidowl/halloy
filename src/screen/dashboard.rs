@@ -94,6 +94,7 @@ pub enum Message {
     CloseContextMenu(window::Id, bool),
     ThemeEditor(theme_editor::Message),
     ConfigReloaded(Result<Config, config::Error>),
+    ConfigEditorReloaded(Result<Config, config::Error>),
     Client(client::Message),
     ServerIcon(server_icon::Message),
     LoadPreview((url::Url, Result<data::Preview, data::preview::LoadError>)),
@@ -756,10 +757,6 @@ impl Dashboard {
 
                         (Task::none(), None)
                     }
-                    sidebar::Event::OpenConfigFile => {
-                        let _ = open_url::open(Config::path());
-                        (Task::none(), None)
-                    }
                     sidebar::Event::Connect(server) => {
                         connect_server(server, controllers, servers);
 
@@ -1387,6 +1384,16 @@ impl Dashboard {
                             );
                         }
                     }
+                    OpenConfigEditor => {
+                        return (
+                            self.toggle_internal_buffer(
+                                clients,
+                                config,
+                                buffer::Internal::ConfigEditor,
+                            ),
+                            None,
+                        );
+                    }
                     OpenConfigFile => {
                         let _ = open_url::open(Config::path());
                     }
@@ -1474,10 +1481,31 @@ impl Dashboard {
                 return (Task::batch(tasks), event);
             }
             Message::ConfigReloaded(config_result) => {
+                for (_, _, state) in self.panes.iter_mut() {
+                    if let Buffer::ConfigEditor(editor) = &mut state.buffer {
+                        editor.config_reloaded(config_result.as_ref().err());
+                    }
+                }
+
                 return (
                     Task::none(),
                     Some(Event::ConfigReloaded(config_result)),
                 );
+            }
+            Message::ConfigEditorReloaded(config_result) => {
+                for (_, _, state) in self.panes.iter_mut() {
+                    if let Buffer::ConfigEditor(editor) = &mut state.buffer {
+                        editor.config_reloaded(config_result.as_ref().err());
+                    }
+                }
+
+                // Errors are surfaced within the config editor instead of
+                // the reload error modal.
+                let event = config_result
+                    .is_ok()
+                    .then_some(Event::ConfigReloaded(config_result));
+
+                return (Task::none(), event);
             }
             Message::Client(message) => match message {
                 client::Message::ChatHistoryRequest(server, subcommand) => {
@@ -2515,6 +2543,15 @@ impl Dashboard {
                 Self::send_list_command(&server, pane, clients);
 
                 return (Task::none(), None);
+            }
+            buffer::Event::ConfigSaved => {
+                return (
+                    Task::perform(
+                        Config::load(),
+                        Message::ConfigEditorReloaded,
+                    ),
+                    None,
+                );
             }
             buffer::Event::OpenServer(server) => {
                 return (Task::none(), Some(Event::OpenServer(server)));

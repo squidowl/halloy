@@ -42,6 +42,7 @@ pub struct Keyboard {
     pub cycle_previous_unread_buffer: KeyBinds,
     pub mark_as_read: KeyBinds,
     pub quit_application: KeyBinds,
+    pub open_config_editor: KeyBinds,
     pub open_config_file: KeyBinds,
 }
 
@@ -80,6 +81,7 @@ impl Default for Keyboard {
                 KeyBind::cycle_previous_unread_buffer().into(),
             mark_as_read: KeyBind::mark_as_read().into(),
             quit_application: KeyBind::quit_application().into(),
+            open_config_editor: KeyBind::open_config_editor().into(),
             open_config_file: KeyBind::open_config_file().into(),
         }
     }
@@ -122,6 +124,7 @@ impl Keyboard {
             ),
             (&self.mark_as_read, MarkAsRead),
             (&self.quit_application, QuitApplication),
+            (&self.open_config_editor, OpenConfigEditor),
             (&self.open_config_file, OpenConfigFile),
         ]
     }

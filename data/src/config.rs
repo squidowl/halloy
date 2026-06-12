@@ -529,7 +529,7 @@ impl Config {
             .map_err(|e| Error::LoadConfigFile(e.to_string()))?;
 
         let config = toml::Deserializer::parse(content.as_ref())
-            .map_err(|e| Error::Parse(e.to_string()))?;
+            .map_err(|e| Error::Parse(ParseError::new(&content, &e)))?;
 
         let Configuration {
             theme,
@@ -560,7 +560,7 @@ impl Config {
         } = serde_ignored::deserialize(config, |ignored| {
             log::warn!("[config.toml] Ignoring unknown setting: {ignored}");
         })
-        .map_err(|e| Error::Parse(e.to_string()))?;
+        .map_err(|e| Error::Parse(ParseError::new(&content, &e)))?;
 
         keyboard.validate()?;
 
@@ -790,6 +790,32 @@ pub fn random_nickname_with_seed<R: Rng>(rng: &mut R) -> String {
     rand_nick
 }
 
+#[derive(Debug, Clone)]
+pub struct ParseError {
+    /// Short description of the problem, e.g. `invalid basic string`.
+    pub message: String,
+    /// Full rendered error, including a snippet of the offending TOML.
+    pub details: String,
+    /// Zero-indexed line of the parse error in the config file.
+    pub line: Option<usize>,
+}
+
+impl ParseError {
+    fn new(content: &str, error: &toml::de::Error) -> Self {
+        let line = error.span().map(|span| {
+            content[..span.start.min(content.len())]
+                .matches('\n')
+                .count()
+        });
+
+        Self {
+            message: error.message().to_owned(),
+            details: error.to_string(),
+            line,
+        }
+    }
+}
+
 #[derive(Debug, Error, Clone)]
 pub enum Error {
     #[error("config could not be read: {0}")]
@@ -798,8 +824,8 @@ pub enum Error {
     ExecutePasswordCommand(String),
     #[error("{0}")]
     Io(String),
-    #[error("{0}")]
-    Parse(String),
+    #[error("{}", .0.details)]
+    Parse(ParseError),
     #[error("UTF8 parsing error: {0}")]
     StrUtf8Error(#[from] str::Utf8Error),
     #[error("UTF8 parsing error: {0}")]
