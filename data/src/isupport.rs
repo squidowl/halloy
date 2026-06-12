@@ -1151,7 +1151,7 @@ impl WhoXPollParameters {
         match self {
             WhoXPollParameters::Default => "tcnf",
             WhoXPollParameters::WithAccountName => "tcnfa",
-            WhoXPollParameters::InitialJoin => "tcnfuha",
+            WhoXPollParameters::InitialJoin => "tcuhnfa",
         }
     }
 

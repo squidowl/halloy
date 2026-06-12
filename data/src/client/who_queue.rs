@@ -156,9 +156,11 @@ impl WhoQueue {
         let interval_duration = self.interval.duration();
         let reference_time = self.reference_time;
 
-        // Find any timed out polls and return them in the queue.
+        // Find any in flight polls that stopped before completing, and
+        // return them to the front of their respective section in the
+        // queue to be re-tried.
 
-        let timed_out_polls: Vec<_> = self
+        let stalled_polls: Vec<_> = self
             .in_flight
             .extract_if(.., |who_poll| {
                 can_send_who_poll(
@@ -171,11 +173,11 @@ impl WhoQueue {
             })
             .collect();
 
-        for who_poll in timed_out_polls.into_iter() {
+        for who_poll in stalled_polls.into_iter() {
             self.insert_towards_front(who_poll);
         }
 
-        // Prepare polls to be sent during this tick.
+        // Prepare poll(s) to be sent during this tick.
 
         let mut who_polls_to_send = vec![];
 
@@ -216,7 +218,10 @@ impl WhoQueue {
                         "retry"
                     },
                     if number_of_who_polls > 1 {
-                        format!(" ({request_number} of {number_of_who_polls})")
+                        format!(
+                            " ({} of {number_of_who_polls})",
+                            request_number + 1
+                        )
                     } else {
                         String::new()
                     }
@@ -512,7 +517,7 @@ impl WhoQueue {
                             hostname,
                             Some(accountname),
                             casemapping,
-                            isupport::get_bot_mode_char(isupport),
+                            bot_mode_char,
                         );
 
                         if client_channel.users.contains(&user) {
