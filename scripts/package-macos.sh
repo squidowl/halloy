@@ -4,7 +4,13 @@ PROFILE="packaging"
 RELEASE_DIR="target/$PROFILE"
 APP_DIR="$RELEASE_DIR/macos"
 APP_NAME="Halloy.app"
-DMG_NAME="halloy.dmg"
+VERSION=$(grep -q '\..*\.' VERSION && cat VERSION || echo "$(cat VERSION).0")
+NIGHTLY=$(cat NIGHTLY)
+if [ "$VERSION" = "$NIGHTLY" ]; then
+  DMG_NAME="halloy-nightly.dmg"
+else
+  DMG_NAME="halloy.dmg"
+fi
 DMG_DIR="$RELEASE_DIR/macos"
 
 # package dmg
