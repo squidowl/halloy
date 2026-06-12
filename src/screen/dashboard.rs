@@ -1070,86 +1070,44 @@ impl Dashboard {
                         let all_buffers = all_buffers(clients, &self.history);
                         let open_buffers = open_buffers(self);
 
-                        if let Some((window, pane, state, history)) =
-                            self.get_focused_with_history_mut()
+                        if let Some((_, _, state)) = self.get_focused_mut()
                             && let Some(buffer) = cycle_next_buffer(
                                 state.buffer.upstream(),
                                 all_buffers,
                                 &open_buffers,
                             )
                         {
-                            mark_as_read_on_buffer_close(
-                                &state.buffer,
-                                history,
-                                clients,
-                                config,
+                            return (
+                                self.open_buffer(
+                                    data::Buffer::Upstream(buffer.clone()),
+                                    BufferAction::ReplacePane,
+                                    clients,
+                                    config,
+                                ),
+                                None,
                             );
-
-                            state.buffer = Buffer::from_data(
-                                data::Buffer::Upstream(buffer.clone()),
-                                clients,
-                                history,
-                                state.size,
-                                config,
-                            );
-                            self.last_changed = Some(Instant::now());
-
-                            let server = buffer.server();
-                            if let Some(channel) = buffer.channel()
-                                && let Some(client) = clients.client_mut(server)
-                            {
-                                let opened_channels =
-                                    &self.open_pane_channels();
-                                client.prioritize_joined_who_poll(
-                                    channel,
-                                    opened_channels,
-                                );
-                            }
-
-                            return (self.focus_pane(window, pane), None);
                         }
                     }
                     CyclePreviousBuffer => {
                         let all_buffers = all_buffers(clients, &self.history);
                         let open_buffers = open_buffers(self);
 
-                        if let Some((window, pane, state, history)) =
-                            self.get_focused_with_history_mut()
+                        if let Some((_, _, state)) = self.get_focused_mut()
                             && let Some(buffer) = cycle_previous_buffer(
                                 state.buffer.upstream(),
                                 all_buffers,
                                 &open_buffers,
                             )
                         {
-                            mark_as_read_on_buffer_close(
-                                &state.buffer,
-                                history,
-                                clients,
-                                config,
+                            return (
+                                self.open_buffer(
+                                    data::Buffer::Upstream(buffer.clone()),
+                                    BufferAction::ReplacePane,
+                                    clients,
+                                    config,
+                                ),
+                                None,
                             );
-
-                            state.buffer = Buffer::from_data(
-                                data::Buffer::Upstream(buffer.clone()),
-                                clients,
-                                history,
-                                state.size,
-                                config,
-                            );
-                            self.last_changed = Some(Instant::now());
-
-                            let server = buffer.server();
-                            if let Some(channel) = buffer.channel()
-                                && let Some(client) = clients.client_mut(server)
-                            {
-                                let opened_channels =
-                                    &self.open_pane_channels();
-                                client.prioritize_joined_who_poll(
-                                    channel,
-                                    opened_channels,
-                                );
-                            }
-
-                            return (self.focus_pane(window, pane), None);
                         }
                     }
                     LeaveBuffer => {
@@ -1371,30 +1329,22 @@ impl Dashboard {
                             all_buffers_with_has_unread(clients, &self.history);
                         let open_buffers = open_buffers(self);
 
-                        if let Some((window, pane, state, history)) =
-                            self.get_focused_with_history_mut()
+                        if let Some((_, _, state)) = self.get_focused_mut()
                             && let Some(buffer) = cycle_next_unread_buffer(
                                 state.buffer.upstream(),
                                 all_buffers,
                                 &open_buffers,
                             )
                         {
-                            mark_as_read_on_buffer_close(
-                                &state.buffer,
-                                history,
-                                clients,
-                                config,
+                            return (
+                                self.open_buffer(
+                                    data::Buffer::Upstream(buffer.clone()),
+                                    BufferAction::ReplacePane,
+                                    clients,
+                                    config,
+                                ),
+                                None,
                             );
-
-                            state.buffer = Buffer::from_data(
-                                data::Buffer::Upstream(buffer),
-                                clients,
-                                history,
-                                state.size,
-                                config,
-                            );
-                            self.last_changed = Some(Instant::now());
-                            return (self.focus_pane(window, pane), None);
                         }
                     }
                     CyclePreviousUnreadBuffer => {
@@ -1402,30 +1352,22 @@ impl Dashboard {
                             all_buffers_with_has_unread(clients, &self.history);
                         let open_buffers = open_buffers(self);
 
-                        if let Some((window, pane, state, history)) =
-                            self.get_focused_with_history_mut()
+                        if let Some((_, _, state)) = self.get_focused_mut()
                             && let Some(buffer) = cycle_previous_unread_buffer(
                                 state.buffer.upstream(),
                                 all_buffers,
                                 &open_buffers,
                             )
                         {
-                            mark_as_read_on_buffer_close(
-                                &state.buffer,
-                                history,
-                                clients,
-                                config,
+                            return (
+                                self.open_buffer(
+                                    data::Buffer::Upstream(buffer.clone()),
+                                    BufferAction::ReplacePane,
+                                    clients,
+                                    config,
+                                ),
+                                None,
                             );
-
-                            state.buffer = Buffer::from_data(
-                                data::Buffer::Upstream(buffer),
-                                clients,
-                                history,
-                                state.size,
-                                config,
-                            );
-                            self.last_changed = Some(Instant::now());
-                            return (self.focus_pane(window, pane), None);
                         }
                     }
                     MarkAsRead => {
@@ -3016,20 +2958,16 @@ impl Dashboard {
 
         self.last_changed = Some(Instant::now());
 
-        if let Some(buffer::Upstream::Channel(server, channel)) =
-            buffer.upstream()
-            && let Some(client) = clients.client_mut(server)
-        {
-            let opened_channels = &self.open_pane_channels();
-            client.prioritize_joined_who_poll(channel, opened_channels);
-        }
+        match buffer.upstream() {
+            Some(buffer::Upstream::Channel(server, channel)) => {
+                clients.prioritize_who_poll(server, channel);
+            }
+            Some(buffer::Upstream::Query(server, query)) => {
+                let user = User::from(Nick::from(query));
 
-        if let Some(buffer::Upstream::Query(server, query)) = buffer.upstream()
-            && let Some(client) = clients.client_mut(server)
-            && let user = User::from(Nick::from(query))
-            && !client.is_monitored_user(&user)
-        {
-            client.add_monitored_user_automated(&user);
+                clients.add_monitored_user_automated(server, &user);
+            }
+            Some(buffer::Upstream::Server(..)) | None => (),
         }
 
         match buffer_action {
@@ -3055,6 +2993,12 @@ impl Dashboard {
                         clients,
                         config,
                     );
+
+                    if let Some(buffer::Upstream::Channel(server, channel)) =
+                        state.buffer.upstream()
+                    {
+                        clients.deprioritize_who_poll(server, channel);
+                    }
 
                     state.buffer = Buffer::from_data(
                         buffer,
@@ -4091,6 +4035,12 @@ impl Dashboard {
                 config,
             );
 
+            if let Some(buffer::Upstream::Channel(server, channel)) =
+                state.buffer.upstream()
+            {
+                clients.deprioritize_who_poll(server, channel);
+            }
+
             if config.buffer.close.query.close()
                 && let Some(history::Kind::Query(server, nick)) =
                     state.buffer.data().and_then(history::Kind::from_buffer)
@@ -4961,12 +4911,10 @@ impl Dashboard {
         &self,
         server: &Server,
         channel: &target::Channel,
-    ) -> (Vec<(&Server, &target::Channel)>, bool) {
-        let opened_channels = self.open_pane_channels();
-        let is_channel_opened = &opened_channels
+    ) -> bool {
+        self.open_pane_channels()
             .iter()
-            .any(|(s, c)| *s == server && *c == channel);
-        (opened_channels, *is_channel_opened)
+            .any(|(s, c)| *s == server && *c == channel)
     }
 
     pub fn open_pane_server_queries(

@@ -99,6 +99,10 @@ impl ChannelUsers {
         self.0.is_empty()
     }
 
+    pub fn contains(&self, user: &User) -> bool {
+        self.0.contains(user)
+    }
+
     // Any modifications to this procedure MUST ensure that no
     // modifications are made to the user's hash.
     pub fn update_user(
@@ -447,29 +451,33 @@ impl User {
         })
     }
 
-    pub fn parse_from_whoreply(
-        nick: &String,
+    pub fn from_whoreply(
+        nick: &str,
         flags: &str,
-        user: &String,
-        host: &String,
+        user: &str,
+        host: &str,
+        account: Option<&str>,
         casemapping: isupport::CaseMap,
-        prefix: Option<&[isupport::PrefixMap]>,
-    ) -> Result<Self, ParseUserError> {
-        let access_level: String = flags[1..]
+        bot_mode_char: Option<char>,
+    ) -> Self {
+        let access_levels = flags
             .chars()
-            .filter(|c| {
-                if let Some(prefix) = prefix {
-                    prefix.iter().any(|p| p.prefix == *c)
-                } else {
-                    AccessLevel::try_from(*c).is_ok()
-                }
-            })
-            .collect();
-        User::parse(
-            format!("{access_level}{nick}!{user}@{host}").as_str(),
-            casemapping,
-            prefix,
-        )
+            .skip(1)
+            .filter_map(|c| AccessLevel::try_from(c).ok())
+            .collect::<BTreeSet<_>>();
+        let away = flags.starts_with('G');
+        let bot =
+            bot_mode_char.is_some_and(|bot_char| flags.contains(bot_char));
+
+        User {
+            nickname: Nick::from_str(nick, casemapping),
+            username: Some(user.to_string()),
+            hostname: Some(host.to_string()),
+            accountname: account.map(ToString::to_string),
+            access_levels,
+            away,
+            bot,
+        }
     }
 
     pub fn parse_or_force(

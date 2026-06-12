@@ -1820,20 +1820,9 @@ fn handle_client_events(
                         )
                         .map(Message::Dashboard),
                 );
-                let (opened_channels, opened) =
-                    dashboard.has_open_pane_channel(server, &channel);
-                if opened {
-                    log::trace!(
-                        "[{}] {} - WHO poll open pane prioritize",
-                        server,
-                        &channel.as_normalized_str(),
-                    );
-                    if let Some(client) = clients.client_mut(server) {
-                        client.prioritize_joined_who_poll(
-                            &channel,
-                            &opened_channels,
-                        );
-                    }
+
+                if dashboard.has_open_pane_channel(server, &channel) {
+                    clients.prioritize_who_poll(server, &channel);
                 }
             }
             Event::LoggedIn(server_time) => {

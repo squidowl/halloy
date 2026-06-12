@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-use data::capabilities::Capability;
 use data::dashboard::BufferAction;
 use data::history::filter::FilterChain;
 use data::preview::{self, Previews};
@@ -219,19 +218,10 @@ pub fn view<'a>(
 
     let content = column![topic, messages];
 
-    let nicklist_enabled = settings
+    let show_nicklist = settings
         .map_or(config.buffer.channel.nicklist.enabled, |settings| {
             settings.channel.nicklist.enabled
         });
-
-    let is_nicklist_ready: bool = !clients
-        .get_capabilities_ref(server)
-        .acknowledged(Capability::NoImplicitNames)
-        || clients
-            .client(server)
-            .is_some_and(|client| client.is_who_init(channel));
-
-    let show_nicklist = nicklist_enabled && is_nicklist_ready;
 
     let content =
         match (show_nicklist, config.buffer.channel.nicklist.position) {

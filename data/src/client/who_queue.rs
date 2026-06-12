@@ -1,9 +1,9 @@
+use std::cmp::Ordering;
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::anyhow;
-use indexmap::IndexMap;
 use irc::proto::command;
 
 use crate::capabilities::{Capabilities, Capability};
@@ -17,55 +17,132 @@ use crate::{User, client, config, message};
 pub struct WhoPoll {
     pub channel: Channel,
     pub status: WhoStatus,
+    pub source: WhoSource,
 }
 
 #[derive(Debug, Clone)]
 pub enum WhoStatus {
-    Requested(WhoSource, Instant, Option<WhoToken>),
-    Receiving(WhoSource, Option<WhoToken>),
-    Received,
-    Waiting(Option<Instant>),
+    Requested {
+        at: Instant,
+        token: Option<WhoToken>,
+    },
+    Receiving {
+        last_received: Instant,
+        token: Option<WhoToken>,
+    },
+    Waiting {
+        immediate: bool,
+    },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum WhoSource {
     User,
+    Join { priority: bool },
     Poll,
 }
 
-#[derive(Debug, Clone)]
-pub enum WhoRequest {
-    Poll,
-    Retry,
+impl Ord for WhoSource {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self == other {
+            Ordering::Equal
+        } else {
+            match (self, other) {
+                (WhoSource::User, _) => Ordering::Less,
+                (WhoSource::Join { .. }, WhoSource::User) => Ordering::Greater,
+                (WhoSource::Join { priority }, WhoSource::Join { .. }) => {
+                    if *priority {
+                        Ordering::Less
+                    } else {
+                        Ordering::Greater
+                    }
+                }
+                (WhoSource::Join { .. }, _) => Ordering::Less,
+                (WhoSource::Poll, _) => Ordering::Greater,
+            }
+        }
+    }
+}
+
+impl PartialOrd for WhoSource {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct WhoQueue {
-    config: Arc<config::Server>,
-    poll_queue: VecDeque<WhoPoll>,
-    join_queue: VecDeque<WhoPoll>,
-    priority_join_queue: VecDeque<WhoPoll>,
-    inflight: Vec<WhoPoll>,
+    queue: VecDeque<WhoPoll>,
+    in_flight: Vec<WhoPoll>,
+    in_flight_limit: usize,
     interval: BackoffInterval,
-    last_throttled: Option<Instant>,
+    reference_time: Option<Instant>,
 }
 
 impl WhoQueue {
-    pub fn new(config: Arc<config::Server>) -> Self {
+    pub fn new(config: &Arc<config::Server>) -> Self {
+        // Prevent the poll interval from being too short compared to the
+        // anti-flood rate, to avoid overfilling the send queue with WHO polls.
         let interval = BackoffInterval::from(
             config
                 .who_poll_interval
-                .min(config.anti_flood.saturating_mul(2)),
+                .max(config.anti_flood.saturating_mul(2)),
         );
 
         Self {
-            config,
-            poll_queue: VecDeque::new(),
-            join_queue: VecDeque::new(),
-            priority_join_queue: VecDeque::new(),
-            inflight: Vec::new(),
+            queue: VecDeque::new(),
+            in_flight: Vec::new(),
+            in_flight_limit: 1,
             interval,
-            last_throttled: None,
+            reference_time: None,
+        }
+    }
+
+    pub fn update<'a>(
+        &mut self,
+        capabilities: &Capabilities,
+        isupport: &HashMap<isupport::Kind, isupport::Parameter>,
+        config: &Arc<config::Server>,
+        joined_channels: impl Iterator<Item = &'a Channel>,
+    ) {
+        if capabilities.acknowledged(Capability::NoImplicitNames) {
+            self.in_flight_limit = 64;
+        } else {
+            self.in_flight_limit = 1;
+        }
+
+        if isupport.contains_key(&isupport::Kind::SAFELIST) {
+            self.interval.set_min(config.who_poll_interval);
+        } else {
+            self.interval.set_min(
+                config
+                    .who_poll_interval
+                    .max(config.anti_flood.saturating_mul(2)),
+            );
+        }
+
+        if config.who_poll_enabled
+            && !capabilities.acknowledged(Capability::AwayNotify)
+        {
+            for channel in joined_channels {
+                if !self
+                    .in_flight
+                    .iter()
+                    .chain(self.queue.iter())
+                    .any(|who_poll| who_poll.channel == *channel)
+                {
+                    let who_poll = WhoPoll {
+                        channel: channel.clone(),
+                        source: WhoSource::Poll,
+                        status: WhoStatus::Waiting { immediate: false },
+                    };
+
+                    self.insert_towards_back(who_poll);
+                }
+            }
+        } else {
+            self.queue
+                .retain(|who_poll| !matches!(who_poll.source, WhoSource::Poll));
         }
     }
 
@@ -73,280 +150,160 @@ impl WhoQueue {
         &mut self,
         server: &client::Server,
         capabilities: &Capabilities,
-        chanmap: &IndexMap<Channel, client::Channel>,
-        config: &Arc<config::Server>,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
-        now: Instant,
+        now: &Instant,
     ) -> Vec<(message::Encoded, TokenPriority)> {
-        let mut messages: Vec<(message::Encoded, TokenPriority)> = vec![];
+        let interval_duration = self.interval.duration();
+        let reference_time = self.reference_time;
 
-        if !self.priority_join_queue.is_empty() || !self.join_queue.is_empty() {
-            const DEFAULT_PARALLEL_POLLS: usize = 1;
+        // Find any timed out polls and return them in the queue.
 
-            let is_throttled = if let Some(last_throttled) = self.last_throttled
-                && now.duration_since(last_throttled)
-                    >= self.interval.duration()
-            {
-                true
+        let timed_out_polls: Vec<_> = self
+            .in_flight
+            .extract_if(.., |who_poll| {
+                can_send_who_poll(
+                    false,
+                    &interval_duration,
+                    &reference_time,
+                    now,
+                    who_poll,
+                )
+            })
+            .collect();
+
+        for who_poll in timed_out_polls.into_iter() {
+            self.insert_towards_front(who_poll);
+        }
+
+        // Prepare polls to be sent during this tick.
+
+        let mut who_polls_to_send = vec![];
+
+        for _ in 0..self.in_flight_limit.saturating_sub(self.in_flight.len()) {
+            if let Some(who_poll) = self.queue.pop_front_if(|who_poll| {
+                can_send_who_poll(
+                    self.in_flight.is_empty() && who_polls_to_send.is_empty(),
+                    &interval_duration,
+                    &reference_time,
+                    now,
+                    who_poll,
+                )
+            }) {
+                who_polls_to_send.push(who_poll);
             } else {
-                false
-            };
-            // no-implicit-names support SHOULD allow 1 free WHO per channel joined.
-            let max_parallel_polls = if capabilities
-                .acknowledged(Capability::NoImplicitNames)
-                && !is_throttled
-            {
-                chanmap.len()
-            } else {
-                DEFAULT_PARALLEL_POLLS
-            };
-
-            let mut execute_polls = vec![];
-            for _ in 0..max_parallel_polls {
-                let duration = self.interval.duration();
-                if let Some(who_poll) = self.priority_join_queue.pop_front() {
-                    if is_safe_poll_interval(duration, &now, &who_poll) {
-                        execute_polls.push(who_poll);
-                    } else {
-                        self.priority_join_queue.push_back(who_poll);
-                    }
-                } else if let Some(who_poll) = self.join_queue.pop_front() {
-                    if is_safe_poll_interval(duration, &now, &who_poll) {
-                        execute_polls.push(who_poll);
-                    } else {
-                        self.join_queue.push_back(who_poll);
-                    }
-                } else {
-                    break;
-                }
+                break;
             }
-            // if there's room, take 1 from the poll_queue
-            if execute_polls.len() < max_parallel_polls
-                && (capabilities.acknowledged(Capability::NoImplicitNames)
-                    || config.who_poll_enabled)
-                && let Some(who_poll) =
-                    self.poll_queue.pop_front_if(|who_poll| {
-                        is_safe_poll_interval(
-                            self.interval.duration(),
-                            &now,
-                            who_poll,
-                        )
-                    })
-            {
-                execute_polls.push(who_poll);
-            }
+        }
 
-            log::trace!(
-                "[{server}] - WHO polls parallel running {} of {}",
-                execute_polls.len(),
-                max_parallel_polls
-            );
-            for mut who_poll in execute_polls {
-                tick_who_poll_request(
-                    capabilities,
-                    chanmap,
-                    isupport,
-                    server,
-                    WhoRequest::Poll,
-                    &mut who_poll,
-                    &mut messages,
-                    Some(&mut self.inflight),
+        // If any polls will be sent, then update the reference time used for
+        // determining if polls can be sent (and thus also for throttling).
+        if !who_polls_to_send.is_empty() {
+            self.reference_time = Some(*now);
+        }
+
+        let number_of_who_polls = who_polls_to_send.len();
+
+        who_polls_to_send
+            .into_iter()
+            .enumerate()
+            .map(|(request_number, who_poll)| {
+                log::trace!(
+                    "[{server}] {} - WHO {}{}",
+                    who_poll.channel,
+                    if matches!(who_poll.status, WhoStatus::Waiting { .. }) {
+                        "request"
+                    } else {
+                        "retry"
+                    },
+                    if number_of_who_polls > 1 {
+                        format!(" ({request_number} of {number_of_who_polls})")
+                    } else {
+                        String::new()
+                    }
                 );
-            }
-        } else if config.who_poll_enabled
-            && let Some(mut who_poll) =
-                self.poll_queue.pop_front_if(|who_poll| {
-                    is_safe_poll_interval(
-                        self.interval.duration(),
-                        &now,
-                        who_poll,
-                    )
-                })
+
+                self.send_who_poll(capabilities, isupport, who_poll)
+            })
+            .collect()
+    }
+
+    pub fn clear(&mut self) {
+        self.queue.clear();
+    }
+
+    pub fn is_user_who_request(&self, channel: &Channel) -> bool {
+        self.in_flight.iter().any(|who_poll| {
+            who_poll.channel == *channel
+                && matches!(who_poll.source, WhoSource::User)
+        })
+    }
+
+    pub fn any_user_who_request(&self) -> bool {
+        self.in_flight
+            .iter()
+            .any(|who_poll| matches!(who_poll.source, WhoSource::User))
+    }
+
+    pub fn parted_channel(&mut self, channel: &Channel) {
+        if let Some(pos) = self
+            .queue
+            .iter()
+            .position(|who_poll| who_poll.channel == *channel)
         {
-            tick_who_poll_request(
-                capabilities,
-                chanmap,
-                isupport,
-                server,
-                WhoRequest::Poll,
-                &mut who_poll,
-                &mut messages,
-                Some(&mut self.inflight),
-            );
-        } else if let Some(who_poll) = self.inflight.first_mut()
-            && let WhoStatus::Requested(source, requested, _) = &who_poll.status
-            && (!matches!(source, WhoSource::Poll) || config.who_poll_enabled)
-            && (now.duration_since(*requested) >= 5 * self.interval.duration())
-        {
-            tick_who_poll_request(
-                capabilities,
-                chanmap,
-                isupport,
-                server,
-                WhoRequest::Poll,
-                who_poll,
-                &mut messages,
-                None,
-            );
+            self.queue.remove(pos);
         }
-
-        messages
     }
 
-    pub fn update_config(
+    // Record user WHO request(s) for reply filtering.
+    pub fn user_requested_who_poll(
         &mut self,
-        chanmap: &IndexMap<Channel, client::Channel>,
-        capabilities: &Capabilities,
-        config: &Arc<config::Server>,
-    ) {
-        if self.config.who_poll_enabled != config.who_poll_enabled {
-            self.clear_queues(capabilities, config);
-
-            if config.who_poll_enabled {
-                for channel in chanmap.keys() {
-                    self.join_queue.push_back(WhoPoll {
-                        channel: channel.clone(),
-                        status: WhoStatus::Waiting(default_waiting_option(
-                            capabilities,
-                        )),
-                    });
-                }
-            }
-        }
-        self.config = config.clone();
-    }
-
-    pub fn clear_queues(
-        &mut self,
-        capabilities: &Capabilities,
-        config: &Arc<config::Server>,
-    ) {
-        if is_join_queue_enabled(capabilities, config) {
-            self.priority_join_queue.truncate(0);
-            self.join_queue.truncate(0);
-        }
-        if config.who_poll_enabled {
-            self.poll_queue.truncate(0);
-        }
-    }
-
-    pub fn any_matching_inflight<F>(&self, f: F) -> bool
-    where
-        F: Fn(&WhoPoll) -> bool,
-    {
-        self.inflight.iter().any(f)
-    }
-
-    pub fn has_inflight(&self) -> bool {
-        !self.inflight.is_empty()
-    }
-
-    pub fn remove_matching_polls<F>(&mut self, f: F) -> bool
-    where
-        F: Fn(&WhoPoll) -> bool,
-    {
-        let mut removed = false;
-        if let Some(pos) = self.poll_queue.iter().position(&f) {
-            self.poll_queue.remove(pos);
-            removed = true;
-        }
-        if let Some(pos) = self.join_queue.iter().position(&f) {
-            self.join_queue.remove(pos);
-            removed = true;
-        }
-        if let Some(pos) = self.priority_join_queue.iter().position(&f) {
-            self.priority_join_queue.remove(pos);
-            removed = true;
-        }
-        removed
-    }
-
-    pub fn remove_matching_inflight<F>(&mut self, f: F) -> bool
-    where
-        F: Fn(&WhoPoll) -> bool,
-    {
-        if let Some(pos) = self.inflight.iter().position(f) {
-            self.inflight.remove(pos);
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn user_requested_channel_poll(
-        &mut self,
-        params: Vec<String>,
         channel: Channel,
+        token: Option<WhoToken>,
     ) {
-        // Record user WHO request(s) for reply filtering
-        let status = WhoStatus::Requested(
-            WhoSource::User,
-            Instant::now(),
-            params
-                .get(2)
-                .and_then(|token| token.parse::<WhoToken>().ok()),
-        );
+        let who_poll = WhoPoll {
+            channel,
+            status: WhoStatus::Requested {
+                at: Instant::now(),
+                token,
+            },
+            source: WhoSource::User,
+        };
 
         if let Some(pos) = self
-            .priority_join_queue
+            .queue
             .iter()
-            .position(|who_poll| who_poll.channel == channel)
-            && let Some(mut who_poll) = self.priority_join_queue.remove(pos)
+            .position(|queued_poll| queued_poll.channel == who_poll.channel)
         {
-            who_poll.status = status;
-            self.inflight.push(who_poll);
-        } else if self.priority_join_queue.is_empty()
-            && let Some(pos) = self
-                .join_queue
-                .iter()
-                .position(|who_poll| who_poll.channel == channel)
-            && let Some(mut who_poll) = self.join_queue.remove(pos)
-        {
-            who_poll.status = status;
-            self.inflight.push(who_poll);
-        } else if self.join_queue.is_empty()
-            && let Some(pos) = self
-                .poll_queue
-                .iter()
-                .position(|who_poll| who_poll.channel == channel)
-            && let Some(mut who_poll) = self.poll_queue.remove(pos)
-        {
-            who_poll.status = status;
-            self.inflight.push(who_poll);
-        } else {
-            self.inflight.push(WhoPoll { channel, status });
+            self.queue.remove(pos);
         }
+
+        self.in_flight.push(who_poll);
     }
 
-    pub fn queue_joined_who_poll(
+    pub fn queue_join_who_request(
         &mut self,
         capabilities: &Capabilities,
         channel: &Channel,
     ) {
-        if !self
-            .priority_join_queue
+        let who_poll = if let Some(pos) = self
+            .queue
             .iter()
-            .any(|who_poll| who_poll.channel == *channel)
-            && !self
-                .join_queue
-                .iter()
-                .any(|who_poll| who_poll.channel == *channel)
-            && !self
-                .poll_queue
-                .iter()
-                .any(|who_poll| who_poll.channel == *channel)
-            && !self
-                .inflight
-                .iter()
-                .any(|who_poll| who_poll.channel == *channel)
+            .position(|who_poll| who_poll.channel == *channel)
+            && let Some(who_poll) = self.queue.remove(pos)
         {
-            self.join_queue.push_front(WhoPoll {
-                channel: channel.to_owned(),
-                status: WhoStatus::Waiting(default_waiting_option(
-                    capabilities,
-                )),
-            });
-        }
+            who_poll
+        } else {
+            WhoPoll {
+                channel: channel.clone(),
+                source: WhoSource::Join { priority: false },
+                status: WhoStatus::Waiting {
+                    immediate: capabilities
+                        .acknowledged(Capability::NoImplicitNames),
+                },
+            }
+        };
+
+        self.insert_towards_back(who_poll);
     }
 
     pub fn receiving_who_poll(
@@ -355,19 +312,96 @@ impl WhoQueue {
         channel: &Channel,
     ) {
         if let Some(who_poll) = self
-            .inflight
+            .in_flight
             .iter_mut()
             .find(|who_poll| who_poll.channel == *channel)
-            && let WhoStatus::Requested(source, _, None) = &who_poll.status
+            && let WhoStatus::Requested { token, .. } = who_poll.status
         {
-            who_poll.status = WhoStatus::Receiving(source.clone(), None);
+            who_poll.status = WhoStatus::Receiving {
+                last_received: Instant::now(),
+                token,
+            };
+
             log::trace!("[{server}] {channel} - WHO receiving...");
         }
     }
 
+    pub fn handle_who_reply(
+        &mut self,
+        server: &client::Server,
+        isupport: &HashMap<isupport::Kind, isupport::Parameter>,
+        target_channel: &Channel,
+        client_channel: &mut client::Channel,
+        args: &[String],
+    ) -> anyhow::Result<()> {
+        macro_rules! ok {
+            ($option:expr) => {
+                $option.ok_or_else(|| {
+                    anyhow!("[{}] Malformed WHO reply", server)
+                })?
+            };
+        }
+
+        if let Some(who_poll) = self
+            .in_flight
+            .iter_mut()
+            .find(|who_poll| who_poll.channel == *target_channel)
+        {
+            match &mut who_poll.status {
+                WhoStatus::Receiving { last_received, .. } => {
+                    *last_received = Instant::now();
+                }
+                WhoStatus::Requested { token: None, .. } => {
+                    who_poll.status = WhoStatus::Receiving {
+                        last_received: Instant::now(),
+                        token: None,
+                    };
+
+                    log::trace!("[{server}] {target_channel} - receiving WHO",);
+                }
+                WhoStatus::Requested { token: Some(_), .. }
+                | WhoStatus::Waiting { .. } => {
+                    log::debug!(
+                        "[{server}] {target_channel} - receiving unexpected WHO",
+                    );
+                }
+            }
+        }
+
+        let casemapping = isupport::get_casemapping_or_default(isupport);
+        let bot_mode_char = isupport::get_bot_mode_char(isupport);
+
+        let nick = ok!(args.get(5));
+        let flags = ok!(args.get(6));
+        let username = ok!(args.get(2));
+        let hostname = ok!(args.get(3));
+
+        let user = User::from_whoreply(
+            nick,
+            flags,
+            username,
+            hostname,
+            None,
+            casemapping,
+            bot_mode_char,
+        );
+
+        if client_channel.users.contains(&user) {
+            client_channel.update_user_status(
+                nick,
+                flags,
+                casemapping,
+                bot_mode_char,
+            );
+        } else {
+            client_channel.users.insert(user);
+        }
+
+        Ok(())
+    }
+
     pub fn handle_whox_reply(
         &mut self,
-        casemapping: isupport::CaseMap,
         server: &client::Server,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
         target_channel: &Channel,
@@ -382,55 +416,65 @@ impl WhoQueue {
             };
         }
 
-        let bot_mode_char = isupport::get_bot_mode_char(isupport);
-
         if let Some(who_poll) = self
-            .inflight
+            .in_flight
             .iter_mut()
             .find(|who_poll| who_poll.channel == *target_channel)
         {
-            match &who_poll.status {
-                WhoStatus::Requested(source, _, Some(request_token))
-                    if matches!(source, WhoSource::Poll) =>
-                {
-                    if let Ok(token) = ok!(args.get(1)).parse::<WhoToken>()
+            match &mut who_poll.status {
+                WhoStatus::Receiving { last_received, .. } => {
+                    *last_received = Instant::now();
+                }
+                WhoStatus::Requested {
+                    token: Some(request_token),
+                    ..
+                } => {
+                    if matches!(who_poll.source, WhoSource::User) {
+                        who_poll.status = WhoStatus::Receiving {
+                            last_received: Instant::now(),
+                            token: Some(*request_token),
+                        };
+                    } else if let Ok(token) =
+                        ok!(args.get(1)).parse::<WhoToken>()
                         && *request_token == token
                     {
-                        who_poll.status = WhoStatus::Receiving(
-                            source.clone(),
-                            Some(*request_token),
-                        );
+                        who_poll.status = WhoStatus::Receiving {
+                            last_received: Instant::now(),
+                            token: Some(*request_token),
+                        };
+
                         log::trace!(
-                            "[{server}] {target_channel} - WHO receiving...",
+                            "[{server}] {target_channel} - receiving WHO",
                         );
                     }
                 }
-                WhoStatus::Requested(
-                    WhoSource::User,
-                    _,
-                    Some(request_token),
-                ) => {
-                    who_poll.status = WhoStatus::Receiving(
-                        WhoSource::User,
-                        Some(*request_token),
-                    );
-
-                    log::trace!(
-                        "[{server}] {target_channel} - WHO receiving...",
+                WhoStatus::Requested { token: None, .. }
+                | WhoStatus::Waiting { .. } => {
+                    log::debug!(
+                        "[{server}] {target_channel} - receiving unexpected WHO",
                     );
                 }
-                _ => (),
             }
 
-            if let WhoStatus::Receiving(WhoSource::Poll, Some(_)) =
-                &who_poll.status
-            {
+            // Don't bother trying to parse user-initiated WHO requests since we
+            // do not currently track user WHO poll request parameters.
+            if matches!(
+                who_poll.source,
+                WhoSource::Poll | WhoSource::Join { .. }
+            ) {
+                let casemapping =
+                    isupport::get_casemapping_or_default(isupport);
+                let bot_mode_char = isupport::get_bot_mode_char(isupport);
+
                 // Check token to ~ensure reply is to poll request
                 if let Ok(token) = ok!(args.get(1)).parse::<WhoToken>() {
                     if token == WhoXPollParameters::Default.token() {
+                        let nick = ok!(args.get(3));
+                        let flags = ok!(args.get(4));
+
                         client_channel.update_user_status(
-                            ok!(args.get(3)),
-                            ok!(args.get(4)),
+                            nick,
+                            flags,
                             casemapping,
                             bot_mode_char,
                         );
@@ -438,33 +482,7 @@ impl WhoQueue {
                         == WhoXPollParameters::WithAccountName.token()
                     {
                         let nick = ok!(args.get(3));
-
-                        client_channel.update_user_status(
-                            nick,
-                            ok!(args.get(4)),
-                            casemapping,
-                            bot_mode_char,
-                        );
-
-                        client_channel.update_user_accountname(
-                            nick,
-                            ok!(args.get(5)),
-                            casemapping,
-                        );
-                    } else if token == WhoXPollParameters::InitialJoin.token()
-                        && let flags = ok!(args.get(6))
-                        && let nick = ok!(args.get(5))
-                        && let Ok(user) = User::parse_from_whoreply(
-                            nick,
-                            flags,
-                            ok!(args.get(3)),
-                            ok!(args.get(4)),
-                            casemapping,
-                            isupport::get_prefix(isupport),
-                        )
-                        && client_channel.users.resolve(&user).is_none()
-                    {
-                        client_channel.users.insert(user);
+                        let flags = ok!(args.get(4));
 
                         client_channel.update_user_status(
                             nick,
@@ -473,11 +491,46 @@ impl WhoQueue {
                             bot_mode_char,
                         );
 
+                        let accountname = ok!(args.get(5));
+
                         client_channel.update_user_accountname(
                             nick,
-                            ok!(args.get(7)),
+                            accountname,
                             casemapping,
                         );
+                    } else if token == WhoXPollParameters::InitialJoin.token() {
+                        let flags = ok!(args.get(6));
+                        let nick = ok!(args.get(5));
+                        let username = ok!(args.get(3));
+                        let hostname = ok!(args.get(4));
+                        let accountname = ok!(args.get(7));
+
+                        let user = User::from_whoreply(
+                            nick,
+                            flags,
+                            username,
+                            hostname,
+                            Some(accountname),
+                            casemapping,
+                            isupport::get_bot_mode_char(isupport),
+                        );
+
+                        if client_channel.users.contains(&user) {
+                            client_channel.update_user_status(
+                                nick,
+                                flags,
+                                casemapping,
+                                bot_mode_char,
+                            );
+
+                            client_channel.update_user_accountname(
+                                nick,
+                                accountname,
+                                casemapping,
+                            );
+                        } else {
+                            client_channel.users.insert(user);
+                        }
                     }
                 }
             }
@@ -488,222 +541,181 @@ impl WhoQueue {
 
     pub fn handle_end_who_reply(
         &mut self,
-        chanmap: &IndexMap<Channel, client::Channel>,
-        config: &Arc<config::Server>,
-        capabilities: &Capabilities,
         channel: &Channel,
+        is_joined: bool,
+        capabilities: &Capabilities,
+        config: &Arc<config::Server>,
     ) {
         if let Some(pos) = self
-            .inflight
+            .in_flight
             .iter()
             .position(|who_poll| who_poll.channel == *channel)
         {
-            let mut who_poll = self.inflight.remove(pos);
-            if chanmap.contains_key(channel)
-                && config.who_poll_enabled
+            let who_poll = self.in_flight.remove(pos);
+
+            let user_request = matches!(who_poll.source, WhoSource::User);
+
+            // Check whether the WHO polling is enabled & needed (for updating
+            // away state of a joined channel).
+            if config.who_poll_enabled
                 && !capabilities.acknowledged(Capability::AwayNotify)
+                && is_joined
+                && !self
+                    .queue
+                    .iter()
+                    .any(|queued_poll| queued_poll.channel == who_poll.channel)
             {
-                who_poll.status = WhoStatus::Received;
-                self.poll_queue.push_back(who_poll);
+                self.insert_towards_back(WhoPoll {
+                    status: WhoStatus::Waiting { immediate: false },
+                    source: WhoSource::Poll,
+                    ..who_poll
+                });
             }
 
-            // Prioritize WHO poll requests due to joining a channel
-            if let Some(pos) = self.poll_queue.iter().position(|who_poll| {
-                matches!(who_poll.status, WhoStatus::Received)
-            }) {
-                self.poll_queue[pos].status =
-                    WhoStatus::Waiting(default_waiting_option(capabilities));
-
-                if pos != 0
-                    && let Some(who_poll) = self.poll_queue.remove(pos)
-                {
-                    self.poll_queue.push_front(who_poll);
-                }
+            if !user_request {
+                self.interval.long_enough();
             }
         }
-    }
-
-    pub fn interval_long_enough(&mut self) {
-        self.interval.long_enough();
-    }
-
-    pub fn interval_set_min(&mut self, interval: Duration) {
-        self.interval.set_min(interval);
-    }
-
-    pub fn who_reply_throttled(&mut self) {
-        self.last_throttled = Some(Instant::now());
-
-        self.interval.too_short();
-    }
-
-    pub fn interval_duration(&self) -> Duration {
-        self.interval.duration()
     }
 
     // User did not request, treat as part of rate-limiting response
     // (in conjunction with RPL_TRYAGAIN) and don't save to history.
-    pub fn handle_who_rate_limited(&mut self) {
-        if let Some(who_poll) = self.poll_queue.front_mut() {
-            who_poll.status = WhoStatus::Waiting(Some(Instant::now()));
+    pub fn handle_who_rate_limited(&mut self, server: &client::Server) {
+        self.interval.too_short();
+
+        self.reference_time = Some(Instant::now());
+
+        for who_poll in self.queue.iter_mut() {
+            who_poll.status = WhoStatus::Waiting { immediate: false };
         }
-        self.poll_queue
-            .iter_mut()
-            .skip(1)
-            .for_each(|who_poll| who_poll.status = WhoStatus::Received);
+
+        log::debug!(
+            "[{server}] WHO poll interval is too short → duration = {:?}",
+            self.interval.duration()
+        );
     }
 
-    pub fn prioritize_joined_who_poll(
+    pub fn prioritize_who_poll(&mut self, server: &Server, channel: &Channel) {
+        if let Some(pos) = self.queue.iter().position(|who_poll| {
+            who_poll.channel == *channel
+                && matches!(who_poll.source, WhoSource::Join { .. })
+        }) && let Some(mut who_poll) = self.queue.remove(pos)
+        {
+            log::trace!("[{server}] {channel} - prioritizing WHO poll",);
+
+            who_poll.source = WhoSource::Join { priority: true };
+
+            self.insert_towards_front(who_poll);
+        }
+    }
+
+    pub fn deprioritize_who_poll(
         &mut self,
         server: &Server,
         channel: &Channel,
     ) {
-        if let Some(pos) = self
-            .join_queue
-            .iter()
-            .position(|who_poll| &who_poll.channel == channel)
-            && let Some(who_poll) = self.join_queue.remove(pos)
+        if let Some(pos) = self.queue.iter().position(|who_poll| {
+            who_poll.channel == *channel
+                && matches!(who_poll.source, WhoSource::Join { priority: true })
+        }) && let Some(mut who_poll) = self.queue.remove(pos)
         {
-            log::trace!(
-                "[{}] {} - WHO poll prioritizing join",
-                server,
-                channel.as_normalized_str(),
-            );
-            self.priority_join_queue.push_front(who_poll);
+            log::trace!("[{server}] {channel} - deprioritizing WHO poll",);
+
+            who_poll.source = WhoSource::Join { priority: false };
+
+            self.insert_towards_front(who_poll);
         }
     }
 
-    pub fn deprioritize_joined_who_poll(
+    fn send_who_poll(
         &mut self,
-        server: &Server,
-        channel: Channel,
-    ) {
-        if let Some(pos) = self
-            .priority_join_queue
-            .iter()
-            .position(|who_poll| who_poll.channel == channel)
-            && let Some(who_poll) = self.join_queue.remove(pos)
-        {
-            log::trace!(
-                "[{}] {} - WHO poll deprioritizing join",
-                server,
-                channel.as_normalized_str()
-            );
+        capabilities: &Capabilities,
+        isupport: &HashMap<isupport::Kind, isupport::Parameter>,
+        mut who_poll: WhoPoll,
+    ) -> (message::Encoded, TokenPriority) {
+        let message = if isupport.contains_key(&isupport::Kind::WHOX) {
+            let whox_params = if capabilities
+                .acknowledged(Capability::NoImplicitNames)
+                && matches!(who_poll.source, WhoSource::Join { .. })
+            {
+                WhoXPollParameters::InitialJoin
+            } else if capabilities.acknowledged(Capability::AccountNotify) {
+                WhoXPollParameters::WithAccountName
+            } else {
+                WhoXPollParameters::Default
+            };
 
-            self.join_queue.push_front(who_poll);
-        }
-    }
+            who_poll.status = WhoStatus::Requested {
+                at: Instant::now(),
+                token: Some(whox_params.token()),
+            };
 
-    pub fn reprioritize_joined_who_polls(
-        &mut self,
-        server: &Server,
-        opened_channels: &Vec<(&Server, &Channel)>,
-        prioritize_channel: &Channel,
-    ) {
-        let channels_to_deprioritize: Vec<Channel> = self
-            .priority_join_queue
-            .iter()
-            .filter(|who_poll| {
-                who_poll.channel != *prioritize_channel
-                    && !opened_channels
-                        .iter()
-                        .any(|(s, c)| *s == server && *c == &who_poll.channel)
-            })
-            .map(|who_poll| who_poll.channel.to_owned())
-            .collect();
-
-        for channel in channels_to_deprioritize {
-            self.deprioritize_joined_who_poll(server, channel);
-        }
-
-        self.prioritize_joined_who_poll(server, prioritize_channel);
-    }
-}
-
-fn tick_who_poll_request(
-    capabilities: &Capabilities,
-    chanmap: &IndexMap<Channel, client::Channel>,
-    isupport: &HashMap<isupport::Kind, isupport::Parameter>,
-    server: &Server,
-    request: WhoRequest,
-    who_poll: &mut WhoPoll,
-    messages: &mut Vec<(message::Encoded, TokenPriority)>,
-    inflight: Option<&mut Vec<WhoPoll>>,
-) {
-    log::trace!(
-        "[{server}] {} - WHO {}",
-        who_poll.channel,
-        match request {
-            WhoRequest::Poll => "poll",
-            WhoRequest::Retry => "retry",
-        }
-    );
-    let message = if isupport.contains_key(&isupport::Kind::WHOX) {
-        let whox_params = if capabilities
-            .acknowledged(Capability::NoImplicitNames)
-            && chanmap
-                .get(&who_poll.channel)
-                .is_none_or(|channel| !channel.who_init)
-        {
-            WhoXPollParameters::InitialJoin
-        } else if capabilities.acknowledged(Capability::AccountNotify) {
-            WhoXPollParameters::WithAccountName
+            command!(
+                "WHO",
+                who_poll.channel.to_string(),
+                whox_params.fields().to_string(),
+                whox_params.token().to_owned()
+            )
         } else {
-            WhoXPollParameters::Default
+            who_poll.status = WhoStatus::Requested {
+                at: Instant::now(),
+                token: None,
+            };
+
+            command!("WHO", who_poll.channel.to_string())
         };
 
-        who_poll.status = WhoStatus::Requested(
-            WhoSource::Poll,
-            Instant::now(),
-            Some(whox_params.token()),
-        );
+        self.in_flight.push(who_poll);
 
-        command!(
-            "WHO",
-            who_poll.channel.to_string(),
-            whox_params.fields().to_string(),
-            whox_params.token().to_owned()
-        )
-    } else {
-        who_poll.status =
-            WhoStatus::Requested(WhoSource::Poll, Instant::now(), None);
+        (message.into(), TokenPriority::Low)
+    }
 
-        command!("WHO", who_poll.channel.to_string())
-    };
-    messages.push((message.into(), TokenPriority::Low));
-    if let Some(inflight) = inflight {
-        inflight.push(who_poll.to_owned());
+    // Insert poll based on sort order, at the back of its sort category.
+    fn insert_towards_back(&mut self, who_poll: WhoPoll) {
+        let at = self.queue.partition_point(|queued_poll| {
+            who_poll.source <= queued_poll.source
+        });
+        self.queue.insert(at, who_poll);
+    }
+
+    // Insert poll based on sort order, at the front of its sort category.
+    fn insert_towards_front(&mut self, who_poll: WhoPoll) {
+        let at = self.queue.partition_point(|queued_poll| {
+            who_poll.source < queued_poll.source
+        });
+        self.queue.insert(at, who_poll);
     }
 }
 
-fn is_join_queue_enabled(
-    capabilities: &Capabilities,
-    config: &Arc<config::Server>,
-) -> bool {
-    capabilities.acknowledged(Capability::NoImplicitNames)
-        || capabilities.acknowledged(Capability::AwayNotify)
-        || config.who_poll_enabled
-}
-
-fn default_waiting_option(capabilities: &Capabilities) -> Option<Instant> {
-    if !capabilities.acknowledged(Capability::NoImplicitNames)
-        && !capabilities.acknowledged(Capability::AwayNotify)
-    {
-        return Some(Instant::now());
-    }
-
-    None
-}
-
-fn is_safe_poll_interval(
-    duration: Duration,
+fn can_send_who_poll(
+    no_polls_in_flight_or_to_send: bool,
+    interval_duration: &Duration,
+    reference_time: &Option<Instant>,
     now: &Instant,
     who_poll: &WhoPoll,
 ) -> bool {
-    if let WhoStatus::Waiting(Some(last)) = who_poll.status
-        && now.duration_since(last) < duration
+    if matches!(who_poll.source, WhoSource::Poll)
+        && matches!(who_poll.status, WhoStatus::Waiting { .. })
+        && !no_polls_in_flight_or_to_send
     {
         return false;
     }
-    true
+
+    match who_poll.status {
+        WhoStatus::Waiting { immediate } => {
+            if immediate {
+                true
+            } else if let Some(reference_time) = reference_time {
+                now.duration_since(*reference_time) > *interval_duration
+            } else {
+                true
+            }
+        }
+        WhoStatus::Requested { at, .. } => {
+            now.duration_since(at) > 5 * *interval_duration
+        }
+        WhoStatus::Receiving { last_received, .. } => {
+            now.duration_since(last_received) > 5 * *interval_duration
+        }
+    }
 }
