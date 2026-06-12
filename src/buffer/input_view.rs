@@ -571,53 +571,6 @@ pub fn view<'a>(
     )
     .into();
 
-    let new_maybe_our_user = || -> Option<Element<'a, Message>> {
-        if config.buffer.text_input.nickname.enabled {
-            our_user.map(|user| {
-                let user_display = UserDisplay::new(
-                    user,
-                    config.buffer.text_input.nickname.show_access_levels,
-                    config.buffer.nickname.show_bot_icon,
-                    registry,
-                    &config.display.nickname,
-                    None,
-                    config.display.truncation_character,
-                    None,
-                    true,
-                );
-
-                container(user_display.into_element(
-                    user,
-                    user.is_away(),
-                    false,
-                    None,
-                    None,
-                    false,
-                    false,
-                    theme,
-                    config,
-                ))
-                .padding(padding::right(4))
-                .into()
-            })
-        } else {
-            None
-        }
-    };
-
-    let new_maybe_vertical_rule = |maybe_our_user: &Option<
-        Element<'a, Message>,
-    >|
-     -> Option<Element<'a, Message>> {
-        maybe_our_user
-            .is_some()
-            .then_some(rule::vertical(1.0).into())
-    };
-
-    let maybe_our_user = new_maybe_our_user();
-
-    let maybe_vertical_rule = new_maybe_vertical_rule(&maybe_our_user);
-
     let maybe_upload_spinner: Option<crate::widget::Element<'a, Message>> =
         (filehost_url.is_some() && state.uploading > 0).then(|| {
             let icon: crate::widget::Element<'a, Message> =
@@ -688,16 +641,13 @@ pub fn view<'a>(
     });
 
     let input_row = container(
-        row![
-            maybe_our_user,
-            maybe_vertical_rule,
-            wrapped_input,
-            maybe_upload_spinner,
-            maybe_upload_button,
-        ]
-        .spacing(INPUT_ROW_SPACING)
-        .height(Length::Shrink)
-        .align_y(Alignment::Center),
+        row![]
+            .extend(maybe_our_user(our_user, registry, config, theme))
+            .push(wrapped_input)
+            .extend(maybe_upload_spinner.into_iter().chain(maybe_upload_button))
+            .spacing(INPUT_ROW_SPACING)
+            .height(Length::Shrink)
+            .align_y(Alignment::Center),
     )
     .max_height((7.55 * theme::resolve_line_height(&config.font).ceil()).ceil())
     .padding(8);
@@ -741,12 +691,10 @@ pub fn view<'a>(
             .into()
         };
 
-        let maybe_our_user = new_maybe_our_user();
-
-        let maybe_vertical_rule = new_maybe_vertical_rule(&maybe_our_user);
-
         let overlay = double_pass(
-            row![maybe_our_user, maybe_vertical_rule, overlay()]
+            row![]
+                .extend(maybe_our_user(our_user, registry, config, theme))
+                .push(overlay())
                 .spacing(INPUT_ROW_SPACING),
             row![Space::new().width(Length::Fill), overlay()],
         );
@@ -763,6 +711,50 @@ pub fn view<'a>(
     }
 }
 
+fn maybe_our_user<'a>(
+    our_user: Option<&User>,
+    registry: &'a dyn metadata::Registry,
+    config: &'a Config,
+    theme: &'a Theme,
+) -> impl IntoIterator<Item = Element<'a, Message>> {
+    if config.buffer.text_input.nickname.enabled {
+        our_user
+            .map(|user| {
+                let user_display = UserDisplay::new(
+                    user,
+                    config.buffer.text_input.nickname.show_access_levels,
+                    config.buffer.nickname.show_bot_icon,
+                    registry,
+                    &config.display.nickname,
+                    None,
+                    config.display.truncation_character,
+                    None,
+                    true,
+                );
+
+                vec![
+                    container(user_display.into_element(
+                        user,
+                        user.is_away(),
+                        false,
+                        None,
+                        None,
+                        false,
+                        false,
+                        theme,
+                        config,
+                    ))
+                    .padding(padding::right(4))
+                    .into(),
+                    rule::vertical(1.0).into(),
+                ]
+            })
+            .unwrap_or_default()
+    } else {
+        vec![]
+    }
+    .into_iter()
+}
 fn reply_bar<'a>(
     reply_preview: &'a message::ReplyPreview,
     channel_users: Option<&'a ChannelUsers>,
@@ -2529,52 +2521,58 @@ impl State {
             }
         };
 
-        let labeled_response_context = if let Some(mut encoded) =
-            input.encoded()
-        {
-            let reply_id = self
-                .draft_reply
-                .as_ref()
-                .map(|input::DraftReply { id, .. }| id);
+        let labeled_response_context =
+            if let Some(mut encoded) = input.encoded() {
+                let reply_id = self
+                    .draft_reply
+                    .as_ref()
+                    .map(|input::DraftReply { id, .. }| id);
 
-            encoded.set_reply_to(reply_id);
+                encoded.set_reply_to(reply_id);
 
-            let sent_time = encoded.server_time_or_now().0;
+                let sent_time = encoded.server_time_or_now().0;
 
-            let labeled_response_context =
-                clients.send(buffer, encoded, TokenPriority::User);
+                let labeled_response_context =
+                    clients.send(buffer, encoded, TokenPriority::User);
 
-            let supports_echoes =
-                clients.get_server_supports_echoes(buffer.server());
+                let supports_echoes =
+                    clients.get_server_supports_echoes(buffer.server());
 
-            // If the server supports echoes, then send MARKREAD on echo only
-            // (not when recording the input)
-            if config.buffer.mark_as_read.on_message_sent && !supports_echoes {
-                let chantypes =
-                    clients.get_server_chantypes_or_default(buffer.server());
-                let statusmsg =
-                    clients.get_server_statusmsg_or_default(buffer.server());
-                let casemapping =
-                    clients.get_server_casemapping_or_default(buffer.server());
-
-                if let Some(targets) =
-                    input.targets(chantypes, statusmsg, casemapping)
+                // If the server supports echoes, then send MARKREAD on echo only
+                // (not when recording the input)
+                if config.buffer.mark_as_read.on_message_sent
+                    && matches!(
+                        input.command(),
+                        Some(command::Irc::Msg(_, _))
+                            | Some(command::Irc::Notice(_, _))
+                    )
+                    && !supports_echoes
                 {
-                    for target in targets {
-                        clients.send_markread(
-                            buffer.server(),
-                            target,
-                            ReadMarker::from(sent_time),
-                            TokenPriority::High,
-                        );
+                    let chantypes = clients
+                        .get_server_chantypes_or_default(buffer.server());
+                    let statusmsg = clients
+                        .get_server_statusmsg_or_default(buffer.server());
+                    let casemapping = clients
+                        .get_server_casemapping_or_default(buffer.server());
+
+                    if let Some(targets) =
+                        input.targets(chantypes, statusmsg, casemapping)
+                    {
+                        for target in targets {
+                            clients.send_markread(
+                                buffer.server(),
+                                target,
+                                ReadMarker::from(sent_time),
+                                TokenPriority::High,
+                            );
+                        }
                     }
                 }
-            }
 
-            labeled_response_context
-        } else {
-            None
-        };
+                labeled_response_context
+            } else {
+                None
+            };
 
         let mut history_task = Task::none();
 

@@ -1,9 +1,9 @@
 use std::collections::{HashMap, HashSet, VecDeque, hash_map};
+use std::convert;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use std::{convert, slice};
 
 use chrono::{DateTime, Utc};
 use data::capabilities::{
@@ -4755,29 +4755,6 @@ impl Dashboard {
         )
     }
 
-    fn open_channel(
-        &mut self,
-        server: Server,
-        channel: target::Channel,
-        clients: &mut data::client::Map,
-        buffer_action: BufferAction,
-        config: &Config,
-    ) -> Task<Message> {
-        let buffer = buffer::Upstream::Channel(server.clone(), channel.clone());
-
-        // Need to join channel
-        if !clients.contains_channel(&server, &channel) {
-            clients.join(&server, slice::from_ref(&channel));
-        }
-
-        self.open_buffer(
-            data::Buffer::Upstream(buffer),
-            buffer_action,
-            clients,
-            config,
-        )
-    }
-
     pub fn open_target(
         &mut self,
         server: Server,
@@ -4787,19 +4764,19 @@ impl Dashboard {
         config: &Config,
     ) -> Task<Message> {
         match target {
-            Target::Channel(channel) => self.open_channel(
-                server,
-                channel,
-                clients,
-                buffer_action,
-                config,
-            ),
+            Target::Channel(channel) => {
+                let buffer = data::Buffer::Upstream(buffer::Upstream::Channel(
+                    server, channel,
+                ));
+
+                self.open_buffer(buffer, buffer_action, clients, config)
+            }
             Target::Query(query) => {
                 let buffer = data::Buffer::Upstream(buffer::Upstream::Query(
                     server, query,
                 ));
 
-                self.open_buffer(buffer.clone(), buffer_action, clients, config)
+                self.open_buffer(buffer, buffer_action, clients, config)
             }
         }
     }

@@ -3102,9 +3102,6 @@ impl Client {
                 };
                 return Ok(events);
             }
-            Command::Numeric(RPL_ENDOFMONLIST, _) => {
-                return Ok(vec![]);
-            }
             Command::MARKREAD(target, Some(timestamp)) => {
                 if let Some(read_marker) = timestamp
                     .strip_prefix("timestamp=")

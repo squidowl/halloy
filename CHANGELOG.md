@@ -1,10 +1,21 @@
 # Unreleased
 
+Added:
+
+- Improved legibility of the returned values of `MONITOR` list (`/monitor L`)
+
 Fixed:
 
 - Nick highlight improvements
   - Handle nick possessives `<nick>'s` (`<nick>` should be parsed)
   - Skip parsing nicks inside abbreviations (`e.g.` shouldn't have highlights)
+- Do not send duplicate `JOIN` message when using `/join`
+- Do not send `MARKREAD` for non-`PRIVMSG`/`NOTICE` messages when the server does not support echoes
+- Do not show unread/highlight indicators for ignored messages
+
+Changed:
+
+- `change_mode` server messages are categorized as `actions` (i.e. `actions_dimmed` controls whether they are dimmed by default)
 
 Thanks:
 

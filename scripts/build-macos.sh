@@ -16,13 +16,6 @@ VERSION=$(grep -q '\..*\.' VERSION && cat VERSION || echo "$(cat VERSION).0")
 NIGHTLY=$(cat NIGHTLY)
 BUILD=$(git describe --always --dirty --exclude='*')
 
-if [ "$VERSION" = "$NIGHTLY" ]; then
-  DMG_NAME="halloy-nightly.dmg"
-else
-  DMG_NAME="halloy.dmg"
-fi
-DMG_DIR="$RELEASE_DIR/macos"
-
 # update version and build
 sed -i '' -e "s/{{ VERSION }}/$VERSION/g" "$APP_TEMPLATE_PLIST"
 sed -i '' -e "s/{{ BUILD }}/$BUILD/g" "$APP_TEMPLATE_PLIST"

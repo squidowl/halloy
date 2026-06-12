@@ -1073,14 +1073,15 @@ The default server message type (`buffer.server_messages.default`) splits this s
 | ---------------------- | ---------------------------- | --------------------- |
 | **Setting**            | `passive_dimmed` or `dimmed` | `actions_dimmed`      |
 | **Default**            | `true`                       | `false`               |
-| **Event Types**        | `away`                       | `change_topic`        |
-|                        | `change_host`                | `invite`              |
-|                        | `change_mode`                | `kick`                |
-|                        | `change_nick`                | `monitored_offline`   |
-|                        | `join`                       | `monitored_online`    |
-|                        | `join_topic`                 | `request_topic`       |
-|                        | `quit`                       | `standard_reply_fail` |
-|                        | `part`                       | `standard_reply_note` |
+| **Event Types**        | `away`                       | `change_mode`         |
+|                        | `change_host`                | `change_topic`        |
+|                        | `change_nick`                | `invite`              |
+|                        | `join`                       | `kick`                |
+|                        | `join_topic`                 | `monitored_offline`   |
+|                        | `part`                       | `monitored_online`    |
+|                        | `quit`                       | `request_topic`       |
+|                        |                              | `standard_reply_fail` |
+|                        |                              | `standard_reply_note` |
 |                        |                              | `standard_reply_warn` |
 |                        |                              | `wallops`             |
 :::

@@ -385,6 +385,7 @@ impl Message {
                 }
                 _ => false,
             }
+            && !self.blocked
     }
 
     pub fn triggers_highlight(&self) -> bool {
@@ -397,6 +398,7 @@ impl Message {
                     Fragment::HighlightNick(_, _) | Fragment::HighlightMatch(_)
                 )
             })
+            && !self.blocked
         {
             true
         } else {
@@ -3670,6 +3672,18 @@ fn content<'a>(
                         }
                     },
                     Some(&target_users),
+                    casemapping,
+                ),
+                None,
+            ))
+        }
+        Command::Numeric(RPL_MONLIST, params) => {
+            let user = User::from(Nick::from_str(params.get(1)?, casemapping));
+
+            Some((
+                parse_fragments_with_user(
+                    format!("{} is being monitored", user.nickname()),
+                    &user,
                     casemapping,
                 ),
                 None,

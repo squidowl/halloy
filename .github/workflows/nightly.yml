@@ -27,7 +27,7 @@ jobs:
             os: macos-latest
             make: bash scripts/build-macos.sh
             artifact_path: |
-              echo "ARTIFACT_PATH=target/packaging/macos/halloy.dmg" >> "$GITHUB_ENV"
+              echo "ARTIFACT_PATH=target/packaging/macos/halloy-nightly.dmg" >> "$GITHUB_ENV"
           - target: windows
             os: windows-latest
             make: bash scripts/build-windows-installer.sh --nightly
@@ -143,7 +143,7 @@ jobs:
         target:
           - artifact: macos
             artifact_name: |
-              echo "ARTIFACT_NAME=halloy.dmg" >> "$GITHUB_ENV"
+              echo "ARTIFACT_NAME=halloy-nightly.dmg" >> "$GITHUB_ENV"
             asset_type: application/octet-stream
           - artifact: windows
             artifact_name: |
