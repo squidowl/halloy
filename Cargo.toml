@@ -41,7 +41,15 @@ palette = "0.7.4"
 log = { version = "0.4.30", features = ['std'] }
 uptime_lib = "0.3.1"
 nucleo-matcher = "0.3.1"
-reqwest = { version = "0.13", features = ["json", "socks", "stream"] }
+reqwest = { version = "0.13", default-features = false, features = [
+    "charset",
+    "http2",
+    "json",
+    "rustls-no-provider",
+    "socks",
+    "stream",
+    "system-proxy",
+] }
 tokio-util = { version = "0.7", features = ["io"] }
 const_format = "0.2.36"
 iced = { version = "0.15.0-dev", default-features = false }

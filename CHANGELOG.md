@@ -16,10 +16,11 @@ Fixed:
 Changed:
 
 - `change_mode` server messages are categorized as `actions` (i.e. `actions_dimmed` controls whether they are dimmed by default)
+- Removed unnecessary AWS-LC dependency
 
 Thanks:
 
-- Contributions: @englut
+- Contributions: @englut, @luca020400
 
 # 2026.7.2 (2026-06-08)
 
