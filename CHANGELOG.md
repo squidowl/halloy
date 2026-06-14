@@ -12,6 +12,7 @@ Fixed:
 - Do not send duplicate `JOIN` message when using `/join`
 - Do not send `MARKREAD` for non-`PRIVMSG`/`NOTICE` messages when the server does not support echoes
 - Do not show unread/highlight indicators for ignored messages
+- Do not copy empty selections to the primary clipboard (i.e. do not clear the primary clipboard when a non-selection action is performed, such as moving the cursor or focusing the text input on some systems)
 
 Changed:
 
