@@ -243,6 +243,8 @@ pub struct Card {
     pub image_max_height: f32,
     /// Decode non-standard encoding of html entities
     pub description_decode_html: Enabled,
+    /// Action to take when the image is pressed
+    pub image_action: CardImageAction,
 }
 
 impl Default for Card {
@@ -257,8 +259,18 @@ impl Default for Card {
             description_max_height: 100.0,
             image_max_height: 200.0,
             description_decode_html: Enabled::Boolean(false),
+            image_action: CardImageAction::default(),
         }
     }
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum CardImageAction {
+    #[default]
+    OpenUrl,
+    OpenImageUrl,
+    Preview,
 }
 
 impl Card {
