@@ -54,28 +54,43 @@ pub fn topic<'a>() -> Text<'a> {
     to_text('\u{E803}')
 }
 
-pub fn search<'a>() -> Text<'a> {
-    to_text('\u{E808}')
+pub fn search<'a>() -> Svg<'a, Theme> {
+    let entypo_search =
+        include_bytes!("../assets/fontello/entypo-search.svg").to_vec();
+
+    svg(svg::Handle::from_memory(entypo_search))
 }
 
 pub fn checkmark<'a>() -> Text<'a> {
     to_text('\u{E806}')
 }
 
-pub fn file_transfer<'a>() -> Text<'a> {
-    to_text('\u{E802}')
+pub fn file_transfer<'a>() -> Svg<'a, Theme> {
+    let entypo_download =
+        include_bytes!("../assets/fontello/entypo-download.svg").to_vec();
+
+    svg(svg::Handle::from_memory(entypo_download))
 }
 
-pub fn refresh<'a>() -> Text<'a> {
-    to_text('\u{E807}')
+pub fn refresh<'a>() -> Svg<'a, Theme> {
+    let entypo_arrows_ccw =
+        include_bytes!("../assets/fontello/entypo-arrows-ccw.svg").to_vec();
+
+    svg(svg::Handle::from_memory(entypo_arrows_ccw))
 }
 
-pub fn megaphone<'a>() -> Text<'a> {
-    to_text('\u{E809}')
+pub fn megaphone<'a>() -> Svg<'a, Theme> {
+    let entypo_megaphone =
+        include_bytes!("../assets/fontello/entypo-megaphone.svg").to_vec();
+
+    svg(svg::Handle::from_memory(entypo_megaphone))
 }
 
-pub fn theme_editor<'a>() -> Text<'a> {
-    to_text('\u{E80A}')
+pub fn theme_editor<'a>() -> Svg<'a, Theme> {
+    let entypo_palette =
+        include_bytes!("../assets/fontello/entypo-palette.svg").to_vec();
+
+    svg(svg::Handle::from_memory(entypo_palette))
 }
 
 pub fn undo<'a>() -> Text<'a> {
@@ -90,8 +105,11 @@ pub fn popout<'a>() -> Text<'a> {
     to_text('\u{E80E}')
 }
 
-pub fn logs<'a>() -> Text<'a> {
-    to_text('\u{E810}')
+pub fn logs<'a>() -> Svg<'a, Theme> {
+    let entypo_bucket =
+        include_bytes!("../assets/fontello/entypo-bucket.svg").to_vec();
+
+    svg(svg::Handle::from_memory(entypo_bucket))
 }
 
 pub fn menu<'a>() -> Svg<'a, Theme> {
@@ -101,12 +119,18 @@ pub fn menu<'a>() -> Svg<'a, Theme> {
     svg(svg::Handle::from_memory(typicons_menu))
 }
 
-pub fn documentation<'a>() -> Text<'a> {
-    to_text('\u{E812}')
+pub fn documentation<'a>() -> Svg<'a, Theme> {
+    let fontawesome_book =
+        include_bytes!("../assets/fontello/fontawesome-book.svg").to_vec();
+
+    svg(svg::Handle::from_memory(fontawesome_book))
 }
 
-pub fn highlights<'a>() -> Text<'a> {
-    to_text('\u{E811}')
+pub fn highlights<'a>() -> Svg<'a, Theme> {
+    let entypo_bell =
+        include_bytes!("../assets/fontello/entypo-bell.svg").to_vec();
+
+    svg(svg::Handle::from_memory(entypo_bell))
 }
 
 pub fn scroll_to_bottom<'a>() -> Text<'a> {
@@ -121,8 +145,11 @@ pub fn mark_as_read<'a>() -> Text<'a> {
     to_text('\u{E817}')
 }
 
-pub fn config<'a>() -> Text<'a> {
-    to_text('\u{F1C9}')
+pub fn config<'a>() -> Svg<'a, Theme> {
+    let fontawesome_file_code =
+        include_bytes!("../assets/fontello/fontawesome-file-code.svg").to_vec();
+
+    svg(svg::Handle::from_memory(fontawesome_file_code))
 }
 
 pub fn star<'a>() -> Svg<'a, Theme> {
@@ -184,12 +211,18 @@ pub fn lightbulb<'a>() -> Svg<'a, Theme> {
     svg(svg::Handle::from_memory(fontawesome_lightbulb))
 }
 
-pub fn quit<'a>() -> Text<'a> {
-    to_text('\u{F02D}')
+pub fn quit<'a>() -> Svg<'a, Theme> {
+    let mfg_labs_logout =
+        include_bytes!("../assets/fontello/mfg-labs-logout.svg").to_vec();
+
+    svg(svg::Handle::from_memory(mfg_labs_logout))
 }
 
-pub fn channel_discovery<'a>() -> Text<'a> {
-    to_text('\u{E81D}')
+pub fn channel_discovery<'a>() -> Svg<'a, Theme> {
+    let fontawesome_users =
+        include_bytes!("../assets/fontello/fontawesome-users.svg").to_vec();
+
+    svg(svg::Handle::from_memory(fontawesome_users))
 }
 
 pub fn plus<'a>() -> Text<'a> {

@@ -24,6 +24,18 @@ pub fn primary(theme: &Theme, _status: Status) -> Style {
     }
 }
 
+pub fn secondary(theme: &Theme, _status: Status) -> Style {
+    Style {
+        color: Some(theme.styles().text.secondary.color),
+    }
+}
+
+pub fn tertiary(theme: &Theme, _status: Status) -> Style {
+    Style {
+        color: Some(theme.styles().text.tertiary.color),
+    }
+}
+
 pub fn unread_indicator(theme: &Theme, _status: Status) -> Style {
     Style {
         color: Some(theme.styles().general.unread_indicator),

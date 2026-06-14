@@ -4,7 +4,7 @@ use data::{Config, file_transfer};
 use iced::widget::{
     Scrollable, button, center, column, container, scrollable, text,
 };
-use iced::{Length, Task};
+use iced::{ContentFit, Length, Task};
 
 use crate::widget::{Element, Text};
 use crate::{Theme, font, icon, theme};
@@ -25,8 +25,10 @@ pub fn view<'a>(
         return center(container(
             column![
                 icon::file_transfer()
-                    .size(theme::TEXT_SIZE + 3.0)
-                    .style(theme::text::secondary),
+                    .width(Length::Shrink)
+                    .content_fit(ContentFit::Contain)
+                    .height(theme::TEXT_SIZE + 3.0)
+                    .style(theme::svg::secondary),
                 text("No transfers found")
                     .style(theme::text::secondary)
                     .font_maybe(
