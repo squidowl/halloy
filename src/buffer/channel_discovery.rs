@@ -9,9 +9,7 @@ use iced::widget::{
 use iced::{Color, ContentFit, Length, Task, alignment, padding};
 
 use crate::appearance::theme;
-use crate::buffer::context_menu::{
-    self, ChannelContext, Context, UrlContext, UserContext,
-};
+use crate::buffer::context_menu::{self, Context, UrlContext, UserContext};
 use crate::widget::{
     Element, message_content, selectable_rich_text, selectable_text,
 };
@@ -115,8 +113,7 @@ pub fn view<'a>(
     clients: &'a data::client::Map,
     config: &'a Config,
     theme: &'a Theme,
-    channel_is_focused: impl Fn(&Server, &target::Channel) -> bool + Copy + 'a,
-    channel_is_open: impl Fn(&Server, &target::Channel) -> bool + Copy + 'a,
+    channels_context: &'a dyn context_menu::ChannelsContext,
 ) -> Element<'a, Message> {
     let manager = state
         .server
@@ -200,8 +197,7 @@ pub fn view<'a>(
                     clients,
                     config,
                     theme,
-                    channel_is_focused,
-                    channel_is_open,
+                    channels_context,
                 ))
             }
         }
@@ -239,8 +235,7 @@ fn channel_list_view<'a>(
     clients: &'a data::client::Map,
     config: &'a Config,
     theme: &'a Theme,
-    channel_is_focused: impl Fn(&Server, &target::Channel) -> bool + Copy + 'a,
-    channel_is_open: impl Fn(&Server, &target::Channel) -> bool + Copy + 'a,
+    channels_context: &'a dyn context_menu::ChannelsContext,
 ) -> Element<'a, Message> {
     let channel_list = items
         .into_iter()
@@ -281,8 +276,8 @@ fn channel_list_view<'a>(
                         Option::<fn(&str) -> Vec<context_menu::Entry>>::None,
                         Some(|server, channel| {
                             context_menu::Entry::channel_list(
-                                channel_is_open(server, channel),
-                                channel_is_focused(server, channel),
+                                channels_context.is_open(server, channel),
+                                channels_context.is_focused(server, channel),
                             )
                         }),
                     )
@@ -294,15 +289,15 @@ fn channel_list_view<'a>(
                                 link,
                                 Option::<fn(&User) -> UserContext>::None,
                                 Option::<fn(&str) -> UrlContext>::None,
-                                Some(|server, channel| ChannelContext {
-                                    server,
-                                    channel,
-                                    is_open: channel_is_open(server, channel),
+                                Some(|server, channel|  {
+                                        channels_context
+                                            .channel_context(server, channel)
                                 }),
                             ),
                             length,
                             config,
                             theme,
+                            false,
                         )
                         .map(Message::ContextMenu)
                 },
@@ -339,8 +334,8 @@ fn channel_list_view<'a>(
                             }),
                             Some(|server, channel| {
                                 context_menu::Entry::channel_list(
-                                    channel_is_open(server, channel),
-                                    channel_is_focused(server, channel),
+                                    channels_context.is_open(server, channel),
+                                    channels_context.is_focused(server, channel),
                                 )
                             }),
                         )
@@ -356,22 +351,21 @@ fn channel_list_view<'a>(
                                         message: None,
                                         selected_reactions: vec![],
                                     }),
-                                    Some(|server, channel| ChannelContext {
-                                        server,
-                                        channel,
-                                        is_open: channel_is_open(
-                                            server, channel,
-                                        ),
+                                    Some(|server, channel| {
+                                        channels_context
+                                            .channel_context(server, channel)
                                     }),
                                 ),
                                 length,
                                 config,
                                 theme,
+                                false,
                             )
                             .map(Message::ContextMenu)
                     },
                     None,
                     config,
+                    None,
                 ))
             };
 

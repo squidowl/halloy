@@ -14,6 +14,9 @@ Added:
 - Optional `font.code` setting for code-formatted text
 - Settings to control how internal and server buffers are opened from the sidebar (`actions.sidebar.internal` and `actions.sidebar.server`)
 - `buffer.nickname.offline` supports `"dimmed"` / `{ dimmed = float }`, and `{ color = "theme"|"nickname", alpha = ...}` so theme offline color and dimming can be combined
+- Keyboard-driven message focus: navigate and act on messages without mouse
+  - Links and channel mentions within a message can be focused and opened
+  - New `buffer.focus` theme color for the focused message border
 
 Fixed:
 
@@ -32,10 +35,11 @@ Changed:
 - Right-aligned nickname columns now size to nearby messages instead of the entire loaded history
 - The XDG data directory `~/.local/share/halloy` can be used for storing history/logs/etc macOS, instead of `~/Library/Application Support/halloy/` (move entire directory to migrate)
 - Offline nicknames are styled only by `buffer.nickname.offline`; `buffer.nickname.away` no longer applies to them
+- `esc` in the input box now scrolls the buffer to the bottom
 
 Thanks:
 
-- Contributions: @rollecode, @luca020400, @rtmongold, @tranzystorekk, @englut
+- Contributions: @rollecode, @luca020400, @rtmongold, @tranzystorekk, @englut, @furudean
 - Bug reports: @sebbu2, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae
 - Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo, ivocavalcante, @sebbu2, @coraxioU9, @ncfavier
 

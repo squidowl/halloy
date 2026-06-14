@@ -36,6 +36,7 @@ use self::modal::{reaction as reaction_modal, redaction as redaction_modal};
 use self::pane::Pane;
 use self::sidebar::Sidebar;
 use self::theme_editor::ThemeEditor;
+use crate::buffer::context_menu::ChannelsContext;
 use crate::buffer::{self, Buffer};
 use crate::notification::{self, Notifications, toast};
 use crate::widget::{
@@ -382,6 +383,8 @@ impl Dashboard {
                         return (self.split_pane(axis), None);
                     }
                     pane::Message::Buffer(id, message) => {
+                        let channels_context = self.channels_context_snapshot();
+
                         if let Some(pane) = self.panes.get_mut(window, id) {
                             let (command, event) = pane.buffer.update(
                                 message,
@@ -390,6 +393,7 @@ impl Dashboard {
                                 &self.previews,
                                 &mut self.file_transfers,
                                 config,
+                                &channels_context,
                             );
 
                             let task = command.map(move |message| {
@@ -521,6 +525,9 @@ impl Dashboard {
                     }
                     pane::Message::Modal(id, message) => {
                         let (task, buffer_event) = {
+                            let channels_context =
+                                self.channels_context_snapshot();
+
                             let Some(pane) = self.panes.get_mut(window, id)
                             else {
                                 return (Task::none(), None);
@@ -556,6 +563,7 @@ impl Dashboard {
                                         &self.previews,
                                         &mut self.file_transfers,
                                         config,
+                                        &channels_context,
                                     );
 
                                     let task = self.refocus_pane().chain(
@@ -1264,16 +1272,35 @@ impl Dashboard {
                             self.get_focused_mut().map_or_else(
                                 Task::none,
                                 |(window, pane, state)| {
-                                    state.buffer.scroll_up_page().map(
-                                        move |message| {
+                                    let exit_task =
+                                        if state.buffer.in_focus_mode() {
+                                            state.buffer.clear_focus_mode();
+                                            state
+                                                .buffer
+                                                .exit_focus_mode_message()
+                                                .map_or_else(Task::none, |msg| {
+                                                    Task::done(Message::Pane(
+                                                        window,
+                                                        pane::Message::Buffer(
+                                                            pane, msg,
+                                                        ),
+                                                    ))
+                                                })
+                                        } else {
+                                            Task::none()
+                                        };
+                                    let scroll_task = state
+                                        .buffer
+                                        .scroll_up_page()
+                                        .map(move |message| {
                                             Message::Pane(
                                                 window,
                                                 pane::Message::Buffer(
                                                     pane, message,
                                                 ),
                                             )
-                                        },
-                                    )
+                                        });
+                                    Task::batch([exit_task, scroll_task])
                                 },
                             ),
                             None,
@@ -1284,16 +1311,35 @@ impl Dashboard {
                             self.get_focused_mut().map_or_else(
                                 Task::none,
                                 |(window, pane, state)| {
-                                    state.buffer.scroll_down_page().map(
-                                        move |message| {
+                                    let exit_task =
+                                        if state.buffer.in_focus_mode() {
+                                            state.buffer.clear_focus_mode();
+                                            state
+                                                .buffer
+                                                .exit_focus_mode_message()
+                                                .map_or_else(Task::none, |msg| {
+                                                    Task::done(Message::Pane(
+                                                        window,
+                                                        pane::Message::Buffer(
+                                                            pane, msg,
+                                                        ),
+                                                    ))
+                                                })
+                                        } else {
+                                            Task::none()
+                                        };
+                                    let scroll_task = state
+                                        .buffer
+                                        .scroll_down_page()
+                                        .map(move |message| {
                                             Message::Pane(
                                                 window,
                                                 pane::Message::Buffer(
                                                     pane, message,
                                                 ),
                                             )
-                                        },
-                                    )
+                                        });
+                                    Task::batch([exit_task, scroll_task])
                                 },
                             ),
                             None,
@@ -1746,12 +1792,7 @@ impl Dashboard {
                         theme,
                         settings,
                         window != self.main_window(),
-                        |server: &Server, channel: &target::Channel| -> bool {
-                            self.has_focused_pane_channel(server, channel)
-                        },
-                        |server: &Server, channel: &target::Channel| -> bool {
-                            self.has_open_pane_channel(server, channel)
-                        },
+                        self,
                     )
                 })
                 .spacing(config.pane.gap.inner)
@@ -1812,12 +1853,7 @@ impl Dashboard {
                     theme,
                     settings,
                     false,
-                    |server: &Server, channel: &target::Channel| -> bool {
-                        self.has_focused_pane_channel(server, channel)
-                    },
-                    |server: &Server, channel: &target::Channel| -> bool {
-                        self.has_open_pane_channel(server, channel)
-                    },
+                    self,
                 )
             })
             .on_click(pane::Message::PaneClicked)
@@ -1931,6 +1967,7 @@ impl Dashboard {
                 .style(theme::container::transparent_overlay),
                 anchored_overlay::Anchor::BelowTopCentered,
                 0.0,
+                None,
             );
 
             anchored_overlay(
@@ -1950,6 +1987,7 @@ impl Dashboard {
                     .map(Message::Task),
                 anchored_overlay::Anchor::BelowTopCentered,
                 10.0,
+                None,
             )
         } else {
             // Align `base` into same view tree shape
@@ -2373,25 +2411,7 @@ impl Dashboard {
 
                         None
                     }
-                    buffer::context_menu::Event::Reply {
-                        msgid,
-                        server_time,
-                        ..
-                    } => {
-                        if let Some(kind) =
-                            pane.buffer.upstream().map(|buffer| {
-                                history::Kind::from_input_buffer(buffer.clone())
-                            })
-                            && let Some(reply_preview) =
-                                self.history.generate_reply_preview(
-                                    kind,
-                                    &msgid,
-                                    &server_time,
-                                )
-                        {
-                            pane.buffer.set_reply_preview(reply_preview);
-                        }
-
+                    buffer::context_menu::Event::Reply { .. } => {
                         tasks.push(self.focus_pane(window, id));
 
                         None
@@ -2852,6 +2872,30 @@ impl Dashboard {
 
         match event {
             Escape => {
+                if let Some((window, pane, state)) = self.get_focused() {
+                    // A focus menu swallows Escape to close itself, leaving
+                    // the message focused
+                    if state.buffer.in_focus_menu()
+                        && let Some(msg) =
+                            state.buffer.close_focus_menu_message()
+                    {
+                        return Task::done(Message::Pane(
+                            window,
+                            pane::Message::Buffer(pane, msg),
+                        ));
+                    }
+
+                    if state.buffer.in_focus_mode()
+                        && let Some(msg) =
+                            state.buffer.exit_focus_mode_message()
+                    {
+                        return Task::done(Message::Pane(
+                            window,
+                            pane::Message::Buffer(pane, msg),
+                        ));
+                    }
+                }
+
                 // Order of operations
                 //
                 // - Close command bar (if this window owns it)
@@ -2880,19 +2924,137 @@ impl Dashboard {
                     )
                 }
             }
-            Copy => selectable_text::selected(|selected_text| {
-                Message::SelectedText(
-                    selected_text,
-                    clipboard::ClipboardKind::Standard,
-                )
-            }),
-            LeftClick => self.refocus_pane(),
+            Copy => {
+                if let Some((window, pane, state)) = self.get_focused()
+                    && state.buffer.in_focus_mode()
+                    && let Some(msg) = state.buffer.focus_action_message(
+                        buffer::FocusAction::CopyUrl,
+                        clients,
+                    )
+                {
+                    return Task::done(Message::Pane(
+                        window,
+                        pane::Message::Buffer(pane, msg),
+                    ));
+                }
+
+                selectable_text::selected(|selected_text| {
+                    Message::SelectedText(
+                        selected_text,
+                        clipboard::ClipboardKind::Standard,
+                    )
+                })
+            }
+            LeftClick => self
+                .exit_focus_mode_task()
+                .unwrap_or_else(|| self.refocus_pane()),
+            ResetFocus => {
+                // While the action menu is open, its overlay handles clicks
+                if self
+                    .get_focused()
+                    .is_some_and(|(_, _, state)| state.buffer.in_focus_menu())
+                {
+                    return Task::none();
+                }
+                self.exit_focus_mode_task().unwrap_or_else(Task::none)
+            }
             UpdatePrimaryClipboard => {
                 selectable_text::selected(|selected_text| {
                     Message::SelectedText(
                         selected_text,
                         clipboard::ClipboardKind::Primary,
                     )
+                })
+            }
+            Key(key_bind) => {
+                use data::shortcut::MessageFocus;
+
+                let Some((window, pane, state)) = self.get_focused() else {
+                    return Task::none();
+                };
+
+                if state.buffer.in_focus_menu() {
+                    return Task::none();
+                }
+
+                let in_focus = state.buffer.in_focus_mode();
+
+                let Some(command) =
+                    config.keyboard.message_focus(&key_bind).or_else(|| {
+                        in_focus
+                            .then(|| key_bind.builtin_message_focus())
+                            .flatten()
+                    })
+                else {
+                    return Task::none();
+                };
+
+                let msg = match command {
+                    MessageFocus::NavigateUp | MessageFocus::NavigateDown => {
+                        let direction =
+                            if matches!(command, MessageFocus::NavigateUp) {
+                                buffer::Direction::Up
+                            } else {
+                                buffer::Direction::Down
+                            };
+
+                        state.buffer.focus_navigate_message(direction)
+                    }
+                    MessageFocus::OpenMenu => in_focus
+                        .then(|| state.buffer.open_focus_menu_message())
+                        .flatten(),
+                    MessageFocus::Activate if !in_focus => None,
+                    MessageFocus::Activate
+                        if state.buffer.focus_sub_element_selected() =>
+                    {
+                        state.buffer.focus_action_message(
+                            buffer::FocusAction::OpenUrl,
+                            clients,
+                        )
+                    }
+                    MessageFocus::Activate => {
+                        state.buffer.open_focus_menu_message()
+                    }
+                    MessageFocus::OpenNickMenu if !in_focus => None,
+                    MessageFocus::OpenNickMenu
+                        if state.buffer.focus_sub_element_selected() =>
+                    {
+                        state.buffer.open_focus_menu_message()
+                    }
+                    MessageFocus::OpenNickMenu => {
+                        state.buffer.open_nick_focus_menu_message()
+                    }
+                    MessageFocus::Reply => in_focus
+                        .then(|| {
+                            state.buffer.focus_action_message(
+                                buffer::FocusAction::Reply,
+                                clients,
+                            )
+                        })
+                        .flatten(),
+                    MessageFocus::React => in_focus
+                        .then(|| {
+                            state.buffer.focus_action_message(
+                                buffer::FocusAction::OpenReactionModal,
+                                clients,
+                            )
+                        })
+                        .flatten(),
+                    MessageFocus::Redact => in_focus
+                        .then(|| {
+                            state.buffer.focus_action_message(
+                                buffer::FocusAction::Redact,
+                                clients,
+                            )
+                        })
+                        .flatten(),
+                };
+
+                msg.map_or_else(Task::none, |msg| {
+                    Task::done(Message::Pane(
+                        window,
+                        pane::Message::Buffer(pane, msg),
+                    ))
                 })
             }
         }
@@ -4084,6 +4246,21 @@ impl Dashboard {
         self.history.open(kind);
     }
 
+    fn exit_focus_mode_task(&self) -> Option<Task<Message>> {
+        let (window, pane, state) = self.get_focused()?;
+
+        if !state.buffer.in_focus_mode() {
+            return None;
+        }
+
+        let msg = state.buffer.exit_focus_mode_message()?;
+
+        Some(Task::done(Message::Pane(
+            window,
+            pane::Message::Buffer(pane, msg),
+        )))
+    }
+
     pub fn refocus_pane(&mut self) -> Task<Message> {
         let Focus { window, pane } = self.focus;
 
@@ -4111,6 +4288,14 @@ impl Dashboard {
         if (self.focus != Focus { window, pane })
             || self.focus_history.is_empty()
         {
+            // Clear selection mode on the buffer losing focus
+            let old_focus = self.focus;
+            if let Some(state) =
+                self.panes.get_mut(old_focus.window, old_focus.pane)
+            {
+                state.buffer.clear_focus_mode();
+            }
+
             self.focus = Focus { window, pane };
 
             self.last_changed = Some(Instant::now());
@@ -5264,6 +5449,87 @@ impl Dashboard {
                 _ => None,
             })
             .collect()
+    }
+
+    fn channels_context_snapshot(&self) -> ChannelsContextSnapshot {
+        ChannelsContextSnapshot {
+            focused: self
+                .panes
+                .iter()
+                .find(|(window, pane, _)| {
+                    self.focus
+                        == Focus {
+                            window: *window,
+                            pane: *pane,
+                        }
+                })
+                .and_then(|(_, _, pane)| match pane.buffer.upstream() {
+                    Some(buffer::Upstream::Channel(
+                        focused_server,
+                        focused_channel,
+                    )) => {
+                        Some((focused_server.clone(), focused_channel.clone()))
+                    }
+                    _ => None,
+                }),
+            open: self
+                .panes
+                .iter()
+                .filter_map(|(_, _, pane)| match pane.buffer.upstream() {
+                    Some(buffer::Upstream::Channel(server, channel)) => {
+                        Some((server.clone(), channel.clone()))
+                    }
+                    _ => None,
+                })
+                .collect(),
+        }
+    }
+}
+
+impl ChannelsContext for Dashboard {
+    fn is_focused(
+        &self,
+        server: &data::Server,
+        channel: &target::Channel,
+    ) -> bool {
+        self.has_focused_pane_channel(server, channel)
+    }
+
+    fn is_open(
+        &self,
+        server: &data::Server,
+        channel: &target::Channel,
+    ) -> bool {
+        self.has_open_pane_channel(server, channel)
+    }
+}
+
+struct ChannelsContextSnapshot {
+    focused: Option<(data::Server, target::Channel)>,
+    open: Vec<(data::Server, target::Channel)>,
+}
+
+impl ChannelsContext for ChannelsContextSnapshot {
+    fn is_focused(
+        &self,
+        server: &data::Server,
+        channel: &target::Channel,
+    ) -> bool {
+        self.focused.as_ref().is_some_and(
+            |(focused_server, focused_channel)| {
+                focused_server == server && focused_channel == channel
+            },
+        )
+    }
+
+    fn is_open(
+        &self,
+        server: &data::Server,
+        channel: &target::Channel,
+    ) -> bool {
+        self.open.iter().any(|(open_server, open_channel)| {
+            open_server == server && open_channel == channel
+        })
     }
 }
 

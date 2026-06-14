@@ -1,5 +1,5 @@
 use data::user::{ChannelUsers, User};
-use data::{Config, Server, file_transfer, history, preview, target};
+use data::{Config, file_transfer, history, preview};
 use iced::widget::text::Wrapping;
 use iced::widget::{
     button, center, column, container, pane_grid, row, sensor, text,
@@ -7,6 +7,7 @@ use iced::widget::{
 use iced::{Length, Padding, Size, Task, padding};
 
 use super::sidebar;
+use crate::buffer::context_menu::ChannelsContext;
 use crate::buffer::{self, Buffer};
 use crate::widget::{Element, tooltip};
 use crate::{Theme, font, icon, theme, widget};
@@ -69,8 +70,7 @@ impl Pane {
         theme: &'a Theme,
         settings: Option<&'a buffer::Settings>,
         is_popout: bool,
-        channel_is_focused: impl Fn(&Server, &target::Channel) -> bool + Copy + 'a,
-        channel_is_open: impl Fn(&Server, &target::Channel) -> bool + Copy + 'a,
+        channels_context: &'a dyn ChannelsContext,
     ) -> widget::Content<'a, Message> {
         let title: Element<'a, Message> = match &self.buffer {
             Buffer::Empty => text("").into(),
@@ -207,8 +207,7 @@ impl Pane {
                 theme,
                 is_focused,
                 sidebar,
-                channel_is_focused,
-                channel_is_open,
+                channels_context,
             )
             .map(move |msg| Message::Buffer(id, msg));
 
