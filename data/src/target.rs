@@ -337,6 +337,10 @@ impl Channel {
         &self.0.prefixes
     }
 
+    pub fn into_target(self) -> Target {
+        Target::Channel(self)
+    }
+
     pub fn to_target(&self) -> Target {
         Target::Channel(self.clone())
     }
@@ -452,6 +456,10 @@ impl Query {
     pub fn renormalize(&mut self, casemapping: isupport::CaseMap) {
         let data = Arc::make_mut(&mut self.0);
         data.normalized = casemapping.normalize(&data.raw);
+    }
+
+    pub fn into_target(self) -> Target {
+        Target::Query(self)
     }
 
     pub fn to_target(&self) -> Target {

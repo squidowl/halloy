@@ -5,9 +5,7 @@ use data::{Config, Server, User, isupport, message, target};
 use iced::widget::{Scrollable, column, container, row, rule, scrollable};
 use iced::{Color, Length, padding};
 
-use super::context_menu::{
-    self, ChannelContext, Context, UrlContext, UserContext,
-};
+use super::context_menu::{self, Context, UrlContext, UserContext};
 use crate::widget::user_display::UserDisplay;
 use crate::widget::{Element, double_pass, message_content, selectable_text};
 use crate::{Theme, font, theme};
@@ -63,8 +61,7 @@ pub fn view<'a>(
     theme: &'a Theme,
     registry: &'a dyn data::metadata::Registry,
     previews: &'a data::preview::Collection,
-    channel_is_focused: impl Fn(&Server, &target::Channel) -> bool + Copy + 'a,
-    channel_is_open: impl Fn(&Server, &target::Channel) -> bool + Copy + 'a,
+    channels_context: &'a dyn context_menu::ChannelsContext,
 ) -> Element<'a, Message> {
     let set_by = who.and_then(|user| {
         let user_in_channel = users.and_then(|users| users.resolve(user));
@@ -156,10 +153,7 @@ pub fn view<'a>(
                         )
                     }),
                     Some(|server, channel| {
-                        context_menu::Entry::channel_list(
-                            channel_is_open(server, channel),
-                            channel_is_focused(server, channel),
-                        )
+                        channels_context.channel_entries(server, channel)
                     }),
                 )
             },
@@ -190,19 +184,18 @@ pub fn view<'a>(
                         message: None,
                         selected_reactions: vec![],
                     }),
-                    Some(|server, channel| ChannelContext {
-                        server,
-                        channel,
-                        is_open: channel_is_open(server, channel),
+                    Some(|server, channel| {
+                        channels_context.channel_context(server, channel)
                     }),
                 );
 
                 entry
-                    .view(context, length, config, theme)
+                    .view(context, length, config, theme, false)
                     .map(Message::ContextMenu)
             },
             None,
             config,
+            None,
         ),
         set_by
     ];

@@ -1,7 +1,6 @@
 use chrono::{DateTime, Utc};
 use data::{
-    Config, Image, Preview, Server, client, history, message, metadata,
-    preview, target,
+    Config, Image, Preview, client, history, message, metadata, preview,
 };
 use iced::widget::{container, row};
 use iced::{Length, Size, Task};
@@ -30,12 +29,12 @@ pub fn view<'a>(
     history: &'a history::Manager,
     config: &'a Config,
     theme: &'a Theme,
-    channel_is_focused: impl Fn(&Server, &target::Channel) -> bool + Copy + 'a,
-    channel_is_open: impl Fn(&Server, &target::Channel) -> bool + Copy + 'a,
+    channels_context: &'a dyn context_menu::ChannelsContext,
 ) -> Element<'a, Message> {
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
+            None,
             scroll_view::Kind::Logs,
             history,
             None,
@@ -107,8 +106,7 @@ pub fn view<'a>(
                 _ => None,
             },
             metadata::EMPTY,
-            channel_is_focused,
-            channel_is_open,
+            channels_context,
         )
         .map(Message::ScrollView),
     )
@@ -140,11 +138,13 @@ impl Logs {
         clients: &mut client::Map,
         previews: &preview::Collection,
         config: &Config,
+        channels_context: &dyn context_menu::ChannelsContext,
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::ScrollView(message) => {
                 let (command, event) = self.scroll_view.update(
                     message,
+                    &mut None,
                     false,
                     scroll_view::Kind::Logs,
                     None,
@@ -152,6 +152,7 @@ impl Logs {
                     clients,
                     previews,
                     config,
+                    channels_context,
                 );
 
                 let event = event.and_then(|event| match event {
@@ -176,6 +177,9 @@ impl Logs {
                     scroll_view::Event::ContractMessage(server_time, hash) => {
                         Some(Event::ContractMessage(server_time, hash))
                     }
+                    scroll_view::Event::ExitFocus
+                    | scroll_view::Event::FocusAction(_)
+                    | scroll_view::Event::FocusContextAction(_) => None,
                 });
 
                 (command.map(Message::ScrollView), event)

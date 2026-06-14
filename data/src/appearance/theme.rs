@@ -200,6 +200,8 @@ pub struct Buffer {
     pub date_rule: Option<Color>,
     #[serde(with = "color_serde_maybe")]
     pub date_rule_text: Option<Color>,
+    #[serde(with = "color_serde_maybe")]
+    pub focus: Option<Color>,
 }
 
 impl Default for Buffer {
@@ -224,6 +226,7 @@ impl Default for Buffer {
             backlog_rule_text: None,
             date_rule: None,
             date_rule_text: None,
+            focus: None,
         }
     }
 }
