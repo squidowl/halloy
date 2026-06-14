@@ -73,16 +73,17 @@ jobs:
         with:
           toolchain: stable minus 3 releases
           components: clippy
+      - run: cargo version
       - name: Check
-        run: cargo check --locked --profile ci; cargo version
+        run: cargo check --locked --profile ci
       - name: Clippy
-        run: cargo clippy --locked --profile ci --workspace --all-targets -- -D warnings; cargo version
+        run: cargo clippy --locked --profile ci --workspace --all-targets -- -D warnings
 
       - uses: taiki-e/install-action@7a79fe8c3a13344501c80d99cae481c1c9085912 # v2
         with:
           tool: cargo-nextest
       - name: Test
-        run: cargo nextest run --locked --profile ci --workspace --all-targets; cargo version
+        run: cargo nextest run --locked --profile ci --workspace --all-targets
 
       - uses: dtolnay/rust-toolchain@master # recommended when specifying toolchain
         if: matrix.target.target == 'linux'
@@ -91,4 +92,4 @@ jobs:
           components: rustfmt
       - name: Format
         if: matrix.target.target == 'linux'
-        run: cargo +nightly fmt --all -- --check --color=always; cargo version
+        run: cargo +nightly fmt --all -- --check --color=always
