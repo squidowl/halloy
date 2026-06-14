@@ -11,12 +11,15 @@ pub fn anchored_overlay<'a, Message: 'a>(
     overlay: impl Into<Element<'a, Message>>,
     anchor: Anchor,
     offset: f32,
+    // Emitted when a mouse press lands outside the overlay (e.g. to dismiss it).
+    on_dismiss: Option<Box<dyn Fn() -> Message + 'a>>,
 ) -> Element<'a, Message> {
     AnchoredOverlay {
         base: base.into(),
         overlay: overlay.into(),
         anchor,
         offset,
+        on_dismiss,
     }
     .into()
 }
@@ -32,6 +35,7 @@ struct AnchoredOverlay<'a, Message> {
     overlay: Element<'a, Message>,
     anchor: Anchor,
     offset: f32,
+    on_dismiss: Option<Box<dyn Fn() -> Message + 'a>>,
 }
 
 impl<Message> Widget<Message, Theme, Renderer>
@@ -168,8 +172,12 @@ impl<Message> Widget<Message, Theme, Renderer>
             tree: &mut second[0],
             anchor: self.anchor,
             offset: self.offset,
+            on_dismiss: &self.on_dismiss,
             base_layout: layout.bounds(),
-            position: layout.position(),
+            // Apply the accumulated translation (e.g. a scrollable's offset)
+            // so the overlay anchors to the base's on-screen position rather
+            // than its position in unscrolled content space.
+            position: layout.position() + translation,
             viewport: *viewport,
         }));
 
@@ -196,6 +204,7 @@ struct Overlay<'a, 'b, Message> {
     tree: &'b mut widget::Tree,
     anchor: Anchor,
     offset: f32,
+    on_dismiss: &'b Option<Box<dyn Fn() -> Message + 'a>>,
     base_layout: Rectangle,
     position: Point,
     viewport: Rectangle,
@@ -281,6 +290,17 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
     ) {
+        // A press outside the overlay dismisses it (and is consumed so it
+        // doesn't also act on whatever is underneath).
+        if let Some(on_dismiss) = self.on_dismiss.as_ref()
+            && matches!(event, Event::Mouse(mouse::Event::ButtonPressed { .. }))
+            && !cursor.is_over(layout.bounds())
+        {
+            shell.publish(on_dismiss());
+            shell.capture_event();
+            return;
+        }
+
         let should_capture = matches!(event, Event::Mouse(_) | Event::Touch(_))
             && cursor.is_over(layout.bounds());
 

@@ -2388,6 +2388,15 @@ impl Content {
         }
     }
 
+    pub fn urls(&self) -> Vec<&url::Url> {
+        match self {
+            Content::Fragments(fragments) => {
+                fragments.iter().filter_map(Fragment::url).collect()
+            }
+            Content::Plain(_) | Content::Log(_) => Vec::new(),
+        }
+    }
+
     pub fn preview_text(&self) -> String {
         static NEWLINES: LazyLock<Regex> =
             LazyLock::new(|| Regex::new(r"\n+").unwrap());

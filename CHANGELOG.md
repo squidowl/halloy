@@ -12,6 +12,8 @@ Added:
 - `actions.buffer.click_channel_name` and `actions.buffer.click_highlight` can be set to no action (`"no-action"` or `"noop"`) to not open the channel when clicking on the channel name
 - Explicit portable mode
 - Theme editor can be closed via Escape
+- Keyboard-driven message focus: navigate and act on messages and messages without mouse
+  - New `buffer.focus` theme color for the focused message border
 
 Fixed:
 
@@ -35,10 +37,16 @@ Changed:
 - Renamed `actions.buffer.local` → `actions.buffer.open_internal` to match naming convention used elsewhere
 - Renamed `actions.buffer.click_username` to `actions.buffer.click_nickname` for more consistent terminology
 - Moved functionality from `buffer.nickname.click` → `actions.buffer.click_nickname` and `buffer.channel.nicklist.click` → `actions.nicklist.click_nickname`
+- Removed unnecessary AWS-LC dependency
+- `esc` in the input box now scrolls the buffer to the bottom
 
 Thanks:
 
 - Contributions: @englut, @luca020400, @classabbyamp, @KaiKorla, @TheDcoder
+
+Thanks:
+
+- Contributions: @englut, @luca020400, @furudean
 - Bug reports: @luca020400, agent314
 
 # 2026.7.2 (2026-06-08)

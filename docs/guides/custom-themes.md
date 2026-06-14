@@ -68,6 +68,7 @@ background_title_bar = "<color string>"
 border = "<color string>"
 border_selected = "<color string>"
 code = <text style>
+focus = "<color string>"
 highlight = "<color string>"
 nickname = <text style>
 nickname_offline = <text style>

@@ -10,7 +10,7 @@ use iced::widget::{column, container, row, stack};
 use iced::{Length, Size, Task, padding};
 
 use super::message_view::{ChannelQueryLayout, TargetInfo};
-use super::{context_menu, input_view, scroll_view, typing};
+use super::{context_menu, input_view, message_focus, scroll_view, typing};
 use crate::Theme;
 use crate::widget::Element;
 use crate::window::Window;
@@ -136,6 +136,7 @@ pub fn view<'a>(
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
+            state.message_focus.focused(),
             scroll_view::Kind::Channel(&state.server, channel),
             history,
             Some(previews),
@@ -253,7 +254,7 @@ pub fn view<'a>(
                 .into()
         };
 
-    container(body)
+    container(column![state.message_focus.focus_capture(), body])
         .width(Length::Fill)
         .height(Length::Fill)
         .into()
@@ -266,6 +267,7 @@ pub struct Channel {
     pub target: target::Channel,
     pub scroll_view: scroll_view::State,
     pub input_view: input_view::State,
+    pub message_focus: message_focus::Manager,
 }
 
 impl Channel {
@@ -291,6 +293,7 @@ impl Channel {
             server,
             target,
             scroll_view: scroll_view::State::new(pane_size, config),
+            message_focus: message_focus::Manager::new(),
         }
     }
 
@@ -299,19 +302,36 @@ impl Channel {
         message: Message,
         clients: &mut data::client::Map,
         history: &mut history::Manager,
+        previews: &preview::Collection,
         main_window: &Window,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::ScrollView(message) => {
+                let previews =
+                    matches!(message, scroll_view::Message::OpenFocusMenu)
+                        .then(|| {
+                            Previews::new(
+                                previews,
+                                self.target.as_target_ref(),
+                                &self.server,
+                                &config.preview,
+                                clients.get_server_casemapping_or_default(
+                                    &self.server,
+                                ),
+                            )
+                        });
+
                 let (command, event) = self.scroll_view.update(
                     message,
+                    self.message_focus.focused_mut(),
                     config.buffer.chathistory.infinite_scroll,
                     scroll_view::Kind::Channel(&self.server, &self.target),
                     Some(&self.buffer),
                     history,
                     clients,
                     config,
+                    previews.as_ref(),
                 );
 
                 if let Some(scroll_view::Event::ContextMenu(
@@ -328,6 +348,7 @@ impl Channel {
                             server_time,
                             to_nick: to_nick.clone(),
                         },
+                        self.message_focus.is_focused(),
                         &self.buffer,
                         clients,
                         history,
@@ -345,6 +366,33 @@ impl Channel {
                             server_time,
                             to_nick,
                         })),
+                    );
+                }
+
+                if let Some(event) = &event
+                    && let Some((scroll_t, input_t, ctx_ev)) =
+                        self.message_focus.handle_scroll_event(
+                            event,
+                            &mut self.scroll_view,
+                            &mut self.input_view,
+                            &self.buffer,
+                            scroll_view::Kind::Channel(
+                                &self.server,
+                                &self.target,
+                            ),
+                            clients,
+                            history,
+                            main_window,
+                            config,
+                        )
+                {
+                    return (
+                        Task::batch([
+                            command.map(Message::ScrollView),
+                            scroll_t.map(Message::ScrollView),
+                            input_t.map(Message::InputView),
+                        ]),
+                        ctx_ev.map(Event::ContextMenu),
                     );
                 }
 
@@ -398,13 +446,18 @@ impl Channel {
                     scroll_view::Event::ContractMessage(server_time, hash) => {
                         Some(Event::ContractMessage(server_time, hash))
                     }
+                    scroll_view::Event::ExitFocus
+                    | scroll_view::Event::FocusAction(_)
+                    | scroll_view::Event::FocusContextAction(_) => None,
                 });
 
                 (command.map(Message::ScrollView), event)
             }
             Message::InputView(message) => {
+                let was_focused = self.message_focus.is_focused();
                 let (command, event) = self.input_view.update(
                     message,
+                    was_focused,
                     &self.buffer,
                     clients,
                     history,
@@ -469,6 +522,36 @@ impl Channel {
                             abort_registrations,
                         }),
                     ),
+                    Some(
+                        event @ (input_view::Event::NavigateFocus(_)
+                        | input_view::Event::ExitFocus
+                        | input_view::Event::ScrollToBottom
+                        | input_view::Event::FocusAction(_)),
+                    ) => {
+                        let (scroll_t, input_t, ctx_ev) =
+                            self.message_focus.handle_input_event(
+                                event,
+                                &mut self.scroll_view,
+                                &mut self.input_view,
+                                &self.buffer,
+                                scroll_view::Kind::Channel(
+                                    &self.server,
+                                    &self.target,
+                                ),
+                                clients,
+                                history,
+                                main_window,
+                                config,
+                            );
+                        (
+                            Task::batch([
+                                command,
+                                scroll_t.map(Message::ScrollView),
+                                input_t.map(Message::InputView),
+                            ]),
+                            ctx_ev.map(Event::ContextMenu),
+                        )
+                    }
                     None => (command, None),
                 }
             }
@@ -479,6 +562,7 @@ impl Channel {
             Message::FilehostUploadDone { id, url } => {
                 let (task, _) = self.input_view.update(
                     input_view::Message::FilehostUploadDone { id, url },
+                    false,
                     &self.buffer,
                     clients,
                     history,
@@ -490,6 +574,7 @@ impl Channel {
             Message::FilesDropped(paths) => {
                 let (task, event) = self.input_view.update(
                     input_view::Message::FilesSelected(paths),
+                    false,
                     &self.buffer,
                     clients,
                     history,

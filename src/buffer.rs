@@ -16,8 +16,10 @@ pub use self::channel::Channel;
 pub use self::channel_discovery::ChannelDiscovery;
 pub use self::file_transfers::FileTransfers;
 pub use self::highlights::Highlights;
+pub use self::input_view::FocusAction;
 pub use self::logs::Logs;
 pub use self::query::Query;
+pub use self::scroll_view::Direction;
 pub use self::server::Server;
 use crate::Theme;
 use crate::screen::dashboard::sidebar;
@@ -32,6 +34,7 @@ pub mod file_transfers;
 pub mod highlights;
 mod input_view;
 pub mod logs;
+pub mod message_focus;
 mod message_view;
 pub mod query;
 mod scroll_view;
@@ -256,6 +259,7 @@ impl Buffer {
         clients: &mut data::client::Map,
         history: &mut history::Manager,
         file_transfers: &mut file_transfer::Manager,
+        previews: &preview::Collection,
         main_window: &Window,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
@@ -265,6 +269,7 @@ impl Buffer {
                     message,
                     clients,
                     history,
+                    previews,
                     main_window,
                     config,
                 );
@@ -408,6 +413,7 @@ impl Buffer {
                     message,
                     clients,
                     history,
+                    previews,
                     main_window,
                     config,
                 );
@@ -852,6 +858,7 @@ impl Buffer {
     }
 
     pub fn scroll_to_start(&mut self, config: &Config) -> Task<Message> {
+        self.clear_focus_mode();
         match self {
             Buffer::Empty
             | Buffer::FileTransfers(_)
@@ -939,6 +946,7 @@ impl Buffer {
                     scroll_view::Kind::Channel(&state.server, &state.target),
                     history,
                     config,
+                    true,
                 )
                 .map(|message| {
                     Message::Channel(channel::Message::ScrollView(message))
@@ -950,6 +958,7 @@ impl Buffer {
                     scroll_view::Kind::Server(&state.server),
                     history,
                     config,
+                    true,
                 )
                 .map(|message| {
                     Message::Server(server::Message::ScrollView(message))
@@ -961,6 +970,7 @@ impl Buffer {
                     scroll_view::Kind::Query(&state.server, &state.target),
                     history,
                     config,
+                    true,
                 )
                 .map(|message| {
                     Message::Query(query::Message::ScrollView(message))
@@ -972,6 +982,7 @@ impl Buffer {
                     scroll_view::Kind::Logs,
                     history,
                     config,
+                    true,
                 )
                 .map(|message| {
                     Message::Logs(logs::Message::ScrollView(message))
@@ -983,6 +994,7 @@ impl Buffer {
                     scroll_view::Kind::Highlights,
                     history,
                     config,
+                    true,
                 )
                 .map(|message| {
                     Message::Highlights(highlights::Message::ScrollView(
@@ -1246,6 +1258,135 @@ impl Buffer {
             Buffer::Query(state) => {
                 state.input_view.set_reply_preview(reply_preview);
             }
+        }
+    }
+
+    pub fn in_focus_mode(&self) -> bool {
+        match self {
+            Buffer::Channel(state) => state.message_focus.is_focused(),
+            Buffer::Query(state) => state.message_focus.is_focused(),
+            _ => false,
+        }
+    }
+
+    pub fn clear_focus_mode(&mut self) {
+        match self {
+            Buffer::Channel(state) => {
+                state.message_focus.clear();
+                state.scroll_view.close_focus_menu();
+            }
+            Buffer::Query(state) => {
+                state.message_focus.clear();
+                state.scroll_view.close_focus_menu();
+            }
+            _ => {}
+        }
+    }
+
+    pub fn in_focus_menu(&self) -> bool {
+        match self {
+            Buffer::Channel(state) => state.scroll_view.has_focus_menu(),
+            Buffer::Query(state) => state.scroll_view.has_focus_menu(),
+            _ => false,
+        }
+    }
+
+    pub fn open_focus_menu_message(&self) -> Option<Message> {
+        match self {
+            Buffer::Channel(_) => {
+                Some(Message::Channel(channel::Message::ScrollView(
+                    scroll_view::Message::OpenFocusMenu,
+                )))
+            }
+            Buffer::Query(_) => Some(Message::Query(
+                query::Message::ScrollView(scroll_view::Message::OpenFocusMenu),
+            )),
+            _ => None,
+        }
+    }
+
+    pub fn close_focus_menu_message(&self) -> Option<Message> {
+        match self {
+            Buffer::Channel(_) => {
+                Some(Message::Channel(channel::Message::ScrollView(
+                    scroll_view::Message::FocusMenuClose,
+                )))
+            }
+            Buffer::Query(_) => {
+                Some(Message::Query(query::Message::ScrollView(
+                    scroll_view::Message::FocusMenuClose,
+                )))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn focus_navigate_message(
+        &self,
+        direction: scroll_view::Direction,
+    ) -> Option<Message> {
+        match self {
+            Buffer::Channel(_) => {
+                Some(Message::Channel(channel::Message::InputView(
+                    input_view::Message::NavigateFocus(direction),
+                )))
+            }
+            Buffer::Query(_) => {
+                Some(Message::Query(query::Message::InputView(
+                    input_view::Message::NavigateFocus(direction),
+                )))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn focus_action_message(
+        &self,
+        action: input_view::FocusAction,
+        clients: &data::client::Map,
+    ) -> Option<Message> {
+        // Gate the action on the same server capabilities the right-click
+        // menu uses, so an unsupported keybind is a no-op.
+        let server = self.server()?;
+        let permitted = match action {
+            FocusAction::CopyText
+            | FocusAction::CopyUrl
+            | FocusAction::OpenUrl => true,
+            FocusAction::Reply => clients.get_server_can_send_replies(&server),
+            FocusAction::OpenReactionModal => {
+                clients.get_server_can_send_reactions(&server)
+            }
+            FocusAction::Redact => clients.get_server_can_redact(&server),
+        };
+
+        if !permitted {
+            return None;
+        }
+
+        match self {
+            Buffer::Channel(_) => {
+                Some(Message::Channel(channel::Message::InputView(
+                    input_view::Message::FocusAction(action),
+                )))
+            }
+            Buffer::Query(_) => {
+                Some(Message::Query(query::Message::InputView(
+                    input_view::Message::FocusAction(action),
+                )))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn exit_focus_mode_message(&self) -> Option<Message> {
+        match self {
+            Buffer::Channel(_) => Some(Message::Channel(
+                channel::Message::InputView(input_view::Message::ExitFocus),
+            )),
+            Buffer::Query(_) => Some(Message::Query(
+                query::Message::InputView(input_view::Message::ExitFocus),
+            )),
+            _ => None,
         }
     }
 }

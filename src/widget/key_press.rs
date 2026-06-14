@@ -48,6 +48,49 @@ where
         .into()
 }
 
+/// Like [`key_press`], but the caller decides per key press which message to
+/// emit (or `None` to ignore). Handy when a set of keys should be handled
+/// regardless of the active modifiers.
+pub fn on_key<'a, Message>(
+    base: impl Into<Element<'a, Message>>,
+    handler: impl Fn(&Key, Modifiers) -> Option<Message> + 'a,
+) -> Element<'a, Message>
+where
+    Message: 'a + Clone,
+{
+    decorate(base)
+        .update(
+            move |_state: &mut (),
+                  inner: &mut Element<'a, Message>,
+                  tree: &mut widget::Tree,
+                  event: &Event,
+                  layout: Layout<'_>,
+                  cursor: mouse::Cursor,
+                  renderer: &Renderer,
+                  clipboard: &mut dyn Clipboard,
+                  shell: &mut Shell<'_, Message>,
+                  viewport: &Rectangle| {
+                if let Event::Keyboard(keyboard::Event::KeyPressed {
+                    key,
+                    modifiers,
+                    ..
+                }) = &event
+                    && let Some(message) = handler(key, *modifiers)
+                {
+                    shell.publish(message);
+                    shell.capture_event();
+                    return;
+                }
+
+                inner.as_widget_mut().update(
+                    tree, event, layout, cursor, renderer, clipboard, shell,
+                    viewport,
+                );
+            },
+        )
+        .into()
+}
+
 pub fn is_numpad(physical_key: &Physical) -> bool {
     matches!(
         physical_key,

@@ -314,6 +314,7 @@ fn channel_list_view<'a>(
                             },
                             None,
                             config,
+                            None,
                         ))
                     };
 

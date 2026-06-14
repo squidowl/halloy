@@ -79,6 +79,21 @@ pub enum Entry {
     ShowRedactedMessage,
 }
 
+impl From<super::input_view::FocusAction> for Entry {
+    fn from(action: super::input_view::FocusAction) -> Self {
+        use super::input_view::FocusAction;
+
+        match action {
+            FocusAction::CopyText => Entry::CopyMessage,
+            FocusAction::CopyUrl => Entry::CopyUrl,
+            FocusAction::Reply => Entry::Reply,
+            FocusAction::OpenReactionModal => Entry::AddReaction,
+            FocusAction::Redact => Entry::Redact,
+            FocusAction::OpenUrl => Entry::OpenUrl,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum UserAvatar<'a> {
     Pending,
@@ -273,6 +288,19 @@ impl Entry {
         }
     }
 
+    pub fn label(&self) -> &'static str {
+        match self {
+            Entry::CopyMessage => "Copy message",
+            Entry::CopyRedaction => "Copy redaction",
+            Entry::Reply => "Reply",
+            Entry::AddReaction => "Add reaction",
+            Entry::Redact => "Redact message",
+            Entry::HideWithRedaction => "Hide with redaction",
+            Entry::ShowRedactedMessage => "Show redacted message",
+            _ => "",
+        }
+    }
+
     pub fn view<'a>(
         self,
         context: Option<Context<'_>>,
@@ -288,6 +316,7 @@ impl Entry {
                 menu_button(
                     "Whois".to_string(),
                     Some(message),
+                    false,
                     length,
                     theme,
                     config,
@@ -300,6 +329,7 @@ impl Entry {
                 menu_button(
                     "Whowas".to_string(),
                     Some(message),
+                    false,
                     length,
                     theme,
                     config,
@@ -315,6 +345,7 @@ impl Entry {
                 menu_button(
                     "Message".to_string(),
                     Some(message),
+                    false,
                     length,
                     theme,
                     config,
@@ -359,7 +390,7 @@ impl Entry {
                         (String::new(), None)
                     };
 
-                menu_button(label, message, length, theme, config)
+                menu_button(label, message, false, length, theme, config)
             }
             (
                 Entry::ToggleAccessLevelVoice,
@@ -400,7 +431,7 @@ impl Entry {
                         (String::new(), None)
                     };
 
-                menu_button(label, message, length, theme, config)
+                menu_button(label, message, false, length, theme, config)
             }
             (Entry::SendFile, Context::User { server, user, .. }) => {
                 let message = Message::SendFile(server.clone(), user.clone());
@@ -408,6 +439,7 @@ impl Entry {
                 menu_button(
                     "Send File".to_string(),
                     Some(message),
+                    false,
                     length,
                     theme,
                     config,
@@ -458,6 +490,7 @@ impl Entry {
                 menu_button(
                     "Local Time (TIME)".to_string(),
                     Some(message),
+                    false,
                     length,
                     theme,
                     config,
@@ -474,6 +507,7 @@ impl Entry {
                 menu_button(
                     "Client (VERSION)".to_string(),
                     Some(message),
+                    false,
                     length,
                     theme,
                     config,
@@ -485,6 +519,7 @@ impl Entry {
                 menu_button(
                     "Copy URL".to_string(),
                     Some(message),
+                    false,
                     length,
                     theme,
                     config,
@@ -496,6 +531,7 @@ impl Entry {
                 menu_button(
                     "Open URL".to_string(),
                     Some(message),
+                    false,
                     length,
                     theme,
                     config,
@@ -509,6 +545,7 @@ impl Entry {
                 menu_button(
                     "Hide Preview".to_string(),
                     message,
+                    false,
                     length,
                     theme,
                     config,
@@ -522,6 +559,7 @@ impl Entry {
                 menu_button(
                     "Show Preview".to_string(),
                     message,
+                    false,
                     length,
                     theme,
                     config,
@@ -536,6 +574,7 @@ impl Entry {
                 menu_button(
                     context_menu_timestamp,
                     Some(message),
+                    false,
                     length,
                     theme,
                     config,
@@ -550,6 +589,7 @@ impl Entry {
                 menu_button(
                     "Delete Message".to_string(),
                     Some(message),
+                    false,
                     length,
                     theme,
                     config,
@@ -564,22 +604,24 @@ impl Entry {
                 menu_button(
                     "Re-send Message".to_string(),
                     Some(message),
+                    false,
                     length,
                     theme,
                     config,
                 )
             }
-            (Entry::CopyMessage, Context::Message { message, .. }) => {
+            (entry @ Entry::CopyMessage, Context::Message { message, .. }) => {
                 menu_button(
-                    "Copy message".to_string(),
+                    entry.label().to_string(),
                     Some(Message::CopyText(message.text().into_owned())),
+                    false,
                     length,
                     theme,
                     config,
                 )
             }
             (
-                Entry::CopyRedaction,
+                entry @ Entry::CopyRedaction,
                 Context::Message { message, .. }
                 | Context::Url {
                     message: Some(message),
@@ -588,8 +630,9 @@ impl Entry {
             ) => {
                 if let Some(redaction) = message.redaction.as_ref() {
                     menu_button(
-                        "Copy redaction".to_string(),
+                        entry.label().to_string(),
                         Some(Message::CopyText(redaction.message())),
+                        false,
                         length,
                         theme,
                         config,
@@ -599,7 +642,7 @@ impl Entry {
                 }
             }
             (
-                Entry::Reply,
+                entry @ Entry::Reply,
                 Context::Message { message, .. }
                 | Context::Url {
                     message: Some(message),
@@ -610,12 +653,13 @@ impl Entry {
                     && let Some(user) = message.target.source().user()
                 {
                     menu_button(
-                        "Reply".to_string(),
+                        entry.label().to_string(),
                         Some(Message::Reply {
                             msgid: msgid.clone(),
                             server_time: message.server_time,
                             to_nick: user.nickname().to_owned(),
                         }),
+                        false,
                         length,
                         theme,
                         config,
@@ -625,7 +669,7 @@ impl Entry {
                 }
             }
             (
-                Entry::AddReaction,
+                entry @ Entry::AddReaction,
                 Context::Message {
                     message,
                     selected_reactions,
@@ -634,11 +678,12 @@ impl Entry {
             ) => {
                 if let Some(msgid) = message.id.as_ref() {
                     menu_button(
-                        "Add reaction".to_string(),
+                        entry.label().to_string(),
                         Some(Message::OpenReactionModal(
                             msgid.clone(),
                             selected_reactions.to_vec(),
                         )),
+                        false,
                         length,
                         theme,
                         config,
@@ -648,7 +693,7 @@ impl Entry {
                 }
             }
             (
-                Entry::AddReaction,
+                entry @ Entry::AddReaction,
                 Context::Url {
                     message: Some(message),
                     selected_reactions,
@@ -657,7 +702,7 @@ impl Entry {
             ) => {
                 if let Some(msgid) = message.id.as_ref() {
                     menu_button(
-                        "Add reaction".to_string(),
+                        entry.label().to_string(),
                         Some(Message::OpenReactionModal(
                             msgid.clone(),
                             selected_reactions
@@ -665,6 +710,7 @@ impl Entry {
                                 .map(ToString::to_string)
                                 .collect(),
                         )),
+                        false,
                         length,
                         theme,
                         config,
@@ -674,7 +720,7 @@ impl Entry {
                 }
             }
             (
-                Entry::Redact,
+                entry @ Entry::Redact,
                 Context::Message { message, .. }
                 | Context::Url {
                     message: Some(message),
@@ -683,8 +729,9 @@ impl Entry {
             ) => {
                 if let Some(msgid) = message.id.as_ref() {
                     menu_button(
-                        "Redact message".to_string(),
+                        entry.label().to_string(),
                         Some(Message::Redact(msgid.clone())),
+                        false,
                         length,
                         theme,
                         config,
@@ -694,32 +741,34 @@ impl Entry {
                 }
             }
             (
-                Entry::HideWithRedaction,
+                entry @ Entry::HideWithRedaction,
                 Context::Message { message, .. }
                 | Context::Url {
                     message: Some(message),
                     ..
                 },
             ) => menu_button(
-                "Hide with redaction".to_string(),
+                entry.label().to_string(),
                 Some(Message::ContractMessage(
                     message.server_time,
                     message.hash,
                 )),
+                false,
                 length,
                 theme,
                 config,
             ),
             (
-                Entry::ShowRedactedMessage,
+                entry @ Entry::ShowRedactedMessage,
                 Context::Message { message, .. }
                 | Context::Url {
                     message: Some(message),
                     ..
                 },
             ) => menu_button(
-                "Show redacted message".to_string(),
+                entry.label().to_string(),
                 Some(Message::ExpandMessage(message.server_time, message.hash)),
+                false,
                 length,
                 theme,
                 config,
@@ -1148,13 +1197,14 @@ pub fn not_sent_message<'a>(
     .into()
 }
 
-fn menu_button(
+pub(crate) fn menu_button<'a, M: Clone + 'a>(
     content: String,
-    message: Option<Message>,
+    message: Option<M>,
+    selected: bool,
     length: Length,
     theme: &Theme,
     config: &Config,
-) -> Element<'static, Message> {
+) -> Element<'a, M> {
     let text_style = if message.is_some() {
         theme::text::primary
     } else {
@@ -1169,6 +1219,7 @@ fn menu_button(
     .padding(config.context_menu.padding.entry)
     .width(length)
     .on_press_maybe(message)
+    .style(move |theme, status| theme::button::primary(theme, status, selected))
     .into()
 }
 

@@ -31,6 +31,7 @@ pub fn view<'a>(
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
+            None,
             scroll_view::Kind::Logs,
             history,
             None,
@@ -137,12 +138,14 @@ impl Logs {
             Message::ScrollView(message) => {
                 let (command, event) = self.scroll_view.update(
                     message,
+                    &mut None,
                     false,
                     scroll_view::Kind::Logs,
                     None,
                     history,
                     clients,
                     config,
+                    None,
                 );
 
                 let event = event.and_then(|event| match event {
@@ -167,6 +170,9 @@ impl Logs {
                     scroll_view::Event::ContractMessage(server_time, hash) => {
                         Some(Event::ContractMessage(server_time, hash))
                     }
+                    scroll_view::Event::ExitFocus
+                    | scroll_view::Event::FocusAction(_)
+                    | scroll_view::Event::FocusContextAction(_) => None,
                 });
 
                 (command.map(Message::ScrollView), event)

@@ -124,25 +124,13 @@ impl<'a> ChannelQueryLayout<'a> {
         message: &data::Message,
         url: &str,
     ) -> Option<bool> {
-        if !self.previews_enabled(message)
-            || !self.config.preview.is_enabled(url)
-        {
+        if self.not_sent(message) {
             return None;
         }
 
         let parsed = url::Url::parse(url).ok()?;
-
-        // Only offer hide/show when we actually have a loaded preview
-        // for this URL in current context.
-        let is_loaded = self
-            .previews
-            .get(&parsed)
-            .is_some_and(|state| matches!(state, preview::State::Loaded(_)));
-        if !is_loaded {
-            return None;
-        }
-
-        Some(message.hidden_urls.contains(&parsed))
+        self.previews
+            .is_hidden_for_url(message, &parsed, &self.config.preview)
     }
 
     fn url_entries(
@@ -424,6 +412,7 @@ impl<'a> ChannelQueryLayout<'a> {
         url: &'a url::Url,
         index: usize,
         is_hovered: bool,
+        selected: bool,
     ) -> Element<'a, Message> {
         let content = match preview {
             data::Preview::Card(card) => {
@@ -536,6 +525,12 @@ impl<'a> ChannelQueryLayout<'a> {
             .width(Length::Fill)
             .padding(padding::top(4).bottom(4));
 
+        let content: Element<'a, Message> = if selected {
+            crate::buffer::scroll_view::focus_outline(content.into())
+        } else {
+            content.into()
+        };
+
         mouse_area(content)
             .on_enter(Message::PreviewHovered(message.hash, index))
             .on_exit(Message::PreviewUnhovered(message.hash, index))
@@ -550,6 +545,7 @@ impl<'a> ChannelQueryLayout<'a> {
         user: &'a User,
         hide_nickname: bool,
         nick_prefix_to_strip: Option<&str>,
+        focused_url: Option<usize>,
     ) -> (
         Option<Element<'a, Message>>,
         Element<'a, Message>,
@@ -765,6 +761,7 @@ impl<'a> ChannelQueryLayout<'a> {
                             },
                             nick_prefix_to_strip,
                             self.config,
+                            focused_url,
                         ),
                         redaction_message,
                         tooltip::Position::Top,
@@ -890,6 +887,7 @@ impl<'a> ChannelQueryLayout<'a> {
             },
             None,
             self.config,
+            None,
         );
 
         (
@@ -1040,6 +1038,7 @@ impl<'a> ChannelQueryLayout<'a> {
             },
             None,
             self.config,
+            None,
         );
 
         (middle, container(message_content).into(), vec![])
@@ -1111,6 +1110,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         visible_url_messages: &HashMap<message::Hash, Vec<url::Url>>,
         hovered_preview: Option<(message::Hash, usize)>,
         hovered_reply: Option<message::Hash>,
+        focused_url: Option<usize>,
     ) -> Option<Element<'a, Message>> {
         let mut prefixes: Option<Element<_>> = self.format_prefixes(message);
 
@@ -1229,6 +1229,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                 user,
                 hide_nickname,
                 reply_nick_to_strip,
+                focused_url,
             )),
             message::Source::Server(server_message) => {
                 Some(self.format_server_message(
@@ -1323,6 +1324,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     },
                     None,
                     formatter.config,
+                    None,
                 );
 
                 let after_content =
@@ -1431,6 +1433,28 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                 column = column.push(content);
             }
 
+            // If the URL is hidden, we show focus on the preview widget, o
+            // otherwise we focus the fragment.
+            let focused_fragment_index =
+                focused_url.and_then(|n| match &message.content {
+                    message::Content::Fragments(fragments) => fragments
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, fragment)| fragment.url().is_some())
+                        .nth(n)
+                        .map(|(index, _)| index),
+                    _ => None,
+                });
+
+            let focused_preview_url = focused_fragment_index
+                .filter(|index| hidden_fragments.contains(index))
+                .and_then(|index| match &message.content {
+                    message::Content::Fragments(fragments) => {
+                        fragments.get(index).and_then(message::Fragment::url)
+                    }
+                    _ => None,
+                });
+
             for (index, url, preview) in &enumerated_previews {
                 if let Some(preview) = preview {
                     let is_hovered = hovered_preview.is_some_and(
@@ -1440,8 +1464,10 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                         },
                     );
 
+                    let selected = focused_preview_url == Some(*url);
+
                     column = column.push(self.preview_row(
-                        message, preview, url, *index, is_hovered,
+                        message, preview, url, *index, is_hovered, selected,
                     ));
                 }
             }

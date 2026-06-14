@@ -21,10 +21,10 @@ Each shortcut accepts either a single keybind string or an array of keybind stri
 
 | Key                            | Description                         | Default MacOS                                       | Default Other                                       |
 | ------------------------------ | ----------------------------------- | --------------------------------------------------- | --------------------------------------------------- |
-| `move_up`                      | Moves focus up                      | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>↑</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>↑</kbd>     |
-| `move_down`                    | Moves focus down                    | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>↓</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>↓</kbd>     |
-| `move_left`                    | Moves focus left                    | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>←</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>←</kbd>     |
-| `move_right`                   | Moves focus right                   | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>→</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>→</kbd>     |
+| `move_up`                      | Moves pane focus up                 | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>↑</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>↑</kbd>     |
+| `move_down`                    | Moves pane focus down               | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>↓</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>↓</kbd>     |
+| `move_left`                    | Moves pane focus left               | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>←</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>←</kbd>     |
+| `move_right`                   | Moves pane focus right              | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>→</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>→</kbd>     |
 | `new_horizontal_buffer`        | New horizontal buffer               | None                                                | None                                                |
 | `new_vertical_buffer`          | New vertical buffer                 | None                                                | None                                                |
 | `close_buffer`                 | Close focused buffer                | <kbd>⌘</kbd> + <kbd>w</kbd>                         | <kbd>ctrl</kbd> + <kbd>w</kbd>                      |
@@ -51,4 +51,11 @@ Each shortcut accepts either a single keybind string or an array of keybind stri
 | `theme_editor`                 | Toggle Theme Editor Window          | <kbd>⌘</kbd> + <kbd>t</kbd>                         | <kbd>ctrl</kbd> + <kbd>t</kbd>                      |
 | `highlights`                   | Toggle Highlights Window            | <kbd>⌘</kbd> + <kbd>i</kbd>                         | <kbd>ctrl</kbd> + <kbd>i</kbd>                      |
 | `quit_application`             | Quit Halloy                         | None                                                | None                                                |
-| `open_config_file`             | Open settings file in system editor | <kbd>⌘</kbd> + <kbd>,</kbd>                         | <kbd>ctrl</kbd> + <kbd>,</kbd>None                  |
+| `open_config_file`             | Open settings file in system editor | <kbd>⌘</kbd> + <kbd>,</kbd>                         | <kbd>ctrl</kbd> + <kbd>,</kbd>                      |
+| `focus_message_up`             | Move message focus up               | <kbd>⌥</kbd> + <kbd>↑</kbd>                         | <kbd>alt</kbd> + <kbd>↑</kbd>                       |
+| `focus_message_down`           | Move message focus down             | <kbd>⌥</kbd> + <kbd>↓</kbd>                         | <kbd>alt</kbd> + <kbd>↓</kbd>                       |
+| `focus_message_actions`        | Open focused message actions        | <kbd>⌥</kbd> + <kbd>→</kbd>, <kbd>tab</kbd>         | <kbd>alt</kbd> + <kbd>→</kbd>, <kbd>tab</kbd>       |
+| `focus_reply`                  | Reply to focused message            | <kbd>r</kbd>                                        | <kbd>r</kbd>                                        |
+| `focus_react`                  | Add reaction to focused message     | <kbd>=</kbd>                                        | <kbd>=</kbd>                                        |
+| `focus_redact_message`         | Redact focused message              | <kbd>backspace</kbd>                                | <kbd>backspace</kbd>                                |
+| `focus_open_url`               | Open link in focused message        | <kbd>o</kbd>                                        | <kbd>o</kbd>                                        |

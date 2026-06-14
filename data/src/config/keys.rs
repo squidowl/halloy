@@ -4,9 +4,8 @@ use serde::Deserialize;
 
 use crate::config::Error;
 use crate::shortcut::{
-    Command, Commands, KeyBind, KeyBinds, Shortcut, shortcut,
+    Command, Commands, KeyBind, KeyBinds, MessageFocus, Shortcut, shortcut,
 };
-
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Keyboard {
@@ -43,6 +42,13 @@ pub struct Keyboard {
     pub mark_as_read: KeyBinds,
     pub quit_application: KeyBinds,
     pub open_config_file: KeyBinds,
+    pub focus_message_up: KeyBinds,
+    pub focus_message_down: KeyBinds,
+    pub focus_message_actions: KeyBinds,
+    pub focus_reply: KeyBinds,
+    pub focus_react: KeyBinds,
+    pub focus_redact_message: KeyBinds,
+    pub focus_open_url: KeyBinds,
 }
 
 impl Default for Keyboard {
@@ -81,6 +87,17 @@ impl Default for Keyboard {
             mark_as_read: KeyBind::mark_as_read().into(),
             quit_application: KeyBind::quit_application().into(),
             open_config_file: KeyBind::open_config_file().into(),
+            focus_message_up: KeyBind::focus_message_up().into(),
+            focus_message_down: KeyBind::focus_message_down().into(),
+            focus_message_actions: vec![
+                KeyBind::focus_message_actions(),
+                KeyBind::focus_message_actions_tab(),
+            ]
+            .into(),
+            focus_reply: KeyBind::focus_reply_message().into(),
+            focus_react: KeyBind::focus_react_to_message().into(),
+            focus_redact_message: KeyBind::focus_redact_message().into(),
+            focus_open_url: KeyBind::focus_open_url_message().into(),
         }
     }
 }
@@ -157,5 +174,29 @@ impl Keyboard {
                     .map(move |key_bind| shortcut(key_bind, command))
             })
             .collect()
+    }
+
+    /// Resolve pressed key bind to a message-focus action
+    pub fn message_focus(&self, key_bind: &KeyBind) -> Option<MessageFocus> {
+        let matches =
+            |binds: &KeyBinds| binds.iter().any(|bind| bind == key_bind);
+
+        if matches(&self.focus_message_up) {
+            Some(MessageFocus::NavigateUp)
+        } else if matches(&self.focus_message_down) {
+            Some(MessageFocus::NavigateDown)
+        } else if matches(&self.focus_message_actions) {
+            Some(MessageFocus::OpenMenu)
+        } else if matches(&self.focus_reply) {
+            Some(MessageFocus::Reply)
+        } else if matches(&self.focus_react) {
+            Some(MessageFocus::React)
+        } else if matches(&self.focus_redact_message) {
+            Some(MessageFocus::Redact)
+        } else if matches(&self.focus_open_url) {
+            Some(MessageFocus::OpenUrl)
+        } else {
+            None
+        }
     }
 }

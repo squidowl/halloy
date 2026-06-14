@@ -688,6 +688,7 @@ pub enum Buffer {
     Border,
     BorderSelected,
     Code,
+    Focus,
     Highlight,
     Nickname,
     NicknameOffline,
@@ -717,6 +718,9 @@ impl Buffer {
             Buffer::Border => Some(styles.buffer.border),
             Buffer::BorderSelected => Some(styles.buffer.border_selected),
             Buffer::Code => Some(styles.buffer.code.color),
+            Buffer::Focus => Some(
+                styles.buffer.focus.unwrap_or(styles.buffer.border_selected),
+            ),
             Buffer::Highlight => Some(styles.buffer.highlight),
             Buffer::Nickname => Some(styles.buffer.nickname.color),
             Buffer::NicknameOffline => styles.buffer.nickname_offline.color,
@@ -765,6 +769,7 @@ impl Buffer {
             Buffer::Border => None,
             Buffer::BorderSelected => None,
             Buffer::Code => Some(styles.buffer.code.font_style),
+            Buffer::Focus => None,
             Buffer::Highlight => None,
             Buffer::Nickname => Some(styles.buffer.nickname.font_style),
             Buffer::NicknameOffline => {
@@ -827,6 +832,11 @@ impl Buffer {
                     styles.code.color = color;
                 }
                 styles.code.font_style = font_style;
+            }
+            Buffer::Focus => {
+                if let Some(color) = color {
+                    styles.focus = Some(color);
+                }
             }
             Buffer::Highlight => {
                 if let Some(color) = color {
