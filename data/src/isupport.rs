@@ -1143,13 +1143,19 @@ impl FromStr for WhoToken {
 pub enum WhoXPollParameters {
     Default,
     WithAccountName,
+    InitialJoin,
 }
 
 impl WhoXPollParameters {
+    // Fields are listed in return order here for ease of reference, but
+    // return order is not dependent on the order provided in a WHOX
+    // request.  Returned field ordering is defined by the WHOX
+    // specification: https://ircv3.net/specs/extensions/whox
     pub fn fields(&self) -> &'static str {
         match self {
             WhoXPollParameters::Default => "tcnf",
             WhoXPollParameters::WithAccountName => "tcnfa",
+            WhoXPollParameters::InitialJoin => "tcuhnfa",
         }
     }
 
@@ -1160,6 +1166,9 @@ impl WhoXPollParameters {
             },
             WhoXPollParameters::WithAccountName => WhoToken {
                 digits: ['9', '9', '\0'],
+            },
+            WhoXPollParameters::InitialJoin => WhoToken {
+                digits: ['9', '9', '9'],
             },
         }
     }

@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 
 use tokio::time::{Duration, Instant};
 
+#[derive(Debug, Clone)]
 pub struct BackoffInterval {
     duration: Duration,
     previous: Duration,
@@ -9,6 +10,7 @@ pub struct BackoffInterval {
     mode: BackoffMode,
 }
 
+#[derive(Debug, Clone)]
 enum BackoffMode {
     Set,
     BackingOff(usize),

@@ -35,6 +35,7 @@ pub enum Capability {
     Multiline,
     MultiPrefix,
     Metadata,
+    NoImplicitNames,
     ReadMarker,
     Sasl,
     ServerTime,
@@ -64,6 +65,9 @@ impl FromStr for Capability {
             "draft/message-redaction" => Ok(Self::MessageRedaction),
             "multi-prefix" => Ok(Self::MultiPrefix),
             "draft/metadata-2" => Ok(Self::Metadata),
+            "no-implicit-names" => Ok(Self::NoImplicitNames),
+            // TODO(quaff): remove `draft/no-implicit-names` support when ergo & soju have both been upgraded
+            "draft/no-implicit-names" => Ok(Self::NoImplicitNames),
             "server-time" => Ok(Self::ServerTime),
             "setname" => Ok(Self::Setname),
             "soju.im/bouncer-networks" => Ok(Self::BouncerNetworks),
@@ -422,6 +426,17 @@ impl Capabilities {
             && MultilineLimits::from_str(multiline).is_ok()
         {
             requested.push("draft/multiline");
+        }
+
+        // TODO(quaff): remove `draft/no-implicit-names` support when ergo & soju have both been upgraded
+        if self.pending.contains_key("no-implicit-names")
+            && !self.acknowledged(Capability::NoImplicitNames)
+        {
+            requested.push("no-implicit-names");
+        } else if self.pending.contains_key("draft/no-implicit-names")
+            && !self.acknowledged(Capability::NoImplicitNames)
+        {
+            requested.push("draft/no-implicit-names");
         }
 
         if self.pending.contains_key("draft/metadata-2")

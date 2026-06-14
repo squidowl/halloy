@@ -1814,12 +1814,16 @@ fn handle_client_events(
                         .load_metadata_and_request_newer_chathistory(
                             clients,
                             server.clone(),
-                            Target::Channel(channel),
+                            Target::Channel(channel.to_owned()),
                             server_time,
                             false,
                         )
                         .map(Message::Dashboard),
                 );
+
+                if dashboard.has_open_pane_channel(server, &channel) {
+                    clients.prioritize_who_poll(server, &channel);
+                }
             }
             Event::LoggedIn(server_time) => {
                 if clients.get_server_supports_chathistory(server)

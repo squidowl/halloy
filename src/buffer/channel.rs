@@ -218,13 +218,13 @@ pub fn view<'a>(
 
     let content = column![topic, messages];
 
-    let nicklist_enabled = settings
+    let show_nicklist = settings
         .map_or(config.buffer.channel.nicklist.enabled, |settings| {
             settings.channel.nicklist.enabled
         });
 
     let content =
-        match (nicklist_enabled, config.buffer.channel.nicklist.position) {
+        match (show_nicklist, config.buffer.channel.nicklist.position) {
             (true, data::channel::Position::Left) => row![nick_list, content],
             (true, data::channel::Position::Right) => row![content, nick_list],
             (false, _) => { row![content] }.height(Length::Fill),
