@@ -241,6 +241,8 @@ pub struct Card {
     pub description_max_height: f32,
     /// Maximum height of the image in pixels
     pub image_max_height: f32,
+    /// Decode non-standard encoding of html entities
+    pub description_decode_html: Enabled,
 }
 
 impl Default for Card {
@@ -254,6 +256,7 @@ impl Default for Card {
             max_width: 400.0,
             description_max_height: 100.0,
             image_max_height: 200.0,
+            description_decode_html: Enabled::Boolean(false),
         }
     }
 }
