@@ -605,16 +605,12 @@ impl Sidebar {
             for internal_buffer in
                 config.sidebar.internal_buffers.buffers.iter()
             {
-                let button =
-                    |buffer: buffer::Internal,
-                     title: &'static str,
-                     icon: Svg<'a, Theme>,
-                     badge: Option<Svg<'a, Theme>>| {
-                        internal_buffer_button(
-                            config, panes, focus, buffer, title, icon, badge,
-                            width, theme,
-                        )
-                    };
+                let button = |buffer: buffer::Internal, title: &'static str| {
+                    internal_buffer_button(
+                        config, panes, focus, buffer, title, history, width,
+                        theme,
+                    )
+                };
 
                 match internal_buffer {
                     data::config::sidebar::InternalBuffer::FileTransfer => {
@@ -622,8 +618,6 @@ impl Sidebar {
                             internal_buffers.push(button(
                                 buffer::Internal::FileTransfers,
                                 "File Transfers",
-                                icon::file_transfer(),
-                                None,
                             ));
                         });
                     }
@@ -631,86 +625,17 @@ impl Sidebar {
                         internal_buffers.push(button(
                             buffer::Internal::ChannelDiscovery(None),
                             "Channel Discovery",
-                            icon::channel_discovery(),
-                            None,
                         ));
                     }
                     data::config::sidebar::InternalBuffer::Highlights => {
-                        let open = panes.iter().find_map(
-                            |(window_id, pane, state)| {
-                                (state.buffer.internal()
-                                    == Some(buffer::Internal::Highlights))
-                                .then_some((window_id, pane))
-                            },
-                        );
-
-                        let has_unread = if config
-                            .sidebar
-                            .unread_indicator
-                            .show_on_open_buffers
-                            || open.is_none()
-                        {
-                            history.has_unread(&history::Kind::Highlights)
-                        } else {
-                            false
-                        };
-
-                        let badge = if has_unread
-                            && let Some(highlight_icon) = icon::from_icon(
-                                config.sidebar.unread_indicator.highlight_icon,
-                            ) {
-                            Some(
-                                highlight_icon
-                                    .style(theme::svg::highlight_indicator),
-                            )
-                        } else {
-                            None
-                        };
-
                         internal_buffers.push(button(
                             buffer::Internal::Highlights,
                             "Highlights",
-                            icon::highlights(),
-                            badge,
                         ));
                     }
                     data::config::sidebar::InternalBuffer::Logs => {
-                        let open = panes.iter().find_map(
-                            |(window_id, pane, state)| {
-                                (state.buffer.internal()
-                                    == Some(buffer::Internal::Logs))
-                                .then_some((window_id, pane))
-                            },
-                        );
-
-                        let has_unread = if config
-                            .sidebar
-                            .unread_indicator
-                            .show_on_open_buffers
-                            || open.is_none()
-                        {
-                            history.has_unread(&history::Kind::Logs)
-                        } else {
-                            false
-                        };
-
-                        let badge = if has_unread
-                            && let Some(unread_icon) = icon::from_icon(
-                                config.sidebar.unread_indicator.icon,
-                            ) {
-                            Some(
-                                unread_icon.style(theme::svg::unread_indicator),
-                            )
-                        } else {
-                            None
-                        };
-
-                        internal_buffers.push(button(
-                            buffer::Internal::Logs,
-                            "Logs",
-                            icon::logs(),
-                            badge,
-                        ));
+                        internal_buffers
+                            .push(button(buffer::Internal::Logs, "Logs"));
                     }
                 }
             }
@@ -1439,8 +1364,7 @@ fn internal_buffer_button<'a>(
     focus: Focus,
     buffer: buffer::Internal,
     title: &'a str,
-    icon: Svg<'a, Theme>,
-    badge: Option<Svg<'a, Theme>>,
+    history: &'a history::Manager,
     width: Length,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
@@ -1460,11 +1384,70 @@ fn internal_buffer_button<'a>(
 
     let dimensions = Dimensions::from(config);
 
+    let show_icon = dimensions.icon_size > 0;
+
+    let (icon, badge) = match buffer {
+        buffer::Internal::ChannelDiscovery(_) => {
+            (show_icon.then_some(icon::channel_discovery()), None)
+        }
+        buffer::Internal::FileTransfers => {
+            (show_icon.then_some(icon::file_transfer()), None)
+        }
+        buffer::Internal::Highlights => {
+            let has_unread =
+                if config.sidebar.unread_indicator.show_on_open_buffers
+                    || open.is_none()
+                {
+                    history.has_unread(&history::Kind::Highlights)
+                } else {
+                    false
+                };
+
+            let badge = if has_unread
+                && let Some(highlight_icon) = icon::from_icon(
+                    config.sidebar.unread_indicator.highlight_icon,
+                ) {
+                Some((
+                    highlight_icon.style(theme::svg::highlight_indicator),
+                    dimensions.highlight_indicator_size,
+                ))
+            } else {
+                None
+            };
+
+            (show_icon.then_some(icon::highlights()), badge)
+        }
+        buffer::Internal::Logs => {
+            let has_unread =
+                if config.sidebar.unread_indicator.show_on_open_buffers
+                    || open.is_none()
+                {
+                    history.has_unread(&history::Kind::Logs)
+                } else {
+                    false
+                };
+
+            let badge = if has_unread
+                && let Some(unread_icon) =
+                    icon::from_icon(config.sidebar.unread_indicator.icon)
+            {
+                Some((
+                    unread_icon.style(theme::svg::unread_indicator),
+                    dimensions.unread_indicator_size,
+                ))
+            } else {
+                None
+            };
+
+            (show_icon.then_some(icon::logs()), badge)
+        }
+    };
+
     let mut content = row![].align_y(iced::Alignment::Center);
 
     content = content.extend(sidebar_icon(
-        Some(Icon::Internal(icon)),
-        badge.map(|badge| (badge, dimensions.icon_badge_size)),
+        icon.map(Icon::Internal),
+        badge,
         dimensions,
         config.sidebar.position.is_horizontal(),
     ));
