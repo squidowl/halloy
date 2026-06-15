@@ -4,17 +4,18 @@ use std::time::Duration;
 use data::config::{self, Config, sidebar};
 use data::dashboard::{BufferAction, BufferFocusedAction};
 use data::{
-    Version, buffer, file_transfer, history, isupport, server, server_icon,
-    target,
+    Image, Version, buffer, file_transfer, history, isupport, server,
+    server_icon, target,
 };
 use iced::widget::text::{LineHeight, Shaping};
 use iced::widget::{
-    Column, Row, Scrollable, Space, button, column, container, pane_grid, row,
-    rule, scrollable, space, stack,
+    Column, Row, Scrollable, Space, Svg, button, column, container, pane_grid,
+    row, rule, scrollable, space, stack,
 };
 use iced::{
     Alignment, Border, ContentFit, Length, Padding, Task, mouse, padding,
 };
+use itertools::Either;
 use tokio::time;
 
 use super::{Focus, Panes, Server};
@@ -256,7 +257,7 @@ impl Sidebar {
                         let context_button =
                             |title: Text<'a>,
                              keybinds: Option<&data::shortcut::KeyBinds>,
-                             icon: Text<'a>,
+                             icon: Svg<'a, Theme>,
                              message: Message| {
                                 let title = title.line_height(
                                     theme::line_height(&config.font),
@@ -301,19 +302,19 @@ impl Sidebar {
                             Menu::QuitApplication => context_button(
                                 text("Quit Halloy"),
                                 Some(&keyboard.quit_application),
-                                icon::quit(),
+                                icon::quit().style(theme::svg::primary),
                                 Message::QuitApplication,
                             ),
                             Menu::RefreshConfig => context_button(
                                 text("Reload config file"),
                                 Some(&keyboard.reload_configuration),
-                                icon::refresh(),
+                                icon::refresh().style(theme::svg::primary),
                                 Message::ReloadConfigFile,
                             ),
                             Menu::CommandBar => context_button(
                                 text("Command Bar"),
                                 Some(&keyboard.command_bar),
-                                icon::search(),
+                                icon::search().style(theme::svg::primary),
                                 Message::ToggleCommandBar,
                             ),
                             Menu::FileTransfers => context_button(
@@ -333,9 +334,9 @@ impl Sidebar {
                                 Some(&keyboard.file_transfers),
                                 icon::file_transfer().style(
                                     if file_transfers.is_empty() {
-                                        theme::text::primary
+                                        theme::svg::primary
                                     } else {
-                                        theme::text::tertiary
+                                        theme::svg::tertiary
                                     },
                                 ),
                                 Message::ToggleInternalBuffer(
@@ -345,7 +346,7 @@ impl Sidebar {
                             Menu::Highlights => context_button(
                                 text("Highlights"),
                                 Some(&keyboard.highlights),
-                                icon::highlights(),
+                                icon::highlights().style(theme::svg::primary),
                                 Message::ToggleInternalBuffer(
                                     buffer::Internal::Highlights,
                                 ),
@@ -353,7 +354,7 @@ impl Sidebar {
                             Menu::ChannelDiscovery => context_button(
                                 text("Channel Discovery"),
                                 None,
-                                icon::channel_discovery(),
+                                icon::channel_discovery().style(theme::svg::primary),
                                 Message::ToggleInternalBuffer(
                                     buffer::Internal::ChannelDiscovery(None),
                                 ),
@@ -374,9 +375,9 @@ impl Sidebar {
                                     }),
                                 Some(&keyboard.logs),
                                 icon::logs().style(if logs_has_unread {
-                                    theme::text::tertiary
+                                    theme::svg::tertiary
                                 } else {
-                                    theme::text::primary
+                                    theme::svg::primary
                                 }),
                                 Message::ToggleInternalBuffer(
                                     buffer::Internal::Logs,
@@ -385,7 +386,7 @@ impl Sidebar {
                             Menu::ThemeEditor => context_button(
                                 text("Theme Editor"),
                                 Some(&keyboard.theme_editor),
-                                icon::theme_editor(),
+                                icon::theme_editor().style(theme::svg::primary),
                                 Message::ToggleThemeEditor,
                             ),
                             Menu::HorizontalRule => match length {
@@ -404,14 +405,14 @@ impl Sidebar {
                                             .map(font::get),
                                     ),
                                 None,
-                                icon::megaphone().style(theme::text::tertiary),
+                                icon::megaphone().style(theme::svg::tertiary),
                                 Message::OpenReleaseWebsite,
                             ),
                             Menu::Version => {
                                 context_button(
                                     text("About Halloy"),
                                     None,
-                                    icon::documentation(),
+                                    icon::documentation().style(theme::svg::primary),
                                     Message::OpenAbout {
                                         version: version.current.clone(),
                                         commit: data::environment::GIT_HASH
@@ -427,13 +428,13 @@ impl Sidebar {
                             Menu::Documentation => context_button(
                                 text("Documentation"),
                                 None,
-                                icon::documentation(),
+                                icon::documentation().style(theme::svg::primary),
                                 Message::OpenDocumentation,
                             ),
                             Menu::OpenConfigFile => context_button(
                                 text("Open config file"),
                                 Some(&keyboard.open_config_file),
-                                icon::config(),
+                                icon::config().style(theme::svg::primary),
                                 Message::OpenConfigFile,
                             ),
                         }
@@ -484,11 +485,13 @@ impl Sidebar {
                 });
 
             let mut buffers = vec![];
-            let mut client_enumeration = 0;
 
             if config.sidebar.position.is_horizontal() {
                 buffers.push(space::horizontal().width(4).into());
             }
+
+            let mut upstream_buffers = vec![];
+            let mut client_enumeration = 0;
 
             for server in servers.keys() {
                 let server_has_unread = history.server_has_unread(server);
@@ -523,7 +526,7 @@ impl Sidebar {
                     match state {
                         data::client::State::Disconnected => {
                             // Disconnected server.
-                            buffers.push(button(
+                            upstream_buffers.push(button(
                                 buffer::Upstream::Server(server.clone()),
                                 history::Kind::Server(server.clone()),
                                 false,
@@ -531,7 +534,7 @@ impl Sidebar {
                         }
                         data::client::State::Ready(connection) => {
                             // Connected server.
-                            buffers.push(button(
+                            upstream_buffers.push(button(
                                 buffer::Upstream::Server(server.clone()),
                                 history::Kind::Server(server.clone()),
                                 true,
@@ -539,7 +542,7 @@ impl Sidebar {
 
                             // Channels from the connected server.
                             for channel in connection.channels() {
-                                buffers.push(button(
+                                upstream_buffers.push(button(
                                     buffer::Upstream::Channel(
                                         server.clone(),
                                         channel.clone(),
@@ -559,7 +562,7 @@ impl Sidebar {
                                     .resolve_query(server, query)
                                     .unwrap_or(query);
 
-                                buffers.push(button(
+                                upstream_buffers.push(button(
                                     buffer::Upstream::Query(
                                         server.clone(),
                                         query.clone(),
@@ -573,27 +576,92 @@ impl Sidebar {
                             }
 
                             // Separator between servers.
-                            if config.sidebar.position.is_horizontal() {
-                                if client_enumeration < clients.len() {
-                                    buffers.push(
+                            if client_enumeration < clients.len() {
+                                if config.sidebar.position.is_horizontal() {
+                                    upstream_buffers.push(
                                         space::horizontal()
                                             .width(
                                                 config.sidebar.spacing.server,
                                             )
                                             .into(),
                                     );
+                                } else {
+                                    upstream_buffers.push(
+                                        space::vertical()
+                                            .height(
+                                                config.sidebar.spacing.server,
+                                            )
+                                            .into(),
+                                    );
                                 }
-                            } else {
-                                buffers.push(
-                                    space::vertical()
-                                        .height(config.sidebar.spacing.server)
-                                        .into(),
-                                );
                             }
                         }
                     }
                 }
             }
+
+            let mut internal_buffers = vec![];
+
+            for internal_buffer in
+                config.sidebar.internal_buffers.buffers.iter()
+            {
+                let button = |buffer: buffer::Internal, title: &'static str| {
+                    internal_buffer_button(
+                        config, panes, focus, buffer, title, history, width,
+                        theme,
+                    )
+                };
+
+                match internal_buffer {
+                    data::config::sidebar::InternalBuffer::FileTransfer => {
+                        config.file_transfer.enabled.then(|| {
+                            internal_buffers.push(button(
+                                buffer::Internal::FileTransfers,
+                                "File Transfers",
+                            ));
+                        });
+                    }
+                    data::config::sidebar::InternalBuffer::ChannelDiscovery => {
+                        internal_buffers.push(button(
+                            buffer::Internal::ChannelDiscovery(None),
+                            "Channel Discovery",
+                        ));
+                    }
+                    data::config::sidebar::InternalBuffer::Highlights => {
+                        internal_buffers.push(button(
+                            buffer::Internal::Highlights,
+                            "Highlights",
+                        ));
+                    }
+                    data::config::sidebar::InternalBuffer::Logs => {
+                        internal_buffers
+                            .push(button(buffer::Internal::Logs, "Logs"));
+                    }
+                }
+            }
+
+            let spacer = if config.sidebar.position.is_horizontal() {
+                space::horizontal()
+                    .width(config.sidebar.spacing.server)
+                    .into()
+            } else {
+                space::vertical()
+                    .height(config.sidebar.spacing.server)
+                    .into()
+            };
+
+            let (left, right) =
+                if config.sidebar.internal_buffers.is_before_servers() {
+                    (internal_buffers, upstream_buffers)
+                } else {
+                    (upstream_buffers, internal_buffers)
+                };
+
+            buffers.extend(left);
+            if !buffers.is_empty() && !right.is_empty() {
+                buffers.push(spacer);
+            }
+            buffers.extend(right);
 
             match config.sidebar.position {
                 sidebar::Position::Left | sidebar::Position::Right => {
@@ -912,221 +980,74 @@ fn upstream_buffer_button<'a>(
 
     let buffer_title_font = theme::font_style::primary(theme).map(font::get);
 
-    let server_icon_size = match config.sidebar.server_icon {
-        data::config::sidebar::ServerIcon::Size(size) => size,
-        data::config::sidebar::ServerIcon::Hidden => 0,
-    };
+    let dimensions = Dimensions::from(config);
 
-    let badge_padding = 2;
-    let badge_size = (server_icon_size / 3).max(4) + 2 * badge_padding;
-
-    let max_indicator_size = if server_icon_size > 0 { badge_size } else { 0 }
-        .max(if config.sidebar.unread_indicator.has_unread_icon() {
-            config.sidebar.unread_indicator.icon_size
-        } else {
-            0
-        })
-        .max(
-            if config.sidebar.unread_indicator.has_unread_highlight_icon() {
-                config.sidebar.unread_indicator.highlight_icon_size
-            } else {
-                0
-            },
-        );
-
-    // check for server icon first (only for server buffers with icon size configured)
-    let (icon, icon_height, icon_left_spacing): (
-        Option<Element<'a, Message>>,
-        u32,
-        f32,
-    ) = if let buffer::Upstream::Server(server) = &buffer
-        && server_icon_size > 0
+    let icon = if dimensions.icon_size > 0
+        && let buffer::Upstream::Server(server) = &buffer
     {
-        let server_icon_enabled = config
+        if config
             .servers
             .get(server)
-            .is_some_and(|server_config| server_config.icon.enabled);
-
-        let icon_widget: Element<'a, Message> = container(
-            if server_icon_enabled
-                && let Some(server_icon) = server_icons.get(server)
-            {
-                image::from_data(server_icon, true, ContentFit::Contain)
-            } else {
+            .is_some_and(|server_config| server_config.icon.enabled)
+            && let Some(server_icon) = server_icons.get(server)
+        {
+            Some(Icon::Upstream(server_icon))
+        } else {
+            Some(Icon::Internal(
                 if server.is_bouncer_network() {
                     icon::link()
                 } else {
                     icon::connected()
                 }
-                .style(theme::svg::primary)
-                .width(Length::Shrink)
-                .content_fit(ContentFit::Contain)
-                .into()
-            },
-        )
-        .width(server_icon_size)
-        .height(server_icon_size)
-        .into();
+                .style(theme::svg::primary),
+            ))
+        }
+    } else {
+        None
+    };
 
-        let badge = if connected {
-            if has_highlight {
-                icon::from_icon(config.sidebar.unread_indicator.highlight_icon)
-                    .map(|icon| {
-                        icon.style(theme::svg::highlight_indicator)
-                            .width(Length::Shrink)
-                            .content_fit(ContentFit::Contain)
-                    })
-            } else if has_unread {
-                icon::from_icon(config.sidebar.unread_indicator.icon).map(
-                    |icon| {
-                        icon.style(theme::svg::unread_indicator)
-                            .width(Length::Shrink)
-                            .content_fit(ContentFit::Contain)
-                    },
-                )
-            } else {
-                None
-            }
-        } else {
-            Some(
-                icon::disconnected()
-                    .style(theme::svg::error)
-                    .width(Length::Shrink)
-                    .content_fit(ContentFit::Contain),
-            )
-        };
-
-        let badge: Option<Element<'a, Message>> = badge.map(move |badge| {
-            container(badge)
-                .style(move |theme| container::Style {
-                    text_color: None,
-                    background: Some(
-                        theme.styles().buttons.primary.background.into(),
-                    ),
-                    border: Border {
-                        radius: badge_size.into(),
-                        ..Border::default()
-                    },
-                    ..container::Style::default()
-                })
-                .width(badge_size)
-                .height(badge_size)
-                .padding(badge_padding as f32)
-                .into()
-        });
-
-        (
-            Some(
-                stack![
-                    row![
-                        Space::new().width(badge_padding),
-                        column![
-                            Space::new().height(badge_padding),
-                            icon_widget
-                        ]
-                    ]
-                    .align_y(iced::Alignment::Center),
-                    badge,
-                ]
-                .into(),
-            ),
-            server_icon_size,
-            max_indicator_size.saturating_sub(badge_size) as f32 / 2.0,
-        )
-    }
-    // fall through to unread/highlight icons for all buffers (including server)
-    else if show_highlight_icon
+    let indicator = if let buffer::Upstream::Server(_) = &buffer
+        && !connected
+    {
+        Some((
+            icon::disconnected().style(theme::svg::error),
+            dimensions.icon_badge_size,
+        ))
+    } else if show_highlight_icon
         && let Some(highlight_icon) =
             icon::from_icon(config.sidebar.unread_indicator.highlight_icon)
     {
-        (
-            Some(
-                container(
-                    highlight_icon
-                        .style(theme::svg::highlight_indicator)
-                        .width(Length::Shrink)
-                        .content_fit(ContentFit::Contain),
-                )
-                .width(config.sidebar.unread_indicator.highlight_icon_size)
-                .height(config.sidebar.unread_indicator.highlight_icon_size)
-                .into(),
-            ),
-            config.sidebar.unread_indicator.highlight_icon_size,
-            max_indicator_size.saturating_sub(
-                config.sidebar.unread_indicator.highlight_icon_size,
-            ) as f32
-                / 2.0,
-        )
+        Some((
+            highlight_icon.style(theme::svg::highlight_indicator),
+            dimensions.highlight_indicator_size,
+        ))
     } else if show_unread_icon
         && let Some(unread_icon) =
             icon::from_icon(config.sidebar.unread_indicator.icon)
     {
-        (
-            Some(
-                container(
-                    unread_icon
-                        .style(theme::svg::unread_indicator)
-                        .width(Length::Shrink)
-                        .content_fit(ContentFit::Contain),
-                )
-                .width(config.sidebar.unread_indicator.icon_size)
-                .height(config.sidebar.unread_indicator.icon_size)
-                .into(),
-            ),
-            config.sidebar.unread_indicator.icon_size,
-            max_indicator_size
-                .saturating_sub(config.sidebar.unread_indicator.icon_size)
-                as f32
-                / 2.0,
-        )
+        Some((
+            unread_icon.style(theme::svg::unread_indicator),
+            dimensions.unread_indicator_size,
+        ))
     } else {
-        (None, 1, 0.0)
+        None
     };
 
-    let (icon_spacing, icon) = if config.sidebar.position.is_horizontal() {
-        icon.map_or((0, None), |icon| (8, Some(icon)))
-    } else {
-        let server_icon_size = match config.sidebar.server_icon {
-            data::config::sidebar::ServerIcon::Size(size) => size,
-            data::config::sidebar::ServerIcon::Hidden => 0,
-        };
-        let max_icon_size = server_icon_size
-            .max(if config.sidebar.unread_indicator.has_unread_icon() {
-                config.sidebar.unread_indicator.icon_size
-            } else {
-                0
-            })
-            .max(
-                if config.sidebar.unread_indicator.has_unread_highlight_icon() {
-                    config.sidebar.unread_indicator.highlight_icon_size
-                } else {
-                    0
-                },
-            );
-        (
-            8,
-            Some(
-                stack![
-                    Space::new().width(max_icon_size).height(icon_height),
-                    icon.map(|icon| row![
-                        Space::new().width(icon_left_spacing),
-                        icon
-                    ])
-                ]
-                .into(),
-            ),
-        )
-    };
+    let mut content = row![].align_y(iced::Alignment::Center);
 
-    let mut content = row![icon, Space::new().width(icon_spacing)]
-        .align_y(iced::Alignment::Center);
+    content = content.extend(sidebar_icon(
+        icon,
+        indicator,
+        dimensions,
+        config.sidebar.position.is_horizontal(),
+    ));
 
     match &buffer {
         buffer::Upstream::Server(server) => {
             let font_size = config
                 .sidebar
-                .server_font_size
-                .or(config.sidebar.font_size)
+                .primary_font_size
+                .or(config.sidebar.secondary_font_size)
                 .or(config.font.size)
                 .map_or(theme::TEXT_SIZE, f32::from);
 
@@ -1160,8 +1081,11 @@ fn upstream_buffer_button<'a>(
             }
         }
         buffer::Upstream::Channel(_, channel) => {
-            let font_size =
-                config.sidebar.font_size.or(config.font.size).map(f32::from);
+            let font_size = config
+                .sidebar
+                .secondary_font_size
+                .or(config.font.size)
+                .map(f32::from);
             let raw_channel = channel.as_str();
             let display_channel =
                 if let Some(casing) = config.sidebar.channel_name_casing {
@@ -1180,8 +1104,11 @@ fn upstream_buffer_button<'a>(
             );
         }
         buffer::Upstream::Query(_, query) => {
-            let font_size =
-                config.sidebar.font_size.or(config.font.size).map(f32::from);
+            let font_size = config
+                .sidebar
+                .secondary_font_size
+                .or(config.font.size)
+                .map(f32::from);
 
             content = content.push(
                 text(query.to_string())
@@ -1434,5 +1361,334 @@ fn upstream_buffer_button<'a>(
             },
         )
         .into()
+    }
+}
+
+fn internal_buffer_button<'a>(
+    config: &'a Config,
+    panes: &'a Panes,
+    focus: Focus,
+    buffer: buffer::Internal,
+    title: &'a str,
+    history: &'a history::Manager,
+    width: Length,
+    theme: &'a Theme,
+) -> Element<'a, Message> {
+    let open = panes.iter().find_map(|(window_id, pane, state)| {
+        (state.buffer.internal() == Some(buffer.clone()))
+            .then_some((window_id, pane))
+    });
+
+    let is_focused = panes.iter().find_map(|(window_id, pane, state)| {
+        (Focus {
+            window: window_id,
+            pane,
+        } == focus
+            && state.buffer.internal() == Some(buffer.clone()))
+        .then_some((window_id, pane))
+    });
+
+    let dimensions = Dimensions::from(config);
+
+    let show_icon = dimensions.icon_size > 0;
+
+    let (icon, badge) = match buffer {
+        buffer::Internal::ChannelDiscovery(_) => {
+            (show_icon.then_some(icon::channel_discovery()), None)
+        }
+        buffer::Internal::FileTransfers => {
+            (show_icon.then_some(icon::file_transfer()), None)
+        }
+        buffer::Internal::Highlights => {
+            let has_unread =
+                if config.sidebar.unread_indicator.show_on_open_buffers
+                    || open.is_none()
+                {
+                    history.has_unread(&history::Kind::Highlights)
+                } else {
+                    false
+                };
+
+            let badge = if has_unread
+                && let Some(highlight_icon) = icon::from_icon(
+                    config.sidebar.unread_indicator.highlight_icon,
+                ) {
+                Some((
+                    highlight_icon.style(theme::svg::highlight_indicator),
+                    dimensions.highlight_indicator_size,
+                ))
+            } else {
+                None
+            };
+
+            (show_icon.then_some(icon::highlights()), badge)
+        }
+        buffer::Internal::Logs => {
+            let has_unread =
+                if config.sidebar.unread_indicator.show_on_open_buffers
+                    || open.is_none()
+                {
+                    history.has_unread(&history::Kind::Logs)
+                } else {
+                    false
+                };
+
+            let badge = if has_unread
+                && let Some(unread_icon) =
+                    icon::from_icon(config.sidebar.unread_indicator.icon)
+            {
+                Some((
+                    unread_icon.style(theme::svg::unread_indicator),
+                    dimensions.unread_indicator_size,
+                ))
+            } else {
+                None
+            };
+
+            (show_icon.then_some(icon::logs()), badge)
+        }
+    };
+
+    let mut content = row![].align_y(iced::Alignment::Center);
+
+    content = content.extend(sidebar_icon(
+        icon.map(Icon::Internal),
+        badge,
+        dimensions,
+        config.sidebar.position.is_horizontal(),
+    ));
+
+    content = content.push(
+        text(title)
+            .line_height(LineHeight::Relative(1.0))
+            .size_maybe(
+                config
+                    .sidebar
+                    .primary_font_size
+                    .or(config.sidebar.secondary_font_size)
+                    .or(config.font.size)
+                    .map(f32::from),
+            )
+            .style(theme::text::primary)
+            .font_maybe(theme::font_style::primary(theme).map(font::get))
+            .shaping(Shaping::Advanced),
+    );
+
+    button(content.width(width).padding(Padding::default().bottom(1)))
+        .style(move |theme, status| {
+            theme::button::sidebar_buffer(
+                theme,
+                status,
+                is_focused.is_some(),
+                open.is_some(),
+            )
+        })
+        .padding(config.sidebar.padding.buffer)
+        .on_press(match is_focused {
+            Some((window, pane)) => {
+                if let Some(focus_action) =
+                    config.actions.sidebar.focused_buffer
+                {
+                    match focus_action {
+                        BufferFocusedAction::ClosePane => {
+                            Message::Close(window, pane)
+                        }
+                    }
+                } else {
+                    Message::Focus(window, pane)
+                }
+            }
+            None => {
+                if let Some((window, pane)) = open {
+                    Message::Focus(window, pane)
+                } else {
+                    Message::ToggleInternalBuffer(buffer)
+                }
+            }
+        })
+        .into()
+}
+
+enum Icon<'a> {
+    Upstream(&'a Image),
+    Internal(Svg<'a, Theme>),
+}
+
+fn sidebar_icon<'a>(
+    icon: Option<Icon<'a>>,
+    indicator: Option<(Svg<'a, Theme>, u32)>,
+    dimensions: Dimensions,
+    sidebar_is_horizontal: bool,
+) -> impl IntoIterator<Item = Element<'a, Message>> {
+    let (icon, icon_height, icon_left_spacing): (
+        Option<Element<'a, Message>>,
+        u32,
+        f32,
+    ) = if let Some(icon) = icon {
+        let icon: Element<'a, Message> = container(match icon {
+            Icon::Upstream(server_icon) => {
+                image::from_data(server_icon, true, ContentFit::Contain)
+            }
+            Icon::Internal(icon) => icon
+                .style(theme::svg::primary)
+                .width(Length::Shrink)
+                .content_fit(ContentFit::Contain)
+                .into(),
+        })
+        .width(dimensions.icon_size)
+        .height(dimensions.icon_size)
+        .into();
+
+        let badge: Option<Element<'a, Message>> =
+            indicator.map(move |(indicator, _)| {
+                container(
+                    indicator
+                        .width(Length::Shrink)
+                        .content_fit(ContentFit::Contain),
+                )
+                .style(move |theme: &Theme| container::Style {
+                    text_color: None,
+                    background: Some(
+                        theme.styles().buttons.primary.background.into(),
+                    ),
+                    border: Border {
+                        radius: dimensions.icon_badge_size.into(),
+                        ..Border::default()
+                    },
+                    ..container::Style::default()
+                })
+                .width(dimensions.icon_badge_size)
+                .height(dimensions.icon_badge_size)
+                .padding(dimensions.icon_badge_padding as f32)
+                .into()
+            });
+
+        (
+            Some(
+                stack![
+                    row![
+                        Space::new().width(dimensions.icon_badge_padding),
+                        column![
+                            Space::new().height(dimensions.icon_badge_padding),
+                            icon
+                        ]
+                    ]
+                    .align_y(iced::Alignment::Center),
+                    badge,
+                ]
+                .into(),
+            ),
+            dimensions.icon_size,
+            dimensions
+                .max_indicator_size()
+                .saturating_sub(dimensions.icon_badge_size) as f32
+                / 2.0,
+        )
+    } else if let Some((indicator, indicator_size)) = indicator {
+        (
+            Some(
+                container(
+                    indicator
+                        .width(Length::Shrink)
+                        .content_fit(ContentFit::Contain),
+                )
+                .width(indicator_size)
+                .height(indicator_size)
+                .into(),
+            ),
+            indicator_size,
+            dimensions
+                .max_indicator_size()
+                .saturating_sub(indicator_size) as f32
+                / 2.0,
+        )
+    } else {
+        (None, 1, 0.0)
+    };
+
+    if sidebar_is_horizontal {
+        if let Some(icon) = icon {
+            Either::Left(vec![icon, Space::new().width(8).into()].into_iter())
+        } else {
+            Either::Right(iter::empty())
+        }
+    } else {
+        Either::Left(
+            vec![
+                stack![
+                    Space::new()
+                        .width(dimensions.max_icon_size())
+                        .height(icon_height),
+                    icon.map(|icon| row![
+                        Space::new().width(icon_left_spacing),
+                        icon
+                    ])
+                ]
+                .into(),
+                Space::new().width(8).into(),
+            ]
+            .into_iter(),
+        )
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+struct Dimensions {
+    icon_size: u32,
+    icon_badge_size: u32,
+    icon_badge_padding: u32,
+    unread_indicator_size: u32,
+    highlight_indicator_size: u32,
+}
+
+impl From<&Config> for Dimensions {
+    fn from(config: &Config) -> Self {
+        let (icon_size, icon_badge_padding, icon_badge_size) =
+            match config.sidebar.primary_icon {
+                data::config::sidebar::PrimaryIcon::Size(icon_size) => {
+                    let icon_badge_padding = 2;
+                    let icon_badge_size =
+                        (icon_size / 3).max(4) + 2 * icon_badge_padding;
+
+                    (icon_size, icon_badge_padding, icon_badge_size)
+                }
+                data::config::sidebar::PrimaryIcon::Hidden => (0, 0, 0),
+            };
+
+        let unread_indicator_size =
+            if config.sidebar.unread_indicator.has_unread_icon() {
+                config.sidebar.unread_indicator.icon_size
+            } else {
+                0
+            };
+
+        let highlight_indicator_size =
+            if config.sidebar.unread_indicator.has_unread_highlight_icon() {
+                config.sidebar.unread_indicator.highlight_icon_size
+            } else {
+                0
+            };
+
+        Self {
+            icon_size,
+            icon_badge_size,
+            icon_badge_padding,
+            unread_indicator_size,
+            highlight_indicator_size,
+        }
+    }
+}
+
+impl Dimensions {
+    fn max_indicator_size(&self) -> u32 {
+        self.icon_badge_size
+            .max(self.unread_indicator_size)
+            .max(self.highlight_indicator_size)
+    }
+
+    fn max_icon_size(&self) -> u32 {
+        self.icon_size
+            .max(self.unread_indicator_size)
+            .max(self.highlight_indicator_size)
     }
 }

@@ -127,6 +127,21 @@ impl Internal {
     }
 }
 
+impl From<config::sidebar::InternalBuffer> for Internal {
+    fn from(config: config::sidebar::InternalBuffer) -> Self {
+        match config {
+            config::sidebar::InternalBuffer::FileTransfer => {
+                Self::FileTransfers
+            }
+            config::sidebar::InternalBuffer::Logs => Self::Logs,
+            config::sidebar::InternalBuffer::Highlights => Self::Highlights,
+            config::sidebar::InternalBuffer::ChannelDiscovery => {
+                Self::ChannelDiscovery(None)
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Settings {

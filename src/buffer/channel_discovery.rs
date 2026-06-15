@@ -3,7 +3,7 @@ use iced::widget::{
     self, button, center, column, container, operation, pick_list, row, rule,
     scrollable, span, text, text_input,
 };
-use iced::{Color, Length, Task, alignment, padding};
+use iced::{Color, ContentFit, Length, Task, alignment, padding};
 
 use crate::appearance::theme;
 use crate::buffer::context_menu::{self, Context};
@@ -189,8 +189,10 @@ pub fn view<'a>(
         _ => container(center(
             column![
                 icon::channel_discovery()
-                    .size(theme::TEXT_SIZE + 3.0)
-                    .style(theme::text::secondary),
+                    .width(Length::Shrink)
+                    .content_fit(ContentFit::Contain)
+                    .height(theme::TEXT_SIZE + 3.0)
+                    .style(theme::svg::secondary),
                 text("Select a server")
                     .style(theme::text::secondary)
                     .font_maybe(

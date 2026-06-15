@@ -27,9 +27,14 @@ pub fn view<'a>(
                                     Some(timer)
                                         if timer.elapsed()
                                             < Duration::from_secs(2) =>
-                                        icon::checkmark()
-                                            .style(theme::text::success),
-                                    _ => icon::file_transfer(),
+                                        Element::from(
+                                            icon::checkmark()
+                                                .style(theme::text::success)
+                                        ),
+                                    _ => Element::from(
+                                        icon::file_transfer()
+                                            .style(theme::svg::primary)
+                                    ),
                                 }
                             ))
                             .padding(5)
