@@ -224,9 +224,19 @@ impl Sidebar {
 
         // Show notification dot if theres a new version, if there're transfers,
         // or if the logs have unread messages.
-        let show_notification_dot = version.is_old()
-            || (!file_transfers.is_empty() && config.file_transfer.enabled)
-            || logs_has_unread;
+        let show_notification_dot =
+            version.is_old()
+                || (!file_transfers.is_empty()
+                    && config.file_transfer.enabled
+                    && !config.sidebar.internal_buffers.buffers.contains(
+                        &config::sidebar::InternalBuffer::FileTransfers,
+                    ))
+                || (logs_has_unread
+                    && !config
+                        .sidebar
+                        .internal_buffers
+                        .buffers
+                        .contains(&config::sidebar::InternalBuffer::Logs));
         let system_information = self.system_information.clone();
 
         let icon = icon::menu().style(theme::svg::primary);
@@ -253,7 +263,11 @@ impl Sidebar {
         .padding(4)
         .width(Length::Shrink);
 
-        let menu = Menu::list(version.is_old(), config.file_transfer.enabled);
+        let menu = Menu::list(
+            version.is_old(),
+            config.file_transfer.enabled,
+            &config.sidebar.internal_buffers.buffers,
+        );
 
         if menu.is_empty() {
             base.into()
@@ -792,7 +806,11 @@ enum Menu {
 }
 
 impl Menu {
-    fn list(has_new_version: bool, file_transfer_enabled: bool) -> Vec<Self> {
+    fn list(
+        has_new_version: bool,
+        file_transfer_enabled: bool,
+        internal_buffers_in_sidebar: &[config::sidebar::InternalBuffer],
+    ) -> Vec<Self> {
         let mut list = vec![Self::Version];
 
         if has_new_version {
@@ -805,14 +823,32 @@ impl Menu {
             Self::Documentation,
         ]);
 
-        if file_transfer_enabled {
+        if file_transfer_enabled
+            && !internal_buffers_in_sidebar
+                .contains(&config::sidebar::InternalBuffer::FileTransfers)
+        {
             list.push(Self::FileTransfers);
         }
 
+        if !internal_buffers_in_sidebar
+            .contains(&config::sidebar::InternalBuffer::ChannelDiscovery)
+        {
+            list.push(Self::ChannelDiscovery);
+        }
+
+        if !internal_buffers_in_sidebar
+            .contains(&config::sidebar::InternalBuffer::Highlights)
+        {
+            list.push(Self::Highlights);
+        }
+
+        if !internal_buffers_in_sidebar
+            .contains(&config::sidebar::InternalBuffer::Logs)
+        {
+            list.push(Self::Logs);
+        }
+
         list.extend([
-            Self::ChannelDiscovery,
-            Self::Highlights,
-            Self::Logs,
             Self::OpenConfigFile,
             Self::RefreshConfig,
             Self::ThemeEditor,
