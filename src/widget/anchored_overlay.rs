@@ -218,7 +218,7 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
             // From top of base to top of viewport
             Anchor::AboveTop => self.position.y,
             // From top of base to bottom of viewport
-            Anchor::BelowTopCentered => bounds.height - self.position.y,
+            Anchor::BelowTopCentered => bounds.height,
         };
 
         let limits = layout::Limits::new(
@@ -241,11 +241,26 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
             Anchor::AboveTop => {
                 Vector::new(0.0, -(node.size().height + self.offset))
             }
-            // Offset below the top and centered
-            Anchor::BelowTopCentered => Vector::new(
-                self.base_layout.width / 2.0 - node.size().width / 2.0,
-                self.offset,
-            ),
+            // Offset below the top and centered, pushed up just enough to stay
+            // within the viewport when it would overflow the bottom edge.
+            Anchor::BelowTopCentered => {
+                let x = self.base_layout.width / 2.0 - node.size().width / 2.0;
+
+                let mut y = self.offset;
+
+                let overflow = (self.position.y + y + node.size().height)
+                    - (self.viewport.y + self.viewport.height);
+                if overflow > 0.0 {
+                    y -= overflow;
+                }
+
+                // Never push above the top of the viewport.
+                if self.position.y + y < self.viewport.y {
+                    y = self.viewport.y - self.position.y;
+                }
+
+                Vector::new(x, y)
+            }
         };
 
         node.move_to(self.position + translation)
