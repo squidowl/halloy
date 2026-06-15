@@ -50,7 +50,6 @@ percent-encoding = { workspace = true }
 
 base64 = "0.22.1"
 dirs-next = "2.0.0"
-xdg = "3.0.0"
 flate2 = "1.0"
 hex = "0.4.3"
 iced_core = "0.15.0-dev"
@@ -74,6 +73,9 @@ mime_guess = "2.0.5"
 any_ascii = "0.3.3"
 idna = "1.1.0"
 unicode-security = "0.1.2"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+xdg = "3.0.0"
 
 [dev-dependencies]
 serde_test = "1.0"

@@ -2892,9 +2892,6 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "open",
  "palette",
- "percent-encoding",
- "rand 0.10.1",
- "rand_chacha 0.10.0",
  "reqwest",
  "rfd",
  "rodio",
@@ -3681,11 +3678,7 @@ dependencies = [
  "futures",
  "interprocess",
  "log",
- "rand 0.10.1",
- "rand_chacha 0.10.0",
- "thiserror 2.0.18",
  "tokio",
- "url",
 ]
 
 [[package]]
@@ -3710,7 +3703,6 @@ dependencies = [
  "tokio-rustls",
  "tokio-tungstenite",
  "tokio-util",
- "xz2",
 ]
 
 [[package]]

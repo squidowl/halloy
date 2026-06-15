@@ -68,8 +68,6 @@ tokio-stream = { workspace = true, features = ["fs"] }
 timeago = { workspace = true }
 itertools = { workspace = true }
 emojis = { workspace = true }
-rand = { workspace = true }
-rand_chacha = { workspace = true }
 palette = { workspace = true }
 log = { workspace = true }
 uptime_lib = { workspace = true }
@@ -93,7 +91,6 @@ iced = { workspace = true, features = [
     "crisp",
     "web-colors",
 ] }
-percent-encoding = { workspace = true }
 
 data = { version = "0.1.0", path = "data" }
 ipc = { version = "0.1.0", path = "ipc" }
@@ -201,6 +198,9 @@ redundant_closure_for_method_calls = "deny"
 semicolon_if_nothing_returned = "deny"
 uninlined_format_args = "deny"
 unnecessary_wraps = "deny"
+
+[workspace.lints.rust]
+unused_crate_dependencies = "warn"
 
 [lints]
 workspace = true
