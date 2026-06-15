@@ -217,21 +217,8 @@ impl Sidebar {
         theme: &'a Theme,
     ) -> Element<'a, Message> {
         let keyboard = &config.keyboard;
-        let menu_icon_size = theme::ICON_SIZE + 2.0;
-        let base = button(
-            container(
-                icon::menu()
-                    .style(theme::svg::primary)
-                    .width(Length::Shrink)
-                    .content_fit(ContentFit::Contain),
-            )
-            .width(menu_icon_size)
-            .height(menu_icon_size),
-        )
-        .padding(5)
-        .width(Length::Shrink);
 
-        let menu = Menu::list(version.is_old(), config.file_transfer.enabled);
+        let dimensions = Dimensions::from(&config::sidebar::Sidebar::default());
 
         let logs_has_unread = history.has_unread(&history::Kind::Logs);
 
@@ -242,215 +229,226 @@ impl Sidebar {
             || logs_has_unread;
         let system_information = self.system_information.clone();
 
+        let icon = icon::menu().style(theme::svg::primary);
+
+        let badge = if show_notification_dot {
+            Some((
+                icon::circle().style(theme::svg::tertiary),
+                dimensions.unread_indicator_size,
+            ))
+        } else {
+            None
+        };
+
+        let base = button(
+            sidebar_icon(
+                Some(Icon::Internal(icon)),
+                badge,
+                dimensions,
+                config.sidebar.position.is_horizontal(),
+            )
+            .into_iter()
+            .next(),
+        )
+        .padding(4)
+        .width(Length::Shrink);
+
+        let menu = Menu::list(version.is_old(), config.file_transfer.enabled);
+
         if menu.is_empty() {
             base.into()
         } else {
-            stack![
-                context_menu(
-                    context_menu::MouseButton::Left,
-                    context_menu::Anchor::Widget,
-                    context_menu::ToggleBehavior::Close,
-                    Some(mouse::Interaction::Pointer),
-                    base,
-                    menu,
-                    move |menu, length| {
-                        let context_button =
-                            |title: Text<'a>,
-                             keybinds: Option<&data::shortcut::KeyBinds>,
-                             icon: Svg<'a, Theme>,
-                             message: Message| {
-                                let title = title.line_height(
-                                    theme::line_height(&config.font),
-                                );
-                                let keybind =
-                                    keybinds.and_then(|key_binds| match key_binds
-                                        .primary()
-                                    {
-                                        Some(kb @ data::shortcut::KeyBind::Bind {
+            context_menu(
+                context_menu::MouseButton::Left,
+                context_menu::Anchor::Widget,
+                context_menu::ToggleBehavior::Close,
+                Some(mouse::Interaction::Pointer),
+                base,
+                menu,
+                move |menu, length| {
+                    let context_button =
+                        |title: Text<'a>,
+                         keybinds: Option<&data::shortcut::KeyBinds>,
+                         icon: Svg<'a, Theme>,
+                         message: Message| {
+                            let title = title
+                                .line_height(theme::line_height(&config.font));
+                            let keybind =
+                                keybinds.and_then(|key_binds| match key_binds
+                                    .primary()
+                                {
+                                    Some(
+                                        kb @ data::shortcut::KeyBind::Bind {
                                             ..
-                                        }) => Some(
-                                            text(format!("({kb})"))
-                                                .shaping(Shaping::Advanced)
-                                                .size(theme::TEXT_SIZE - 2.0)
-                                                .style(theme::text::secondary)
-                                                .font_maybe(
-                                                    theme::font_style::secondary(
-                                                        theme,
-                                                    )
-                                                    .map(font::get),
-                                                ),
-                                        ),
-                                        _ => None,
-                                    });
-
-                                button(
-                                    row![
-                                        icon.width(Length::Fixed(12.0)),
-                                        title,
-                                        keybind
-                                    ]
-                                    .spacing(8)
-                                    .align_y(iced::Alignment::Center),
-                                )
-                                .width(length)
-                                .padding(config.context_menu.padding.entry)
-                                .on_press(message)
-                                .into()
-                            };
-
-                        match menu {
-                            Menu::QuitApplication => context_button(
-                                text("Quit Halloy"),
-                                Some(&keyboard.quit_application),
-                                icon::quit().style(theme::svg::primary),
-                                Message::QuitApplication,
-                            ),
-                            Menu::RefreshConfig => context_button(
-                                text("Reload config file"),
-                                Some(&keyboard.reload_configuration),
-                                icon::refresh().style(theme::svg::primary),
-                                Message::ReloadConfigFile,
-                            ),
-                            Menu::CommandBar => context_button(
-                                text("Command Bar"),
-                                Some(&keyboard.command_bar),
-                                icon::search().style(theme::svg::primary),
-                                Message::ToggleCommandBar,
-                            ),
-                            Menu::FileTransfers => context_button(
-                                text("File Transfers")
-                                    .style(if file_transfers.is_empty() {
-                                        theme::text::primary
-                                    } else {
-                                        theme::text::tertiary
-                                    })
-                                    .font_maybe(if file_transfers.is_empty() {
-                                        theme::font_style::primary(theme)
-                                            .map(font::get)
-                                    } else {
-                                        theme::font_style::tertiary(theme)
-                                            .map(font::get)
-                                    }),
-                                Some(&keyboard.file_transfers),
-                                icon::file_transfer().style(
-                                    if file_transfers.is_empty() {
-                                        theme::svg::primary
-                                    } else {
-                                        theme::svg::tertiary
-                                    },
-                                ),
-                                Message::ToggleInternalBuffer(
-                                    buffer::Internal::FileTransfers,
-                                ),
-                            ),
-                            Menu::Highlights => context_button(
-                                text("Highlights"),
-                                Some(&keyboard.highlights),
-                                icon::highlights().style(theme::svg::primary),
-                                Message::ToggleInternalBuffer(
-                                    buffer::Internal::Highlights,
-                                ),
-                            ),
-                            Menu::ChannelDiscovery => context_button(
-                                text("Channel Discovery"),
-                                None,
-                                icon::channel_discovery().style(theme::svg::primary),
-                                Message::ToggleInternalBuffer(
-                                    buffer::Internal::ChannelDiscovery(None),
-                                ),
-                            ),
-                            Menu::Logs => context_button(
-                                text("Logs")
-                                    .style(if logs_has_unread {
-                                        theme::text::tertiary
-                                    } else {
-                                        theme::text::primary
-                                    })
-                                    .font_maybe(if logs_has_unread {
-                                        theme::font_style::tertiary(theme)
-                                            .map(font::get)
-                                    } else {
-                                        theme::font_style::primary(theme)
-                                            .map(font::get)
-                                    }),
-                                Some(&keyboard.logs),
-                                icon::logs().style(if logs_has_unread {
-                                    theme::svg::tertiary
-                                } else {
-                                    theme::svg::primary
-                                }),
-                                Message::ToggleInternalBuffer(
-                                    buffer::Internal::Logs,
-                                ),
-                            ),
-                            Menu::ThemeEditor => context_button(
-                                text("Theme Editor"),
-                                Some(&keyboard.theme_editor),
-                                icon::theme_editor().style(theme::svg::primary),
-                                Message::ToggleThemeEditor,
-                            ),
-                            Menu::HorizontalRule => match length {
-                                Length::Fill => container(rule::horizontal(1))
-                                    .padding([0, 6])
-                                    .into(),
-                                _ => {
-                                    Space::new().width(length).height(1).into()
-                                }
-                            },
-                            Menu::Update => context_button(
-                                text("New version available")
-                                    .style(theme::text::tertiary)
-                                    .font_maybe(
-                                        theme::font_style::tertiary(theme)
-                                            .map(font::get),
+                                        },
+                                    ) => Some(
+                                        text(format!("({kb})"))
+                                            .shaping(Shaping::Advanced)
+                                            .size(theme::TEXT_SIZE - 2.0)
+                                            .style(theme::text::secondary)
+                                            .font_maybe(
+                                                theme::font_style::secondary(
+                                                    theme,
+                                                )
+                                                .map(font::get),
+                                            ),
                                     ),
-                                None,
-                                icon::megaphone().style(theme::svg::tertiary),
-                                Message::OpenReleaseWebsite,
+                                    _ => None,
+                                });
+
+                            button(
+                                row![
+                                    icon.width(Length::Fixed(12.0)),
+                                    title,
+                                    keybind
+                                ]
+                                .spacing(8)
+                                .align_y(iced::Alignment::Center),
+                            )
+                            .width(length)
+                            .padding(config.context_menu.padding.entry)
+                            .on_press(message)
+                            .into()
+                        };
+
+                    match menu {
+                        Menu::QuitApplication => context_button(
+                            text("Quit Halloy"),
+                            Some(&keyboard.quit_application),
+                            icon::quit().style(theme::svg::primary),
+                            Message::QuitApplication,
+                        ),
+                        Menu::RefreshConfig => context_button(
+                            text("Reload config file"),
+                            Some(&keyboard.reload_configuration),
+                            icon::refresh().style(theme::svg::primary),
+                            Message::ReloadConfigFile,
+                        ),
+                        Menu::CommandBar => context_button(
+                            text("Command Bar"),
+                            Some(&keyboard.command_bar),
+                            icon::search().style(theme::svg::primary),
+                            Message::ToggleCommandBar,
+                        ),
+                        Menu::FileTransfers => context_button(
+                            text("File Transfers")
+                                .style(if file_transfers.is_empty() {
+                                    theme::text::primary
+                                } else {
+                                    theme::text::tertiary
+                                })
+                                .font_maybe(if file_transfers.is_empty() {
+                                    theme::font_style::primary(theme)
+                                        .map(font::get)
+                                } else {
+                                    theme::font_style::tertiary(theme)
+                                        .map(font::get)
+                                }),
+                            Some(&keyboard.file_transfers),
+                            icon::file_transfer().style(
+                                if file_transfers.is_empty() {
+                                    theme::svg::primary
+                                } else {
+                                    theme::svg::tertiary
+                                },
                             ),
-                            Menu::Version => {
-                                context_button(
-                                    text("About Halloy"),
-                                    None,
-                                    icon::documentation().style(theme::svg::primary),
-                                    Message::OpenAbout {
-                                        version: version.current.clone(),
-                                        commit: data::environment::GIT_HASH
-                                            .map(str::trim)
-                                            .filter(|hash| !hash.is_empty())
-                                            .unwrap_or("Unknown")
-                                            .to_string(),
-                                        system_information: system_information
-                                            .clone(),
-                                    },
-                                )
-                            }
-                            Menu::Documentation => context_button(
-                                text("Documentation"),
-                                None,
-                                icon::documentation().style(theme::svg::primary),
-                                Message::OpenDocumentation,
+                            Message::ToggleInternalBuffer(
+                                buffer::Internal::FileTransfers,
                             ),
-                            Menu::OpenConfigFile => context_button(
-                                text("Open config file"),
-                                Some(&keyboard.open_config_file),
-                                icon::config().style(theme::svg::primary),
-                                Message::OpenConfigFile,
+                        ),
+                        Menu::Highlights => context_button(
+                            text("Highlights"),
+                            Some(&keyboard.highlights),
+                            icon::highlights().style(theme::svg::primary),
+                            Message::ToggleInternalBuffer(
+                                buffer::Internal::Highlights,
                             ),
-                        }
-                    },
-                ),
-                if show_notification_dot {
-                    Some(
-                        container(
-                            icon::dot().style(theme::text::tertiary).size(8),
-                        )
-                        .padding(padding::left(13).top(2)),
-                    )
-                } else {
-                    None
+                        ),
+                        Menu::ChannelDiscovery => context_button(
+                            text("Channel Discovery"),
+                            None,
+                            icon::channel_discovery()
+                                .style(theme::svg::primary),
+                            Message::ToggleInternalBuffer(
+                                buffer::Internal::ChannelDiscovery(None),
+                            ),
+                        ),
+                        Menu::Logs => context_button(
+                            text("Logs")
+                                .style(if logs_has_unread {
+                                    theme::text::tertiary
+                                } else {
+                                    theme::text::primary
+                                })
+                                .font_maybe(if logs_has_unread {
+                                    theme::font_style::tertiary(theme)
+                                        .map(font::get)
+                                } else {
+                                    theme::font_style::primary(theme)
+                                        .map(font::get)
+                                }),
+                            Some(&keyboard.logs),
+                            icon::logs().style(if logs_has_unread {
+                                theme::svg::tertiary
+                            } else {
+                                theme::svg::primary
+                            }),
+                            Message::ToggleInternalBuffer(
+                                buffer::Internal::Logs,
+                            ),
+                        ),
+                        Menu::ThemeEditor => context_button(
+                            text("Theme Editor"),
+                            Some(&keyboard.theme_editor),
+                            icon::theme_editor().style(theme::svg::primary),
+                            Message::ToggleThemeEditor,
+                        ),
+                        Menu::HorizontalRule => match length {
+                            Length::Fill => container(rule::horizontal(1))
+                                .padding([0, 6])
+                                .into(),
+                            _ => Space::new().width(length).height(1).into(),
+                        },
+                        Menu::Update => context_button(
+                            text("New version available")
+                                .style(theme::text::tertiary)
+                                .font_maybe(
+                                    theme::font_style::tertiary(theme)
+                                        .map(font::get),
+                                ),
+                            None,
+                            icon::megaphone().style(theme::svg::tertiary),
+                            Message::OpenReleaseWebsite,
+                        ),
+                        Menu::Version => context_button(
+                            text("About Halloy"),
+                            None,
+                            icon::documentation().style(theme::svg::primary),
+                            Message::OpenAbout {
+                                version: version.current.clone(),
+                                commit: data::environment::GIT_HASH
+                                    .map(str::trim)
+                                    .filter(|hash| !hash.is_empty())
+                                    .unwrap_or("Unknown")
+                                    .to_string(),
+                                system_information: system_information.clone(),
+                            },
+                        ),
+                        Menu::Documentation => context_button(
+                            text("Documentation"),
+                            None,
+                            icon::documentation().style(theme::svg::primary),
+                            Message::OpenDocumentation,
+                        ),
+                        Menu::OpenConfigFile => context_button(
+                            text("Open config file"),
+                            Some(&keyboard.open_config_file),
+                            icon::config().style(theme::svg::primary),
+                            Message::OpenConfigFile,
+                        ),
+                    }
                 },
-            ]
+            )
             .into()
         }
     }
@@ -980,7 +978,7 @@ fn upstream_buffer_button<'a>(
 
     let buffer_title_font = theme::font_style::primary(theme).map(font::get);
 
-    let dimensions = Dimensions::from(config);
+    let dimensions = Dimensions::from(&config.sidebar);
 
     let icon = if dimensions.icon_size > 0
         && let buffer::Upstream::Server(server) = &buffer
@@ -1388,7 +1386,7 @@ fn internal_buffer_button<'a>(
         .then_some((window_id, pane))
     });
 
-    let dimensions = Dimensions::from(config);
+    let dimensions = Dimensions::from(&config.sidebar);
 
     let show_icon = dimensions.icon_size > 0;
 
@@ -1641,30 +1639,30 @@ struct Dimensions {
     highlight_indicator_size: u32,
 }
 
-impl From<&Config> for Dimensions {
-    fn from(config: &Config) -> Self {
+impl From<&config::sidebar::Sidebar> for Dimensions {
+    fn from(config: &config::sidebar::Sidebar) -> Self {
         let (icon_size, icon_badge_padding, icon_badge_size) =
-            match config.sidebar.primary_icon {
-                data::config::sidebar::PrimaryIcon::Size(icon_size) => {
+            match config.primary_icon {
+                config::sidebar::PrimaryIcon::Size(icon_size) => {
                     let icon_badge_padding = 2;
                     let icon_badge_size =
                         (icon_size / 3).max(4) + 2 * icon_badge_padding;
 
                     (icon_size, icon_badge_padding, icon_badge_size)
                 }
-                data::config::sidebar::PrimaryIcon::Hidden => (0, 0, 0),
+                config::sidebar::PrimaryIcon::Hidden => (0, 0, 0),
             };
 
-        let unread_indicator_size =
-            if config.sidebar.unread_indicator.has_unread_icon() {
-                config.sidebar.unread_indicator.icon_size
-            } else {
-                0
-            };
+        let unread_indicator_size = if config.unread_indicator.has_unread_icon()
+        {
+            config.unread_indicator.icon_size
+        } else {
+            0
+        };
 
         let highlight_indicator_size =
-            if config.sidebar.unread_indicator.has_unread_highlight_icon() {
-                config.sidebar.unread_indicator.highlight_icon_size
+            if config.unread_indicator.has_unread_highlight_icon() {
+                config.unread_indicator.highlight_icon_size
             } else {
                 0
             };
