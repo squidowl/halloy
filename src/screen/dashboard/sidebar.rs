@@ -611,7 +611,7 @@ impl Sidebar {
                 };
 
                 match internal_buffer {
-                    data::config::sidebar::InternalBuffer::FileTransfer => {
+                    config::sidebar::InternalBuffer::FileTransfers => {
                         config.file_transfer.enabled.then(|| {
                             internal_buffers.push(button(
                                 buffer::Internal::FileTransfers,
@@ -619,19 +619,19 @@ impl Sidebar {
                             ));
                         });
                     }
-                    data::config::sidebar::InternalBuffer::ChannelDiscovery => {
+                    config::sidebar::InternalBuffer::ChannelDiscovery => {
                         internal_buffers.push(button(
                             buffer::Internal::ChannelDiscovery(None),
                             "Channel Discovery",
                         ));
                     }
-                    data::config::sidebar::InternalBuffer::Highlights => {
+                    config::sidebar::InternalBuffer::Highlights => {
                         internal_buffers.push(button(
                             buffer::Internal::Highlights,
                             "Highlights",
                         ));
                     }
-                    data::config::sidebar::InternalBuffer::Logs => {
+                    config::sidebar::InternalBuffer::Logs => {
                         internal_buffers
                             .push(button(buffer::Internal::Logs, "Logs"));
                     }

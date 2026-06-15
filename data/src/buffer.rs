@@ -130,7 +130,7 @@ impl Internal {
 impl From<config::sidebar::InternalBuffer> for Internal {
     fn from(config: config::sidebar::InternalBuffer) -> Self {
         match config {
-            config::sidebar::InternalBuffer::FileTransfer => {
+            config::sidebar::InternalBuffer::FileTransfers => {
                 Self::FileTransfers
             }
             config::sidebar::InternalBuffer::Logs => Self::Logs,
