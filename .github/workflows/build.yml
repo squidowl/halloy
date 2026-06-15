@@ -22,15 +22,38 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-check-clippy-test:
     name: Build, Check, Clippy, Test, & Format
-    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - target: macos
+            os: macos-latest
+            rustflags: ""
+          - target: macos-intel
+            os: macos-26-intel
+            rustflags: ""
+          - target: windows
+            os: windows-latest
+            rustflags: ""
+          - target: linux
+            os: ubuntu-latest
+            rustflags: "-C linker=clang -C link-arg=-fuse-ld=mold"
+
+    runs-on: ${{ matrix.target.os }}
     env:
-      RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=mold"
+      RUSTFLAGS: ${{ matrix.target.rustflags }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Install dependencies
+        if: matrix.target.target == 'linux'
         run: |
           sudo apt update
           sudo apt install $(cat .github/linux-deps.txt) git mold clang
@@ -50,20 +73,23 @@ jobs:
         with:
           toolchain: stable minus 3 releases
           components: clippy
+      - run: cargo version
       - name: Check
-        run: cargo check --locked --profile ci; cargo version
+        run: cargo check --locked --profile ci
       - name: Clippy
-        run: cargo clippy --locked --profile ci --workspace --all-targets -- -D warnings; cargo version
+        run: cargo clippy --locked --profile ci --workspace --all-targets -- -D warnings
 
       - uses: taiki-e/install-action@7a79fe8c3a13344501c80d99cae481c1c9085912 # v2
         with:
           tool: cargo-nextest
       - name: Test
-        run: cargo nextest run --locked --profile ci --workspace --all-targets; cargo version
+        run: cargo nextest run --locked --profile ci --workspace --all-targets
 
       - uses: dtolnay/rust-toolchain@master # recommended when specifying toolchain
+        if: matrix.target.target == 'linux'
         with:
           toolchain: nightly
           components: rustfmt
       - name: Format
-        run: cargo +nightly fmt --all -- --check --color=always; cargo version
+        if: matrix.target.target == 'linux'
+        run: cargo +nightly fmt --all -- --check --color=always

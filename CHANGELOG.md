@@ -24,7 +24,7 @@ Changed:
 
 Thanks:
 
-- Contributions: @englut, @luca020400
+- Contributions: @englut, @luca020400, @classabbyamp
 - Bug reports: @luca020400, agent314
 
 # 2026.7.2 (2026-06-08)
