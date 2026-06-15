@@ -41,8 +41,17 @@ pub struct Sidebar {
 #[derive(Debug, Clone, Deserialize, Default)]
 #[serde(default)]
 pub struct InternalBuffers {
+    pub show: InternalBuffersShowPolicy,
     pub position: InternalBufferPosition,
     pub buffers: Vec<InternalBuffer>,
+}
+
+#[derive(Debug, Copy, Clone, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum InternalBuffersShowPolicy {
+    #[default]
+    Always,
+    Unread,
 }
 
 impl InternalBuffers {
