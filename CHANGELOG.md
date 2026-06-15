@@ -21,6 +21,8 @@ Fixed:
 Changed:
 
 - `change_mode` server messages are categorized as `actions` (i.e. `actions_dimmed` controls whether they are dimmed by default)
+- Renamed `sidebar.server_icon` → `sidebar.primary_icon` and `sidebar.server_font_size` → `sidebar.primary_font_size` since the settings now apply to both servers and internal buffers
+- Renamed `sidebar.font_size` → `sidebar.secondary_font_size` to reflect its relationship to `sidebar.primary_font_size`
 - Removed unnecessary AWS-LC dependency
 
 Thanks:

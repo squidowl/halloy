@@ -20,13 +20,16 @@ pub struct Sidebar {
     pub position: Position,
     pub order_by: OrderBy,
     pub scrollbar: Scrollbar,
-    pub font_size: Option<u8>,
+    #[serde(alias = "font_size")]
+    pub secondary_font_size: Option<u8>,
     #[serde(
-        deserialize_with = "deserialize_server_icon",
+        deserialize_with = "deserialize_primary_icon",
+        alias = "server_icon",
         alias = "server_icon_size"
     )]
-    pub server_icon: ServerIcon,
-    pub server_font_size: Option<u8>,
+    pub primary_icon: PrimaryIcon,
+    #[serde(alias = "server_font_size")]
+    pub primary_font_size: Option<u8>,
     pub user_menu: UserMenu,
     pub padding: Padding,
     pub spacing: Spacing,
@@ -58,28 +61,28 @@ pub enum InternalBufferPosition {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum ServerIcon {
+pub enum PrimaryIcon {
     Size(u32),
     Hidden,
 }
 
-impl Default for ServerIcon {
+impl Default for PrimaryIcon {
     fn default() -> Self {
         Self::Size(20)
     }
 }
 
 #[allow(clippy::redundant_closure_for_method_calls)]
-pub fn deserialize_server_icon<'de, D>(
+pub fn deserialize_primary_icon<'de, D>(
     deserializer: D,
-) -> Result<ServerIcon, D::Error>
+) -> Result<PrimaryIcon, D::Error>
 where
     D: Deserializer<'de>,
 {
     UntaggedEnumVisitor::new()
         .u32(|value| {
             if value > 0 {
-                Ok(ServerIcon::Size(value))
+                Ok(PrimaryIcon::Size(value))
             } else {
                 Err(serde::de::Error::invalid_value(
                     serde::de::Unexpected::Unsigned(u64::from(value)),
@@ -88,15 +91,15 @@ where
             }
         })
         .string(|string| match string {
-            "hidden" | "none" => Ok(ServerIcon::Hidden),
+            "hidden" | "none" => Ok(PrimaryIcon::Hidden),
             _ => Err(serde::de::Error::invalid_value(
                 serde::de::Unexpected::Str(string),
                 &"\"hidden\" or a size (positive integer)",
             )),
         })
         .bool(|value| match value {
-            true => Ok(ServerIcon::Size(12)),
-            false => Ok(ServerIcon::Hidden),
+            true => Ok(PrimaryIcon::Size(12)),
+            false => Ok(PrimaryIcon::Hidden),
         })
         .map(|map| map.deserialize())
         .deserialize(deserializer)

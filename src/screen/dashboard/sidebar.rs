@@ -1046,8 +1046,8 @@ fn upstream_buffer_button<'a>(
         buffer::Upstream::Server(server) => {
             let font_size = config
                 .sidebar
-                .server_font_size
-                .or(config.sidebar.font_size)
+                .primary_font_size
+                .or(config.sidebar.secondary_font_size)
                 .or(config.font.size)
                 .map_or(theme::TEXT_SIZE, f32::from);
 
@@ -1081,8 +1081,11 @@ fn upstream_buffer_button<'a>(
             }
         }
         buffer::Upstream::Channel(_, channel) => {
-            let font_size =
-                config.sidebar.font_size.or(config.font.size).map(f32::from);
+            let font_size = config
+                .sidebar
+                .secondary_font_size
+                .or(config.font.size)
+                .map(f32::from);
             let raw_channel = channel.as_str();
             let display_channel =
                 if let Some(casing) = config.sidebar.channel_name_casing {
@@ -1101,8 +1104,11 @@ fn upstream_buffer_button<'a>(
             );
         }
         buffer::Upstream::Query(_, query) => {
-            let font_size =
-                config.sidebar.font_size.or(config.font.size).map(f32::from);
+            let font_size = config
+                .sidebar
+                .secondary_font_size
+                .or(config.font.size)
+                .map(f32::from);
 
             content = content.push(
                 text(query.to_string())
@@ -1456,7 +1462,12 @@ fn internal_buffer_button<'a>(
         text(title)
             .line_height(LineHeight::Relative(1.0))
             .size_maybe(
-                config.sidebar.font_size.or(config.font.size).map(f32::from),
+                config
+                    .sidebar
+                    .primary_font_size
+                    .or(config.sidebar.secondary_font_size)
+                    .or(config.font.size)
+                    .map(f32::from),
             )
             .style(theme::text::primary)
             .font_maybe(theme::font_style::primary(theme).map(font::get))
@@ -1633,15 +1644,15 @@ struct Dimensions {
 impl From<&Config> for Dimensions {
     fn from(config: &Config) -> Self {
         let (icon_size, icon_badge_padding, icon_badge_size) =
-            match config.sidebar.server_icon {
-                data::config::sidebar::ServerIcon::Size(icon_size) => {
+            match config.sidebar.primary_icon {
+                data::config::sidebar::PrimaryIcon::Size(icon_size) => {
                     let icon_badge_padding = 2;
                     let icon_badge_size =
                         (icon_size / 3).max(4) + 2 * icon_badge_padding;
 
                     (icon_size, icon_badge_padding, icon_badge_size)
                 }
-                data::config::sidebar::ServerIcon::Hidden => (0, 0, 0),
+                data::config::sidebar::PrimaryIcon::Hidden => (0, 0, 0),
             };
 
         let unread_indicator_size =

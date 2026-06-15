@@ -2,22 +2,9 @@
 
 Sidebar settings for Halloy.
 
-## `font_size`
+## `primary_font_size`
 
-Configure the default font size used in the sidebar.  If not set, then [`font.size`](./font#size) will be used.
-
-```toml
-# Type: integer
-# Values: any positive integer or not set
-# Default: not set
-
-[sidebar]
-font_size = 12
-```
-
-## `server_font_size`
-
-Configure the font size used for server titles.  If not set, then [`sidebar.font_size`](./sidebar#font_size) will be used.
+Configure the font size used for server and internal buffer titles.  If not set, then [`sidebar.secondary_font_size`](./sidebar#secondary_font_size) will be used.
 
 ```toml
 # Type: integer
@@ -25,12 +12,12 @@ Configure the font size used for server titles.  If not set, then [`sidebar.font
 # Default: not set
 
 [sidebar]
-server_font_size = 12
+primary_font_size = 12
 ```
 
-## `server_icon`
+## `primary_icon`
 
-Configure the server icon display.
+Configure the icon display for servers and internal buffers.
 
 ```toml
 # Type: integer or string
@@ -38,14 +25,27 @@ Configure the server icon display.
 # Default: 12
 
 [sidebar]
-server_icon = 12
+primary_icon = 12
 ```
 
-Hide the server icon:
+Hide server and internal buffer icons:
 
 ```toml
 [sidebar]
-server_icon = "hidden"
+primary_icon = "hidden"
+```
+
+## `secondary_font_size`
+
+Configure the font size used for buffers in the sidebar.  If not set, then [`font.size`](./font#size) will be used.
+
+```toml
+# Type: integer
+# Values: any positive integer or not set
+# Default: not set
+
+[sidebar]
+secondary_font_size = 12
 ```
 
 ## `position`
