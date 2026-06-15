@@ -1092,12 +1092,6 @@ impl<'a> ChannelQueryLayout<'a> {
 }
 
 impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
-    fn should_track_reply_target_visibility(&self) -> bool {
-        self.can_send_replies
-            && self.config.buffer.reply.enabled
-            && self.config.buffer.reply.highlight_hovered_message
-    }
-
     fn format(
         &self,
         message: &'a data::Message,

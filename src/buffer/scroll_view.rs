@@ -194,10 +194,6 @@ impl From<Kind<'_>> for history::Kind {
 }
 
 pub trait LayoutMessage<'a> {
-    fn should_track_reply_target_visibility(&self) -> bool {
-        false
-    }
-
     fn format(
         &self,
         message: &'a data::Message,
@@ -871,31 +867,27 @@ pub fn view<'a>(
                     element
                 };
 
-                // this prevents flicker when a message sits right at the edge
-                let element =
-                    if formatter.should_track_reply_target_visibility() {
-                        let is_visible =
-                            state.visible_messages.contains(&message.hash);
-                        if is_visible {
-                            notify_visibility(
-                                element,
-                                0.0,
-                                notify_visibility::When::MostlyOutside,
-                                message.hash,
-                                Message::ExitedViewport(message.hash),
-                            )
-                        } else {
-                            notify_visibility(
-                                element,
-                                0.0,
-                                notify_visibility::When::MostlyContained,
-                                message.hash,
-                                Message::EnteredViewport(message.hash),
-                            )
-                        }
+                let element = {
+                    let is_visible =
+                        state.visible_messages.contains(&message.hash);
+                    if is_visible {
+                        notify_visibility(
+                            element,
+                            0.0,
+                            notify_visibility::When::MostlyOutside,
+                            message.hash,
+                            Message::ExitedViewport(message.hash),
+                        )
                     } else {
-                        element
-                    };
+                        notify_visibility(
+                            element,
+                            0.0,
+                            notify_visibility::When::MostlyContained,
+                            message.hash,
+                            Message::EnteredViewport(message.hash),
+                        )
+                    }
+                };
 
                 let content = if is_new_day
                     && config.buffer.date_separators.show
