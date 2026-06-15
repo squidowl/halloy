@@ -771,7 +771,11 @@ pub fn view<'a>(
                             &state.visible_url_messages,
                             state.hovered_preview,
                             state.hover_highlighted_message,
-                            if focused_message == Some(message.hash) {
+                            if focused_message == Some(message.hash)
+                                && !state.focus_menu.as_ref().is_some_and(
+                                    |menu| menu.hash == message.hash,
+                                )
+                            {
                                 state.focused_url
                             } else {
                                 None
