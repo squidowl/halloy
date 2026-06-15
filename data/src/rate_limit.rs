@@ -127,7 +127,7 @@ impl<T> TokenBucket<T> {
                         .saturating_add(
                             new_permits.try_into().unwrap_or(self.capacity),
                         )
-                        .max(self.capacity);
+                        .min(self.capacity);
 
                     self.last = Some(now);
                 }
@@ -195,4 +195,21 @@ pub enum TokenPriority {
     Low,  // Polls & other automated messages for retrieving metadata
     High, // Most automated messages
     User, // Messages that the user triggers directly
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn token_bucket_refill_does_not_exceed_capacity() {
+        let start = Instant::now();
+        let mut bucket = TokenBucket::<usize>::new(Duration::from_secs(1), 3);
+        bucket.available_permits = 1;
+        bucket.last = Some(start);
+
+        bucket.add_permits(start + Duration::from_secs(10));
+
+        assert_eq!(bucket.available_permits, 3);
+    }
 }
