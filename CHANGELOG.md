@@ -10,6 +10,7 @@ Added:
 - Keyboard shortcuts validation (e.g no duplicate key binds)
 - `actions.buffer.click_nickname` and `actions.nicklist.click_nickname` can be used to specify whether a nickname will: open query and how the query is opened, insert nickname in the input box, or no action (`"no-action"` or `"noop"`); takes over functionality from `buffer.nickname.click` and `buffer.channel.nicklist.click` and adds the ability to perform no action
 - `actions.buffer.click_channel_name` and `actions.buffer.click_highlight` can be set to no action (`"no-action"` or `"noop"`) to not open the channel when clicking on the channel name
+- Explicit portable mode
 
 Fixed:
 
