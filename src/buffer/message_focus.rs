@@ -112,16 +112,6 @@ impl Manager {
                 scroll_view.close_focus_menu();
                 (Task::none(), Task::none(), None)
             }
-            input_view::Event::ScrollToBottom => {
-                let mut scroll_task = scroll_view.scroll_to_end(config);
-
-                if config.buffer.mark_as_read.on_scroll_to_bottom {
-                    scroll_task = scroll_task
-                        .chain(Task::done(scroll_view::Message::MarkAsRead));
-                }
-
-                (scroll_task, Task::none(), None)
-            }
             input_view::Event::FocusAction(action) => {
                 let hash = self.focused_message;
                 self.focused_message = None;

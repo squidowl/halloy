@@ -446,7 +446,6 @@ impl Query {
                     Some(
                         event @ (input_view::Event::NavigateFocus(_)
                         | input_view::Event::ExitFocus
-                        | input_view::Event::ScrollToBottom
                         | input_view::Event::FocusAction(_)),
                     ) => {
                         let (scroll_t, input_t, ctx_ev) =

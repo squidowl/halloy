@@ -492,15 +492,6 @@ impl Server {
                             abort_registrations,
                         }),
                     ),
-                    Some(input_view::Event::ScrollToBottom) => (
-                        Task::batch([
-                            command,
-                            self.scroll_view
-                                .scroll_to_end(config)
-                                .map(Message::ScrollView),
-                        ]),
-                        None,
-                    ),
                     Some(
                         input_view::Event::NavigateFocus(_)
                         | input_view::Event::ExitFocus

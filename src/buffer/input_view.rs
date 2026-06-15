@@ -84,7 +84,6 @@ pub enum Event {
     NavigateFocus(Direction),
     ExitFocus,
     FocusAction(FocusAction),
-    ScrollToBottom,
 }
 
 #[derive(Debug, Clone)]
@@ -1362,7 +1361,7 @@ impl State {
                 if self.clear_draft_reply(buffer, history, config) {
                     return (self.focus(), None);
                 }
-                (Task::none(), Some(Event::ScrollToBottom))
+                (Task::none(), None)
             }
             Message::SendCommand { buffer, command } => {
                 let input = data::Input::from_command(buffer.clone(), command)
