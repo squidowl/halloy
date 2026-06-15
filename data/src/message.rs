@@ -2447,6 +2447,10 @@ impl Fragment {
         }
     }
 
+    pub fn is_focus_target(&self) -> bool {
+        matches!(self, Fragment::Url(..) | Fragment::Channel(_))
+    }
+
     pub fn as_str(&self) -> &str {
         match self {
             Fragment::Text(s) => s,

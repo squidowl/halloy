@@ -1,5 +1,5 @@
 use data::user::{Nick, NickRef};
-use data::{Config, buffer, client, history, message};
+use data::{Config, buffer, client, history, message, target};
 use iced::{Task, widget};
 
 use super::{context_menu, input_view, message_view, scroll_view};
@@ -137,7 +137,7 @@ impl Manager {
                 })
                 .flatten();
 
-                let focused_url = scroll_view.focused_url();
+                let focused_link = scroll_view.focused_link();
 
                 let (exit_task, _) = input_view.update(
                     input_view::Message::ExitFocus,
@@ -159,7 +159,7 @@ impl Manager {
                         .copied()
                 });
 
-                let (context_event, extra_task) = match action {
+                let (scroll_task, input_task, context_event) = match action {
                     input_view::FocusAction::Reply => {
                         let result = message.and_then(|message| {
                             Some((
@@ -186,46 +186,40 @@ impl Manager {
                                 main_window,
                                 config,
                             );
-                            (None, reply_task)
+                            (Task::none(), reply_task, None)
                         } else {
-                            (None, Task::none())
+                            (Task::none(), Task::none(), None)
                         }
                     }
                     action => {
-                        let context_message = message.and_then(|message| {
-                            let focus_url = focused_url
+                        let focus_target = message.and_then(|message| {
+                            focused_link
                                 .and_then(|index| {
-                                    scroll_view::message_url_at(message, index)
+                                    scroll_view::message_focus_target_at(
+                                        message, index,
+                                    )
                                 })
                                 .or_else(|| {
                                     scroll_view::message_single_url(message)
+                                        .map(scroll_view::FocusTarget::Url)
                                 })
-                                .map(|url| url.to_string());
+                        });
 
-                            match action {
-                                input_view::FocusAction::CopyText => {
-                                    Some(context_menu::Message::CopyText(
+                        let mut scroll_task = Task::none();
+
+                        let context_message = match action {
+                            input_view::FocusAction::CopyText => {
+                                message.map(|message| {
+                                    context_menu::Message::CopyText(
                                         message.text().into_owned(),
-                                    ))
-                                }
-                                input_view::FocusAction::Redact => message
-                                    .id
-                                    .clone()
-                                    .map(context_menu::Message::Redact),
-                                input_view::FocusAction::OpenUrl => {
-                                    focus_url.map(context_menu::Message::OpenUrl)
-                                }
-                                input_view::FocusAction::CopyUrl => {
-                                    Some(focus_url.map_or_else(
-                                        || {
-                                            context_menu::Message::CopyText(
-                                                message.text().into_owned(),
-                                            )
-                                        },
-                                        context_menu::Message::CopyUrl,
-                                    ))
-                                }
-                                input_view::FocusAction::OpenReactionModal => {
+                                    )
+                                })
+                            }
+                            input_view::FocusAction::Redact => message
+                                .and_then(|message| message.id.clone())
+                                .map(context_menu::Message::Redact),
+                            input_view::FocusAction::OpenReactionModal => message
+                                .and_then(|message| {
                                     let id = message.id.clone()?;
                                     let selected =
                                         message_view::selected_reactions(
@@ -237,21 +231,83 @@ impl Manager {
                                             id, selected,
                                         ),
                                     )
+                                }),
+                            input_view::FocusAction::OpenUrl => {
+                                match focus_target {
+                                    Some(scroll_view::FocusTarget::Url(url)) => {
+                                        Some(context_menu::Message::OpenUrl(
+                                            url.to_string(),
+                                        ))
+                                    }
+                                    Some(scroll_view::FocusTarget::Channel(
+                                        channel,
+                                    )) => {
+                                        if let Some(server) = kind.server() {
+                                            let buffer_action = match config
+                                                .actions
+                                                .buffer
+                                                .click_channel_name
+                                            {
+                                                data::config::actions::ChannelClickAction::OpenChannel(
+                                                    buffer_action,
+                                                ) => buffer_action,
+                                                data::config::actions::ChannelClickAction::Noop => {
+                                                    data::dashboard::BufferAction::default()
+                                                }
+                                            };
+                                            let link = message::Link::Channel(
+                                                server.clone(),
+                                                target::Channel::from_str(
+                                                    &channel,
+                                                    clients.get_server_chantypes_or_default(server),
+                                                    clients.get_server_casemapping_or_default(server),
+                                                ),
+                                                buffer_action,
+                                            );
+                                            scroll_task = Task::done(
+                                                scroll_view::Message::Link(link),
+                                            );
+                                        }
+                                        None
+                                    }
+                                    None => None,
                                 }
-                                input_view::FocusAction::Reply => None,
                             }
-                        });
+                            input_view::FocusAction::CopyUrl => {
+                                match focus_target {
+                                    Some(scroll_view::FocusTarget::Url(url)) => {
+                                        Some(context_menu::Message::CopyUrl(
+                                            url.to_string(),
+                                        ))
+                                    }
+                                    Some(scroll_view::FocusTarget::Channel(
+                                        channel,
+                                    )) => Some(
+                                        context_menu::Message::CopyText(channel),
+                                    ),
+                                    // Copy the message text when no link is
+                                    // focused.
+                                    None => message.map(|message| {
+                                        context_menu::Message::CopyText(
+                                            message.text().into_owned(),
+                                        )
+                                    }),
+                                }
+                            }
+                            input_view::FocusAction::Reply => None,
+                        };
 
                         (
-                            context_message.and_then(context_menu::update),
+                            scroll_task,
                             Task::none(),
+                            context_message.and_then(context_menu::update),
                         )
                     }
                 };
 
                 (
-                    Task::none(),
-                    Task::batch([exit_task, extra_task]),
+                    scroll_task,
+                    Task::batch([exit_task, input_task]),
                     context_event,
                 )
             }

@@ -176,7 +176,6 @@ impl Keyboard {
             .collect()
     }
 
-    /// Resolve pressed key bind to a message-focus action
     pub fn message_focus(&self, key_bind: &KeyBind) -> Option<MessageFocus> {
         let matches =
             |binds: &KeyBinds| binds.iter().any(|bind| bind == key_bind);

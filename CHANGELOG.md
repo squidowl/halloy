@@ -12,7 +12,8 @@ Added:
 - `actions.buffer.click_channel_name` and `actions.buffer.click_highlight` can be set to no action (`"no-action"` or `"noop"`) to not open the channel when clicking on the channel name
 - Explicit portable mode
 - Theme editor can be closed via Escape
-- Keyboard-driven message focus: navigate and act on messages and messages without mouse
+- Keyboard-driven message focus: navigate and act on messages without mouse
+  - Links and channel mentions within a message can be focused and opened
   - New `buffer.focus` theme color for the focused message border
 
 Fixed:

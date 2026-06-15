@@ -5,7 +5,7 @@ use std::time::Duration;
 use chrono::{DateTime, Local, NaiveDate, Utc};
 use data::buffer::RightAlignmentWidths;
 use data::command::Irc;
-use data::config::actions::NicknameClickAction;
+use data::config::actions::{ChannelClickAction, NicknameClickAction};
 use data::config::buffer::{CondensationIcon, HideConsecutiveEnabled};
 use data::dashboard::BufferAction;
 use data::isupport::ChatHistoryState;
@@ -139,6 +139,8 @@ struct FocusEntry {
 enum FocusEntryAction {
     Message(input_view::FocusAction),
     Context(context_menu::Message),
+    // Activates the same behavior as clicking the link (e.g. opening a channel).
+    Link(message::Link),
 }
 
 impl FocusMenu {
@@ -208,7 +210,7 @@ pub trait LayoutMessage<'a> {
         visible_url_messages: &HashMap<message::Hash, Vec<url::Url>>,
         hovered_preview: Option<(message::Hash, usize)>,
         hovered_reply: Option<message::Hash>,
-        focused_url: Option<usize>,
+        focused_link: Option<usize>,
     ) -> Option<Element<'a, Message>>;
 }
 
@@ -233,7 +235,7 @@ where
         _visible_url_messages: &HashMap<message::Hash, Vec<url::Url>>,
         _hovered_preview: Option<(message::Hash, usize)>,
         _hovered_reply: Option<message::Hash>,
-        _focused_url: Option<usize>,
+        _focused_link: Option<usize>,
     ) -> Option<Element<'a, Message>> {
         self(
             message,
@@ -322,15 +324,15 @@ fn menu_separator<'a>(width: Length) -> Element<'a, Message> {
 
 fn build_focus_entries(
     message: &data::Message,
-    focused_url: Option<usize>,
+    focused_link: Option<usize>,
     server: &Server,
     clients: &client::Map,
     previews: Option<&Previews>,
     config: &Config,
 ) -> Vec<FocusEntry> {
-    let focus_url = focused_url
-        .and_then(|index| message_url_at(message, index))
-        .or_else(|| message_single_url(message));
+    let focus_target = focused_link
+        .and_then(|index| message_focus_target_at(message, index))
+        .or_else(|| message_single_url(message).map(FocusTarget::Url));
 
     let message_entry =
         |action: input_view::FocusAction, separator_before| FocusEntry {
@@ -341,7 +343,7 @@ fn build_focus_entries(
 
     let has_id = message.id.is_some();
     let mut interaction_actions = vec![];
-    if focused_url.is_none() {
+    if focused_link.is_none() {
         if has_id && clients.get_server_can_send_replies(server) {
             interaction_actions.push(input_view::FocusAction::Reply);
         }
@@ -358,62 +360,94 @@ fn build_focus_entries(
         .enumerate()
         .map(|(index, action)| message_entry(action, index == 0));
 
-    if let Some(url) = focus_url {
-        let url_string = url.to_string();
+    match focus_target {
+        Some(FocusTarget::Url(url)) => {
+            let url_string = url.to_string();
 
-        let mut entries = vec![
-            FocusEntry {
-                label: "Copy URL".to_string(),
-                separator_before: false,
-                action: FocusEntryAction::Context(
-                    context_menu::Message::CopyUrl(url_string.clone()),
-                ),
-            },
-            FocusEntry {
-                label: "Open URL".to_string(),
-                separator_before: false,
-                action: FocusEntryAction::Context(
-                    context_menu::Message::OpenUrl(url_string.clone()),
-                ),
-            },
-        ];
+            let mut entries = vec![
+                FocusEntry {
+                    label: "Copy URL".to_string(),
+                    separator_before: false,
+                    action: FocusEntryAction::Context(
+                        context_menu::Message::CopyUrl(url_string.clone()),
+                    ),
+                },
+                FocusEntry {
+                    label: "Open URL".to_string(),
+                    separator_before: false,
+                    action: FocusEntryAction::Context(
+                        context_menu::Message::OpenUrl(url_string.clone()),
+                    ),
+                },
+            ];
 
-        if let Some(is_hidden) = previews.and_then(|previews| {
-            previews.is_hidden_for_url(message, &url, &config.preview)
-        }) {
-            let (toggle_label, toggle_message) = if is_hidden {
-                (
-                    "Show Preview",
-                    context_menu::Message::ShowPreview(
-                        message.hash,
-                        url_string,
-                    ),
-                )
-            } else {
-                (
-                    "Hide Preview",
-                    context_menu::Message::HidePreview(
-                        message.hash,
-                        url_string,
-                    ),
-                )
+            if let Some(is_hidden) = previews.and_then(|previews| {
+                previews.is_hidden_for_url(message, &url, &config.preview)
+            }) {
+                let (toggle_label, toggle_message) = if is_hidden {
+                    (
+                        "Show Preview",
+                        context_menu::Message::ShowPreview(
+                            message.hash,
+                            url_string,
+                        ),
+                    )
+                } else {
+                    (
+                        "Hide Preview",
+                        context_menu::Message::HidePreview(
+                            message.hash,
+                            url_string,
+                        ),
+                    )
+                };
+
+                entries.push(FocusEntry {
+                    label: toggle_label.to_string(),
+                    separator_before: true,
+                    action: FocusEntryAction::Context(toggle_message),
+                });
+            }
+
+            entries.extend(interaction_entries);
+
+            entries
+        }
+        Some(FocusTarget::Channel(channel)) => {
+            let target = target::Channel::from_str(
+                &channel,
+                clients.get_server_chantypes_or_default(server),
+                clients.get_server_casemapping_or_default(server),
+            );
+
+            let buffer_action = match config.actions.buffer.click_channel_name {
+                ChannelClickAction::OpenChannel(buffer_action) => buffer_action,
+                ChannelClickAction::Noop => BufferAction::default(),
             };
 
-            entries.push(FocusEntry {
-                label: toggle_label.to_string(),
-                separator_before: true,
-                action: FocusEntryAction::Context(toggle_message),
-            });
+            let mut entries = vec![FocusEntry {
+                label: "Open channel".to_string(),
+                separator_before: false,
+                action: FocusEntryAction::Link(message::Link::Channel(
+                    server.clone(),
+                    target,
+                    buffer_action,
+                )),
+            }];
+
+            entries.extend(interaction_entries);
+
+            entries
         }
-
-        entries.extend(interaction_entries);
-
-        entries
-    } else {
-        // Parent message is focused - offer message actions
-        std::iter::once(message_entry(input_view::FocusAction::CopyText, false))
+        None => {
+            // Parent message is focused - offer message actions
+            std::iter::once(message_entry(
+                input_view::FocusAction::CopyText,
+                false,
+            ))
             .chain(interaction_entries)
             .collect()
+        }
     }
 }
 
@@ -775,7 +809,7 @@ pub fn view<'a>(
                                     |menu| menu.hash == message.hash,
                                 )
                             {
-                                state.focused_url
+                                state.focused_link
                             } else {
                                 None
                             },
@@ -805,7 +839,7 @@ pub fn view<'a>(
                         Some(Box::new(|| Message::FocusMenuDismiss)),
                     )
                 } else if focused_message == Some(message.hash)
-                    && state.focused_url.is_none()
+                    && state.focused_link.is_none()
                 {
                     // Only show focus on the whole message when no link/preview
                     // inside it is focused; as the inner element carries
@@ -1123,7 +1157,7 @@ pub struct State {
     reply_preview_urls: HashMap<message::Hash, Vec<url::Url>>,
     hovered_preview: Option<(message::Hash, usize)>,
     focus_menu: Option<FocusMenu>,
-    focused_url: Option<usize>,
+    focused_link: Option<usize>,
 }
 
 impl State {
@@ -1151,7 +1185,7 @@ impl State {
             reply_preview_urls: HashMap::new(),
             hovered_preview: None,
             focus_menu: None,
-            focused_url: None,
+            focused_link: None,
         }
     }
 
@@ -1725,7 +1759,8 @@ impl State {
                                 .map(|m| {
                                     (
                                         m.hash,
-                                        message_url_count(m).checked_sub(1),
+                                        message_focus_target_count(m)
+                                            .checked_sub(1),
                                     )
                                 }),
                             Direction::Down => all
@@ -1740,21 +1775,22 @@ impl State {
                             match all.iter().position(|m| m.hash == hash) {
                                 None => all.last().map(|m| (m.hash, None)),
                                 Some(i) => {
-                                    let urls = message_url_count(all[i]);
+                                    let links =
+                                        message_focus_target_count(all[i]);
                                     match direction {
                                         Direction::Down => {
-                                            match self.focused_url {
-                                                None if urls > 0 => {
+                                            match self.focused_link {
+                                                None if links > 0 => {
                                                     Some((hash, Some(0)))
                                                 }
-                                                Some(u) if u + 1 < urls => {
+                                                Some(u) if u + 1 < links => {
                                                     Some((hash, Some(u + 1)))
                                                 }
                                                 _ if i + 1 >= all.len() => {
                                                     // End of the last message
                                                     // — exit selection.
                                                     *focused_message = None;
-                                                    self.focused_url = None;
+                                                    self.focused_link = None;
                                                     return (
                                                         Task::none(),
                                                         Some(Event::ExitFocus),
@@ -1766,25 +1802,26 @@ impl State {
                                                 )),
                                             }
                                         }
-                                        Direction::Up => match self.focused_url
-                                        {
-                                            Some(0) => Some((hash, None)),
-                                            Some(u) => {
-                                                Some((hash, Some(u - 1)))
-                                            }
-                                            None if i == 0 => {
-                                                Some((hash, None))
-                                            }
-                                            None => {
-                                                // Previous message's last stop.
-                                                let prev = all[i - 1];
-                                                Some((
+                                        Direction::Up => {
+                                            match self.focused_link {
+                                                Some(0) => Some((hash, None)),
+                                                Some(u) => {
+                                                    Some((hash, Some(u - 1)))
+                                                }
+                                                None if i == 0 => {
+                                                    Some((hash, None))
+                                                }
+                                                None => {
+                                                    // Previous message's last stop.
+                                                    let prev = all[i - 1];
+                                                    Some((
                                                     prev.hash,
-                                                    message_url_count(prev)
+                                                    message_focus_target_count(prev)
                                                         .checked_sub(1),
                                                 ))
+                                                }
                                             }
-                                        },
+                                        }
                                     }
                                 }
                             }
@@ -1796,7 +1833,7 @@ impl State {
                 };
 
                 *focused_message = Some(target_hash);
-                self.focused_url = target_url;
+                self.focused_link = target_url;
 
                 return (
                     self.scroll_to_message(
@@ -1833,7 +1870,7 @@ impl State {
 
                 let entries = build_focus_entries(
                     message,
-                    self.focused_url,
+                    self.focused_link,
                     server,
                     clients,
                     previews,
@@ -1865,7 +1902,7 @@ impl State {
                 };
 
                 // Activating an action leaves focus mode.
-                self.focused_url = None;
+                self.focused_link = None;
 
                 return match entry.action {
                     FocusEntryAction::Message(action) => {
@@ -1873,6 +1910,14 @@ impl State {
                     }
                     FocusEntryAction::Context(message) => {
                         (Task::none(), Some(Event::FocusContextAction(message)))
+                    }
+                    FocusEntryAction::Link(link) => {
+                        // Re-dispatch as a link click and exit focus mode.
+                        *focused_message = None;
+                        (
+                            Task::done(Message::Link(link)),
+                            Some(Event::ExitFocus),
+                        )
                     }
                 };
             }
@@ -1884,7 +1929,7 @@ impl State {
 
             Message::FocusMenuDismiss => {
                 self.focus_menu = None;
-                self.focused_url = None;
+                self.focused_link = None;
                 *focused_message = None;
 
                 return (Task::none(), Some(Event::ExitFocus));
@@ -1897,13 +1942,13 @@ impl State {
         self.focus_menu.is_some()
     }
 
-    pub fn focused_url(&self) -> Option<usize> {
-        self.focused_url
+    pub fn focused_link(&self) -> Option<usize> {
+        self.focused_link
     }
 
     pub fn close_focus_menu(&mut self) {
         self.focus_menu = None;
-        self.focused_url = None;
+        self.focused_link = None;
     }
 
     pub fn update_pane_size(&mut self, pane_size: Size, config: &Config) {
@@ -2924,6 +2969,14 @@ fn prefixes_width(message: &data::Message, config: &Config) -> Option<f32> {
     })
 }
 
+/// A keyboard-focusable link target within a message: a URL or a channel
+/// mention.
+#[derive(Debug, Clone)]
+pub(crate) enum FocusTarget {
+    Url(url::Url),
+    Channel(String),
+}
+
 /// The URL of a message whose entire content is a single URL, if any.
 ///
 /// Such a message is already selectable as a whole, so it gets no separate
@@ -2943,21 +2996,43 @@ pub(crate) fn message_single_url(message: &data::Message) -> Option<url::Url> {
     .then(|| (*url).clone())
 }
 
-/// Number of separately-navigable URL targets in a message, in display order.
-fn message_url_count(message: &data::Message) -> usize {
+/// Iterator over a message's focusable link fragments, in display order.
+fn message_focus_target_fragments(
+    message: &data::Message,
+) -> impl Iterator<Item = &message::Fragment> {
+    let fragments: &[message::Fragment] = match &message.content {
+        data::message::Content::Fragments(fragments) => fragments,
+        _ => &[],
+    };
+
+    fragments.iter().filter(|f| f.is_focus_target())
+}
+
+/// Number of separately-navigable link targets in a message, in display order.
+fn message_focus_target_count(message: &data::Message) -> usize {
     if message_single_url(message).is_some() {
         return 0;
     }
 
-    message.content.urls().len()
+    message_focus_target_fragments(message).count()
 }
 
-/// The `index`-th URL fragment of a message, in display order.
-pub(crate) fn message_url_at(
+/// The `index`-th focusable link target of a message, in display order.
+pub(crate) fn message_focus_target_at(
     message: &data::Message,
     index: usize,
-) -> Option<url::Url> {
-    message.content.urls().into_iter().nth(index).cloned()
+) -> Option<FocusTarget> {
+    message_focus_target_fragments(message)
+        .nth(index)
+        .and_then(|fragment| match fragment {
+            message::Fragment::Url(url, _) => {
+                Some(FocusTarget::Url(url.clone()))
+            }
+            message::Fragment::Channel(channel) => {
+                Some(FocusTarget::Channel(channel.clone()))
+            }
+            _ => None,
+        })
 }
 
 fn timestamp_width(message: &data::Message, config: &Config) -> Option<f32> {

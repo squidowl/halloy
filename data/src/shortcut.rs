@@ -22,9 +22,6 @@ impl Shortcut {
 }
 
 impl KeyBind {
-    /// Whether the bind carries any modifier (ctrl/alt/shift/cmd). Used by the
-    /// input box to decide whether a focus bind should bubble to the global
-    /// handler rather than being handled as a cursor/history key.
     pub fn has_modifiers(&self) -> bool {
         matches!(
             self,

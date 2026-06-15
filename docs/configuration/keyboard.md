@@ -58,4 +58,4 @@ Each shortcut accepts either a single keybind string or an array of keybind stri
 | `focus_reply`                  | Reply to focused message            | <kbd>r</kbd>                                        | <kbd>r</kbd>                                        |
 | `focus_react`                  | Add reaction to focused message     | <kbd>=</kbd>                                        | <kbd>=</kbd>                                        |
 | `focus_redact_message`         | Redact focused message              | <kbd>backspace</kbd>                                | <kbd>backspace</kbd>                                |
-| `focus_open_url`               | Open link in focused message        | <kbd>o</kbd>                                        | <kbd>o</kbd>                                        |
+| `focus_open_url`               | Open focused link or channel        | <kbd>o</kbd>                                        | <kbd>o</kbd>                                        |

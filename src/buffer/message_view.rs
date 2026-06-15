@@ -545,7 +545,7 @@ impl<'a> ChannelQueryLayout<'a> {
         user: &'a User,
         hide_nickname: bool,
         nick_prefix_to_strip: Option<&str>,
-        focused_url: Option<usize>,
+        focused_link: Option<usize>,
     ) -> (
         Option<Element<'a, Message>>,
         Element<'a, Message>,
@@ -761,7 +761,7 @@ impl<'a> ChannelQueryLayout<'a> {
                             },
                             nick_prefix_to_strip,
                             self.config,
-                            focused_url,
+                            focused_link,
                         ),
                         redaction_message,
                         tooltip::Position::Top,
@@ -1110,7 +1110,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         visible_url_messages: &HashMap<message::Hash, Vec<url::Url>>,
         hovered_preview: Option<(message::Hash, usize)>,
         hovered_reply: Option<message::Hash>,
-        focused_url: Option<usize>,
+        focused_link: Option<usize>,
     ) -> Option<Element<'a, Message>> {
         let mut prefixes: Option<Element<_>> = self.format_prefixes(message);
 
@@ -1229,7 +1229,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                 user,
                 hide_nickname,
                 reply_nick_to_strip,
-                focused_url,
+                focused_link,
             )),
             message::Source::Server(server_message) => {
                 Some(self.format_server_message(
@@ -1436,11 +1436,11 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             // If the URL is hidden, we show focus on the preview widget, o
             // otherwise we focus the fragment.
             let focused_fragment_index =
-                focused_url.and_then(|n| match &message.content {
+                focused_link.and_then(|n| match &message.content {
                     message::Content::Fragments(fragments) => fragments
                         .iter()
                         .enumerate()
-                        .filter(|(_, fragment)| fragment.url().is_some())
+                        .filter(|(_, fragment)| fragment.is_focus_target())
                         .nth(n)
                         .map(|(index, _)| index),
                     _ => None,
