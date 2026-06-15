@@ -48,7 +48,7 @@ pub struct Keyboard {
     pub focus_reply: KeyBinds,
     pub focus_react: KeyBinds,
     pub focus_redact_message: KeyBinds,
-    pub focus_open_url: KeyBinds,
+    pub focus_open_link: KeyBinds,
 }
 
 impl Default for Keyboard {
@@ -97,7 +97,11 @@ impl Default for Keyboard {
             focus_reply: KeyBind::focus_reply_message().into(),
             focus_react: KeyBind::focus_react_to_message().into(),
             focus_redact_message: KeyBind::focus_redact_message().into(),
-            focus_open_url: KeyBind::focus_open_url_message().into(),
+            focus_open_link: vec![
+                KeyBind::focus_open_link_message(),
+                KeyBind::focus_open_link_message_space(),
+            ]
+            .into(),
         }
     }
 }
@@ -192,7 +196,7 @@ impl Keyboard {
             Some(MessageFocus::React)
         } else if matches(&self.focus_redact_message) {
             Some(MessageFocus::Redact)
-        } else if matches(&self.focus_open_url) {
+        } else if matches(&self.focus_open_link) {
             Some(MessageFocus::OpenUrl)
         } else {
             None

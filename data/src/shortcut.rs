@@ -435,7 +435,8 @@ impl KeyBind {
     default!(focus_reply_message, "r", Modifiers::default());
     default!(focus_react_to_message, "=", Modifiers::default());
     default!(focus_redact_message, Backspace);
-    default!(focus_open_url_message, "o", Modifiers::default());
+    default!(focus_open_link_message, Enter);
+    default!(focus_open_link_message_space, Space);
 }
 
 impl From<(keyboard::Key, keyboard::Modifiers)> for KeyBind {
