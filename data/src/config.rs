@@ -561,6 +561,8 @@ impl Config {
         })
         .map_err(|e| Error::Parse(e.to_string()))?;
 
+        keyboard.validate()?;
+
         let servers = ServerMap::new(
             servers,
             sidebar.order_channels_by,
@@ -815,6 +817,11 @@ pub enum Error {
         "Exactly one of sasl.plain.password, sasl.plain.password_file or sasl.plain.password_command must be set."
     )]
     DuplicateSaslPassword,
+    #[error("Keybind '{keybind}' is assigned to multiple actions: {actions:?}")]
+    KeyBindConflict {
+        keybind: crate::shortcut::KeyBind,
+        actions: Vec<crate::shortcut::Command>,
+    },
     #[error("Config does not exist")]
     ConfigMissing,
 }
