@@ -2033,7 +2033,7 @@ impl<'a> ChannelQueryLayout<'a> {
     }
 }
 
-fn selected_reactions(
+pub(crate) fn selected_reactions(
     message: &data::Message,
     our_nick: Option<NickRef<'_>>,
 ) -> Vec<String> {

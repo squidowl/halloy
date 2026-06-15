@@ -2,7 +2,7 @@ use data::user::{Nick, NickRef};
 use data::{Config, buffer, client, history, message};
 use iced::{Task, widget};
 
-use super::{context_menu, input_view, scroll_view};
+use super::{context_menu, input_view, message_view, scroll_view};
 use crate::window::Window;
 
 #[derive(Debug, Clone)]
@@ -139,40 +139,6 @@ impl Manager {
 
                 let focused_url = scroll_view.focused_url();
 
-                let msg_data = hash.and_then(|h| {
-                    let hkind: history::Kind = kind.into();
-                    let view = history.get_messages(&hkind, None, config)?;
-                    let msg = view
-                        .old_messages
-                        .iter()
-                        .chain(view.new_messages.iter())
-                        .find(|m| m.hash == h)?;
-                    Some((
-                        msg.id.clone(),
-                        msg.server_time,
-                        msg.target
-                            .source()
-                            .user()
-                            .map(|u| u.nickname().to_owned()),
-                        msg.text().into_owned(),
-                        msg.reactions
-                            .iter()
-                            .map(|r| {
-                                (r.sender.clone(), r.text.clone(), r.unreact)
-                            })
-                            .collect::<Vec<_>>(),
-                        // Resolve the focused URL the same way the action menu
-                        // does: the navigated link, falling back to a message
-                        // that is itself a single URL.
-                        focused_url
-                            .and_then(|index| {
-                                scroll_view::message_url_at(msg, index)
-                            })
-                            .or_else(|| scroll_view::message_single_url(msg))
-                            .map(|url| url.to_string()),
-                    ))
-                });
-
                 let (exit_task, _) = input_view.update(
                     input_view::Message::ExitFocus,
                     false,
@@ -183,23 +149,35 @@ impl Manager {
                     config,
                 );
 
+                let hkind: history::Kind = kind.into();
+                let message = hash.and_then(|h| {
+                    let view = history.get_messages(&hkind, None, config)?;
+                    view.old_messages
+                        .iter()
+                        .chain(view.new_messages.iter())
+                        .find(|m| m.hash == h)
+                        .copied()
+                });
+
                 let (context_event, extra_task) = match action {
                     input_view::FocusAction::Reply => {
-                        let result = msg_data.as_ref().and_then(
-                            |(id, server_time, to_nick, ..)| {
-                                Some((
-                                    id.clone()?,
-                                    *server_time,
-                                    to_nick.clone()?,
-                                ))
-                            },
-                        );
+                        let result = message.and_then(|message| {
+                            Some((
+                                message.id.clone()?,
+                                message.server_time,
+                                message
+                                    .target
+                                    .source()
+                                    .user()
+                                    .map(|u| u.nickname().to_owned())?,
+                            ))
+                        });
                         if let Some((msgid, server_time, to_nick)) = result {
                             let (reply_task, _) = input_view.update(
                                 input_view::Message::SetDraftReply {
-                                    msgid: msgid.clone(),
+                                    msgid,
                                     server_time,
-                                    to_nick: to_nick.clone(),
+                                    to_nick,
                                 },
                                 false,
                                 upstream,
@@ -213,65 +191,62 @@ impl Manager {
                             (None, Task::none())
                         }
                     }
-                    input_view::FocusAction::Redact => (
-                        msg_data
-                            .as_ref()
-                            .and_then(|(id, ..)| id.clone())
-                            .map(context_menu::Event::RedactMessage),
-                        Task::none(),
-                    ),
-                    input_view::FocusAction::CopyText => (
-                        msg_data.as_ref().map(|(_, _, _, text, _, _)| {
-                            context_menu::Event::CopyText(text.clone())
-                        }),
-                        Task::none(),
-                    ),
-                    input_view::FocusAction::OpenUrl => (
-                        msg_data.as_ref().and_then(
-                            |(_, _, _, _, _, focus_url)| {
-                                focus_url
+                    action => {
+                        let context_message = message.and_then(|message| {
+                            let focus_url = focused_url
+                                .and_then(|index| {
+                                    scroll_view::message_url_at(message, index)
+                                })
+                                .or_else(|| {
+                                    scroll_view::message_single_url(message)
+                                })
+                                .map(|url| url.to_string());
+
+                            match action {
+                                input_view::FocusAction::CopyText => {
+                                    Some(context_menu::Message::CopyText(
+                                        message.text().into_owned(),
+                                    ))
+                                }
+                                input_view::FocusAction::Redact => message
+                                    .id
                                     .clone()
-                                    .map(context_menu::Event::OpenUrl)
-                            },
-                        ),
-                        Task::none(),
-                    ),
-                    input_view::FocusAction::CopyUrl => (
-                        // Bound to the copy shortcut: copy the focused link, or
-                        // the message text when no link is focused.
-                        msg_data.as_ref().map(
-                            |(_, _, _, text, _, focus_url)| {
-                                focus_url.clone().map_or_else(
-                                    || {
-                                        context_menu::Event::CopyText(
-                                            text.clone(),
-                                        )
-                                    },
-                                    context_menu::Event::CopyUrl,
-                                )
-                            },
-                        ),
-                        Task::none(),
-                    ),
-                    input_view::FocusAction::OpenReactionModal => (
-                        msg_data.as_ref().and_then(
-                            |(id, _, _, _, reactions, _)| {
-                                let id = id.clone()?;
-                                let selected = our_nick
-                                    .as_ref()
-                                    .map(|nick| {
-                                        scroll_view::active_reactions_for_nick(
-                                            nick, reactions,
-                                        )
-                                    })
-                                    .unwrap_or_default();
-                                Some(context_menu::Event::OpenReactionModal(
-                                    id, selected,
-                                ))
-                            },
-                        ),
-                        Task::none(),
-                    ),
+                                    .map(context_menu::Message::Redact),
+                                input_view::FocusAction::OpenUrl => {
+                                    focus_url.map(context_menu::Message::OpenUrl)
+                                }
+                                input_view::FocusAction::CopyUrl => {
+                                    Some(focus_url.map_or_else(
+                                        || {
+                                            context_menu::Message::CopyText(
+                                                message.text().into_owned(),
+                                            )
+                                        },
+                                        context_menu::Message::CopyUrl,
+                                    ))
+                                }
+                                input_view::FocusAction::OpenReactionModal => {
+                                    let id = message.id.clone()?;
+                                    let selected =
+                                        message_view::selected_reactions(
+                                            message,
+                                            our_nick.as_ref().map(NickRef::from),
+                                        );
+                                    Some(
+                                        context_menu::Message::OpenReactionModal(
+                                            id, selected,
+                                        ),
+                                    )
+                                }
+                                input_view::FocusAction::Reply => None,
+                            }
+                        });
+
+                        (
+                            context_message.and_then(context_menu::update),
+                            Task::none(),
+                        )
+                    }
                 };
 
                 (

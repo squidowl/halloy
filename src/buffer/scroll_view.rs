@@ -15,7 +15,6 @@ use data::rate_limit::TokenPriority;
 use data::reaction::Reaction;
 use data::server::Server;
 use data::target::{self, Target};
-use data::user::Nick;
 use data::{Config, Image, Preview, client, history, metadata, reaction};
 use iced::border::Radius;
 use iced::widget::{
@@ -2925,29 +2924,6 @@ fn prefixes_width(message: &data::Message, config: &Config) -> Option<f32> {
     })
 }
 
-pub fn active_reactions_for_nick(
-    our_nick: &Nick,
-    reactions: &[(Nick, String, bool)],
-) -> Vec<String> {
-    use std::collections::BTreeMap;
-    let mut counts = BTreeMap::<String, i32>::new();
-    for (sender, text, unreact) in reactions {
-        if our_nick.as_str() == sender.as_str() {
-            let c = counts.entry(text.clone()).or_insert(0);
-            if *unreact {
-                *c -= 1;
-            } else {
-                *c += 1;
-            }
-        }
-    }
-    counts
-        .into_iter()
-        .filter(|(_, c)| *c > 0)
-        .map(|(t, _)| t)
-        .collect()
-}
-
 /// The URL of a message whose entire content is a single URL, if any.
 ///
 /// Such a message is already selectable as a whole, so it gets no separate
@@ -2957,14 +2933,14 @@ pub(crate) fn message_single_url(message: &data::Message) -> Option<url::Url> {
         return None;
     };
 
-    let mut urls = fragments.iter().filter_map(message::Fragment::url);
-    let url = urls.next()?;
+    let urls = message.content.urls();
+    let url = urls.first()?;
 
-    (urls.next().is_none()
+    (urls.len() == 1
         && fragments
             .iter()
             .all(|f| f.url().is_some() || f.as_str().trim().is_empty()))
-    .then(|| url.clone())
+    .then(|| (*url).clone())
 }
 
 /// Number of separately-navigable URL targets in a message, in display order.
@@ -2973,12 +2949,7 @@ fn message_url_count(message: &data::Message) -> usize {
         return 0;
     }
 
-    match &message.content {
-        data::message::Content::Fragments(fragments) => {
-            fragments.iter().filter(|f| f.url().is_some()).count()
-        }
-        _ => 0,
-    }
+    message.content.urls().len()
 }
 
 /// The `index`-th URL fragment of a message, in display order.
@@ -2986,14 +2957,7 @@ pub(crate) fn message_url_at(
     message: &data::Message,
     index: usize,
 ) -> Option<url::Url> {
-    match &message.content {
-        data::message::Content::Fragments(fragments) => fragments
-            .iter()
-            .filter_map(message::Fragment::url)
-            .nth(index)
-            .cloned(),
-        _ => None,
-    }
+    message.content.urls().into_iter().nth(index).cloned()
 }
 
 fn timestamp_width(message: &data::Message, config: &Config) -> Option<f32> {
