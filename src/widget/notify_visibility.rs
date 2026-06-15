@@ -12,7 +12,11 @@ pub enum When {
     /// Element bounds are fully contained within the viewport
     Contained,
     /// Element is not fully contained by the viewport (partially or fully outside)
-    NotContained,
+    Outside,
+    /// At least half of the element's area is within the viewport
+    MostlyContained,
+    /// More than half of the element's area is outside the viewport
+    MostlyOutside,
 }
 
 pub fn notify_visibility<'a, Message, Id>(
@@ -58,11 +62,28 @@ where
                         && viewport.y + viewport.height
                             >= bounds.y + bounds.height;
 
+                    // Fraction of the element's area that lies within the
+                    // (margin-expanded) viewport.
+                    let bounds_area = bounds.area();
+                    let visible_fraction = if bounds_area > 0.0 {
+                        viewport
+                            .expand(margin)
+                            .intersection(&bounds)
+                            .map_or(0.0, |intersection| {
+                                intersection.area() / bounds_area
+                            })
+                    } else {
+                        0.0
+                    };
+                    let is_mostly_contained = visible_fraction >= 0.5;
+
                     let should_notify = match when {
                         When::Intersecting => is_visible,
                         When::Disjoint => !is_visible,
                         When::Contained => is_fully_visible,
-                        When::NotContained => !is_fully_visible,
+                        When::Outside => !is_fully_visible,
+                        When::MostlyContained => is_mostly_contained,
+                        When::MostlyOutside => !is_mostly_contained,
                     };
 
                     if should_notify && !state.1 {

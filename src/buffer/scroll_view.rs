@@ -880,7 +880,7 @@ pub fn view<'a>(
                             notify_visibility(
                                 element,
                                 0.0,
-                                notify_visibility::When::NotContained,
+                                notify_visibility::When::MostlyOutside,
                                 message.hash,
                                 Message::ExitedViewport(message.hash),
                             )
@@ -888,7 +888,7 @@ pub fn view<'a>(
                             notify_visibility(
                                 element,
                                 0.0,
-                                notify_visibility::When::Contained,
+                                notify_visibility::When::MostlyContained,
                                 message.hash,
                                 Message::EnteredViewport(message.hash),
                             )
