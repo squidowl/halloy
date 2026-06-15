@@ -12,8 +12,8 @@ use nom::{Finish, IResult, Parser};
 
 use crate::{Command, Message, Source, Tags, User};
 
-pub fn message_bytes(bytes: Vec<u8>) -> Result<Message, Error> {
-    let input = String::from_utf8_lossy(&bytes);
+pub fn message_bytes(bytes: &[u8]) -> Result<Message, Error> {
+    let input = String::from_utf8_lossy(bytes);
     message(&input)
 }
 
@@ -496,7 +496,7 @@ mod test {
         ];
 
         for (test, expected) in tests {
-            let message = super::message_bytes(test).unwrap();
+            let message = super::message_bytes(&test).unwrap();
             assert_eq!(message, expected);
         }
     }

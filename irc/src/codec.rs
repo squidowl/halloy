@@ -20,9 +20,7 @@ impl Decoder for Codec {
             return Ok(None);
         };
 
-        let bytes = Vec::from(src.split_to(pos + 2));
-
-        Ok(Some(parse::message_bytes(bytes)))
+        Ok(Some(parse::message_bytes(&src.split_to(pos + 2))))
     }
 }
 
