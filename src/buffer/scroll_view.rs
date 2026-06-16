@@ -2082,11 +2082,35 @@ impl State {
             .contains_key(&keyed::Key::Message(message))
         {
             self.is_scrolling_to = true;
-            return keyed::find(
+
+            // cache real heights while fully rendered so the virtualized
+            // layout's doesn't drift from estimates as focus moves.
+            // without this, the error increases over time which leads to
+            // unpredictable scrolling.
+            let find = keyed::find(
                 self.scrollable.clone(),
                 keyed::Key::Message(message),
             )
             .map(Message::ScrollTo);
+
+            // only do this when something is unmeasured — in steady state every
+            // height is already cached and re-collecting would be wasted work.
+            let needs_heights =
+                old_messages.iter().chain(&new_messages).any(|m| {
+                    !self
+                        .height_cache
+                        .contains_key(&keyed::Key::Message(m.hash))
+                });
+
+            return if needs_heights {
+                Task::batch([
+                    keyed::collect_heights(self.scrollable.clone())
+                        .map(Message::HeightsCollected),
+                    find,
+                ])
+            } else {
+                find
+            };
         }
 
         // Load a window of messages centered on the target.
