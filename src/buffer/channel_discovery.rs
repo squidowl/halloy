@@ -192,7 +192,7 @@ pub fn view<'a>(
                     .width(Length::Shrink)
                     .content_fit(ContentFit::Contain)
                     .height(theme::TEXT_SIZE + 3.0)
-                    .style(theme::svg::secondary),
+                    .style(theme::text::secondary),
                 text("Select a server")
                     .style(theme::text::secondary)
                     .font_maybe(

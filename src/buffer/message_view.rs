@@ -339,7 +339,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 button(
                     row![
                         icon::not_sent()
-                            .style(theme::svg::error)
+                            .style(theme::text::error)
                             .height(icon_size)
                             .width(Length::Shrink)
                             .content_fit(ContentFit::Contain),

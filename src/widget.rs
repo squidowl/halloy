@@ -45,6 +45,7 @@ pub mod reply;
 pub mod selectable_rich_text;
 pub mod selectable_text;
 pub mod shortcut;
+pub mod text_color_svg;
 pub mod tooltip;
 pub mod user_display;
 
