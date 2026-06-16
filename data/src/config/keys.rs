@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use serde::Deserialize;
 
 use crate::config::Error;
-use crate::shortcut::{KeyBind, KeyBinds, Shortcut, shortcut};
+use crate::shortcut::{
+    Command, Commands, KeyBind, KeyBinds, Shortcut, shortcut,
+};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
@@ -84,8 +86,8 @@ impl Default for Keyboard {
 }
 
 impl Keyboard {
-    fn keybind_pairs(&self) -> Vec<(&KeyBinds, crate::shortcut::Command)> {
-        use crate::shortcut::Command::*;
+    fn keybind_pairs(&self) -> Vec<(&KeyBinds, Command)> {
+        use Command::*;
         vec![
             (&self.move_up, MoveUp),
             (&self.move_down, MoveDown),
@@ -125,8 +127,7 @@ impl Keyboard {
     }
 
     pub fn validate(&self) -> Result<(), Error> {
-        let mut map: HashMap<KeyBind, Vec<crate::shortcut::Command>> =
-            HashMap::new();
+        let mut map: HashMap<KeyBind, Vec<Command>> = HashMap::new();
 
         for (keybinds, command) in self.keybind_pairs() {
             for key in keybinds.iter() {
@@ -138,7 +139,7 @@ impl Keyboard {
             if commands.len() > 1 {
                 return Err(Error::KeyBindConflict {
                     keybind: key,
-                    actions: commands,
+                    actions: Commands::from(commands),
                 });
             }
         }

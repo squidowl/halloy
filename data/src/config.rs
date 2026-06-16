@@ -40,6 +40,7 @@ use crate::serde::{
     deserialize_f32_positive_float_maybe, deserialize_u8_positive_integer_maybe,
 };
 use crate::server::{ConfigMap as ServerMap, ServerName};
+use crate::shortcut::{Commands, KeyBind};
 use crate::{Theme, environment};
 
 pub mod actions;
@@ -817,11 +818,8 @@ pub enum Error {
         "Exactly one of sasl.plain.password, sasl.plain.password_file or sasl.plain.password_command must be set."
     )]
     DuplicateSaslPassword,
-    #[error("Keybind '{keybind}' is assigned to multiple actions: {actions:?}")]
-    KeyBindConflict {
-        keybind: crate::shortcut::KeyBind,
-        actions: Vec<crate::shortcut::Command>,
-    },
+    #[error("Keybind \"{}\" is assigned to multiple actions: {}", keybind.as_config_string(), actions.as_config_string())]
+    KeyBindConflict { keybind: KeyBind, actions: Commands },
     #[error("Config does not exist")]
     ConfigMissing,
 }
