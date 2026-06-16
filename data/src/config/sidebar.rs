@@ -297,7 +297,7 @@ pub enum OrderChannelsBy {
 #[derive(Debug, Copy, Clone, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub enum InternalBuffer {
-    FileTransfer,
+    FileTransfers,
     ChannelDiscovery,
     Highlights,
     Logs,
