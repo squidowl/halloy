@@ -1,6 +1,11 @@
+use std::collections::HashMap;
+
 use serde::Deserialize;
 
-use crate::shortcut::{KeyBind, KeyBinds, Shortcut, shortcut};
+use crate::config::Error;
+use crate::shortcut::{
+    Command, Commands, KeyBind, KeyBinds, Shortcut, shortcut,
+};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
@@ -81,55 +86,76 @@ impl Default for Keyboard {
 }
 
 impl Keyboard {
+    fn keybind_pairs(&self) -> Vec<(&KeyBinds, Command)> {
+        use Command::*;
+        vec![
+            (&self.move_up, MoveUp),
+            (&self.move_down, MoveDown),
+            (&self.move_left, MoveLeft),
+            (&self.move_right, MoveRight),
+            (&self.new_horizontal_buffer, NewHorizontalBuffer),
+            (&self.new_vertical_buffer, NewVerticalBuffer),
+            (&self.close_buffer, CloseBuffer),
+            (&self.maximize_buffer, MaximizeBuffer),
+            (&self.restore_buffer, RestoreBuffer),
+            (&self.cycle_next_buffer, CycleNextBuffer),
+            (&self.cycle_previous_buffer, CyclePreviousBuffer),
+            (&self.leave_buffer, LeaveBuffer),
+            (&self.toggle_nick_list, ToggleNicklist),
+            (&self.toggle_topic, ToggleTopic),
+            (&self.toggle_sidebar, ToggleSidebar),
+            (&self.toggle_fullscreen, ToggleFullscreen),
+            (&self.command_bar, CommandBar),
+            (&self.reload_configuration, ReloadConfiguration),
+            (&self.file_transfers, FileTransfers),
+            (&self.logs, Logs),
+            (&self.theme_editor, ThemeEditor),
+            (&self.scroll_up_page, ScrollUpPage),
+            (&self.scroll_down_page, ScrollDownPage),
+            (&self.scroll_to_top, ScrollToTop),
+            (&self.scroll_to_bottom, ScrollToBottom),
+            (&self.highlights, Highlights),
+            (&self.cycle_next_unread_buffer, CycleNextUnreadBuffer),
+            (
+                &self.cycle_previous_unread_buffer,
+                CyclePreviousUnreadBuffer,
+            ),
+            (&self.mark_as_read, MarkAsRead),
+            (&self.quit_application, QuitApplication),
+            (&self.open_config_file, OpenConfigFile),
+        ]
+    }
+
+    pub fn validate(&self) -> Result<(), Error> {
+        let mut map: HashMap<KeyBind, Vec<Command>> = HashMap::new();
+
+        for (keybinds, command) in self.keybind_pairs() {
+            for key in keybinds.iter() {
+                map.entry(key.clone()).or_default().push(command);
+            }
+        }
+
+        for (key, commands) in map {
+            if commands.len() > 1 {
+                return Err(Error::KeyBindConflict {
+                    keybind: key,
+                    actions: Commands::from(commands),
+                });
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn shortcuts(&self) -> Vec<Shortcut> {
-        use crate::shortcut::Command::*;
-
-        let mut shortcuts = vec![];
-
-        let mut push = |key_binds: &KeyBinds, command| {
-            shortcuts.extend(
-                key_binds
+        self.keybind_pairs()
+            .into_iter()
+            .flat_map(|(keybinds, command)| {
+                keybinds
                     .iter()
                     .cloned()
-                    .map(|key_bind| shortcut(key_bind, command)),
-            );
-        };
-
-        push(&self.move_up, MoveUp);
-        push(&self.move_down, MoveDown);
-        push(&self.move_left, MoveLeft);
-        push(&self.move_right, MoveRight);
-        push(&self.new_horizontal_buffer, NewHorizontalBuffer);
-        push(&self.new_vertical_buffer, NewVerticalBuffer);
-        push(&self.close_buffer, CloseBuffer);
-        push(&self.maximize_buffer, MaximizeBuffer);
-        push(&self.restore_buffer, RestoreBuffer);
-        push(&self.cycle_next_buffer, CycleNextBuffer);
-        push(&self.cycle_previous_buffer, CyclePreviousBuffer);
-        push(&self.leave_buffer, LeaveBuffer);
-        push(&self.toggle_nick_list, ToggleNicklist);
-        push(&self.toggle_topic, ToggleTopic);
-        push(&self.toggle_sidebar, ToggleSidebar);
-        push(&self.toggle_fullscreen, ToggleFullscreen);
-        push(&self.command_bar, CommandBar);
-        push(&self.reload_configuration, ReloadConfiguration);
-        push(&self.file_transfers, FileTransfers);
-        push(&self.logs, Logs);
-        push(&self.theme_editor, ThemeEditor);
-        push(&self.scroll_up_page, ScrollUpPage);
-        push(&self.scroll_down_page, ScrollDownPage);
-        push(&self.scroll_to_top, ScrollToTop);
-        push(&self.scroll_to_bottom, ScrollToBottom);
-        push(&self.highlights, Highlights);
-        push(&self.cycle_next_unread_buffer, CycleNextUnreadBuffer);
-        push(
-            &self.cycle_previous_unread_buffer,
-            CyclePreviousUnreadBuffer,
-        );
-        push(&self.mark_as_read, MarkAsRead);
-        push(&self.quit_application, QuitApplication);
-        push(&self.open_config_file, OpenConfigFile);
-
-        shortcuts
+                    .map(move |key_bind| shortcut(key_bind, command))
+            })
+            .collect()
     }
 }

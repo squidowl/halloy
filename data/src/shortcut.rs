@@ -75,7 +75,8 @@ impl<'de> Deserialize<'de> for KeyBinds {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display)]
+#[strum(serialize_all = "snake_case")]
 pub enum Command {
     MoveUp,
     MoveDown,
@@ -148,6 +149,46 @@ macro_rules! default {
     };
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct Commands(Vec<Command>);
+
+impl From<Vec<Command>> for Commands {
+    fn from(commands: Vec<Command>) -> Self {
+        Self(commands)
+    }
+}
+
+impl Commands {
+    pub fn as_config_string(&self) -> String {
+        if let Some((last, rest)) = self.0.split_last() {
+            if self.0.len() == 1 {
+                format!("{last}")
+            } else {
+                let mut config_string = String::new();
+
+                if self.0.len() == 2 {
+                    if let Some(command) = rest.first() {
+                        config_string
+                            .push_str(format!("{command} and ").as_str());
+                    }
+
+                    config_string.push_str(format!("{last}").as_str());
+                } else {
+                    for command in rest {
+                        config_string.push_str(format!("{command}, ").as_str());
+                    }
+
+                    config_string.push_str(format!("and {last}").as_str());
+                }
+
+                config_string
+            }
+        } else {
+            String::new()
+        }
+    }
+}
+
 #[derive(Debug, Clone, Eq, Ord, PartialOrd)]
 pub enum KeyBind {
     Bind {
@@ -165,6 +206,22 @@ impl fmt::Display for KeyBind {
                 modifiers,
             } => write!(f, "{modifiers} {key_code}"),
             KeyBind::Unbind => write!(f, ""),
+        }
+    }
+}
+
+impl KeyBind {
+    pub fn as_config_string(&self) -> String {
+        match self {
+            KeyBind::Bind {
+                key_code,
+                modifiers,
+            } => format!(
+                "{}+{}",
+                modifiers.as_config_string(),
+                key_code.to_string().to_lowercase()
+            ),
+            KeyBind::Unbind => String::new(),
         }
     }
 }
@@ -210,8 +267,12 @@ impl Hash for KeyBind {
                 key_code,
                 modifiers,
             } => {
-                key_code.hash(state);
                 modifiers.hash(state);
+                if let keyboard::Key::Character(c) = &key_code.0 {
+                    keyboard::Key::Character(c.to_lowercase()).hash(state);
+                } else {
+                    key_code.hash(state);
+                }
             }
             KeyBind::Unbind => {
                 std::mem::discriminant(self).hash(state);
@@ -417,6 +478,37 @@ impl fmt::Display for Modifiers {
         } else {
             write!(f, "{}", mods.join(" "))
         }
+    }
+}
+
+impl Modifiers {
+    fn as_config_string(&self) -> String {
+        let mut mods = vec![];
+        let inner = self.0;
+
+        if inner.contains(keyboard::Modifiers::SHIFT) {
+            mods.push("shift");
+        }
+        if inner.contains(keyboard::Modifiers::CTRL) {
+            mods.push("ctrl");
+        }
+        if inner.contains(keyboard::Modifiers::ALT) {
+            if cfg!(target_os = "macos") {
+                mods.push("opt");
+            } else {
+                mods.push("alt");
+            }
+        }
+        if inner.contains(keyboard::Modifiers::LOGO) {
+            if cfg!(target_os = "macos") {
+            } else if cfg!(target_os = "windows") {
+                mods.push("win");
+            } else {
+                mods.push("super");
+            }
+        }
+
+        mods.join("+")
     }
 }
 
