@@ -210,8 +210,12 @@ impl Hash for KeyBind {
                 key_code,
                 modifiers,
             } => {
-                key_code.hash(state);
                 modifiers.hash(state);
+                if let keyboard::Key::Character(c) = &key_code.0 {
+                    keyboard::Key::Character(c.to_lowercase()).hash(state);
+                } else {
+                    key_code.hash(state);
+                }
             }
             KeyBind::Unbind => {
                 std::mem::discriminant(self).hash(state);
