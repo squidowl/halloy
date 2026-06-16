@@ -3515,7 +3515,7 @@ impl Dashboard {
 
     pub fn is_open_and_at_bottom(&self, kind: &history::Kind) -> bool {
         let Some((kind_window, kind_pane)) =
-            self.panes.iter().find_map(|(window, _, state)| {
+            self.panes.iter_visible().find_map(|(window, _, state)| {
                 state
                     .buffer
                     .data()
@@ -5084,6 +5084,23 @@ impl Panes {
         self.main
             .iter()
             .map(move |(pane, state)| (self.main_window, *pane, state))
+            .chain(self.popout.iter().flat_map(|(window_id, panes)| {
+                panes.iter().map(|(pane, state)| (*window_id, *pane, state))
+            }))
+    }
+
+    fn iter_visible(
+        &self,
+    ) -> impl Iterator<Item = (window::Id, pane_grid::Pane, &Pane)> {
+        let maximized = self.main.maximized();
+
+        self.main
+            .iter()
+            .filter_map(move |(pane, state)| {
+                maximized
+                    .is_none_or(|maximized| *pane == maximized)
+                    .then_some((self.main_window, *pane, state))
+            })
             .chain(self.popout.iter().flat_map(|(window_id, panes)| {
                 panes.iter().map(|(pane, state)| (*window_id, *pane, state))
             }))

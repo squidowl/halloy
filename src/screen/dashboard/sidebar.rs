@@ -947,9 +947,12 @@ fn upstream_buffer_button<'a>(
     let open = panes.iter().find_map(|(window_id, pane, state)| {
         (state.buffer.upstream() == Some(&buffer)).then_some((window_id, pane))
     });
+    let is_visible = panes
+        .iter_visible()
+        .any(|(_, _, state)| state.buffer.upstream() == Some(&buffer));
 
     let has_unread = if config.sidebar.unread_indicator.show_on_open_buffers
-        || open.is_none()
+        || !is_visible
     {
         history.has_unread(&kind)
     } else {
@@ -957,7 +960,7 @@ fn upstream_buffer_button<'a>(
     };
 
     let has_highlight = if config.sidebar.unread_indicator.show_on_open_buffers
-        || open.is_none()
+        || !is_visible
     {
         history.has_highlight(&kind)
     } else {
