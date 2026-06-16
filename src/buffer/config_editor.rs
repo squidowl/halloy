@@ -15,6 +15,8 @@ pub enum Message {
     Action(text_editor::Action),
     Save,
     Refresh,
+    Undo,
+    Redo,
     OpenDirectory,
     Saved(Result<(), String>),
 }
@@ -58,11 +60,38 @@ impl Error {
     }
 }
 
+#[derive(Debug, Clone)]
+struct Snapshot {
+    text: String,
+    cursor: text_editor::Cursor,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum EditKind {
+    Insert,
+    Delete,
+}
+
+fn edit_kind(edit: &text_editor::Edit) -> Option<EditKind> {
+    match edit {
+        text_editor::Edit::Insert(c) if !c.is_whitespace() => {
+            Some(EditKind::Insert)
+        }
+        text_editor::Edit::Backspace | text_editor::Edit::Delete => {
+            Some(EditKind::Delete)
+        }
+        _ => None,
+    }
+}
+
 #[derive(Debug)]
 pub struct ConfigEditor {
     content: text_editor::Content,
     dirty: bool,
     error: Option<Error>,
+    undo: Vec<Snapshot>,
+    redo: Vec<Snapshot>,
+    coalescing: Option<EditKind>,
 }
 
 impl Clone for ConfigEditor {
@@ -71,6 +100,9 @@ impl Clone for ConfigEditor {
             content: text_editor::Content::with_text(&self.content.text()),
             dirty: self.dirty,
             error: self.error.clone(),
+            undo: self.undo.clone(),
+            redo: self.redo.clone(),
+            coalescing: self.coalescing,
         }
     }
 }
@@ -89,6 +121,9 @@ impl ConfigEditor {
             content: text_editor::Content::with_text(&text),
             dirty: false,
             error,
+            undo: Vec::new(),
+            redo: Vec::new(),
+            coalescing: None,
         }
     }
 
@@ -100,18 +135,59 @@ impl ConfigEditor {
         self.error = error.map(Error::parse);
     }
 
+    fn snapshot(&self) -> Snapshot {
+        Snapshot {
+            text: self.content.text(),
+            cursor: self.content.cursor(),
+        }
+    }
+
+    fn restore(&mut self, snapshot: Snapshot) {
+        self.content = text_editor::Content::with_text(&snapshot.text);
+        self.content.move_to(snapshot.cursor);
+        self.coalescing = None;
+        self.dirty = true;
+        self.error = None;
+    }
+
     pub fn update(
         &mut self,
         message: Message,
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::Action(action) => {
-                if action.is_edit() {
+                if let text_editor::Action::Edit(edit) = &action {
+                    let kind = edit_kind(edit);
+
+                    if kind.is_none() || kind != self.coalescing {
+                        self.undo.push(self.snapshot());
+                        self.redo.clear();
+                    }
+
+                    self.coalescing = kind;
                     self.dirty = true;
                     self.error = None;
+                } else {
+                    self.coalescing = None;
                 }
 
                 self.content.perform(action);
+
+                (Task::none(), None)
+            }
+            Message::Undo => {
+                if let Some(snapshot) = self.undo.pop() {
+                    self.redo.push(self.snapshot());
+                    self.restore(snapshot);
+                }
+
+                (Task::none(), None)
+            }
+            Message::Redo => {
+                if let Some(snapshot) = self.redo.pop() {
+                    self.undo.push(self.snapshot());
+                    self.restore(snapshot);
+                }
 
                 (Task::none(), None)
             }
@@ -121,6 +197,9 @@ impl ConfigEditor {
                 self.content = text_editor::Content::with_text(&text);
                 self.dirty = false;
                 self.error = error;
+                self.undo.clear();
+                self.redo.clear();
+                self.coalescing = None;
 
                 (Task::none(), None)
             }
@@ -231,6 +310,22 @@ pub fn view<'a>(
                     if key_press.modifiers.command() && dirty =>
                 {
                     Some(text_editor::Binding::Custom(Message::Save))
+                }
+                iced::keyboard::Key::Character("z")
+                    if key_press.modifiers.command()
+                        && key_press.modifiers.shift() =>
+                {
+                    Some(text_editor::Binding::Custom(Message::Redo))
+                }
+                iced::keyboard::Key::Character("z")
+                    if key_press.modifiers.command() =>
+                {
+                    Some(text_editor::Binding::Custom(Message::Undo))
+                }
+                iced::keyboard::Key::Character("y")
+                    if key_press.modifiers.command() =>
+                {
+                    Some(text_editor::Binding::Custom(Message::Redo))
                 }
                 _ => text_editor::Binding::from_key_press(key_press),
             }
