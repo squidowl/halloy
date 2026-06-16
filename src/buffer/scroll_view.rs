@@ -44,6 +44,13 @@ pub enum Direction {
     Down,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ScrollAnchor {
+    #[default]
+    Top,
+    Bottom,
+}
+
 const HIGHLIGHT_HOLD_MS: u64 = 2000;
 const HIGHLIGHT_ALPHA_START: f32 = 1.0;
 const HOVER_HIGHLIGHT_ALPHA: f32 = 0.4;
@@ -1139,6 +1146,7 @@ pub struct State {
     height_cache: HashMap<keyed::Key, f32>,
     pending_scroll_to: Option<keyed::Key>,
     pending_scroll_animate: bool,
+    pending_scroll_align: ScrollAnchor,
     is_scrolling_to: bool,
     highlighted_message: Option<(message::Hash, f32)>,
     hover_highlighted_message: Option<message::Hash>,
@@ -1166,6 +1174,7 @@ impl State {
             height_cache: HashMap::new(),
             pending_scroll_to: None,
             pending_scroll_animate: true,
+            pending_scroll_align: ScrollAnchor::default(),
             is_scrolling_to: false,
             highlighted_message: None,
             hover_highlighted_message: None,
@@ -1445,6 +1454,8 @@ impl State {
                 self.pending_scroll_to = None;
                 let animate = self.pending_scroll_animate;
                 self.pending_scroll_animate = true;
+                let align = self.pending_scroll_align;
+                self.pending_scroll_align = ScrollAnchor::default();
 
                 let fade_task = if animate {
                     if let keyed::Key::Message(hash) = key {
@@ -1478,7 +1489,14 @@ impl State {
                     return (fade_task, None);
                 }
 
-                let offset = content_y.max(0.0).min(max_offset);
+                let aligned_y = match align {
+                    ScrollAnchor::Top => content_y,
+                    ScrollAnchor::Bottom => {
+                        content_y + hit_bounds.height
+                            - scrollable.viewport.height
+                    }
+                };
+                let offset = aligned_y.max(0.0).min(max_offset);
 
                 if (offset - max_offset).abs() <= f32::EPSILON {
                     self.status = Status::Bottom;
@@ -1827,6 +1845,14 @@ impl State {
                 *focused_message = Some(target_hash);
                 self.focused_link = target_url;
 
+                // Anchor the message to the edge we're moving toward, so a
+                // scroll reveals it at that edge rather than snapping it to the
+                // opposite side of the viewport.
+                let align = match direction {
+                    Direction::Up => ScrollAnchor::Top,
+                    Direction::Down => ScrollAnchor::Bottom,
+                };
+
                 return (
                     self.scroll_to_message(
                         target_hash,
@@ -1834,6 +1860,7 @@ impl State {
                         history,
                         config,
                         false,
+                        align,
                     ),
                     None,
                 );
@@ -2021,6 +2048,7 @@ impl State {
         history: &history::Manager,
         config: &Config,
         animate: bool,
+        align: ScrollAnchor,
     ) -> Task<Message> {
         let Some(history::View {
             old_messages,
@@ -2032,6 +2060,7 @@ impl State {
             // after loading. If this is set, we will scroll_to_message
             self.pending_scroll_to = Some(keyed::Key::Message(message));
             self.pending_scroll_animate = animate;
+            self.pending_scroll_align = align;
 
             return Task::none();
         };
@@ -2045,6 +2074,7 @@ impl State {
         };
 
         self.pending_scroll_animate = animate;
+        self.pending_scroll_align = align;
 
         // If the message is already rendered, skip the load and fire immediately.
         if self

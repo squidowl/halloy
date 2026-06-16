@@ -947,6 +947,7 @@ impl Buffer {
                     history,
                     config,
                     true,
+                    scroll_view::ScrollAnchor::Top,
                 )
                 .map(|message| {
                     Message::Channel(channel::Message::ScrollView(message))
@@ -959,6 +960,7 @@ impl Buffer {
                     history,
                     config,
                     true,
+                    scroll_view::ScrollAnchor::Top,
                 )
                 .map(|message| {
                     Message::Server(server::Message::ScrollView(message))
@@ -971,6 +973,7 @@ impl Buffer {
                     history,
                     config,
                     true,
+                    scroll_view::ScrollAnchor::Top,
                 )
                 .map(|message| {
                     Message::Query(query::Message::ScrollView(message))
@@ -983,6 +986,7 @@ impl Buffer {
                     history,
                     config,
                     true,
+                    scroll_view::ScrollAnchor::Top,
                 )
                 .map(|message| {
                     Message::Logs(logs::Message::ScrollView(message))
@@ -995,6 +999,7 @@ impl Buffer {
                     history,
                     config,
                     true,
+                    scroll_view::ScrollAnchor::Top,
                 )
                 .map(|message| {
                     Message::Highlights(highlights::Message::ScrollView(
