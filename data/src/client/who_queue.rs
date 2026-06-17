@@ -678,7 +678,7 @@ impl WhoQueue {
     // Insert poll based on sort order, at the back of its sort category.
     fn insert_towards_back(&mut self, who_poll: WhoPoll) {
         let at = self.queue.partition_point(|queued_poll| {
-            who_poll.source <= queued_poll.source
+            queued_poll.source <= who_poll.source
         });
         self.queue.insert(at, who_poll);
     }
@@ -686,7 +686,7 @@ impl WhoQueue {
     // Insert poll based on sort order, at the front of its sort category.
     fn insert_towards_front(&mut self, who_poll: WhoPoll) {
         let at = self.queue.partition_point(|queued_poll| {
-            who_poll.source < queued_poll.source
+            queued_poll.source < who_poll.source
         });
         self.queue.insert(at, who_poll);
     }
