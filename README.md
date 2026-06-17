@@ -15,6 +15,9 @@ Added feature areas:
   to become read-marker aware in a later slice.
 - `/common`: common-channel inspection using Halloy's already-known channel
   membership state, with `scope=global|network`.
+- Buffer close focus recovery: closing a channel or query returns focus to a
+  useful related buffer instead of leaving the main pane on an empty
+  "Select buffer" state.
 - Documentation and portability notes for future implementations in clients
   such as Konversation or Uplink.
 
@@ -34,6 +37,7 @@ Original Halloy project: <https://github.com/squidowl/halloy>
 - [Highlighting](#highlighting)
 - [`/common`](#common)
 - [`/common` Scope](#common-scope)
+- [Buffer Close Focus Recovery](#buffer-close-focus-recovery)
 - [Future `/common` Identity Enrichment](#future-common-identity-enrichment)
 - [Halloy Implementation Notes](#halloy-implementation-notes)
 - [Upstream Contribution Notes](#upstream-contribution-notes)
@@ -291,6 +295,24 @@ Rules:
 - Shared channel names are sorted alphabetically.
 - Result rows are sorted by display nick.
 - No network refresh is performed.
+
+## Buffer Close Focus Recovery
+
+This branch also fixes a usability issue when closing buffers. Previously,
+closing a channel or direct conversation could leave Halloy showing an empty
+"Select buffer" pane even though useful nearby buffers were still available.
+
+The new focus-selection behavior chooses a replacement buffer locally:
+
+- prefer the parent/spawning buffer when that relationship is known;
+- otherwise prefer the most recent suitable buffer on the same network;
+- fall back to the same-network server buffer when appropriate;
+- avoid crossing networks while choosing a replacement;
+- use the empty selection state only when there is no suitable replacement.
+
+This is intentionally independent from `/search` and `/common`, but it supports
+the same workflow goal: commands or buffer actions that open or close panes
+should leave focus somewhere predictable and useful.
 
 ## Future `/common` Identity Enrichment
 

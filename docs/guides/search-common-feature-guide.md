@@ -7,6 +7,10 @@ added in the Halloy feature branch. It is written as both user documentation
 and a portable design reference for possible future implementations in other
 IRC clients such as Konversation or Uplink.
 
+The branch also includes a buffer-close focus recovery fix: closing a channel
+or direct conversation returns focus to a useful related buffer instead of
+leaving the main pane on an empty "Select buffer" state.
+
 ## Security Model
 
 These commands are local inspection tools. They must not send IRC traffic by
@@ -253,6 +257,24 @@ Rules:
 - Shared channel names are sorted alphabetically.
 - Result rows are sorted by display nick.
 - No network refresh is performed.
+
+## Buffer Close Focus Recovery
+
+This branch also fixes a usability issue when closing buffers. Previously,
+closing a channel or direct conversation could leave Halloy showing an empty
+"Select buffer" pane even though useful nearby buffers were still available.
+
+The new focus-selection behavior chooses a replacement buffer locally:
+
+- prefer the parent/spawning buffer when that relationship is known;
+- otherwise prefer the most recent suitable buffer on the same network;
+- fall back to the same-network server buffer when appropriate;
+- avoid crossing networks while choosing a replacement;
+- use the empty selection state only when there is no suitable replacement.
+
+This is intentionally independent from `/search` and `/common`, but it supports
+the same workflow goal: commands or buffer actions that open or close panes
+should leave focus somewhere predictable and useful.
 
 ## Future `/common` Identity Enrichment
 
