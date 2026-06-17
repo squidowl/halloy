@@ -37,7 +37,6 @@ pub enum Message {
     Detach(buffer::Upstream),
     Leave(buffer::Upstream),
     CloseAllQueries(Server, Vec<target::Query>),
-    ToggleInternalBuffer(buffer::Internal),
     ToggleCommandBar,
     ToggleThemeEditor,
     ReloadConfigFile,
@@ -70,7 +69,6 @@ pub enum Event {
     Detach(buffer::Upstream),
     Leave(buffer::Upstream),
     CloseAllQueries(Server, Vec<target::Query>),
-    ToggleInternalBuffer(buffer::Internal),
     ToggleCommandBar,
     ToggleThemeEditor,
     OpenReleaseWebsite,
@@ -148,9 +146,6 @@ impl Sidebar {
             }
             Message::Leave(buffer) => {
                 (Task::none(), Some(Event::Leave(buffer)))
-            }
-            Message::ToggleInternalBuffer(buffer) => {
-                (Task::none(), Some(Event::ToggleInternalBuffer(buffer)))
             }
             Message::ToggleCommandBar => {
                 (Task::none(), Some(Event::ToggleCommandBar))
@@ -366,16 +361,16 @@ impl Sidebar {
                                     theme::svg::tertiary
                                 },
                             ),
-                            Message::ToggleInternalBuffer(
-                                buffer::Internal::FileTransfers,
+                            Message::Replace(
+                                buffer::Internal::FileTransfers.into(),
                             ),
                         ),
                         Menu::Highlights => context_button(
                             text("Highlights"),
                             Some(&keyboard.highlights),
                             icon::highlights().style(theme::svg::primary),
-                            Message::ToggleInternalBuffer(
-                                buffer::Internal::Highlights,
+                            Message::Replace(
+                                buffer::Internal::Highlights.into(),
                             ),
                         ),
                         Menu::ChannelDiscovery => context_button(
@@ -383,8 +378,8 @@ impl Sidebar {
                             None,
                             icon::channel_discovery()
                                 .style(theme::svg::primary),
-                            Message::ToggleInternalBuffer(
-                                buffer::Internal::ChannelDiscovery(None),
+                            Message::Replace(
+                                buffer::Internal::ChannelDiscovery(None).into(),
                             ),
                         ),
                         Menu::Logs => context_button(
@@ -407,8 +402,8 @@ impl Sidebar {
                             } else {
                                 theme::svg::primary
                             }),
-                            Message::ToggleInternalBuffer(
-                                buffer::Internal::Logs,
+                            Message::Replace(
+                                buffer::Internal::Logs.into(),
                             ),
                         ),
                         Menu::ThemeEditor => context_button(

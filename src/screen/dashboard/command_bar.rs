@@ -169,10 +169,9 @@ pub enum Buffer {
     NewHorizontal,
     NewVertical,
     Close,
-    Replace(buffer::Upstream),
+    Replace(data::Buffer),
     Popout,
     Merge,
-    ToggleInternal(buffer::Internal),
 }
 
 #[derive(Debug, Clone)]
@@ -295,7 +294,7 @@ impl Buffer {
             buffer::Internal::ALL
                 .iter()
                 .cloned()
-                .map(Buffer::ToggleInternal),
+                .map(|buffer| Buffer::Replace(buffer.into())),
         );
 
         list.push(Buffer::Close);
@@ -312,7 +311,12 @@ impl Buffer {
             list.push(Buffer::Merge);
         }
 
-        list.extend(buffers.iter().cloned().map(Buffer::Replace));
+        list.extend(
+            buffers
+                .iter()
+                .cloned()
+                .map(|buffer| Buffer::Replace(buffer.into())),
+        );
 
         list
     }
@@ -402,26 +406,30 @@ impl std::fmt::Display for Buffer {
             Buffer::Close => write!(f, "Close buffer"),
             Buffer::Popout => write!(f, "Pop out buffer"),
             Buffer::Merge => write!(f, "Merge buffer"),
-            Buffer::ToggleInternal(internal) => match internal {
-                buffer::Internal::FileTransfers => {
-                    write!(f, "Open file transfers")
-                }
-                buffer::Internal::Logs => write!(f, "Open logs"),
-                buffer::Internal::Highlights => write!(f, "Open highlights"),
-                buffer::Internal::ChannelDiscovery(_) => {
-                    write!(f, "Open Channel discovery")
-                }
-            },
             Buffer::Replace(buffer) => match buffer {
-                buffer::Upstream::Server(server) => {
-                    write!(f, "Open server {server}")
-                }
-                buffer::Upstream::Channel(server, channel) => {
-                    write!(f, "Open {channel} on {server}")
-                }
-                buffer::Upstream::Query(server, nick) => {
-                    write!(f, "Open query with {nick} on {server}")
-                }
+                data::Buffer::Internal(internal) => match internal {
+                    buffer::Internal::FileTransfers => {
+                        write!(f, "Open file transfers")
+                    }
+                    buffer::Internal::Logs => write!(f, "Open logs"),
+                    buffer::Internal::Highlights => {
+                        write!(f, "Open highlights")
+                    }
+                    buffer::Internal::ChannelDiscovery(_) => {
+                        write!(f, "Open Channel discovery")
+                    }
+                },
+                data::Buffer::Upstream(upstream) => match upstream {
+                    buffer::Upstream::Server(server) => {
+                        write!(f, "Open server {server}")
+                    }
+                    buffer::Upstream::Channel(server, channel) => {
+                        write!(f, "Open {channel} on {server}")
+                    }
+                    buffer::Upstream::Query(server, nick) => {
+                        write!(f, "Open query with {nick} on {server}")
+                    }
+                },
             },
         }
     }

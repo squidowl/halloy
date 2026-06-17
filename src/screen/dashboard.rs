@@ -701,10 +701,6 @@ impl Dashboard {
                     sidebar::Event::Leave(buffer) => {
                         self.leave_buffer(clients, config, buffer)
                     }
-                    sidebar::Event::ToggleInternalBuffer(buffer) => (
-                        self.toggle_internal_buffer(clients, config, buffer),
-                        None,
-                    ),
                     sidebar::Event::ToggleCommandBar => (
                         self.toggle_command_bar(
                             servers,
@@ -2773,7 +2769,7 @@ impl Dashboard {
                 }
                 command_bar::Buffer::Replace(buffer) => (
                     self.open_buffer(
-                        data::Buffer::Upstream(buffer),
+                        buffer,
                         BufferAction::ReplacePane,
                         clients,
                         config,
@@ -2785,9 +2781,6 @@ impl Dashboard {
                 }
                 command_bar::Buffer::Merge => {
                     (self.merge_pane(clients, config), None)
-                }
-                command_bar::Buffer::ToggleInternal(buffer) => {
-                    (self.toggle_internal_buffer(clients, config, buffer), None)
                 }
             },
             command_bar::Command::Configuration(command) => match command {
@@ -2905,7 +2898,7 @@ impl Dashboard {
             self.close_pane(clients, config, window, pane)
         } else {
             self.open_buffer(
-                data::Buffer::Internal(buffer),
+                buffer.into(),
                 config.actions.buffer.local,
                 clients,
                 config,
