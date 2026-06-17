@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::convert;
 use std::time::{Duration, Instant};
 
@@ -14,6 +14,7 @@ use data::input::{self, CodeFence, RawInput};
 use data::rate_limit::TokenPriority;
 use data::server::Server;
 use data::target::Target;
+use data::time::Posix;
 use data::user::{ChannelUsers, Nick};
 use data::{Config, User, client, command, message, metadata, shortcut};
 use iced::advanced::widget::Tree;
@@ -30,6 +31,8 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use self::completion::Completion;
 use self::exec::run as execute_shell_command;
+use super::common as common_results;
+use super::search_results::SearchResults;
 use crate::widget::key_press::is_numpad;
 use crate::widget::user_display::UserDisplay;
 use crate::widget::{
@@ -44,6 +47,213 @@ mod exec;
 
 const TYPING_REFRESH_INTERVAL: Duration = Duration::from_secs(4);
 
+fn search_results(
+    buffer: &Upstream,
+    matches: command::search::Matches<'_>,
+    search: &command::search::Command,
+) -> SearchResults {
+    // Search result panes are transient and local-only. The lines are owned
+    // strings so the pane does not borrow from mutable history state.
+    let summary = format!(
+        "Search matched {} visible messages{} in {}",
+        matches.total,
+        if matches.truncated {
+            "; showing first 50"
+        } else {
+            ""
+        },
+        buffer.key()
+    );
+    let lines = matches
+        .messages
+        .into_iter()
+        .map(|message| {
+            command::search::format_display_match(
+                message,
+                search.output,
+                Some(search),
+            )
+        })
+        .collect();
+
+    SearchResults::new("Search Results".to_string(), summary, lines)
+}
+
+fn search_result_messages(
+    buffer: &Upstream,
+    matches: command::search::Matches<'_>,
+    output: command::search::Output,
+) -> Vec<message::Message> {
+    // Inline results use the same local status-message shape as errors. That
+    // keeps the default view compact and guarantees search output never becomes
+    // an outbound IRC command.
+    let mut messages = Vec::new();
+
+    messages.push(search_status_message(
+        buffer,
+        format!(
+            "Search matched {} visible messages{}",
+            matches.total,
+            if matches.truncated {
+                "; showing first 50"
+            } else {
+                ""
+            }
+        ),
+        message::source::Status::Success,
+    ));
+
+    messages.extend(matches.messages.into_iter().map(|message| {
+        search_status_message(
+            buffer,
+            command::search::format_match(message, output),
+            message::source::Status::Success,
+        )
+    }));
+
+    messages
+}
+
+fn common_result_messages(
+    buffer: &Upstream,
+    entries: Vec<command::common::Entry>,
+) -> Vec<message::Message> {
+    let mut messages = Vec::new();
+
+    if entries.is_empty() {
+        messages.push(search_status_message(
+            buffer,
+            "No users in this channel share other known channels.".to_string(),
+            message::source::Status::Success,
+        ));
+    } else {
+        messages.push(search_status_message(
+            buffer,
+            "Common channels:".to_string(),
+            message::source::Status::Success,
+        ));
+
+        messages.extend(entries.into_iter().map(|entry| {
+            search_status_message(
+                buffer,
+                format!("{}: {}", entry.nick, entry.channels.join(", ")),
+                message::source::Status::Success,
+            )
+        }));
+    }
+
+    messages
+}
+
+fn common_error_messages(
+    buffer: &Upstream,
+    text: String,
+) -> Vec<message::Message> {
+    vec![search_status_message(
+        buffer,
+        text,
+        message::source::Status::Error,
+    )]
+}
+
+fn search_error_messages(
+    buffer: &Upstream,
+    error: command::search::Error,
+) -> Vec<message::Message> {
+    vec![search_status_message(
+        buffer,
+        error.to_string(),
+        message::source::Status::Error,
+    )]
+}
+
+fn unsupported_tab_view_messages(buffer: &Upstream) -> Vec<message::Message> {
+    vec![search_status_message(
+        buffer,
+        "Search view=tab is not implemented yet".to_string(),
+        message::source::Status::Error,
+    )]
+}
+
+fn search_no_history_messages(buffer: &Upstream) -> Vec<message::Message> {
+    vec![search_status_message(
+        buffer,
+        format!("Search has no loaded visible history for {}", buffer.key()),
+        message::source::Status::Error,
+    )]
+}
+
+fn search_status_message(
+    buffer: &Upstream,
+    text: String,
+    status: message::source::Status,
+) -> message::Message {
+    // Build the same internal status-message shape that Halloy already knows
+    // how to render for server/channel/query buffers. Keeping this local avoids
+    // pretending search output came from an IRC peer or from user input.
+    let received_at = Posix::now();
+    let server_time = Utc::now();
+    let content = message::plain(text);
+    let source =
+        message::Source::Internal(message::source::Internal::Status(status));
+    let target = match buffer {
+        Upstream::Server(_) => message::Target::Server { source },
+        Upstream::Channel(_, channel) => message::Target::Channel {
+            channel: channel.clone(),
+            source,
+        },
+        Upstream::Query(_, query) => message::Target::Query {
+            query: query.clone(),
+            source,
+        },
+    };
+    let hash = message::Hash::new(&server_time, &content, &received_at);
+
+    message::Message {
+        received_at,
+        server_time,
+        direction: message::Direction::Received,
+        target,
+        content,
+        id: None,
+        reply_to: None,
+        reply_preview: None,
+        hash,
+        hidden_urls: HashSet::default(),
+        is_echo: false,
+        received_with_server_time: false,
+        blocked: false,
+        condensed: None,
+        expanded: false,
+        command: None,
+        reactions: vec![],
+        rerouted_from: None,
+        deduplicate: false,
+        redaction: None,
+    }
+}
+
+fn record_search_messages(
+    messages: Vec<message::Message>,
+    buffer: &Upstream,
+    history: &mut history::Manager,
+    config: &Config,
+) -> Task<history::manager::Message> {
+    Task::batch(
+        messages
+            .into_iter()
+            .flat_map(|message| {
+                history.record_message(
+                    buffer.server(),
+                    message,
+                    None,
+                    &config.buffer,
+                )
+            })
+            .map(|task| Task::perform(task, convert::identity)),
+    )
+}
+
 pub enum Event {
     InputSent {
         history_task: Task<history::manager::Message>,
@@ -54,6 +264,7 @@ pub enum Event {
         targets: Vec<(Target, BufferAction)>,
     },
     OpenInternalBuffer(buffer::Internal),
+    OpenSearchResults(SearchResults),
     OpenServer(String),
     LeaveBuffers {
         targets: Vec<Target>,
@@ -2413,6 +2624,134 @@ impl State {
                     command::Internal::Delay(_) => {
                         return (Task::none(), None);
                     }
+                    command::Internal::Common(common) => {
+                        // `/common` is local state inspection only. Handle it
+                        // before IRC dispatch so the command never reaches the
+                        // server, even if invoked outside a channel.
+                        let entries =
+                            common_results::entries(buffer, clients, common);
+
+                        let messages = match entries {
+                            Ok(entries) => {
+                                common_result_messages(buffer, entries)
+                            }
+                            Err(error) => common_error_messages(buffer, error),
+                        };
+
+                        let history_task = record_search_messages(
+                            messages, buffer, history, config,
+                        );
+
+                        return (
+                            Task::none(),
+                            Some(Event::InputSent {
+                                history_task,
+                                open_buffers: vec![],
+                            }),
+                        );
+                    }
+                    command::Internal::Search(search) => {
+                        // Local search is intentionally handled before IRC
+                        // command dispatch. Results are recorded as local
+                        // status messages in the current buffer, so a malformed
+                        // or surprising query cannot send data to the network.
+                        let kind =
+                            history::Kind::from_input_buffer(buffer.clone());
+                        let Some(view) =
+                            history.get_messages(&kind, None, config)
+                        else {
+                            let history_task = record_search_messages(
+                                search_no_history_messages(buffer),
+                                buffer,
+                                history,
+                                config,
+                            );
+
+                            return (
+                                Task::none(),
+                                Some(Event::InputSent {
+                                    history_task,
+                                    open_buffers: vec![],
+                                }),
+                            );
+                        };
+
+                        let search_context =
+                            command::search::ExecutionContext {
+                                own_nick: clients.nickname(buffer.server()),
+                            };
+
+                        match command::search::find(
+                            &search,
+                            &view,
+                            search_context,
+                        ) {
+                            Ok(matches) => match search.output.view {
+                                command::search::View::Inline => {
+                                    let history_task = record_search_messages(
+                                        search_result_messages(
+                                            buffer,
+                                            matches,
+                                            search.output,
+                                        ),
+                                        buffer,
+                                        history,
+                                        config,
+                                    );
+
+                                    return (
+                                        Task::none(),
+                                        Some(Event::InputSent {
+                                            history_task,
+                                            open_buffers: vec![],
+                                        }),
+                                    );
+                                }
+                                command::search::View::Pane => {
+                                    return (
+                                        Task::none(),
+                                        Some(Event::OpenSearchResults(
+                                            search_results(
+                                                buffer, matches, &search,
+                                            ),
+                                        )),
+                                    );
+                                }
+                                command::search::View::Tab => {
+                                    let history_task = record_search_messages(
+                                        unsupported_tab_view_messages(buffer),
+                                        buffer,
+                                        history,
+                                        config,
+                                    );
+
+                                    return (
+                                        Task::none(),
+                                        Some(Event::InputSent {
+                                            history_task,
+                                            open_buffers: vec![],
+                                        }),
+                                    );
+                                }
+                            },
+                            Err(error) => {
+                                let history_task = record_search_messages(
+                                    search_error_messages(buffer, error),
+                                    buffer,
+                                    history,
+                                    config,
+                                );
+
+                                return (
+                                    Task::none(),
+                                    Some(Event::InputSent {
+                                        history_task,
+                                        open_buffers: vec![],
+                                    }),
+                                );
+                            }
+                        }
+                    }
                     command::Internal::ClearBuffer => {
                         let kind =
                             history::Kind::from_input_buffer(buffer.clone());
@@ -3069,6 +3408,8 @@ fn show_while_typing(error: &input::Error) -> bool {
             | command::Error::InvalidChathistoryTimestamp
             | command::Error::ChathistoryLimitTooLarge { .. }
             | command::Error::ExecDisabled
+            | command::Error::Common(_)
+            | command::Error::Search(_)
             | command::Error::CommandNotAvailable { .. }
             | command::Error::CommandNotEnabled { .. },
         ) => true,

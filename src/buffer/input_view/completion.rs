@@ -1249,6 +1249,25 @@ fn connected_command_list<'a>(
                 subcommands: None,
             }
         },
+        // SEARCH
+        search_command("SEARCH"),
+        // LAST
+        search_command("LAST"),
+        // COMMON
+        {
+            Command {
+                title: "COMMON".into(),
+                args: vec![Argument {
+                    text: "scope=network|global".into(),
+                    kind: ArgumentKind::Optional { skipped: false },
+                    tooltip: Some(
+                        "scope=network limits matches to this network; scope=global searches all networks (default)"
+                            .to_string(),
+                    ),
+                }],
+                subcommands: None,
+            }
+        },
         // EXEC
         exec_command(),
         // CLEAR
@@ -1533,6 +1552,48 @@ fn exec_command() -> Command {
     }
 }
 
+fn search_command(title: &'static str) -> Command {
+    Command {
+        title: title.into(),
+        args: vec![Argument {
+            text: "query".into(),
+            kind: ArgumentKind::Optional { skipped: false },
+            tooltip: Some(search_tooltip()),
+        }],
+        subcommands: None,
+    }
+}
+
+fn search_tooltip() -> String {
+    let selectors = command::search::SELECTORS
+        .iter()
+        .map(|selector| {
+            if selector.aliases.is_empty() {
+                format!("{}=<{}>", selector.canonical, selector.value)
+            } else {
+                format!(
+                    "{}=<{}> aliases: {}",
+                    selector.canonical,
+                    selector.value,
+                    selector.aliases.join(", ")
+                )
+            }
+        })
+        .join("\n");
+
+    format!(
+        "{selectors}\
+       \n--textonly strips IRC control codes and ANSI colors from output\
+       \n--notimestamp omits timestamps from output\
+       \n--other excludes messages uttered by the local user\
+       \nview=inline|pane|tab controls where results are shown; default inline\
+       \ncontext=<lines> includes loaded lines before and after each match\
+       \nspan accepts Nd, Nh, or Nm, for example span=3d, span=2h, span=5m\
+       \noperators: AND, OR, NOT; parentheses group expressions\
+       \nstring modifiers before quoted values: i insensitive, n not, a AND, o OR, x regex"
+    )
+}
+
 fn commands_from_aliases(aliases: &[command::Alias]) -> Vec<Command> {
     aliases
         .iter()
@@ -1696,6 +1757,10 @@ impl Command {
             }
             "connect" => Cow::Borrowed("Connect to server"),
             "reconnect" => Cow::Owned(format!("Reconnect to {server}")),
+            "search" | "last" => Cow::Owned(search_tooltip()),
+            "common" => Cow::Borrowed(
+                "List users in the current channel who share other known channels",
+            ),
             "upload" => Cow::Borrowed("Upload a file to the server's filehost"),
             "invite" => Cow::Borrowed("Invite user to channel"),
             _ => config
