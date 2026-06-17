@@ -5,7 +5,8 @@ Updated: 2026-06-16 EDT
 This document describes the local `/search`, `/last`, and `/common` features
 added in the Halloy feature branch. It is written as both user documentation
 and a portable design reference for possible future implementations in other
-IRC clients such as Konversation or Uplink.
+IRC clients such as Zoitechat, Konversation, and Uplink. The portable feature
+set is referred to below as **Rich Search Functionality** for IRC clients.
 
 The branch also includes a buffer-close focus recovery fix: closing a channel
 or direct conversation returns focus to a useful related buffer instead of
@@ -333,7 +334,8 @@ Reference: <https://halloy.chat/contributing#patches-pull-requests>
 
 ## Porting Notes
 
-For Konversation, Uplink, or another IRC client, keep the same major seams:
+For Zoitechat, Konversation, Uplink, or another IRC client, keep the same major
+seams:
 
 - parse command syntax into typed selectors/options;
 - evaluate only local history or explicitly requested network data;
@@ -345,6 +347,33 @@ For Konversation, Uplink, or another IRC client, keep the same major seams:
 The portable command grammar is more important than the Halloy-specific UI
 wiring. A different client can render results in a tab, pane, dialog, or inline
 buffer while retaining the same parser and security model.
+
+### Rich Search Functionality Port Targets
+
+The portable feature name for this work is **Rich Search Functionality**. The
+goal is to carry the command grammar, local-only security model, common-channel
+logic, and result rendering concepts across multiple IRC clients while adapting
+the data access and UI layers to each codebase.
+
+Likely implementation targets:
+
+| Client | Likely implementation language/style | Porting shape |
+| --- | --- | --- |
+| Zoitechat | likely C/GTK3 | Native plugin or client patch, depending on its extension API. |
+| Konversation | C++/KDE/Qt | Native C++ patch or script/plugin if its scripting API exposes enough message and channel state. |
+| Uplink | C++/Qt6 | Native C++/Qt6 implementation, ideally with a reusable parser/evaluator library. |
+
+The preferred architecture for each port is:
+
+- a small parser/evaluator core for the Rich Search Functionality grammar;
+- a client-specific message-history adapter;
+- a client-specific known-channel/user adapter for `/common`;
+- a result renderer that matches the client's native UI conventions;
+- an optional, explicit network-enrichment layer for `WHOIS`/`319` support.
+
+The default mode should remain local-only in every client. If a port adds
+active server queries, those should be exposed as explicit options rather than
+implicit behavior.
 
 ## Development Guidelines Used
 
