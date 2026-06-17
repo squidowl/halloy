@@ -27,6 +27,18 @@ pub enum Upstream {
     Query(Server, target::Query),
 }
 
+impl From<Upstream> for Buffer {
+    fn from(upstream: Upstream) -> Self {
+        Self::Upstream(upstream)
+    }
+}
+
+impl From<Internal> for Buffer {
+    fn from(internal: Internal) -> Self {
+        Self::Internal(internal)
+    }
+}
+
 #[derive(
     Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, strum::Display,
 )]

@@ -646,7 +646,7 @@ impl Dashboard {
                     }
                     sidebar::Event::New(buffer) => (
                         self.open_buffer(
-                            data::Buffer::Upstream(buffer),
+                            buffer,
                             BufferAction::NewPane,
                             clients,
                             config,
@@ -655,7 +655,7 @@ impl Dashboard {
                     ),
                     sidebar::Event::Popout(buffer) => (
                         self.open_buffer(
-                            data::Buffer::Upstream(buffer),
+                            buffer,
                             BufferAction::NewWindow,
                             clients,
                             config,
@@ -667,7 +667,7 @@ impl Dashboard {
                     }
                     sidebar::Event::Replace(buffer) => (
                         self.open_buffer(
-                            data::Buffer::Upstream(buffer),
+                            buffer,
                             BufferAction::ReplacePane,
                             clients,
                             config,
@@ -749,9 +749,7 @@ impl Dashboard {
                         (Task::none(), None)
                     }
                     sidebar::Event::MarkAsRead(buffer) => {
-                        if let Some(kind) = history::Kind::from_buffer(
-                            data::Buffer::Upstream(buffer),
-                        ) {
+                        if let Some(kind) = history::Kind::from_buffer(buffer) {
                             mark_as_read(
                                 kind,
                                 &mut self.history,
