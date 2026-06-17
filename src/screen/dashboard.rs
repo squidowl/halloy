@@ -1322,7 +1322,7 @@ impl Dashboard {
                     }
                     CycleNextUnreadBuffer => {
                         let all_buffers = all_buffers_with_has_unread(
-                            &config,
+                            config,
                             clients,
                             &self.history,
                         );
@@ -1348,7 +1348,7 @@ impl Dashboard {
                     }
                     CyclePreviousUnreadBuffer => {
                         let all_buffers = all_buffers_with_has_unread(
-                            &config,
+                            config,
                             clients,
                             &self.history,
                         );

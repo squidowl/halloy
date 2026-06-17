@@ -402,9 +402,7 @@ impl Sidebar {
                             } else {
                                 theme::svg::primary
                             }),
-                            Message::Replace(
-                                buffer::Internal::Logs.into(),
-                            ),
+                            Message::Replace(buffer::Internal::Logs.into()),
                         ),
                         Menu::ThemeEditor => context_button(
                             text("Theme Editor"),
@@ -1429,23 +1427,17 @@ fn internal_buffer_button<'a>(
     });
 
     let has_unread = match buffer {
-        buffer::Internal::Highlights => {
-            if config.sidebar.unread_indicator.show_on_open_buffers
-                || open.is_none()
-            {
-                history.has_unread(&history::Kind::Highlights)
-            } else {
-                false
-            }
+        buffer::Internal::Highlights
+            if (config.sidebar.unread_indicator.show_on_open_buffers
+                || open.is_none()) =>
+        {
+            history.has_unread(&history::Kind::Highlights)
         }
-        buffer::Internal::Logs => {
-            if config.sidebar.unread_indicator.show_on_open_buffers
-                || open.is_none()
-            {
-                history.has_unread(&history::Kind::Logs)
-            } else {
-                false
-            }
+        buffer::Internal::Logs
+            if (config.sidebar.unread_indicator.show_on_open_buffers
+                || open.is_none()) =>
+        {
+            history.has_unread(&history::Kind::Logs)
         }
         _ => false,
     };
