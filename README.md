@@ -38,6 +38,7 @@ Original Halloy project: <https://github.com/squidowl/halloy>
 - [Halloy Implementation Notes](#halloy-implementation-notes)
 - [Upstream Contribution Notes](#upstream-contribution-notes)
 - [Porting Notes](#porting-notes)
+- [Development Guidelines Used](#development-guidelines-used)
 
 This document describes the local `/search`, `/last`, and `/common` features
 added in the Halloy feature branch. It is written as both user documentation
@@ -360,3 +361,45 @@ For Konversation, Uplink, or another IRC client, keep the same major seams:
 The portable command grammar is more important than the Halloy-specific UI
 wiring. A different client can render results in a tab, pane, dialog, or inline
 buffer while retaining the same parser and security model.
+
+## Development Guidelines Used
+
+This branch was developed under a small set of explicit engineering guidelines:
+
+- Security first. New commands default to local-only behavior and must not send
+  IRC traffic unless a future option explicitly says it does.
+- Minimize upstream disruption. Existing Halloy files are touched mainly for
+  command registration, dispatch, buffer plumbing, and rendering hooks.
+- Keep feature logic localized. Parser, evaluator, formatter, and `/common`
+  scan logic live in added modules so reviewers can inspect the new behavior in
+  a small number of places.
+- Match Halloy style. Naming, module structure, parser patterns, and UI wiring
+  follow nearby Halloy conventions where practical.
+- Refactor only our added code aggressively. Upstream code is not reshaped just
+  to support this feature branch.
+- Keep files reviewable. Added production modules are split below the 500-line
+  refactoring-review trigger; the search test module is the remaining known
+  split candidate.
+- Prefer typed parsing and explicit errors. Command input is parsed into typed
+  selectors, modifiers, options, and expression trees instead of ad hoc string
+  handling during execution.
+- Use existing libraries where appropriate. Regex validation and escaping use
+  the existing regex crate support instead of custom metacharacter ladders.
+- Test parser and evaluator behavior directly. Unit tests cover selectors,
+  boolean grouping, modifiers, span parsing, escaping, output flags, filtering,
+  formatting, highlighting, and `/common` summary behavior.
+- Document non-obvious code. Added functions include comments describing their
+  purpose, callers, inputs, return values, and side effects or lack of side
+  effects.
+- Preserve privacy. Local config files and credentials are not committed, and
+  the staged diff is checked before publication.
+- Keep future network behavior explicit. Identity enrichment, saved searches,
+  result persistence, `view=tab`, and read-marker aware `/last` are documented
+  as separate slices rather than hidden inside this implementation.
+- Respect upstream process. This branch is presented as a draft/discussion
+  artifact, and any upstreamable patch should follow Halloy's contribution
+  rules at the time it is submitted.
+- Acknowledge AI assistance. This branch and document were produced with Codex
+  assistance under the guidelines above: security-first behavior, localized
+  changes, explicit tests, reviewable module boundaries, documented tradeoffs,
+  and human review before any upstream submission.
