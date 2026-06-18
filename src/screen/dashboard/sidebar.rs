@@ -878,54 +878,51 @@ impl Entry {
         focus: Focus,
         connected: bool,
         supports_detach: bool,
+        has_history: bool,
     ) -> Vec<Self> {
         use Entry::*;
-        use itertools::Itertools;
 
-        itertools::chain!(
-            match buffer {
-                buffer::Buffer::Upstream(upstream) => match upstream {
-                    buffer::Upstream::Server(_) =>
-                        if connected {
-                            vec![CloseAllQueries, MarkServerAsRead]
-                        } else {
-                            vec![Connect, Remove]
-                        },
+        let mut entries = vec![Context, HorizontalRule];
 
-                    buffer::Upstream::Channel(_, _) => vec![],
-                    buffer::Upstream::Query(_, _) => vec![],
-                },
-                buffer::Buffer::Internal(_) => vec![],
-            }
-            .into_iter()
-            .chain(vec![Context, HorizontalRule])
-            .collect_vec(),
-            match open {
-                None => vec![MarkAsRead, NewPane, Popout, Replace],
-                Some((window, pane)) => (num_panes > 1)
-                    .then_some(Close(window, pane))
-                    .into_iter()
-                    .chain(
-                        (Focus { window, pane } != focus)
-                            .then_some(Swap(window, pane)),
-                    )
-                    .collect_vec(),
-            },
+        if let buffer::Buffer::Upstream(buffer::Upstream::Server(_)) = buffer {
             if connected {
-                (matches!(
-                    buffer,
-                    buffer::Buffer::Upstream(buffer::Upstream::Channel(_, _))
-                ) && supports_detach)
-                    .then_some(Detach)
-                    .into_iter()
-                    .chain(iter::once(Leave))
-                    .collect_vec()
+                entries.extend([CloseAllQueries, MarkServerAsRead]);
             } else {
-                vec![]
-            },
-        )
-        .sorted()
-        .collect_vec()
+                entries.extend([Connect, Remove]);
+            }
+        }
+
+        if has_history {
+            entries.push(MarkAsRead);
+        }
+
+        match open {
+            None => {
+                entries.extend([NewPane, Popout, Replace]);
+            }
+            Some((window, pane)) => {
+                if num_panes > 1 {
+                    entries.push(Close(window, pane));
+                }
+                if (Focus { window, pane }) != focus {
+                    entries.push(Swap(window, pane));
+                }
+            }
+        }
+
+        if connected {
+            if matches!(
+                buffer,
+                buffer::Buffer::Upstream(buffer::Upstream::Channel(_, _))
+            ) && supports_detach
+            {
+                entries.push(Detach);
+            }
+            entries.push(Leave);
+        }
+
+        entries.sort();
+        entries
     }
 }
 
@@ -1227,6 +1224,7 @@ fn upstream_buffer_button<'a>(
         focus,
         connected,
         supports_detach,
+        true,
     );
 
     if entries.is_empty() {
@@ -1426,6 +1424,9 @@ fn internal_buffer_button<'a>(
         .then_some((window_id, pane))
     });
 
+    let has_history =
+        history::Kind::from_buffer(buffer.clone().into()).is_some();
+
     let has_unread = match buffer {
         buffer::Internal::Highlights
             if (config.sidebar.unread_indicator.show_on_open_buffers
@@ -1563,6 +1564,7 @@ fn internal_buffer_button<'a>(
         focus,
         false,
         false,
+        has_history,
     );
 
     if entries.is_empty() {
@@ -1627,15 +1629,8 @@ fn internal_buffer_button<'a>(
                             return Space::new().width(length).height(1).into();
                         }
                     },
-                    Entry::CloseAllQueries
-                    | Entry::Connect
-                    | Entry::MarkServerAsRead
-                    | Entry::Detach
-                    | Entry::Leave
-                    | Entry::Remove => {
-                        unreachable!(
-                            "Internal buffers should not have these entries"
-                        )
+                    _ => {
+                        return row![].into();
                     }
                 };
 

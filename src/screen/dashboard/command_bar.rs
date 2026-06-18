@@ -416,7 +416,7 @@ impl std::fmt::Display for Buffer {
                         write!(f, "Open highlights")
                     }
                     buffer::Internal::ChannelDiscovery(_) => {
-                        write!(f, "Open Channel discovery")
+                        write!(f, "Open channel discovery")
                     }
                 },
                 data::Buffer::Upstream(upstream) => match upstream {
