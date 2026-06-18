@@ -134,6 +134,8 @@ pub fn parse(
         }
     };
 
+    let is_command = matches!(content, Content::Command(..));
+
     let parsed = Parsed::Input(Input { buffer, content });
 
     if let Some(multiline_limits) = capabilities.multiline_limits()
@@ -171,7 +173,7 @@ pub fn parse(
 
     if !is_connected {
         return Err(Error::Command(command::Error::Disconnected));
-    } else if in_channel.is_some_and(|in_channel| !in_channel) {
+    } else if in_channel.is_some_and(|in_channel| !in_channel && !is_command) {
         return Err(Error::Command(command::Error::NotInChannel));
     }
 

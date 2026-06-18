@@ -20,6 +20,7 @@ Fixed:
 - Do not copy empty selections to the primary clipboard (i.e. do not clear the primary clipboard when a non-selection action is performed, such as moving the cursor or focusing the text input on some systems)
 - Prevent anti-flood rate limiting from refilling the token bucket beyond its configured capacity
 - Show unread indicators for panes hidden by maximize
+- Allow commands (e.g. `/join`) to be used in the input box of not-joined channels
 
 Changed:
 
