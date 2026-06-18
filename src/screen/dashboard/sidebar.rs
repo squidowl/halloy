@@ -948,6 +948,8 @@ fn upstream_buffer_button<'a>(
         .iter_visible()
         .any(|(_, _, state)| state.buffer.upstream() == Some(&buffer));
 
+    let can_mark_as_read = history.can_mark_as_read(&kind);
+
     let has_unread = if config.sidebar.unread_indicator.show_on_open_buffers
         || !is_visible
     {
@@ -1274,7 +1276,7 @@ fn upstream_buffer_button<'a>(
                         } else {
                             "Mark as read"
                         },
-                        if has_unread {
+                        if can_mark_as_read {
                             Some(Message::MarkAsRead(buffer.clone().into()))
                         } else {
                             None
@@ -1427,20 +1429,26 @@ fn internal_buffer_button<'a>(
     let has_history =
         history::Kind::from_buffer(buffer.clone().into()).is_some();
 
-    let has_unread = match buffer {
+    let (has_unread, can_mark_as_read) = match buffer {
         buffer::Internal::Highlights
             if (config.sidebar.unread_indicator.show_on_open_buffers
                 || open.is_none()) =>
         {
-            history.has_unread(&history::Kind::Highlights)
+            (
+                history.has_unread(&history::Kind::Highlights),
+                history.can_mark_as_read(&history::Kind::Highlights),
+            )
         }
         buffer::Internal::Logs
             if (config.sidebar.unread_indicator.show_on_open_buffers
                 || open.is_none()) =>
         {
-            history.has_unread(&history::Kind::Logs)
+            (
+                history.has_unread(&history::Kind::Logs),
+                history.can_mark_as_read(&history::Kind::Logs),
+            )
         }
-        _ => false,
+        _ => (false, false),
     };
 
     let dimensions = Dimensions::from(&config.sidebar);
@@ -1581,7 +1589,7 @@ fn internal_buffer_button<'a>(
                 let (content, message) = match entry {
                     Entry::MarkAsRead => (
                         "Mark as read",
-                        if has_unread {
+                        if can_mark_as_read {
                             Some(Message::MarkAsRead(buffer.clone().into()))
                         } else {
                             None
