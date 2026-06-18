@@ -28,16 +28,15 @@ const CONFIG_RELOAD_DELAY: Duration = Duration::from_secs(1);
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    New(buffer::Upstream),
-    Popout(buffer::Upstream),
+    New(data::Buffer),
+    Popout(data::Buffer),
     Focus(window::Id, pane_grid::Pane),
-    Replace(buffer::Upstream),
+    Replace(data::Buffer),
     Close(window::Id, pane_grid::Pane),
     Swap(window::Id, pane_grid::Pane),
     Detach(buffer::Upstream),
     Leave(buffer::Upstream),
     CloseAllQueries(Server, Vec<target::Query>),
-    ToggleInternalBuffer(buffer::Internal),
     ToggleCommandBar,
     ToggleThemeEditor,
     ReloadConfigFile,
@@ -51,7 +50,7 @@ pub enum Message {
     OpenDocumentation,
     OpenConfigFile,
     ReloadComplete,
-    MarkAsRead(buffer::Upstream),
+    MarkAsRead(data::Buffer),
     MarkServerAsRead(Server),
     QuitApplication,
     Connect(Server),
@@ -61,16 +60,15 @@ pub enum Message {
 
 #[derive(Debug, Clone)]
 pub enum Event {
-    New(buffer::Upstream),
-    Popout(buffer::Upstream),
+    New(data::Buffer),
+    Popout(data::Buffer),
     Focus(window::Id, pane_grid::Pane),
-    Replace(buffer::Upstream),
+    Replace(data::Buffer),
     Close(window::Id, pane_grid::Pane),
     Swap(window::Id, pane_grid::Pane),
     Detach(buffer::Upstream),
     Leave(buffer::Upstream),
     CloseAllQueries(Server, Vec<target::Query>),
-    ToggleInternalBuffer(buffer::Internal),
     ToggleCommandBar,
     ToggleThemeEditor,
     OpenReleaseWebsite,
@@ -82,7 +80,7 @@ pub enum Event {
     OpenDocumentation,
     OpenConfigFile,
     ConfigReloaded(Result<Config, config::Error>),
-    MarkAsRead(buffer::Upstream),
+    MarkAsRead(data::Buffer),
     MarkServerAsRead(Server),
     QuitApplication,
     Connect(Server),
@@ -148,9 +146,6 @@ impl Sidebar {
             }
             Message::Leave(buffer) => {
                 (Task::none(), Some(Event::Leave(buffer)))
-            }
-            Message::ToggleInternalBuffer(buffer) => {
-                (Task::none(), Some(Event::ToggleInternalBuffer(buffer)))
             }
             Message::ToggleCommandBar => {
                 (Task::none(), Some(Event::ToggleCommandBar))
@@ -366,16 +361,16 @@ impl Sidebar {
                                     theme::svg::tertiary
                                 },
                             ),
-                            Message::ToggleInternalBuffer(
-                                buffer::Internal::FileTransfers,
+                            Message::Replace(
+                                buffer::Internal::FileTransfers.into(),
                             ),
                         ),
                         Menu::Highlights => context_button(
                             text("Highlights"),
                             Some(&keyboard.highlights),
                             icon::highlights().style(theme::svg::primary),
-                            Message::ToggleInternalBuffer(
-                                buffer::Internal::Highlights,
+                            Message::Replace(
+                                buffer::Internal::Highlights.into(),
                             ),
                         ),
                         Menu::ChannelDiscovery => context_button(
@@ -383,8 +378,8 @@ impl Sidebar {
                             None,
                             icon::channel_discovery()
                                 .style(theme::svg::primary),
-                            Message::ToggleInternalBuffer(
-                                buffer::Internal::ChannelDiscovery(None),
+                            Message::Replace(
+                                buffer::Internal::ChannelDiscovery(None).into(),
                             ),
                         ),
                         Menu::Logs => context_button(
@@ -407,9 +402,7 @@ impl Sidebar {
                             } else {
                                 theme::svg::primary
                             }),
-                            Message::ToggleInternalBuffer(
-                                buffer::Internal::Logs,
-                            ),
+                            Message::Replace(buffer::Internal::Logs.into()),
                         ),
                         Menu::ThemeEditor => context_button(
                             text("Theme Editor"),
@@ -879,53 +872,57 @@ enum Entry {
 
 impl Entry {
     fn list(
-        buffer: &buffer::Upstream,
+        buffer: &buffer::Buffer,
         num_panes: usize,
         open: Option<(window::Id, pane_grid::Pane)>,
         focus: Focus,
         connected: bool,
         supports_detach: bool,
+        has_history: bool,
     ) -> Vec<Self> {
         use Entry::*;
-        use itertools::Itertools;
 
-        itertools::chain!(
-            match buffer {
-                buffer::Upstream::Server(_) => if connected {
-                    vec![CloseAllQueries, MarkServerAsRead]
-                } else {
-                    vec![Connect, Remove]
-                }
-                .into_iter()
-                .chain(vec![Context, HorizontalRule])
-                .collect_vec(),
-                buffer::Upstream::Channel(_, _) => vec![],
-                buffer::Upstream::Query(_, _) => vec![],
-            },
-            match open {
-                None => vec![MarkAsRead, NewPane, Popout, Replace],
-                Some((window, pane)) => (num_panes > 1)
-                    .then_some(Close(window, pane))
-                    .into_iter()
-                    .chain(
-                        (Focus { window, pane } != focus)
-                            .then_some(Swap(window, pane)),
-                    )
-                    .collect_vec(),
-            },
+        let mut entries = vec![Context, HorizontalRule];
+
+        if let buffer::Buffer::Upstream(buffer::Upstream::Server(_)) = buffer {
             if connected {
-                (matches!(buffer, buffer::Upstream::Channel(_, _))
-                    && supports_detach)
-                    .then_some(Detach)
-                    .into_iter()
-                    .chain(iter::once(Leave))
-                    .collect_vec()
+                entries.extend([CloseAllQueries, MarkServerAsRead]);
             } else {
-                vec![]
-            },
-        )
-        .sorted()
-        .collect_vec()
+                entries.extend([Connect, Remove]);
+            }
+        }
+
+        if has_history {
+            entries.push(MarkAsRead);
+        }
+
+        match open {
+            None => {
+                entries.extend([NewPane, Popout, Replace]);
+            }
+            Some((window, pane)) => {
+                if num_panes > 1 {
+                    entries.push(Close(window, pane));
+                }
+                if (Focus { window, pane }) != focus {
+                    entries.push(Swap(window, pane));
+                }
+            }
+        }
+
+        if connected {
+            if matches!(
+                buffer,
+                buffer::Buffer::Upstream(buffer::Upstream::Channel(_, _))
+            ) && supports_detach
+            {
+                entries.push(Detach);
+            }
+            entries.push(Leave);
+        }
+
+        entries.sort();
+        entries
     }
 }
 
@@ -950,6 +947,8 @@ fn upstream_buffer_button<'a>(
     let is_visible = panes
         .iter_visible()
         .any(|(_, _, state)| state.buffer.upstream() == Some(&buffer));
+
+    let can_mark_as_read = history.can_mark_as_read(&kind);
 
     let has_unread = if config.sidebar.unread_indicator.show_on_open_buffers
         || !is_visible
@@ -1206,13 +1205,13 @@ fn upstream_buffer_button<'a>(
 
                             match action {
                                 BufferAction::NewPane => {
-                                    Message::New(buffer.clone())
+                                    Message::New(buffer.clone().into())
                                 }
                                 BufferAction::ReplacePane => {
-                                    Message::Replace(buffer.clone())
+                                    Message::Replace(buffer.clone().into())
                                 }
                                 BufferAction::NewWindow => {
-                                    Message::Popout(buffer.clone())
+                                    Message::Popout(buffer.clone().into())
                                 }
                             }
                         }
@@ -1221,12 +1220,13 @@ fn upstream_buffer_button<'a>(
             });
 
     let entries = Entry::list(
-        &buffer,
+        &buffer.clone().into(),
         panes.len(),
         open,
         focus,
         connected,
         supports_detach,
+        true,
     );
 
     if entries.is_empty() {
@@ -1276,22 +1276,23 @@ fn upstream_buffer_button<'a>(
                         } else {
                             "Mark as read"
                         },
-                        if has_unread {
-                            Some(Message::MarkAsRead(buffer.clone()))
+                        if can_mark_as_read {
+                            Some(Message::MarkAsRead(buffer.clone().into()))
                         } else {
                             None
                         },
                     ),
-                    Entry::NewPane => {
-                        ("Open in new pane", Some(Message::New(buffer.clone())))
-                    }
+                    Entry::NewPane => (
+                        "Open in new pane",
+                        Some(Message::New(buffer.clone().into())),
+                    ),
                     Entry::Popout => (
                         "Open in new window",
-                        Some(Message::Popout(buffer.clone())),
+                        Some(Message::Popout(buffer.clone().into())),
                     ),
                     Entry::Replace => (
                         "Replace current pane",
-                        Some(Message::Replace(buffer.clone())),
+                        Some(Message::Replace(buffer.clone().into())),
                     ),
                     Entry::Close(window, pane) => {
                         ("Close pane", Some(Message::Close(window, pane)))
@@ -1425,6 +1426,31 @@ fn internal_buffer_button<'a>(
         .then_some((window_id, pane))
     });
 
+    let has_history =
+        history::Kind::from_buffer(buffer.clone().into()).is_some();
+
+    let (has_unread, can_mark_as_read) = match buffer {
+        buffer::Internal::Highlights
+            if (config.sidebar.unread_indicator.show_on_open_buffers
+                || open.is_none()) =>
+        {
+            (
+                history.has_unread(&history::Kind::Highlights),
+                history.can_mark_as_read(&history::Kind::Highlights),
+            )
+        }
+        buffer::Internal::Logs
+            if (config.sidebar.unread_indicator.show_on_open_buffers
+                || open.is_none()) =>
+        {
+            (
+                history.has_unread(&history::Kind::Logs),
+                history.can_mark_as_read(&history::Kind::Logs),
+            )
+        }
+        _ => (false, false),
+    };
+
     let dimensions = Dimensions::from(&config.sidebar);
 
     let show_icon = dimensions.icon_size > 0;
@@ -1437,15 +1463,6 @@ fn internal_buffer_button<'a>(
             (show_icon.then_some(icon::file_transfer()), None)
         }
         buffer::Internal::Highlights => {
-            let has_unread =
-                if config.sidebar.unread_indicator.show_on_open_buffers
-                    || open.is_none()
-                {
-                    history.has_unread(&history::Kind::Highlights)
-                } else {
-                    false
-                };
-
             let badge = if has_unread
                 && let Some(highlight_icon) = icon::from_icon(
                     config.sidebar.unread_indicator.highlight_icon,
@@ -1461,15 +1478,6 @@ fn internal_buffer_button<'a>(
             (show_icon.then_some(icon::highlights()), badge)
         }
         buffer::Internal::Logs => {
-            let has_unread =
-                if config.sidebar.unread_indicator.show_on_open_buffers
-                    || open.is_none()
-                {
-                    history.has_unread(&history::Kind::Logs)
-                } else {
-                    false
-                };
-
             let badge = if has_unread
                 && let Some(unread_icon) =
                     icon::from_icon(config.sidebar.unread_indicator.icon)
@@ -1511,39 +1519,141 @@ fn internal_buffer_button<'a>(
             .shaping(Shaping::Advanced),
     );
 
-    button(content.width(width).padding(Padding::default().bottom(1)))
-        .style(move |theme, status| {
-            theme::button::sidebar_buffer(
-                theme,
-                status,
-                is_focused.is_some(),
-                open.is_some(),
-            )
-        })
-        .padding(config.sidebar.padding.buffer)
-        .on_press(match is_focused {
-            Some((window, pane)) => {
-                if let Some(focus_action) =
-                    config.actions.sidebar.focused_buffer
-                {
-                    match focus_action {
-                        BufferFocusedAction::ClosePane => {
-                            Message::Close(window, pane)
+    let base =
+        button(content.width(width).padding(Padding::default().bottom(1)))
+            .style(move |theme, status| {
+                theme::button::sidebar_buffer(
+                    theme,
+                    status,
+                    is_focused.is_some(),
+                    open.is_some(),
+                )
+            })
+            .padding(config.sidebar.padding.buffer)
+            .on_press(match is_focused {
+                Some((window, pane)) => {
+                    if let Some(focus_action) =
+                        config.actions.sidebar.focused_buffer
+                    {
+                        match focus_action {
+                            BufferFocusedAction::ClosePane => {
+                                Message::Close(window, pane)
+                            }
+                        }
+                    } else {
+                        // Re-focus pane on press instead of disabling the button in order
+                        // to have hover status of the button for styling
+                        Message::Focus(window, pane)
+                    }
+                }
+                None => {
+                    if let Some((window, pane)) = open {
+                        Message::Focus(window, pane)
+                    } else {
+                        match config.actions.sidebar.buffer {
+                            BufferAction::NewPane => {
+                                Message::New(buffer.clone().into())
+                            }
+                            BufferAction::ReplacePane => {
+                                Message::Replace(buffer.clone().into())
+                            }
+                            BufferAction::NewWindow => {
+                                Message::Popout(buffer.clone().into())
+                            }
                         }
                     }
-                } else {
-                    Message::Focus(window, pane)
                 }
-            }
-            None => {
-                if let Some((window, pane)) = open {
-                    Message::Focus(window, pane)
-                } else {
-                    Message::ToggleInternalBuffer(buffer)
-                }
-            }
-        })
+            });
+
+    let entries = Entry::list(
+        &buffer.clone().into(),
+        panes.len(),
+        open,
+        focus,
+        false,
+        false,
+        has_history,
+    );
+
+    if entries.is_empty() {
+        base.into()
+    } else {
+        context_menu(
+            context_menu::MouseButton::default(),
+            context_menu::Anchor::Cursor,
+            context_menu::ToggleBehavior::KeepOpen,
+            Some(mouse::Interaction::Pointer),
+            base,
+            entries,
+            move |entry, length| {
+                let (content, message) = match entry {
+                    Entry::MarkAsRead => (
+                        "Mark as read",
+                        if can_mark_as_read {
+                            Some(Message::MarkAsRead(buffer.clone().into()))
+                        } else {
+                            None
+                        },
+                    ),
+                    Entry::NewPane => (
+                        "Open in new pane",
+                        Some(Message::New(buffer.clone().into())),
+                    ),
+                    Entry::Popout => (
+                        "Open in new window",
+                        Some(Message::Popout(buffer.clone().into())),
+                    ),
+                    Entry::Replace => (
+                        "Replace current pane",
+                        Some(Message::Replace(buffer.clone().into())),
+                    ),
+                    Entry::Close(window, pane) => {
+                        ("Close pane", Some(Message::Close(window, pane)))
+                    }
+                    Entry::Swap(window, pane) => (
+                        "Swap with current pane",
+                        Some(Message::Swap(window, pane)),
+                    ),
+                    Entry::Context => {
+                        return container(
+                            text(title)
+                                .style(theme::text::primary)
+                                .font_maybe(
+                                    theme::font_style::primary(theme)
+                                        .map(font::get),
+                                )
+                                .width(length),
+                        )
+                        .padding(config.context_menu.padding.entry)
+                        .into();
+                    }
+                    Entry::HorizontalRule => match length {
+                        Length::Fill => {
+                            return container(rule::horizontal(1))
+                                .padding([0, 6])
+                                .into();
+                        }
+                        _ => {
+                            return Space::new().width(length).height(1).into();
+                        }
+                    },
+                    _ => {
+                        return row![].into();
+                    }
+                };
+
+                button(text(content))
+                    .width(length)
+                    .padding(config.context_menu.padding.entry)
+                    .style(|theme, status| {
+                        theme::button::primary(theme, status, false)
+                    })
+                    .on_press_maybe(message)
+                    .into()
+            },
+        )
         .into()
+    }
 }
 
 enum Icon<'a> {

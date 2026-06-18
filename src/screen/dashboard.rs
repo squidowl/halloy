@@ -646,7 +646,7 @@ impl Dashboard {
                     }
                     sidebar::Event::New(buffer) => (
                         self.open_buffer(
-                            data::Buffer::Upstream(buffer),
+                            buffer,
                             BufferAction::NewPane,
                             clients,
                             config,
@@ -655,7 +655,7 @@ impl Dashboard {
                     ),
                     sidebar::Event::Popout(buffer) => (
                         self.open_buffer(
-                            data::Buffer::Upstream(buffer),
+                            buffer,
                             BufferAction::NewWindow,
                             clients,
                             config,
@@ -667,7 +667,7 @@ impl Dashboard {
                     }
                     sidebar::Event::Replace(buffer) => (
                         self.open_buffer(
-                            data::Buffer::Upstream(buffer),
+                            buffer,
                             BufferAction::ReplacePane,
                             clients,
                             config,
@@ -701,10 +701,6 @@ impl Dashboard {
                     sidebar::Event::Leave(buffer) => {
                         self.leave_buffer(clients, config, buffer)
                     }
-                    sidebar::Event::ToggleInternalBuffer(buffer) => (
-                        self.toggle_internal_buffer(clients, config, buffer),
-                        None,
-                    ),
                     sidebar::Event::ToggleCommandBar => (
                         self.toggle_command_bar(
                             servers,
@@ -749,9 +745,7 @@ impl Dashboard {
                         (Task::none(), None)
                     }
                     sidebar::Event::MarkAsRead(buffer) => {
-                        if let Some(kind) = history::Kind::from_buffer(
-                            data::Buffer::Upstream(buffer),
-                        ) {
+                        if let Some(kind) = history::Kind::from_buffer(buffer) {
                             mark_as_read(
                                 kind,
                                 &mut self.history,
@@ -1327,20 +1321,23 @@ impl Dashboard {
                         return (task, None);
                     }
                     CycleNextUnreadBuffer => {
-                        let all_buffers =
-                            all_buffers_with_has_unread(clients, &self.history);
-                        let open_upstream_buffers = open_upstream_buffers(self);
+                        let all_buffers = all_buffers_with_has_unread(
+                            config,
+                            clients,
+                            &self.history,
+                        );
+                        let open_buffers = open_buffers(self);
 
                         if let Some((_, _, state)) = self.get_focused_mut()
                             && let Some(buffer) = cycle_next_unread_buffer(
-                                state.buffer.upstream(),
+                                state.buffer.data().as_ref(),
                                 all_buffers,
-                                &open_upstream_buffers,
+                                &open_buffers,
                             )
                         {
                             return (
                                 self.open_buffer(
-                                    data::Buffer::Upstream(buffer.clone()),
+                                    buffer.clone(),
                                     BufferAction::ReplacePane,
                                     clients,
                                     config,
@@ -1350,20 +1347,23 @@ impl Dashboard {
                         }
                     }
                     CyclePreviousUnreadBuffer => {
-                        let all_buffers =
-                            all_buffers_with_has_unread(clients, &self.history);
-                        let open_upstream_buffers = open_upstream_buffers(self);
+                        let all_buffers = all_buffers_with_has_unread(
+                            config,
+                            clients,
+                            &self.history,
+                        );
+                        let open_buffers = open_buffers(self);
 
                         if let Some((_, _, state)) = self.get_focused_mut()
                             && let Some(buffer) = cycle_previous_unread_buffer(
-                                state.buffer.upstream(),
+                                state.buffer.data().as_ref(),
                                 all_buffers,
-                                &open_upstream_buffers,
+                                &open_buffers,
                             )
                         {
                             return (
                                 self.open_buffer(
-                                    data::Buffer::Upstream(buffer.clone()),
+                                    buffer.clone(),
                                     BufferAction::ReplacePane,
                                     clients,
                                     config,
@@ -2769,7 +2769,7 @@ impl Dashboard {
                 }
                 command_bar::Buffer::Replace(buffer) => (
                     self.open_buffer(
-                        data::Buffer::Upstream(buffer),
+                        buffer,
                         BufferAction::ReplacePane,
                         clients,
                         config,
@@ -2781,9 +2781,6 @@ impl Dashboard {
                 }
                 command_bar::Buffer::Merge => {
                     (self.merge_pane(clients, config), None)
-                }
-                command_bar::Buffer::ToggleInternal(buffer) => {
-                    (self.toggle_internal_buffer(clients, config, buffer), None)
                 }
             },
             command_bar::Command::Configuration(command) => match command {
@@ -2901,7 +2898,7 @@ impl Dashboard {
             self.close_pane(clients, config, window, pane)
         } else {
             self.open_buffer(
-                data::Buffer::Internal(buffer),
+                buffer.into(),
                 config.actions.buffer.local,
                 clients,
                 config,
@@ -5174,38 +5171,55 @@ fn all_upstream_buffers(
 }
 
 fn all_buffers_with_has_unread(
+    config: &Config,
     clients: &client::Map,
     history: &history::Manager,
-) -> Vec<(buffer::Upstream, bool)> {
-    clients
-        .connected_servers()
-        .flat_map(|server| {
-            std::iter::once((
-                buffer::Upstream::Server(server.clone()),
-                history.has_unread(&history::Kind::Server(server.clone())),
-            ))
-            .chain(clients.get_channels(server).map(|channel| {
-                (
-                    buffer::Upstream::Channel(server.clone(), channel.clone()),
-                    history.has_unread(&history::Kind::Channel(
-                        server.clone(),
-                        channel.clone(),
-                    )),
-                )
-            }))
-            .chain(
-                history.get_unique_queries(server).into_iter().map(|nick| {
-                    (
-                        buffer::Upstream::Query(server.clone(), nick.clone()),
-                        history.has_unread(&history::Kind::Query(
-                            server.clone(),
-                            nick.clone(),
-                        )),
-                    )
-                }),
+) -> Vec<(data::Buffer, bool)> {
+    let upstream_buffers = clients.connected_servers().flat_map(|server| {
+        std::iter::once((
+            buffer::Upstream::Server(server.clone()).into(),
+            history.has_unread(&history::Kind::Server(server.clone())),
+        ))
+        .chain(clients.get_channels(server).map(|channel| {
+            (
+                buffer::Upstream::Channel(server.clone(), channel.clone())
+                    .into(),
+                history.has_unread(&history::Kind::Channel(
+                    server.clone(),
+                    channel.clone(),
+                )),
             )
-        })
-        .collect()
+        }))
+        .chain(history.get_unique_queries(server).into_iter().map(|nick| {
+            (
+                buffer::Upstream::Query(server.clone(), nick.clone()).into(),
+                history.has_unread(&history::Kind::Query(
+                    server.clone(),
+                    nick.clone(),
+                )),
+            )
+        }))
+    });
+
+    let internal_buffers = config
+        .sidebar
+        .internal_buffers
+        .buffers
+        .iter()
+        .map(|&kind| data::Buffer::Internal(kind.into()))
+        .map(|buffer| {
+            if let Some(kind) = history::Kind::from_buffer(buffer.clone()) {
+                (buffer, history.has_unread(&kind))
+            } else {
+                (buffer, false)
+            }
+        });
+
+    if config.sidebar.internal_buffers.is_before_servers() {
+        internal_buffers.chain(upstream_buffers).collect()
+    } else {
+        upstream_buffers.chain(internal_buffers).collect()
+    }
 }
 
 fn open_buffers(dashboard: &Dashboard) -> Vec<data::Buffer> {
@@ -5271,10 +5285,10 @@ fn cycle_previous_buffer(
 }
 
 fn cycle_next_unread_buffer(
-    current: Option<&buffer::Upstream>,
-    mut all: Vec<(buffer::Upstream, bool)>,
-    opened: &[buffer::Upstream],
-) -> Option<buffer::Upstream> {
+    current: Option<&data::Buffer>,
+    mut all: Vec<(data::Buffer, bool)>,
+    opened: &[data::Buffer],
+) -> Option<data::Buffer> {
     all.retain(|(buffer, _)| {
         Some(buffer) == current || !opened.contains(buffer)
     });
@@ -5299,10 +5313,10 @@ fn cycle_next_unread_buffer(
 }
 
 fn cycle_previous_unread_buffer(
-    current: Option<&buffer::Upstream>,
-    mut all: Vec<(buffer::Upstream, bool)>,
-    opened: &[buffer::Upstream],
-) -> Option<buffer::Upstream> {
+    current: Option<&data::Buffer>,
+    mut all: Vec<(data::Buffer, bool)>,
+    opened: &[data::Buffer],
+) -> Option<data::Buffer> {
     all.retain(|(buffer, _)| {
         Some(buffer) == current || !opened.contains(buffer)
     });
