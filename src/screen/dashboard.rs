@@ -1903,7 +1903,7 @@ impl Dashboard {
                 return (
                     self.open_buffer(
                         data::Buffer::Internal(buffer),
-                        config.actions.buffer.click_channel_name,
+                        config.actions.buffer.open_internal,
                         clients,
                         config,
                     ),
@@ -2340,7 +2340,12 @@ impl Dashboard {
             buffer::Event::History(history_task) => {
                 return (history_task.map(Message::History), None);
             }
-            buffer::Event::GoToMessage(server, channel, message) => {
+            buffer::Event::GoToMessage(
+                server,
+                channel,
+                message,
+                buffer_action,
+            ) => {
                 let buffer = data::Buffer::Upstream(buffer::Upstream::Channel(
                     server, channel,
                 ));
@@ -2350,7 +2355,7 @@ impl Dashboard {
                 if self.panes.get_mut_by_buffer(&buffer).is_none() {
                     tasks.push(self.open_buffer(
                         buffer.clone(),
-                        config.actions.buffer.click_highlight,
+                        buffer_action,
                         clients,
                         config,
                     ));
@@ -2899,7 +2904,7 @@ impl Dashboard {
         } else {
             self.open_buffer(
                 buffer.into(),
-                config.actions.buffer.local,
+                config.actions.buffer.open_internal,
                 clients,
                 config,
             )

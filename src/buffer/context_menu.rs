@@ -2,11 +2,11 @@ use std::str::FromStr;
 use std::string::ToString;
 
 use chrono::{DateTime, Utc};
+use data::config::actions::NicknameClickAction;
 use data::dashboard::BufferAction;
 use data::user::Nick;
 use data::{
-    Config, Server, User, config, ctcp, isupport, message, metadata, preview,
-    target,
+    Config, Server, User, ctcp, isupport, message, metadata, preview, target,
 };
 use iced::widget::{Space, button, center, column, container, row, rule, span};
 use iced::{
@@ -963,7 +963,7 @@ pub fn user<'a>(
     our_user: Option<&'a User>,
     config: &'a Config,
     theme: &'a Theme,
-    click: &'a config::buffer::NicknameClickAction,
+    click: &'a NicknameClickAction,
 ) -> Element<'a, Message> {
     let entries = Entry::user_list(
         channel.is_some(),
@@ -998,7 +998,7 @@ pub fn rerouted_private_user<'a>(
     user: &'a User,
     config: &'a Config,
     theme: &'a Theme,
-    click: &'a config::buffer::NicknameClickAction,
+    click: &'a NicknameClickAction,
 ) -> Element<'a, Message> {
     user_with_entries(
         content,
@@ -1027,21 +1027,26 @@ fn user_with_entries<'a>(
     current_user: Option<&'a User>,
     config: &'a Config,
     theme: &'a Theme,
-    click: &'a config::buffer::NicknameClickAction,
+    click: &'a NicknameClickAction,
     entries: Vec<Entry>,
 ) -> Element<'a, Message> {
     let message = match click {
-        data::config::buffer::NicknameClickAction::OpenQuery => Message::Query(
+        NicknameClickAction::OpenQuery(buffer_action) => Some(Message::Query(
             server.clone(),
             target::Query::from(user),
-            config.actions.buffer.click_username,
-        ),
-        data::config::buffer::NicknameClickAction::InsertNickname => {
-            Message::InsertNickname(user.nickname().to_owned())
+            *buffer_action,
+        )),
+        NicknameClickAction::InsertNickname => {
+            Some(Message::InsertNickname(user.nickname().to_owned()))
         }
+        NicknameClickAction::Noop => None,
     };
 
-    let base = widget::button::transparent_button(content, message);
+    let base = if let Some(message) = message {
+        widget::button::transparent_button(content, message)
+    } else {
+        content.into()
+    };
     let avatar = user_avatar(user, registry, previews);
     let on_open = config
         .context_menu

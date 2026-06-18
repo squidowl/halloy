@@ -1,4 +1,5 @@
 use data::appearance::theme::{FontStyle, nickname_color};
+use data::config::actions::ChannelClickAction;
 use data::config::display::nickname::Metadata;
 use data::target::Query;
 use data::{Config, Server, User, isupport, message, metadata, target};
@@ -212,14 +213,26 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                                     .color(transform_color(
                                         theme.styles().buffer.url.color,
                                     ))
-                                    .link(message::Link::Channel(
-                                        server.clone(),
-                                        target::Channel::from_str(
-                                            s.as_str(),
-                                            chantypes,
-                                            casemapping,
-                                        ),
-                                    ))
+                                    .link_maybe(
+                                        match config
+                                            .actions
+                                            .buffer
+                                            .click_channel_name
+                                        {
+                                            ChannelClickAction::OpenChannel(
+                                                buffer_action,
+                                            ) => Some(message::Link::Channel(
+                                                server.clone(),
+                                                target::Channel::from_str(
+                                                    s.as_str(),
+                                                    chantypes,
+                                                    casemapping,
+                                                ),
+                                                buffer_action,
+                                            )),
+                                            ChannelClickAction::Noop => None,
+                                        },
+                                    )
                             }
                             data::message::Fragment::User(user, text) => {
                                 let color = color_from_user(user);

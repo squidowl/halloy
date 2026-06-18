@@ -291,7 +291,7 @@ impl Query {
                         server,
                         vec![(target, buffer_action)],
                     )),
-                    scroll_view::Event::GoToMessage(_, _, _) => None,
+                    scroll_view::Event::GoToMessage(..) => None,
                     scroll_view::Event::RequestOlderChatHistory => {
                         Some(Event::RequestOlderChatHistory)
                     }

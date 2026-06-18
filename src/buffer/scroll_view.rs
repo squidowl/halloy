@@ -5,6 +5,7 @@ use std::time::Duration;
 use chrono::{DateTime, Local, NaiveDate, Utc};
 use data::buffer::RightAlignmentWidths;
 use data::command::Irc;
+use data::config::actions::NicknameClickAction;
 use data::config::buffer::{CondensationIcon, HideConsecutiveEnabled};
 use data::dashboard::BufferAction;
 use data::isupport::ChatHistoryState;
@@ -89,7 +90,7 @@ impl From<context_menu::Message> for Message {
 pub enum Event {
     ContextMenu(context_menu::Event),
     OpenBuffer(Server, Target, BufferAction),
-    GoToMessage(Server, target::Channel, message::Hash),
+    GoToMessage(Server, target::Channel, message::Hash, BufferAction),
     RequestOlderChatHistory,
     PreviewChanged,
     HidePreview(history::Kind, message::Hash, url::Url),
@@ -1043,13 +1044,17 @@ impl State {
                     context_menu::update(message).map(Event::ContextMenu),
                 );
             }
-            Message::Link(message::Link::Channel(server, channel)) => {
+            Message::Link(message::Link::Channel(
+                server,
+                channel,
+                buffer_action,
+            )) => {
                 return (
                     Task::none(),
                     Some(Event::OpenBuffer(
                         server,
                         Target::Channel(channel),
-                        config.actions.buffer.click_channel_name,
+                        buffer_action,
                     )),
                 );
             }
@@ -1057,33 +1062,42 @@ impl State {
                 return (Task::none(), Some(Event::OpenUrl(url)));
             }
             Message::Link(message::Link::User(server, user)) => {
-                let event = match config.buffer.nickname.click {
-                    data::config::buffer::NicknameClickAction::OpenQuery => {
+                let event = match config.actions.buffer.click_username {
+                    NicknameClickAction::OpenQuery(buffer_action) => {
                         let query = target::Query::from(user);
 
-                        Event::OpenBuffer(
+                        Some(Event::OpenBuffer(
                             server,
                             Target::Query(query),
-                            config.actions.buffer.click_username,
-                        )
-                    }
-                    data::config::buffer::NicknameClickAction::InsertNickname => {
-                        Event::ContextMenu(context_menu::Event::InsertNickname(
-                            user.nickname().to_owned(),
+                            buffer_action,
                         ))
                     }
+                    NicknameClickAction::InsertNickname => {
+                        Some(Event::ContextMenu(
+                            context_menu::Event::InsertNickname(
+                                user.nickname().to_owned(),
+                            ),
+                        ))
+                    }
+                    NicknameClickAction::Noop => None,
                 };
 
-                return (Task::none(), Some(event));
+                return (Task::none(), event);
             }
             Message::Link(message::Link::GoToMessage(
                 server,
                 channel,
                 message,
+                buffer_action,
             )) => {
                 return (
                     Task::none(),
-                    Some(Event::GoToMessage(server, channel, message)),
+                    Some(Event::GoToMessage(
+                        server,
+                        channel,
+                        message,
+                        buffer_action,
+                    )),
                 );
             }
             Message::ScrollTo(keyed::Hit {

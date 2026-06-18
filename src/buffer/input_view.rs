@@ -2637,7 +2637,6 @@ impl State {
 
         let open_buffers = if let Some(command::Irc::Join(targets, _)) =
             input.command()
-            && let Some(buffer_action) = config.actions.buffer.join_channel
         {
             let chantypes =
                 clients.get_server_chantypes_or_default(buffer.server());
@@ -2657,7 +2656,7 @@ impl State {
                     );
 
                     matches!(target, Target::Channel(_))
-                        .then_some((target, buffer_action))
+                        .then_some((target, config.actions.buffer.join_channel))
                 })
                 .collect()
         } else {

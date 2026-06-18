@@ -69,7 +69,7 @@ pub enum Event {
     Reconnect(data::Server),
     LeaveBuffers(Vec<Target>, Option<String>),
     SelectedServer(data::Server),
-    GoToMessage(data::Server, target::Channel, message::Hash),
+    GoToMessage(data::Server, target::Channel, message::Hash, BufferAction),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
     PreviewChanged,
@@ -307,8 +307,13 @@ impl Buffer {
                     channel::Event::ContractMessage(server_time, hash) => {
                         Event::ContractMessage(server_time, hash)
                     }
-                    channel::Event::GoToMessage(server, channel, hash) => {
-                        Event::GoToMessage(server, channel, hash)
+                    channel::Event::GoToMessage(
+                        server,
+                        channel,
+                        hash,
+                        buffer_action,
+                    ) => {
+                        Event::GoToMessage(server, channel, hash, buffer_action)
                     }
                     channel::Event::InputSent {
                         history_task,
@@ -491,12 +496,10 @@ impl Buffer {
                     channel_discovery::Event::OpenChannelForServer(
                         server,
                         channel,
+                        buffer_action,
                     ) => Event::OpenBuffers(
                         server,
-                        vec![(
-                            Target::Channel(channel),
-                            config.actions.buffer.click_channel_name,
-                        )],
+                        vec![(Target::Channel(channel), buffer_action)],
                     ),
                     channel_discovery::Event::ContextMenu(event) => {
                         Event::ContextMenu(event)
@@ -551,7 +554,13 @@ impl Buffer {
                         server,
                         channel,
                         message,
-                    ) => Event::GoToMessage(server, channel, message),
+                        buffer_action,
+                    ) => Event::GoToMessage(
+                        server,
+                        channel,
+                        message,
+                        buffer_action,
+                    ),
                     highlights::Event::History(task) => Event::History(task),
                     highlights::Event::MarkAsRead => {
                         Event::MarkAsRead(history::Kind::Highlights)

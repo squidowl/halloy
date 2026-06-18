@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use data::config::actions::ChannelClickAction;
 use data::config::buffer::nickname::ShownStatus;
 use data::dashboard::BufferAction;
 use data::target::{self, Target};
@@ -24,7 +25,7 @@ pub enum Message {
 pub enum Event {
     ContextMenu(context_menu::Event),
     OpenBuffer(Server, Target, BufferAction),
-    GoToMessage(Server, target::Channel, message::Hash),
+    GoToMessage(Server, target::Channel, message::Hash, BufferAction),
     History(Task<history::manager::Message>),
     OpenUrl(String),
     MarkAsRead,
@@ -90,11 +91,20 @@ pub fn view<'a>(
                                         .map(font::get),
                                 )
                                 .color(theme.styles().buffer.url.color)
-                                .link(message::Link::GoToMessage(
-                                    server.clone(),
-                                    channel.clone(),
-                                    message.hash,
-                                )),
+                                .link_maybe(
+                                    match config.actions.buffer.click_highlight
+                                    {
+                                        ChannelClickAction::OpenChannel(
+                                            buffer_action,
+                                        ) => Some(message::Link::GoToMessage(
+                                            server.clone(),
+                                            channel.clone(),
+                                            message.hash,
+                                            buffer_action,
+                                        )),
+                                        ChannelClickAction::Noop => None,
+                                    },
+                                ),
                             span(" "),
                         ])
                         .on_link(scroll_view::Message::Link);
@@ -159,7 +169,7 @@ pub fn view<'a>(
                         None,
                         config,
                         theme,
-                        &config.buffer.nickname.click,
+                        &config.actions.buffer.click_username,
                     )
                     .map(scroll_view::Message::ContextMenu);
 
@@ -261,11 +271,20 @@ pub fn view<'a>(
                         selectable_rich_text::<_, _, (), _, _>(vec![
                             span(channel.as_str())
                                 .color(theme.styles().buffer.url.color)
-                                .link(message::Link::GoToMessage(
-                                    server.clone(),
-                                    channel.clone(),
-                                    message.hash,
-                                )),
+                                .link_maybe(
+                                    match config.actions.buffer.click_highlight
+                                    {
+                                        ChannelClickAction::OpenChannel(
+                                            buffer_action,
+                                        ) => Some(message::Link::GoToMessage(
+                                            server.clone(),
+                                            channel.clone(),
+                                            message.hash,
+                                            buffer_action,
+                                        )),
+                                        ChannelClickAction::Noop => None,
+                                    },
+                                ),
                             span(" "),
                         ])
                         .on_link(scroll_view::Message::Link);
@@ -361,7 +380,10 @@ impl Highlights {
                         server,
                         channel,
                         message,
-                    ) => Some(Event::GoToMessage(server, channel, message)),
+                        action,
+                    ) => Some(Event::GoToMessage(
+                        server, channel, message, action,
+                    )),
                     scroll_view::Event::RequestOlderChatHistory => None,
                     scroll_view::Event::PreviewChanged => None,
                     scroll_view::Event::HidePreview(..) => None,
