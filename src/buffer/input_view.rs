@@ -581,10 +581,7 @@ pub fn view<'a>(
                         .into()
                 } else {
                     let t = state.upload_anim * std::f32::consts::TAU;
-                    let spinner = crate::icon::spinner(t + 0.4 * t.sin())
-                        .style(|theme: &Theme, _| iced::widget::svg::Style {
-                            color: Some(theme.styles().text.primary.color),
-                        });
+                    let spinner = crate::icon::spinner(t + 0.4 * t.sin());
                     if state.uploading > 1 {
                         row![spinner, text(state.uploading).size(12)]
                             .align_y(iced::Alignment::Center)

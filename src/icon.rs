@@ -1,8 +1,9 @@
 use data::config;
 use iced::widget::text::LineHeight;
-use iced::widget::{Svg, svg, text};
+use iced::widget::{svg, text};
 
 use crate::widget::Text;
+use crate::widget::text_color_svg::{TextColorSvg, text_color_svg};
 use crate::{Theme, font, theme};
 
 pub fn dot<'a>() -> Text<'a> {
@@ -13,25 +14,25 @@ pub fn error<'a>() -> Text<'a> {
     to_text('\u{E80D}')
 }
 
-pub fn connected<'a>() -> Svg<'a, Theme> {
+pub fn connected<'a>() -> TextColorSvg<'a, Theme> {
     let entypo_globe =
         include_bytes!("../assets/fontello/entypo-globe.svg").to_vec();
 
-    svg(svg::Handle::from_memory(entypo_globe))
+    text_color_svg(svg::Handle::from_memory(entypo_globe))
 }
 
-pub fn disconnected<'a>() -> Svg<'a, Theme> {
+pub fn disconnected<'a>() -> TextColorSvg<'a, Theme> {
     let entypo_cancel =
         include_bytes!("../assets/fontello/entypo-cancel.svg").to_vec();
 
-    svg(svg::Handle::from_memory(entypo_cancel))
+    text_color_svg(svg::Handle::from_memory(entypo_cancel))
 }
 
-pub fn link<'a>() -> Svg<'a, Theme> {
+pub fn link<'a>() -> TextColorSvg<'a, Theme> {
     let entypo_link =
         include_bytes!("../assets/fontello/entypo-link.svg").to_vec();
 
-    svg(svg::Handle::from_memory(entypo_link))
+    text_color_svg(svg::Handle::from_memory(entypo_link))
 }
 
 pub fn cancel<'a>() -> Text<'a> {
@@ -54,43 +55,43 @@ pub fn topic<'a>() -> Text<'a> {
     to_text('\u{E803}')
 }
 
-pub fn search<'a>() -> Svg<'a, Theme> {
+pub fn search<'a>() -> TextColorSvg<'a, Theme> {
     let entypo_search =
         include_bytes!("../assets/fontello/entypo-search.svg").to_vec();
 
-    svg(svg::Handle::from_memory(entypo_search))
+    text_color_svg(svg::Handle::from_memory(entypo_search))
 }
 
 pub fn checkmark<'a>() -> Text<'a> {
     to_text('\u{E806}')
 }
 
-pub fn file_transfer<'a>() -> Svg<'a, Theme> {
+pub fn file_transfer<'a>() -> TextColorSvg<'a, Theme> {
     let entypo_download =
         include_bytes!("../assets/fontello/entypo-download.svg").to_vec();
 
-    svg(svg::Handle::from_memory(entypo_download))
+    text_color_svg(svg::Handle::from_memory(entypo_download))
 }
 
-pub fn refresh<'a>() -> Svg<'a, Theme> {
+pub fn refresh<'a>() -> TextColorSvg<'a, Theme> {
     let entypo_arrows_ccw =
         include_bytes!("../assets/fontello/entypo-arrows-ccw.svg").to_vec();
 
-    svg(svg::Handle::from_memory(entypo_arrows_ccw))
+    text_color_svg(svg::Handle::from_memory(entypo_arrows_ccw))
 }
 
-pub fn megaphone<'a>() -> Svg<'a, Theme> {
+pub fn megaphone<'a>() -> TextColorSvg<'a, Theme> {
     let entypo_megaphone =
         include_bytes!("../assets/fontello/entypo-megaphone.svg").to_vec();
 
-    svg(svg::Handle::from_memory(entypo_megaphone))
+    text_color_svg(svg::Handle::from_memory(entypo_megaphone))
 }
 
-pub fn theme_editor<'a>() -> Svg<'a, Theme> {
+pub fn theme_editor<'a>() -> TextColorSvg<'a, Theme> {
     let entypo_palette =
         include_bytes!("../assets/fontello/entypo-palette.svg").to_vec();
 
-    svg(svg::Handle::from_memory(entypo_palette))
+    text_color_svg(svg::Handle::from_memory(entypo_palette))
 }
 
 pub fn undo<'a>() -> Text<'a> {
@@ -105,32 +106,32 @@ pub fn popout<'a>() -> Text<'a> {
     to_text('\u{E80E}')
 }
 
-pub fn logs<'a>() -> Svg<'a, Theme> {
+pub fn logs<'a>() -> TextColorSvg<'a, Theme> {
     let entypo_bucket =
         include_bytes!("../assets/fontello/entypo-bucket.svg").to_vec();
 
-    svg(svg::Handle::from_memory(entypo_bucket))
+    text_color_svg(svg::Handle::from_memory(entypo_bucket))
 }
 
-pub fn menu<'a>() -> Svg<'a, Theme> {
+pub fn menu<'a>() -> TextColorSvg<'a, Theme> {
     let typicons_menu =
         include_bytes!("../assets/fontello/typicons-menu.svg").to_vec();
 
-    svg(svg::Handle::from_memory(typicons_menu))
+    text_color_svg(svg::Handle::from_memory(typicons_menu))
 }
 
-pub fn documentation<'a>() -> Svg<'a, Theme> {
+pub fn documentation<'a>() -> TextColorSvg<'a, Theme> {
     let fontawesome_book =
         include_bytes!("../assets/fontello/fontawesome-book.svg").to_vec();
 
-    svg(svg::Handle::from_memory(fontawesome_book))
+    text_color_svg(svg::Handle::from_memory(fontawesome_book))
 }
 
-pub fn highlights<'a>() -> Svg<'a, Theme> {
+pub fn highlights<'a>() -> TextColorSvg<'a, Theme> {
     let entypo_bell =
         include_bytes!("../assets/fontello/entypo-bell.svg").to_vec();
 
-    svg(svg::Handle::from_memory(entypo_bell))
+    text_color_svg(svg::Handle::from_memory(entypo_bell))
 }
 
 pub fn scroll_to_bottom<'a>() -> Text<'a> {
@@ -145,84 +146,84 @@ pub fn mark_as_read<'a>() -> Text<'a> {
     to_text('\u{E817}')
 }
 
-pub fn config<'a>() -> Svg<'a, Theme> {
+pub fn config<'a>() -> TextColorSvg<'a, Theme> {
     let fontawesome_file_code =
         include_bytes!("../assets/fontello/fontawesome-file-code.svg").to_vec();
 
-    svg(svg::Handle::from_memory(fontawesome_file_code))
+    text_color_svg(svg::Handle::from_memory(fontawesome_file_code))
 }
 
-pub fn star<'a>() -> Svg<'a, Theme> {
+pub fn star<'a>() -> TextColorSvg<'a, Theme> {
     let fontawesome_star =
         include_bytes!("../assets/fontello/fontawesome-star.svg").to_vec();
 
-    svg(svg::Handle::from_memory(fontawesome_star))
+    text_color_svg(svg::Handle::from_memory(fontawesome_star))
 }
 
-pub fn certificate<'a>() -> Svg<'a, Theme> {
+pub fn certificate<'a>() -> TextColorSvg<'a, Theme> {
     let fontawesome_certificate =
         include_bytes!("../assets/fontello/fontawesome-certificate.svg")
             .to_vec();
 
-    svg(svg::Handle::from_memory(fontawesome_certificate))
+    text_color_svg(svg::Handle::from_memory(fontawesome_certificate))
 }
 
-pub fn circle<'a>() -> Svg<'a, Theme> {
+pub fn circle<'a>() -> TextColorSvg<'a, Theme> {
     let fontawesome_circle =
         include_bytes!("../assets/fontello/fontawesome-circle.svg").to_vec();
 
-    svg(svg::Handle::from_memory(fontawesome_circle))
+    text_color_svg(svg::Handle::from_memory(fontawesome_circle))
 }
 
-pub fn circle_empty<'a>() -> Svg<'a, Theme> {
+pub fn circle_empty<'a>() -> TextColorSvg<'a, Theme> {
     let fontawesome_circle_empty =
         include_bytes!("../assets/fontello/fontawesome-circle-empty.svg")
             .to_vec();
 
-    svg(svg::Handle::from_memory(fontawesome_circle_empty))
+    text_color_svg(svg::Handle::from_memory(fontawesome_circle_empty))
 }
 
-pub fn dot_circled<'a>() -> Svg<'a, Theme> {
+pub fn dot_circled<'a>() -> TextColorSvg<'a, Theme> {
     let fontawesome_dot_circled =
         include_bytes!("../assets/fontello/fontawesome-dot-circled.svg")
             .to_vec();
 
-    svg(svg::Handle::from_memory(fontawesome_dot_circled))
+    text_color_svg(svg::Handle::from_memory(fontawesome_dot_circled))
 }
 
-pub fn asterisk<'a>() -> Svg<'a, Theme> {
+pub fn asterisk<'a>() -> TextColorSvg<'a, Theme> {
     let fontawesome_asterisk =
         include_bytes!("../assets/fontello/fontawesome-asterisk.svg").to_vec();
 
-    svg(svg::Handle::from_memory(fontawesome_asterisk))
+    text_color_svg(svg::Handle::from_memory(fontawesome_asterisk))
 }
 
-pub fn speaker<'a>() -> Svg<'a, Theme> {
+pub fn speaker<'a>() -> TextColorSvg<'a, Theme> {
     let entypo_sound =
         include_bytes!("../assets/fontello/entypo-sound.svg").to_vec();
 
-    svg(svg::Handle::from_memory(entypo_sound))
+    text_color_svg(svg::Handle::from_memory(entypo_sound))
 }
 
-pub fn lightbulb<'a>() -> Svg<'a, Theme> {
+pub fn lightbulb<'a>() -> TextColorSvg<'a, Theme> {
     let fontawesome_lightbulb =
         include_bytes!("../assets/fontello/fontawesome-lightbulb.svg").to_vec();
 
-    svg(svg::Handle::from_memory(fontawesome_lightbulb))
+    text_color_svg(svg::Handle::from_memory(fontawesome_lightbulb))
 }
 
-pub fn quit<'a>() -> Svg<'a, Theme> {
+pub fn quit<'a>() -> TextColorSvg<'a, Theme> {
     let mfg_labs_logout =
         include_bytes!("../assets/fontello/mfg-labs-logout.svg").to_vec();
 
-    svg(svg::Handle::from_memory(mfg_labs_logout))
+    text_color_svg(svg::Handle::from_memory(mfg_labs_logout))
 }
 
-pub fn channel_discovery<'a>() -> Svg<'a, Theme> {
+pub fn channel_discovery<'a>() -> TextColorSvg<'a, Theme> {
     let fontawesome_users =
         include_bytes!("../assets/fontello/fontawesome-users.svg").to_vec();
 
-    svg(svg::Handle::from_memory(fontawesome_users))
+    text_color_svg(svg::Handle::from_memory(fontawesome_users))
 }
 
 pub fn plus<'a>() -> Text<'a> {
@@ -237,21 +238,21 @@ pub fn reply<'a>() -> Text<'a> {
     to_text('\u{E81B}')
 }
 
-pub fn not_sent<'a>() -> Svg<'a, Theme> {
+pub fn not_sent<'a>() -> TextColorSvg<'a, Theme> {
     let fontawesome_attention =
         include_bytes!("../assets/fontello/fontawesome-attention.svg").to_vec();
 
-    svg(svg::Handle::from_memory(fontawesome_attention))
+    text_color_svg(svg::Handle::from_memory(fontawesome_attention))
 }
 
 pub fn eraser<'a>() -> Text<'a> {
     to_text('\u{F12D}')
 }
 
-pub fn spinner<'a>(angle: f32) -> Svg<'a, Theme> {
+pub fn spinner<'a>(angle: f32) -> TextColorSvg<'a, Theme> {
     let bytes = include_bytes!("../assets/spinner.svg").to_vec();
 
-    svg(svg::Handle::from_memory(bytes))
+    text_color_svg(svg::Handle::from_memory(bytes))
         .width(15)
         .height(15)
         .rotation(iced::Radians(angle))
@@ -264,7 +265,9 @@ fn to_text<'a>(unicode: char) -> Text<'a> {
         .font(*font::ICON)
 }
 
-pub fn from_icon<'a>(icon: config::sidebar::Icon) -> Option<Svg<'a, Theme>> {
+pub fn from_icon<'a>(
+    icon: config::sidebar::Icon,
+) -> Option<TextColorSvg<'a, Theme>> {
     match icon {
         config::sidebar::Icon::Dot => Some(circle()),
         config::sidebar::Icon::DotCircled => Some(dot_circled()),

@@ -31,10 +31,7 @@ pub fn view<'a>(
                                             icon::checkmark()
                                                 .style(theme::text::success)
                                         ),
-                                    _ => Element::from(
-                                        icon::file_transfer()
-                                            .style(theme::svg::primary)
-                                    ),
+                                    _ => Element::from(icon::file_transfer()),
                                 }
                             ))
                             .padding(5)
