@@ -1,9 +1,7 @@
 use serde::Deserialize;
 
 use crate::buffer::{Alignment, Brackets, Color};
-use crate::config::buffer::{
-    AccessLevelFormat, Away, HideConsecutive, NicknameClickAction,
-};
+use crate::config::buffer::{AccessLevelFormat, Away, HideConsecutive};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
@@ -15,7 +13,6 @@ pub struct Nickname {
     pub alignment: Alignment,
     pub show_access_levels: AccessLevelFormat,
     pub show_bot_icon: bool,
-    pub click: NicknameClickAction,
     pub shown_status: ShownStatus,
     pub truncate: Option<u16>,
     pub hide_consecutive: HideConsecutive,
@@ -31,7 +28,6 @@ impl Default for Nickname {
             alignment: Alignment::default(),
             show_access_levels: AccessLevelFormat::default(),
             show_bot_icon: true,
-            click: NicknameClickAction::default(),
             shown_status: ShownStatus::default(),
             truncate: None,
             hide_consecutive: HideConsecutive::default(),

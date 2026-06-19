@@ -1,6 +1,5 @@
 use serde::Deserialize;
 
-use super::NicknameClickAction;
 use crate::channel::Position;
 use crate::config::buffer::AccessLevelFormat;
 use crate::isupport;
@@ -60,7 +59,6 @@ pub struct Nicklist {
     pub show_access_levels: AccessLevelFormat,
     pub show_bot_icon: bool,
     pub truncate: Option<u16>,
-    pub click: NicknameClickAction,
 }
 
 impl Default for Nicklist {
@@ -73,7 +71,6 @@ impl Default for Nicklist {
             show_access_levels: AccessLevelFormat::default(),
             show_bot_icon: true,
             truncate: None,
-            click: NicknameClickAction::default(),
         }
     }
 }

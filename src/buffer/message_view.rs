@@ -5,6 +5,7 @@ use data::buffer::RightAlignmentWidths;
 use data::config::buffer::nickname::ShownStatus;
 use data::config::buffer::{CondensationIcon, Dimmed};
 use data::config::preview::HideUrlCondition;
+use data::dashboard::BufferAction;
 use data::isupport::{CaseMap, PrefixMap};
 use data::preview::{self, Previews};
 use data::redaction::Redaction;
@@ -636,7 +637,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     user,
                     self.config,
                     self.theme,
-                    &self.config.buffer.nickname.click,
+                    &self.config.actions.buffer.click_username,
                 )
                 .map(Message::ContextMenu)
             } else {
@@ -652,7 +653,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     self.target.our_user(),
                     self.config,
                     self.theme,
-                    &self.config.buffer.nickname.click,
+                    &self.config.actions.buffer.click_username,
                 )
                 .map(Message::ContextMenu)
             }
@@ -1725,7 +1726,10 @@ impl<'a> ChannelQueryLayout<'a> {
                     .style(theme::button::reply_preview)
                     .padding(0)
                     .on_press(Message::Link(message::Link::GoToMessage(
-                        server, channel, hash,
+                        server,
+                        channel,
+                        hash,
+                        BufferAction::default(), // Currently unimportant, since the buffer will always be already open
                     )))
                     .into()
             } else {

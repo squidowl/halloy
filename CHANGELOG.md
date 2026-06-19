@@ -8,6 +8,8 @@ Added:
 - Support displaying a larger version of the card images in-app
 - IRCv3 `no-implicit-names` support
 - Keyboard shortcuts validation (e.g no duplicate key binds)
+- `actions.buffer.click_nickname` and `actions.nicklist.click_nickname` can be used to specify whether a nickname will: open query and how the query is opened, insert nickname in the input box, or no action (`"no-action"` or `"noop"`); takes over functionality from `buffer.nickname.click` and `buffer.channel.nicklist.click` and adds the ability to perform no action
+- `actions.buffer.click_channel_name` and `actions.buffer.click_highlight` can be set to no action (`"no-action"` or `"noop"`) to not open the channel when clicking on the channel name
 
 Fixed:
 
@@ -20,13 +22,16 @@ Fixed:
 - Do not copy empty selections to the primary clipboard (i.e. do not clear the primary clipboard when a non-selection action is performed, such as moving the cursor or focusing the text input on some systems)
 - Prevent anti-flood rate limiting from refilling the token bucket beyond its configured capacity
 - Show unread indicators for panes hidden by maximize
+- Allow commands (e.g. `/join`) to be used in the input box of not-joined channels
 
 Changed:
 
 - `change_mode` server messages are categorized as `actions` (i.e. `actions_dimmed` controls whether they are dimmed by default)
 - Renamed `sidebar.server_icon` → `sidebar.primary_icon` and `sidebar.server_font_size` → `sidebar.primary_font_size` since the settings now apply to both servers and internal buffers
 - Renamed `sidebar.font_size` → `sidebar.secondary_font_size` to reflect its relationship to `sidebar.primary_font_size`
-- Removed unnecessary AWS-LC dependency
+- Renamed `actions.buffer.local` → `actions.buffer.open_internal` to match naming convention used elsewhere
+- Renamed `actions.buffer.click_username` to `action_buffer.click_nickname` for more consistent terminology
+- Moved functionality from `buffer.nickname.click` → `actions.buffer.click_nickname` and `buffer.channel.nicklist.click` → `actions.nicklist.click_nickname`
 
 Thanks:
 

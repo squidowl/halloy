@@ -43,7 +43,7 @@ pub enum Event {
     ImagePreview(Image),
     ExpandMessage(DateTime<Utc>, message::Hash),
     ContractMessage(DateTime<Utc>, message::Hash),
-    GoToMessage(Server, target::Channel, message::Hash),
+    GoToMessage(Server, target::Channel, message::Hash, BufferAction),
     InputSent {
         history_task: Task<history::manager::Message>,
         open_buffers: Vec<(Target, BufferAction)>,
@@ -360,9 +360,17 @@ impl Channel {
                         server,
                         vec![(target, buffer_action)],
                     )),
-                    scroll_view::Event::GoToMessage(server, channel, hash) => {
-                        Some(Event::GoToMessage(server, channel, hash))
-                    }
+                    scroll_view::Event::GoToMessage(
+                        server,
+                        channel,
+                        hash,
+                        buffer_action,
+                    ) => Some(Event::GoToMessage(
+                        server,
+                        channel,
+                        hash,
+                        buffer_action,
+                    )),
                     scroll_view::Event::RequestOlderChatHistory => {
                         Some(Event::RequestOlderChatHistory)
                     }
@@ -514,15 +522,14 @@ impl Channel {
                     topic::Event::ContextMenu(event) => {
                         Event::ContextMenu(event)
                     }
-                    topic::Event::OpenChannel(server, channel) => {
-                        Event::OpenBuffers(
-                            server,
-                            vec![(
-                                Target::Channel(channel),
-                                config.actions.buffer.click_channel_name,
-                            )],
-                        )
-                    }
+                    topic::Event::OpenChannel(
+                        server,
+                        channel,
+                        buffer_action,
+                    ) => Event::OpenBuffers(
+                        server,
+                        vec![(Target::Channel(channel), buffer_action)],
+                    ),
                     topic::Event::OpenUrl(url) => Event::OpenUrl(url),
                 }),
             ),
@@ -701,7 +708,12 @@ mod nick_list {
                 our_user,
                 config,
                 theme,
-                &config.buffer.channel.nicklist.click,
+                config
+                    .actions
+                    .nicklist
+                    .click_username
+                    .as_ref()
+                    .unwrap_or(&config.actions.buffer.click_username),
             )
         });
 

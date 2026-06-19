@@ -23,6 +23,7 @@ use crate::capabilities::LabeledResponseContext;
 use crate::client::Destination;
 use crate::config::buffer::{CondensationFormat, UsernameFormat};
 use crate::config::{self, Highlights};
+use crate::dashboard::BufferAction;
 use crate::history::reroute::RerouteRules;
 use crate::log::Level;
 use crate::reaction::Reaction;
@@ -4073,10 +4074,10 @@ pub fn quit_text(
 
 #[derive(Debug, Clone)]
 pub enum Link {
-    Channel(Server, target::Channel),
+    Channel(Server, target::Channel, BufferAction),
     Url(String),
     User(Server, User),
-    GoToMessage(Server, target::Channel, Hash),
+    GoToMessage(Server, target::Channel, Hash, BufferAction),
     ExpandMessage(DateTime<Utc>, Hash),
     ContractMessage(DateTime<Utc>, Hash),
 }

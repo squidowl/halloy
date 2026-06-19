@@ -1,3 +1,5 @@
+use data::config::actions::ChannelClickAction;
+use data::dashboard::BufferAction;
 use data::{Config, Server, channel_discovery, message, metadata, target};
 use iced::widget::{
     self, button, center, column, container, operation, pick_list, row, rule,
@@ -24,7 +26,7 @@ pub enum Message {
 pub enum Event {
     SelectedServer(Server),
     OpenUrl(String),
-    OpenChannelForServer(data::Server, target::Channel),
+    OpenChannelForServer(data::Server, target::Channel, BufferAction),
     ContextMenu(context_menu::Event),
     SendUnsafeList(Server),
 }
@@ -65,9 +67,13 @@ impl ChannelDiscovery {
                 message::Link::Url(url) => {
                     (Task::none(), Some(Event::OpenUrl(url)))
                 }
-                message::Link::Channel(server, channel) => (
+                message::Link::Channel(server, channel, buffer_action) => (
                     Task::none(),
-                    Some(Event::OpenChannelForServer(server, channel)),
+                    Some(Event::OpenChannelForServer(
+                        server,
+                        channel,
+                        buffer_action,
+                    )),
                 ),
                 _ => (Task::none(), None),
             },
@@ -251,6 +257,14 @@ fn channel_list_view<'a>(
                                         server,
                                     ),
                                 ),
+                                match config.actions.buffer.click_channel_name {
+                                    ChannelClickAction::OpenChannel(
+                                        buffer_action,
+                                    ) => buffer_action,
+                                    ChannelClickAction::Noop => {
+                                        config.actions.buffer.join_channel
+                                    }
+                                },
                             )),
                     ],
                         )

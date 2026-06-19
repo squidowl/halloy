@@ -150,7 +150,7 @@ impl Logs {
                         Some(Event::ContextMenu(event))
                     }
                     scroll_view::Event::OpenBuffer(_, _, _) => None,
-                    scroll_view::Event::GoToMessage(_, _, _) => None,
+                    scroll_view::Event::GoToMessage(..) => None,
                     scroll_view::Event::RequestOlderChatHistory => None,
                     scroll_view::Event::PreviewChanged => None,
                     scroll_view::Event::HidePreview(..) => None,

@@ -246,7 +246,7 @@ pub fn view<'a>(
                                 None,
                                 config,
                                 theme,
-                                &config.buffer.nickname.click,
+                                &config.actions.buffer.click_username,
                             )
                             .map(scroll_view::Message::ContextMenu)
                         };
@@ -396,7 +396,7 @@ impl Server {
                         server,
                         vec![(target, buffer_action)],
                     )),
-                    scroll_view::Event::GoToMessage(_, _, _) => None,
+                    scroll_view::Event::GoToMessage(..) => None,
                     scroll_view::Event::RequestOlderChatHistory => None,
                     scroll_view::Event::PreviewChanged => None,
                     scroll_view::Event::HidePreview(..) => None,

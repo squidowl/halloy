@@ -121,14 +121,6 @@ impl Default for ReplyTooltip {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "kebab-case")]
-pub enum NicknameClickAction {
-    #[default]
-    OpenQuery,
-    InsertNickname,
-}
-
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Emojis {

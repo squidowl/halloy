@@ -1,4 +1,5 @@
 use chrono::{DateTime, Local, Utc};
+use data::dashboard::BufferAction;
 use data::user::ChannelUsers;
 use data::{Config, Server, User, isupport, message, target};
 use iced::widget::{Scrollable, column, container, row, rule, scrollable};
@@ -12,7 +13,7 @@ use crate::{Theme, font, theme};
 #[derive(Debug, Clone)]
 pub enum Event {
     ContextMenu(context_menu::Event),
-    OpenChannel(Server, target::Channel),
+    OpenChannel(Server, target::Channel, BufferAction),
     OpenUrl(String),
 }
 
@@ -27,9 +28,11 @@ pub fn update(message: Message) -> Option<Event> {
         Message::ContextMenu(message) => {
             context_menu::update(message).map(Event::ContextMenu)
         }
-        Message::Link(message::Link::Channel(server, channel)) => {
-            Some(Event::OpenChannel(server, channel))
-        }
+        Message::Link(message::Link::Channel(
+            server,
+            channel,
+            buffer_action,
+        )) => Some(Event::OpenChannel(server, channel, buffer_action)),
         Message::Link(message::Link::Url(url)) => Some(Event::OpenUrl(url)),
         Message::Link(message::Link::User(_, user)) => {
             Some(Event::ContextMenu(context_menu::Event::InsertNickname(
@@ -90,7 +93,7 @@ pub fn view<'a>(
             our_user,
             config,
             theme,
-            &config.buffer.nickname.click,
+            &config.actions.buffer.click_username,
         );
 
         Some(

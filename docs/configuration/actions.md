@@ -7,20 +7,20 @@ Application-wide actions; how user actions should be enacted.
 How buffer actions should be enacted
 
 ```toml
-# Replace pane when clicking on channel/user names in a pane,
+# Replace pane when clicking on channel/user names in a pane
 
 [actions.buffer]
 click_channel_name = "replace-pane"
-click_username = "replace-pane"
+click_nickname = "replace-pane"
 ```
 
 ### `click_channel_name`
 
-Action when clicking on a channel name in a pane. `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with the clicked channel. `"new-window"` opens a new window each time.
+Action when clicking on a channel name in a pane. `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with the clicked channel. `"new-window"` opens a new window each time. `"no-action"` or `"noop"` will ignore clicks on channel names.
 
 ```toml
 # Type: string
-# Values: "new-pane", "replace-pane", "new-window"
+# Values: "new-pane", "replace-pane", "new-window", "no-action", "noop"
 # Default: "new-pane"
 
 [actions.buffer]
@@ -29,33 +29,37 @@ click_channel_name = "new-pane"
 
 ### `click_highlight`
 
-Action when clicking on a highlight in the highlights buffer. `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with the buffer that contains the highlight. `"new-window"` opens a new window each time.
+Action when clicking on the channel name of a highlight in the highlights buffer. `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with the buffer that contains the highlight. `"new-window"` opens a new window each time. `"no-action"` or `"noop"` will ignore clicks on the channel name of highlights.
 
 ```toml
 # Type: string
-# Values: "new-pane", "replace-pane", "new-window"
+# Values: "new-pane", "replace-pane", "new-window", "no-action", "noop"
 # Default: "new-pane"
 
 [actions.buffer]
 click_highlight = "new-pane"
 ```
 
-### `click_username`
+### `click_nickname`
 
-Action when clicking on a user name in a pane (if `buffer.channel.nicklist` or `buffer.nickname` is set to `"open-query"`). `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with a query for clicked user. `"new-window"` opens a new window each time.
+Click action for when interaction with nicknames.
+
+- `"open-query" = "buffer-action"`: Open a query with the user with the prescribed buffer action (`"new-pane"`, `"replace-pane"`, or `"new-window"`). `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with a query for clicked user. `"new-window"` opens a new window each time.
+- `"insert-nickname"`: Inserts the nickname into the buffer's input box.
+- `"no-action"` or `"noop"`: No action is performed
 
 ```toml
 # Type: string
-# Values: "new-pane", "replace-pane", "new-window"
-# Default: "new-pane"
+# Values: "open-query" = "new-pane", "open-query" = "replace-pane", "open-query" = "new-window", "insert-nickname", "no-action", "noop"
+# Default: "open-query" = "new-pane"
 
 [actions.buffer]
-click_username = "new-pane"
+click_nickname = { "open-query" = "replace-pane" }
 ```
 
-### `local`
+### `open_internal`
 
-Action when opening a local buffer (the highlights or logs buffer). `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with the local buffer. `"new-window"` opens a new window each time.
+Action when opening an internal buffer (e.g. highlights, logs, or channel discovery buffers) via keyboard shortcut, command bar, user menu, or slash-command (e.g. `/list`). `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with the internal buffer. `"new-window"` opens a new window each time.
 
 ```toml
 # Type: string
@@ -63,7 +67,7 @@ Action when opening a local buffer (the highlights or logs buffer). `"new-pane"`
 # Default: "new-pane"
 
 [actions.buffer]
-local = "new-pane"
+open_internal = "new-pane"
 ```
 
 ### `message_channel`
@@ -94,7 +98,7 @@ message_user = "replace-pane"
 
 ### `join_channel`
 
-Action when sending joining a channel via `/join` command. `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with the channel. `"new-window"` opens a new window each time.
+Action when joining a channel via `/join` command. `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with the channel. `"new-window"` opens a new window each time.
 
 ```toml
 # Type: string
@@ -103,6 +107,34 @@ Action when sending joining a channel via `/join` command. `"new-pane"` opens a 
 
 [actions.buffer]
 join_channel = "replace-pane"
+```
+
+## `nicklist`
+
+How nicklist actions should be enacted
+
+```toml
+# Replace pane when clicking on a nickname in the nicklist
+
+[actions.buffer]
+click_nickname = "replace-pane"
+```
+
+### `click_nickname`
+
+Click action for when interaction with nicknames.  If not set, then the behavior specified by [`actions.buffer.click_nickname`](#click_nickname) will be used.
+
+- `"open-query" = "buffer-action"`: Open a query with the user with the prescribed buffer action (`"new-pane"`, `"replace-pane"`, or `"new-window"`). `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with a query for clicked user. `"new-window"` opens a new window each time.
+- `"insert-nickname"`: Inserts the nickname into the buffer's input box.
+- `"no-action"` or `"noop"`: No action is performed
+
+```toml
+# Type: string
+# Values: "open-query" = "new-pane", "open-query" = "replace-pane", "open-query" = "new-window", "insert-nickname", "no-action", "noop", not set
+# Default: not set
+
+[actions.nicklist]
+click_nickname = { "open-query" = "replace-pane" }
 ```
 
 ## `sidebar`

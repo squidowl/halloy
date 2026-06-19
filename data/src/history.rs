@@ -556,7 +556,7 @@ impl History {
             ..
         } = self
             && (matches!(message.direction, message::Direction::Sent)
-                || (((message.triggers_unread() && !message.blocked)
+                || ((message.triggers_unread()
                     || (message.is_echo && !message.deduplicate))
                     && Some(message.server_time) > *max_triggers_unread))
         {
@@ -564,7 +564,6 @@ impl History {
         }
 
         if message.triggers_unread()
-            && !message.blocked
             && let History::Partial {
                 max_triggers_unread,
                 ..

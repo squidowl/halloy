@@ -215,23 +215,6 @@ Overwrite nicklist width in pixels.
 width = 150
 ```
 
-#### `click`
-
-Click action for when interaction with nicknames.
-
-- `"open-query"`: Open a query with the User
-- `"insert-nickname"`: Inserts the nickname into text input
-
-```toml
-# Type: string
-# Values: "open-query", "insert-nickname"
-# Default: "open-query"
-
-[buffer.channel.nicklist]
-click = "open-query"
-```
-
-
 ### `topic_banner`
 
 Topic banner settings within a channel buffer.
@@ -881,22 +864,6 @@ What status should be indicated (by either `away` or `offline` settings), the us
 # Default: "current"
 [buffer.nickname]
 shown_status = "current"
-```
-
-### `click`
-
-Click action for when interaction with nicknames.
-
-- `"open-query"`: Open a query with the User
-- `"insert-nickname"`: Inserts the nickname into text input
-
-```toml
-# Type: string
-# Values: "open-query", "insert-nickname"
-# Default: "open-query"
-
-[buffer.nickname]
-click = "open-query"
 ```
 
 ### `truncate`
