@@ -7,3 +7,5 @@ To enable portable mode for Halloy, simply place the `config.toml` file in the s
 ├── Halloy.app
 └── config.toml
 ```
+
+Or you can set the `HALLOY_PORTABLE_DIR` environment variable to a valid directory path explicitly.

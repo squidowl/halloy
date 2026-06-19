@@ -38,9 +38,19 @@ pub fn cache_dir() -> PathBuf {
         .join("halloy")
 }
 
-/// Checks if a config file exists in the same directory as the executable.
+/// Checks if a portable dir is explicitly set or if a config file
+/// exists in the same directory as the executable.
 /// If so, it'll use that directory for both config & data dirs.
 fn portable_dir() -> Option<PathBuf> {
+    if let Some(path) = env::var_os("HALLOY_PORTABLE_DIR") {
+        let path = PathBuf::from(path);
+        if path.is_dir() {
+            return Some(path);
+        } else {
+            panic!("Given portable directory isn't valid!");
+        }
+    }
+
     let exe = env::current_exe().ok()?;
     let dir = exe.parent()?;
 
