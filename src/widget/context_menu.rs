@@ -670,13 +670,21 @@ where
         cursor: mouse::Cursor,
         renderer: &Renderer,
     ) -> iced::advanced::mouse::Interaction {
-        self.menu.as_widget().mouse_interaction(
+        let interaction = self.menu.as_widget().mouse_interaction(
             &self.state.menu_tree,
             layout,
             cursor,
             &layout.bounds(),
             renderer,
-        )
+        );
+
+        if interaction == mouse::Interaction::None
+            && cursor.is_over(layout.bounds())
+        {
+            mouse::Interaction::Idle
+        } else {
+            interaction
+        }
     }
 }
 
