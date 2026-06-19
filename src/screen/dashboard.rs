@@ -1461,9 +1461,7 @@ impl Dashboard {
                 if let Some(editor_event) = editor_event {
                     match editor_event {
                         theme_editor::Event::Close => {
-                            if let Some(editor) = self.theme_editor.take() {
-                                tasks.push(window::close(editor.window));
-                            }
+                            tasks.push(self.close_theme_editor(theme));
                         }
                         theme_editor::Event::ReloadThemes => {
                             event = Some(Event::ReloadThemes);
@@ -4665,10 +4663,7 @@ impl Dashboard {
         } else if self.theme_editor.as_ref().is_some_and(|e| e.window == id) {
             match event {
                 window::Event::CloseRequested => {
-                    if let Some(editor) = self.theme_editor.take() {
-                        *theme = theme.selected();
-                        return window::close(editor.window);
-                    }
+                    return self.close_theme_editor(theme);
                 }
                 window::Event::Moved(_)
                 | window::Event::Resized(_)
