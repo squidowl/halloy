@@ -23,6 +23,7 @@ Fixed:
 - Prevent anti-flood rate limiting from refilling the token bucket beyond its configured capacity
 - Show unread indicators for panes hidden by maximize
 - Allow commands (e.g. `/join`) to be used in the input box of not-joined channels
+- Disabled menu entries now block clicks from passing through
 
 Changed:
 
