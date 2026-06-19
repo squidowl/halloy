@@ -359,9 +359,12 @@ where
     ) -> mouse::Interaction {
         if cursor.is_over(layout.bounds()) {
             self.mouse_interaction_on_hover.unwrap_or({
-                let base_state = tree.children.first().unwrap();
                 self.base.as_widget().mouse_interaction(
-                    base_state, layout, cursor, viewport, renderer,
+                    &tree.children[0],
+                    layout,
+                    cursor,
+                    viewport,
+                    renderer,
                 )
             })
         } else {
@@ -377,9 +380,8 @@ where
         viewport: &Rectangle,
         translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
-        let base_state = tree.children.first_mut().unwrap();
         let base = self.base.as_widget_mut().overlay(
-            base_state,
+            &mut tree.children[0],
             layout,
             renderer,
             viewport,
