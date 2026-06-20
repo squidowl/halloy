@@ -317,7 +317,7 @@ impl TitleBar {
         // Pane controls.
         let controls = row![
             if let Buffer::ConfigEditor(state) = &buffer {
-                let is_dirty = state.is_dirty();
+                let is_dirty = state.has_unsaved_changes();
 
                 let save_button = button(center(icon::checkmark()))
                     .padding(5)

@@ -21,7 +21,7 @@ pub enum Message {
     Redo,
     Kill(text_editor_key_bindings::Kill, bool),
     OpenDirectory,
-    Saved(Result<(), String>),
+    Saved(String, Result<(), String>),
 }
 
 pub enum Event {
@@ -66,6 +66,7 @@ impl Error {
 #[derive(Debug)]
 pub struct ConfigEditor {
     content: text_editor::Content,
+    saved_text: String,
     dirty: bool,
     error: Option<Error>,
     history: History,
@@ -75,6 +76,7 @@ impl Clone for ConfigEditor {
     fn clone(&self) -> Self {
         Self {
             content: text_editor::Content::with_text(&self.content.text()),
+            saved_text: self.saved_text.clone(),
             dirty: self.dirty,
             error: self.error.clone(),
             history: self.history.clone(),
@@ -94,14 +96,19 @@ impl ConfigEditor {
 
         Self {
             content: text_editor::Content::with_text(&text),
+            saved_text: text,
             dirty: false,
             error,
             history: History::new(),
         }
     }
 
-    pub fn is_dirty(&self) -> bool {
+    pub fn has_unsaved_changes(&self) -> bool {
         self.dirty
+    }
+
+    fn is_dirty(&self) -> bool {
+        self.content.text() != self.saved_text
     }
 
     pub fn config_reloaded(&mut self, error: Option<&data::config::Error>) {
@@ -116,19 +123,23 @@ impl ConfigEditor {
         match message {
             Message::Action(action) => {
                 self.history.track(&self.content, &action);
+                let is_edit = action.is_edit();
 
-                if action.is_edit() {
-                    self.dirty = true;
+                if is_edit {
                     self.error = None;
                 }
 
                 self.content.perform(action);
 
+                if is_edit {
+                    self.dirty = self.is_dirty();
+                }
+
                 (Task::none(), None)
             }
             Message::Undo => {
                 if self.history.undo(&mut self.content) {
-                    self.dirty = true;
+                    self.dirty = self.is_dirty();
                     self.error = None;
                 }
 
@@ -136,7 +147,7 @@ impl ConfigEditor {
             }
             Message::Redo => {
                 if self.history.redo(&mut self.content) {
-                    self.dirty = true;
+                    self.dirty = self.is_dirty();
                     self.error = None;
                 }
 
@@ -151,7 +162,7 @@ impl ConfigEditor {
                     config.buffer.text_input.kill_to_clipboard,
                 );
 
-                self.dirty = true;
+                self.dirty = self.is_dirty();
                 self.error = None;
 
                 (task, None)
@@ -160,6 +171,7 @@ impl ConfigEditor {
                 let (text, error) = read_config();
 
                 self.content = text_editor::Content::with_text(&text);
+                self.saved_text = text;
                 self.dirty = false;
                 self.error = error;
                 self.history.clear();
@@ -168,6 +180,7 @@ impl ConfigEditor {
             }
             Message::Save => {
                 let contents = self.content.text();
+                let saved_text = contents.clone();
 
                 (
                     Task::perform(
@@ -176,7 +189,7 @@ impl ConfigEditor {
                                 .await
                                 .map_err(|error| error.to_string())
                         },
-                        Message::Saved,
+                        move |result| Message::Saved(saved_text, result),
                     ),
                     None,
                 )
@@ -186,13 +199,14 @@ impl ConfigEditor {
 
                 (Task::none(), None)
             }
-            Message::Saved(Ok(())) => {
-                self.dirty = false;
+            Message::Saved(saved_text, Ok(())) => {
+                self.saved_text = saved_text;
+                self.dirty = self.is_dirty();
                 self.error = None;
 
                 (Task::none(), Some(Event::ConfigSaved))
             }
-            Message::Saved(Err(error)) => {
+            Message::Saved(_, Err(error)) => {
                 self.error = Some(Error::message(error));
 
                 (Task::none(), None)

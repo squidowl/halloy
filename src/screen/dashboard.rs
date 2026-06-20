@@ -1391,7 +1391,7 @@ impl Dashboard {
                             matches!(
                                 &state.buffer,
                                 Buffer::ConfigEditor(editor)
-                                    if editor.is_dirty()
+                                    if editor.has_unsaved_changes()
                             )
                         }) {
                             return (
