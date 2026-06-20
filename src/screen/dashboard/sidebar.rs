@@ -445,7 +445,7 @@ impl Sidebar {
                         Menu::ConfigEditor => context_button(
                             text("Config Editor"),
                             Some(&keyboard.open_config_editor),
-                            icon::config().style(theme::svg::primary),
+                            icon::config(),
                             Message::Replace(
                                 buffer::Internal::ConfigEditor.into(),
                             ),
