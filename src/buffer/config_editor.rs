@@ -4,7 +4,7 @@ use data::Config;
 use data::config::buffer::text_input::KeyBindings;
 use iced::advanced::text::Highlighter;
 use iced::advanced::text::highlighter::Format;
-use iced::widget::{column, container, row, rule, text, text_editor};
+use iced::widget::{Space, column, container, row, rule, text, text_editor};
 use iced::{Font, Length, Task, highlighter, padding};
 
 use crate::appearance::theme;
@@ -222,6 +222,24 @@ fn read_config() -> (String, Option<Error>) {
     }
 }
 
+fn current_toml_section(
+    content: &text_editor::Content,
+    cursor_line: usize,
+) -> Option<String> {
+    content
+        .lines()
+        .take(cursor_line + 1)
+        .filter_map(|line| {
+            let line = line.text.trim();
+
+            (line.starts_with('[')
+                && line.ends_with(']')
+                && !line.starts_with("[#"))
+            .then(|| line.to_owned())
+        })
+        .last()
+}
+
 pub fn view<'a>(
     state: &'a ConfigEditor,
     config: &'a Config,
@@ -236,10 +254,20 @@ pub fn view<'a>(
     .style(theme::text::secondary)
     .font_maybe(theme::font_style::secondary(theme).map(font::get));
 
-    let mut info = row![container(position).width(Length::Fill)]
-        .spacing(8)
-        .padding(padding::bottom(6))
-        .align_y(iced::Alignment::Center);
+    let section = current_toml_section(&state.content, cursor.position.line);
+    let section = container(
+        text(section.unwrap_or_default())
+            .style(theme::text::secondary)
+            .font_maybe(theme::font_style::secondary(theme).map(font::get)),
+    )
+    .width(Length::Fill)
+    .align_x(iced::Alignment::Center);
+
+    let mut info =
+        row![container(position).width(Length::Fixed(64.0)), section]
+            .spacing(8)
+            .padding(padding::bottom(6))
+            .align_y(iced::Alignment::Center);
 
     if let Some(error) = &state.error {
         info = info.push(tooltip(
@@ -252,15 +280,22 @@ pub fn view<'a>(
         ));
     }
 
-    if state.dirty {
-        info = info.push(tooltip(
-            container(icon::dot().style(theme::text::tertiary).size(8))
-                .padding(padding::right(4)),
+    let dirty_indicator: Element<'a, Message> = if state.dirty {
+        tooltip(
+            icon::dot().style(theme::text::tertiary).size(8),
             Some("Unsaved changes"),
             tooltip::Position::Top,
             theme,
-        ));
-    }
+        )
+    } else {
+        Space::new().into()
+    };
+
+    info = info.push(
+        container(dirty_indicator)
+            .width(12)
+            .align_x(iced::Alignment::Center),
+    );
 
     let footer = container(
         column![container(rule::horizontal(1)).width(Length::Fill), info]
