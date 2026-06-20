@@ -47,6 +47,7 @@ pub mod selectable_rich_text;
 pub mod selectable_text;
 pub mod shortcut;
 pub mod text_color_svg;
+pub mod text_editor_key_bindings;
 pub mod tooltip;
 pub mod user_display;
 

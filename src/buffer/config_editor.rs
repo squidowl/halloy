@@ -1,6 +1,7 @@
 use std::ops::Range;
 
 use data::Config;
+use data::config::buffer::text_input::KeyBindings;
 use iced::advanced::text::Highlighter;
 use iced::advanced::text::highlighter::Format;
 use iced::widget::{column, container, row, rule, text, text_editor};
@@ -8,7 +9,7 @@ use iced::{Font, Length, Task, highlighter, padding};
 
 use crate::appearance::theme;
 use crate::widget::editor_history::History;
-use crate::widget::{Element, tooltip};
+use crate::widget::{Element, text_editor_key_bindings, tooltip};
 use crate::{Theme, font, icon};
 
 #[derive(Debug, Clone)]
@@ -18,6 +19,7 @@ pub enum Message {
     Refresh,
     Undo,
     Redo,
+    Kill(text_editor_key_bindings::Kill, bool),
     OpenDirectory,
     Saved(Result<(), String>),
 }
@@ -109,6 +111,7 @@ impl ConfigEditor {
     pub fn update(
         &mut self,
         message: Message,
+        config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::Action(action) => {
@@ -138,6 +141,20 @@ impl ConfigEditor {
                 }
 
                 (Task::none(), None)
+            }
+            Message::Kill(kill, save_to_clipboard) => {
+                let task = text_editor_key_bindings::perform_kill(
+                    &mut self.content,
+                    &mut self.history,
+                    kill,
+                    save_to_clipboard,
+                    config.buffer.text_input.kill_to_clipboard,
+                );
+
+                self.dirty = true;
+                self.error = None;
+
+                (task, None)
             }
             Message::Refresh => {
                 let (text, error) = read_config();
@@ -193,6 +210,7 @@ fn read_config() -> (String, Option<Error>) {
 
 pub fn view<'a>(
     state: &'a ConfigEditor,
+    config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
     let cursor = state.content.cursor();
@@ -249,6 +267,17 @@ pub fn view<'a>(
             if !matches!(key_press.status, text_editor::Status::Focused { .. })
             {
                 return None;
+            }
+
+            if matches!(
+                config.buffer.text_input.key_bindings,
+                KeyBindings::Emacs
+            ) && let Some(binding) =
+                text_editor_key_bindings::emacs(&key_press, |kill| {
+                    text_editor::Binding::Custom(Message::Kill(kill, true))
+                })
+            {
+                return Some(binding);
             }
 
             match key_press.key.as_ref() {

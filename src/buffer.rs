@@ -525,7 +525,7 @@ impl Buffer {
                 (command.map(Message::ChannelList), event)
             }
             (Buffer::ConfigEditor(state), Message::ConfigEditor(message)) => {
-                let (command, event) = state.update(message);
+                let (command, event) = state.update(message, config);
 
                 let event = event.map(|event| match event {
                     config_editor::Event::ConfigSaved => Event::ConfigSaved,
@@ -666,7 +666,8 @@ impl Buffer {
                     .map(Message::ChannelList)
             }
             Buffer::ConfigEditor(state) => {
-                config_editor::view(state, theme).map(Message::ConfigEditor)
+                config_editor::view(state, config, theme)
+                    .map(Message::ConfigEditor)
             }
         }
     }
