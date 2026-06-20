@@ -38,16 +38,10 @@ Changed:
 - Renamed `actions.buffer.local` → `actions.buffer.open_internal` to match naming convention used elsewhere
 - Renamed `actions.buffer.click_username` to `actions.buffer.click_nickname` for more consistent terminology
 - Moved functionality from `buffer.nickname.click` → `actions.buffer.click_nickname` and `buffer.channel.nicklist.click` → `actions.nicklist.click_nickname`
-- Removed unnecessary AWS-LC dependency
-- `esc` in the input box now scrolls the buffer to the bottom
 
 Thanks:
 
-- Contributions: @englut, @luca020400, @classabbyamp, @KaiKorla, @TheDcoder
-
-Thanks:
-
-- Contributions: @englut, @luca020400, @furudean
+- Contributions: @englut, @luca020400, @classabbyamp, @KaiKorla, @TheDcoder, @furudean
 - Bug reports: @luca020400, agent314
 
 # 2026.7.2 (2026-06-08)
