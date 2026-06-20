@@ -255,8 +255,6 @@ pub fn view<'a>(
     .padding(padding::horizontal(4))
     .width(Length::Fill);
 
-    let dirty = state.dirty;
-
     let editor = text_editor(&state.content)
         .padding(8)
         .height(Length::Fill)
@@ -281,11 +279,6 @@ pub fn view<'a>(
             }
 
             match key_press.key.as_ref() {
-                iced::keyboard::Key::Character("s")
-                    if key_press.modifiers.command() && dirty =>
-                {
-                    Some(text_editor::Binding::Custom(Message::Save))
-                }
                 iced::keyboard::Key::Character("z")
                     if key_press.modifiers.command()
                         && key_press.modifiers.shift() =>

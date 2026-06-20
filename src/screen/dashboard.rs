@@ -1384,6 +1384,30 @@ impl Dashboard {
                             );
                         }
                     }
+                    ConfigEditorSave => {
+                        let Focus { window, pane } = self.focus;
+
+                        if self.panes.get(window, pane).is_some_and(|state| {
+                            matches!(
+                                &state.buffer,
+                                Buffer::ConfigEditor(editor)
+                                    if editor.is_dirty()
+                            )
+                        }) {
+                            return (
+                                Task::done(Message::Pane(
+                                    window,
+                                    pane::Message::Buffer(
+                                        pane,
+                                        buffer::Message::ConfigEditor(
+                                            buffer::config_editor::Message::Save,
+                                        ),
+                                    ),
+                                )),
+                                None,
+                            );
+                        }
+                    }
                     OpenConfigEditor => {
                         return (
                             self.toggle_internal_buffer(

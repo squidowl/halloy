@@ -335,10 +335,11 @@ impl TitleBar {
 
                 let save_button_with_tooltip = tooltip(
                     save_button,
-                    show_tooltips.then_some(if is_dirty {
-                        "Save and reload config"
-                    } else {
-                        "No unsaved changes"
+                    show_tooltips.then(|| {
+                        save_config_tooltip(
+                            is_dirty,
+                            &config.keyboard.config_editor_save,
+                        )
                     }),
                     tooltip::Position::Bottom,
                     theme,
@@ -650,6 +651,22 @@ impl TitleBar {
         } else {
             title_bar
         }
+    }
+}
+
+fn save_config_tooltip(
+    is_dirty: bool,
+    keybinds: &data::shortcut::KeyBinds,
+) -> String {
+    if !is_dirty {
+        return "No unsaved changes".to_string();
+    }
+
+    match keybinds.primary() {
+        Some(keybind @ data::shortcut::KeyBind::Bind { .. }) => {
+            format!("Save and reload config ({keybind})")
+        }
+        _ => "Save and reload config".to_string(),
     }
 }
 
