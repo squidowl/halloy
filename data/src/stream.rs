@@ -522,8 +522,11 @@ async fn connect(
     config: Arc<config::Server>,
     proxy: Option<config::Proxy>,
 ) -> Result<(Stream, Client), connection::Error> {
-    let connection =
-        Connection::new(config.connection(proxy), irc::Codec).await?;
+    let connection = Connection::new(
+        config.connection(proxy),
+        irc::Codec::new(config.encoding.into()),
+    )
+    .await?;
 
     let (sender, receiver) = mpsc::channel(100);
 

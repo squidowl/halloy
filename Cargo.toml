@@ -55,6 +55,7 @@ const_format = "0.2.36"
 iced = { version = "0.15.0-dev", default-features = false }
 nom = "8.0"
 percent-encoding = "2.3.2"
+encoding_rs = "0.8.35"
 
 [dependencies]
 tokio = { workspace = true, features = ["rt", "fs", "process"] }

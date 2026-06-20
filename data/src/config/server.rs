@@ -59,6 +59,8 @@ pub struct Server {
     pub username: Option<String>,
     /// The client's real name.
     pub realname: Option<String>,
+    /// The encoding to use for IRC messages sent to and received from this server.
+    pub encoding: Encoding,
     /// The server to connect to.
     pub server: String,
     /// The port to connect on.
@@ -239,6 +241,7 @@ impl Default for Server {
             alt_nicks: Vec::default(),
             username: Option::default(),
             realname: Option::default(),
+            encoding: Encoding::default(),
             server: String::default(),
             port: None,
             password: Option::default(),
@@ -287,6 +290,24 @@ impl Default for Server {
 pub enum IdentifySyntax {
     NickPassword,
     PasswordNick,
+}
+
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Deserialize)]
+pub enum Encoding {
+    #[serde(rename = "utf8", alias = "utf-8")]
+    #[default]
+    Utf8,
+    #[serde(rename = "iso-2022-jp", alias = "iso2022-jp")]
+    Iso2022Jp,
+}
+
+impl From<Encoding> for irc::codec::Encoding {
+    fn from(encoding: Encoding) -> Self {
+        match encoding {
+            Encoding::Utf8 => Self::Utf8,
+            Encoding::Iso2022Jp => Self::Iso2022Jp,
+        }
+    }
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Deserialize)]

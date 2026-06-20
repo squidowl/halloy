@@ -3701,6 +3701,7 @@ dependencies = [
  "arti-client",
  "async-http-proxy",
  "bytes",
+ "encoding_rs",
  "fast-socks5",
  "futures",
  "irc_proto",

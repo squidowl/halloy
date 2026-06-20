@@ -126,6 +126,19 @@ The client's real name.
 realname = ""
 ```
 
+## `encoding`
+
+The character encoding to use for IRC messages sent to and received from the server.
+
+```toml
+# Type: string
+# Values: "utf8", "iso-2022-jp"
+# Default: "utf8"
+
+[servers.<name>]
+encoding = "iso-2022-jp"
+```
+
 ## `server`
 
 The server to connect to. Should not contain the protocol, port, username, or password (i.e. should look like `"irc.libera.chat"` not `"ircs://irc.libera.chat:6697"`).

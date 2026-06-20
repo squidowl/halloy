@@ -14,6 +14,7 @@ thiserror = { workspace = true }
 futures = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 bytes = { workspace = true }
+encoding_rs = { workspace = true }
 
 arti-client = { version = "0.42", default-features = false, features = [
     "rustls",
