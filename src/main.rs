@@ -55,6 +55,9 @@ use self::notification::Notifications;
 use self::widget::Element;
 use self::window::Window;
 
+const MIN_RUNTIME_FONT_SIZE: u8 = 8;
+const MAX_RUNTIME_FONT_SIZE: u8 = 32;
+
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = env::args();
     args.next();
@@ -198,6 +201,21 @@ fn configure_runtime(runtime: Runtime) -> Task<Message> {
         vsync: runtime.vsync,
     })
     .map(Message::RuntimeConfigured)
+}
+
+// Applies keyboard font zoom to the live configuration only.
+//
+// Called by dashboard shortcut events for `increase_font_size` and
+// `decrease_font_size`. The input is a signed point-size delta, and the output
+// is the updated in-memory `config.font.size`. This deliberately does not write
+// `config.toml` or reload configuration, so accidental zoom changes remain
+// session-local and cannot rewrite user comments or formatting.
+fn adjust_runtime_font_size(config: &mut Config, delta: i8) {
+    let current = config.font.size.unwrap_or(theme::TEXT_SIZE as u8);
+    let adjusted = current.saturating_add_signed(delta);
+
+    config.font.size =
+        Some(adjusted.clamp(MIN_RUNTIME_FONT_SIZE, MAX_RUNTIME_FONT_SIZE));
 }
 
 fn handle_irc_error(e: anyhow::Error) {
@@ -570,6 +588,10 @@ impl Halloy {
                     Some(dashboard::Event::ToggleFullscreen) => {
                         self.main_window.toggle_fullscreen();
                         self.save_main_window_settings()
+                    }
+                    Some(dashboard::Event::AdjustFontSize(delta)) => {
+                        adjust_runtime_font_size(&mut self.config, delta);
+                        Task::none()
                     }
                     Some(dashboard::Event::ConfigReloaded(config)) => {
                         self.config_file_reloaded(config)

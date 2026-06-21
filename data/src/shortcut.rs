@@ -43,6 +43,27 @@ impl From<KeyBind> for KeyBinds {
     }
 }
 
+impl From<Vec<KeyBind>> for KeyBinds {
+    fn from(values: Vec<KeyBind>) -> Self {
+        let mut unique = Vec::with_capacity(values.len());
+
+        // Default actions can intentionally provide multiple physical bindings
+        // for the same user-visible shortcut, such as Ctrl+= and Ctrl+Shift+=
+        // for "increase font size". Keep the same de-duplication and unbind
+        // filtering rules used by deserialized user configuration.
+        for key_bind in values {
+            if matches!(key_bind, KeyBind::Unbind) || unique.contains(&key_bind)
+            {
+                continue;
+            }
+
+            unique.push(key_bind);
+        }
+
+        Self(unique)
+    }
+}
+
 impl<'de> Deserialize<'de> for KeyBinds {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -105,6 +126,8 @@ pub enum Command {
     ScrollDownPage,
     ScrollToTop,
     ScrollToBottom,
+    IncreaseFontSize,
+    DecreaseFontSize,
     CycleNextUnreadBuffer,
     CyclePreviousUnreadBuffer,
     MarkAsRead,
@@ -347,6 +370,9 @@ impl KeyBind {
     // Don't use HOME / END since text input is always focused
     default!(scroll_to_top, ArrowUp, COMMAND);
     default!(scroll_to_bottom, ArrowDown, COMMAND);
+    default!(increase_font_size, "=", COMMAND);
+    default!(increase_font_size_shifted, "=", COMMAND | SHIFT);
+    default!(decrease_font_size, "-", COMMAND);
     default!(cycle_next_unread_buffer, "`", CTRL);
     default!(cycle_previous_unread_buffer, "`", CTRL | SHIFT);
     // Command + m is minimize in macOS

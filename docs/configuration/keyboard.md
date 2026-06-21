@@ -38,6 +38,8 @@ Each shortcut accepts either a single keybind string or an array of keybind stri
 | `scroll_down_page`             | Scroll buffer down a page           | <kbd>Fn</kbd> + <kbd>↓</kbd>                        | <kbd>pagedown</kbd>                                 |
 | `scroll_to_top`                | Scroll to top of buffer             | <kbd>⌘</kbd> + <kbd>↑</kbd>                         | <kbd>ctrl</kbd> + <kbd>↑</kbd>                      |
 | `scroll_to_bottom`             | Scroll to bottom of buffer          | <kbd>⌘</kbd> + <kbd>↓</kbd>                         | <kbd>ctrl</kbd> + <kbd>↓</kbd>                      |
+| `increase_font_size`           | Increase runtime font size          | <kbd>⌘</kbd> + <kbd>+</kbd>                         | <kbd>ctrl</kbd> + <kbd>+</kbd>                      |
+| `decrease_font_size`           | Decrease runtime font size          | <kbd>⌘</kbd> + <kbd>-</kbd>                         | <kbd>ctrl</kbd> + <kbd>-</kbd>                      |
 | `leave_buffer`                 | Leave channel or close query        | <kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>w</kbd>      | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>w</kbd>   |
 | `mark_as_read`                 | Mark focused buffer as read         | <kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>m</kbd>      | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>m</kbd>   |
 | `toggle_nick_list`             | Toggle nick list                    | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>m</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>m</kbd>     |

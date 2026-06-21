@@ -122,6 +122,7 @@ pub enum Event {
     OpenServer(String),
     ImagePreview(Image),
     ToggleFullscreen,
+    AdjustFontSize(i8),
     Remove(Server),
     PromptBeforeFileUpload {
         upload_url: String,
@@ -1225,6 +1226,12 @@ impl Dashboard {
                             window::toggle_fullscreen(),
                             Some(Event::ToggleFullscreen),
                         );
+                    }
+                    IncreaseFontSize => {
+                        return (Task::none(), Some(Event::AdjustFontSize(1)));
+                    }
+                    DecreaseFontSize => {
+                        return (Task::none(), Some(Event::AdjustFontSize(-1)));
                     }
                     QuitApplication => {
                         return (self.exit(clients, config), None);
