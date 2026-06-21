@@ -1461,9 +1461,7 @@ impl Dashboard {
                 if let Some(editor_event) = editor_event {
                     match editor_event {
                         theme_editor::Event::Close => {
-                            if let Some(editor) = self.theme_editor.take() {
-                                tasks.push(window::close(editor.window));
-                            }
+                            tasks.push(self.close_theme_editor(theme));
                         }
                         theme_editor::Event::ReloadThemes => {
                             event = Some(Event::ReloadThemes);
@@ -2702,6 +2700,7 @@ impl Dashboard {
                 // Order of operations
                 //
                 // - Close command bar (if this window owns it)
+                // - Close theme editor (if this window owns it)
                 // - Close context menu
                 // - Close command/emoji picker
                 // - Restore maximized pane (if main window)
@@ -2714,6 +2713,10 @@ impl Dashboard {
                         config,
                         theme,
                     )
+                } else if self.theme_editor.as_ref().map(|e| e.window)
+                    == Some(window)
+                {
+                    self.close_theme_editor(theme)
                 } else {
                     context_menu::close(convert::identity).map(
                         move |any_closed| {
@@ -2870,15 +2873,23 @@ impl Dashboard {
         }
     }
 
+    fn close_theme_editor(&mut self, theme: &mut Theme) -> Task<Message> {
+        if let Some(editor) = self.theme_editor.take() {
+            *theme = theme.selected();
+            window::close(editor.window)
+        } else {
+            Task::none()
+        }
+    }
+
     fn toggle_theme_editor(
         &mut self,
         theme: &mut Theme,
         main_window: &Window,
         config: &Config,
     ) -> Task<Message> {
-        if let Some(editor) = self.theme_editor.take() {
-            *theme = theme.selected();
-            window::close(editor.window)
+        if self.theme_editor.is_some() {
+            self.close_theme_editor(theme)
         } else {
             let (editor, task) = ThemeEditor::open(main_window, config);
 
@@ -4652,10 +4663,7 @@ impl Dashboard {
         } else if self.theme_editor.as_ref().is_some_and(|e| e.window == id) {
             match event {
                 window::Event::CloseRequested => {
-                    if let Some(editor) = self.theme_editor.take() {
-                        *theme = theme.selected();
-                        return window::close(editor.window);
-                    }
+                    return self.close_theme_editor(theme);
                 }
                 window::Event::Moved(_)
                 | window::Event::Resized(_)
