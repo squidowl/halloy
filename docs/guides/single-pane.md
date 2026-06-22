@@ -7,6 +7,7 @@ The settings below will configure Halloy to have a single pane (or fixed number 
 click_channel_name = "replace-pane"
 click_highlight = "replace-pane"
 click_username = "replace-pane"
+join_channel = "replace-pane"
 local = "replace-pane"
 message_channel = "replace-pane"
 message_user = "replace-pane"
