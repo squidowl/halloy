@@ -33,7 +33,7 @@ Changed:
 - Renamed `sidebar.server_icon` → `sidebar.primary_icon` and `sidebar.server_font_size` → `sidebar.primary_font_size` since the settings now apply to both servers and internal buffers
 - Renamed `sidebar.font_size` → `sidebar.secondary_font_size` to reflect its relationship to `sidebar.primary_font_size`
 - Renamed `actions.buffer.local` → `actions.buffer.open_internal` to match naming convention used elsewhere
-- Renamed `actions.buffer.click_username` to `action_buffer.click_nickname` for more consistent terminology
+- Renamed `actions.buffer.click_username` to `actions.buffer.click_nickname` for more consistent terminology
 - Moved functionality from `buffer.nickname.click` → `actions.buffer.click_nickname` and `buffer.channel.nicklist.click` → `actions.nicklist.click_nickname`
 
 Thanks:
