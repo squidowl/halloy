@@ -663,7 +663,11 @@ notice = [
 
 ## `sasl.external`
 
-External SASL auth uses a PEM encoded X509 certificate. See the [guide by Libera.Chat](https://libera.chat/guides/certfp) for more information.
+External SASL auth uses a PEM encoded X509 certificate.
+
+See the [guide by Libera.Chat](https://libera.chat/guides/certfp) for more information.
+
+On some networks, `sasl.external` may be labelled as [SSL + CertFP](https://www.oftc.net/NickServ/CertFP/#automatically-identifying-using-ssl--certfp).
 
 ### `cert`
 

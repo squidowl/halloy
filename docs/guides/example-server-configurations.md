@@ -33,6 +33,8 @@ sasl.plain.password_file = "super-secret-password" # password used for authentic
 
 ## [OFTC](https://oftc.net/)
 
+### Unregistered
+
 ```toml
 [servers.OFTC] # server name OFTC used in sidebar/UI
 server = "irc.oftc.net" # address of server
@@ -40,6 +42,20 @@ use_tls = true # TLS is recommended when available
 port = 6697 # default port when use_tls = true
 
 nickname = "halloy-user" # your name on the server
+```
+
+### [Registered with SSL CertFP](https://www.oftc.net/NickServ/CertFP/#automatically-identifying-using-ssl--certfp)
+
+```toml
+[servers.OFTC] # server name OFTC used in sidebar/UI
+server = "irc.oftc.net" # address of server
+use_tls = true # TLS is recommended when available
+port = 6697 # default port when use_tls = true
+
+nickname = "registered-user" # your name on the server
+
+sasl.external.cert = "/path/to/nick.cer" # path to your certificate
+sasl.external.key = "/path/to/nick.key" # path to your private key
 ```
 
 ## [SlashNET](https://www.slashnet.org/)
