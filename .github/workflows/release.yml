@@ -10,6 +10,9 @@ on:
 jobs:
   build:
     name: Build
+    permissions:
+      actions: write
+      contents: read
     strategy:
       matrix:
         target:
@@ -20,7 +23,6 @@ jobs:
               echo "ARTIFACT_PATH=target/packaging/macos/halloy.dmg" >> "$GITHUB_ENV"
           - target: windows
             os: windows-latest
-            make: bash scripts/build-windows-installer.sh
             artifact_path: |
               echo "ARTIFACT_PATH=target/packaging/halloy-installer.exe" >> $env:GITHUB_ENV
           - target: linux
@@ -63,8 +65,101 @@ jobs:
         if: matrix.target.target == 'windows'
         run: choco install innosetup --no-progress --yes
 
-      - name: Build
+      - name: Build macOS/Linux
+        if: matrix.target.target != 'windows'
         run: ${{ matrix.target.make }}
+
+      - name: Build Windows executable
+        if: matrix.target.target == 'windows'
+        run: bash scripts/build-windows.sh
+
+      - name: Upload unsigned Windows executable
+        id: upload-unsigned-windows-executable
+        if: matrix.target.target == 'windows'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-unsigned-executable
+          path: target/packaging/halloy.exe
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Sign Windows executable
+        if: matrix.target.target == 'windows'
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          artifact-configuration-slug: Halloy_Windows_Executable
+          github-artifact-id: ${{ steps.upload-unsigned-windows-executable.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: target/signpath-signed-executable
+          github-token: ${{ github.token }}
+
+      - name: Replace Windows executable with signed executable
+        if: matrix.target.target == 'windows'
+        shell: bash
+        run: |
+          signed_executable="$(find target/signpath-signed-executable -type f -iname 'halloy.exe' -print -quit)"
+          if [ -z "$signed_executable" ]; then
+            echo "Could not find signed halloy.exe in target/signpath-signed-executable" >&2
+            exit 1
+          fi
+
+          cp -fp "$signed_executable" target/packaging/halloy.exe
+
+      - name: Delete unsigned Windows executable artifact
+        if: matrix.target.target == 'windows'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X DELETE repos/${{ github.repository }}/actions/artifacts/${{ steps.upload-unsigned-windows-executable.outputs.artifact-id }}
+
+      - name: Package Windows installer
+        if: matrix.target.target == 'windows'
+        run: bash scripts/build-windows-installer.sh
+
+      - name: Upload unsigned Windows installer
+        id: upload-unsigned-windows-installer
+        if: matrix.target.target == 'windows'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-unsigned-installer
+          path: target/packaging/halloy-installer.exe
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Sign Windows installer
+        if: matrix.target.target == 'windows'
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          artifact-configuration-slug: Halloy_Windows_Installer
+          github-artifact-id: ${{ steps.upload-unsigned-windows-installer.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: target/signpath-signed-installer
+          github-token: ${{ github.token }}
+
+      - name: Replace Windows installer with signed installer
+        if: matrix.target.target == 'windows'
+        shell: bash
+        run: |
+          signed_installer="$(find target/signpath-signed-installer -type f -iname 'halloy-installer.exe' -print -quit)"
+          if [ -z "$signed_installer" ]; then
+            echo "Could not find signed halloy-installer.exe in target/signpath-signed-installer" >&2
+            exit 1
+          fi
+
+          cp -fp "$signed_installer" target/packaging/halloy-installer.exe
+
+      - name: Delete unsigned Windows installer artifact
+        if: matrix.target.target == 'windows'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X DELETE repos/${{ github.repository }}/actions/artifacts/${{ steps.upload-unsigned-windows-installer.outputs.artifact-id }}
 
       - name: Sign macOS
         if: matrix.target.target == 'macos'
@@ -95,6 +190,8 @@ jobs:
     needs: build
     name: Create Release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -111,6 +208,9 @@ jobs:
   add-assets:
     needs: create-release
     name: Add Assets
+    permissions:
+      actions: read
+      contents: write
 
     strategy:
       matrix:

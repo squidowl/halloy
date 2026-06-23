@@ -35,6 +35,7 @@ Changed:
 - Renamed `actions.buffer.local` → `actions.buffer.open_internal` to match naming convention used elsewhere
 - Renamed `actions.buffer.click_username` to `actions.buffer.click_nickname` for more consistent terminology
 - Moved functionality from `buffer.nickname.click` → `actions.buffer.click_nickname` and `buffer.channel.nicklist.click` → `actions.nicklist.click_nickname`
+- Windows release artifacts are signed using SignPath
 
 Thanks:
 
