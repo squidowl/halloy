@@ -131,6 +131,7 @@ pub fn view<'a>(
             our_user,
         },
         history,
+        focus_menu: state.scroll_view.focus_menu(),
     };
 
     let messages = container(

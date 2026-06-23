@@ -53,6 +53,9 @@ impl KeyBind {
             keyboard::Key::Named(key::Named::ArrowRight) => {
                 Some(MessageFocus::OpenMenu)
             }
+            keyboard::Key::Named(key::Named::ArrowLeft) => {
+                Some(MessageFocus::OpenNickMenu)
+            }
             _ => None,
         }
     }
@@ -173,10 +176,11 @@ pub enum MessageFocus {
     NavigateUp,
     NavigateDown,
     OpenMenu,
+    OpenNickMenu,
+    Activate,
     Reply,
     React,
     Redact,
-    OpenUrl,
 }
 
 macro_rules! default {
@@ -428,15 +432,17 @@ impl KeyBind {
     #[cfg(not(target_os = "macos"))]
     default!(open_config_file, ",", CTRL);
 
-    default!(focus_message_up, ArrowUp, ALT);
-    default!(focus_message_down, ArrowDown, ALT);
-    default!(focus_message_actions, ArrowRight, ALT);
-    default!(focus_message_actions_tab, Tab);
+    default!(focus_up, ArrowUp, ALT);
+    default!(focus_down, ArrowDown, ALT);
+    default!(focus_left, ArrowLeft, ALT);
+    default!(focus_right, ArrowRight, ALT);
+    default!(focus_activate, Enter);
+    default!(focus_activate_space, Space);
+    default!(focus_activate_alt, Enter, SHIFT);
+    default!(focus_activate_alt_space, Space, SHIFT);
     default!(focus_reply_message, "r", Modifiers::default());
     default!(focus_react_to_message, "=", Modifiers::default());
     default!(focus_redact_message, Backspace);
-    default!(focus_open_link_message, Enter);
-    default!(focus_open_link_message_space, Space);
 }
 
 impl From<(keyboard::Key, keyboard::Modifiers)> for KeyBind {

@@ -307,6 +307,7 @@ impl Entry {
         length: Length,
         config: &'a Config,
         theme: &'a Theme,
+        selected: bool,
     ) -> Element<'a, Message> {
         context.map_or(row![].into(), |context| match (self, context) {
             (Entry::Whois, Context::User { server, user, .. }) => {
@@ -316,7 +317,7 @@ impl Entry {
                 menu_button(
                     "Whois".to_string(),
                     Some(message),
-                    false,
+                    selected,
                     length,
                     theme,
                     config,
@@ -329,7 +330,7 @@ impl Entry {
                 menu_button(
                     "Whowas".to_string(),
                     Some(message),
-                    false,
+                    selected,
                     length,
                     theme,
                     config,
@@ -345,7 +346,7 @@ impl Entry {
                 menu_button(
                     "Message".to_string(),
                     Some(message),
-                    false,
+                    selected,
                     length,
                     theme,
                     config,
@@ -390,7 +391,7 @@ impl Entry {
                         (String::new(), None)
                     };
 
-                menu_button(label, message, false, length, theme, config)
+                menu_button(label, message, selected, length, theme, config)
             }
             (
                 Entry::ToggleAccessLevelVoice,
@@ -431,7 +432,7 @@ impl Entry {
                         (String::new(), None)
                     };
 
-                menu_button(label, message, false, length, theme, config)
+                menu_button(label, message, selected, length, theme, config)
             }
             (Entry::SendFile, Context::User { server, user, .. }) => {
                 let message = Message::SendFile(server.clone(), user.clone());
@@ -439,7 +440,7 @@ impl Entry {
                 menu_button(
                     "Send File".to_string(),
                     Some(message),
-                    false,
+                    selected,
                     length,
                     theme,
                     config,
@@ -490,7 +491,7 @@ impl Entry {
                 menu_button(
                     "Local Time (TIME)".to_string(),
                     Some(message),
-                    false,
+                    selected,
                     length,
                     theme,
                     config,
@@ -507,7 +508,7 @@ impl Entry {
                 menu_button(
                     "Client (VERSION)".to_string(),
                     Some(message),
-                    false,
+                    selected,
                     length,
                     theme,
                     config,
@@ -519,7 +520,7 @@ impl Entry {
                 menu_button(
                     "Copy URL".to_string(),
                     Some(message),
-                    false,
+                    selected,
                     length,
                     theme,
                     config,
@@ -531,7 +532,7 @@ impl Entry {
                 menu_button(
                     "Open URL".to_string(),
                     Some(message),
-                    false,
+                    selected,
                     length,
                     theme,
                     config,
@@ -545,7 +546,7 @@ impl Entry {
                 menu_button(
                     "Hide Preview".to_string(),
                     message,
-                    false,
+                    selected,
                     length,
                     theme,
                     config,
@@ -559,7 +560,7 @@ impl Entry {
                 menu_button(
                     "Show Preview".to_string(),
                     message,
-                    false,
+                    selected,
                     length,
                     theme,
                     config,
@@ -574,7 +575,7 @@ impl Entry {
                 menu_button(
                     context_menu_timestamp,
                     Some(message),
-                    false,
+                    selected,
                     length,
                     theme,
                     config,
@@ -589,7 +590,7 @@ impl Entry {
                 menu_button(
                     "Delete Message".to_string(),
                     Some(message),
-                    false,
+                    selected,
                     length,
                     theme,
                     config,
@@ -604,7 +605,7 @@ impl Entry {
                 menu_button(
                     "Re-send Message".to_string(),
                     Some(message),
-                    false,
+                    selected,
                     length,
                     theme,
                     config,
@@ -614,7 +615,7 @@ impl Entry {
                 menu_button(
                     entry.label().to_string(),
                     Some(Message::CopyText(message.text().into_owned())),
-                    false,
+                    selected,
                     length,
                     theme,
                     config,
@@ -632,7 +633,7 @@ impl Entry {
                     menu_button(
                         entry.label().to_string(),
                         Some(Message::CopyText(redaction.message())),
-                        false,
+                        selected,
                         length,
                         theme,
                         config,
@@ -659,7 +660,7 @@ impl Entry {
                             server_time: message.server_time,
                             to_nick: user.nickname().to_owned(),
                         }),
-                        false,
+                        selected,
                         length,
                         theme,
                         config,
@@ -683,7 +684,7 @@ impl Entry {
                             msgid.clone(),
                             selected_reactions.to_vec(),
                         )),
-                        false,
+                        selected,
                         length,
                         theme,
                         config,
@@ -710,7 +711,7 @@ impl Entry {
                                 .map(ToString::to_string)
                                 .collect(),
                         )),
-                        false,
+                        selected,
                         length,
                         theme,
                         config,
@@ -731,7 +732,7 @@ impl Entry {
                     menu_button(
                         entry.label().to_string(),
                         Some(Message::Redact(msgid.clone())),
-                        false,
+                        selected,
                         length,
                         theme,
                         config,
@@ -753,7 +754,7 @@ impl Entry {
                     message.server_time,
                     message.hash,
                 )),
-                false,
+                selected,
                 length,
                 theme,
                 config,
@@ -768,13 +769,97 @@ impl Entry {
             ) => menu_button(
                 entry.label().to_string(),
                 Some(Message::ExpandMessage(message.server_time, message.hash)),
-                false,
+                selected,
                 length,
                 theme,
                 config,
             ),
             _ => row![].into(),
         })
+    }
+
+    pub fn context_message(
+        self,
+        context: &Context<'_>,
+        config: &Config,
+    ) -> Option<Message> {
+        let &Context::User {
+            server,
+            prefix,
+            channel,
+            user,
+            ..
+        } = context
+        else {
+            return None;
+        };
+
+        match self {
+            Entry::Whois => {
+                Some(Message::Whois(server.clone(), user.nickname().to_owned()))
+            }
+            Entry::Whowas => Some(Message::Whowas(
+                server.clone(),
+                user.nickname().to_owned(),
+            )),
+            Entry::Query => Some(Message::Query(
+                server.clone(),
+                target::Query::from(user.clone()),
+                config.actions.buffer.message_user,
+            )),
+            Entry::SendFile => {
+                Some(Message::SendFile(server.clone(), user.clone()))
+            }
+            Entry::CtcpRequestTime => Some(Message::CtcpRequest(
+                ctcp::Command::Time,
+                server.clone(),
+                user.nickname().to_owned(),
+                None,
+            )),
+            Entry::CtcpRequestVersion => Some(Message::CtcpRequest(
+                ctcp::Command::Version,
+                server.clone(),
+                user.nickname().to_owned(),
+                None,
+            )),
+            Entry::ToggleAccessLevelOp => {
+                let operator_mode = prefix.iter().find_map(|prefix_map| {
+                    (prefix_map.prefix == '@').then_some(prefix_map.mode)
+                });
+
+                channel.zip(operator_mode).map(|(channel, operator_mode)| {
+                    let is_op =
+                        user.has_access_level(data::user::AccessLevel::Oper);
+                    let prefix = if is_op { "-" } else { "+" };
+
+                    Message::ToggleAccessLevel(
+                        server.clone(),
+                        channel.clone(),
+                        user.nickname().to_owned(),
+                        format!("{prefix}{operator_mode}"),
+                    )
+                })
+            }
+            Entry::ToggleAccessLevelVoice => {
+                let voice_mode = prefix.iter().find_map(|prefix_map| {
+                    (prefix_map.prefix == '+').then_some(prefix_map.mode)
+                });
+
+                channel.zip(voice_mode).map(|(channel, voice_mode)| {
+                    let has_voice =
+                        user.has_access_level(data::user::AccessLevel::Voice);
+                    let prefix = if has_voice { "-" } else { "+" };
+
+                    Message::ToggleAccessLevel(
+                        server.clone(),
+                        channel.clone(),
+                        user.nickname().to_owned(),
+                        format!("{prefix}{voice_mode}"),
+                    )
+                })
+            }
+            _ => None,
+        }
     }
 }
 
@@ -945,6 +1030,7 @@ where
                     length,
                     config,
                     theme,
+                    false,
                 )
                 .map(M::from)
         },
@@ -993,6 +1079,7 @@ where
                     length,
                     config,
                     theme,
+                    false,
                 )
                 .map(M::from)
         },
@@ -1130,6 +1217,7 @@ fn user_with_entries<'a>(
                 length,
                 config,
                 theme,
+                false,
             )
         },
     );
@@ -1162,6 +1250,7 @@ pub fn timestamp<'a>(
                 length,
                 config,
                 theme,
+                false,
             )
         },
     )
@@ -1191,6 +1280,7 @@ pub fn not_sent_message<'a>(
                 length,
                 config,
                 theme,
+                false,
             )
         },
     )

@@ -114,6 +114,7 @@ pub fn view<'a>(
         previews,
         target: TargetInfo::Query { query },
         history,
+        focus_menu: state.scroll_view.focus_menu(),
     };
 
     let messages = container(

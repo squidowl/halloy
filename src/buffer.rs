@@ -1296,6 +1296,16 @@ impl Buffer {
         }
     }
 
+    pub fn focus_sub_element_selected(&self) -> bool {
+        match self {
+            Buffer::Channel(state) => {
+                state.scroll_view.focused_link().is_some()
+            }
+            Buffer::Query(state) => state.scroll_view.focused_link().is_some(),
+            _ => false,
+        }
+    }
+
     pub fn open_focus_menu_message(&self) -> Option<Message> {
         match self {
             Buffer::Channel(_) => {
@@ -1306,6 +1316,22 @@ impl Buffer {
             Buffer::Query(_) => Some(Message::Query(
                 query::Message::ScrollView(scroll_view::Message::OpenFocusMenu),
             )),
+            _ => None,
+        }
+    }
+
+    pub fn open_nick_focus_menu_message(&self) -> Option<Message> {
+        match self {
+            Buffer::Channel(_) => {
+                Some(Message::Channel(channel::Message::ScrollView(
+                    scroll_view::Message::OpenNickFocusMenu,
+                )))
+            }
+            Buffer::Query(_) => {
+                Some(Message::Query(query::Message::ScrollView(
+                    scroll_view::Message::OpenNickFocusMenu,
+                )))
+            }
             _ => None,
         }
     }

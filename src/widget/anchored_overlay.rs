@@ -214,22 +214,16 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
     for Overlay<'_, '_, Message>
 {
     fn layout(&mut self, renderer: &Renderer, bounds: Size) -> layout::Node {
-        let height = match self.anchor {
+        let (width, height) = match self.anchor {
             // From top of base to top of viewport
-            Anchor::AboveTop => self.position.y,
+            Anchor::AboveTop => (self.base_layout.width, self.position.y),
             // From top of base to bottom of viewport
-            Anchor::BelowTopCentered => bounds.height,
+            Anchor::BelowTopCentered => (bounds.width, bounds.height),
         };
 
-        let limits = layout::Limits::new(
-            Size::ZERO,
-            Size {
-                width: self.base_layout.width,
-                height,
-            },
-        )
-        .width(Length::Fill)
-        .height(Length::Fill);
+        let limits = layout::Limits::new(Size::ZERO, Size { width, height })
+            .width(Length::Fill)
+            .height(Length::Fill);
 
         let node = self
             .content
@@ -244,7 +238,19 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
             // Offset below the top and centered, pushed up just enough to stay
             // within the viewport when it would overflow the bottom edge.
             Anchor::BelowTopCentered => {
-                let x = self.base_layout.width / 2.0 - node.size().width / 2.0;
+                let mut x =
+                    self.base_layout.width / 2.0 - node.size().width / 2.0;
+
+                // overlay may be wider than parent
+                let left = self.position.x + x;
+                if left < self.viewport.x {
+                    x += self.viewport.x - left;
+                }
+                let right = self.position.x + x + node.size().width;
+                let viewport_right = self.viewport.x + self.viewport.width;
+                if right > viewport_right {
+                    x -= right - viewport_right;
+                }
 
                 let mut y = self.offset;
 

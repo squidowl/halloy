@@ -232,7 +232,7 @@ pub fn view<'a>(
                             };
 
                             entry
-                                .view(context, length, config, theme)
+                                .view(context, length, config, theme, false)
                                 .map(scroll_view::Message::ContextMenu)
                         },
                         None,

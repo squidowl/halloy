@@ -15,7 +15,9 @@ use data::rate_limit::TokenPriority;
 use data::reaction::Reaction;
 use data::server::Server;
 use data::target::{self, Target};
-use data::{Config, Image, Preview, client, history, metadata, reaction};
+use data::{
+    Config, Image, Preview, User, client, history, isupport, metadata, reaction,
+};
 use iced::border::Radius;
 use iced::widget::{
     self, Scrollable, button, column, container, row, rule, scrollable, space,
@@ -29,8 +31,7 @@ use self::keyed::keyed;
 use super::{context_menu, input_view};
 use crate::widget::user_display::UserDisplay;
 use crate::widget::{
-    Element, anchored_overlay, double_pass, key_press, notify_visibility,
-    on_key, on_resize,
+    Element, double_pass, key_press, notify_visibility, on_key, on_resize,
 };
 use crate::{Theme, buffer, font, theme};
 
@@ -97,6 +98,7 @@ pub enum Message {
     },
     NavigateFocus(Direction),
     OpenFocusMenu,
+    OpenNickFocusMenu,
     FocusMenuMove(Direction),
     FocusMenuActivate(usize),
     FocusMenuClose,
@@ -128,11 +130,32 @@ pub enum Event {
 }
 
 /// A keyboard-navigable menu of focus actions, anchored to a focused message.
+/// Opened to the right of the message it shows message actions; opened to the
+/// left it shows the message author's (nick) actions.
 #[derive(Debug, Clone)]
 pub struct FocusMenu {
     hash: message::Hash,
-    entries: Vec<FocusEntry>,
     selection: usize,
+    content: FocusMenuContent,
+}
+
+#[derive(Debug, Clone)]
+enum FocusMenuContent {
+    Message(Vec<FocusEntry>),
+    Nick(NickFocusData),
+}
+
+/// Owned data needed to render and activate the nick (user) actions menu. The
+/// entries mirror the right-click user menu; references for rendering are
+/// rebuilt from these owned fields at view time.
+#[derive(Debug, Clone)]
+struct NickFocusData {
+    server: Server,
+    channel: Option<target::Channel>,
+    prefix: Vec<isupport::PrefixMap>,
+    user: User,
+    current_user: Option<User>,
+    entries: Vec<context_menu::Entry>,
 }
 
 #[derive(Debug, Clone)]
@@ -150,17 +173,95 @@ enum FocusEntryAction {
     Link(message::Link),
 }
 
+/// Non-actionable nick menu rows (the avatar / metadata header and separators)
+/// that keyboard navigation skips over.
+fn nick_entry_actionable(entry: context_menu::Entry) -> bool {
+    !matches!(
+        entry,
+        context_menu::Entry::UserInfo
+            | context_menu::Entry::UserMetadata
+            | context_menu::Entry::HorizontalRule
+    )
+}
+
 impl FocusMenu {
+    fn entry_count(&self) -> usize {
+        match &self.content {
+            FocusMenuContent::Message(entries) => entries.len(),
+            FocusMenuContent::Nick(data) => data.entries.len(),
+        }
+    }
+
+    fn is_actionable(&self, index: usize) -> bool {
+        match &self.content {
+            FocusMenuContent::Message(_) => true,
+            FocusMenuContent::Nick(data) => data
+                .entries
+                .get(index)
+                .copied()
+                .is_some_and(nick_entry_actionable),
+        }
+    }
+
+    fn first_actionable(&self) -> usize {
+        (0..self.entry_count())
+            .find(|index| self.is_actionable(*index))
+            .unwrap_or(0)
+    }
+
     fn move_selection(&mut self, direction: Direction) {
-        let len = self.entries.len();
+        let len = self.entry_count();
         if len == 0 {
             return;
         }
 
-        self.selection = match direction {
-            Direction::Up => (self.selection + len - 1) % len,
-            Direction::Down => (self.selection + 1) % len,
-        };
+        let mut next = self.selection;
+        for _ in 0..len {
+            next = match direction {
+                Direction::Up => (next + len - 1) % len,
+                Direction::Down => (next + 1) % len,
+            };
+
+            if self.is_actionable(next) {
+                self.selection = next;
+                return;
+            }
+        }
+    }
+
+    /// The message this menu is anchored to.
+    pub fn hash(&self) -> message::Hash {
+        self.hash
+    }
+
+    /// Whether this is the nick (user) actions menu, anchored to the nick,
+    /// rather than the message actions menu, anchored to the content.
+    pub fn is_nick(&self) -> bool {
+        matches!(self.content, FocusMenuContent::Nick(_))
+    }
+}
+
+/// Renders the open focus action menu. Anchored by the caller to the menu's
+/// target (the nick or the message content) within the message layout.
+pub fn focus_menu_overlay<'a>(
+    menu: &'a FocusMenu,
+    registry: &'a dyn metadata::Registry,
+    previews: Option<&'a preview::Collection>,
+    theme: &'a Theme,
+    config: &'a Config,
+) -> Element<'a, Message> {
+    match &menu.content {
+        FocusMenuContent::Message(entries) => {
+            focus_menu_view(entries, menu.selection, theme, config)
+        }
+        FocusMenuContent::Nick(data) => nick_focus_menu_view(
+            data,
+            menu.selection,
+            registry,
+            previews,
+            theme,
+            config,
+        ),
     }
 }
 
@@ -455,12 +556,13 @@ fn build_focus_entries(
 }
 
 fn focus_menu_view<'a>(
-    menu: &FocusMenu,
+    entries: &[FocusEntry],
+    selection: usize,
     theme: &Theme,
     config: &Config,
 ) -> Element<'a, Message> {
     let build = |width: Length| -> Element<'a, Message> {
-        let entries = menu.entries.iter().enumerate().fold(
+        let entries = entries.iter().enumerate().fold(
             column![],
             |col, (index, entry)| {
                 let col = if entry.separator_before {
@@ -469,7 +571,7 @@ fn focus_menu_view<'a>(
                     col
                 };
 
-                let selected = index == menu.selection;
+                let selected = index == selection;
 
                 col.push(context_menu::menu_button(
                     entry.label.clone(),
@@ -490,7 +592,6 @@ fn focus_menu_view<'a>(
 
     let panel = double_pass(build(Length::Shrink), build(Length::Fill));
 
-    let selection = menu.selection;
     on_key(panel, move |key, modifiers| {
         use key_press::{Key, Named};
 
@@ -510,6 +611,85 @@ fn focus_menu_view<'a>(
             }
             Key::Named(Named::ArrowLeft) => Some(Message::FocusMenuClose),
             Key::Named(Named::ArrowRight | Named::Enter) => {
+                Some(Message::FocusMenuActivate(selection))
+            }
+            _ => None,
+        }
+    })
+}
+
+/// Renders the nick (user) actions menu — the full right-click user menu
+/// (avatar / metadata header plus actions) made keyboard-navigable. The
+/// opposite focus key (right) returns to the message body.
+fn nick_focus_menu_view<'a>(
+    data: &'a NickFocusData,
+    selection: usize,
+    registry: &'a dyn metadata::Registry,
+    previews: Option<&'a preview::Collection>,
+    theme: &'a Theme,
+    config: &'a Config,
+) -> Element<'a, Message> {
+    let avatar = previews.and_then(|previews| {
+        context_menu::user_avatar(&data.user, registry, previews)
+    });
+
+    let build = |width: Length| -> Element<'a, Message> {
+        let entries = data.entries.iter().enumerate().fold(
+            column![],
+            |col, (index, entry)| {
+                let context = context_menu::Context::User {
+                    server: &data.server,
+                    prefix: &data.prefix,
+                    channel: data.channel.as_ref(),
+                    registry,
+                    avatar: avatar.clone(),
+                    user: &data.user,
+                    current_user: data.current_user.as_ref(),
+                };
+
+                // Reuse the right-click row rendering (incl. selection
+                // highlight); route any click through the same activation path
+                // as keyboard Enter so focus mode is exited consistently.
+                let element = (*entry)
+                    .view(
+                        Some(context),
+                        width,
+                        config,
+                        theme,
+                        index == selection,
+                    )
+                    .map(move |_| Message::FocusMenuActivate(index));
+
+                col.push(element)
+            },
+        );
+
+        container(entries)
+            .padding(4)
+            .style(theme::container::tooltip)
+            .into()
+    };
+
+    let panel = double_pass(build(Length::Shrink), build(Length::Fill));
+
+    on_key(panel, move |key, _modifiers| {
+        use key_press::{Key, Named};
+
+        match key {
+            Key::Named(Named::ArrowUp) => {
+                Some(Message::FocusMenuMove(Direction::Up))
+            }
+            Key::Named(Named::ArrowDown) => {
+                Some(Message::FocusMenuMove(Direction::Down))
+            }
+            Key::Named(Named::Tab) => {
+                Some(Message::FocusMenuMove(Direction::Down))
+            }
+            // The opposite focus key refocuses the message body.
+            Key::Named(Named::ArrowRight) => Some(Message::FocusMenuClose),
+            // Left (the direction this menu opened toward) and Enter activate
+            // the selected item, mirroring Right in the message actions menu.
+            Key::Named(Named::ArrowLeft | Named::Enter) => {
                 Some(Message::FocusMenuActivate(selection))
             }
             _ => None,
@@ -829,27 +1009,15 @@ pub fn view<'a>(
 
                 *last_date = Some(date);
 
-                let element = if let Some(menu) = state
-                    .focus_menu
-                    .as_ref()
-                    .filter(|menu| menu.hash == message.hash)
-                {
-                    anchored_overlay(
-                        container(element).width(Length::Fill),
-                        focus_menu_view(menu, theme, config),
-                        crate::widget::anchored_overlay::Anchor::BelowTopCentered,
-                        0.0,
-                        Some(Box::new(|| Message::FocusMenuDismiss)),
-                    )
-                } else if focused_message == Some(message.hash)
+                let element = if focused_message == Some(message.hash)
                     && state.focused_link.is_none()
+                    && !state
+                        .focus_menu
+                        .as_ref()
+                        .is_some_and(|menu| menu.hash == message.hash)
                 {
                     // Only show focus on the whole message when no link/preview
-                    // inside it is focused; as the inner element carries
-                    // its own outline.
-                    focus_outline(
-                        container(element).width(Length::Fill).into(),
-                    )
+                    focus_outline(container(element).width(Length::Fill).into())
                 } else if let Some((hash, alpha)) = state.highlighted_message
                     && hash == message.hash
                 {
@@ -1898,9 +2066,85 @@ impl State {
 
                 self.focus_menu = Some(FocusMenu {
                     hash,
-                    entries,
                     selection: 0,
+                    content: FocusMenuContent::Message(entries),
                 });
+
+                return (Task::none(), None);
+            }
+            Message::OpenNickFocusMenu => {
+                let Some(hash) = *focused_message else {
+                    return (Task::none(), None);
+                };
+
+                let (server, channel) = match kind {
+                    Kind::Channel(server, channel) => (server, Some(channel)),
+                    Kind::Query(server, _) => (server, None),
+                    Kind::Server(_) | Kind::Logs | Kind::Highlights => {
+                        return (Task::none(), None);
+                    }
+                };
+
+                let Some(message) = history
+                    .get_messages(&kind.into(), None, config)
+                    .and_then(|view| {
+                        view.old_messages
+                            .iter()
+                            .chain(view.new_messages.iter())
+                            .find(|m| m.hash == hash)
+                            .copied()
+                    })
+                else {
+                    return (Task::none(), None);
+                };
+
+                // The nick menu only applies to messages authored by a user.
+                let Some(user) = message.target.source().user() else {
+                    return (Task::none(), None);
+                };
+
+                let registry = clients.get_registry(server);
+
+                let current_user = channel.and_then(|channel| {
+                    clients.resolve_user_attributes(server, channel, user)
+                });
+
+                let our_user = channel.and_then(|channel| {
+                    clients.nickname(server).and_then(|our_nick| {
+                        let our_user =
+                            User::from(data::user::Nick::from(our_nick));
+                        clients
+                            .resolve_user_attributes(server, channel, &our_user)
+                    })
+                });
+
+                let entries = context_menu::Entry::user_list(
+                    channel.is_some(),
+                    current_user,
+                    our_user,
+                    config.file_transfer.enabled,
+                    context_menu::has_user_metadata(user, registry, config),
+                );
+
+                let data = NickFocusData {
+                    server: server.clone(),
+                    channel: channel.cloned(),
+                    prefix: clients
+                        .get_server_prefix_or_default(server)
+                        .to_vec(),
+                    user: user.clone(),
+                    current_user: current_user.cloned(),
+                    entries,
+                };
+
+                let mut menu = FocusMenu {
+                    hash,
+                    selection: 0,
+                    content: FocusMenuContent::Nick(data),
+                };
+                menu.selection = menu.first_actionable();
+
+                self.focus_menu = Some(menu);
 
                 return (Task::none(), None);
             }
@@ -1912,33 +2156,59 @@ impl State {
                 return (Task::none(), None);
             }
             Message::FocusMenuActivate(index) => {
-                let Some(entry) = self
-                    .focus_menu
-                    .take()
-                    .and_then(|menu| menu.entries.into_iter().nth(index))
-                else {
+                let Some(menu) = self.focus_menu.take() else {
                     return (Task::none(), None);
                 };
 
                 // Activating an action leaves focus mode.
                 self.focused_link = None;
 
-                return match entry.action {
-                    FocusEntryAction::Message(action) => {
-                        (Task::none(), Some(Event::FocusAction(action)))
+                match menu.content {
+                    FocusMenuContent::Message(entries) => {
+                        let Some(entry) = entries.into_iter().nth(index) else {
+                            return (Task::none(), None);
+                        };
+
+                        return match entry.action {
+                            FocusEntryAction::Message(action) => {
+                                (Task::none(), Some(Event::FocusAction(action)))
+                            }
+                            FocusEntryAction::Context(message) => (
+                                Task::none(),
+                                Some(Event::FocusContextAction(message)),
+                            ),
+                            FocusEntryAction::Link(link) => {
+                                // Re-dispatch as a link click and exit focus mode.
+                                *focused_message = None;
+                                (
+                                    Task::done(Message::Link(link)),
+                                    Some(Event::ExitFocus),
+                                )
+                            }
+                        };
                     }
-                    FocusEntryAction::Context(message) => {
-                        (Task::none(), Some(Event::FocusContextAction(message)))
+                    FocusMenuContent::Nick(data) => {
+                        let context = context_menu::Context::User {
+                            server: &data.server,
+                            prefix: &data.prefix,
+                            channel: data.channel.as_ref(),
+                            registry: clients.get_registry(&data.server),
+                            avatar: None,
+                            user: &data.user,
+                            current_user: data.current_user.as_ref(),
+                        };
+
+                        let event = data
+                            .entries
+                            .get(index)
+                            .and_then(|entry| {
+                                entry.context_message(&context, config)
+                            })
+                            .map(Event::FocusContextAction);
+
+                        return (Task::none(), event);
                     }
-                    FocusEntryAction::Link(link) => {
-                        // Re-dispatch as a link click and exit focus mode.
-                        *focused_message = None;
-                        (
-                            Task::done(Message::Link(link)),
-                            Some(Event::ExitFocus),
-                        )
-                    }
-                };
+                }
             }
             Message::FocusMenuClose => {
                 self.focus_menu = None;
@@ -1959,6 +2229,10 @@ impl State {
 
     pub fn has_focus_menu(&self) -> bool {
         self.focus_menu.is_some()
+    }
+
+    pub fn focus_menu(&self) -> Option<&FocusMenu> {
+        self.focus_menu.as_ref()
     }
 
     pub fn focused_link(&self) -> Option<usize> {

@@ -21,7 +21,10 @@ use iced::{Color, ContentFit, Length, alignment, padding};
 
 use crate::buffer::context_menu::{self, Context};
 use crate::buffer::scroll_view::keyed::{self, keyed};
-use crate::buffer::scroll_view::{LayoutMessage, Message};
+use crate::buffer::scroll_view::{
+    FocusMenu, LayoutMessage, Message, focus_menu_overlay,
+};
+use crate::widget::anchored_overlay::{self, anchored_overlay};
 use crate::widget::preview::preview_card_parts;
 use crate::widget::reaction_row::{has_visible_reactions, reaction_row};
 use crate::widget::user_display::UserDisplay;
@@ -97,9 +100,37 @@ pub struct ChannelQueryLayout<'a> {
     pub previews: Previews<'a>,
     pub target: TargetInfo<'a>,
     pub history: &'a history::Manager,
+    pub focus_menu: Option<&'a FocusMenu>,
 }
 
 impl<'a> ChannelQueryLayout<'a> {
+    fn anchor_focus_menu(
+        &self,
+        message: &data::Message,
+        nick: bool,
+        base: Element<'a, Message>,
+    ) -> Element<'a, Message> {
+        let Some(menu) = self.focus_menu.filter(|menu| {
+            menu.hash() == message.hash && menu.is_nick() == nick
+        }) else {
+            return base;
+        };
+
+        anchored_overlay(
+            base,
+            focus_menu_overlay(
+                menu,
+                self.registry,
+                Some(self.previews.collection()),
+                self.theme,
+                self.config,
+            ),
+            anchored_overlay::Anchor::BelowTopCentered,
+            0.0,
+            Some(Box::new(|| Message::FocusMenuDismiss)),
+        )
+    }
+
     fn reply_nick_to_strip<'m>(
         &self,
         message: &'m data::Message,
@@ -756,6 +787,7 @@ impl<'a> ChannelQueryLayout<'a> {
                                         length,
                                         formatter.config,
                                         formatter.theme,
+                                        false,
                                     )
                                     .map(Message::ContextMenu)
                             },
@@ -882,6 +914,7 @@ impl<'a> ChannelQueryLayout<'a> {
                         length,
                         formatter.config,
                         formatter.theme,
+                        false,
                     )
                     .map(Message::ContextMenu)
             },
@@ -1033,6 +1066,7 @@ impl<'a> ChannelQueryLayout<'a> {
                         length,
                         formatter.config,
                         formatter.theme,
+                        false,
                     )
                     .map(Message::ContextMenu)
             },
@@ -1313,6 +1347,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                                 length,
                                 formatter.config,
                                 formatter.theme,
+                                false,
                             )
                             .map(Message::ContextMenu)
                     },
@@ -1390,6 +1425,10 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             self.config,
             self.theme,
         );
+
+        let middle = middle.map(|nick| {
+            self.anchor_focus_menu(message, /* nick */ true, nick)
+        });
 
         let middle_is_some = middle.is_some();
 
@@ -1499,6 +1538,9 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         } else {
             column![content].extend(after_content).into()
         };
+
+        let content =
+            self.anchor_focus_menu(message, /* nick */ false, content);
 
         let message_element = if self.content_on_new_line(message) {
             container(column![row, content]).into()

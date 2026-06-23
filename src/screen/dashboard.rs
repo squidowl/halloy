@@ -2852,6 +2852,22 @@ impl Dashboard {
                     MessageFocus::OpenMenu => in_focus
                         .then(|| state.buffer.open_focus_menu_message())
                         .flatten(),
+                    MessageFocus::Activate if !in_focus => None,
+                    MessageFocus::Activate
+                        if state.buffer.focus_sub_element_selected() =>
+                    {
+                        state.buffer.focus_action_message(
+                            buffer::FocusAction::OpenUrl,
+                            clients,
+                        )
+                    }
+                    MessageFocus::Activate => {
+                        state.buffer.open_focus_menu_message()
+                    }
+                    MessageFocus::OpenNickMenu => (in_focus
+                        && !state.buffer.focus_sub_element_selected())
+                    .then(|| state.buffer.open_nick_focus_menu_message())
+                    .flatten(),
                     MessageFocus::Reply => in_focus
                         .then(|| {
                             state.buffer.focus_action_message(
@@ -2872,14 +2888,6 @@ impl Dashboard {
                         .then(|| {
                             state.buffer.focus_action_message(
                                 buffer::FocusAction::Redact,
-                                clients,
-                            )
-                        })
-                        .flatten(),
-                    MessageFocus::OpenUrl => in_focus
-                        .then(|| {
-                            state.buffer.focus_action_message(
-                                buffer::FocusAction::OpenUrl,
                                 clients,
                             )
                         })
