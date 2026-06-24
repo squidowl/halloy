@@ -1646,22 +1646,44 @@ impl State {
 
                 let max_offset = scrollable.max_vertical_offset();
 
-                let content_y = hit_bounds.y - scrollable.content.y;
+                let content_top = hit_bounds.y - scrollable.content.y;
+                let content_bottom = content_top + hit_bounds.height;
                 let viewport_top = scrollable.offset.y;
                 let viewport_bottom =
                     scrollable.offset.y + scrollable.viewport.height;
-                let is_visible = content_y >= viewport_top
-                    && content_y + hit_bounds.height <= viewport_bottom;
 
-                if is_visible {
+                let fully_visible = content_top >= viewport_top
+                    && content_bottom <= viewport_bottom;
+                let covers_viewport = content_top <= viewport_top
+                    && content_bottom >= viewport_bottom;
+
+                if fully_visible || covers_viewport {
                     return (fade_task, None);
                 }
 
-                let aligned_y = match align {
-                    ScrollAnchor::Top => content_y,
-                    ScrollAnchor::Bottom => {
-                        content_y + hit_bounds.height
-                            - scrollable.viewport.height
+                let overlaps_viewport = content_top < viewport_bottom
+                    && content_bottom > viewport_top;
+
+                // offset that puts the message's bottom at the viewport's bottom
+                let bottom_aligned =
+                    content_bottom - scrollable.viewport.height;
+                // capped so a message taller than the viewport doesn't get its
+                // top pushed out the other side
+                let reveal_bottom = bottom_aligned.min(content_top);
+
+                // if partially visible reveal whichever edge is clipped,
+                // nudging it into view
+                let aligned_y = if overlaps_viewport {
+                    if content_top < viewport_top {
+                        content_top
+                    } else {
+                        reveal_bottom
+                    }
+                } else {
+                    // if off-screen align to the edge
+                    match align {
+                        ScrollAnchor::Top => content_top,
+                        ScrollAnchor::Bottom => reveal_bottom,
                     }
                 };
                 let offset = aligned_y.max(0.0).min(max_offset);
