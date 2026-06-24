@@ -26,9 +26,6 @@ for arg in "$@"; do
     esac
 done
 
-# build the binary
-scripts/build-windows.sh
-
 ISCC_BIN="$(find_iscc)"
 
 if [ -z "$ISCC_BIN" ]; then
