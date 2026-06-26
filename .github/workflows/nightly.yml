@@ -58,7 +58,7 @@ jobs:
           sudo apt update
           sudo apt install $(cat .github/linux-deps.txt) git
 
-      - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      - uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
         with:
           path: |
             ~/.cargo/bin/
@@ -72,7 +72,7 @@ jobs:
 
       - name: Install cargo-edit
         if: matrix.target.target == 'windows'
-        uses: taiki-e/install-action@b8cecb83565409bcc297b2df6e77f030b2a468d5 # v2
+        uses: taiki-e/install-action@682e7d9e49c5e653d371fc6adbda67653461378a # v2
         with:
           tool: cargo-edit
 
@@ -139,7 +139,7 @@ jobs:
 
       - name: Update Release
         id: update-release
-        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v2
+        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v2
         with:
           tag_name: nightly
           name: Nightly
