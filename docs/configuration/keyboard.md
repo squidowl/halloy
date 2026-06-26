@@ -2,7 +2,7 @@
 
 # Keyboard
 
-Customize keyboard shortcuts. Below is a list of all actions which can be mapped.
+Customize keyboard shortcuts by adding a `[keyboard]` section to your [config.toml](../configuration.md).
 
 ```toml
 [keyboard]
@@ -14,10 +14,27 @@ quit_application = "alt+q"
 command_bar = "noop"
 ```
 
-Note you can disable a key bind by setting it to `"noop"` or `"none"`.
-Each shortcut accepts either a single keybind string or an array of keybind strings.
+You can disable a keybind by setting it to `"noop"` or `"none"`. Each shortcut accepts either a single keybind string or an array of keybind strings.
 
-## Types
+## Modifiers
+
+Specify what modifier keys must be pressed to invoke the action with these special strings:
+
+- `shift`: The Shift key
+- `ctrl`: The Control key
+- `alt`, `option`, `opt`: The Alt key, or Option (macOS)
+- `command`, `cmd`: The Command/⌘ key (macOS) or Control on Linux/Windows
+- `logo`, `super`, `windows`: The Windows key (Windows), Command key (macOS), Super key (Linux)
+
+Modifiers can be combined with a `+`, for example:
+
+```toml
+mark_as_read = "shift+command+u"
+```
+
+## Actions
+
+Below is a list of all actions which can be mapped.
 
 | Key                            | Description                         | Default MacOS                                       | Default Other                                       |
 | ------------------------------ | ----------------------------------- | --------------------------------------------------- | --------------------------------------------------- |
