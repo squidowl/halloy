@@ -52,7 +52,7 @@ pub enum Message {
 
 #[derive(Debug, Clone)]
 pub enum ImagePreview {
-    SaveImage(PathBuf),
+    SaveImage { file_name: String, bytes: Vec<u8> },
     SavedImage(Option<PathBuf>),
 }
 
@@ -120,24 +120,19 @@ impl Modal {
                 (Task::none(), close.then_some(Event::CloseModal))
             }
             Message::ImagePreview(image_preview) => match image_preview {
-                ImagePreview::SaveImage(source) => (
+                ImagePreview::SaveImage { file_name, bytes } => (
                     Task::perform(
                         async move {
                             if let Some(handle) = rfd::AsyncFileDialog::new()
-                                .set_file_name(
-                                    source
-                                        .file_name()
-                                        .and_then(|n| n.to_str())
-                                        .unwrap_or_default(),
-                                )
+                                .set_file_name(&file_name)
                                 .save_file()
                                 .await
                             {
                                 let destination = handle.path();
-                                tokio::fs::copy(&source, destination)
+                                tokio::fs::write(destination, bytes)
                                     .await
                                     .ok()
-                                    .map(|_| destination.to_path_buf())
+                                    .map(|()| destination.to_path_buf())
                             } else {
                                 None
                             }

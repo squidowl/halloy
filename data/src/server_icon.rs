@@ -1,36 +1,22 @@
 use std::collections::HashMap;
-use std::io;
 use std::sync::Arc;
 
 use iced::Task;
-use sha2::{Digest, Sha256};
-use tokio::fs;
+use reqwest_middleware::ClientWithMiddleware;
 use url::Url;
 
-use crate::cache::{self, Asset, CacheState, CachedAsset, FileCache};
+use crate::Server;
 use crate::image::{self, Image};
-use crate::{Server, environment};
 
 #[derive(Debug)]
 pub enum Message {
     Loaded(Server, Url, Result<Image, LoadError>),
-    Removed(Server),
 }
 
+#[derive(Default)]
 pub struct Manager {
     icons: HashMap<Server, Image>,
     pending: HashMap<Server, Url>,
-    cache: Arc<FileCache>,
-}
-
-impl Default for Manager {
-    fn default() -> Self {
-        Self {
-            icons: HashMap::new(),
-            pending: HashMap::new(),
-            cache: Arc::new(Self::server_icon_cache()),
-        }
-    }
 }
 
 impl Manager {
@@ -38,7 +24,7 @@ impl Manager {
         &mut self,
         server: &Server,
         icon_url: Option<&str>,
-        http_client: Option<Arc<reqwest::Client>>,
+        http_client: Option<Arc<ClientWithMiddleware>>,
     ) -> Task<Message> {
         let Some(icon_url) = icon_url else {
             self.drop_request(server);
@@ -71,33 +57,8 @@ impl Manager {
 
         let server = server.clone();
 
-        Task::perform(
-            load(icon_url.clone(), http_client, self.cache.clone()),
-            move |result| Message::Loaded(server, icon_url.clone(), result),
-        )
-    }
-
-    pub fn remove(
-        &mut self,
-        server: &Server,
-        icon_url: Option<&str>,
-    ) -> Task<Message> {
-        self.pending.remove(server);
-        self.icons.remove(server);
-
-        let Some(icon_url) = icon_url else {
-            return Task::none();
-        };
-
-        let Ok(icon_url) = Url::parse(icon_url) else {
-            log::debug!("invalid server icon URL for {server}: {icon_url}");
-            return Task::none();
-        };
-
-        let server = server.clone();
-
-        Task::perform(remove(icon_url.clone(), self.cache.clone()), move |()| {
-            Message::Removed(server)
+        Task::perform(load(icon_url.clone(), http_client), move |result| {
+            Message::Loaded(server, icon_url.clone(), result)
         })
     }
 
@@ -125,9 +86,6 @@ impl Manager {
                     }
                 }
             }
-            Message::Removed(server) => {
-                log::trace!("removed server icon for {server}");
-            }
         }
     }
 
@@ -139,75 +97,13 @@ impl Manager {
         self.pending.remove(server);
         self.icons.remove(server);
     }
-
-    fn server_icon_cache() -> cache::FileCache {
-        let root = environment::cache_dir().join("server_icons");
-
-        // A fixed sized cache is used since we expect icons to be small.
-        cache::FileCache::new(
-            root,
-            Some(50 * 1024 * 1024), // 50 MiB
-            32,
-        )
-    }
-}
-
-impl CachedAsset for Image {
-    fn assets(&self) -> Vec<Asset<'_>> {
-        vec![Asset(self.path.as_path(), &self.digest)]
-    }
-}
-
-fn canonical_icon_url(url: &Url) -> Url {
-    let mut canonical = url.clone();
-    canonical.set_fragment(None);
-    canonical
-}
-
-async fn load(
-    url: Url,
-    http_client: Arc<reqwest::Client>,
-    cache: Arc<FileCache>,
-) -> Result<Image, LoadError> {
-    let cache_key_url = canonical_icon_url(&url);
-
-    if let Some(state) = cache.load(&cache_key_url).await {
-        match state {
-            CacheState::Ok(icon) => Ok(icon),
-            CacheState::Error => Err(LoadError::CachedFailed),
-        }
-    } else {
-        match fetch(url.clone(), http_client, &cache).await {
-            Ok(icon) => {
-                cache
-                    .save(&cache_key_url, &CacheState::Ok(icon.clone()))
-                    .await;
-
-                Ok(icon)
-            }
-            Err(error) => {
-                cache
-                    .save::<Image>(&cache_key_url, &CacheState::Error)
-                    .await;
-
-                Err(error)
-            }
-        }
-    }
-}
-
-async fn remove(url: Url, cache: Arc<FileCache>) {
-    let cache_key_url = canonical_icon_url(&url);
-
-    cache.remove::<Image>(&cache_key_url).await;
 }
 
 const MAX_ICON_SIZE: usize = 5 * 1024 * 1024; // 5 MiB
 
-async fn fetch(
+async fn load(
     url: Url,
-    http_client: Arc<reqwest::Client>,
-    cache: &FileCache,
+    http_client: Arc<ClientWithMiddleware>,
 ) -> Result<Image, LoadError> {
     let mut resp = http_client
         .get(url.clone())
@@ -241,29 +137,11 @@ async fn fetch(
         bytes.extend_from_slice(&chunk);
     }
 
-    let mut hasher = Sha256::default();
-    hasher.update(&bytes);
-
-    let digest = cache::HexDigest::new(&hasher.finalize());
-    let image_path = cache.blob_path(&digest, format.extensions_str()[0]);
-
-    if !fs::try_exists(&image_path).await? {
-        if let Some(parent) = image_path.parent().filter(|p| !p.exists()) {
-            fs::create_dir_all(parent).await?;
-        }
-
-        fs::write(&image_path, &bytes).await?;
-
-        cache.account_blob(bytes.len() as u64, image_path.clone());
-    }
-
-    Ok(Image::new(format, url, digest, image_path))
+    Ok(Image::new(format, url, bytes))
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum LoadError {
-    #[error("cached failed attempt")]
-    CachedFailed,
     #[error("empty body")]
     EmptyBody,
     #[error("image too large")]
@@ -271,7 +149,7 @@ pub enum LoadError {
     #[error("failed to parse image")]
     ParseImage,
     #[error("request failed: {0}")]
-    Reqwest(#[from] reqwest::Error),
-    #[error("io error: {0}")]
-    Io(#[from] io::Error),
+    Http(#[from] reqwest_middleware::Error),
+    #[error("request failed: {0}")]
+    Reqwest(#[from] reqwest_middleware::reqwest::Error),
 }

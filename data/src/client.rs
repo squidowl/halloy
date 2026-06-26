@@ -14,6 +14,7 @@ use futures::{Future, FutureExt};
 use indexmap::IndexMap;
 use irc::proto::{self, Command, Tags, command, tags};
 use itertools::{Either, Itertools};
+use reqwest_middleware::ClientWithMiddleware;
 use tokio::fs;
 
 pub use self::on_connect::on_connect;
@@ -233,6 +234,7 @@ pub struct Client {
     metadata_syncs: BinaryHeap<MetadataSync>,
     channel_discovery_manager: channel_discovery::Manager,
     http_client: Option<Arc<reqwest::Client>>, // Only Some if config.proxy.is_some()
+    http_cached_client: Option<Arc<ClientWithMiddleware>>, // Only Some if config.proxy.is_some()
     registry: metadata::ServerRegistry,
     monitored_users: HashMap<User, MonitoredUser>,
 }
@@ -255,7 +257,18 @@ impl Client {
             match config::proxy::build_client(Some(proxy), None) {
                 Ok(http_client) => Some(http_client),
                 Err(error) => {
-                    log::warn!("[{server}] Unable to build HTTP client, preview fetching and file upload disabled: {error}");
+                    log::warn!("[{server}] Unable to build HTTP client, file upload disabled: {error}");
+
+                    None
+                }
+            }
+        });
+
+        let http_cached_client = config.proxy.as_ref().and_then(|proxy| {
+            match config::proxy::build_cached_client(Some(proxy), None) {
+                Ok(http_cached_client) => Some(http_cached_client),
+                Err(error) => {
+                    log::warn!("[{server}] Unable to build cached HTTP client, preview/server icon fetching disabled : {error}");
 
                     None
                 }
@@ -299,6 +312,7 @@ impl Client {
             metadata_sub_requests: HashSet::new(),
             metadata_syncs: BinaryHeap::new(),
             http_client: http_client.map(Arc::new),
+            http_cached_client: http_cached_client.map(Arc::new),
             config,
             channel_discovery_manager: channel_discovery::Manager::new(),
             registry: metadata::ServerRegistry::new(),
@@ -5419,6 +5433,14 @@ impl Map {
     ) -> Option<Arc<reqwest::Client>> {
         self.client(server)
             .and_then(|client| client.http_client.clone())
+    }
+
+    pub fn get_server_http_cached_client(
+        &self,
+        server: &Server,
+    ) -> Option<Arc<ClientWithMiddleware>> {
+        self.client(server)
+            .and_then(|client| client.http_cached_client.clone())
     }
 
     pub fn get_server_proxy_config(

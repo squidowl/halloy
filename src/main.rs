@@ -1591,8 +1591,6 @@ impl Halloy {
                         &self.config.buffer,
                     );
 
-                    dashboard.refresh_cache_limits(&self.config);
-
                     // If redaction settings are changed then history needs to
                     // be reprocessed; that is already performed by
                     // update_filters, so it does not need to be done again.

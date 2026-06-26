@@ -1,23 +1,17 @@
 use std::collections::HashMap;
-use std::io;
 use std::sync::{Arc, LazyLock, OnceLock};
 use std::time::Duration;
 
-use ::image::image_dimensions;
 use fancy_regex::Regex;
 use iced_wgpu::wgpu;
 use log;
-use reqwest::header::{self, HeaderValue};
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
-use tokio::fs::{self, File};
-use tokio::io::AsyncWriteExt;
+use reqwest_middleware::ClientWithMiddleware;
+use reqwest_middleware::reqwest::header::{self, HeaderValue};
 use tokio::sync::Semaphore;
 use tokio::time;
 use url::Url;
 
 pub use self::card::Card;
-use crate::cache::{self, Asset, CacheState, CachedAsset, FileCache};
 use crate::config::preview::{Enabled, Visibility};
 use crate::image::Image;
 use crate::message::Source;
@@ -99,8 +93,7 @@ impl<'a> Previews<'a> {
 
 pub type Collection = HashMap<Url, State>;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone)]
 pub enum Preview {
     Card(Card),
     Image(Image),
@@ -149,17 +142,6 @@ impl Preview {
     }
 }
 
-impl CachedAsset for Preview {
-    fn assets(&self) -> Vec<Asset<'_>> {
-        match self {
-            Preview::Card(c) => {
-                vec![Asset(c.image.path.as_path(), &c.image.digest)]
-            }
-            Preview::Image(i) => vec![Asset(i.path.as_path(), &i.digest)],
-        }
-    }
-}
-
 #[derive(Debug)]
 pub enum State {
     Loading,
@@ -175,81 +157,40 @@ enum Kind {
 
 pub async fn load(
     url: Url,
-    client: Arc<reqwest::Client>,
+    client: Arc<ClientWithMiddleware>,
     config: config::Preview,
-    cache: Arc<FileCache>,
 ) -> Result<Preview, LoadError> {
     let is_enabled = config.is_enabled(url.as_str());
-    load_inner(url, client, &config, cache, is_enabled, Kind::Preview).await
+    load_inner(url, client, &config, is_enabled, Kind::Preview).await
 }
 
 pub async fn load_avatar(
     url: Url,
-    client: Arc<reqwest::Client>,
+    client: Arc<ClientWithMiddleware>,
     avatar_config: config::metadata::Avatar,
     preview_config: config::Preview,
-    cache: Arc<FileCache>,
 ) -> Result<Preview, LoadError> {
     let is_enabled = avatar_config.is_enabled(url.as_str());
-    load_inner(
-        url,
-        client,
-        &preview_config,
-        cache,
-        is_enabled,
-        Kind::Avatar,
-    )
-    .await
+    load_inner(url, client, &preview_config, is_enabled, Kind::Avatar).await
 }
 
 async fn load_inner(
     url: Url,
-    client: Arc<reqwest::Client>,
+    client: Arc<ClientWithMiddleware>,
     preview_config: &config::Preview,
-    cache: Arc<FileCache>,
     is_enabled: bool,
     kind: Kind,
 ) -> Result<Preview, LoadError> {
-    let cache_key_url = canonical_preview_url(&url);
-
     if !is_enabled {
         return Err(LoadError::Disabled);
     }
 
-    let result = if let Some(state) = cache.load(&cache_key_url).await {
-        match state {
-            CacheState::Ok(preview) => Ok(preview),
-            CacheState::Error => Err(LoadError::CachedFailed),
+    let result = match kind {
+        Kind::Preview => {
+            load_uncached(url.clone(), client, preview_config).await
         }
-    } else {
-        let loaded = match kind {
-            Kind::Preview => {
-                load_uncached(url.clone(), client, preview_config, &cache).await
-            }
-            Kind::Avatar => {
-                load_avatar_uncached(
-                    url.clone(),
-                    client,
-                    preview_config,
-                    &cache,
-                )
-                .await
-            }
-        };
-
-        match loaded {
-            Ok(preview) => {
-                cache
-                    .save(&cache_key_url, &CacheState::Ok(preview.clone()))
-                    .await;
-                Ok(preview)
-            }
-            Err(error) => {
-                cache
-                    .save::<Preview>(&cache_key_url, &CacheState::Error)
-                    .await;
-                Err(error)
-            }
+        Kind::Avatar => {
+            load_avatar_uncached(url.clone(), client, preview_config).await
         }
     };
 
@@ -258,9 +199,7 @@ async fn load_inner(
 
         if matches!(image.format, image::Format::Svg) {
             result
-        } else if let Ok((image_width, image_height)) =
-            image_dimensions(&image.path)
-        {
+        } else if let Some((image_width, image_height)) = image.dimensions() {
             // As per iced, it is a webgpu requirement that:
             //   BufferCopyView.layout.bytes_per_row % wgpu::COPY_BYTES_PER_ROW_ALIGNMENT == 0
             // So we calculate padded_width by rounding width up to the next
@@ -290,21 +229,14 @@ async fn load_inner(
     }
 }
 
-fn canonical_preview_url(url: &Url) -> Url {
-    let mut canonical = url.clone();
-    canonical.set_fragment(None);
-    canonical
-}
-
 async fn load_uncached(
     url: Url,
-    client: Arc<reqwest::Client>,
+    client: Arc<ClientWithMiddleware>,
     config: &config::Preview,
-    cache: &FileCache,
 ) -> Result<Preview, LoadError> {
     log::trace!("Loading preview for {url}");
 
-    match fetch(url.clone(), client.clone(), config, cache).await? {
+    match fetch(url.clone(), client.clone(), config).await? {
         Fetched::Image(image) => Ok(Preview::Image(image)),
         Fetched::Other(bytes) => {
             let MetaTagProperties {
@@ -318,7 +250,7 @@ async fn load_uncached(
                 image_url.ok_or(LoadError::MissingProperty("image"))?;
 
             let Fetched::Image(image) =
-                fetch(image_url, client, config, cache).await?
+                fetch(image_url, client, config).await?
             else {
                 return Err(LoadError::NotImage);
             };
@@ -353,13 +285,12 @@ async fn load_uncached(
 
 async fn load_avatar_uncached(
     url: Url,
-    client: Arc<reqwest::Client>,
+    client: Arc<ClientWithMiddleware>,
     config: &config::Preview,
-    cache: &FileCache,
 ) -> Result<Preview, LoadError> {
     log::trace!("Loading avatar for {url}");
 
-    let Fetched::Image(image) = fetch(url, client, config, cache).await? else {
+    let Fetched::Image(image) = fetch(url, client, config).await? else {
         return Err(LoadError::NotImage);
     };
 
@@ -373,9 +304,8 @@ enum Fetched {
 
 async fn fetch(
     url: Url,
-    client: Arc<reqwest::Client>,
+    client: Arc<ClientWithMiddleware>,
     config: &config::Preview,
-    cache: &FileCache,
 ) -> Result<Fetched, LoadError> {
     // WARN: `concurrency` changes aren't picked up until app is relaunched
     let _permit = RATE_LIMIT
@@ -413,57 +343,18 @@ async fn fetch(
                 return Err(LoadError::ImageTooLarge);
             }
 
-            // Store image to disk, we don't want to explode memory
-            let temp_path = cache.download_path(&url);
+            let mut bytes = Vec::new();
+            bytes.extend_from_slice(&first_chunk);
 
-            if let Some(parent) = temp_path.parent().filter(|p| !p.exists()) {
-                fs::create_dir_all(&parent).await?;
-            }
-
-            let image_result = async {
-                let mut file = File::create(&temp_path).await?;
-                let mut hasher = Sha256::default();
-
-                file.write_all(&first_chunk).await?;
-                hasher.update(&first_chunk);
-
-                let mut written = first_chunk.len();
-
-                while let Some(chunk) = resp.chunk().await? {
-                    if written + chunk.len() > config.request.max_image_size {
-                        return Err(LoadError::ImageTooLarge);
-                    }
-
-                    file.write_all(&chunk).await?;
-                    hasher.update(&chunk);
-
-                    written += chunk.len();
+            while let Some(chunk) = resp.chunk().await? {
+                if bytes.len() + chunk.len() > config.request.max_image_size {
+                    return Err(LoadError::ImageTooLarge);
                 }
 
-                let digest = cache::HexDigest::new(&hasher.finalize());
-                let image_path =
-                    cache.blob_path(&digest, format.extensions_str()[0]);
-
-                if let Some(parent) =
-                    image_path.parent().filter(|p| !p.exists())
-                {
-                    fs::create_dir_all(&parent).await?;
-                }
-
-                fs::rename(&temp_path, &image_path).await?;
-                cache.account_blob(written as u64, image_path.clone());
-
-                Ok::<Image, LoadError>(Image::new(
-                    format, url, digest, image_path,
-                ))
-            }
-            .await;
-
-            if image_result.is_err() {
-                remove_download_file(&temp_path).await;
+                bytes.extend_from_slice(&chunk);
             }
 
-            Fetched::Image(image_result?)
+            Fetched::Image(Image::new(format, url, bytes))
         }
         None => {
             let max_scrape_size = config.request.max_scrape_size;
@@ -490,10 +381,6 @@ async fn fetch(
     time::sleep(Duration::from_millis(config.request.delay_ms)).await;
 
     Ok(fetched)
-}
-
-async fn remove_download_file(path: &std::path::Path) {
-    let _ = fs::remove_file(path).await;
 }
 
 fn exceeds_image_size(
@@ -589,8 +476,6 @@ fn parse_meta_tag_properties(
 pub enum LoadError {
     #[error("loading disabled in config")]
     Disabled,
-    #[error("cached failed attempt")]
-    CachedFailed,
     #[error("url doesn't contain open graph data")]
     MissingOpenGraphData,
     #[error("empty body")]
@@ -606,11 +491,11 @@ pub enum LoadError {
     #[error("missing required property {0}")]
     MissingProperty(&'static str),
     #[error("request failed: {0}")]
-    Reqwest(#[from] reqwest::Error),
+    Http(#[from] reqwest_middleware::Error),
+    #[error("request failed: {0}")]
+    Reqwest(#[from] reqwest_middleware::reqwest::Error),
     #[error("failed to parse url: {0}")]
     ParseUrl(#[from] url::ParseError),
-    #[error("io error: {0}")]
-    Io(#[from] io::Error),
     #[error("unable to verify image dimensions fit in maximum buffer size")]
     ImageDimensionsUnknown,
     #[error(
@@ -624,24 +509,7 @@ pub enum LoadError {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        canonical_preview_url, exceeds_image_size, parse_meta_tag_properties,
-    };
-
-    #[test]
-    fn canonical_preview_url_strips_fragment_but_keeps_query() {
-        let first: url::Url = "https://example.com/image.jpg?x=1#a"
-            .parse()
-            .expect("valid URL");
-        let second: url::Url = "https://example.com/image.jpg?x=1#b"
-            .parse()
-            .expect("valid URL");
-
-        assert_eq!(
-            canonical_preview_url(&first),
-            canonical_preview_url(&second)
-        );
-    }
+    use super::{exceeds_image_size, parse_meta_tag_properties};
 
     #[test]
     fn exceeds_image_size_is_true_when_content_length_is_over_limit() {

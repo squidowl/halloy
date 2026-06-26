@@ -1,6 +1,12 @@
 use std::fmt;
 
+use http_cache_reqwest::{
+    CACacheManager, Cache, CacheMode, HttpCache, HttpCacheOptions,
+};
+use reqwest_middleware::{ClientBuilder, ClientWithMiddleware, reqwest};
 use serde::Deserialize;
+
+use crate::environment;
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -118,6 +124,24 @@ pub fn build_client(
     }
 
     Ok(builder.build()?)
+}
+
+pub fn build_cached_client(
+    proxy: Option<&Proxy>,
+    identity: Option<reqwest::Identity>,
+) -> Result<ClientWithMiddleware, BuildError> {
+    let client = build_client(proxy, identity)?;
+
+    let cache_root = environment::cache_dir().join("http_cache");
+    let client = ClientBuilder::new(client)
+        .with(Cache(HttpCache {
+            mode: CacheMode::Default,
+            manager: CACacheManager::new(cache_root, false),
+            options: HttpCacheOptions::default(),
+        }))
+        .build();
+
+    Ok(client)
 }
 
 #[derive(Debug, thiserror::Error)]
