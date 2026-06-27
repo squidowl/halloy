@@ -610,7 +610,7 @@ fn focus_menu_view<'a>(
                 }))
             }
             Key::Named(Named::ArrowLeft) => Some(Message::FocusMenuClose),
-            Key::Named(Named::ArrowRight | Named::Enter) => {
+            Key::Named(Named::ArrowRight | Named::Enter | Named::Space) => {
                 Some(Message::FocusMenuActivate(selection))
             }
             _ => None,
@@ -689,7 +689,7 @@ fn nick_focus_menu_view<'a>(
             Key::Named(Named::ArrowRight) => Some(Message::FocusMenuClose),
             // Left (the direction this menu opened toward) and Enter activate
             // the selected item, mirroring Right in the message actions menu.
-            Key::Named(Named::ArrowLeft | Named::Enter) => {
+            Key::Named(Named::ArrowLeft | Named::Enter | Named::Space) => {
                 Some(Message::FocusMenuActivate(selection))
             }
             _ => None,
