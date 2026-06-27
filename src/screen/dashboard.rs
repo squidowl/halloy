@@ -2864,10 +2864,15 @@ impl Dashboard {
                     MessageFocus::Activate => {
                         state.buffer.open_focus_menu_message()
                     }
-                    MessageFocus::OpenNickMenu => (in_focus
-                        && !state.buffer.focus_sub_element_selected())
-                    .then(|| state.buffer.open_nick_focus_menu_message())
-                    .flatten(),
+                    MessageFocus::OpenNickMenu if !in_focus => None,
+                    MessageFocus::OpenNickMenu
+                        if state.buffer.focus_sub_element_selected() =>
+                    {
+                        state.buffer.open_focus_menu_message()
+                    }
+                    MessageFocus::OpenNickMenu => {
+                        state.buffer.open_nick_focus_menu_message()
+                    }
                     MessageFocus::Reply => in_focus
                         .then(|| {
                             state.buffer.focus_action_message(
