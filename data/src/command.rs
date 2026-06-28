@@ -21,6 +21,8 @@ use crate::user::{ChannelUsers, NickRef};
 use crate::{Config, Message, Server, Target, Url, User, ctcp, target};
 
 pub mod alias;
+pub mod common;
+pub mod search;
 
 pub use self::alias::Alias;
 
@@ -48,6 +50,8 @@ pub enum Internal {
     Reconnect,
     Upload(String),
     Exec(String),
+    Common(common::Command),
+    Search(search::Command),
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -284,6 +288,9 @@ pub enum Kind {
     Upload,
     MassMessage,
     Exec,
+    Search,
+    Last,
+    Common,
     Raw,
 }
 
@@ -331,6 +338,9 @@ impl FromStr for Kind {
             "upload" => Ok(Kind::Upload),
             "massmessage" | "mm" => Ok(Kind::MassMessage),
             "exec" => Ok(Kind::Exec),
+            "search" => Ok(Kind::Search),
+            "last" => Ok(Kind::Last),
+            "common" => Ok(Kind::Common),
             _ => Err(()),
         }
     }
@@ -1751,6 +1761,22 @@ fn parse_command(
                     Ok(Command::Internal(Internal::Exec(command.to_string())))
                 }
             }
+            Kind::Search | Kind::Last => {
+                let kind = match kind {
+                    Kind::Search => search::Kind::Search,
+                    Kind::Last => search::Kind::Last,
+                    _ => unreachable!(),
+                };
+
+                search::parse(kind, raw)
+                    .map(Internal::Search)
+                    .map(Command::Internal)
+                    .map_err(Error::Search)
+            }
+            Kind::Common => common::parse(raw)
+                .map(Internal::Common)
+                .map(Command::Internal)
+                .map_err(Error::Common),
         },
         Err(()) => Ok(unknown()),
     }
@@ -2144,6 +2170,10 @@ pub enum Error {
     },
     #[error("/{command} is not enabled in configuration")]
     CommandNotEnabled { command: &'static str },
+    #[error("{0}")]
+    Common(common::Error),
+    #[error("{0}")]
+    Search(search::Error),
 }
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -2198,6 +2228,7 @@ mod tests {
     use super::{AutoFormat, Command, Error, Internal, isupport, parse};
     use crate::Config;
     use crate::capabilities::Capabilities;
+    use crate::command::common;
     use crate::features::Features;
 
     #[test]
@@ -2287,6 +2318,30 @@ mod tests {
             command,
             Command::Internal(Internal::Exec(command))
                 if command == "printf '/me hello world'"
+        ));
+    }
+
+    #[test]
+    fn parse_common_command() {
+        let command = parse(
+            "/common",
+            None,
+            None,
+            AutoFormat::default(),
+            true,
+            &isupport::DEFAULT,
+            &Capabilities::default(),
+            &Features::default(),
+            None,
+            &Config::default(),
+        )
+        .unwrap();
+
+        assert!(matches!(
+            command,
+            Command::Internal(Internal::Common(common::Command {
+                scope: common::Scope::Global,
+            }))
         ));
     }
 

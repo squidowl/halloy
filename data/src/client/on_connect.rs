@@ -111,8 +111,10 @@ pub fn on_connect(
                             command::Internal::ClearBuffer
                             | command::Internal::ChannelDiscovery
                             | command::Internal::Connect(_)
+                            | command::Internal::Common(_)
                             | command::Internal::Exec(_)
                             | command::Internal::Hop(_, _)
+                            | command::Internal::Search(_)
                             | command::Internal::SysInfo
                             | command::Internal::Reconnect
                             | command::Internal::Upload(_) => None,

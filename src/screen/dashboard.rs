@@ -32,6 +32,7 @@ use iced::{Length, Size, Task, Vector, advanced, clipboard, padding};
 use irc::proto;
 
 use self::command_bar::CommandBar;
+use self::focus::replacement_buffer_after_close;
 use self::modal::{reaction as reaction_modal, redaction as redaction_modal};
 use self::pane::Pane;
 use self::sidebar::Sidebar;
@@ -48,6 +49,7 @@ use crate::{
 };
 
 mod command_bar;
+mod focus;
 pub mod modal;
 pub mod pane;
 pub mod sidebar;
@@ -60,6 +62,7 @@ pub struct Dashboard {
     panes: Panes,
     focus: Focus,
     focus_history: VecDeque<pane_grid::Pane>,
+    buffer_parents: HashMap<data::Buffer, data::Buffer>,
     side_menu: Sidebar,
     history: history::Manager,
     last_changed: Option<Instant>,
@@ -119,6 +122,7 @@ pub enum Event {
     OpenServer(String),
     ImagePreview(Image),
     ToggleFullscreen,
+    AdjustFontSize(i8),
     Remove(Server),
     PromptBeforeFileUpload {
         upload_url: String,
@@ -149,6 +153,7 @@ impl Dashboard {
                 pane,
             },
             focus_history: VecDeque::new(),
+            buffer_parents: HashMap::new(),
             side_menu: sidebar,
             history: history::Manager::default(),
             last_changed: None,
@@ -1216,6 +1221,12 @@ impl Dashboard {
                             Some(Event::ToggleFullscreen),
                         );
                     }
+                    IncreaseFontSize => {
+                        return (Task::none(), Some(Event::AdjustFontSize(1)));
+                    }
+                    DecreaseFontSize => {
+                        return (Task::none(), Some(Event::AdjustFontSize(-1)));
+                    }
                     QuitApplication => {
                         return (self.exit(clients, config), None);
                     }
@@ -1907,6 +1918,9 @@ impl Dashboard {
                     ),
                     None,
                 );
+            }
+            buffer::Event::OpenSearchResults(results) => {
+                return (self.open_search_results(results, config), None);
             }
             buffer::Event::ContextMenu(event) => {
                 let mut tasks = if matches!(
@@ -2970,8 +2984,10 @@ impl Dashboard {
     ) -> Task<Message> {
         // TODO(pounce) reduce clones
         let panes = self.panes.clone();
+        let parent = self.focused_buffer_data();
 
         self.last_changed = Some(Instant::now());
+        self.remember_buffer_parent(&buffer, parent);
 
         match buffer.upstream() {
             Some(buffer::Upstream::Channel(server, channel)) => {
@@ -3169,6 +3185,70 @@ impl Dashboard {
                 })
             }
         }
+    }
+
+    fn open_search_results(
+        &mut self,
+        results: buffer::SearchResults,
+        config: &Config,
+    ) -> Task<Message> {
+        self.last_changed = Some(Instant::now());
+
+        let search_buffer = Buffer::SearchResults(results);
+
+        // Search results are transient and should preserve the source buffer.
+        // Always open them in a split pane for this slice instead of replacing
+        // the current buffer or adding serialized sidebar state.
+        if self.panes.len() == 1 {
+            let panes = self.panes.clone();
+            for (id, pane) in panes.main.iter() {
+                if matches!(pane.buffer, Buffer::Empty) {
+                    self.panes.main.panes.entry(*id).and_modify(|pane| {
+                        pane.buffer = search_buffer.clone();
+                    });
+
+                    return self.focus_pane(self.main_window(), *id);
+                }
+            }
+        }
+
+        let Some((pane_to_split, pane_to_split_state)) = self
+            .panes
+            .main
+            .panes
+            .get(&self.focus.pane)
+            .map(|pane| (self.focus.pane, pane))
+        else {
+            log::error!("Didn't find focused pane for search results");
+            return Task::none();
+        };
+
+        let split_axis = match config.pane.split_axis {
+            config::pane::SplitAxis::Horizontal => pane_grid::Axis::Horizontal,
+            config::pane::SplitAxis::Vertical => pane_grid::Axis::Vertical,
+            config::pane::SplitAxis::Shorter
+            | config::pane::SplitAxis::LargestShorter => {
+                if pane_to_split_state.size.height
+                    < pane_to_split_state.size.width
+                {
+                    pane_grid::Axis::Vertical
+                } else {
+                    pane_grid::Axis::Horizontal
+                }
+            }
+        };
+
+        let result = self.panes.main.split(
+            split_axis,
+            pane_to_split,
+            Pane::new(search_buffer),
+        );
+
+        if let Some((pane, _)) = result {
+            return self.focus_pane(self.main_window(), pane);
+        }
+
+        Task::none()
     }
 
     pub fn leave_all_queries(
@@ -4041,6 +4121,16 @@ impl Dashboard {
         pane: pane_grid::Pane,
     ) -> Task<Message> {
         let mut tasks = vec![];
+        let closed_buffer = self
+            .panes
+            .get(window, pane)
+            .and_then(|state| state.buffer.data());
+        let replacement = self.replacement_buffer_after_close(
+            window,
+            pane,
+            closed_buffer.as_ref(),
+            clients,
+        );
 
         if let Some(state) = self.panes.get(window, pane) {
             mark_as_read_on_buffer_close(
@@ -4071,17 +4161,39 @@ impl Dashboard {
         }
 
         self.last_changed = Some(Instant::now());
+        if let Some(buffer) = closed_buffer.as_ref() {
+            self.forget_buffer_parent_refs(buffer);
+        }
 
         if window == self.main_window() {
             self.focus_history.retain(|p| *p != pane);
 
             if let Some((_, sibling)) = self.panes.main.close(pane) {
                 if (Focus { window, pane } == self.focus) {
-                    tasks.push(self.focus_pane(self.main_window(), sibling));
+                    let focus = replacement
+                        .as_ref()
+                        .and_then(|buffer| self.find_pane_with_buffer(buffer))
+                        .unwrap_or((self.main_window(), sibling));
+
+                    tasks.push(self.focus_pane(focus.0, focus.1));
                     return Task::batch(tasks);
                 }
             } else if let Some(pane) = self.panes.main.get_mut(pane) {
-                pane.buffer = Buffer::Empty;
+                let focus_replacement = replacement.is_some();
+                pane.buffer = replacement.map_or(Buffer::Empty, |buffer| {
+                    Buffer::from_data(
+                        buffer,
+                        clients,
+                        &self.history,
+                        pane.size,
+                        config,
+                    )
+                });
+
+                if focus_replacement {
+                    tasks.push(self.reset_pane(window, self.focus.pane));
+                    tasks.push(self.focus_pane(window, self.focus.pane));
+                }
             }
         } else if self.panes.popout.remove(&window).is_some() {
             if self.command_bar_window == Some(window) {
@@ -4096,6 +4208,64 @@ impl Dashboard {
         }
 
         Task::batch(tasks)
+    }
+
+    fn focused_buffer_data(&self) -> Option<data::Buffer> {
+        let Focus { window, pane } = self.focus;
+
+        self.panes
+            .get(window, pane)
+            .and_then(|state| state.buffer.data())
+    }
+
+    fn remember_buffer_parent(
+        &mut self,
+        child: &data::Buffer,
+        parent: Option<data::Buffer>,
+    ) {
+        if let Some(parent) = parent
+            && parent != *child
+        {
+            self.buffer_parents.insert(child.clone(), parent);
+        }
+    }
+
+    fn forget_buffer_parent_refs(&mut self, buffer: &data::Buffer) {
+        self.buffer_parents.remove(buffer);
+        self.buffer_parents.retain(|_, parent| parent != buffer);
+    }
+
+    fn find_pane_with_buffer(
+        &self,
+        buffer: &data::Buffer,
+    ) -> Option<(window::Id, pane_grid::Pane)> {
+        self.panes.iter().find_map(|(window, pane, state)| {
+            (state.buffer.data().as_ref() == Some(buffer))
+                .then_some((window, pane))
+        })
+    }
+
+    fn replacement_buffer_after_close(
+        &self,
+        window: window::Id,
+        closing_pane: pane_grid::Pane,
+        closed: Option<&data::Buffer>,
+        clients: &client::Map,
+    ) -> Option<data::Buffer> {
+        let parent = closed.and_then(|buffer| self.buffer_parents.get(buffer));
+        let previous = self.focus_history.iter().find_map(|pane| {
+            (*pane != closing_pane)
+                .then(|| self.panes.get(window, *pane))
+                .flatten()
+                .and_then(|state| state.buffer.data())
+        });
+
+        replacement_buffer_after_close(
+            closed,
+            parent,
+            previous.as_ref(),
+            all_upstream_buffers(clients, &self.history),
+        )
     }
 
     fn popout_pane(
@@ -4533,6 +4703,7 @@ impl Dashboard {
             panes,
             focus,
             focus_history: VecDeque::from([focus.pane]),
+            buffer_parents: HashMap::new(),
             side_menu: sidebar,
             history,
             last_changed: None,

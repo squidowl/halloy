@@ -28,6 +28,7 @@ pub enum Event {
     ContextMenu(context_menu::Event),
     OpenBuffers(Server, Vec<(Target, BufferAction)>),
     OpenInternalBuffer(buffer::Internal),
+    OpenSearchResults(super::SearchResults),
     OpenServer(String),
     Reconnect(Server),
     LeaveBuffers(Vec<Target>, Option<String>),
@@ -367,6 +368,9 @@ impl Query {
                     }
                     Some(input_view::Event::OpenInternalBuffer(buffer)) => {
                         (command, Some(Event::OpenInternalBuffer(buffer)))
+                    }
+                    Some(input_view::Event::OpenSearchResults(results)) => {
+                        (command, Some(Event::OpenSearchResults(results)))
                     }
                     Some(input_view::Event::OpenServer(server)) => {
                         (command, Some(Event::OpenServer(server)))

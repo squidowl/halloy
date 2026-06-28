@@ -38,6 +38,8 @@ pub struct Keyboard {
     pub scroll_down_page: KeyBinds,
     pub scroll_to_top: KeyBinds,
     pub scroll_to_bottom: KeyBinds,
+    pub increase_font_size: KeyBinds,
+    pub decrease_font_size: KeyBinds,
     pub cycle_next_unread_buffer: KeyBinds,
     pub cycle_previous_unread_buffer: KeyBinds,
     pub mark_as_read: KeyBinds,
@@ -74,6 +76,12 @@ impl Default for Keyboard {
             scroll_down_page: KeyBind::scroll_down_page().into(),
             scroll_to_top: KeyBind::scroll_to_top().into(),
             scroll_to_bottom: KeyBind::scroll_to_bottom().into(),
+            increase_font_size: vec![
+                KeyBind::increase_font_size(),
+                KeyBind::increase_font_size_shifted(),
+            ]
+            .into(),
+            decrease_font_size: KeyBind::decrease_font_size().into(),
             cycle_next_unread_buffer: KeyBind::cycle_next_unread_buffer()
                 .into(),
             cycle_previous_unread_buffer:
@@ -114,6 +122,8 @@ impl Keyboard {
             (&self.scroll_down_page, ScrollDownPage),
             (&self.scroll_to_top, ScrollToTop),
             (&self.scroll_to_bottom, ScrollToBottom),
+            (&self.increase_font_size, IncreaseFontSize),
+            (&self.decrease_font_size, DecreaseFontSize),
             (&self.highlights, Highlights),
             (&self.cycle_next_unread_buffer, CycleNextUnreadBuffer),
             (

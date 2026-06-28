@@ -2,53 +2,15 @@
 
 Updated: 2026-06-16 EDT
 
-This fork branch demonstrates local-only search and common-channel inspection
-features for the Halloy IRC client. It is intended as a reviewable design and
-implementation branch: the commands are implemented in Halloy, documented here,
-and kept security-first by defaulting to local in-memory or already-loaded data.
-
-Added feature areas:
-
-- `/search`: local loaded-history search with selectors, boolean expressions,
-  string modifiers, spans, context, output options, and result panes.
-- `/last`: a retained convenience command for current-buffer search, designed
-  to become read-marker aware in a later slice.
-- `/common`: common-channel inspection using Halloy's already-known channel
-  membership state, with `scope=global|network`.
-- Buffer close focus recovery: closing a channel or query returns focus to a
-  useful related buffer instead of leaving the main pane on an empty
-  "Select buffer" state.
-- Documentation and portability notes for "Rich Search Functionality" in other
-  IRC clients such as Zoitechat, Konversation, and Uplink.
-
-Original Halloy project: <https://github.com/squidowl/halloy>
-
-## Table Of Contents
-
-- [Security Model](#security-model)
-- [`/search`](#search)
-- [`/last`](#last)
-- [Search Selectors](#search-selectors)
-- [Boolean Expressions](#boolean-expressions)
-- [String Modifiers](#string-modifiers)
-- [Quoting And Escapes](#quoting-and-escapes)
-- [Span](#span)
-- [Search Output Options](#search-output-options)
-- [Highlighting](#highlighting)
-- [`/common`](#common)
-- [`/common` Scope](#common-scope)
-- [Buffer Close Focus Recovery](#buffer-close-focus-recovery)
-- [Future `/common` Identity Enrichment](#future-common-identity-enrichment)
-- [Halloy Implementation Notes](#halloy-implementation-notes)
-- [Upstream Contribution Notes](#upstream-contribution-notes)
-- [Porting Notes](#porting-notes)
-- [Development Guidelines Used](#development-guidelines-used)
-
 This document describes the local `/search`, `/last`, and `/common` features
 added in the Halloy feature branch. It is written as both user documentation
 and a portable design reference for possible future implementations in other
 IRC clients such as Zoitechat, Konversation, and Uplink. The portable feature
 set is referred to below as **Rich Search Functionality** for IRC clients.
+
+The branch also includes a buffer-close focus recovery fix: closing a channel
+or direct conversation returns focus to a useful related buffer instead of
+leaving the main pane on an empty "Select buffer" state.
 
 ## Security Model
 

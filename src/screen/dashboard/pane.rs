@@ -163,6 +163,10 @@ impl Pane {
                 .wrapping(Wrapping::None)
                 .ellipsis(text::Ellipsis::End)
                 .into(),
+            Buffer::SearchResults(state) => text(&state.title)
+                .wrapping(Wrapping::None)
+                .ellipsis(text::Ellipsis::End)
+                .into(),
         };
 
         let title_bar = self.title_bar.view(
@@ -256,7 +260,9 @@ impl Pane {
             }),
             Buffer::Logs(_) => Some(history::Resource::logs()),
             Buffer::Highlights(_) => Some(history::Resource::highlights()),
-            Buffer::ChannelDiscovery(_) | Buffer::FileTransfers(_) => None,
+            Buffer::ChannelDiscovery(_)
+            | Buffer::FileTransfers(_)
+            | Buffer::SearchResults(_) => None,
         }
     }
 
@@ -271,7 +277,8 @@ impl Pane {
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
-            | Buffer::ChannelDiscovery(_) => vec![],
+            | Buffer::ChannelDiscovery(_)
+            | Buffer::SearchResults(_) => vec![],
         }
     }
 }
@@ -703,6 +710,7 @@ impl From<Pane> for data::Pane {
             Buffer::ChannelDiscovery(state) => data::Buffer::Internal(
                 buffer::Internal::ChannelDiscovery(state.server.clone()),
             ),
+            Buffer::SearchResults(_) => return data::Pane::Empty,
         };
 
         data::Pane::Buffer { buffer }
