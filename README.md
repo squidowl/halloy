@@ -78,6 +78,12 @@ See the [contributing guide](https://halloy.chat/contributing) to get started.
 
 Halloy is released under the GPL-3.0 License. For more details, see the [LICENSE](LICENSE) file.
 
+## Code signing policy
+
+Read our [code signing policy](./CODE_SIGNING_POLICY.md).
+
+Free code signing provided by [SignPath.io](https://signpath.io/), certificate by [SignPath Foundation](https://signpath.org/?utm_source=foundation&utm_medium=github&utm_campaign=gitextension).
+
 ## Contact
 
 For any questions, suggestions, or issues, please open an issue on the [GitHub repository](https://github.com/squidowl/halloy/issues).
