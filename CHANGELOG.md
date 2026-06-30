@@ -26,6 +26,7 @@ Fixed:
 - Show unread indicators for panes hidden by maximize
 - Allow commands (e.g. `/join`) to be used in the input box of not-joined channels
 - Disabled menu entries now block clicks from passing through
+- Preserve own away state when leaving and rejoining a channel
 
 Changed:
 

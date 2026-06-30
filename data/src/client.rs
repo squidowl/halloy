@@ -213,6 +213,7 @@ pub struct Client {
     batches: HashMap<String, Batch>,
     reroute_responses_to: Option<buffer::Upstream>,
     logged_in: bool,
+    away: bool,
     registration_step: RegistrationStep,
     capabilities: Capabilities,
     features: Features,
@@ -279,6 +280,7 @@ impl Client {
             batches: HashMap::new(),
             reroute_responses_to: None,
             logged_in: false,
+            away: false,
             registration_step: RegistrationStep::Start,
             capabilities: Capabilities::default(),
             features: Features::default(),
@@ -2164,6 +2166,11 @@ impl Client {
             Command::AWAY(args) => {
                 let away = args.is_some();
                 let user = ok!(message.user(self.casemapping()));
+                let is_self = user.nickname() == self.nickname();
+
+                if is_self {
+                    self.away = away;
+                }
 
                 for channel in self.chanmap.values_mut() {
                     if let Some(mut user) = channel.users.take(&user) {
@@ -2175,6 +2182,8 @@ impl Client {
             // RPL_UNAWAY is a reply to "/AWAY" from the server
             // for the client/user itself.
             Command::Numeric(RPL_UNAWAY, _) => {
+                self.away = false;
+
                 let user = User::from(self.nickname().to_owned());
 
                 for channel in self.chanmap.values_mut() {
@@ -2187,6 +2196,8 @@ impl Client {
             // RPL_UNAWAY is a reply to "/AWAY <msg>" from the server
             // for the client/user itself.
             Command::Numeric(RPL_NOWAWAY, _) => {
+                self.away = true;
+
                 let user = User::from(self.nickname().to_owned());
 
                 for channel in self.chanmap.values_mut() {
@@ -2302,6 +2313,7 @@ impl Client {
                 let channel = ok!(args.get(2));
 
                 let our_nick = self.nickname().to_owned();
+                let our_away = self.away;
 
                 if let Some(channel) =
                     self.chanmap.get_mut(&context!(target::Channel::parse(
@@ -2318,18 +2330,22 @@ impl Client {
                         isupport::get_casemapping_or_default(&self.isupport);
                     let prefix = isupport::get_prefix(&self.isupport);
                     for user in args[3].split(' ') {
-                        if let Ok(user) = User::parse(user, casemapping, prefix)
+                        if let Ok(mut user) =
+                            User::parse(user, casemapping, prefix)
                         {
-                            if user.nickname() == our_nick
-                                && self
+                            if user.nickname() == our_nick {
+                                user.update_away(our_away);
+
+                                if self
                                     .capabilities
                                     .acknowledged(Capability::UserhostInNames)
-                            {
-                                if let Some(username) = user.username() {
-                                    our_user = Some(username.to_string());
-                                }
-                                if let Some(hostname) = user.hostname() {
-                                    our_host = Some(hostname.to_string());
+                                {
+                                    if let Some(username) = user.username() {
+                                        our_user = Some(username.to_string());
+                                    }
+                                    if let Some(hostname) = user.hostname() {
+                                        our_host = Some(hostname.to_string());
+                                    }
                                 }
                             }
 
@@ -6272,5 +6288,164 @@ mod tests {
         });
 
         assert_eq!(heap.len(), 2);
+    }
+
+    fn deliver(
+        client: &mut Client,
+        config: &config::Config,
+        source: proto::Source,
+        command: Command,
+    ) {
+        client
+            .handle(
+                message::Encoded(proto::Message {
+                    tags: BTreeMap::default(),
+                    source: Some(source),
+                    command,
+                }),
+                None,
+                config,
+            )
+            .unwrap();
+    }
+
+    fn channel_user_is_away(client: &Client, nick: &str) -> Option<bool> {
+        let user =
+            User::from(Nick::from_str(nick, isupport::CaseMap::default()));
+
+        client
+            .chanmap
+            .values()
+            .next()
+            .and_then(|channel| channel.users.resolve(&user))
+            .map(User::is_away)
+    }
+
+    #[test]
+    fn own_away_state_survives_channel_rejoin() {
+        use irc::proto::command::Numeric::*;
+
+        let mut client = test_client("tester");
+        let config = config::Config::default();
+
+        let self_source = proto::Source::User(proto::User {
+            nickname: "tester".to_string(),
+            username: Some("tester".to_string()),
+            hostname: Some("example.test".to_string()),
+        });
+        let server_source = proto::Source::Server("irc.test".to_string());
+
+        let names = vec![
+            "tester".to_string(),
+            "=".to_string(),
+            "#test".to_string(),
+            "tester alice".to_string(),
+        ];
+
+        // Initial join + names list.
+        deliver(
+            &mut client,
+            &config,
+            self_source.clone(),
+            Command::JOIN("#test".to_string(), None),
+        );
+        deliver(
+            &mut client,
+            &config,
+            server_source.clone(),
+            Command::Numeric(RPL_NAMREPLY, names.clone()),
+        );
+
+        // Mark ourselves away (reply to /AWAY <msg>).
+        deliver(
+            &mut client,
+            &config,
+            server_source.clone(),
+            Command::Numeric(RPL_NOWAWAY, vec!["tester".to_string()]),
+        );
+        assert_eq!(channel_user_is_away(&client, "tester"), Some(true));
+
+        // Leave and rejoin: the channel is recreated and the names list is
+        // resent. Our own away state must be re-applied to the self user.
+        deliver(
+            &mut client,
+            &config,
+            self_source.clone(),
+            Command::JOIN("#test".to_string(), None),
+        );
+        deliver(
+            &mut client,
+            &config,
+            server_source,
+            Command::Numeric(RPL_NAMREPLY, names),
+        );
+
+        assert_eq!(channel_user_is_away(&client, "tester"), Some(true));
+        // The self-away tracking must not leak onto other users.
+        assert_eq!(channel_user_is_away(&client, "alice"), Some(false));
+    }
+
+    #[test]
+    fn own_unaway_state_applied_on_rejoin() {
+        use irc::proto::command::Numeric::*;
+
+        let mut client = test_client("tester");
+        let config = config::Config::default();
+
+        let self_source = proto::Source::User(proto::User {
+            nickname: "tester".to_string(),
+            username: Some("tester".to_string()),
+            hostname: Some("example.test".to_string()),
+        });
+        let server_source = proto::Source::Server("irc.test".to_string());
+
+        let names = vec![
+            "tester".to_string(),
+            "=".to_string(),
+            "#test".to_string(),
+            "tester".to_string(),
+        ];
+
+        deliver(
+            &mut client,
+            &config,
+            self_source.clone(),
+            Command::JOIN("#test".to_string(), None),
+        );
+        deliver(
+            &mut client,
+            &config,
+            server_source.clone(),
+            Command::Numeric(RPL_NAMREPLY, names.clone()),
+        );
+
+        // Away, then back (reply to /AWAY with no message).
+        deliver(
+            &mut client,
+            &config,
+            server_source.clone(),
+            Command::Numeric(RPL_NOWAWAY, vec!["tester".to_string()]),
+        );
+        deliver(
+            &mut client,
+            &config,
+            server_source.clone(),
+            Command::Numeric(RPL_UNAWAY, vec!["tester".to_string()]),
+        );
+
+        deliver(
+            &mut client,
+            &config,
+            self_source,
+            Command::JOIN("#test".to_string(), None),
+        );
+        deliver(
+            &mut client,
+            &config,
+            server_source,
+            Command::Numeric(RPL_NAMREPLY, names),
+        );
+
+        assert_eq!(channel_user_is_away(&client, "tester"), Some(false));
     }
 }
