@@ -4,9 +4,8 @@ use serde::Deserialize;
 
 use crate::config::Error;
 use crate::shortcut::{
-    Command, Commands, KeyBind, KeyBinds, Shortcut, shortcut,
+    Command, Commands, KeyBind, KeyBinds, MessageFocus, Shortcut, shortcut,
 };
-
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Keyboard {
@@ -43,6 +42,15 @@ pub struct Keyboard {
     pub mark_as_read: KeyBinds,
     pub quit_application: KeyBinds,
     pub open_config_file: KeyBinds,
+    pub focus_up: KeyBinds,
+    pub focus_down: KeyBinds,
+    pub focus_left: KeyBinds,
+    pub focus_right: KeyBinds,
+    pub focus_activate: KeyBinds,
+    pub focus_activate_alt: KeyBinds,
+    pub focus_reply: KeyBinds,
+    pub focus_react: KeyBinds,
+    pub focus_redact_message: KeyBinds,
 }
 
 impl Default for Keyboard {
@@ -81,6 +89,23 @@ impl Default for Keyboard {
             mark_as_read: KeyBind::mark_as_read().into(),
             quit_application: KeyBind::quit_application().into(),
             open_config_file: KeyBind::open_config_file().into(),
+            focus_up: KeyBind::focus_up().into(),
+            focus_down: KeyBind::focus_down().into(),
+            focus_left: KeyBind::focus_left().into(),
+            focus_right: KeyBind::focus_right().into(),
+            focus_activate: vec![
+                KeyBind::focus_activate(),
+                KeyBind::focus_activate_space(),
+            ]
+            .into(),
+            focus_activate_alt: vec![
+                KeyBind::focus_activate_alt(),
+                KeyBind::focus_activate_alt_space(),
+            ]
+            .into(),
+            focus_reply: KeyBind::focus_reply_message().into(),
+            focus_react: KeyBind::focus_react_to_message().into(),
+            focus_redact_message: KeyBind::focus_redact_message().into(),
         }
     }
 }
@@ -157,5 +182,31 @@ impl Keyboard {
                     .map(move |key_bind| shortcut(key_bind, command))
             })
             .collect()
+    }
+
+    pub fn message_focus(&self, key_bind: &KeyBind) -> Option<MessageFocus> {
+        let matches =
+            |binds: &KeyBinds| binds.iter().any(|bind| bind == key_bind);
+
+        if matches(&self.focus_up) {
+            Some(MessageFocus::NavigateUp)
+        } else if matches(&self.focus_down) {
+            Some(MessageFocus::NavigateDown)
+        } else if matches(&self.focus_left) || matches(&self.focus_activate_alt)
+        {
+            Some(MessageFocus::OpenNickMenu)
+        } else if matches(&self.focus_right) {
+            Some(MessageFocus::OpenMenu)
+        } else if matches(&self.focus_activate) {
+            Some(MessageFocus::Activate)
+        } else if matches(&self.focus_reply) {
+            Some(MessageFocus::Reply)
+        } else if matches(&self.focus_react) {
+            Some(MessageFocus::React)
+        } else if matches(&self.focus_redact_message) {
+            Some(MessageFocus::Redact)
+        } else {
+            None
+        }
     }
 }

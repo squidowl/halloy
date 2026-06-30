@@ -21,6 +21,46 @@ impl Shortcut {
     }
 }
 
+impl KeyBind {
+    pub fn has_modifiers(&self) -> bool {
+        matches!(
+            self,
+            KeyBind::Bind { modifiers, .. } if !modifiers.0.is_empty()
+        )
+    }
+
+    /// Built-in (non-configurable) gestures while a message selection is active
+    pub fn builtin_message_focus(&self) -> Option<MessageFocus> {
+        let KeyBind::Bind {
+            key_code,
+            modifiers,
+        } = self
+        else {
+            return None;
+        };
+
+        if !modifiers.0.is_empty() {
+            return None;
+        }
+
+        match &key_code.0 {
+            keyboard::Key::Named(key::Named::ArrowUp) => {
+                Some(MessageFocus::NavigateUp)
+            }
+            keyboard::Key::Named(key::Named::ArrowDown) => {
+                Some(MessageFocus::NavigateDown)
+            }
+            keyboard::Key::Named(key::Named::ArrowRight) => {
+                Some(MessageFocus::OpenMenu)
+            }
+            keyboard::Key::Named(key::Named::ArrowLeft) => {
+                Some(MessageFocus::OpenNickMenu)
+            }
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct KeyBinds(Vec<KeyBind>);
 
@@ -40,6 +80,23 @@ impl From<KeyBind> for KeyBinds {
             KeyBind::Bind { .. } => Self(vec![value]),
             KeyBind::Unbind => Self::default(),
         }
+    }
+}
+
+impl From<Vec<KeyBind>> for KeyBinds {
+    fn from(value: Vec<KeyBind>) -> Self {
+        let mut unique = Vec::with_capacity(value.len());
+
+        for key_bind in value {
+            if matches!(key_bind, KeyBind::Unbind) || unique.contains(&key_bind)
+            {
+                continue;
+            }
+
+            unique.push(key_bind);
+        }
+
+        Self(unique)
     }
 }
 
@@ -109,6 +166,21 @@ pub enum Command {
     CyclePreviousUnreadBuffer,
     MarkAsRead,
     OpenConfigFile,
+}
+
+/// Message-focus actions. Unlike [`Command`], these are matched against live
+/// config in the dashboard (gated on the event being ignored) rather than
+/// dispatched through the shortcut widget, so they don't fire while typing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MessageFocus {
+    NavigateUp,
+    NavigateDown,
+    OpenMenu,
+    OpenNickMenu,
+    Activate,
+    Reply,
+    React,
+    Redact,
 }
 
 macro_rules! default {
@@ -359,6 +431,18 @@ impl KeyBind {
     default!(open_config_file, ",", COMMAND);
     #[cfg(not(target_os = "macos"))]
     default!(open_config_file, ",", CTRL);
+
+    default!(focus_up, ArrowUp, ALT);
+    default!(focus_down, ArrowDown, ALT);
+    default!(focus_left, ArrowLeft, ALT);
+    default!(focus_right, ArrowRight, ALT);
+    default!(focus_activate, Enter);
+    default!(focus_activate_space, Space);
+    default!(focus_activate_alt, Enter, SHIFT);
+    default!(focus_activate_alt_space, Space, SHIFT);
+    default!(focus_reply_message, "r", Modifiers::default());
+    default!(focus_react_to_message, "=", Modifiers::default());
+    default!(focus_redact_message, Backspace);
 }
 
 impl From<(keyboard::Key, keyboard::Modifiers)> for KeyBind {

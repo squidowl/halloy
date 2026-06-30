@@ -11,12 +11,15 @@ pub fn anchored_overlay<'a, Message: 'a>(
     overlay: impl Into<Element<'a, Message>>,
     anchor: Anchor,
     offset: f32,
+    // Emitted when a mouse press lands outside the overlay (e.g. to dismiss it).
+    on_dismiss: Option<Box<dyn Fn() -> Message + 'a>>,
 ) -> Element<'a, Message> {
     AnchoredOverlay {
         base: base.into(),
         overlay: overlay.into(),
         anchor,
         offset,
+        on_dismiss,
     }
     .into()
 }
@@ -32,6 +35,7 @@ struct AnchoredOverlay<'a, Message> {
     overlay: Element<'a, Message>,
     anchor: Anchor,
     offset: f32,
+    on_dismiss: Option<Box<dyn Fn() -> Message + 'a>>,
 }
 
 impl<Message> Widget<Message, Theme, Renderer>
@@ -168,8 +172,12 @@ impl<Message> Widget<Message, Theme, Renderer>
             tree: &mut second[0],
             anchor: self.anchor,
             offset: self.offset,
+            on_dismiss: &self.on_dismiss,
             base_layout: layout.bounds(),
-            position: layout.position(),
+            // Apply the accumulated translation (e.g. a scrollable's offset)
+            // so the overlay anchors to the base's on-screen position rather
+            // than its position in unscrolled content space.
+            position: layout.position() + translation,
             viewport: *viewport,
         }));
 
@@ -196,6 +204,7 @@ struct Overlay<'a, 'b, Message> {
     tree: &'b mut widget::Tree,
     anchor: Anchor,
     offset: f32,
+    on_dismiss: &'b Option<Box<dyn Fn() -> Message + 'a>>,
     base_layout: Rectangle,
     position: Point,
     viewport: Rectangle,
@@ -205,22 +214,16 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
     for Overlay<'_, '_, Message>
 {
     fn layout(&mut self, renderer: &Renderer, bounds: Size) -> layout::Node {
-        let height = match self.anchor {
+        let (width, height) = match self.anchor {
             // From top of base to top of viewport
-            Anchor::AboveTop => self.position.y,
+            Anchor::AboveTop => (self.base_layout.width, self.position.y),
             // From top of base to bottom of viewport
-            Anchor::BelowTopCentered => bounds.height - self.position.y,
+            Anchor::BelowTopCentered => (bounds.width, bounds.height),
         };
 
-        let limits = layout::Limits::new(
-            Size::ZERO,
-            Size {
-                width: self.base_layout.width,
-                height,
-            },
-        )
-        .width(Length::Fill)
-        .height(Length::Fill);
+        let limits = layout::Limits::new(Size::ZERO, Size { width, height })
+            .width(Length::Fill)
+            .height(Length::Fill);
 
         let node = self
             .content
@@ -232,11 +235,38 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
             Anchor::AboveTop => {
                 Vector::new(0.0, -(node.size().height + self.offset))
             }
-            // Offset below the top and centered
-            Anchor::BelowTopCentered => Vector::new(
-                self.base_layout.width / 2.0 - node.size().width / 2.0,
-                self.offset,
-            ),
+            // Offset below the top and centered, pushed up just enough to stay
+            // within the viewport when it would overflow the bottom edge.
+            Anchor::BelowTopCentered => {
+                let mut x =
+                    self.base_layout.width / 2.0 - node.size().width / 2.0;
+
+                // overlay may be wider than parent
+                let left = self.position.x + x;
+                if left < self.viewport.x {
+                    x += self.viewport.x - left;
+                }
+                let right = self.position.x + x + node.size().width;
+                let viewport_right = self.viewport.x + self.viewport.width;
+                if right > viewport_right {
+                    x -= right - viewport_right;
+                }
+
+                let mut y = self.offset;
+
+                let overflow = (self.position.y + y + node.size().height)
+                    - (self.viewport.y + self.viewport.height);
+                if overflow > 0.0 {
+                    y -= overflow;
+                }
+
+                // Never push above the top of the viewport.
+                if self.position.y + y < self.viewport.y {
+                    y = self.viewport.y - self.position.y;
+                }
+
+                Vector::new(x, y)
+            }
         };
 
         node.move_to(self.position + translation)
@@ -281,6 +311,17 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
     ) {
+        // A press outside the overlay dismisses it (and is consumed so it
+        // doesn't also act on whatever is underneath).
+        if let Some(on_dismiss) = self.on_dismiss.as_ref()
+            && matches!(event, Event::Mouse(mouse::Event::ButtonPressed { .. }))
+            && !cursor.is_over(layout.bounds())
+        {
+            shell.publish(on_dismiss());
+            shell.capture_event();
+            return;
+        }
+
         let should_capture = matches!(event, Event::Mouse(_) | Event::Touch(_))
             && cursor.is_over(layout.bounds());
 

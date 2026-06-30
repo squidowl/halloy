@@ -309,11 +309,13 @@ fn channel_list_view<'a>(
                                         length,
                                         config,
                                         theme,
+                                        false,
                                     )
                                     .map(Message::ContextMenu)
                             },
                             None,
                             config,
+                            None,
                         ))
                     };
 

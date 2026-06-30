@@ -5,7 +5,7 @@ use std::time::Duration;
 use chrono::{DateTime, Local, NaiveDate, Utc};
 use data::buffer::RightAlignmentWidths;
 use data::command::Irc;
-use data::config::actions::NicknameClickAction;
+use data::config::actions::{ChannelClickAction, NicknameClickAction};
 use data::config::buffer::{CondensationIcon, HideConsecutiveEnabled};
 use data::dashboard::BufferAction;
 use data::isupport::ChatHistoryState;
@@ -15,7 +15,10 @@ use data::rate_limit::TokenPriority;
 use data::reaction::Reaction;
 use data::server::Server;
 use data::target::{self, Target};
-use data::{Config, Image, Preview, client, history, metadata, reaction};
+use data::{
+    Config, Image, Preview, User, client, history, isupport, metadata, reaction,
+};
+use iced::border::Radius;
 use iced::widget::{
     self, Scrollable, button, column, container, row, rule, scrollable, space,
     text,
@@ -25,14 +28,29 @@ use tokio::time;
 
 use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
-use super::context_menu;
+use super::{context_menu, input_view};
 use crate::widget::user_display::UserDisplay;
-use crate::widget::{Element, notify_visibility, on_resize};
+use crate::widget::{
+    Element, double_pass, key_press, notify_visibility, on_key, on_resize,
+};
 use crate::{Theme, buffer, font, theme};
 
 const SCROLL_TO_TIMEOUT: Duration = Duration::from_millis(200);
 /// Pages of off-screen messages to keep rendered above and below the viewport
 const BUFFER_PAGES: usize = 3;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Direction {
+    Up,
+    Down,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ScrollAnchor {
+    #[default]
+    Top,
+    Bottom,
+}
 
 const HIGHLIGHT_HOLD_MS: u64 = 2000;
 const HIGHLIGHT_ALPHA_START: f32 = 1.0;
@@ -78,6 +96,13 @@ pub enum Message {
         msgid: message::Id,
         text: Cow<'static, str>,
     },
+    NavigateFocus(Direction),
+    OpenFocusMenu,
+    OpenNickFocusMenu,
+    FocusMenuMove(Direction),
+    FocusMenuActivate(usize),
+    FocusMenuClose,
+    FocusMenuDismiss,
 }
 
 impl From<context_menu::Message> for Message {
@@ -99,6 +124,145 @@ pub enum Event {
     ImagePreview(Image),
     ExpandMessage(DateTime<Utc>, message::Hash),
     ContractMessage(DateTime<Utc>, message::Hash),
+    ExitFocus,
+    FocusAction(input_view::FocusAction),
+    FocusContextAction(context_menu::Message),
+}
+
+/// A keyboard-navigable menu of focus actions, anchored to a focused message.
+/// Opened to the right of the message it shows message actions; opened to the
+/// left it shows the message author's (nick) actions.
+#[derive(Debug, Clone)]
+pub struct FocusMenu {
+    hash: message::Hash,
+    selection: usize,
+    content: FocusMenuContent,
+}
+
+#[derive(Debug, Clone)]
+enum FocusMenuContent {
+    Message(Vec<FocusEntry>),
+    Nick(NickFocusData),
+}
+
+/// Owned data needed to render and activate the nick (user) actions menu. The
+/// entries mirror the right-click user menu; references for rendering are
+/// rebuilt from these owned fields at view time.
+#[derive(Debug, Clone)]
+struct NickFocusData {
+    server: Server,
+    channel: Option<target::Channel>,
+    prefix: Vec<isupport::PrefixMap>,
+    user: User,
+    current_user: Option<User>,
+    entries: Vec<context_menu::Entry>,
+}
+
+#[derive(Debug, Clone)]
+struct FocusEntry {
+    label: String,
+    separator_before: bool,
+    action: FocusEntryAction,
+}
+
+#[derive(Debug, Clone)]
+enum FocusEntryAction {
+    Message(input_view::FocusAction),
+    Context(context_menu::Message),
+    // Activates the same behavior as clicking the link (e.g. opening a channel).
+    Link(message::Link),
+}
+
+/// Non-actionable nick menu rows (the avatar / metadata header and separators)
+/// that keyboard navigation skips over.
+fn nick_entry_actionable(entry: context_menu::Entry) -> bool {
+    !matches!(
+        entry,
+        context_menu::Entry::UserInfo
+            | context_menu::Entry::UserMetadata
+            | context_menu::Entry::HorizontalRule
+    )
+}
+
+impl FocusMenu {
+    fn entry_count(&self) -> usize {
+        match &self.content {
+            FocusMenuContent::Message(entries) => entries.len(),
+            FocusMenuContent::Nick(data) => data.entries.len(),
+        }
+    }
+
+    fn is_actionable(&self, index: usize) -> bool {
+        match &self.content {
+            FocusMenuContent::Message(_) => true,
+            FocusMenuContent::Nick(data) => data
+                .entries
+                .get(index)
+                .copied()
+                .is_some_and(nick_entry_actionable),
+        }
+    }
+
+    fn first_actionable(&self) -> usize {
+        (0..self.entry_count())
+            .find(|index| self.is_actionable(*index))
+            .unwrap_or(0)
+    }
+
+    fn move_selection(&mut self, direction: Direction) {
+        let len = self.entry_count();
+        if len == 0 {
+            return;
+        }
+
+        let mut next = self.selection;
+        for _ in 0..len {
+            next = match direction {
+                Direction::Up => (next + len - 1) % len,
+                Direction::Down => (next + 1) % len,
+            };
+
+            if self.is_actionable(next) {
+                self.selection = next;
+                return;
+            }
+        }
+    }
+
+    /// The message this menu is anchored to.
+    pub fn hash(&self) -> message::Hash {
+        self.hash
+    }
+
+    /// Whether this is the nick (user) actions menu, anchored to the nick,
+    /// rather than the message actions menu, anchored to the content.
+    pub fn is_nick(&self) -> bool {
+        matches!(self.content, FocusMenuContent::Nick(_))
+    }
+}
+
+/// Renders the open focus action menu. Anchored by the caller to the menu's
+/// target (the nick or the message content) within the message layout.
+pub fn focus_menu_overlay<'a>(
+    menu: &'a FocusMenu,
+    registry: &'a dyn metadata::Registry,
+    previews: Option<&'a preview::Collection>,
+    theme: &'a Theme,
+    config: &'a Config,
+) -> Element<'a, Message> {
+    match &menu.content {
+        FocusMenuContent::Message(entries) => {
+            focus_menu_view(entries, menu.selection, theme, config)
+        }
+        FocusMenuContent::Nick(data) => nick_focus_menu_view(
+            data,
+            menu.selection,
+            registry,
+            previews,
+            theme,
+            config,
+        ),
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -111,7 +275,7 @@ pub enum Kind<'a> {
 }
 
 impl Kind<'_> {
-    fn server(&self) -> Option<&Server> {
+    pub(crate) fn server(&self) -> Option<&Server> {
         match self {
             Kind::Server(server)
             | Kind::Channel(server, _)
@@ -138,10 +302,6 @@ impl From<Kind<'_>> for history::Kind {
 }
 
 pub trait LayoutMessage<'a> {
-    fn should_track_reply_target_visibility(&self) -> bool {
-        false
-    }
-
     fn format(
         &self,
         message: &'a data::Message,
@@ -154,6 +314,7 @@ pub trait LayoutMessage<'a> {
         visible_url_messages: &HashMap<message::Hash, Vec<url::Url>>,
         hovered_preview: Option<(message::Hash, usize)>,
         hovered_reply: Option<message::Hash>,
+        focused_link: Option<usize>,
     ) -> Option<Element<'a, Message>>;
 }
 
@@ -178,6 +339,7 @@ where
         _visible_url_messages: &HashMap<message::Hash, Vec<url::Url>>,
         _hovered_preview: Option<(message::Hash, usize)>,
         _hovered_reply: Option<message::Hash>,
+        _focused_link: Option<usize>,
     ) -> Option<Element<'a, Message>> {
         self(
             message,
@@ -257,8 +419,335 @@ fn is_consecutive_user_message(
         })
 }
 
+fn menu_separator<'a>(width: Length) -> Element<'a, Message> {
+    match width {
+        Length::Fill => container(rule::horizontal(1)).padding([0, 6]).into(),
+        _ => widget::Space::new().width(width).height(1).into(),
+    }
+}
+
+fn build_focus_entries(
+    message: &data::Message,
+    focused_link: Option<usize>,
+    server: &Server,
+    clients: &client::Map,
+    previews: Option<&Previews>,
+    config: &Config,
+) -> Vec<FocusEntry> {
+    let focus_target = focused_link
+        .and_then(|index| message_focus_target_at(message, index))
+        .or_else(|| message_single_url(message).map(FocusTarget::Url));
+
+    let message_entry =
+        |action: input_view::FocusAction, separator_before| FocusEntry {
+            label: context_menu::Entry::from(action).label().to_string(),
+            separator_before,
+            action: FocusEntryAction::Message(action),
+        };
+
+    let has_id = message.id.is_some();
+    let mut interaction_actions = vec![];
+    if focused_link.is_none() {
+        if has_id && clients.get_server_can_send_replies(server) {
+            interaction_actions.push(input_view::FocusAction::Reply);
+        }
+        if has_id && clients.get_server_can_send_reactions(server) {
+            interaction_actions
+                .push(input_view::FocusAction::OpenReactionModal);
+        }
+        if has_id && clients.get_server_can_redact(server) {
+            interaction_actions.push(input_view::FocusAction::Redact);
+        }
+    }
+    let interaction_entries = interaction_actions
+        .into_iter()
+        .enumerate()
+        .map(|(index, action)| message_entry(action, index == 0));
+
+    match focus_target {
+        Some(FocusTarget::Url(url)) => {
+            let url_string = url.to_string();
+
+            let mut entries = vec![
+                FocusEntry {
+                    label: "Copy URL".to_string(),
+                    separator_before: false,
+                    action: FocusEntryAction::Context(
+                        context_menu::Message::CopyUrl(url_string.clone()),
+                    ),
+                },
+                FocusEntry {
+                    label: "Open URL".to_string(),
+                    separator_before: false,
+                    action: FocusEntryAction::Context(
+                        context_menu::Message::OpenUrl(url_string.clone()),
+                    ),
+                },
+            ];
+
+            if let Some(is_hidden) = previews.and_then(|previews| {
+                previews.is_hidden_for_url(message, &url, &config.preview)
+            }) {
+                let (toggle_label, toggle_message) = if is_hidden {
+                    (
+                        "Show Preview",
+                        context_menu::Message::ShowPreview(
+                            message.hash,
+                            url_string,
+                        ),
+                    )
+                } else {
+                    (
+                        "Hide Preview",
+                        context_menu::Message::HidePreview(
+                            message.hash,
+                            url_string,
+                        ),
+                    )
+                };
+
+                entries.push(FocusEntry {
+                    label: toggle_label.to_string(),
+                    separator_before: true,
+                    action: FocusEntryAction::Context(toggle_message),
+                });
+            }
+
+            entries.extend(interaction_entries);
+
+            entries
+        }
+        Some(FocusTarget::Channel(channel)) => {
+            let target = target::Channel::from_str(
+                &channel,
+                clients.get_server_chantypes_or_default(server),
+                clients.get_server_casemapping_or_default(server),
+            );
+
+            let buffer_action = match config.actions.buffer.click_channel_name {
+                ChannelClickAction::OpenChannel(buffer_action) => buffer_action,
+                ChannelClickAction::Noop => BufferAction::default(),
+            };
+
+            let mut entries = vec![FocusEntry {
+                label: "Open channel".to_string(),
+                separator_before: false,
+                action: FocusEntryAction::Link(message::Link::Channel(
+                    server.clone(),
+                    target,
+                    buffer_action,
+                )),
+            }];
+
+            entries.extend(interaction_entries);
+
+            entries
+        }
+        None => {
+            // Parent message is focused - offer message actions
+            std::iter::once(message_entry(
+                input_view::FocusAction::CopyText,
+                false,
+            ))
+            .chain(interaction_entries)
+            .collect()
+        }
+    }
+}
+
+fn focus_menu_view<'a>(
+    entries: &[FocusEntry],
+    selection: usize,
+    theme: &Theme,
+    config: &Config,
+) -> Element<'a, Message> {
+    let build = |width: Length| -> Element<'a, Message> {
+        let entries = entries.iter().enumerate().fold(
+            column![],
+            |col, (index, entry)| {
+                let col = if entry.separator_before {
+                    col.push(menu_separator(width))
+                } else {
+                    col
+                };
+
+                let selected = index == selection;
+
+                col.push(context_menu::menu_button(
+                    entry.label.clone(),
+                    Some(Message::FocusMenuActivate(index)),
+                    selected,
+                    width,
+                    theme,
+                    config,
+                ))
+            },
+        );
+
+        container(entries)
+            .padding(4)
+            .style(theme::container::tooltip)
+            .into()
+    };
+
+    let panel = double_pass(build(Length::Shrink), build(Length::Fill));
+
+    on_key(panel, move |key, modifiers| {
+        use key_press::{Key, Named};
+
+        match key {
+            Key::Named(Named::ArrowUp) => {
+                Some(Message::FocusMenuMove(Direction::Up))
+            }
+            Key::Named(Named::ArrowDown) => {
+                Some(Message::FocusMenuMove(Direction::Down))
+            }
+            Key::Named(Named::Tab) => {
+                Some(Message::FocusMenuMove(if modifiers.shift() {
+                    Direction::Up
+                } else {
+                    Direction::Down
+                }))
+            }
+            Key::Named(Named::ArrowLeft) => Some(Message::FocusMenuClose),
+            Key::Named(Named::ArrowRight | Named::Enter | Named::Space) => {
+                Some(Message::FocusMenuActivate(selection))
+            }
+            _ => None,
+        }
+    })
+}
+
+/// Renders the nick (user) actions menu — the full right-click user menu
+/// (avatar / metadata header plus actions) made keyboard-navigable. The
+/// opposite focus key (right) returns to the message body.
+fn nick_focus_menu_view<'a>(
+    data: &'a NickFocusData,
+    selection: usize,
+    registry: &'a dyn metadata::Registry,
+    previews: Option<&'a preview::Collection>,
+    theme: &'a Theme,
+    config: &'a Config,
+) -> Element<'a, Message> {
+    let avatar = previews.and_then(|previews| {
+        context_menu::user_avatar(&data.user, registry, previews)
+    });
+
+    let build = |width: Length| -> Element<'a, Message> {
+        let entries = data.entries.iter().enumerate().fold(
+            column![],
+            |col, (index, entry)| {
+                let context = context_menu::Context::User {
+                    server: &data.server,
+                    prefix: &data.prefix,
+                    channel: data.channel.as_ref(),
+                    registry,
+                    avatar: avatar.clone(),
+                    user: &data.user,
+                    current_user: data.current_user.as_ref(),
+                };
+
+                // Reuse the right-click row rendering (incl. selection
+                // highlight); route any click through the same activation path
+                // as keyboard Enter so focus mode is exited consistently.
+                let element = (*entry)
+                    .view(
+                        Some(context),
+                        width,
+                        config,
+                        theme,
+                        index == selection,
+                    )
+                    .map(move |_| Message::FocusMenuActivate(index));
+
+                col.push(element)
+            },
+        );
+
+        container(entries)
+            .padding(4)
+            .style(theme::container::tooltip)
+            .into()
+    };
+
+    let panel = double_pass(build(Length::Shrink), build(Length::Fill));
+
+    on_key(panel, move |key, _modifiers| {
+        use key_press::{Key, Named};
+
+        match key {
+            Key::Named(Named::ArrowUp) => {
+                Some(Message::FocusMenuMove(Direction::Up))
+            }
+            Key::Named(Named::ArrowDown) => {
+                Some(Message::FocusMenuMove(Direction::Down))
+            }
+            Key::Named(Named::Tab) => {
+                Some(Message::FocusMenuMove(Direction::Down))
+            }
+            // The opposite focus key refocuses the message body.
+            Key::Named(Named::ArrowRight) => Some(Message::FocusMenuClose),
+            // Left (the direction this menu opened toward) and Enter activate
+            // the selected item, mirroring Right in the message actions menu.
+            Key::Named(Named::ArrowLeft | Named::Enter | Named::Space) => {
+                Some(Message::FocusMenuActivate(selection))
+            }
+            _ => None,
+        }
+    })
+}
+
+pub(crate) fn focus_outline<'a>(
+    inner: Element<'a, Message>,
+) -> Element<'a, Message> {
+    use iced::advanced::{Layout, Renderer as _, mouse, renderer, widget};
+
+    crate::widget::decorate(inner)
+        .draw(
+            move |_state: &(),
+                  inner: &Element<'a, Message>,
+                  tree: &widget::Tree,
+                  renderer: &mut crate::widget::Renderer,
+                  theme: &Theme,
+                  style: &renderer::Style,
+                  layout: Layout<'_>,
+                  cursor: mouse::Cursor,
+                  viewport: &iced::Rectangle| {
+                inner.as_widget().draw(
+                    tree, renderer, theme, style, layout, cursor, viewport,
+                );
+
+                let buffer = theme.styles().buffer;
+                let color = buffer.focus.unwrap_or(buffer.border_selected);
+
+                let b = layout.bounds();
+                let bounds = iced::Rectangle {
+                    x: b.x - 2.0,
+                    y: b.y - 2.0,
+                    width: b.width + 2.0,
+                    height: b.height + 2.0,
+                };
+
+                renderer.fill_quad(
+                    renderer::Quad {
+                        bounds,
+                        border: iced::Border {
+                            width: 2.0,
+                            color,
+                            radius: Radius::new(3.0),
+                        },
+                        ..renderer::Quad::default()
+                    },
+                    iced::Color::TRANSPARENT,
+                );
+            },
+        )
+        .into()
+}
+
 pub fn view<'a>(
     state: &State,
+    focused_message: Option<message::Hash>,
     kind: Kind,
     history: &'a history::Manager,
     previews: Option<Previews<'a>>,
@@ -498,6 +987,15 @@ pub fn view<'a>(
                             &state.visible_url_messages,
                             state.hovered_preview,
                             state.hover_highlighted_message,
+                            if focused_message == Some(message.hash)
+                                && !state.focus_menu.as_ref().is_some_and(
+                                    |menu| menu.hash == message.hash,
+                                )
+                            {
+                                state.focused_link
+                            } else {
+                                None
+                            },
                         )
                         .map(|element| (message, element)),
                 )
@@ -511,8 +1009,16 @@ pub fn view<'a>(
 
                 *last_date = Some(date);
 
-                let element = if let Some((hash, alpha)) =
-                    state.highlighted_message
+                let element = if focused_message == Some(message.hash)
+                    && state.focused_link.is_none()
+                    && !state
+                        .focus_menu
+                        .as_ref()
+                        .is_some_and(|menu| menu.hash == message.hash)
+                {
+                    // Only show focus on the whole message when no link/preview
+                    focus_outline(container(element).width(Length::Fill).into())
+                } else if let Some((hash, alpha)) = state.highlighted_message
                     && hash == message.hash
                 {
                     container(element)
@@ -536,31 +1042,27 @@ pub fn view<'a>(
                     element
                 };
 
-                // this prevents flicker when a message sits right at the edge
-                let element =
-                    if formatter.should_track_reply_target_visibility() {
-                        let is_visible =
-                            state.visible_messages.contains(&message.hash);
-                        if is_visible {
-                            notify_visibility(
-                                element,
-                                0.0,
-                                notify_visibility::When::NotContained,
-                                message.hash,
-                                Message::ExitedViewport(message.hash),
-                            )
-                        } else {
-                            notify_visibility(
-                                element,
-                                0.0,
-                                notify_visibility::When::Contained,
-                                message.hash,
-                                Message::EnteredViewport(message.hash),
-                            )
-                        }
+                let element = {
+                    let is_visible =
+                        state.visible_messages.contains(&message.hash);
+                    if is_visible {
+                        notify_visibility(
+                            element,
+                            0.0,
+                            notify_visibility::When::MostlyOutside,
+                            message.hash,
+                            Message::ExitedViewport(message.hash),
+                        )
                     } else {
-                        element
-                    };
+                        notify_visibility(
+                            element,
+                            0.0,
+                            notify_visibility::When::MostlyContained,
+                            message.hash,
+                            Message::EnteredViewport(message.hash),
+                        )
+                    }
+                };
 
                 let content = if is_new_day
                     && config.buffer.date_separators.show
@@ -811,6 +1313,8 @@ pub struct State {
     last_scroll_offset: f32,
     height_cache: HashMap<keyed::Key, f32>,
     pending_scroll_to: Option<keyed::Key>,
+    pending_scroll_animate: bool,
+    pending_scroll_align: ScrollAnchor,
     is_scrolling_to: bool,
     highlighted_message: Option<(message::Hash, f32)>,
     hover_highlighted_message: Option<message::Hash>,
@@ -820,6 +1324,8 @@ pub struct State {
     pending_preview_exits: HashSet<message::Hash>,
     reply_preview_urls: HashMap<message::Hash, Vec<url::Url>>,
     hovered_preview: Option<(message::Hash, usize)>,
+    focus_menu: Option<FocusMenu>,
+    focused_link: Option<usize>,
 }
 
 impl State {
@@ -835,6 +1341,8 @@ impl State {
             last_scroll_offset: 0.0,
             height_cache: HashMap::new(),
             pending_scroll_to: None,
+            pending_scroll_animate: true,
+            pending_scroll_align: ScrollAnchor::default(),
             is_scrolling_to: false,
             highlighted_message: None,
             hover_highlighted_message: None,
@@ -845,18 +1353,22 @@ impl State {
             pending_preview_exits: HashSet::new(),
             reply_preview_urls: HashMap::new(),
             hovered_preview: None,
+            focus_menu: None,
+            focused_link: None,
         }
     }
 
     pub fn update(
         &mut self,
         message: Message,
+        focused_message: &mut Option<message::Hash>,
         infinite_scroll: bool,
         kind: Kind,
         buffer: Option<&buffer::Upstream>,
         history: &mut history::Manager,
         clients: &mut client::Map,
         config: &Config,
+        previews: Option<&Previews>,
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::Scrolled {
@@ -1107,33 +1619,74 @@ impl State {
             }) => {
                 self.is_scrolling_to = false;
 
-                let fade_task = if let keyed::Key::Message(hash) = key {
-                    self.highlight_generation += 1;
-                    let generation = self.highlight_generation;
-                    self.highlighted_message =
-                        Some((hash, HIGHLIGHT_ALPHA_START));
-                    Task::perform(
-                        time::sleep(Duration::from_millis(HIGHLIGHT_HOLD_MS)),
-                        move |()| Message::FadeHighlight(hash, generation),
-                    )
+                self.pending_scroll_to = None;
+                let animate = self.pending_scroll_animate;
+                self.pending_scroll_animate = true;
+                let align = self.pending_scroll_align;
+                self.pending_scroll_align = ScrollAnchor::default();
+
+                let fade_task = if animate {
+                    if let keyed::Key::Message(hash) = key {
+                        self.highlight_generation += 1;
+                        let generation = self.highlight_generation;
+                        self.highlighted_message =
+                            Some((hash, HIGHLIGHT_ALPHA_START));
+                        Task::perform(
+                            time::sleep(Duration::from_millis(
+                                HIGHLIGHT_HOLD_MS,
+                            )),
+                            move |()| Message::FadeHighlight(hash, generation),
+                        )
+                    } else {
+                        Task::none()
+                    }
                 } else {
                     Task::none()
                 };
 
                 let max_offset = scrollable.max_vertical_offset();
 
-                let content_y = hit_bounds.y - scrollable.content.y;
+                let content_top = hit_bounds.y - scrollable.content.y;
+                let content_bottom = content_top + hit_bounds.height;
                 let viewport_top = scrollable.offset.y;
                 let viewport_bottom =
                     scrollable.offset.y + scrollable.viewport.height;
-                let is_visible = content_y >= viewport_top
-                    && content_y + hit_bounds.height <= viewport_bottom;
 
-                if is_visible {
+                let fully_visible = content_top >= viewport_top
+                    && content_bottom <= viewport_bottom;
+                let covers_viewport = content_top <= viewport_top
+                    && content_bottom >= viewport_bottom;
+
+                if fully_visible || covers_viewport {
                     return (fade_task, None);
                 }
 
-                let offset = content_y.max(0.0).min(max_offset);
+                let overlaps_viewport = content_top < viewport_bottom
+                    && content_bottom > viewport_top;
+
+                // offset that puts the message's bottom at the viewport's bottom
+                let bottom_aligned =
+                    content_bottom - scrollable.viewport.height;
+                // capped so a message taller than the viewport doesn't get its
+                // top pushed out the other side
+                let reveal_bottom = bottom_aligned.min(content_top);
+
+                // if partially visible reveal whichever edge is clipped,
+                // nudging it into view
+                let aligned_y = if overlaps_viewport {
+                    if content_top < viewport_top {
+                        content_top
+                    } else {
+                        reveal_bottom
+                    }
+                } else {
+                    // if off-screen align to the edge
+                    match align {
+                        ScrollAnchor::Top => content_top,
+                        ScrollAnchor::Bottom => reveal_bottom,
+                    }
+                };
+                let offset = aligned_y.max(0.0).min(max_offset);
 
                 if (offset - max_offset).abs() <= f32::EPSILON {
                     self.status = Status::Bottom;
@@ -1365,8 +1918,352 @@ impl State {
             Message::Unreacted { msgid, text } => {
                 send_reaction(clients, buffer, history, msgid, text, true);
             }
+            Message::NavigateFocus(direction) => {
+                // Moving the focus dismisses any open action menu
+                self.focus_menu = None;
+
+                let Some(history::View {
+                    old_messages,
+                    new_messages,
+                    ..
+                }) = history.get_messages(&kind.into(), None, config)
+                else {
+                    return (Task::none(), None);
+                };
+
+                let all: Vec<&data::Message> = old_messages
+                    .iter()
+                    .copied()
+                    .chain(new_messages.iter().copied())
+                    .filter(|m| m.target.source().user().is_some())
+                    .collect();
+
+                if all.is_empty() {
+                    return (Task::none(), None);
+                }
+
+                // The focus sequence steps through each message and then its
+                // individual links before moving on to the next message
+                let next: Option<(message::Hash, Option<usize>)> =
+                    match *focused_message {
+                        None => match direction {
+                            // Entering with Up lands on the bottom-most stop -
+                            // the last message's last link
+                            Direction::Up => all
+                                .iter()
+                                .rev()
+                                .find(|m| {
+                                    self.visible_messages.contains(&m.hash)
+                                })
+                                .or_else(|| all.last())
+                                .map(|m| {
+                                    (
+                                        m.hash,
+                                        message_focus_target_count(m)
+                                            .checked_sub(1),
+                                    )
+                                }),
+                            Direction::Down => all
+                                .iter()
+                                .find(|m| {
+                                    self.visible_messages.contains(&m.hash)
+                                })
+                                .or_else(|| all.first())
+                                .map(|m| (m.hash, None)),
+                        },
+                        Some(hash) => {
+                            match all.iter().position(|m| m.hash == hash) {
+                                None => all.last().map(|m| (m.hash, None)),
+                                Some(i) => {
+                                    let links =
+                                        message_focus_target_count(all[i]);
+                                    match direction {
+                                        Direction::Down => {
+                                            match self.focused_link {
+                                                None if links > 0 => {
+                                                    Some((hash, Some(0)))
+                                                }
+                                                Some(u) if u + 1 < links => {
+                                                    Some((hash, Some(u + 1)))
+                                                }
+                                                _ if i + 1 >= all.len() => {
+                                                    // End of the last message
+                                                    // — exit selection.
+                                                    *focused_message = None;
+                                                    self.focused_link = None;
+                                                    return (
+                                                        Task::none(),
+                                                        Some(Event::ExitFocus),
+                                                    );
+                                                }
+                                                _ => Some((
+                                                    all[i + 1].hash,
+                                                    None,
+                                                )),
+                                            }
+                                        }
+                                        Direction::Up => {
+                                            match self.focused_link {
+                                                Some(0) => Some((hash, None)),
+                                                Some(u) => {
+                                                    Some((hash, Some(u - 1)))
+                                                }
+                                                None if i == 0 => {
+                                                    Some((hash, None))
+                                                }
+                                                None => {
+                                                    // Previous message's last stop.
+                                                    let prev = all[i - 1];
+                                                    Some((
+                                                    prev.hash,
+                                                    message_focus_target_count(prev)
+                                                        .checked_sub(1),
+                                                ))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    };
+
+                let Some((target_hash, target_url)) = next else {
+                    return (Task::none(), None);
+                };
+
+                *focused_message = Some(target_hash);
+                self.focused_link = target_url;
+
+                // Anchor the message to the edge we're moving toward, so a
+                // scroll reveals it at that edge rather than snapping it to the
+                // opposite side of the viewport.
+                let align = match direction {
+                    Direction::Up => ScrollAnchor::Top,
+                    Direction::Down => ScrollAnchor::Bottom,
+                };
+
+                return (
+                    self.scroll_to_message(
+                        target_hash,
+                        kind,
+                        history,
+                        config,
+                        false,
+                        align,
+                    ),
+                    None,
+                );
+            }
+            Message::OpenFocusMenu => {
+                let Some(hash) = *focused_message else {
+                    return (Task::none(), None);
+                };
+
+                let Some(server) = kind.server() else {
+                    return (Task::none(), None);
+                };
+
+                let Some(message) = history
+                    .get_messages(&kind.into(), None, config)
+                    .and_then(|view| {
+                        view.old_messages
+                            .iter()
+                            .chain(view.new_messages.iter())
+                            .find(|m| m.hash == hash)
+                            .copied()
+                    })
+                else {
+                    return (Task::none(), None);
+                };
+
+                let entries = build_focus_entries(
+                    message,
+                    self.focused_link,
+                    server,
+                    clients,
+                    previews,
+                    config,
+                );
+
+                self.focus_menu = Some(FocusMenu {
+                    hash,
+                    selection: 0,
+                    content: FocusMenuContent::Message(entries),
+                });
+
+                return (Task::none(), None);
+            }
+            Message::OpenNickFocusMenu => {
+                let Some(hash) = *focused_message else {
+                    return (Task::none(), None);
+                };
+
+                let (server, channel) = match kind {
+                    Kind::Channel(server, channel) => (server, Some(channel)),
+                    Kind::Query(server, _) => (server, None),
+                    Kind::Server(_) | Kind::Logs | Kind::Highlights => {
+                        return (Task::none(), None);
+                    }
+                };
+
+                let Some(message) = history
+                    .get_messages(&kind.into(), None, config)
+                    .and_then(|view| {
+                        view.old_messages
+                            .iter()
+                            .chain(view.new_messages.iter())
+                            .find(|m| m.hash == hash)
+                            .copied()
+                    })
+                else {
+                    return (Task::none(), None);
+                };
+
+                // The nick menu only applies to messages authored by a user.
+                let Some(user) = message.target.source().user() else {
+                    return (Task::none(), None);
+                };
+
+                let registry = clients.get_registry(server);
+
+                let current_user = channel.and_then(|channel| {
+                    clients.resolve_user_attributes(server, channel, user)
+                });
+
+                let our_user = channel.and_then(|channel| {
+                    clients.nickname(server).and_then(|our_nick| {
+                        let our_user =
+                            User::from(data::user::Nick::from(our_nick));
+                        clients
+                            .resolve_user_attributes(server, channel, &our_user)
+                    })
+                });
+
+                let entries = context_menu::Entry::user_list(
+                    channel.is_some(),
+                    current_user,
+                    our_user,
+                    config.file_transfer.enabled,
+                    context_menu::has_user_metadata(user, registry, config),
+                );
+
+                let data = NickFocusData {
+                    server: server.clone(),
+                    channel: channel.cloned(),
+                    prefix: clients
+                        .get_server_prefix_or_default(server)
+                        .to_vec(),
+                    user: user.clone(),
+                    current_user: current_user.cloned(),
+                    entries,
+                };
+
+                let mut menu = FocusMenu {
+                    hash,
+                    selection: 0,
+                    content: FocusMenuContent::Nick(data),
+                };
+                menu.selection = menu.first_actionable();
+
+                self.focus_menu = Some(menu);
+
+                return (Task::none(), None);
+            }
+            Message::FocusMenuMove(direction) => {
+                if let Some(menu) = &mut self.focus_menu {
+                    menu.move_selection(direction);
+                }
+
+                return (Task::none(), None);
+            }
+            Message::FocusMenuActivate(index) => {
+                let Some(menu) = self.focus_menu.take() else {
+                    return (Task::none(), None);
+                };
+
+                // Activating an action leaves focus mode.
+                self.focused_link = None;
+
+                match menu.content {
+                    FocusMenuContent::Message(entries) => {
+                        let Some(entry) = entries.into_iter().nth(index) else {
+                            return (Task::none(), None);
+                        };
+
+                        return match entry.action {
+                            FocusEntryAction::Message(action) => {
+                                (Task::none(), Some(Event::FocusAction(action)))
+                            }
+                            FocusEntryAction::Context(message) => (
+                                Task::none(),
+                                Some(Event::FocusContextAction(message)),
+                            ),
+                            FocusEntryAction::Link(link) => {
+                                // Re-dispatch as a link click and exit focus mode.
+                                *focused_message = None;
+                                (
+                                    Task::done(Message::Link(link)),
+                                    Some(Event::ExitFocus),
+                                )
+                            }
+                        };
+                    }
+                    FocusMenuContent::Nick(data) => {
+                        let context = context_menu::Context::User {
+                            server: &data.server,
+                            prefix: &data.prefix,
+                            channel: data.channel.as_ref(),
+                            registry: clients.get_registry(&data.server),
+                            avatar: None,
+                            user: &data.user,
+                            current_user: data.current_user.as_ref(),
+                        };
+
+                        let event = data
+                            .entries
+                            .get(index)
+                            .and_then(|entry| {
+                                entry.context_message(&context, config)
+                            })
+                            .map(Event::FocusContextAction);
+
+                        return (Task::none(), event);
+                    }
+                }
+            }
+            Message::FocusMenuClose => {
+                self.focus_menu = None;
+
+                return (Task::none(), None);
+            }
+
+            Message::FocusMenuDismiss => {
+                self.focus_menu = None;
+                self.focused_link = None;
+                *focused_message = None;
+
+                return (Task::none(), Some(Event::ExitFocus));
+            }
         }
         (Task::none(), None)
+    }
+
+    pub fn has_focus_menu(&self) -> bool {
+        self.focus_menu.is_some()
+    }
+
+    pub fn focus_menu(&self) -> Option<&FocusMenu> {
+        self.focus_menu.as_ref()
+    }
+
+    pub fn focused_link(&self) -> Option<usize> {
+        self.focused_link
+    }
+
+    pub fn close_focus_menu(&mut self) {
+        self.focus_menu = None;
+        self.focused_link = None;
     }
 
     pub fn update_pane_size(&mut self, pane_size: Size, config: &Config) {
@@ -1446,6 +2343,8 @@ impl State {
         kind: Kind,
         history: &history::Manager,
         config: &Config,
+        animate: bool,
+        align: ScrollAnchor,
     ) -> Task<Message> {
         let Some(history::View {
             old_messages,
@@ -1456,6 +2355,8 @@ impl State {
             // We're still loading history, which will trigger scroll_to_backlog
             // after loading. If this is set, we will scroll_to_message
             self.pending_scroll_to = Some(keyed::Key::Message(message));
+            self.pending_scroll_animate = animate;
+            self.pending_scroll_align = align;
 
             return Task::none();
         };
@@ -1467,6 +2368,46 @@ impl State {
         else {
             return Task::none();
         };
+
+        self.pending_scroll_animate = animate;
+        self.pending_scroll_align = align;
+
+        // If the message is already rendered, skip the load and fire immediately.
+        if self
+            .height_cache
+            .contains_key(&keyed::Key::Message(message))
+        {
+            self.is_scrolling_to = true;
+
+            // cache real heights while fully rendered so the virtualized
+            // layout's doesn't drift from estimates as focus moves.
+            // without this, the error increases over time which leads to
+            // unpredictable scrolling.
+            let find = keyed::find(
+                self.scrollable.clone(),
+                keyed::Key::Message(message),
+            )
+            .map(Message::ScrollTo);
+
+            // only do this when something is unmeasured — in steady state every
+            // height is already cached and re-collecting would be wasted work.
+            let needs_heights =
+                old_messages.iter().chain(&new_messages).any(|m| {
+                    !self
+                        .height_cache
+                        .contains_key(&keyed::Key::Message(m.hash))
+                });
+
+            return if needs_heights {
+                Task::batch([
+                    keyed::collect_heights(self.scrollable.clone())
+                        .map(Message::HeightsCollected),
+                    find,
+                ])
+            } else {
+                find
+            };
+        }
 
         // Load a window of messages centered on the target.
         let around_count = step_messages(4.0 * self.pane_size.height, config);
@@ -2368,6 +3309,72 @@ fn prefixes_width(message: &data::Message, config: &Config) -> Option<f32> {
             &config.font,
         ) + 1.0
     })
+}
+
+/// A keyboard-focusable link target within a message: a URL or a channel
+/// mention.
+#[derive(Debug, Clone)]
+pub(crate) enum FocusTarget {
+    Url(url::Url),
+    Channel(String),
+}
+
+/// The URL of a message whose entire content is a single URL, if any.
+///
+/// Such a message is already selectable as a whole, so it gets no separate
+/// link target; its link actions are folded into the message focus menu.
+pub(crate) fn message_single_url(message: &data::Message) -> Option<url::Url> {
+    let data::message::Content::Fragments(fragments) = &message.content else {
+        return None;
+    };
+
+    let urls = message.content.urls();
+    let url = urls.first()?;
+
+    (urls.len() == 1
+        && fragments
+            .iter()
+            .all(|f| f.url().is_some() || f.as_str().trim().is_empty()))
+    .then(|| (*url).clone())
+}
+
+/// Iterator over a message's focusable link fragments, in display order.
+fn message_focus_target_fragments(
+    message: &data::Message,
+) -> impl Iterator<Item = &message::Fragment> {
+    let fragments: &[message::Fragment] = match &message.content {
+        data::message::Content::Fragments(fragments) => fragments,
+        _ => &[],
+    };
+
+    fragments.iter().filter(|f| f.is_focus_target())
+}
+
+/// Number of separately-navigable link targets in a message, in display order.
+fn message_focus_target_count(message: &data::Message) -> usize {
+    if message_single_url(message).is_some() {
+        return 0;
+    }
+
+    message_focus_target_fragments(message).count()
+}
+
+/// The `index`-th focusable link target of a message, in display order.
+pub(crate) fn message_focus_target_at(
+    message: &data::Message,
+    index: usize,
+) -> Option<FocusTarget> {
+    message_focus_target_fragments(message)
+        .nth(index)
+        .and_then(|fragment| match fragment {
+            message::Fragment::Url(url, _) => {
+                Some(FocusTarget::Url(url.clone()))
+            }
+            message::Fragment::Channel(channel) => {
+                Some(FocusTarget::Channel(channel.clone()))
+            }
+            _ => None,
+        })
 }
 
 fn timestamp_width(message: &data::Message, config: &Config) -> Option<f32> {

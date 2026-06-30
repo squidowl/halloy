@@ -84,6 +84,44 @@ impl<'a> Previews<'a> {
         })
     }
 
+    /// whether a show/hide menu item should be offered for `url`, and
+    /// if so its current state: `Some(true)` if the preview is hidden,
+    /// `Some(false)` if visible, `None` if no toggle should be offered.
+    pub fn is_hidden_for_url(
+        &self,
+        message: &crate::Message,
+        url: &Url,
+        config: &config::Preview,
+    ) -> Option<bool> {
+        if message.redaction.is_some() || !config.is_enabled(url.as_str()) {
+            return None;
+        }
+
+        if !matches!(self.get(url), Some(State::Loaded(_))) {
+            return None;
+        }
+
+        let crate::message::Content::Fragments(fragments) = &message.content
+        else {
+            return None;
+        };
+
+        let mut non_hidden_before = 0;
+        for fragment_url in
+            fragments.iter().filter_map(crate::message::Fragment::url)
+        {
+            if fragment_url == url {
+                return (non_hidden_before < config.max_per_message)
+                    .then(|| message.hidden_urls.contains(url));
+            }
+            if !message.hidden_urls.contains(fragment_url) {
+                non_hidden_before += 1;
+            }
+        }
+
+        None
+    }
+
     pub fn collection(&self) -> &'a Collection {
         self.collection
     }

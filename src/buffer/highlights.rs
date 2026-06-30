@@ -45,6 +45,7 @@ pub fn view<'a>(
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
+            None,
             scroll_view::Kind::Highlights,
             history,
             None,
@@ -231,11 +232,12 @@ pub fn view<'a>(
                             };
 
                             entry
-                                .view(context, length, config, theme)
+                                .view(context, length, config, theme, false)
                                 .map(scroll_view::Message::ContextMenu)
                         },
                         None,
                         config,
+                        None,
                     );
 
                     Some(
@@ -359,12 +361,14 @@ impl Highlights {
             Message::ScrollView(message) => {
                 let (command, event) = self.scroll_view.update(
                     message,
+                    &mut None,
                     false,
                     scroll_view::Kind::Highlights,
                     None,
                     history,
                     clients,
                     config,
+                    None,
                 );
 
                 let event = event.and_then(|event| match event {
@@ -400,6 +404,9 @@ impl Highlights {
                     scroll_view::Event::ContractMessage(server_time, hash) => {
                         Some(Event::ContractMessage(server_time, hash))
                     }
+                    scroll_view::Event::ExitFocus
+                    | scroll_view::Event::FocusAction(_)
+                    | scroll_view::Event::FocusContextAction(_) => None,
                 });
 
                 (command.map(Message::ScrollView), event)

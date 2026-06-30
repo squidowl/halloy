@@ -92,6 +92,7 @@ pub fn view<'a>(
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
+            None,
             scroll_view::Kind::Server(&state.server),
             history,
             None,
@@ -376,12 +377,14 @@ impl Server {
             Message::ScrollView(message) => {
                 let (command, event) = self.scroll_view.update(
                     message,
+                    &mut None,
                     false,
                     scroll_view::Kind::Server(&self.server),
                     Some(&self.buffer),
                     history,
                     clients,
                     config,
+                    None,
                 );
 
                 let event = event.and_then(|event| match event {
@@ -418,6 +421,9 @@ impl Server {
                     scroll_view::Event::ContractMessage(server_time, hash) => {
                         Some(Event::ContractMessage(server_time, hash))
                     }
+                    scroll_view::Event::ExitFocus
+                    | scroll_view::Event::FocusAction(_)
+                    | scroll_view::Event::FocusContextAction(_) => None,
                 });
 
                 (command.map(Message::ScrollView), event)
@@ -425,6 +431,7 @@ impl Server {
             Message::InputView(message) => {
                 let (command, event) = self.input_view.update(
                     message,
+                    false,
                     &self.buffer,
                     clients,
                     history,
@@ -485,12 +492,18 @@ impl Server {
                             abort_registrations,
                         }),
                     ),
-                    None => (command, None),
+                    Some(
+                        input_view::Event::NavigateFocus(_)
+                        | input_view::Event::ExitFocus
+                        | input_view::Event::FocusAction(_),
+                    )
+                    | None => (command, None),
                 }
             }
             Message::FilehostUploadDone { id, url } => {
                 let (task, _) = self.input_view.update(
                     input_view::Message::FilehostUploadDone { id, url },
+                    false,
                     &self.buffer,
                     clients,
                     history,
@@ -502,6 +515,7 @@ impl Server {
             Message::FilesDropped(paths) => {
                 let (task, event) = self.input_view.update(
                     input_view::Message::FilesSelected(paths),
+                    false,
                     &self.buffer,
                     clients,
                     history,

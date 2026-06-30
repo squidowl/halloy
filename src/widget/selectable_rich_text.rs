@@ -917,7 +917,18 @@ where
             hint_factor: renderer.scale_factor(),
         };
 
-        if state.spans != spans {
+        // WTF? `Span`'s `PartialEq` ignores decorations,
+        // a decoration-only change would otherwise go
+        // undetected and only render once another change
+        // forces reshape
+        let decorations_changed = state.spans.len() != spans.len()
+            || state.spans.iter().zip(spans.iter()).any(|(a, b)| {
+                a.highlight != b.highlight
+                    || a.underline != b.underline
+                    || a.strikethrough != b.strikethrough
+            });
+
+        if state.spans != spans || decorations_changed {
             state.spans = spans.iter().cloned().map(Span::to_static).collect();
 
             // Apply shown spoiler
