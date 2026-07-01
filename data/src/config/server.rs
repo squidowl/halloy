@@ -8,8 +8,10 @@ use serde::{Deserialize, Deserializer};
 use tokio::fs;
 use tokio::process::Command;
 
+use self::bouncer::BouncerConfig;
 use self::filehost::Filehost;
 use self::icon::Icon;
+use crate::bouncer::BouncerNetwork;
 use crate::config::inclusivities::{
     Inclusivities, is_target_channel_included, is_target_query_included,
 };
@@ -21,6 +23,7 @@ use crate::serde::{
 };
 use crate::{config, isupport, metadata, target};
 
+pub mod bouncer;
 pub mod filehost;
 pub mod filters;
 pub mod icon;
@@ -145,6 +148,7 @@ pub struct Server {
     pub filehost: Filehost,
     pub metadata: HashMap<metadata::Key, String>,
     pub icon: Icon,
+    pub bouncer_networks: Option<BouncerConfig>,
 }
 
 impl Server {
@@ -208,7 +212,7 @@ impl Server {
         }
     }
 
-    pub fn bouncer_config(&self) -> Self {
+    fn default_bouncer_config(&self) -> Self {
         Self {
             // nickserv info not relevant to the bounced network
             nick_password_file: Option::default(),
@@ -224,6 +228,19 @@ impl Server {
 
             ..self.clone()
         }
+    }
+
+    pub fn bouncer_network_config(
+        &self,
+        bouncer_network: &BouncerNetwork,
+    ) -> Server {
+        let mut config = self.default_bouncer_config();
+
+        if let Some(bouncer_config) = self.bouncer_networks.as_ref() {
+            bouncer_config.overlay(bouncer_network, &mut config);
+        }
+
+        config
     }
 }
 
@@ -278,6 +295,7 @@ impl Default for Server {
             filehost: Filehost::default(),
             metadata: HashMap::default(),
             icon: Icon::default(),
+            bouncer_networks: None,
         }
     }
 }

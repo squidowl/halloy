@@ -1319,7 +1319,9 @@ impl Client {
                 }
 
                 let network = BouncerNetwork::parse(netid, network)?;
-                let network_config = self.config.bouncer_config();
+                let network_config =
+                    self.config.bouncer_network_config(&network);
+
                 return Ok(vec![Event::BouncerNetwork(
                     Server {
                         network: Some(network.into()),

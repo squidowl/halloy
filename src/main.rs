@@ -953,14 +953,19 @@ impl Halloy {
                     for bouncer_network in
                         self.servers.get_bouncer_networks(&server)
                     {
-                        bouncer_network_events.push((
-                            bouncer_network.clone(),
-                            self.clients.update_config(
-                                bouncer_network,
-                                updated_config.bouncer_config().into(),
-                                false,
-                            ),
-                        ));
+                        if let Some(network) = bouncer_network.network.as_ref()
+                        {
+                            bouncer_network_events.push((
+                                bouncer_network.clone(),
+                                self.clients.update_config(
+                                    bouncer_network,
+                                    updated_config
+                                        .bouncer_network_config(network)
+                                        .into(),
+                                    false,
+                                ),
+                            ));
+                        }
                     }
 
                     if let Screen::Dashboard(dashboard) = &mut self.screen {
@@ -1545,11 +1550,14 @@ impl Halloy {
                             .collect::<Vec<_>>();
 
                         for bouncer_network in bouncer_networks {
-                            if let Some(bouncer_network) =
-                                self.servers.get_mut(&bouncer_network)
+                            if let Some(network) =
+                                bouncer_network.network.as_ref()
+                                && let Some(existing) =
+                                    self.servers.get_mut(&bouncer_network)
                             {
-                                *bouncer_network =
-                                    config.bouncer_config().into();
+                                *existing = config
+                                    .bouncer_network_config(network)
+                                    .into();
                             }
                         }
 
@@ -1939,6 +1947,12 @@ fn handle_client_events(
                 dashboard.set_reroute_rules(servers, clients);
 
                 dashboard.update_filters(servers, clients, &config.buffer);
+
+                commands.push(
+                    dashboard
+                        .request_override_server_icons(servers)
+                        .map(Message::Dashboard),
+                );
             }
             Event::AddToSidebar(query) => {
                 dashboard.add_to_sidebar(server.clone(), query);
