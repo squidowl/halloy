@@ -9,6 +9,7 @@ use chrono::{DateTime, Utc};
 use data::capabilities::{
     LabeledResponseContext, MultilineBatchKind, multiline_concat_lines,
 };
+use data::config::actions::NotificationAction;
 use data::config::buffer::{ScrollPosition, UsernameFormat};
 use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
@@ -37,14 +38,14 @@ use self::pane::Pane;
 use self::sidebar::Sidebar;
 use self::theme_editor::ThemeEditor;
 use crate::buffer::{self, Buffer};
+use crate::notification::{self, Notifications, toast};
 use crate::widget::{
     Column, Element, Row, anchored_overlay, context_menu, selectable_text,
     shortcut,
 };
 use crate::window::Window;
 use crate::{
-    Theme, event, filehost, notification, open_url, platform_specific, theme,
-    window,
+    Theme, event, filehost, open_url, platform_specific, theme, window,
 };
 
 mod command_bar;
@@ -67,7 +68,6 @@ pub struct Dashboard {
     command_bar_window: Option<window::Id>,
     file_transfers: file_transfer::Manager,
     theme_editor: Option<ThemeEditor>,
-    notifications: notification::Notifications,
     previews: preview::Collection,
     previews_cache: Arc<cache::FileCache>,
     server_icons: server_icon::Manager,
@@ -156,7 +156,6 @@ impl Dashboard {
             command_bar_window: None,
             file_transfers: file_transfer::Manager::default(),
             theme_editor: None,
-            notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),
             previews_cache: Arc::new(preview_cache(&config.preview)),
             server_icons: server_icon::Manager::default(),
@@ -3171,6 +3170,20 @@ impl Dashboard {
         }
     }
 
+    fn open_or_focus_buffer(
+        &mut self,
+        buffer: data::Buffer,
+        buffer_action: BufferAction,
+        clients: &mut data::client::Map,
+        config: &Config,
+    ) -> Task<Message> {
+        if let Some((window, pane, _)) = self.panes.get_by_buffer(&buffer) {
+            self.focus_pane(window, pane)
+        } else {
+            self.open_buffer(buffer, buffer_action, clients, config)
+        }
+    }
+
     pub fn leave_all_queries(
         &mut self,
         clients: &mut data::client::Map,
@@ -4353,6 +4366,7 @@ impl Dashboard {
         casemapping: isupport::CaseMap,
         request: file_transfer::ReceiveRequest,
         config: &Config,
+        notifications: &mut Notifications,
     ) -> Option<Task<Message>> {
         if !config.file_transfer.enabled {
             log::info!(
@@ -4365,12 +4379,8 @@ impl Dashboard {
 
         let event = self.file_transfers.receive(request.clone(), config)?;
 
-        let request_attention_window = self
-            .find_window_with_file_transfers()
-            .unwrap_or(self.main_window());
-
-        let request_attention = self.notifications.notify(
-            &config.notifications,
+        notifications.notify(
+            config,
             &Notification::FileTransferRequest {
                 nick: request.from.nickname().to_owned(),
                 casemapping,
@@ -4382,7 +4392,6 @@ impl Dashboard {
                 },
             },
             server,
-            request_attention_window,
         );
 
         let query = target::Query::from(request.from);
@@ -4394,11 +4403,7 @@ impl Dashboard {
             &config.buffer,
         );
 
-        if let Some(request_attention) = request_attention {
-            Some(Task::batch(vec![task, request_attention]))
-        } else {
-            Some(task)
-        }
+        Some(task)
     }
 
     pub fn handle_file_transfer_event(
@@ -4540,7 +4545,6 @@ impl Dashboard {
             command_bar_window: None,
             file_transfers: file_transfer::Manager::default(),
             theme_editor: None,
-            notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),
             previews_cache: Arc::new(preview_cache(&config.preview)),
             server_icons: server_icon::Manager::default(),
@@ -4620,6 +4624,70 @@ impl Dashboard {
 
     pub fn get_reroute_rules_mut(&mut self) -> &mut RerouteRules {
         self.history.get_reroute_rules_mut()
+    }
+
+    pub fn handle_notification_event(
+        &mut self,
+        event: notification::Event,
+        clients: &mut data::client::Map,
+        config: &Config,
+    ) -> Task<Message> {
+        match event {
+            notification::Event::NotificationResponse { action, buffer } => {
+                match action {
+                    toast::Action::Dismiss => Task::none(),
+                    toast::Action::OpenOrFocusBuffer => {
+                        if let Some(buffer) = buffer
+                            && let NotificationAction::OpenBuffer(buffer_action) =
+                                config.actions.notification
+                        {
+                            // When an notification action is performed in Wayland
+                            // the application is not automatically brought forward.
+                            // Request attention in order to do so.
+                            let window_id = if let Some((window, _, _)) =
+                                self.panes.get_by_buffer(&buffer)
+                            {
+                                window
+                            } else {
+                                self.focus.window
+                            };
+
+                            iced::window::request_user_attention(
+                                window_id,
+                                Some(
+                                    iced::window::UserAttention::Informational,
+                                ),
+                            )
+                            .chain(
+                                self.open_or_focus_buffer(
+                                    buffer,
+                                    buffer_action,
+                                    clients,
+                                    config,
+                                ),
+                            )
+                        } else {
+                            Task::none()
+                        }
+                    }
+                }
+            }
+            notification::Event::RequestAttention { buffer } => {
+                let window_id = if let Some(buffer) = buffer
+                    && let Some((window, _, _)) =
+                        self.panes.get_by_buffer(&buffer)
+                {
+                    window
+                } else {
+                    self.focus.window
+                };
+
+                iced::window::request_user_attention(
+                    window_id,
+                    Some(iced::window::UserAttention::Informational),
+                )
+            }
+        }
     }
 
     pub fn handle_window_event(
@@ -5077,6 +5145,15 @@ impl Panes {
                 .get_mut(&window)
                 .and_then(|panes| panes.get_mut(pane))
         }
+    }
+
+    fn get_by_buffer(
+        &mut self,
+        buffer: &data::Buffer,
+    ) -> Option<(window::Id, pane_grid::Pane, &Pane)> {
+        self.iter().find(|(_, _, state)| {
+            state.buffer.data().is_some_and(|b| b == *buffer)
+        })
     }
 
     fn get_mut_by_buffer(

@@ -137,6 +137,19 @@ Click action for when interaction with nicknames.  If not set, then the behavior
 click_nickname = { "open-query" = "replace-pane" }
 ```
 
+## `notification`
+
+Action when clicking on a notification with a buffer context (e.g. when clicking a notification for a highlight in a channel, the context is the channel buffer). `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with the buffer context. `"new-window"` opens a new window each time. `"no-action"` or `"noop"` will perform no action on clicks aside from the default application activation behavior.
+
+```toml
+# Type: string
+# Values: "new-pane", "replace-pane", "new-window", "no-action", "noop"
+# Default: "noop"
+
+[actions]
+notification = "new-pane"
+```
+
 ## `sidebar`
 
 How sidebar actions should be enacted.

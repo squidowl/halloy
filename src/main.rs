@@ -248,7 +248,7 @@ impl Halloy {
             }
         };
 
-        let (screen, servers, config, command) = match config_load {
+        let (screen, servers, config, commands) = match config_load {
             Ok(config) => {
                 let mut servers: server::Map = config.servers.clone().into();
                 servers.set_order(config.sidebar.order_by);
@@ -280,7 +280,11 @@ impl Halloy {
             ),
         };
 
-        let notifications = Notifications::new(&config);
+        let (notifications, stream) = Notifications::new(&config);
+
+        let commands =
+            Task::batch(vec![stream.map(Message::Notification), commands]);
+
         (
             Halloy {
                 version: Version::new(),
@@ -297,7 +301,7 @@ impl Halloy {
                 pending_logs: vec![],
                 notifications,
             },
-            command,
+            commands,
         )
     }
 }
@@ -333,6 +337,7 @@ pub enum Message {
     ConfigReloaded(Result<Config, config::Error>),
     RuntimeConfigured(Result<(), iced::backend::Error>),
     SystemInformation(iced::system::Information),
+    Notification(notification::Event),
 }
 
 impl Halloy {
@@ -692,42 +697,42 @@ impl Halloy {
                         let statusmsg = self
                             .clients
                             .get_server_statusmsg_or_default(&server);
-                        if let Some(our_nick) = self.clients.nickname(&server) {
-                            Task::batch(
-                                events
-                                    .into_iter()
-                                    .filter_map(|event| match event {
-                                        EchoEvent::Reaction(reaction) => {
-                                            handle_reaction_to_echo(
-                                                &self.config,
-                                                &server,
-                                                casemapping,
-                                                chantypes,
-                                                statusmsg,
-                                                dashboard,
-                                                &self.main_window,
-                                                reaction,
-                                                &mut self.notifications,
-                                                our_nick.to_owned(),
-                                            )
-                                        }
-                                        EchoEvent::Reply(reply) => {
-                                            handle_reply_to_echo(
-                                                &self.config,
-                                                &server,
-                                                casemapping,
-                                                dashboard,
-                                                &self.main_window,
-                                                reply,
-                                                &mut self.notifications,
-                                            )
-                                        }
-                                    })
-                                    .collect::<Vec<_>>(),
-                            )
-                        } else {
-                            Task::none()
+                        if let Some(our_nick) = self.clients.nickname(&server)
+                            && let Screen::Dashboard(dashboard) =
+                                &mut self.screen
+                        {
+                            for event in events.into_iter() {
+                                match event {
+                                    EchoEvent::Reaction(reaction) => {
+                                        handle_reaction_to_echo(
+                                            &self.config,
+                                            &server,
+                                            casemapping,
+                                            chantypes,
+                                            statusmsg,
+                                            dashboard,
+                                            &self.main_window,
+                                            reaction,
+                                            &mut self.notifications,
+                                            our_nick.to_owned(),
+                                        );
+                                    }
+                                    EchoEvent::Reply(reply) => {
+                                        handle_reply_to_echo(
+                                            &self.config,
+                                            &server,
+                                            casemapping,
+                                            dashboard,
+                                            &self.main_window,
+                                            reply,
+                                            &mut self.notifications,
+                                        );
+                                    }
+                                }
+                            }
                         }
+
+                        Task::none()
                     }
                     None => Task::none(),
                 };
@@ -794,20 +799,15 @@ impl Halloy {
                     if is_initial {
                         Task::none()
                     } else {
-                        let request_attention = if !self.main_window.focused {
+                        if !self.main_window.focused {
                             self.notifications.notify(
-                                &self.config.notifications,
+                                &self.config,
                                 &Notification::Disconnected,
                                 &server,
-                                dashboard
-                                    .find_window_with_server(&server)
-                                    .unwrap_or(self.main_window.id),
-                            )
-                        } else {
-                            None
-                        };
+                            );
+                        }
 
-                        let mut tasks = vec![
+                        Task::batch(vec![
                             dashboard
                                 .broadcast(
                                     &server,
@@ -821,13 +821,7 @@ impl Halloy {
                                     Broadcast::Disconnected { error },
                                 )
                                 .map(Message::Dashboard),
-                        ];
-
-                        if let Some(request_attention) = request_attention {
-                            tasks.push(request_attention);
-                        }
-
-                        Task::batch(tasks)
+                        ])
                     }
                 }
                 stream::Update::Connecting { server, sent_time } => {
@@ -872,17 +866,12 @@ impl Halloy {
                         (Notification::Reconnected, Broadcast::Reconnected)
                     };
 
-                    let request_attention = if !self.main_window.focused {
+                    if !self.main_window.focused {
                         self.notifications.notify(
-                            &self.config.notifications,
+                            &self.config,
                             &notification,
                             &server,
-                            dashboard
-                                .find_window_with_server(&server)
-                                .unwrap_or(self.main_window.id),
-                        )
-                    } else {
-                        None
+                        );
                     };
 
                     let broadcast = dashboard
@@ -900,13 +889,7 @@ impl Halloy {
                     let refocus_pane =
                         dashboard.refocus_pane().map(Message::Dashboard);
 
-                    let mut tasks = vec![broadcast, refocus_pane];
-
-                    if let Some(request_attention) = request_attention {
-                        tasks.push(request_attention);
-                    }
-
-                    Task::batch(tasks)
+                    Task::batch(vec![broadcast, refocus_pane])
                 }
                 stream::Update::ConnectionFailed {
                     server,
@@ -1376,6 +1359,19 @@ impl Halloy {
                 }
                 _ => Task::none(),
             },
+            Message::Notification(event) => {
+                if let Screen::Dashboard(dashboard) = &mut self.screen {
+                    dashboard
+                        .handle_notification_event(
+                            event,
+                            &mut self.clients,
+                            &self.config,
+                        )
+                        .map(Message::Dashboard)
+                } else {
+                    Task::none()
+                }
+            }
         }
     }
 
@@ -1571,7 +1567,7 @@ impl Halloy {
                     .into();
 
                 // Load new notification sounds.
-                self.notifications = Notifications::new(&updated);
+                self.notifications.update(&updated);
 
                 self.config = updated;
 
@@ -1794,6 +1790,7 @@ fn handle_client_events(
                     casemapping,
                     request,
                     config,
+                    notifications,
                 ) {
                     commands.push(command.map(Message::Dashboard));
                 }
@@ -1870,7 +1867,6 @@ fn handle_client_events(
                     our_nick,
                     user,
                     dashboard,
-                    &mut commands,
                     clients,
                     config,
                     notifications,
@@ -1882,16 +1878,11 @@ fn handle_client_events(
                 let message_window = dashboard.find_window_with_history(&kind);
 
                 if message_window.is_none() || !main_window.focused {
-                    let request_attention = notifications.notify(
-                        &config.notifications,
+                    notifications.notify(
+                        config,
                         &Notification::MonitoredOnline(users),
                         server,
-                        message_window.unwrap_or(main_window.id),
                     );
-
-                    if let Some(request_attention) = request_attention {
-                        commands.push(request_attention);
-                    }
                 }
             }
             Event::MonitoredOffline(users) => {
@@ -1899,16 +1890,11 @@ fn handle_client_events(
                 let message_window = dashboard.find_window_with_history(&kind);
 
                 if message_window.is_none() || !main_window.focused {
-                    let request_attention = notifications.notify(
-                        &config.notifications,
+                    notifications.notify(
+                        config,
                         &Notification::MonitoredOffline(users),
                         server,
-                        message_window.unwrap_or(main_window.id),
                     );
-
-                    if let Some(request_attention) = request_attention {
-                        commands.push(request_attention);
-                    }
                 }
             }
             Event::OnConnect(on_connect) => {
@@ -2237,7 +2223,6 @@ fn handle_priv_or_notice(
             notification_enabled,
             window,
             casemapping,
-            commands,
             config,
             notifications,
             main_window,
@@ -2256,8 +2241,8 @@ fn handle_priv_or_notice(
             ..
         } = &msg.target
     {
-        let request_attention = notifications.notify(
-            &config.notifications,
+        notifications.notify(
+            config,
             &Notification::Reply {
                 user: user.clone(),
                 channel: channel.clone(),
@@ -2265,11 +2250,7 @@ fn handle_priv_or_notice(
                 message: msg.text().to_string(),
             },
             server,
-            window.unwrap_or(main_window.id),
         );
-        if let Some(req) = request_attention {
-            commands.push(req);
-        }
     }
 
     commands.push(
@@ -2323,8 +2304,8 @@ fn handle_highlight(
             }
         };
 
-        let request_attention = notifications.notify(
-            &config.notifications,
+        notifications.notify(
+            config,
             &Notification::Highlight {
                 user: highlight_user,
                 channel: highlight_channel,
@@ -2334,12 +2315,7 @@ fn handle_highlight(
                 sound,
             },
             server,
-            message_window.unwrap_or(main_window.id),
         );
-
-        if let Some(request_attention) = request_attention {
-            commands.push(request_attention);
-        }
     }
 
     commands.push(
@@ -2355,7 +2331,6 @@ fn maybe_notify_channel_message(
     notification_enabled: bool,
     message_window: Option<window::Id>,
     casemapping: data::isupport::CaseMap,
-    commands: &mut Vec<Task<Message>>,
     config: &Config,
     notifications: &mut Notifications,
     main_window: &Window,
@@ -2381,8 +2356,8 @@ fn maybe_notify_channel_message(
         _ => return,
     };
 
-    let request_attention = notifications.notify(
-        &config.notifications,
+    notifications.notify(
+        config,
         &Notification::Channel {
             user,
             channel,
@@ -2390,12 +2365,7 @@ fn maybe_notify_channel_message(
             message: msg.text().to_string(),
         },
         server,
-        message_window.unwrap_or(main_window.id),
     );
-
-    if let Some(request_attention) = request_attention {
-        commands.push(request_attention);
-    }
 }
 
 fn handle_broadcast(
@@ -2514,7 +2484,7 @@ fn handle_reaction_to_echo(
     reaction_to_echo: ReactionToEcho,
     notifications: &mut Notifications,
     our_nick: Nick,
-) -> Option<Task<Message>> {
+) {
     let sender_nick = reaction_to_echo.reaction.inner.sender.clone();
     let self_reaction = our_nick == sender_nick;
     let sender = User::from(sender_nick);
@@ -2555,21 +2525,16 @@ fn handle_reaction_to_echo(
         && !reaction_to_echo.reaction.inner.unreact
         && (message_window.is_none() || !main_window.focused)
     {
-        let request_attention = notifications.notify(
-            &config.notifications,
+        notifications.notify(
+            config,
             &Notification::Reaction {
                 casemapping,
                 reaction: reaction_to_echo.reaction,
                 message_text: reaction_to_echo.message_text,
             },
             server,
-            message_window.unwrap_or(main_window.id),
         );
-
-        return request_attention;
     }
-
-    None
 }
 
 fn handle_reply_to_echo(
@@ -2580,7 +2545,7 @@ fn handle_reply_to_echo(
     main_window: &Window,
     reply_to_echo: ReplyToEcho,
     notifications: &mut Notifications,
-) -> Option<Task<Message>> {
+) {
     let data::message::Target::Channel {
         channel,
         source:
@@ -2589,7 +2554,7 @@ fn handle_reply_to_echo(
         ..
     } = &reply_to_echo.message.target
     else {
-        return None;
+        return;
     };
 
     let kind = history::Kind::Channel(server.to_owned(), channel.to_owned());
@@ -2602,8 +2567,8 @@ fn handle_reply_to_echo(
     );
 
     if !blocked && (message_window.is_none() || !main_window.focused) {
-        return notifications.notify(
-            &config.notifications,
+        notifications.notify(
+            config,
             &Notification::Reply {
                 user: user.clone(),
                 channel: channel.clone(),
@@ -2611,11 +2576,8 @@ fn handle_reply_to_echo(
                 message: reply_to_echo.message.text().to_string(),
             },
             server,
-            message_window.unwrap_or(main_window.id),
         );
     }
-
-    None
 }
 
 fn handle_direct_message(
@@ -2624,7 +2586,6 @@ fn handle_direct_message(
     our_nick: data::user::Nick,
     user: User,
     dashboard: &mut screen::Dashboard,
-    commands: &mut Vec<Task<Message>>,
     clients: &data::client::Map,
     config: &Config,
     notifications: &mut Notifications,
@@ -2661,20 +2622,15 @@ fn handle_direct_message(
     let message_window = dashboard.find_window_with_history(&kind);
 
     if !blocked && (message_window.is_none() || !main_window.focused) {
-        let request_attention = notifications.notify(
-            &config.notifications,
+        notifications.notify(
+            config,
             &Notification::DirectMessage {
                 user,
                 casemapping,
                 message: msg.text().to_string(),
             },
             server,
-            message_window.unwrap_or(main_window.id),
         );
-
-        if let Some(request_attention) = request_attention {
-            commands.push(request_attention);
-        }
     }
 }
 
