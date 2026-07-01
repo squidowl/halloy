@@ -8,6 +8,7 @@ Added:
 - Support displaying a larger version of the card images in-app
 - IRCv3 `no-implicit-names` support
 - Keyboard shortcuts validation (e.g no duplicate key binds)
+- `actions.buffer.notification` setting to control how interacting with notifications is handled
 - `actions.buffer.click_nickname` and `actions.nicklist.click_nickname` can be used to specify whether a nickname will: open query and how the query is opened, insert nickname in the input box, or no action (`"no-action"` or `"noop"`); takes over functionality from `buffer.nickname.click` and `buffer.channel.nicklist.click` and adds the ability to perform no action
 - `actions.buffer.click_channel_name` and `actions.buffer.click_highlight` can be set to no action (`"no-action"` or `"noop"`) to not open the channel when clicking on the channel name
 - Explicit portable mode
@@ -18,6 +19,7 @@ Fixed:
 - Nick highlight improvements
   - Handle nick possessives `<nick>'s` (`<nick>` should be parsed)
   - Skip parsing nicks inside abbreviations (`e.g.` shouldn't have highlights)
+- Notifications no longer immediately dismissed in some Wayland DE(s)
 - Do not send duplicate `JOIN` message when using `/join`
 - Do not send `MARKREAD` for non-`PRIVMSG`/`NOTICE` messages when the server does not support echoes
 - Do not show unread/highlight indicators for ignored messages
