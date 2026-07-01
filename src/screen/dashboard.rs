@@ -5154,7 +5154,23 @@ fn all_buffers(
         .internal_buffers
         .buffers
         .iter()
-        .map(|&kind| data::Buffer::Internal(kind.into()));
+        .filter_map(|&kind| {
+            let buffer = data::Buffer::Internal(kind.into());
+
+            if matches!(
+                config.sidebar.internal_buffers.show,
+                config::sidebar::InternalBuffersShowPolicy::Always
+            ) {
+                return Some(buffer);
+            }
+
+            match history::Kind::from_buffer(buffer.clone()) {
+                Some(history_kind) => {
+                    history.has_unread(&history_kind).then_some(buffer)
+                }
+                None => Some(buffer),
+            }
+        });
 
     if config.sidebar.internal_buffers.is_before_servers() {
         internal_buffers.chain(upstream_buffers).collect()

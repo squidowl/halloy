@@ -605,45 +605,40 @@ impl Sidebar {
                 }
             }
 
-            let mut internal_buffers = vec![];
-
-            for internal_buffer in
-                config.sidebar.internal_buffers.buffers.iter()
-            {
-                let button = |buffer: buffer::Internal, title: &'static str| {
-                    internal_buffer_button(
-                        config, panes, focus, buffer, title, history, width,
-                        theme,
-                    )
-                };
-
-                match internal_buffer {
-                    config::sidebar::InternalBuffer::FileTransfers => {
-                        config.file_transfer.enabled.then(|| {
-                            internal_buffers.push(button(
+            let internal_buffers: Vec<_> = config
+                .sidebar
+                .internal_buffers
+                .buffers
+                .iter()
+                .filter_map(|internal_buffer| {
+                    let (buffer, title) = match internal_buffer {
+                        data::config::sidebar::InternalBuffer::FileTransfers => {
+                            config.file_transfer.enabled.then_some((
                                 buffer::Internal::FileTransfers,
                                 "File Transfers",
-                            ));
-                        });
-                    }
-                    config::sidebar::InternalBuffer::ChannelDiscovery => {
-                        internal_buffers.push(button(
+                            ))?
+                        }
+                        data::config::sidebar::InternalBuffer::ChannelDiscovery => (
                             buffer::Internal::ChannelDiscovery(None),
                             "Channel Discovery",
-                        ));
-                    }
-                    config::sidebar::InternalBuffer::Highlights => {
-                        internal_buffers.push(button(
+                        ),
+                        data::config::sidebar::InternalBuffer::Highlights => (
                             buffer::Internal::Highlights,
                             "Highlights",
-                        ));
+                        ),
+                        data::config::sidebar::InternalBuffer::Logs => (
+                            buffer::Internal::Logs,
+                            "Logs",
+                        ),
+                    };
+
+                    if should_show_internal_buffer(buffer.clone(), config, history) {
+                        Some(internal_buffer_button(config, panes, focus, buffer, title, history, width, theme))
+                    } else {
+                        None
                     }
-                    config::sidebar::InternalBuffer::Logs => {
-                        internal_buffers
-                            .push(button(buffer::Internal::Logs, "Logs"));
-                    }
-                }
-            }
+                })
+                .collect();
 
             let spacer = if config.sidebar.position.is_horizontal() {
                 space::horizontal()
@@ -1396,6 +1391,21 @@ fn upstream_buffer_button<'a>(
             },
         )
         .into()
+    }
+}
+
+fn should_show_internal_buffer(
+    buffer: buffer::Internal,
+    config: &Config,
+    history: &history::Manager,
+) -> bool {
+    match config.sidebar.internal_buffers.show {
+        config::sidebar::InternalBuffersShowPolicy::Always => true,
+
+        config::sidebar::InternalBuffersShowPolicy::Unread => {
+            history::Kind::from_buffer(data::Buffer::Internal(buffer.clone()))
+                .is_none_or(|kind| history.has_unread(&kind))
+        }
     }
 }
 
