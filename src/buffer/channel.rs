@@ -33,6 +33,11 @@ pub enum Event {
     OpenInternalBuffer(buffer::Internal),
     OpenServer(String),
     Reconnect(Server),
+    OpenSearchResults {
+        server: Server,
+        target: Option<Target>,
+        text: Option<String>,
+    },
     LeaveBuffers(Vec<Target>, Option<String>),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
@@ -43,7 +48,7 @@ pub enum Event {
     ImagePreview(Image),
     ExpandMessage(DateTime<Utc>, message::Hash),
     ContractMessage(DateTime<Utc>, message::Hash),
-    GoToMessage(Server, target::Channel, message::Hash, BufferAction),
+    GoToMessage(Server, Target, message::Hash, BufferAction),
     InputSent {
         history_task: Task<history::manager::Message>,
         open_buffers: Vec<(Target, BufferAction)>,
@@ -362,12 +367,12 @@ impl Channel {
                     )),
                     scroll_view::Event::GoToMessage(
                         server,
-                        channel,
+                        target,
                         hash,
                         buffer_action,
                     ) => Some(Event::GoToMessage(
                         server,
-                        channel,
+                        target,
                         hash,
                         buffer_action,
                     )),
@@ -467,6 +472,18 @@ impl Channel {
                             file_paths,
                             upload_ids,
                             abort_registrations,
+                        }),
+                    ),
+                    Some(input_view::Event::OpenSearchResults {
+                        server,
+                        target,
+                        text,
+                    }) => (
+                        command,
+                        Some(Event::OpenSearchResults {
+                            server,
+                            target,
+                            text,
                         }),
                     ),
                     None => (command, None),

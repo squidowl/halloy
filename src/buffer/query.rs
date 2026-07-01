@@ -30,6 +30,11 @@ pub enum Event {
     OpenInternalBuffer(buffer::Internal),
     OpenServer(String),
     Reconnect(Server),
+    OpenSearchResults {
+        server: data::Server,
+        target: Option<Target>,
+        text: Option<String>,
+    },
     LeaveBuffers(Vec<Target>, Option<String>),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
@@ -388,6 +393,18 @@ impl Query {
                             file_paths,
                             upload_ids,
                             abort_registrations,
+                        }),
+                    ),
+                    Some(input_view::Event::OpenSearchResults {
+                        server,
+                        target,
+                        text,
+                    }) => (
+                        command,
+                        Some(Event::OpenSearchResults {
+                            server,
+                            target,
+                            text,
                         }),
                     ),
                     None => (command, None),
