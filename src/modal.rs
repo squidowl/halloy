@@ -11,6 +11,7 @@ pub mod about;
 pub mod confirm_file_upload;
 pub mod connect_to_server;
 pub mod image_preview;
+pub mod keyring_password;
 pub mod prompt_before_open_url;
 pub mod reload_configuration_error;
 
@@ -37,6 +38,7 @@ pub enum Modal {
         has_credentials: bool,
         window: window::Id,
     },
+    KeyringPassword(keyring_password::KeyringPassword),
 }
 
 #[derive(Debug, Clone)]
@@ -48,6 +50,7 @@ pub enum Message {
     ServerConnect(ServerConnect),
     About(about::Action),
     ImagePreview(ImagePreview),
+    KeyringPassword(keyring_password::Action),
 }
 
 #[derive(Debug, Clone)]
@@ -66,6 +69,7 @@ pub enum Event {
     CloseModal,
     AcceptNewServer,
     ConfirmFileUpload,
+    KeyringPasswordStored,
 }
 
 impl Modal {
@@ -81,6 +85,7 @@ impl Modal {
                 window,
             } => Some(*window),
             Modal::ConfirmFileUpload { window, .. } => Some(*window),
+            Modal::KeyringPassword(_) => None,
         }
     }
 
@@ -160,6 +165,13 @@ impl Modal {
                     (Task::none(), None)
                 }
             },
+            Message::KeyringPassword(action) => {
+                if let Modal::KeyringPassword(keyring_password) = self {
+                    keyring_password.update(action)
+                } else {
+                    (Task::none(), None)
+                }
+            }
         }
     }
 
@@ -185,6 +197,9 @@ impl Modal {
                 timer,
                 window: _,
             } => image_preview::view(image, timer, theme),
+            Modal::KeyringPassword(keyring_password) => {
+                keyring_password.view(theme)
+            }
         }
     }
 }

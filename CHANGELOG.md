@@ -49,6 +49,7 @@ Added:
 
 - Add clear buffer shortcut to title bar
 - Indicate in query if user is offline in its title bar
+- Add system keyring support for server, NickServ, channel, SASL, filehost credential, and proxy passwords
 
 Fixed:
 

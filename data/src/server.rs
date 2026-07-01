@@ -165,8 +165,21 @@ impl ConfigMap {
                 config.port =
                     Some(default_port(config.use_tls, config.use_websocket));
             }
+            if let Some(proxy) = &mut config.proxy {
+                proxy
+                    .set_password(
+                        |kind| {
+                            config::keyring::server_proxy_password_key(
+                                &server, kind,
+                            )
+                        },
+                        &format!("server `{server}`"),
+                    )
+                    .await?;
+            }
             if let Some(pass_file) = &config.password_file {
                 if config.password.is_some()
+                    || config.password_keyring.is_enabled()
                     || config.password_command.is_some()
                 {
                     return Err(Error::DuplicatePassword);
@@ -187,13 +200,33 @@ impl ConfigMap {
                 config.password = Some(pass);
             }
             if let Some(pass_command) = &config.password_command {
-                if config.password.is_some() {
+                if config.password.is_some()
+                    || config.password_keyring.is_enabled()
+                {
                     return Err(Error::DuplicatePassword);
                 }
                 config.password = Some(read_from_command(pass_command).await?);
             }
+            if let Some(key) = config.password_keyring.key_or_default(|| {
+                config::keyring::server_password_key(&server)
+            }) {
+                if config.password.is_some() {
+                    return Err(Error::DuplicatePassword);
+                }
+
+                let password = config::keyring::get_password(&key)
+                    .await?
+                    .ok_or_else(|| Error::MissingKeyringPasswordEntry {
+                        label: "Server password".to_string(),
+                        context: format!("server `{server}`"),
+                        key: key.clone(),
+                    })?;
+
+                config.password = Some(password);
+            }
             if let Some(nick_pass_file) = &config.nick_password_file {
                 if config.nick_password.is_some()
+                    || config.nick_password_keyring.is_enabled()
                     || config.nick_password_command.is_some()
                 {
                     return Err(Error::DuplicateNickPassword);
@@ -214,21 +247,78 @@ impl ConfigMap {
                 config.nick_password = Some(nick_pass);
             }
             if let Some(nick_pass_command) = &config.nick_password_command {
-                if config.nick_password.is_some() {
+                if config.nick_password.is_some()
+                    || config.nick_password_keyring.is_enabled()
+                {
                     return Err(Error::DuplicateNickPassword);
                 }
                 config.nick_password =
                     Some(read_from_command(nick_pass_command).await?);
             }
+            if let Some(key) = config
+                .nick_password_keyring
+                .key_or_default(|| config::keyring::nick_password_key(&server))
+            {
+                if config.nick_password.is_some() {
+                    return Err(Error::DuplicateNickPassword);
+                }
+
+                let password = config::keyring::get_password(&key)
+                    .await?
+                    .ok_or_else(|| Error::MissingKeyringPasswordEntry {
+                        label: "NickServ password".to_string(),
+                        context: format!("server `{server}`"),
+                        key: key.clone(),
+                    })?;
+
+                config.nick_password = Some(password);
+            }
+            for (channel, password_keyring) in
+                config.channel_keys_keyring.clone()
+            {
+                let Some(key) = password_keyring.key_or_default(|| {
+                    config::keyring::channel_key(&server, &channel)
+                }) else {
+                    continue;
+                };
+
+                if config.channel_keys.contains_key(&channel) {
+                    return Err(Error::DuplicateChannelKey {
+                        server: server.to_string(),
+                        channel,
+                    });
+                }
+
+                let password = config::keyring::get_password(&key)
+                    .await?
+                    .ok_or_else(|| Error::MissingKeyringPasswordEntry {
+                        label: format!("Channel key {channel}"),
+                        context: format!("server `{server}`"),
+                        key: key.clone(),
+                    })?;
+
+                config.channel_keys.insert(channel, password);
+            }
             if let Some(sasl) = &mut config.sasl {
                 sasl.check_permissions(&server);
-                sasl.set_password().await?;
+                sasl.set_password(
+                    &server,
+                    config::keyring::sasl_plain_password_key,
+                    "SASL password",
+                )
+                .await?;
             }
             if let filehost::Credentials::Sasl(credentials) =
                 &mut config.filehost.credentials
             {
                 credentials.check_permissions(&server);
-                credentials.set_password().await?;
+                credentials
+                    .set_password(
+                        &server,
+                        config::keyring::filehost_credentials_plain_password_key,
+                        "Filehost credentials password",
+                    )
+                    .await?;
             }
 
             config.order_channels_by =
@@ -369,5 +459,72 @@ impl Map {
         F: FnMut(&Server, &mut Arc<config::Server>) -> bool,
     {
         self.0.extract_if(0.., pred)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
+    use super::*;
+
+    fn server_config() -> config::Server {
+        config::Server {
+            server: "irc.example.com".to_string(),
+            ..Default::default()
+        }
+    }
+
+    fn load_server(config: config::Server) -> Result<ConfigMap, Error> {
+        futures::executor::block_on(ConfigMap::new(
+            vec![(Arc::<str>::from("libera"), config)],
+            OrderChannelsBy::Name,
+            Typing::default(),
+        ))
+    }
+
+    #[test]
+    fn password_and_keyring_are_duplicate() {
+        let mut config = server_config();
+        config.password = Some("password".to_string());
+        config.password_keyring = config::keyring::Password::Enabled;
+
+        assert!(matches!(load_server(config), Err(Error::DuplicatePassword)));
+    }
+
+    #[test]
+    fn password_file_and_keyring_are_duplicate() {
+        let mut config = server_config();
+        config.password_file = Some(PathBuf::from("unused"));
+        config.password_keyring = config::keyring::Password::Enabled;
+
+        assert!(matches!(load_server(config), Err(Error::DuplicatePassword)));
+    }
+
+    #[test]
+    fn password_command_and_keyring_are_duplicate() {
+        let mut config = server_config();
+        config.password_command = Some("unused".to_string());
+        config.password_keyring = config::keyring::Password::Enabled;
+
+        assert!(matches!(load_server(config), Err(Error::DuplicatePassword)));
+    }
+
+    #[test]
+    fn channel_key_and_keyring_are_duplicate_for_same_channel() {
+        let mut config = server_config();
+        config
+            .channel_keys
+            .insert("#halloy".to_string(), "password".to_string());
+        config
+            .channel_keys_keyring
+            .insert("#halloy".to_string(), config::keyring::Password::Enabled);
+
+        assert!(matches!(
+            load_server(config),
+            Err(Error::DuplicateChannelKey { server, channel })
+                if server == "libera" && channel == "#halloy"
+        ));
     }
 }

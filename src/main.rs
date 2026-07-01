@@ -221,12 +221,32 @@ struct Halloy {
 }
 
 impl Halloy {
+    fn modal_for_config_error(
+        config_load: &Result<Config, config::Error>,
+    ) -> Option<Modal> {
+        match config_load {
+            Err(config::Error::MissingKeyringPasswordEntry {
+                label,
+                context,
+                key,
+            }) => Some(Modal::KeyringPassword(
+                modal::keyring_password::KeyringPassword::new(
+                    label.clone(),
+                    context.clone(),
+                    key.clone(),
+                ),
+            )),
+            _ => None,
+        }
+    }
+
     pub fn load_from_state(
         main_window: window::Id,
         config_load: Result<Config, config::Error>,
         current_mode: appearance::Mode,
     ) -> (Halloy, Task<Message>) {
         let main_window = Window::new(main_window);
+        let modal = Self::modal_for_config_error(&config_load);
         let load_dashboard = |config: &Config| match data::Dashboard::load() {
             Ok(dashboard) => {
                 if config.pane.restore_on_launch {
@@ -291,7 +311,7 @@ impl Halloy {
                 servers,
                 controllers: stream::Map::default(),
                 config,
-                modal: None,
+                modal,
                 main_window,
                 focused_window: None,
                 pending_logs: vec![],
@@ -1082,6 +1102,26 @@ impl Halloy {
                                 ]);
                             }
                         }
+                        modal::Event::KeyringPasswordStored => {
+                            self.modal = None;
+
+                            let reload = if matches!(
+                                self.screen,
+                                Screen::Dashboard(_)
+                            ) {
+                                Task::perform(
+                                    Config::load(),
+                                    Message::ConfigReloaded,
+                                )
+                            } else {
+                                Task::perform(
+                                    Config::load(),
+                                    Message::ScreenConfigReloaded,
+                                )
+                            };
+
+                            return command.map(Message::Modal).chain(reload);
+                        }
                         modal::Event::AcceptNewServer => {
                             if let Some(Modal::ServerConnect {
                                 server,
@@ -1412,8 +1452,8 @@ impl Halloy {
 
             // Modals might have a id representing which window to be presented on.
             // If modal has no id, we show them on main_window.
-            match (&self.modal, &self.screen) {
-                (Some(modal), Screen::Dashboard(_))
+            match &self.modal {
+                Some(modal)
                     if modal.window_id() == Some(self.main_window.id)
                         || modal.window_id().is_none() =>
                 {
@@ -1618,7 +1658,18 @@ impl Halloy {
                 return runtime_task.unwrap_or_else(Task::none);
             }
             Err(error) => {
-                self.modal = Some(Modal::ReloadConfigurationError(error));
+                self.modal = match error {
+                    config::Error::MissingKeyringPasswordEntry {
+                        label,
+                        context,
+                        key,
+                    } => Some(Modal::KeyringPassword(
+                        modal::keyring_password::KeyringPassword::new(
+                            label, context, key,
+                        ),
+                    )),
+                    error => Some(Modal::ReloadConfigurationError(error)),
+                };
             }
         }
 

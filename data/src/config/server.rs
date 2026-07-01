@@ -42,6 +42,8 @@ pub struct Server {
     pub nickname: String,
     /// The client's NICKSERV password.
     pub nick_password: Option<String>,
+    /// The client's NICKSERV password keyring entry.
+    pub nick_password_keyring: config::keyring::Password,
     /// The client's NICKSERV password file.
     #[serde(
         deserialize_with = "deserialize_path_buf_with_path_transformations_maybe"
@@ -65,6 +67,8 @@ pub struct Server {
     pub port: Option<NonZeroU16>,
     /// The password to connect to the server.
     pub password: Option<String>,
+    /// The password keyring entry to connect to the server.
+    pub password_keyring: config::keyring::Password,
     /// The file with the password to connect to the server.
     #[serde(
         deserialize_with = "deserialize_path_buf_with_path_transformations_maybe"
@@ -82,6 +86,8 @@ pub struct Server {
     pub channels: Vec<String>,
     /// A mapping of channel names to keys for join-on-connect.
     pub channel_keys: HashMap<String, String>,
+    /// A mapping of channel names to keyring entries for join-on-connect.
+    pub channel_keys_keyring: HashMap<String, config::keyring::Password>,
     /// Order server's channels
     pub order_channels_by: Option<OrderChannelsBy>,
     /// A list of queries to add to the sidebar on connection.
@@ -211,12 +217,14 @@ impl Server {
     pub fn bouncer_config(&self) -> Self {
         Self {
             // nickserv info not relevant to the bounced network
+            nick_password_keyring: config::keyring::Password::default(),
             nick_password_file: Option::default(),
             nick_password_command: Option::default(),
             nick_identify_syntax: Option::default(),
 
             // channel_keys not relevant
             channel_keys: HashMap::default(),
+            channel_keys_keyring: HashMap::default(),
 
             // ghost sequence not relevant
             should_ghost: Default::default(),
@@ -232,6 +240,7 @@ impl Default for Server {
         Self {
             nickname: String::default(),
             nick_password: Option::default(),
+            nick_password_keyring: config::keyring::Password::default(),
             nick_password_file: Option::default(),
             nick_password_file_first_line_only: true,
             nick_password_command: Option::default(),
@@ -242,6 +251,7 @@ impl Default for Server {
             server: String::default(),
             port: None,
             password: Option::default(),
+            password_keyring: config::keyring::Password::default(),
             password_file: Option::default(),
             password_file_first_line_only: true,
             password_command: Option::default(),
@@ -249,6 +259,7 @@ impl Default for Server {
             reroute: Reroute::default(),
             channels: Vec::default(),
             channel_keys: HashMap::default(),
+            channel_keys_keyring: HashMap::default(),
             order_channels_by: None,
             queries: Vec::default(),
             ping_time: 180,
@@ -297,6 +308,9 @@ pub enum Sasl {
         username: Option<String>,
         /// Account password,
         password: Option<String>,
+        /// Account password keyring entry
+        #[serde(default)]
+        password_keyring: config::keyring::Password,
         /// Account password file
         #[serde(
             default,
@@ -357,16 +371,52 @@ impl Sasl {
         }
     }
 
-    pub async fn set_password(&mut self) -> Result<(), config::Error> {
+    pub async fn set_password(
+        &mut self,
+        server: &str,
+        default_key: fn(&str) -> String,
+        label: &'static str,
+    ) -> Result<(), config::Error> {
+        let context = format!("server `{server}`");
+
         match self {
             Sasl::Plain {
                 password: Some(_),
+                password_keyring: config::keyring::Password::Disabled,
                 password_file: None,
                 password_command: None,
                 ..
             } => {}
             Sasl::Plain {
                 password: password @ None,
+                password_keyring,
+                password_file: None,
+                password_command: None,
+                ..
+            } => {
+                let Some(key) =
+                    password_keyring.key_or_default(|| default_key(server))
+                else {
+                    return Err(config::Error::MissingSaslPassword {
+                        label: label.to_string(),
+                        context,
+                    });
+                };
+
+                let pass =
+                    config::keyring::get_password(&key).await?.ok_or_else(
+                        || config::Error::MissingKeyringPasswordEntry {
+                            label: label.to_string(),
+                            context: context.clone(),
+                            key: key.clone(),
+                        },
+                    )?;
+
+                *password = Some(pass);
+            }
+            Sasl::Plain {
+                password: password @ None,
+                password_keyring: config::keyring::Password::Disabled,
                 password_file: Some(pass_file),
                 password_file_first_line_only,
                 password_command: None,
@@ -388,6 +438,7 @@ impl Sasl {
             }
             Sasl::Plain {
                 password: password @ None,
+                password_keyring: config::keyring::Password::Disabled,
                 password_file: None,
                 password_command: Some(pass_command),
                 ..
@@ -397,7 +448,10 @@ impl Sasl {
                 *password = Some(pass);
             }
             Sasl::Plain { .. } => {
-                return Err(config::Error::DuplicateSaslPassword);
+                return Err(config::Error::DuplicateSaslPassword {
+                    label: label.to_string(),
+                    context,
+                });
             }
             Sasl::External { .. } => {}
         }
@@ -639,5 +693,110 @@ pub async fn read_from_command(
         Err(config::Error::ExecutePasswordCommand(String::from_utf8(
             output.stderr,
         )?))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::*;
+
+    fn plain_sasl(
+        password: Option<&str>,
+        password_keyring: config::keyring::Password,
+        password_file: Option<PathBuf>,
+        password_command: Option<&str>,
+    ) -> Sasl {
+        Sasl::Plain {
+            username: Some("user".to_string()),
+            password: password.map(str::to_string),
+            password_keyring,
+            password_file,
+            password_file_first_line_only: None,
+            password_command: password_command.map(str::to_string),
+            disconnect_on_failure: None,
+        }
+    }
+
+    fn assert_duplicate_sasl_password(mut sasl: Sasl) {
+        let result = futures::executor::block_on(sasl.set_password(
+            "libera",
+            config::keyring::sasl_plain_password_key,
+            "SASL password",
+        ));
+
+        assert!(matches!(
+            result,
+            Err(config::Error::DuplicateSaslPassword { label, context })
+                if label == "SASL password" && context == "server `libera`"
+        ));
+    }
+
+    #[test]
+    fn sasl_plain_password_and_keyring_are_duplicate() {
+        assert_duplicate_sasl_password(plain_sasl(
+            Some("password"),
+            config::keyring::Password::Enabled,
+            None,
+            None,
+        ));
+    }
+
+    #[test]
+    fn sasl_plain_password_file_and_keyring_are_duplicate() {
+        assert_duplicate_sasl_password(plain_sasl(
+            None,
+            config::keyring::Password::Enabled,
+            Some(PathBuf::from("unused")),
+            None,
+        ));
+    }
+
+    #[test]
+    fn sasl_plain_password_command_and_keyring_are_duplicate() {
+        assert_duplicate_sasl_password(plain_sasl(
+            None,
+            config::keyring::Password::Enabled,
+            None,
+            Some("unused"),
+        ));
+    }
+
+    #[test]
+    fn sasl_plain_without_password_source_is_missing() {
+        let mut sasl =
+            plain_sasl(None, config::keyring::Password::Disabled, None, None);
+
+        let result = futures::executor::block_on(sasl.set_password(
+            "libera",
+            config::keyring::sasl_plain_password_key,
+            "SASL password",
+        ));
+
+        assert!(matches!(
+            result,
+            Err(config::Error::MissingSaslPassword { label, context })
+                if label == "SASL password" && context == "server `libera`"
+        ));
+    }
+
+    #[test]
+    fn filehost_plain_without_password_source_is_missing() {
+        let mut sasl =
+            plain_sasl(None, config::keyring::Password::Disabled, None, None);
+
+        let result = futures::executor::block_on(sasl.set_password(
+            "libera",
+            config::keyring::filehost_credentials_plain_password_key,
+            "Filehost credentials password",
+        ));
+
+        assert!(matches!(
+            result,
+            Err(config::Error::MissingSaslPassword { label, context })
+                if label == "Filehost credentials password"
+                    && context == "server `libera`"
+        ));
     }
 }
