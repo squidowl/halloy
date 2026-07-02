@@ -30,11 +30,13 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use self::completion::Completion;
 use self::exec::run as execute_shell_command;
+use crate::widget::editor_history::History;
 use crate::widget::key_press::is_numpad;
 use crate::widget::user_display::UserDisplay;
 use crate::widget::{
     Element, Renderer, Text, anchored_overlay, context_menu, decorate,
-    double_pass, reply_preview_content, text, tooltip,
+    double_pass, reply_preview_content, text, text_editor_key_bindings,
+    tooltip,
 };
 use crate::window::Window;
 use crate::{Theme, font, theme, window};
@@ -75,6 +77,8 @@ pub enum Event {
 #[derive(Debug, Clone)]
 pub enum Message {
     Action(text_editor::Action),
+    Undo,
+    Redo,
     CloseContextMenu(window::Id, bool),
     ExecFinished {
         buffer: Upstream,
@@ -82,10 +86,7 @@ pub enum Message {
     },
     SysInfoReceived(iced::system::Information),
     Send,
-    DeleteWordForward(bool),
-    DeleteWordBackward(bool),
-    DeleteToEnd(bool),
-    DeleteToStart(bool),
+    Kill(text_editor_key_bindings::Kill, bool),
     SelectCompletion(usize),
     Tab(bool),
     Up(bool),
@@ -149,113 +150,10 @@ enum Notice {
     Warning(String),
 }
 
-fn emacs_key_binding(
-    key_press: text_editor::KeyPress,
-) -> Option<text_editor::Binding<Message>> {
-    match key_press.key.as_ref() {
-        iced::keyboard::Key::Character("e")
-            if key_press.modifiers.control() =>
-        {
-            Some(text_editor::Binding::Custom(Message::Action(
-                if key_press.modifiers.shift() {
-                    text_editor::Action::Select(text_editor::Motion::End)
-                } else {
-                    text_editor::Action::Move(text_editor::Motion::End)
-                },
-            )))
-        }
-        iced::keyboard::Key::Character("a")
-            if key_press.modifiers.control() =>
-        {
-            if key_press.modifiers.shift() {
-                Some(text_editor::Binding::Custom(Message::Action(
-                    text_editor::Action::Select(text_editor::Motion::Home),
-                )))
-            } else {
-                Some(text_editor::Binding::Custom(Message::Action(
-                    text_editor::Action::Move(text_editor::Motion::Home),
-                )))
-            }
-        }
-        iced::keyboard::Key::Character("b") if key_press.modifiers.alt() => {
-            if key_press.modifiers.shift() {
-                Some(text_editor::Binding::Custom(Message::Action(
-                    text_editor::Action::Select(text_editor::Motion::WordLeft),
-                )))
-            } else {
-                Some(text_editor::Binding::Custom(Message::Action(
-                    text_editor::Action::Move(text_editor::Motion::WordLeft),
-                )))
-            }
-        }
-        iced::keyboard::Key::Character("b")
-            if key_press.modifiers.control() =>
-        {
-            if key_press.modifiers.shift() {
-                Some(text_editor::Binding::Custom(Message::Action(
-                    text_editor::Action::Select(text_editor::Motion::Left),
-                )))
-            } else {
-                Some(text_editor::Binding::Custom(Message::Action(
-                    text_editor::Action::Move(text_editor::Motion::Left),
-                )))
-            }
-        }
-        iced::keyboard::Key::Character("f") if key_press.modifiers.alt() => {
-            if key_press.modifiers.shift() {
-                Some(text_editor::Binding::Custom(Message::Action(
-                    text_editor::Action::Select(text_editor::Motion::WordRight),
-                )))
-            } else {
-                Some(text_editor::Binding::Custom(Message::Action(
-                    text_editor::Action::Move(text_editor::Motion::WordRight),
-                )))
-            }
-        }
-        iced::keyboard::Key::Character("f")
-            if key_press.modifiers.control() =>
-        {
-            if key_press.modifiers.shift() {
-                Some(text_editor::Binding::Custom(Message::Action(
-                    text_editor::Action::Select(text_editor::Motion::Right),
-                )))
-            } else {
-                Some(text_editor::Binding::Custom(Message::Action(
-                    text_editor::Action::Move(text_editor::Motion::Right),
-                )))
-            }
-        }
-        iced::keyboard::Key::Character("d")
-            if key_press.modifiers.control() =>
-        {
-            Some(text_editor::Binding::Custom(Message::Action(
-                text_editor::Action::Edit(text_editor::Edit::Delete),
-            )))
-        }
-        iced::keyboard::Key::Character("d") if key_press.modifiers.alt() => {
-            Some(text_editor::Binding::Custom(Message::DeleteWordForward(
-                true,
-            )))
-        }
-        iced::keyboard::Key::Character("k")
-            if key_press.modifiers.control() =>
-        {
-            Some(text_editor::Binding::Custom(Message::DeleteToEnd(true)))
-        }
-        iced::keyboard::Key::Character("u")
-            if key_press.modifiers.control() =>
-        {
-            Some(text_editor::Binding::Custom(Message::DeleteToStart(true)))
-        }
-        iced::keyboard::Key::Character("w")
-            if key_press.modifiers.control() =>
-        {
-            Some(text_editor::Binding::Custom(Message::DeleteWordBackward(
-                true,
-            )))
-        }
-        _ => None,
-    }
+fn kill_binding(
+    kill: text_editor_key_bindings::Kill,
+) -> text_editor::Binding<Message> {
+    text_editor::Binding::Custom(Message::Kill(kill, true))
 }
 
 #[cfg(target_os = "macos")]
@@ -267,26 +165,34 @@ fn platform_specific_key_bindings(
         iced::keyboard::Key::Named(iced::keyboard::key::Named::Backspace)
             if key_press.modifiers.alt() && selection.is_none() =>
         {
-            Some(text_editor::Binding::Custom(Message::DeleteWordBackward(
+            Some(text_editor::Binding::Custom(Message::Kill(
+                text_editor_key_bindings::Kill::WordBackward,
                 false,
             )))
         }
         iced::keyboard::Key::Named(iced::keyboard::key::Named::Backspace)
             if key_press.modifiers.logo() && selection.is_none() =>
         {
-            Some(text_editor::Binding::Custom(Message::DeleteToStart(false)))
+            Some(text_editor::Binding::Custom(Message::Kill(
+                text_editor_key_bindings::Kill::ToStart,
+                false,
+            )))
         }
         iced::keyboard::Key::Named(iced::keyboard::key::Named::Delete)
             if key_press.modifiers.alt() =>
         {
-            Some(text_editor::Binding::Custom(Message::DeleteWordForward(
+            Some(text_editor::Binding::Custom(Message::Kill(
+                text_editor_key_bindings::Kill::WordForward,
                 false,
             )))
         }
         iced::keyboard::Key::Named(iced::keyboard::key::Named::Delete)
             if key_press.modifiers.logo() =>
         {
-            Some(text_editor::Binding::Custom(Message::DeleteToEnd(false)))
+            Some(text_editor::Binding::Custom(Message::Kill(
+                text_editor_key_bindings::Kill::ToEnd,
+                false,
+            )))
         }
         // cmd+v routes to Message::Paste normally, which means we lose our control flow. overwrite it with our own handler
         iced::keyboard::Key::Character("v") if key_press.modifiers.logo() => {
@@ -306,11 +212,13 @@ fn platform_specific_key_bindings(
             if key_press.modifiers.control() && selection.is_none() =>
         {
             if key_press.modifiers.shift() {
-                Some(text_editor::Binding::Custom(Message::DeleteToStart(
+                Some(text_editor::Binding::Custom(Message::Kill(
+                    text_editor_key_bindings::Kill::ToStart,
                     false,
                 )))
             } else {
-                Some(text_editor::Binding::Custom(Message::DeleteWordBackward(
+                Some(text_editor::Binding::Custom(Message::Kill(
+                    text_editor_key_bindings::Kill::WordBackward,
                     false,
                 )))
             }
@@ -319,9 +227,13 @@ fn platform_specific_key_bindings(
             if key_press.modifiers.control() =>
         {
             if key_press.modifiers.shift() {
-                Some(text_editor::Binding::Custom(Message::DeleteToEnd(false)))
+                Some(text_editor::Binding::Custom(Message::Kill(
+                    text_editor_key_bindings::Kill::ToEnd,
+                    false,
+                )))
             } else {
-                Some(text_editor::Binding::Custom(Message::DeleteWordForward(
+                Some(text_editor::Binding::Custom(Message::Kill(
+                    text_editor_key_bindings::Kill::WordForward,
                     false,
                 )))
             }
@@ -363,8 +275,6 @@ pub fn view<'a>(
         theme::text_editor::primary
     };
 
-    let key_bindings = config.buffer.text_input.key_bindings.clone();
-
     let text_input = text_editor(&state.input_content)
         .id(state.input_id.clone())
         .placeholder("Send message...")
@@ -383,8 +293,11 @@ pub fn view<'a>(
             }
 
             // Try emacs bindings first if enabled
-            if matches!(key_bindings, KeyBindings::Emacs)
-                && let Some(binding) = emacs_key_binding(key_press.clone())
+            if matches!(
+                config.buffer.text_input.key_bindings,
+                KeyBindings::Emacs
+            ) && let Some(binding) =
+                text_editor_key_bindings::emacs(&key_press, kill_binding)
             {
                 return Some(binding);
             }
@@ -395,6 +308,30 @@ pub fn view<'a>(
                 state.input_content.selection().as_deref(),
             ) {
                 return Some(binding);
+            }
+
+            // Undo / redo
+            if key_press.modifiers.command() {
+                match key_press.key.as_ref() {
+                    iced::keyboard::Key::Character("z")
+                        if key_press.modifiers.shift() =>
+                    {
+                        return Some(text_editor::Binding::Custom(
+                            Message::Redo,
+                        ));
+                    }
+                    iced::keyboard::Key::Character("z") => {
+                        return Some(text_editor::Binding::Custom(
+                            Message::Undo,
+                        ));
+                    }
+                    iced::keyboard::Key::Character("y") => {
+                        return Some(text_editor::Binding::Custom(
+                            Message::Redo,
+                        ));
+                    }
+                    _ => {}
+                }
             }
 
             // Handling for numpad keys: treat a numpad enter the same as
@@ -836,6 +773,7 @@ pub struct State {
     upload_abort_handles: Vec<futures::future::AbortHandle>,
     draft_reply: Option<input::DraftReply>,
     reply_preview: Option<message::ReplyPreview>,
+    history: History,
 }
 
 impl Default for State {
@@ -855,6 +793,7 @@ impl Default for State {
             upload_abort_handles: Vec::new(),
             draft_reply: None,
             reply_preview: None,
+            history: History::new(),
         }
     }
 }
@@ -1133,6 +1072,7 @@ impl State {
                         self.input_content.text().clone(),
                     );
                     self.input_content = text_editor::Content::new();
+                    self.history.clear();
                     self.reset_typing();
 
                     let lines = self
@@ -1357,6 +1297,7 @@ impl State {
             Message::Cut => {
                 let task =
                     if let Some(selection) = self.input_content.selection() {
+                        self.history.checkpoint(&self.input_content);
                         self.input_content.perform(text_editor::Action::Edit(
                             text_editor::Edit::Delete,
                         ));
@@ -1552,6 +1493,7 @@ impl State {
                 let ghost = upload_ghost(id);
 
                 replace_ghost_with_url(&mut self.input_content, ghost, url);
+                self.history.clear();
 
                 history.record_draft(RawInput {
                     buffer: buffer.clone(),
@@ -1561,109 +1503,34 @@ impl State {
 
                 (Task::none(), None)
             }
-            Message::DeleteWordBackward(save_to_clipboard) => {
-                self.input_content.perform(text_editor::Action::Select(
-                    text_editor::Motion::WordLeft,
-                ));
-
-                let task = if save_to_clipboard
-                    && config.buffer.text_input.kill_to_clipboard
-                {
-                    self.input_content.selection().map_or_else(
-                        Task::none,
-                        |selection| {
-                            let text = selection.to_string();
-
-                            clipboard::write(text)
-                        },
-                    )
-                } else {
-                    Task::none()
-                };
-
-                self.input_content.perform(text_editor::Action::Edit(
-                    text_editor::Edit::Delete,
-                ));
+            Message::Kill(kill, save_to_clipboard) => {
+                let task = text_editor_key_bindings::perform_kill(
+                    &mut self.input_content,
+                    &mut self.history,
+                    kill,
+                    save_to_clipboard,
+                    config.buffer.text_input.kill_to_clipboard,
+                );
 
                 (task, None)
             }
-            Message::DeleteWordForward(save_to_clipboard) => {
-                self.input_content.perform(text_editor::Action::Select(
-                    text_editor::Motion::WordRight,
-                ));
+            Message::Undo => {
+                if self.history.undo(&mut self.input_content) {
+                    self.on_history_change(buffer, history);
+                }
 
-                let task = if save_to_clipboard
-                    && config.buffer.text_input.kill_to_clipboard
-                {
-                    self.input_content.selection().map_or_else(
-                        Task::none,
-                        |selection| {
-                            let text = selection.to_string();
-
-                            clipboard::write(text)
-                        },
-                    )
-                } else {
-                    Task::none()
-                };
-
-                self.input_content.perform(text_editor::Action::Edit(
-                    text_editor::Edit::Delete,
-                ));
-
-                (task, None)
+                (Task::none(), None)
             }
-            Message::DeleteToEnd(save_to_clipboard) => {
-                self.input_content.perform(text_editor::Action::Select(
-                    text_editor::Motion::End,
-                ));
+            Message::Redo => {
+                if self.history.redo(&mut self.input_content) {
+                    self.on_history_change(buffer, history);
+                }
 
-                let task = if save_to_clipboard
-                    && config.buffer.text_input.kill_to_clipboard
-                {
-                    self.input_content.selection().map_or_else(
-                        Task::none,
-                        |selection| {
-                            let text = selection.to_string();
-                            clipboard::write(text)
-                        },
-                    )
-                } else {
-                    Task::none()
-                };
-
-                self.input_content.perform(text_editor::Action::Edit(
-                    text_editor::Edit::Delete,
-                ));
-
-                (task, None)
-            }
-            Message::DeleteToStart(save_to_clipboard) => {
-                self.input_content.perform(text_editor::Action::Select(
-                    text_editor::Motion::Home,
-                ));
-
-                let task = if save_to_clipboard
-                    && config.buffer.text_input.kill_to_clipboard
-                {
-                    self.input_content.selection().map_or_else(
-                        Task::none,
-                        |selection| {
-                            let text = selection.to_string();
-                            clipboard::write(text)
-                        },
-                    )
-                } else {
-                    Task::none()
-                };
-
-                self.input_content.perform(text_editor::Action::Edit(
-                    text_editor::Edit::Delete,
-                ));
-
-                (task, None)
+                (Task::none(), None)
             }
             Message::Action(action) => {
+                self.history.track(&self.input_content, &action);
+
                 if let text_editor::Action::Edit(text_editor::Edit::Paste(
                     clipboard,
                 )) = &action
@@ -1859,6 +1726,9 @@ impl State {
     }
 
     fn insert_upload_ghost(&mut self, id: u32) {
+        // TODO (casper): Can we do better here? What does other programs do?
+        self.history.clear();
+
         let ghost = upload_ghost(id);
         let content = self.input_content.text();
         let cursor_char = line_col_to_char(
@@ -2717,6 +2587,22 @@ impl State {
         }
     }
 
+    fn on_history_change(
+        &mut self,
+        buffer: &buffer::Upstream,
+        history: &mut history::Manager,
+    ) {
+        self.completion.reset();
+        self.notice = None;
+        self.selected_history = None;
+
+        history.record_draft(RawInput {
+            buffer: buffer.clone(),
+            text: self.input_content.text(),
+            reply: self.draft_reply.clone(),
+        });
+    }
+
     fn on_completion(
         &mut self,
         buffer: &buffer::Upstream,
@@ -2724,6 +2610,10 @@ impl State {
         actions: Vec<text_editor::Action>,
         record_draft: bool,
     ) -> (Task<Message>, Option<Event>) {
+        if !actions.is_empty() {
+            self.history.checkpoint(&self.input_content);
+        }
+
         for action in actions.into_iter() {
             self.input_content.perform(action);
         }
@@ -2758,6 +2648,7 @@ impl State {
 
         // update the input content
         self.input_content = text_editor::Content::with_text(text);
+        self.history.clear();
         // move the cursor to the end of the input
         self.input_content.perform(text_editor::Action::Move(
             text_editor::Motion::DocumentEnd,

@@ -92,6 +92,7 @@ iced = { workspace = true, features = [
     "x11",
     "crisp",
     "web-colors",
+    "highlighter",
 ] }
 percent-encoding = { workspace = true }
 

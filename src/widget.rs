@@ -32,6 +32,7 @@ pub mod context_menu;
 pub mod decorate;
 pub mod double_click;
 pub mod double_pass;
+pub mod editor_history;
 pub mod font_style_pick_list;
 pub mod key_press;
 pub mod message_content;
@@ -46,6 +47,7 @@ pub mod selectable_rich_text;
 pub mod selectable_text;
 pub mod shortcut;
 pub mod text_color_svg;
+pub mod text_editor_key_bindings;
 pub mod tooltip;
 pub mod user_display;
 

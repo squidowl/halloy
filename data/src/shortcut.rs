@@ -108,6 +108,8 @@ pub enum Command {
     CycleNextUnreadBuffer,
     CyclePreviousUnreadBuffer,
     MarkAsRead,
+    ConfigEditorSave,
+    OpenConfigEditor,
     OpenConfigFile,
 }
 
@@ -351,14 +353,16 @@ impl KeyBind {
     default!(cycle_previous_unread_buffer, "`", CTRL | SHIFT);
     // Command + m is minimize in macOS
     default!(mark_as_read, "m", COMMAND | SHIFT);
+    default!(config_editor_save, "s", COMMAND);
     #[cfg(target_os = "linux")]
     default!(quit_application, "q", CTRL);
     #[cfg(not(target_os = "linux"))]
     default!(quit_application);
     #[cfg(target_os = "macos")]
-    default!(open_config_file, ",", COMMAND);
+    default!(open_config_editor, ",", COMMAND);
     #[cfg(not(target_os = "macos"))]
-    default!(open_config_file, ",", CTRL);
+    default!(open_config_editor, ",", CTRL);
+    default!(open_config_file);
 }
 
 impl From<(keyboard::Key, keyboard::Modifiers)> for KeyBind {

@@ -163,6 +163,10 @@ impl Pane {
                 .wrapping(Wrapping::None)
                 .ellipsis(text::Ellipsis::End)
                 .into(),
+            Buffer::ConfigEditor(_) => text("Config Editor")
+                .wrapping(Wrapping::None)
+                .ellipsis(text::Ellipsis::End)
+                .into(),
         };
 
         let title_bar = self.title_bar.view(
@@ -256,7 +260,9 @@ impl Pane {
             }),
             Buffer::Logs(_) => Some(history::Resource::logs()),
             Buffer::Highlights(_) => Some(history::Resource::highlights()),
-            Buffer::ChannelDiscovery(_) | Buffer::FileTransfers(_) => None,
+            Buffer::ChannelDiscovery(_)
+            | Buffer::FileTransfers(_)
+            | Buffer::ConfigEditor(_) => None,
         }
     }
 
@@ -271,7 +277,8 @@ impl Pane {
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
-            | Buffer::ChannelDiscovery(_) => vec![],
+            | Buffer::ChannelDiscovery(_)
+            | Buffer::ConfigEditor(_) => vec![],
         }
     }
 }
@@ -282,7 +289,7 @@ impl TitleBar {
         buffer: &Buffer,
         history: &'a history::Manager,
         title: Element<'a, Message>,
-        _id: pane_grid::Pane,
+        id: pane_grid::Pane,
         panes: usize,
         _is_focused: bool,
         maximized: bool,
@@ -309,6 +316,88 @@ impl TitleBar {
 
         // Pane controls.
         let controls = row![
+            if let Buffer::ConfigEditor(state) = &buffer {
+                let is_dirty = state.has_unsaved_changes();
+
+                let save_button = button(center(icon::checkmark()))
+                    .padding(5)
+                    .width(22)
+                    .height(22)
+                    .on_press_maybe(is_dirty.then_some(Message::Buffer(
+                        id,
+                        buffer::Message::ConfigEditor(
+                            buffer::config_editor::Message::Save,
+                        ),
+                    )))
+                    .style(move |theme, status| {
+                        theme::button::secondary(theme, status, is_dirty)
+                    });
+
+                let save_button_with_tooltip = tooltip(
+                    save_button,
+                    show_tooltips.then(|| {
+                        save_config_tooltip(
+                            is_dirty,
+                            &config.keyboard.config_editor_save,
+                        )
+                    }),
+                    tooltip::Position::Bottom,
+                    theme,
+                );
+                Some(save_button_with_tooltip)
+            } else {
+                None
+            },
+            if matches!(buffer, Buffer::ConfigEditor(_)) {
+                let reload_button = button(center(icon::refresh()))
+                    .padding(5)
+                    .width(22)
+                    .height(22)
+                    .on_press(Message::Buffer(
+                        id,
+                        buffer::Message::ConfigEditor(
+                            buffer::config_editor::Message::Refresh,
+                        ),
+                    ))
+                    .style(|theme, status| {
+                        theme::button::secondary(theme, status, false)
+                    });
+
+                let reload_button_with_tooltip = tooltip(
+                    reload_button,
+                    show_tooltips.then_some("Reload file from disk"),
+                    tooltip::Position::Bottom,
+                    theme,
+                );
+                Some(reload_button_with_tooltip)
+            } else {
+                None
+            },
+            if matches!(buffer, Buffer::ConfigEditor(_)) {
+                let open_directory_button = button(center(icon::open()))
+                    .padding(5)
+                    .width(22)
+                    .height(22)
+                    .on_press(Message::Buffer(
+                        id,
+                        buffer::Message::ConfigEditor(
+                            buffer::config_editor::Message::OpenDirectory,
+                        ),
+                    ))
+                    .style(|theme, status| {
+                        theme::button::secondary(theme, status, false)
+                    });
+
+                let open_directory_button_with_tooltip = tooltip(
+                    open_directory_button,
+                    show_tooltips.then_some("Open config directory"),
+                    tooltip::Position::Bottom,
+                    theme,
+                );
+                Some(open_directory_button_with_tooltip)
+            } else {
+                None
+            },
             if maybe_buffer_kind.is_some() {
                 let mark_as_read_button = button(center(icon::mark_as_read()))
                     .padding(5)
@@ -565,6 +654,22 @@ impl TitleBar {
     }
 }
 
+fn save_config_tooltip(
+    is_dirty: bool,
+    keybinds: &data::shortcut::KeyBinds,
+) -> String {
+    if !is_dirty {
+        return "No unsaved changes".to_string();
+    }
+
+    match keybinds.primary() {
+        Some(keybind @ data::shortcut::KeyBind::Bind { .. }) => {
+            format!("Save and reload config ({keybind})")
+        }
+        _ => "Save and reload config".to_string(),
+    }
+}
+
 fn query_title<'a>(
     server: &'a data::Server,
     query: &'a data::target::Query,
@@ -703,6 +808,9 @@ impl From<Pane> for data::Pane {
             Buffer::ChannelDiscovery(state) => data::Buffer::Internal(
                 buffer::Internal::ChannelDiscovery(state.server.clone()),
             ),
+            Buffer::ConfigEditor(_) => {
+                data::Buffer::Internal(buffer::Internal::ConfigEditor)
+            }
         };
 
         data::Pane::Buffer { buffer }

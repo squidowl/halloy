@@ -211,6 +211,12 @@
       "css": "eraser",
       "code": 61741,
       "src": "fontawesome"
+    },
+    {
+      "uid": "6533bdc16ab201eb3f3b27ce989cab33",
+      "css": "folder-open-empty",
+      "code": 61717,
+      "src": "fontawesome"
     }
   ]
 }

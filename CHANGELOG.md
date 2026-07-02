@@ -3,6 +3,7 @@
 Added:
 
 - Internal buffers (logs, highlights, etc) can be added to sidebar
+- Config editor pane for editing the config file in-app
 - Improved legibility of the returned values of `MONITOR` list (`/monitor L`)
 - Config option (`preview.card.description_decode_html`) to decode html strings in preview card descriptions
 - Support displaying a larger version of the card images in-app

@@ -57,6 +57,7 @@ Below is a list of all actions which can be mapped.
 | `scroll_to_bottom`             | Scroll to bottom of buffer          | <kbd>⌘</kbd> + <kbd>↓</kbd>                         | <kbd>ctrl</kbd> + <kbd>↓</kbd>                      |
 | `leave_buffer`                 | Leave channel or close query        | <kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>w</kbd>      | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>w</kbd>   |
 | `mark_as_read`                 | Mark focused buffer as read         | <kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>m</kbd>      | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>m</kbd>   |
+| `config_editor_save`           | Save config in Config Editor                 | <kbd>⌘</kbd> + <kbd>s</kbd>                         | <kbd>ctrl</kbd> + <kbd>s</kbd>                      |
 | `toggle_nick_list`             | Toggle nick list                    | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>m</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>m</kbd>     |
 | `toggle_topic`                 | Toggle topic                        | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>t</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>t</kbd>     |
 | `toggle_sidebar`               | Toggle sidebar                      | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>b</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>b</kbd>     |
@@ -68,4 +69,5 @@ Below is a list of all actions which can be mapped.
 | `theme_editor`                 | Toggle Theme Editor Window          | <kbd>⌘</kbd> + <kbd>t</kbd>                         | <kbd>ctrl</kbd> + <kbd>t</kbd>                      |
 | `highlights`                   | Toggle Highlights Window            | <kbd>⌘</kbd> + <kbd>i</kbd>                         | <kbd>ctrl</kbd> + <kbd>i</kbd>                      |
 | `quit_application`             | Quit Halloy                         | None                                                | None                                                |
-| `open_config_file`             | Open settings file in system editor | <kbd>⌘</kbd> + <kbd>,</kbd>                         | <kbd>ctrl</kbd> + <kbd>,</kbd>None                  |
+| `open_config_editor`           | Toggle Config Editor Buffer         | <kbd>⌘</kbd> + <kbd>,</kbd>                         | <kbd>ctrl</kbd> + <kbd>,</kbd>                      |
+| `open_config_file`             | Open settings file in system editor | None                                                | None                                                |
