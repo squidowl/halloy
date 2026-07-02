@@ -1594,7 +1594,6 @@ dependencies = [
  "html-escape",
  "iced",
  "iced_core",
- "iced_wgpu",
  "idna",
  "image",
  "indexmap 2.14.0",
