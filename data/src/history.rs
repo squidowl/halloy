@@ -1644,7 +1644,7 @@ fn matching_change_topic_actor(message: &Message, other: &Message) -> bool {
     channel == other_channel && source.nick() == other_source.nick()
 }
 
-fn change_topic<'a>(target: &'a message::Target) -> Option<&'a str> {
+fn change_topic(target: &message::Target) -> Option<&str> {
     let (_, source) = change_topic_source(target)?;
 
     match source.change() {
@@ -1653,9 +1653,9 @@ fn change_topic<'a>(target: &'a message::Target) -> Option<&'a str> {
     }
 }
 
-fn change_topic_source<'a>(
-    target: &'a message::Target,
-) -> Option<(&'a target::Channel, &'a message::source::server::Server)> {
+fn change_topic_source(
+    target: &message::Target,
+) -> Option<(&target::Channel, &message::source::server::Server)> {
     let message::Target::Channel {
         channel,
         source: message::Source::Server(Some(source)),
