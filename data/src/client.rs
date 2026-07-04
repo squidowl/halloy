@@ -2388,6 +2388,7 @@ impl Client {
             }
             Command::TOPIC(channel, topic) => {
                 let casemapping = self.casemapping();
+                let topic = topic.clone();
 
                 if let Some(channel) =
                     self.chanmap.get_mut(&context!(target::Channel::parse(
@@ -2415,7 +2416,7 @@ impl Client {
                         && !text.is_empty()
                     {
                         channel.topic.content =
-                            Some(message::parse_fragments(text.clone()));
+                            Some(message::parse_fragments(text));
                         channel.topic.who = message.user(casemapping);
                         channel.topic.time =
                             Some(message.server_time_or_now().0);
