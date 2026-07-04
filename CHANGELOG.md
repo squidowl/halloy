@@ -11,6 +11,7 @@ Added:
 - Config file path is now shown in config editor
 - Config option to include ignored nicknames in autocomplete
   (`buffer.text_input.autocomplete.include_ignored`)
+- Sidebar typing indicators for queries
 
 Fixed:
 

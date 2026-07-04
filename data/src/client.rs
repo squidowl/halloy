@@ -5607,6 +5607,21 @@ impl Map {
         self.client(server).map(|client| &client.handle)
     }
 
+    pub fn has_any_query_typing(&self) -> bool {
+        self.0
+            .values()
+            .filter_map(|state| match state {
+                State::Ready(client) => Some(client),
+                _ => None,
+            })
+            .any(|client| {
+                client
+                    .querymap
+                    .iter()
+                    .any(|(query, _)| client.has_query_typing_users(query))
+            })
+    }
+
     pub fn connected_servers(&self) -> impl Iterator<Item = &Server> {
         self.0.iter().filter_map(|(server, state)| {
             if let State::Ready(_) = state {

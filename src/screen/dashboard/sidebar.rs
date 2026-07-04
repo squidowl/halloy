@@ -23,6 +23,7 @@ use itertools::Either;
 use tokio::time;
 
 use super::{Focus, Panes, Server};
+use crate::buffer::typing;
 use crate::widget::text_color_svg::TextColorSvg;
 use crate::widget::{
     Element, Text, TextExt, context_menu, double_pass, image, text,
@@ -569,10 +570,10 @@ impl Sidebar {
 
         let base = button(
             sidebar_icon(
-                Some(Icon::Internal(icon)),
+                config,
+                Some(BufferIcon::Icon(Icon::Internal(icon))),
                 badge,
                 dimensions,
-                config.sidebar.position.is_horizontal(),
             )
             .into_iter()
             .next(),
@@ -815,7 +816,7 @@ impl Sidebar {
     pub fn view<'a>(
         &'a self,
         servers: &server::Map,
-        clients: &data::client::Map,
+        clients: &'a data::client::Map,
         history: &'a history::Manager,
         panes: &'a Panes,
         focus: Focus,
@@ -825,6 +826,7 @@ impl Sidebar {
         version: &'a Version,
         theme: &'a Theme,
         show_muted_buffers: bool,
+        typing_animation: Option<&'a typing::Animation>,
     ) -> Option<Element<'a, Message>> {
         if self.hidden {
             return None;
@@ -909,6 +911,7 @@ impl Sidebar {
                                     has_collapsible_buffers,
                                 server_has_unread,
                                 supports_detach,
+                                clients,
                                 casemapping,
                                 server_icon_enabled,
                                 server_sidebar_visibility,
@@ -916,6 +919,7 @@ impl Sidebar {
                                 width,
                                 theme,
                                 collapse: &self.collapse,
+                                typing_animation,
                             };
 
                             buffers.push(upstream_buffer_button(context));
@@ -1416,6 +1420,7 @@ struct UpstreamButtonContext<'a> {
     server_has_collapsible_buffers: bool,
     server_has_unread: bool,
     supports_detach: bool,
+    clients: &'a data::client::Map,
     casemapping: isupport::CaseMap,
     server_icon_enabled: bool,
     server_sidebar_visibility: SidebarVisibility,
@@ -1423,6 +1428,7 @@ struct UpstreamButtonContext<'a> {
     width: Length,
     theme: &'a Theme,
     collapse: &'a collapse::State,
+    typing_animation: Option<&'a typing::Animation>,
 }
 
 fn upstream_buffer_title<'a>(
@@ -1525,6 +1531,11 @@ fn upstream_buffer_title<'a>(
     }
 }
 
+enum BufferIcon<'a> {
+    Icon(Icon<'a>),
+    Element(Element<'a, Message>),
+}
+
 fn upstream_buffer_button<'a>(
     context: UpstreamButtonContext<'a>,
 ) -> Element<'a, Message> {
@@ -1538,6 +1549,7 @@ fn upstream_buffer_button<'a>(
         indicators,
         connection_status,
         server_has_collapsible_buffers,
+        clients,
         casemapping,
         server_icon_enabled,
         server_sidebar_visibility,
@@ -1545,6 +1557,7 @@ fn upstream_buffer_button<'a>(
         width,
         theme,
         collapse,
+        typing_animation,
         ..
     } = &context;
 
@@ -1576,6 +1589,15 @@ fn upstream_buffer_button<'a>(
     let show_highlight_title =
         indicators.highlight && config.sidebar.highlight_indicator.title;
 
+    let is_query_with_typing = if config.sidebar.can_show_typing()
+        && let buffer::Upstream::Query(server, query) = &buffer
+    {
+        clients.get_server_show_typing(server)
+            && clients.has_query_typing_users(server, query)
+    } else {
+        false
+    };
+
     let buffer_title_style = if show_highlight_title {
         theme::text::highlight_indicator
     } else if show_unread_title {
@@ -1603,14 +1625,30 @@ fn upstream_buffer_button<'a>(
         if *server_icon_enabled
             && let Some(server_icon) = server_icons.get(server)
         {
-            Some(Icon::Upstream(server_icon))
+            Some(BufferIcon::Icon(Icon::Upstream(server_icon)))
         } else {
-            Some(Icon::Internal(if server.is_bouncer_network() {
-                icon::link()
-            } else {
-                icon::connected()
-            }))
+            Some(BufferIcon::Icon(Icon::Internal(
+                if server.is_bouncer_network() {
+                    icon::link()
+                } else {
+                    icon::connected()
+                },
+            )))
         }
+    } else if is_query_with_typing {
+        typing::animate::<_>(
+            *typing_animation,
+            config
+                .buffer
+                .typing
+                .font_size
+                .or(config.sidebar.secondary_font_size)
+                .map_or(theme::TEXT_SIZE, f32::from)
+                * f32::from(config.sidebar.query_typing_indicator.scale_factor),
+            &config.buffer.typing.animation,
+            theme.styles().text.secondary.color,
+        )
+        .map(BufferIcon::Element)
     } else {
         None
     };
@@ -1641,6 +1679,8 @@ fn upstream_buffer_button<'a>(
             icon::connecting().style(theme::text::success),
             dimensions.icon_badge_size,
         ))
+    } else if is_query_with_typing {
+        None
     } else if show_highlight_icon
         && let Some(highlight_icon) =
             icon::from_icon(config.sidebar.highlight_indicator.icon)
@@ -1671,12 +1711,7 @@ fn upstream_buffer_button<'a>(
 
     let mut content = row![].align_y(iced::Alignment::Center);
 
-    content = content.extend(sidebar_icon(
-        icon,
-        indicator,
-        dimensions,
-        config.sidebar.position.is_horizontal(),
-    ));
+    content = content.extend(sidebar_icon(config, icon, indicator, dimensions));
 
     content = content.extend(upstream_buffer_title(
         config,
@@ -2136,10 +2171,10 @@ fn internal_buffer_button<'a>(
     let mut content = row![].align_y(iced::Alignment::Center);
 
     content = content.extend(sidebar_icon(
-        icon.map(Icon::Internal),
+        config,
+        icon.map(|icon| BufferIcon::Icon(Icon::Internal(icon))),
         badge,
         dimensions,
-        config.sidebar.position.is_horizontal(),
     ));
 
     content = content.push(
@@ -2303,25 +2338,34 @@ enum Icon<'a> {
 }
 
 fn sidebar_icon<'a>(
-    icon: Option<Icon<'a>>,
+    config: &'a Config,
+    icon: Option<BufferIcon<'a>>,
     indicator: Option<(TextColorSvg<'a, Theme>, u32)>,
     dimensions: Dimensions,
-    sidebar_is_horizontal: bool,
 ) -> impl IntoIterator<Item = Element<'a, Message>> {
     let (icon, icon_height, icon_left_spacing): (
         Option<Element<'a, Message>>,
         u32,
         f32,
     ) = if let Some(icon) = icon {
-        let icon: Element<'a, Message> = container(match icon {
-            Icon::Upstream(server_icon) => {
-                image::from_data(server_icon, true, ContentFit::Contain)
-            }
-            Icon::Internal(icon) => icon.into(),
-        })
-        .width(dimensions.icon_size)
-        .height(dimensions.icon_size)
-        .into();
+        let icon: Element<'a, Message> = match icon {
+            BufferIcon::Icon(Icon::Upstream(server_icon)) => container(
+                image::from_data(server_icon, true, ContentFit::Contain),
+            )
+            .width(dimensions.icon_size)
+            .height(dimensions.icon_size)
+            .into(),
+            BufferIcon::Icon(Icon::Internal(icon)) => container(icon)
+                .width(dimensions.icon_size)
+                .height(dimensions.icon_size)
+                .into(),
+            BufferIcon::Element(element) => container(element)
+                .width(dimensions.icon_size)
+                .height(dimensions.icon_size)
+                .align_x(iced::alignment::Horizontal::Center)
+                .align_y(iced::alignment::Vertical::Center)
+                .into(),
+        };
 
         let badge: Option<Element<'a, Message>> =
             indicator.map(move |(indicator, _)| {
@@ -2377,20 +2421,21 @@ fn sidebar_icon<'a>(
                         .content_fit(ContentFit::Contain),
                 )
                 .width(indicator_size)
-                .height(indicator_size)
+                .height(sidebar_icon_size(config, indicator_size))
+                .align_y(iced::alignment::Vertical::Center)
                 .into(),
             ),
-            indicator_size,
+            sidebar_icon_size(config, indicator_size),
             dimensions
                 .max_indicator_size()
                 .saturating_sub(indicator_size) as f32
                 / 2.0,
         )
     } else {
-        (None, 1, 0.0)
+        (None, sidebar_icon_size(config, 1), 0.0)
     };
 
-    if sidebar_is_horizontal {
+    if config.sidebar.position.is_horizontal() {
         if let Some(icon) = icon {
             Either::Left(vec![icon, Space::new().width(8).into()].into_iter())
         } else {
@@ -2413,6 +2458,16 @@ fn sidebar_icon<'a>(
             ]
             .into_iter(),
         )
+    }
+}
+
+fn sidebar_icon_size(config: &Config, icon_size: u32) -> u32 {
+    let dimensions = Dimensions::from(&config.sidebar);
+    if config.can_show_any_typing() && config.sidebar.can_show_typing() {
+        // use max_icon_size if query typing is enabled for uniform height
+        dimensions.max_icon_size()
+    } else {
+        icon_size
     }
 }
 
