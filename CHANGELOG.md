@@ -20,6 +20,7 @@ Added:
 - Keyboard-driven message focus: navigate and act on messages without mouse
   - Links and channel mentions within a message can be focused and opened
   - New `buffer.focus` theme color for the focused message border
+- Sidebar typing indicators for queries
 
 Fixed:
 
