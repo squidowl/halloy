@@ -1830,6 +1830,16 @@ fn condense_associated_fragments(
                         })
                         .collect()
                     }
+                    Some(Change::Topic(_)) => {
+                        let nick = user.nickname().to_string();
+
+                        nick_fragments
+                            .chain(vec![
+                                Fragment::User(user, nick),
+                                Fragment::Text(String::from("  ")),
+                            ])
+                            .collect()
+                    }
                     None => {
                         let nick = user.nickname().to_string();
 
@@ -2510,7 +2520,7 @@ fn target(
                 ))
             }
         }
-        Command::TOPIC(channel, _) => {
+        Command::TOPIC(channel, topic) => {
             let channel = target::Channel::parse(
                 channel,
                 chantypes,
@@ -2525,7 +2535,7 @@ fn target(
                     source: Source::Server(Some(source::Server::new(
                         Kind::ChangeTopic,
                         Some(user?.nickname().to_owned()),
-                        None,
+                        topic.clone().map(Change::Topic),
                     ))),
                 },
                 None,

@@ -195,6 +195,7 @@ pub mod server {
     pub enum Change {
         Nick(Nick),
         Host(String, String),
+        Topic(String),
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

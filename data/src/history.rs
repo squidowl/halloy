@@ -1580,7 +1580,13 @@ fn has_matching_content(
     other: &Message,
     use_echo_cmp: bool,
 ) -> bool {
-    if message.target == other.target {
+    if let Some(matches) = matching_change_topic(message, other) {
+        return matches;
+    }
+
+    if message.target == other.target
+        || matching_change_topic_actor(message, other)
+    {
         if let message::Source::Server(Some(source)) = message.target.source() {
             match source.kind() {
                 message::source::server::Kind::Join
@@ -1612,6 +1618,54 @@ fn has_matching_content(
     } else {
         false
     }
+}
+
+fn matching_change_topic(message: &Message, other: &Message) -> Option<bool> {
+    if !matching_change_topic_actor(message, other) {
+        return None;
+    }
+
+    match (change_topic(&message.target), change_topic(&other.target)) {
+        (Some(topic), Some(other_topic)) => Some(topic == other_topic),
+        _ => None,
+    }
+}
+
+fn matching_change_topic_actor(message: &Message, other: &Message) -> bool {
+    let Some((channel, source)) = change_topic_source(&message.target) else {
+        return false;
+    };
+    let Some((other_channel, other_source)) =
+        change_topic_source(&other.target)
+    else {
+        return false;
+    };
+
+    channel == other_channel && source.nick() == other_source.nick()
+}
+
+fn change_topic<'a>(target: &'a message::Target) -> Option<&'a str> {
+    let (_, source) = change_topic_source(target)?;
+
+    match source.change() {
+        Some(message::source::server::Change::Topic(topic)) => Some(topic),
+        _ => None,
+    }
+}
+
+fn change_topic_source<'a>(
+    target: &'a message::Target,
+) -> Option<(&'a target::Channel, &'a message::source::server::Server)> {
+    let message::Target::Channel {
+        channel,
+        source: message::Source::Server(Some(source)),
+    } = target
+    else {
+        return None;
+    };
+
+    matches!(source.kind(), message::source::server::Kind::ChangeTopic)
+        .then_some((channel, source))
 }
 
 pub fn insert_reaction(
@@ -1750,4 +1804,73 @@ pub enum Error {
     Io(#[from] io::Error),
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use irc::proto;
+
+    use super::*;
+    use crate::User;
+    use crate::config::Config;
+    use crate::history::reroute::RerouteRules;
+
+    fn topic_message(topic: &str, previous_topic: Option<&str>) -> Message {
+        let isupport = HashMap::<isupport::Kind, isupport::Parameter>::new();
+        let casemapping = isupport::get_casemapping_or_default(&isupport);
+        let our_nick = Nick::from_str("our_nick", casemapping);
+        let server = Server {
+            name: "Test Server".into(),
+            network: None,
+        };
+        let mut config = Config::default();
+        config.buffer.server_messages.change_topic.show_previous = Some(true);
+
+        let mut encoded = proto::parse::message(&format!(
+            ":alice!u@h TOPIC #chan :{topic}\r\n"
+        ))
+        .unwrap();
+        if let Some(previous_topic) = previous_topic {
+            encoded
+                .tags
+                .insert(":previous_topic".to_string(), previous_topic.into());
+        }
+
+        Message::received(
+            message::Encoded::from(encoded),
+            our_nick,
+            true,
+            &config,
+            &RerouteRules::default(),
+            |_: &User, _: &target::Channel| None,
+            |_channel: &target::Channel| None,
+            &server,
+            isupport::get_chantypes_or_default(&isupport),
+            isupport::get_statusmsg_or_default(&isupport),
+            casemapping,
+            isupport::get_prefix_or_default(&isupport),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn change_topic_matches_replay_without_previous_topic_tag() {
+        let live = topic_message("new topic", Some("old topic"));
+        let replay = topic_message("new topic", None);
+
+        assert_ne!(live.content, replay.content);
+        assert_eq!(change_topic(&live.target), Some("new topic"));
+        assert_eq!(change_topic(&replay.target), Some("new topic"));
+        assert!(has_matching_content(&live, &replay, false));
+    }
+
+    #[test]
+    fn change_topic_dedupe_compares_new_topic() {
+        let live = topic_message("new topic", Some("old topic"));
+        let replay = topic_message("different topic", None);
+
+        assert!(!has_matching_content(&live, &replay, false));
+    }
 }
