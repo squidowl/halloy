@@ -7,6 +7,7 @@ Halloy scripts are Lua files loaded from your Halloy config directory.
   - [Running a script](#running-a-script)
     - [Manually](#manually)
     - [Automatically on startup](#automatically-on-startup)
+  - [Lua version](#lua-version)
   - [API Context (`ctx`)](#api-context-ctx)
   - [Callbacks](#callbacks)
     - [`on_start`](#on_start)
@@ -42,6 +43,16 @@ Open the **Scripts** buffer and enable a script with the toggle.
 
 Use the config setting to load scripts when Halloy starts.
 For configuration details, see [Scripts configuration](../configuration/scripts).
+
+## Lua version
+
+Official Halloy builds use Lua 5.4, but Halloy can be compiled against Lua 5.1, 5.2, 5.3, 5.4, or LuaJIT.
+
+```bash
+cargo build --release --no-default-features --features iosevka-font,luajit
+```
+
+Exactly one of `lua51`, `lua52`, `lua53`, `lua54`, `luajit`, or `luajit52` must be enabled. Without `lua-vendored`, the Lua library is located via `pkg-config`.
 
 ## API Context (`ctx`)
 

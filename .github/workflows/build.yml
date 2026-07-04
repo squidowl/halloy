@@ -76,6 +76,9 @@ jobs:
       - run: cargo version
       - name: Check
         run: cargo check --locked --profile ci
+      - name: Check (LuaJIT)
+        if: matrix.target.target == 'linux'
+        run: cargo check --locked --profile ci --no-default-features --features iosevka-font,luajit,lua-vendored
       - name: Clippy
         run: cargo clippy --locked --profile ci --workspace --all-targets -- -D warnings
 

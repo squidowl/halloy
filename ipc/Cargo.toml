@@ -18,6 +18,7 @@ interprocess = { version = "1.2.1", features = ["tokio_support"] }
 
 [dependencies.data]
 path = "../data"
+default-features = false
 
 [lints]
 workspace = true
