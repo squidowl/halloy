@@ -181,6 +181,10 @@ impl Encoded {
         self.tags.contains_key(":join_topic")
     }
 
+    pub fn previous_topic(&self) -> Option<&str> {
+        self.tags.get(":previous_topic").map(String::as_str)
+    }
+
     pub fn channel_context(
         &self,
         chantypes: &[char],
@@ -3095,11 +3099,37 @@ fn content<'a>(
             .unwrap_or(raw_user);
 
             let topic = topic.as_ref()?;
+            let previous_topic = if config
+                .buffer
+                .server_messages
+                .show_previous(source::server::Kind::ChangeTopic)
+            {
+                message.previous_topic()
+            } else {
+                None
+            };
 
             if topic.is_empty() {
+                let text = if let Some(previous_topic) = previous_topic {
+                    format!(
+                        "{} cleared the topic\n- {previous_topic}",
+                        user.nickname()
+                    )
+                } else {
+                    format!("{} cleared the topic", user.nickname())
+                };
+
+                Some((
+                    parse_fragments_with_user(text, &user, casemapping),
+                    None,
+                ))
+            } else if let Some(previous_topic) = previous_topic {
                 Some((
                     parse_fragments_with_user(
-                        format!("{} cleared the topic", user.nickname()),
+                        format!(
+                            "{} changed the topic\n- {previous_topic}\n+ {topic}",
+                            user.nickname()
+                        ),
                         &user,
                         casemapping,
                     ),
@@ -4952,6 +4982,115 @@ pub mod tests {
             || panic!("failed to create Message from {encoded:?}"),
             |(msg, highlight, _)| (msg, highlight),
         )
+    }
+
+    fn topic_message_content(
+        irc_message: &str,
+        previous_topic: Option<&str>,
+        show_previous: bool,
+    ) -> Content {
+        use std::collections::HashMap;
+
+        use irc::proto;
+
+        use crate::config::Config;
+        use crate::history::reroute::RerouteRules;
+
+        let isupport = HashMap::<isupport::Kind, isupport::Parameter>::new();
+        let casemapping = isupport::get_casemapping_or_default(&isupport);
+        let our_nick = Nick::from_str("our_nick", casemapping);
+        let server = Server {
+            name: "Test Server".into(),
+            network: None,
+        };
+        let mut config = Config::default();
+        config.buffer.server_messages.change_topic.show_previous =
+            show_previous.then_some(true);
+
+        let mut encoded = proto::parse::message(irc_message).unwrap();
+        if let Some(previous_topic) = previous_topic {
+            encoded
+                .tags
+                .insert(":previous_topic".to_string(), previous_topic.into());
+        }
+
+        Message::received(
+            message::Encoded::from(encoded.clone()),
+            our_nick,
+            false,
+            &config,
+            &RerouteRules::default(),
+            |_: &User, _: &target::Channel| None,
+            |_channel: &target::Channel| None,
+            &server,
+            isupport::get_chantypes_or_default(&isupport),
+            isupport::get_statusmsg_or_default(&isupport),
+            casemapping,
+            isupport::get_prefix_or_default(&isupport),
+        )
+        .map_or_else(
+            || panic!("failed to create Message from {encoded:?}"),
+            |message| message.content,
+        )
+    }
+
+    #[test]
+    fn topic_change_shows_previous_topic_when_enabled() {
+        let content = topic_message_content(
+            ":alice!u@h TOPIC #chan :new topic\r\n",
+            Some("old topic"),
+            true,
+        );
+
+        assert_eq!(
+            content.text(),
+            "alice changed the topic\n- old topic\n+ new topic"
+        );
+    }
+
+    #[test]
+    fn topic_change_uses_existing_text_without_previous_topic_diff() {
+        let tests = [
+            (
+                Some("old topic"),
+                false,
+                "alice changed the topic to new topic",
+            ),
+            (None, true, "alice changed the topic to new topic"),
+            (None, false, "alice changed the topic to new topic"),
+        ];
+
+        for (previous_topic, show_previous, expected) in tests {
+            let content = topic_message_content(
+                ":alice!u@h TOPIC #chan :new topic\r\n",
+                previous_topic,
+                show_previous,
+            );
+
+            assert_eq!(content.text(), expected);
+        }
+    }
+
+    #[test]
+    fn topic_clear_shows_previous_topic_when_enabled() {
+        let content = topic_message_content(
+            ":alice!u@h TOPIC #chan :\r\n",
+            Some("old topic"),
+            true,
+        );
+
+        assert_eq!(content.text(), "alice cleared the topic\n- old topic");
+    }
+
+    #[test]
+    fn topic_clear_uses_existing_text_without_previous_topic_diff() {
+        let content = topic_message_content(
+            ":alice!u@h TOPIC #chan :\r\n",
+            Some("old topic"),
+            false,
+        );
+
+        assert_eq!(content.text(), "alice cleared the topic");
     }
 
     #[test]

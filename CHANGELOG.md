@@ -13,6 +13,7 @@ Added:
 - `actions.buffer.click_channel_name` and `actions.buffer.click_highlight` can be set to no action (`"no-action"` or `"noop"`) to not open the channel when clicking on the channel name
 - Explicit portable mode
 - Theme editor can be closed via Escape
+- `buffer.server_messages.change_topic.show_previous` setting to show the previous topic in topic change messages
 
 Fixed:
 

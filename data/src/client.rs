@@ -2397,6 +2397,20 @@ impl Client {
                         casemapping,
                     )))
                 {
+                    if let Some(previous_topic) = channel
+                        .topic
+                        .content
+                        .as_ref()
+                        .map(|content| content.text().into_owned())
+                    {
+                        // Prefix ':' to ensure it cannot match any valid
+                        // message tag
+                        message.tags.insert(
+                            ":previous_topic".to_string(),
+                            previous_topic,
+                        );
+                    }
+
                     if let Some(text) = topic
                         && !text.is_empty()
                     {
@@ -6452,5 +6466,141 @@ mod tests {
         );
 
         assert_eq!(channel_user_is_away(&client, "tester"), Some(false));
+    }
+
+    #[test]
+    fn topic_change_stamps_previous_topic_before_updating_channel_topic() {
+        let mut client = test_client("tester");
+        let config = config::Config::default();
+
+        let self_source = proto::Source::User(proto::User {
+            nickname: "tester".to_string(),
+            username: Some("tester".to_string()),
+            hostname: Some("example.test".to_string()),
+        });
+        let alice_source = proto::Source::User(proto::User {
+            nickname: "alice".to_string(),
+            username: Some("alice".to_string()),
+            hostname: Some("example.test".to_string()),
+        });
+
+        deliver(
+            &mut client,
+            &config,
+            self_source,
+            Command::JOIN("#test".to_string(), None),
+        );
+
+        let events = client
+            .handle(
+                message::Encoded(proto::Message {
+                    tags: BTreeMap::default(),
+                    source: Some(alice_source.clone()),
+                    command: Command::TOPIC(
+                        "#test".to_string(),
+                        Some("old topic".to_string()),
+                    ),
+                }),
+                None,
+                &config,
+            )
+            .unwrap();
+
+        let [Event::Single { message, .. }] = events.as_slice() else {
+            panic!("expected single topic event");
+        };
+        assert_eq!(message.previous_topic(), None);
+
+        let events = client
+            .handle(
+                message::Encoded(proto::Message {
+                    tags: BTreeMap::default(),
+                    source: Some(alice_source.clone()),
+                    command: Command::TOPIC(
+                        "#test".to_string(),
+                        Some("new topic".to_string()),
+                    ),
+                }),
+                None,
+                &config,
+            )
+            .unwrap();
+
+        let [Event::Single { message, .. }] = events.as_slice() else {
+            panic!("expected single topic event");
+        };
+        assert_eq!(message.previous_topic(), Some("old topic"));
+
+        let channel = client.chanmap.values().next().unwrap();
+        assert_eq!(
+            channel
+                .topic
+                .content
+                .as_ref()
+                .map(|content| content.text().into_owned()),
+            Some("new topic".to_string())
+        );
+
+        let events = client
+            .handle(
+                message::Encoded(proto::Message {
+                    tags: BTreeMap::default(),
+                    source: Some(alice_source.clone()),
+                    command: Command::TOPIC(
+                        "#test".to_string(),
+                        Some(String::new()),
+                    ),
+                }),
+                None,
+                &config,
+            )
+            .unwrap();
+
+        let [Event::Single { message, .. }] = events.as_slice() else {
+            panic!("expected single topic event");
+        };
+        assert_eq!(message.previous_topic(), Some("new topic"));
+
+        let channel = client.chanmap.values().next().unwrap();
+        assert!(channel.topic.content.is_none());
+        assert!(channel.topic.who.is_none());
+        assert!(channel.topic.time.is_none());
+
+        client
+            .handle(
+                message::Encoded(proto::Message {
+                    tags: BTreeMap::default(),
+                    source: Some(alice_source.clone()),
+                    command: Command::TOPIC(
+                        "#test".to_string(),
+                        Some("restored topic".to_string()),
+                    ),
+                }),
+                None,
+                &config,
+            )
+            .unwrap();
+
+        let events = client
+            .handle(
+                message::Encoded(proto::Message {
+                    tags: BTreeMap::default(),
+                    source: Some(alice_source),
+                    command: Command::TOPIC("#test".to_string(), None),
+                }),
+                None,
+                &config,
+            )
+            .unwrap();
+
+        let [Event::Single { message, .. }] = events.as_slice() else {
+            panic!("expected single topic event");
+        };
+        assert_eq!(message.previous_topic(), Some("restored topic"));
+
+        let channel = client.chanmap.values().next().unwrap();
+        assert!(channel.topic.content.is_none());
+        assert!(channel.topic.who.is_none());
+        assert!(channel.topic.time.is_none());
     }
 }

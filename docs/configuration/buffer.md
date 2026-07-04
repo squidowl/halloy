@@ -989,6 +989,20 @@ enabled = true
 smart = 180
 ```
 
+#### `show_previous`
+
+Show the previous topic in `change_topic` server messages when Halloy already
+knows it. This only applies to `change_topic` messages.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[buffer.server_messages.change_topic]
+show_previous = true
+```
+
 #### `exclude`
 
 [Exclusion conditions](/configuration/conditions.md) in which the server message

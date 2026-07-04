@@ -617,6 +617,11 @@ impl ServerMessages {
             .or(self.default.smart)
     }
 
+    pub fn show_previous(&self, kind: source::server::Kind) -> bool {
+        matches!(kind, source::server::Kind::ChangeTopic)
+            && self.get(kind).show_previous.unwrap_or_default()
+    }
+
     pub fn username_format(
         &self,
         kind: Option<source::server::Kind>,
@@ -730,6 +735,7 @@ pub enum CondensationIcon {
 pub struct ServerMessage {
     pub enabled: Option<ServerMessageEnabled>,
     pub smart: Option<i64>,
+    pub show_previous: Option<bool>,
     pub username_format: Option<UsernameFormat>,
     pub exclude: Option<Inclusivities>,
     pub include: Option<Inclusivities>,
@@ -1097,4 +1103,49 @@ where
             alpha: Some(dim),
         },
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Buffer;
+    use crate::message::source;
+
+    #[test]
+    fn server_messages_change_topic_deserializes_show_previous() {
+        #[derive(serde::Deserialize)]
+        struct Root {
+            buffer: Buffer,
+        }
+
+        let config: Root = toml::from_str(
+            r#"
+            [buffer.server_messages.change_topic]
+            show_previous = true
+            "#,
+        )
+        .expect("valid change_topic show_previous setting");
+
+        assert_eq!(
+            config.buffer.server_messages.change_topic.show_previous,
+            Some(true)
+        );
+        assert!(
+            config
+                .buffer
+                .server_messages
+                .show_previous(source::server::Kind::ChangeTopic)
+        );
+    }
+
+    #[test]
+    fn server_messages_show_previous_defaults_disabled() {
+        let buffer = Buffer::default();
+
+        assert_eq!(buffer.server_messages.change_topic.show_previous, None);
+        assert!(
+            !buffer
+                .server_messages
+                .show_previous(source::server::Kind::ChangeTopic)
+        );
+    }
 }
