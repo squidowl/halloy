@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- Sidebar typing indicators for queries
+
 Fixed:
 
 - Closing Halloy hangs while a toast notification is pending on Windows
