@@ -700,6 +700,34 @@ impl Dashboard {
                     sidebar::Event::Leave(buffer) => {
                         self.leave_buffer(clients, config, buffer)
                     }
+                    sidebar::Event::Search(buffer) => {
+                        let server = buffer.server();
+                        let target = buffer.target();
+
+                        let buffer = data::Buffer::Internal(
+                            buffer::Internal::SearchResults(server.clone()),
+                        );
+
+                        let task = self.open_or_focus_buffer(
+                            buffer.clone(),
+                            config.actions.buffer.search,
+                            clients,
+                            config,
+                        );
+
+                        if let Some((_, _, state)) =
+                            self.panes.get_mut_by_buffer(&buffer)
+                            && let buffer::Buffer::SearchResults(search_results) =
+                                &mut state.buffer
+                        {
+                            search_results.update_search_query(
+                                target.map(|target| target.to_string()),
+                                None,
+                            );
+                        }
+
+                        (task, None)
+                    }
                     sidebar::Event::ToggleCommandBar => (
                         self.toggle_command_bar(
                             servers,
@@ -1960,15 +1988,53 @@ impl Dashboard {
                     Self::send_list_command_if_needed(server, pane, clients);
                 }
 
+                let buffer_action = if matches!(
+                    buffer,
+                    buffer::Internal::ChannelDiscovery(_)
+                ) {
+                    config.actions.buffer.list
+                } else {
+                    config.actions.buffer.open_internal
+                };
+
                 return (
                     self.open_buffer(
                         data::Buffer::Internal(buffer),
-                        config.actions.buffer.open_internal,
+                        buffer_action,
                         clients,
                         config,
                     ),
                     None,
                 );
+            }
+            buffer::Event::OpenSearchResults {
+                server,
+                target,
+                text,
+            } => {
+                let buffer = data::Buffer::Internal(
+                    buffer::Internal::SearchResults(server),
+                );
+
+                let task = self.open_or_focus_buffer(
+                    buffer.clone(),
+                    config.actions.buffer.search,
+                    clients,
+                    config,
+                );
+
+                if let Some((_, _, state)) =
+                    self.panes.get_mut_by_buffer(&buffer)
+                    && let buffer::Buffer::SearchResults(search_results) =
+                        &mut state.buffer
+                {
+                    search_results.update_search_query(
+                        target.map(|target| target.to_string()),
+                        text,
+                    );
+                }
+
+                return (task, None);
             }
             buffer::Event::ContextMenu(event) => {
                 let mut tasks = if matches!(
@@ -2405,24 +2471,25 @@ impl Dashboard {
             }
             buffer::Event::GoToMessage(
                 server,
-                channel,
+                target,
                 message,
                 buffer_action,
             ) => {
-                let buffer = data::Buffer::Upstream(buffer::Upstream::Channel(
-                    server, channel,
-                ));
+                let buffer = match target {
+                    Target::Channel(channel) => data::Buffer::Upstream(
+                        buffer::Upstream::Channel(server, channel),
+                    ),
+                    Target::Query(query) => data::Buffer::Upstream(
+                        buffer::Upstream::Query(server, query),
+                    ),
+                };
 
-                let mut tasks = vec![];
-
-                if self.panes.get_mut_by_buffer(&buffer).is_none() {
-                    tasks.push(self.open_buffer(
-                        buffer.clone(),
-                        buffer_action,
-                        clients,
-                        config,
-                    ));
-                }
+                let mut tasks = vec![self.open_or_focus_buffer(
+                    buffer.clone(),
+                    buffer_action,
+                    clients,
+                    config,
+                )];
 
                 if let Some((window, pane, state)) =
                     self.panes.get_mut_by_buffer(&buffer)
@@ -2661,6 +2728,70 @@ impl Dashboard {
                         }),
                     );
                 }
+
+                return (task, None);
+            }
+            buffer::Event::SendSearchQuery {
+                server,
+                search_query,
+            } => {
+                let buffer =
+                    pane.buffer.upstream().cloned().unwrap_or_else(|| {
+                        buffer::Upstream::Server(server.clone())
+                    });
+
+                let command = command::Irc::Search(search_query);
+
+                let input = data::Input::from_command(buffer, command.clone());
+
+                let labeled_response_context = if let Some(encoded) =
+                    input.encoded()
+                {
+                    clients.send(&input.buffer, encoded, TokenPriority::User)
+                } else {
+                    None
+                };
+
+                let chantypes =
+                    clients.get_server_chantypes_or_default(&server);
+                let statusmsg =
+                    clients.get_server_statusmsg_or_default(&server);
+                let casemapping =
+                    clients.get_server_casemapping_or_default(&server);
+                let supports_echoes =
+                    clients.get_server_supports_echoes(&server);
+
+                let task = if let Some(user) = clients
+                    .nickname(&server)
+                    .map(|nick| User::from(nick.to_owned()))
+                    && let Some(messages) = command.messages(
+                        user,
+                        None,
+                        &server,
+                        chantypes,
+                        statusmsg,
+                        casemapping,
+                        supports_echoes,
+                        self.history.get_reroute_rules(),
+                    ) {
+                    Task::batch(
+                        messages
+                            .into_iter()
+                            .flat_map(|message| {
+                                self.history.record_input_message(
+                                    message,
+                                    labeled_response_context.clone(),
+                                    &server,
+                                    casemapping,
+                                    config,
+                                )
+                            })
+                            .map(Task::future),
+                    )
+                    .map(Message::History)
+                } else {
+                    Task::none()
+                };
 
                 return (task, None);
             }
@@ -2987,12 +3118,17 @@ impl Dashboard {
         if let Some((window, pane)) = open {
             self.close_pane(clients, config, window, pane)
         } else {
-            self.open_buffer(
-                buffer.into(),
-                config.actions.buffer.open_internal,
-                clients,
-                config,
-            )
+            let buffer_action = match &buffer {
+                buffer::Internal::ChannelDiscovery(_) => {
+                    config.actions.buffer.list
+                }
+                buffer::Internal::SearchResults(_) => {
+                    config.actions.buffer.search
+                }
+                _ => config.actions.buffer.open_internal,
+            };
+
+            self.open_buffer(buffer.into(), buffer_action, clients, config)
         }
     }
 

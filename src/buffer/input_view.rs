@@ -57,6 +57,11 @@ pub enum Event {
     },
     OpenInternalBuffer(buffer::Internal),
     OpenServer(String),
+    OpenSearchResults {
+        server: data::Server,
+        target: Option<Target>,
+        text: Option<String>,
+    },
     LeaveBuffers {
         targets: Vec<Target>,
         reason: Option<String>,
@@ -2305,6 +2310,16 @@ impl State {
                                 },
                             ),
                             None,
+                        );
+                    }
+                    command::Internal::SearchResults(text) => {
+                        return (
+                            Task::none(),
+                            Some(Event::OpenSearchResults {
+                                server: buffer.server().clone(),
+                                target: buffer.target(),
+                                text,
+                            }),
                         );
                     }
                 }

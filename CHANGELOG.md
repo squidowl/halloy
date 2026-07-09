@@ -19,6 +19,7 @@ Added:
 - `sidebar.unread_indicator.exclude` & `sidebar.unread_indicator.include` no longer controls highlight indicators
 - New `sidebar.highlight_indicator.title`, `sidebar.highlight_indicator.show_on_open_buffers`, `sidebar.highlight_indicator.exclude`, and `sidebar.highlight_indicator.include` settings for independent highlight control
 - Context menu on channel links
+- Support for `soju.im/search`
 
 Fixed:
 

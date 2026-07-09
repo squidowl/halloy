@@ -618,6 +618,23 @@ impl Manager {
             .update_chathistory_references(kind, chathistory_references)
     }
 
+    pub fn record_search_result(
+        &mut self,
+        server: &Server,
+        message: crate::Message,
+        labeled_response_context: Option<LabeledResponseContext>,
+    ) -> Option<impl Future<Output = Message> + use<>> {
+        if let message::Target::SearchResults { .. } = &message.target {
+            self.data.add_message(
+                history::Kind::SearchResults(server.clone()),
+                message,
+                labeled_response_context,
+            )
+        } else {
+            None
+        }
+    }
+
     pub fn update_read_marker<T: Into<history::Kind>>(
         &mut self,
         kind: T,
@@ -889,7 +906,8 @@ impl Manager {
                     Some(query.as_target_ref())
                 }
                 message::Target::Server { .. }
-                | message::Target::Logs { .. } => None,
+                | message::Target::Logs { .. }
+                | message::Target::SearchResults { .. } => None,
             };
 
             if let Some(target_ref) = target_ref
@@ -1156,7 +1174,8 @@ impl Manager {
                                     Some(query.as_target_ref())
                                 }
                                 message::Target::Server { .. }
-                                | message::Target::Logs { .. } => None,
+                                | message::Target::Logs { .. }
+                                | message::Target::SearchResults { .. } => None,
                             };
 
                             let source_kind = source
@@ -1331,8 +1350,10 @@ fn with_limit<'a>(
             let length = collected.len();
             collected[length.saturating_sub(n)..length].to_vec()
         }
-        Some(Limit::Since(timestamp)) => messages
-            .skip_while(|message| message.server_time < timestamp)
+        Some(Limit::Since(timestamp, ordered_by)) => messages
+            .skip_while(|message| {
+                message.ordering_datetime(ordered_by) < timestamp
+            })
             .collect(),
         Some(Limit::Around(n, hash)) => {
             let collected = messages.collect::<Vec<_>>();
@@ -1440,6 +1461,7 @@ impl Data {
 
                         history::insert_message(
                             &mut messages,
+                            kind.ordered_by(),
                             message,
                             labeled_response_context,
                         );
@@ -1576,12 +1598,15 @@ impl Data {
         let first_with_limit = limited.first();
         let last_with_limit = limited.last();
 
+        let ordered_by = kind.ordered_by();
+
         let split_at = display_read_marker.map_or(0, |display_read_marker| {
             limited
                 .iter()
                 .rev()
                 .position(|message| {
-                    message.server_time <= display_read_marker.date_time()
+                    message.ordering_datetime(ordered_by)
+                        <= display_read_marker.date_time()
                 })
                 .map_or_else(
                     || 0, // Backlog is before this limit view of messages
@@ -1609,6 +1634,7 @@ impl Data {
             old_messages: old.to_vec(),
             new_messages: new.to_vec(),
             cleared: *cleared,
+            ordered_by,
         })
     }
 

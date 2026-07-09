@@ -26,7 +26,7 @@ pub enum Message {
 pub enum Event {
     ContextMenu(context_menu::Event),
     OpenBuffer(Server, Target, BufferAction),
-    GoToMessage(Server, target::Channel, message::Hash, BufferAction),
+    GoToMessage(Server, Target, message::Hash, BufferAction),
     History(Task<history::manager::Message>),
     OpenUrl(String),
     MarkAsRead,
@@ -95,7 +95,7 @@ pub fn view<'a>(
                         .color(theme.styles().buffer.url.color)
                         .link(message::Link::GoToMessage(
                             server.clone(),
-                            channel.clone(),
+                            channel.to_target(),
                             message.hash,
                             config
                                 .actions
@@ -320,7 +320,7 @@ pub fn view<'a>(
                             .color(theme.styles().buffer.url.color)
                             .link(message::Link::GoToMessage(
                                 server.clone(),
-                                channel.clone(),
+                                channel.to_target(),
                                 message.hash,
                                 config
                                     .actions
@@ -420,11 +420,11 @@ impl Highlights {
                     ) => Some(Event::OpenBuffer(server, target, buffer_action)),
                     scroll_view::Event::GoToMessage(
                         server,
-                        channel,
+                        target,
                         message,
                         action,
                     ) => Some(Event::GoToMessage(
-                        server, channel, message, action,
+                        server, target, message, action,
                     )),
                     scroll_view::Event::RequestOlderChatHistory => None,
                     scroll_view::Event::PreviewChanged => None,

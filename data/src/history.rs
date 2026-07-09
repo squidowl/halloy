@@ -47,6 +47,7 @@ pub enum Kind {
     Query(Server, target::Query),
     Logs,
     Highlights,
+    SearchResults(Server),
 }
 
 impl Kind {
@@ -112,6 +113,9 @@ impl Kind {
             }
             message::Target::Logs { .. } => None,
             message::Target::Highlights { .. } => None,
+            message::Target::SearchResults { .. } => {
+                Some(Self::SearchResults(server.clone()))
+            }
         }
     }
 
@@ -133,6 +137,16 @@ impl Kind {
             Buffer::Internal(buffer::Internal::FileTransfers) => None,
             Buffer::Internal(buffer::Internal::ChannelDiscovery(_)) => None,
             Buffer::Internal(buffer::Internal::ConfigEditor) => None,
+            Buffer::Internal(buffer::Internal::SearchResults(server)) => {
+                Some(Kind::SearchResults(server))
+            }
+        }
+    }
+
+    pub fn ordered_by(&self) -> OrderedBy {
+        match self {
+            Kind::SearchResults(_) => OrderedBy::ReceivedAt,
+            _ => OrderedBy::default(),
         }
     }
 }
@@ -145,6 +159,7 @@ impl Kind {
             Kind::Query(server, _) => Some(server),
             Kind::Logs => None,
             Kind::Highlights => None,
+            Kind::SearchResults(server) => Some(server),
         }
     }
 
@@ -155,6 +170,7 @@ impl Kind {
             Kind::Query(_, nick) => Some(Target::Query(nick.clone())),
             Kind::Logs => None,
             Kind::Highlights => None,
+            Kind::SearchResults(_) => None,
         }
     }
 }
@@ -169,6 +185,9 @@ impl fmt::Display for Kind {
             Kind::Query(server, nick) => write!(f, "user {nick} on {server}"),
             Kind::Logs => write!(f, "logs"),
             Kind::Highlights => write!(f, "highlights"),
+            Kind::SearchResults(server) => {
+                write!(f, "search results from {server}")
+            }
         }
     }
 }
@@ -187,6 +206,9 @@ impl From<Kind> for Buffer {
             }
             Kind::Logs => Buffer::Internal(buffer::Internal::Logs),
             Kind::Highlights => Buffer::Internal(buffer::Internal::Highlights),
+            Kind::SearchResults(server) => {
+                Buffer::Internal(buffer::Internal::SearchResults(server))
+            }
         }
     }
 }
@@ -350,6 +372,7 @@ pub async fn append(
         |(message, labeled_response_context)| {
             insert_message(
                 &mut all_messages,
+                kind.ordered_by(),
                 message,
                 labeled_response_context,
             );
@@ -399,6 +422,9 @@ async fn path(kind: &Kind) -> Result<PathBuf, Error> {
         }
         Kind::Logs => "logs".to_string(),
         Kind::Highlights => "highlights".to_string(),
+        Kind::SearchResults(server) => {
+            format!("{server:b}search results")
+        }
     };
 
     let hashed_name = seahash::hash(name.as_bytes());
@@ -610,9 +636,12 @@ impl History {
 
                 None
             }
-            History::Full { messages, .. } => {
-                insert_message(messages, message, labeled_response_context)
-            }
+            History::Full { messages, kind, .. } => insert_message(
+                messages,
+                kind.ordered_by(),
+                message,
+                labeled_response_context,
+            ),
         }
     }
 
@@ -1424,10 +1453,11 @@ impl History {
 /// the ReadMarker)
 pub fn insert_message(
     messages: &mut Vec<Message>,
+    ordered_by: OrderedBy,
     message: Message,
     labeled_response_context: Option<LabeledResponseContext>,
 ) -> Option<ReadMarker> {
-    if messages.is_empty() {
+    if messages.is_empty() || matches!(ordered_by, OrderedBy::ReceivedAt) {
         messages.push(message);
 
         return None;
@@ -1741,6 +1771,14 @@ pub struct View<'a> {
     pub old_messages: Vec<&'a Message>,
     pub new_messages: Vec<&'a Message>,
     pub cleared: bool,
+    pub ordered_by: OrderedBy,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub enum OrderedBy {
+    ReceivedAt,
+    #[default]
+    ServerTime,
 }
 
 #[derive(Debug, thiserror::Error)]

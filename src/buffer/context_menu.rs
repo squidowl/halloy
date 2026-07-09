@@ -93,7 +93,12 @@ impl<'a> Context<'a> {
             ) => into_url_context
                 .map(|into_url_context| Context::Url(into_url_context(url))),
             message::Link::Channel(server, channel, _)
-            | message::Link::GoToMessage(server, channel, _, _)
+            | message::Link::GoToMessage(
+                server,
+                Target::Channel(channel),
+                _,
+                _,
+            )
             | message::Link::ExpandMessage(
                 _,
                 _,
@@ -106,7 +111,8 @@ impl<'a> Context<'a> {
             ) => into_channel_context.map(|into_channel_context| {
                 Context::Channel(into_channel_context(server, channel))
             }),
-            message::Link::ExpandMessage(..)
+            message::Link::GoToMessage(_, Target::Query(_), _, _)
+            | message::Link::ExpandMessage(..)
             | message::Link::ContractMessage(..) => None,
         }
     }
@@ -193,7 +199,12 @@ impl Entry {
                 into_url_list.map_or(vec![], |into_url_list| into_url_list(url))
             }
             message::Link::Channel(server, channel, _)
-            | message::Link::GoToMessage(server, channel, _, _)
+            | message::Link::GoToMessage(
+                server,
+                Target::Channel(channel),
+                _,
+                _,
+            )
             | message::Link::ExpandMessage(
                 _,
                 _,
@@ -206,7 +217,8 @@ impl Entry {
             ) => into_channel_list.map_or(vec![], |into_channel_list| {
                 into_channel_list(server, channel)
             }),
-            message::Link::ExpandMessage(..)
+            message::Link::GoToMessage(_, Target::Query(_), _, _)
+            | message::Link::ExpandMessage(..)
             | message::Link::ContractMessage(..) => vec![],
         }
     }

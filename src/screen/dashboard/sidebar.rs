@@ -37,6 +37,7 @@ pub enum Message {
     Swap(window::Id, pane_grid::Pane),
     Detach(buffer::Upstream),
     Leave(buffer::Upstream),
+    Search(buffer::Upstream),
     CloseAllQueries(Server, Vec<target::Query>),
     ToggleCommandBar,
     ToggleThemeEditor,
@@ -68,6 +69,7 @@ pub enum Event {
     Swap(window::Id, pane_grid::Pane),
     Detach(buffer::Upstream),
     Leave(buffer::Upstream),
+    Search(buffer::Upstream),
     CloseAllQueries(Server, Vec<target::Query>),
     ToggleCommandBar,
     ToggleThemeEditor,
@@ -142,6 +144,9 @@ impl Sidebar {
             }
             Message::Detach(buffer) => {
                 (Task::none(), Some(Event::Detach(buffer)))
+            }
+            Message::Search(buffer) => {
+                (Task::none(), Some(Event::Search(buffer)))
             }
             Message::Leave(buffer) => {
                 (Task::none(), Some(Event::Leave(buffer)))
@@ -499,6 +504,8 @@ impl Sidebar {
                 let server_has_unread = history.server_has_unread(server);
                 let supports_detach =
                     clients.get_server_supports_detach(server);
+                let supports_search =
+                    clients.get_server_supports_search(server);
                 let casemapping =
                     clients.get_server_casemapping_or_default(server);
 
@@ -515,6 +522,7 @@ impl Sidebar {
                         connected,
                         server_has_unread,
                         supports_detach,
+                        supports_search,
                         casemapping,
                         history,
                         width,
@@ -864,6 +872,7 @@ enum Entry {
     CloseAllQueries,
     MarkAsRead,
     MarkServerAsRead,
+    Search,
     NewPane,
     Popout,
     Replace,
@@ -881,6 +890,7 @@ impl Entry {
         focus: Focus,
         connected: bool,
         supports_detach: bool,
+        supports_search: bool,
         has_history: bool,
     ) -> Vec<Self> {
         use Entry::*;
@@ -914,6 +924,9 @@ impl Entry {
         }
 
         if connected {
+            if supports_search {
+                entries.push(Search);
+            }
             if matches!(
                 buffer,
                 buffer::Buffer::Upstream(buffer::Upstream::Channel(_, _))
@@ -939,6 +952,7 @@ fn upstream_buffer_button<'a>(
     connected: bool,
     server_has_unread: bool,
     supports_detach: bool,
+    supports_search: bool,
     casemapping: isupport::CaseMap,
     history: &'a history::Manager,
     width: Length,
@@ -1233,6 +1247,7 @@ fn upstream_buffer_button<'a>(
         focus,
         connected,
         supports_detach,
+        supports_search,
         true,
     );
 
@@ -1311,6 +1326,14 @@ fn upstream_buffer_button<'a>(
                     Entry::Detach => (
                         "Detach from channel",
                         Some(Message::Detach(buffer.clone())),
+                    ),
+                    Entry::Search => (
+                        match &buffer {
+                            buffer::Upstream::Server(_) => "Search server",
+                            buffer::Upstream::Channel(_, _) => "Search channel",
+                            buffer::Upstream::Query(_, _) => "Search query",
+                        },
+                        Some(Message::Search(buffer.clone())),
                     ),
                     Entry::Leave => (
                         match &buffer {
@@ -1502,6 +1525,9 @@ fn internal_buffer_button<'a>(
 
             (show_icon.then_some(icon::logs()), badge)
         }
+        buffer::Internal::SearchResults(_) => {
+            (show_icon.then_some(icon::search()), None)
+        }
     };
 
     let mut content = row![].align_y(iced::Alignment::Center);
@@ -1580,6 +1606,7 @@ fn internal_buffer_button<'a>(
         panes.len(),
         open,
         focus,
+        false,
         false,
         false,
         has_history,

@@ -35,10 +35,21 @@ impl Posix {
         self.0
     }
 
-    pub fn datetime(&self) -> Option<DateTime<Utc>> {
-        let seconds = (self.0 / 1_000_000_000) as i64;
-        let nanos = (self.0 % 1_000_000_000) as u32;
+    pub fn from_datetime(datetime: DateTime<Utc>) -> Self {
+        if let Some(nanos_since_epoch) = datetime.timestamp_nanos_opt() {
+            Self(u64::try_from(nanos_since_epoch).unwrap_or(0))
+        } else {
+            let micros_since_epoch =
+                u64::try_from(datetime.timestamp_micros()).unwrap_or(0);
 
-        DateTime::from_timestamp(seconds, nanos)
+            Self(micros_since_epoch * 1_000)
+        }
+    }
+
+    // This will saturate starting 2262-04-11T23:47:16.854775807
+    pub fn datetime(&self) -> DateTime<Utc> {
+        DateTime::from_timestamp_nanos(
+            i64::try_from(self.0).unwrap_or(i64::MAX),
+        )
     }
 }

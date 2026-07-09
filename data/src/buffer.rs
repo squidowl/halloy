@@ -11,7 +11,7 @@ pub use self::timestamp::Timestamp;
 use crate::appearance::theme::hex_to_color;
 use crate::serde::deserialize_strftime_date;
 use crate::target::{self, Target};
-use crate::{Server, channel, config};
+use crate::{Server, channel, config, message};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -51,6 +51,8 @@ pub enum Internal {
     ChannelDiscovery(Option<Server>),
     #[strum(serialize = "Config Editor")]
     ConfigEditor,
+    #[strum(serialize = "Search Results")]
+    SearchResults(Server),
 }
 
 impl Buffer {
@@ -114,6 +116,25 @@ impl Upstream {
         }
     }
 
+    pub fn server_message_target(
+        self,
+        source: Option<message::source::Server>,
+    ) -> Option<message::Target> {
+        match self {
+            Self::Server(_) => Some(message::Target::Server {
+                source: message::Source::Server(source),
+            }),
+            Self::Channel(_, channel) => Some(message::Target::Channel {
+                channel,
+                source: message::Source::Server(source),
+            }),
+            Self::Query(_, query) => Some(message::Target::Query {
+                query,
+                source: message::Source::Server(source),
+            }),
+        }
+    }
+
     pub fn query(&self) -> Option<Target> {
         match self {
             Self::Query(_, query) => Some(Target::Query(query.clone())),
@@ -133,13 +154,15 @@ impl Internal {
 
     pub fn key(&self) -> String {
         match self {
-            Internal::FileTransfers => "file-transfers",
-            Internal::Logs => "logs",
-            Internal::Highlights => "highlights",
-            Internal::ChannelDiscovery(_) => "channel-discovery",
-            Internal::ConfigEditor => "config-editor",
+            Internal::FileTransfers => "file-transfers".to_string(),
+            Internal::Logs => "logs".to_string(),
+            Internal::Highlights => "highlights".to_string(),
+            Internal::ChannelDiscovery(_) => "channel-discovery".to_string(),
+            Internal::ConfigEditor => "config-editor".to_string(),
+            Internal::SearchResults(server) => {
+                format!("server:{server}:search-results")
+            }
         }
-        .to_string()
     }
 }
 
