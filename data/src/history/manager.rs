@@ -893,6 +893,20 @@ impl Manager {
             .any(History::has_unread)
     }
 
+    pub fn server_has_highlight(&self, server: &Server) -> bool {
+        self.data
+            .map
+            .iter()
+            .filter_map(|(kind, history)| {
+                if kind.server().is_some_and(|s| *s == *server) {
+                    Some(history)
+                } else {
+                    None
+                }
+            })
+            .any(History::has_highlight)
+    }
+
     pub fn has_unread(&self, kind: &history::Kind) -> bool {
         self.data.map.get(kind).is_some_and(History::has_unread)
     }

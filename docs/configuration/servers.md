@@ -1226,3 +1226,16 @@ timestamp = "utc"
 [^1]: Windows path strings should usually be specified as literal strings (e.g. `'C:\Users\Default\'`), otherwise directory separators will need to be escaped (e.g. `"C:\\Users\\Default\\"`).
 
 [^2]: Relative paths are prefixed with the config directory (i.e. if you have your config.toml in `/home/me/.config/halloy/config.toml`, path `.passwd/libera` will be converted to `/home/me/.config/halloy/.passwd/libera`).
+
+## `sidebar_visibility`
+
+Control the initial visibility of the server in the sidebar.
+
+```toml
+# Type: string
+# Values: "expanded", "collapsed"
+# Default: "expanded"
+
+[servers.<name>]
+sidebar_visibility = "collapsed"
+```

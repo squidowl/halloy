@@ -1,6 +1,8 @@
+use std::collections::HashMap;
 use std::iter;
 use std::time::Duration;
 
+use data::config::server::SidebarVisibility;
 use data::config::{self, Config, sidebar};
 use data::dashboard::{BufferAction, BufferFocusedAction};
 use data::{
@@ -59,6 +61,8 @@ pub enum Message {
     Remove(Server),
     SystemInformation(iced::system::Information),
     ShowMutedBuffers(bool),
+    CollapseServer(Server),
+    ExpandServer(Server),
 }
 
 #[derive(Debug, Clone)]
@@ -89,11 +93,14 @@ pub enum Event {
     DisableAutoconnect(Server),
     Remove(Server),
     ShowMutedBuffers(bool),
+    CollapseServer(Server),
+    ExpandServer(Server),
 }
 
 #[derive(Clone)]
 pub struct Sidebar {
     pub hidden: bool,
+    server_visibility: HashMap<server::ServerName, SidebarVisibility>,
     reloading_config: bool,
     system_information: Option<iced::system::Information>,
 }
@@ -103,6 +110,7 @@ impl Sidebar {
         (
             Self {
                 hidden: false,
+                server_visibility: HashMap::new(),
                 reloading_config: false,
                 system_information: None,
             },
@@ -112,6 +120,16 @@ impl Sidebar {
 
     pub fn toggle_visibility(&mut self) {
         self.hidden = !self.hidden;
+    }
+
+    fn collapse_server_visibility(&mut self, server: &Server) {
+        self.server_visibility
+            .insert(server.name.clone(), SidebarVisibility::Collapsed);
+    }
+
+    fn expand_server_visibility(&mut self, server: &Server) {
+        self.server_visibility
+            .insert(server.name.clone(), SidebarVisibility::Expanded);
     }
 
     pub fn update(
@@ -208,6 +226,14 @@ impl Sidebar {
                 Task::none(),
                 Some(Event::ShowMutedBuffers(show_muted_buffers)),
             ),
+            Message::CollapseServer(server) => {
+                self.collapse_server_visibility(&server);
+                (Task::none(), Some(Event::CollapseServer(server)))
+            }
+            Message::ExpandServer(server) => {
+                self.expand_server_visibility(&server);
+                (Task::none(), Some(Event::ExpandServer(server)))
+            }
         }
     }
 
@@ -546,6 +572,12 @@ impl Sidebar {
                 let casemapping =
                     clients.get_server_casemapping_or_default(server);
 
+                let is_server_collapsed = !is_server_expanded(
+                    config,
+                    &self.server_visibility,
+                    server,
+                );
+
                 let button =
                     |buffer: buffer::Upstream,
                      kind: history::Kind,
@@ -564,6 +596,7 @@ impl Sidebar {
                             history,
                             width,
                             theme,
+                            &self.server_visibility,
                         )
                     };
 
@@ -598,43 +631,46 @@ impl Sidebar {
                                 },
                             ));
 
-                            // Channels from the connected server.
-                            for channel in connection.channels() {
-                                upstream_buffers.push(button(
-                                    buffer::Upstream::Channel(
-                                        server.clone(),
-                                        channel.clone(),
-                                    ),
-                                    history::Kind::Channel(
-                                        server.clone(),
-                                        channel.clone(),
-                                    ),
-                                    ConnectionStatus::Connected {
-                                        registration_complete,
-                                    },
-                                ));
-                            }
+                            if !is_server_collapsed {
+                                // Channels from the connected server.
+                                for channel in connection.channels() {
+                                    upstream_buffers.push(button(
+                                        buffer::Upstream::Channel(
+                                            server.clone(),
+                                            channel.clone(),
+                                        ),
+                                        history::Kind::Channel(
+                                            server.clone(),
+                                            channel.clone(),
+                                        ),
+                                        ConnectionStatus::Connected {
+                                            registration_complete,
+                                        },
+                                    ));
+                                }
 
-                            // Queries from the connected server.
-                            let queries = history.get_unique_queries(server);
-                            for query in queries {
-                                let query = clients
-                                    .resolve_query(server, query)
-                                    .unwrap_or(query);
+                                // Queries from the connected server.
+                                let queries =
+                                    history.get_unique_queries(server);
+                                for query in queries {
+                                    let query = clients
+                                        .resolve_query(server, query)
+                                        .unwrap_or(query);
 
-                                upstream_buffers.push(button(
-                                    buffer::Upstream::Query(
-                                        server.clone(),
-                                        query.clone(),
-                                    ),
-                                    history::Kind::Query(
-                                        server.clone(),
-                                        query.clone(),
-                                    ),
-                                    ConnectionStatus::Connected {
-                                        registration_complete,
-                                    },
-                                ));
+                                    upstream_buffers.push(button(
+                                        buffer::Upstream::Query(
+                                            server.clone(),
+                                            query.clone(),
+                                        ),
+                                        history::Kind::Query(
+                                            server.clone(),
+                                            query.clone(),
+                                        ),
+                                        ConnectionStatus::Connected {
+                                            registration_complete,
+                                        },
+                                    ));
+                                }
                             }
 
                             // Separator between servers.
@@ -938,6 +974,8 @@ enum Entry {
     Detach,
     Leave,
     Remove,
+    CollapseServer,
+    ExpandServer,
 }
 
 impl Entry {
@@ -994,9 +1032,11 @@ impl Entry {
             }
         }
 
-        if connection_status.is_some_and(|connection_status| {
+        let connected = connection_status.is_some_and(|connection_status| {
             matches!(connection_status, ConnectionStatus::Connected { .. })
-        }) {
+        });
+
+        if connected {
             if matches!(
                 buffer,
                 buffer::Buffer::Upstream(buffer::Upstream::Channel(_, _))
@@ -1008,8 +1048,30 @@ impl Entry {
         }
 
         entries.sort();
+
+        if let buffer::Buffer::Upstream(buffer::Upstream::Server(_)) = buffer
+            && connected
+        {
+            entries.extend([HorizontalRule, CollapseServer, ExpandServer]);
+        }
         entries
     }
+}
+
+fn is_server_expanded(
+    config: &Config,
+    server_visibility: &HashMap<server::ServerName, SidebarVisibility>,
+    server: &Server,
+) -> bool {
+    let visibility = match (
+        server_visibility.get(&server.name),
+        config.servers.get(server),
+    ) {
+        (Some(server_visibility), _) => *server_visibility,
+        (None, Some(server)) => server.sidebar_visibility,
+        (None, None) => SidebarVisibility::Expanded,
+    };
+    matches!(visibility, SidebarVisibility::Expanded)
 }
 
 fn upstream_buffer_button<'a>(
@@ -1026,6 +1088,7 @@ fn upstream_buffer_button<'a>(
     history: &'a history::Manager,
     width: Length,
     theme: &'a Theme,
+    server_visibility: &'a HashMap<server::ServerName, SidebarVisibility>,
 ) -> Element<'a, Message> {
     let open = panes.iter().find_map(|(window_id, pane, state)| {
         (state.buffer.upstream() == Some(&buffer)).then_some((window_id, pane))
@@ -1080,10 +1143,27 @@ fn upstream_buffer_button<'a>(
         || (is_unread_query
             && config.sidebar.unread_indicator.query_as_highlight);
 
-    let show_highlight_icon = has_highlight
+    let (
+        is_server_and_collapsed,
+        is_collapsed_server_and_has_unread,
+        is_collapsed_server_and_has_highlight,
+    ) = if let buffer::Upstream::Server(server) = &buffer
+        && !is_server_expanded(config, server_visibility, server)
+    {
+        (
+            true,
+            history.server_has_unread(server),
+            history.server_has_highlight(server),
+        )
+    } else {
+        (false, false, false)
+    };
+
+    let show_highlight_icon = (has_highlight
+        || is_collapsed_server_and_has_highlight)
         && config.sidebar.highlight_indicator.has_icon()
         && should_indicate_highlight;
-    let show_unread_icon = has_unread
+    let show_unread_icon = (has_unread || is_collapsed_server_and_has_unread)
         && config.sidebar.unread_indicator.has_icon()
         && should_indicate_unread;
     let show_unread_title = has_unread
@@ -1514,6 +1594,24 @@ fn upstream_buffer_button<'a>(
                             return Space::new().width(length).height(1).into();
                         }
                     },
+                    Entry::CollapseServer => (
+                        "Collapse server",
+                        if !is_server_and_collapsed {
+                            Some(Message::CollapseServer(
+                                buffer.server().clone(),
+                            ))
+                        } else {
+                            None
+                        },
+                    ),
+                    Entry::ExpandServer => (
+                        "Expand server",
+                        if is_server_and_collapsed {
+                            Some(Message::ExpandServer(buffer.server().clone()))
+                        } else {
+                            None
+                        },
+                    ),
                 };
 
                 button(text(content))

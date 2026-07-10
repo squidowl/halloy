@@ -31,6 +31,7 @@ Added:
 - `logs.file_timestamp` setting to control what timezone is used for timestamps in log files and log file names
 - `servers.<name>.irc_protocol_log` settings to enable logging of the IRC protocol messages sent-to / received-from the server
 - `runtime.metrics_hinting` setting to control whether widgets are rendered using metrics hinting
+- Collapse & expand servers in sidebar
 
 Fixed:
 

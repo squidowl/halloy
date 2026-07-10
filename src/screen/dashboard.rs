@@ -779,6 +779,8 @@ impl Dashboard {
                         self.buffer_settings.show_muted = show_muted_buffers;
                         (Task::none(), None)
                     }
+                    sidebar::Event::CollapseServer(_)
+                    | sidebar::Event::ExpandServer(_) => (Task::none(), None),
                 };
 
                 let window = main_window.id;
