@@ -22,6 +22,7 @@ use itertools::Either;
 use tokio::time;
 
 use super::{Focus, Panes, Server};
+use crate::server::ServerName;
 use crate::widget::text_color_svg::TextColorSvg;
 use crate::widget::{
     Element, Text, TextExt, context_menu, double_pass, image, text,
@@ -61,8 +62,7 @@ pub enum Message {
     Remove(Server),
     SystemInformation(iced::system::Information),
     ShowMutedBuffers(bool),
-    CollapseServer(Server),
-    ExpandServer(Server),
+    ToggleCollapse(ServerName, bool),
 }
 
 #[derive(Debug, Clone)]
@@ -93,8 +93,7 @@ pub enum Event {
     DisableAutoconnect(Server),
     Remove(Server),
     ShowMutedBuffers(bool),
-    CollapseServer(Server),
-    ExpandServer(Server),
+    ToggleCollapse(ServerName, bool),
 }
 
 #[derive(Clone)]
@@ -122,14 +121,17 @@ impl Sidebar {
         self.hidden = !self.hidden;
     }
 
-    fn collapse_server_visibility(&mut self, server: &Server) {
-        self.server_visibility
-            .insert(server.name.clone(), SidebarVisibility::Collapsed);
-    }
-
-    fn expand_server_visibility(&mut self, server: &Server) {
-        self.server_visibility
-            .insert(server.name.clone(), SidebarVisibility::Expanded);
+    fn toggle_server_visibility(
+        &mut self,
+        server_name: &ServerName,
+        is_server_expanded: bool,
+    ) {
+        let state = if is_server_expanded {
+            SidebarVisibility::Collapsed
+        } else {
+            SidebarVisibility::Expanded
+        };
+        self.server_visibility.insert(server_name.clone(), state);
     }
 
     pub fn update(
@@ -226,13 +228,15 @@ impl Sidebar {
                 Task::none(),
                 Some(Event::ShowMutedBuffers(show_muted_buffers)),
             ),
-            Message::CollapseServer(server) => {
-                self.collapse_server_visibility(&server);
-                (Task::none(), Some(Event::CollapseServer(server)))
-            }
-            Message::ExpandServer(server) => {
-                self.expand_server_visibility(&server);
-                (Task::none(), Some(Event::ExpandServer(server)))
+            Message::ToggleCollapse(server_name, is_server_expanded) => {
+                self.toggle_server_visibility(&server_name, is_server_expanded);
+                (
+                    Task::none(),
+                    Some(Event::ToggleCollapse(
+                        server_name,
+                        is_server_expanded,
+                    )),
+                )
             }
         }
     }
@@ -974,8 +978,7 @@ enum Entry {
     Detach,
     Leave,
     Remove,
-    CollapseServer,
-    ExpandServer,
+    ToggleCollapse,
 }
 
 impl Entry {
@@ -1052,7 +1055,7 @@ impl Entry {
         if let buffer::Buffer::Upstream(buffer::Upstream::Server(_)) = buffer
             && connected
         {
-            entries.extend([HorizontalRule, CollapseServer, ExpandServer]);
+            entries.extend([HorizontalRule, ToggleCollapse]);
         }
         entries
     }
@@ -1144,19 +1147,17 @@ fn upstream_buffer_button<'a>(
             && config.sidebar.unread_indicator.query_as_highlight);
 
     let (
-        is_server_and_collapsed,
         is_collapsed_server_and_has_unread,
         is_collapsed_server_and_has_highlight,
     ) = if let buffer::Upstream::Server(server) = &buffer
         && !is_server_expanded(config, server_visibility, server)
     {
         (
-            true,
             history.server_has_unread(server),
             history.server_has_highlight(server),
         )
     } else {
-        (false, false, false)
+        (false, false)
     };
 
     let show_highlight_icon = (has_highlight
@@ -1594,24 +1595,26 @@ fn upstream_buffer_button<'a>(
                             return Space::new().width(length).height(1).into();
                         }
                     },
-                    Entry::CollapseServer => (
-                        "Collapse server",
-                        if !is_server_and_collapsed {
-                            Some(Message::CollapseServer(
-                                buffer.server().clone(),
-                            ))
+                    Entry::ToggleCollapse => {
+                        let server = buffer.server();
+                        let is_server_expanded = is_server_expanded(
+                            config,
+                            server_visibility,
+                            server,
+                        );
+                        let toggle_text = if is_server_expanded {
+                            "Collapse server"
                         } else {
-                            None
-                        },
-                    ),
-                    Entry::ExpandServer => (
-                        "Expand server",
-                        if is_server_and_collapsed {
-                            Some(Message::ExpandServer(buffer.server().clone()))
-                        } else {
-                            None
-                        },
-                    ),
+                            "Expand server"
+                        };
+                        (
+                            toggle_text,
+                            Some(Message::ToggleCollapse(
+                                server.name.clone(),
+                                is_server_expanded,
+                            )),
+                        )
+                    }
                 };
 
                 button(text(content))
