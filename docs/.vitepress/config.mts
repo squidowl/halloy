@@ -17,6 +17,7 @@ const guidesItems = [
   { text: "Building for macOS", link: "/guides/macos-application" },
   { text: "Connect with soju", link: "/guides/connect-with-soju" },
   { text: "Connect with ZNC", link: "/guides/connect-with-znc" },
+  { text: "TLS Troubleshooting", link: "/guides/tls" },
   { text: "Custom Themes", link: "/guides/custom-themes" },
   { text: "Exec Command", link: "/guides/exec-command" },
   {
