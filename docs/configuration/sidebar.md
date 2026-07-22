@@ -160,7 +160,7 @@ Internal buffers shown in the sidebar.
 
 ```toml
 # Type: array
-# Values: 'config-editor', `file-transfers`, `channel-discovery`, `highlights`, `logs`
+# Values: `config-editor`, `file-transfers`, `channel-discovery`, `channel-monitor`, `highlights`, `logs`
 # Default: []
 
 [sidebar.internal_buffers]
