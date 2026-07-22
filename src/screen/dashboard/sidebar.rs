@@ -1572,26 +1572,21 @@ fn internal_buffer_button<'a>(
         history::Kind::from_buffer(buffer.clone().into()).is_some();
 
     let (has_unread, can_mark_as_read, has_highlight) = match buffer {
-        buffer::Internal::Highlights
-            if (config.sidebar.highlight_indicator.show_on_open_buffers
-                || open.is_none()) =>
-        {
-            (
-                history.has_unread(&history::Kind::Highlights),
-                history.can_mark_as_read(&history::Kind::Highlights),
-                history.has_unread(&history::Kind::Highlights),
-            )
-        }
-        buffer::Internal::Logs
-            if (config.sidebar.unread_indicator.show_on_open_buffers
-                || open.is_none()) =>
-        {
-            (
-                history.has_unread(&history::Kind::Logs),
-                history.can_mark_as_read(&history::Kind::Logs),
-                history.has_highlight(&history::Kind::Logs),
-            )
-        }
+        buffer::Internal::ChannelMonitor => (
+            history.has_unread(&history::Kind::ChannelMonitor),
+            history.can_mark_as_read(&history::Kind::ChannelMonitor),
+            history.has_highlight(&history::Kind::ChannelMonitor),
+        ),
+        buffer::Internal::Highlights => (
+            history.has_unread(&history::Kind::Highlights),
+            history.can_mark_as_read(&history::Kind::Highlights),
+            history.has_unread(&history::Kind::Highlights),
+        ),
+        buffer::Internal::Logs => (
+            history.has_unread(&history::Kind::Logs),
+            history.can_mark_as_read(&history::Kind::Logs),
+            history.has_highlight(&history::Kind::Logs),
+        ),
         _ => (false, false, false),
     };
 
@@ -1611,6 +1606,8 @@ fn internal_buffer_button<'a>(
         }
         buffer::Internal::Highlights => {
             let badge = if has_unread
+                && (config.sidebar.highlight_indicator.show_on_open_buffers
+                    || open.is_none())
                 && let Some(highlight_icon) =
                     icon::from_icon(config.sidebar.highlight_indicator.icon)
             {
@@ -1641,7 +1638,29 @@ fn internal_buffer_button<'a>(
             (show_icon.then_some(icon::logs()), badge)
         }
         buffer::Internal::ChannelMonitor => {
-            let badge = None;
+            let badge = if has_highlight
+                && (config.sidebar.highlight_indicator.show_on_open_buffers
+                    || open.is_none())
+                && let Some(highlight_icon) =
+                    icon::from_icon(config.sidebar.highlight_indicator.icon)
+            {
+                Some((
+                    highlight_icon.style(theme::text::highlight_indicator),
+                    dimensions.highlight_indicator_size,
+                ))
+            } else if has_unread
+                && (config.sidebar.unread_indicator.show_on_open_buffers
+                    || open.is_none())
+                && let Some(unread_icon) =
+                    icon::from_icon(config.sidebar.unread_indicator.icon)
+            {
+                Some((
+                    unread_icon.style(theme::text::unread_indicator),
+                    dimensions.unread_indicator_size,
+                ))
+            } else {
+                None
+            };
 
             (show_icon.then_some(icon::channel_monitor()), badge)
         }
