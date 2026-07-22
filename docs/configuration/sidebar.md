@@ -87,6 +87,21 @@ Show or hide the user menu button in the sidebar.
 enabled = true
 ```
 
+## `collapse_button`
+
+Show or hide the button used to expand and collapse a server's channels and
+queries. Servers can still be expanded or collapsed from their context menu
+when this button is hidden.
+
+```toml
+# Type: bool
+# Values: true, false
+# Default: true
+
+[sidebar.collapse_button]
+enabled = true
+```
+
 ## `order_by`
 
 Ordering that servers are listed in the sidebar.

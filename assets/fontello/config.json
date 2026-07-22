@@ -223,6 +223,18 @@
       "css": "shuffle",
       "code": 10542,
       "src": "fontawesome"
+    },
+    {
+      "uid": "d870630ff8f81e6de3958ecaeac532f2",
+      "css": "left-open",
+      "code": 60,
+      "src": "fontawesome"
+    },
+    {
+      "uid": "fe6697b391355dec12f3d86d6d490397",
+      "css": "up-open",
+      "code": 94,
+      "src": "fontawesome"
     }
   ]
 }

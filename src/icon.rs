@@ -236,6 +236,23 @@ pub fn plus<'a>() -> Text<'a> {
     to_text('\u{E820}')
 }
 
+pub fn chevron_left<'a>() -> Text<'a> {
+    to_text('\u{003C}')
+}
+
+pub fn chevron_right<'a>() -> Text<'a> {
+    to_text('\u{003E}')
+}
+
+#[allow(dead_code)]
+pub fn chevron_up<'a>() -> Text<'a> {
+    to_text('\u{005E}')
+}
+
+pub fn chevron_down<'a>() -> Text<'a> {
+    to_text('\u{0076}')
+}
+
 pub fn lock<'a>() -> Text<'a> {
     to_text('\u{E821}')
 }

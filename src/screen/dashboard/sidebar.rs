@@ -565,6 +565,7 @@ impl Sidebar {
                     |buffer: buffer::Upstream,
                      kind: history::Kind,
                      connection_status: ConnectionStatus,
+                     server_has_members: bool,
                      collapsed_indicators: IndicatorState| {
                         upstream_buffer_button(
                             config,
@@ -574,6 +575,7 @@ impl Sidebar {
                             buffer,
                             kind,
                             connection_status,
+                            server_has_members,
                             server_has_unread,
                             supports_detach,
                             casemapping,
@@ -601,12 +603,17 @@ impl Sidebar {
                                     autoconnect: *autoconnect,
                                     connecting: *connecting,
                                 },
+                                false,
                                 IndicatorState::default(),
                             ));
                         }
                         data::client::State::Ready(connection) => {
                             let registration_complete =
                                 connection.registration_complete();
+                            let queries = history.get_unique_queries(server);
+                            let server_has_members =
+                                connection.channels().next().is_some()
+                                    || !queries.is_empty();
                             let mut collapsed_indicators =
                                 IndicatorState::default();
 
@@ -632,8 +639,7 @@ impl Sidebar {
                                     );
                                 }
 
-                                for query in history.get_unique_queries(server)
-                                {
+                                for query in &queries {
                                     let query = clients
                                         .resolve_query(server, query)
                                         .unwrap_or(query);
@@ -665,6 +671,7 @@ impl Sidebar {
                                 ConnectionStatus::Connected {
                                     registration_complete,
                                 },
+                                server_has_members,
                                 collapsed_indicators,
                             ));
 
@@ -683,13 +690,12 @@ impl Sidebar {
                                         ConnectionStatus::Connected {
                                             registration_complete,
                                         },
+                                        false,
                                         IndicatorState::default(),
                                     ));
                                 }
 
                                 // Queries from the connected server.
-                                let queries =
-                                    history.get_unique_queries(server);
                                 for query in queries {
                                     let query = clients
                                         .resolve_query(server, query)
@@ -707,6 +713,7 @@ impl Sidebar {
                                         ConnectionStatus::Connected {
                                             registration_complete,
                                         },
+                                        false,
                                         IndicatorState::default(),
                                     ));
                                 }
@@ -1171,6 +1178,7 @@ fn upstream_buffer_button<'a>(
     buffer: buffer::Upstream,
     kind: history::Kind,
     connection_status: ConnectionStatus,
+    server_has_members: bool,
     server_has_unread: bool,
     supports_detach: bool,
     casemapping: isupport::CaseMap,
@@ -1294,6 +1302,14 @@ fn upstream_buffer_button<'a>(
         None
     };
 
+    let sidebar_icon_height = if icon.is_some() {
+        dimensions
+            .icon_size
+            .max(indicator.as_ref().map_or(0, |_| dimensions.icon_badge_size))
+    } else {
+        indicator.as_ref().map_or(1, |(_, size)| *size)
+    };
+
     let mut content = row![].align_y(iced::Alignment::Center);
 
     content = content.extend(sidebar_icon(
@@ -1392,67 +1408,155 @@ fn upstream_buffer_button<'a>(
         }
     }
 
-    let base =
-        button(content.width(width).padding(Padding::default().bottom(1)))
-            .style(move |theme, status| {
-                theme::button::sidebar_buffer(
-                    theme,
-                    status,
-                    is_focused.is_some(),
-                    open.is_some(),
-                )
-            })
-            .padding(config.sidebar.padding.buffer)
-            .on_press({
-                match is_focused {
-                    Some((window, pane)) => {
-                        if let Some(focus_action) =
-                            config.actions.sidebar.focused_buffer
-                        {
-                            match focus_action {
-                                BufferFocusedAction::ClosePane => {
-                                    Message::Close(window, pane)
-                                }
-                            }
-                        } else {
-                            // Re-focus pane on press instead of disabling the button in order
-                            // to have hover status of the button for styling
-                            Message::Focus(window, pane)
+    let disclosure = if let buffer::Upstream::Server(server) = &buffer
+        && matches!(connection_status, ConnectionStatus::Connected { .. })
+        && server_has_members
+        && config.sidebar.collapse_button.enabled
+    {
+        let is_expanded = is_server_expanded(config, server_visibility, server);
+        let collapse_indicator = match (config.sidebar.position, is_expanded) {
+            (sidebar::Position::Left | sidebar::Position::Right, true) => {
+                icon::chevron_down()
+            }
+            (sidebar::Position::Left | sidebar::Position::Right, false) => {
+                icon::chevron_right()
+            }
+            (sidebar::Position::Top | sidebar::Position::Bottom, true) => {
+                icon::chevron_right()
+            }
+            (sidebar::Position::Top | sidebar::Position::Bottom, false) => {
+                icon::chevron_left()
+            }
+        };
+
+        let font_size = config
+            .sidebar
+            .primary_font_size
+            .or(config.sidebar.secondary_font_size)
+            .or(config.font.size)
+            .map_or(theme::TEXT_SIZE, f32::from);
+        let button_size = font_size.max(sidebar_icon_height as f32)
+            + 1.0
+            + 2.0 * f32::from(config.sidebar.padding.buffer[0]);
+
+        Some((
+            collapse_indicator,
+            Message::SetServerVisibility(
+                server.clone(),
+                if is_expanded {
+                    SidebarVisibility::Collapsed
+                } else {
+                    SidebarVisibility::Expanded
+                },
+            ),
+            button_size,
+        ))
+    } else {
+        None
+    };
+
+    let content_width =
+        if disclosure.is_some() && !config.sidebar.position.is_horizontal() {
+            Length::Fill
+        } else {
+            width
+        };
+
+    let button_size =
+        disclosure.as_ref().map(|(_, _, button_size)| *button_size);
+    let mut base = button(
+        content
+            .width(content_width)
+            .padding(Padding::default().bottom(1)),
+    )
+    .style(move |theme, status| {
+        theme::button::sidebar_buffer(
+            theme,
+            status,
+            is_focused.is_some(),
+            open.is_some(),
+        )
+    })
+    .padding(config.sidebar.padding.buffer)
+    .on_press({
+        match is_focused {
+            Some((window, pane)) => {
+                if let Some(focus_action) =
+                    config.actions.sidebar.focused_buffer
+                {
+                    match focus_action {
+                        BufferFocusedAction::ClosePane => {
+                            Message::Close(window, pane)
                         }
                     }
-                    None => {
-                        if let Some((window, pane)) = open {
-                            Message::Focus(window, pane)
-                        } else {
-                            let action = match &buffer {
-                                buffer::Upstream::Channel(_, _) => {
-                                    config.actions.sidebar.channel.unwrap_or(
-                                        config.actions.sidebar.buffer,
-                                    )
-                                }
-                                buffer::Upstream::Query(_, _) => {
-                                    config.actions.sidebar.query.unwrap_or(
-                                        config.actions.sidebar.buffer,
-                                    )
-                                }
-                                _ => config.actions.sidebar.buffer,
-                            };
+                } else {
+                    // Re-focus pane on press instead of disabling the button in order
+                    // to have hover status of the button for styling
+                    Message::Focus(window, pane)
+                }
+            }
+            None => {
+                if let Some((window, pane)) = open {
+                    Message::Focus(window, pane)
+                } else {
+                    let action = match &buffer {
+                        buffer::Upstream::Channel(_, _) => config
+                            .actions
+                            .sidebar
+                            .channel
+                            .unwrap_or(config.actions.sidebar.buffer),
+                        buffer::Upstream::Query(_, _) => config
+                            .actions
+                            .sidebar
+                            .query
+                            .unwrap_or(config.actions.sidebar.buffer),
+                        _ => config.actions.sidebar.buffer,
+                    };
 
-                            match action {
-                                BufferAction::NewPane => {
-                                    Message::New(buffer.clone().into())
-                                }
-                                BufferAction::ReplacePane => {
-                                    Message::Replace(buffer.clone().into())
-                                }
-                                BufferAction::NewWindow => {
-                                    Message::Popout(buffer.clone().into())
-                                }
-                            }
+                    match action {
+                        BufferAction::NewPane => {
+                            Message::New(buffer.clone().into())
+                        }
+                        BufferAction::ReplacePane => {
+                            Message::Replace(buffer.clone().into())
+                        }
+                        BufferAction::NewWindow => {
+                            Message::Popout(buffer.clone().into())
                         }
                     }
                 }
-            });
+            }
+        }
+    });
+
+    if let Some(button_size) = button_size {
+        base = base.height(button_size);
+    }
+
+    let base: Element<'a, Message> =
+        if let Some((collapse_indicator, message, button_size)) = disclosure {
+            let disclosure_button = button(
+                container(
+                    collapse_indicator.size(8).style(theme::text::secondary),
+                )
+                .center_x(Length::Fill)
+                .center_y(Length::Fill),
+            )
+            .width(button_size)
+            .height(button_size)
+            .style(|theme, status| {
+                theme::button::sidebar_buffer(theme, status, false, false)
+            })
+            .padding(0)
+            .on_press(message);
+
+            row![base, disclosure_button]
+                .width(width)
+                .align_y(iced::Alignment::Center)
+                .into()
+        } else {
+            base.into()
+        };
 
     let entries = Entry::list(
         &buffer.clone().into(),
@@ -1465,7 +1569,7 @@ fn upstream_buffer_button<'a>(
     );
 
     if entries.is_empty() {
-        base.into()
+        base
     } else {
         context_menu(
             context_menu::MouseButton::default(),
