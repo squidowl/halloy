@@ -22,7 +22,6 @@ use itertools::Either;
 use tokio::time;
 
 use super::{Focus, Panes, Server};
-use crate::server::ServerName;
 use crate::widget::text_color_svg::TextColorSvg;
 use crate::widget::{
     Element, Text, TextExt, context_menu, double_pass, image, text,
@@ -62,7 +61,7 @@ pub enum Message {
     Remove(Server),
     SystemInformation(iced::system::Information),
     ShowMutedBuffers(bool),
-    ToggleCollapse(ServerName, bool),
+    SetServerVisibility(Server, SidebarVisibility),
 }
 
 #[derive(Debug, Clone)]
@@ -93,13 +92,12 @@ pub enum Event {
     DisableAutoconnect(Server),
     Remove(Server),
     ShowMutedBuffers(bool),
-    ToggleCollapse(ServerName, bool),
 }
 
 #[derive(Clone)]
 pub struct Sidebar {
     pub hidden: bool,
-    server_visibility: HashMap<server::ServerName, SidebarVisibility>,
+    server_visibility: HashMap<Server, SidebarVisibility>,
     reloading_config: bool,
     system_information: Option<iced::system::Information>,
 }
@@ -119,19 +117,6 @@ impl Sidebar {
 
     pub fn toggle_visibility(&mut self) {
         self.hidden = !self.hidden;
-    }
-
-    fn toggle_server_visibility(
-        &mut self,
-        server_name: &ServerName,
-        is_server_expanded: bool,
-    ) {
-        let state = if is_server_expanded {
-            SidebarVisibility::Collapsed
-        } else {
-            SidebarVisibility::Expanded
-        };
-        self.server_visibility.insert(server_name.clone(), state);
     }
 
     pub fn update(
@@ -228,15 +213,9 @@ impl Sidebar {
                 Task::none(),
                 Some(Event::ShowMutedBuffers(show_muted_buffers)),
             ),
-            Message::ToggleCollapse(server_name, is_server_expanded) => {
-                self.toggle_server_visibility(&server_name, is_server_expanded);
-                (
-                    Task::none(),
-                    Some(Event::ToggleCollapse(
-                        server_name,
-                        is_server_expanded,
-                    )),
-                )
+            Message::SetServerVisibility(server, visibility) => {
+                self.server_visibility.insert(server, visibility);
+                (Task::none(), None)
             }
         }
     }
@@ -585,7 +564,8 @@ impl Sidebar {
                 let button =
                     |buffer: buffer::Upstream,
                      kind: history::Kind,
-                     connection_status: ConnectionStatus| {
+                     connection_status: ConnectionStatus,
+                     collapsed_indicators: IndicatorState| {
                         upstream_buffer_button(
                             config,
                             panes,
@@ -601,6 +581,7 @@ impl Sidebar {
                             width,
                             theme,
                             &self.server_visibility,
+                            collapsed_indicators,
                         )
                     };
 
@@ -620,11 +601,62 @@ impl Sidebar {
                                     autoconnect: *autoconnect,
                                     connecting: *connecting,
                                 },
+                                IndicatorState::default(),
                             ));
                         }
                         data::client::State::Ready(connection) => {
                             let registration_complete =
                                 connection.registration_complete();
+                            let mut collapsed_indicators =
+                                IndicatorState::default();
+
+                            if is_server_collapsed {
+                                for channel in connection.channels() {
+                                    let buffer = buffer::Upstream::Channel(
+                                        server.clone(),
+                                        channel.clone(),
+                                    );
+                                    let kind = history::Kind::Channel(
+                                        server.clone(),
+                                        channel.clone(),
+                                    );
+                                    collapsed_indicators.merge(
+                                        indicator_state(
+                                            config,
+                                            panes,
+                                            &buffer,
+                                            &kind,
+                                            casemapping,
+                                            history,
+                                        ),
+                                    );
+                                }
+
+                                for query in history.get_unique_queries(server)
+                                {
+                                    let query = clients
+                                        .resolve_query(server, query)
+                                        .unwrap_or(query);
+                                    let buffer = buffer::Upstream::Query(
+                                        server.clone(),
+                                        query.clone(),
+                                    );
+                                    let kind = history::Kind::Query(
+                                        server.clone(),
+                                        query.clone(),
+                                    );
+                                    collapsed_indicators.merge(
+                                        indicator_state(
+                                            config,
+                                            panes,
+                                            &buffer,
+                                            &kind,
+                                            casemapping,
+                                            history,
+                                        ),
+                                    );
+                                }
+                            }
 
                             // Connected server.
                             upstream_buffers.push(button(
@@ -633,6 +665,7 @@ impl Sidebar {
                                 ConnectionStatus::Connected {
                                     registration_complete,
                                 },
+                                collapsed_indicators,
                             ));
 
                             if !is_server_collapsed {
@@ -650,6 +683,7 @@ impl Sidebar {
                                         ConnectionStatus::Connected {
                                             registration_complete,
                                         },
+                                        IndicatorState::default(),
                                     ));
                                 }
 
@@ -673,6 +707,7 @@ impl Sidebar {
                                         ConnectionStatus::Connected {
                                             registration_complete,
                                         },
+                                        IndicatorState::default(),
                                     ));
                                 }
                             }
@@ -1063,18 +1098,69 @@ impl Entry {
 
 fn is_server_expanded(
     config: &Config,
-    server_visibility: &HashMap<server::ServerName, SidebarVisibility>,
+    server_visibility: &HashMap<Server, SidebarVisibility>,
     server: &Server,
 ) -> bool {
-    let visibility = match (
-        server_visibility.get(&server.name),
-        config.servers.get(server),
-    ) {
-        (Some(server_visibility), _) => *server_visibility,
-        (None, Some(server)) => server.sidebar_visibility,
-        (None, None) => SidebarVisibility::Expanded,
-    };
+    let visibility =
+        match (server_visibility.get(server), config.servers.get(server)) {
+            (Some(server_visibility), _) => *server_visibility,
+            (None, Some(server)) => server.sidebar_visibility,
+            (None, None) => SidebarVisibility::Expanded,
+        };
     matches!(visibility, SidebarVisibility::Expanded)
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct IndicatorState {
+    unread: bool,
+    highlight: bool,
+}
+
+impl IndicatorState {
+    fn merge(&mut self, other: Self) {
+        self.unread |= other.unread;
+        self.highlight |= other.highlight;
+    }
+}
+
+fn indicator_state(
+    config: &Config,
+    panes: &Panes,
+    buffer: &buffer::Upstream,
+    kind: &history::Kind,
+    casemapping: isupport::CaseMap,
+    history: &history::Manager,
+) -> IndicatorState {
+    let is_visible = panes
+        .iter_visible()
+        .any(|(_, _, state)| state.buffer.upstream() == Some(buffer));
+
+    let has_unread = (config.sidebar.unread_indicator.show_on_open_buffers
+        || !is_visible)
+        && history.has_unread(kind);
+    let has_highlight =
+        (config.sidebar.highlight_indicator.show_on_open_buffers
+            || !is_visible)
+            && history.has_highlight(kind);
+
+    let target = buffer.target();
+    let unread = has_unread
+        && config.sidebar.unread_indicator.should_indicate(
+            target.as_ref(),
+            buffer.server(),
+            casemapping,
+        );
+    let highlight = (has_highlight
+        || (matches!(buffer, buffer::Upstream::Query(_, _))
+            && has_unread
+            && config.sidebar.unread_indicator.query_as_highlight))
+        && config.sidebar.highlight_indicator.should_indicate(
+            target.as_ref(),
+            buffer.server(),
+            casemapping,
+        );
+
+    IndicatorState { unread, highlight }
 }
 
 fn upstream_buffer_button<'a>(
@@ -1091,33 +1177,16 @@ fn upstream_buffer_button<'a>(
     history: &'a history::Manager,
     width: Length,
     theme: &'a Theme,
-    server_visibility: &'a HashMap<server::ServerName, SidebarVisibility>,
+    server_visibility: &'a HashMap<Server, SidebarVisibility>,
+    collapsed_indicators: IndicatorState,
 ) -> Element<'a, Message> {
     let open = panes.iter().find_map(|(window_id, pane, state)| {
         (state.buffer.upstream() == Some(&buffer)).then_some((window_id, pane))
     });
-    let is_visible = panes
-        .iter_visible()
-        .any(|(_, _, state)| state.buffer.upstream() == Some(&buffer));
-
     let can_mark_as_read = history.can_mark_as_read(&kind);
-
-    let has_unread = if config.sidebar.unread_indicator.show_on_open_buffers
-        || !is_visible
-    {
-        history.has_unread(&kind)
-    } else {
-        false
-    };
-
-    let has_highlight =
-        if config.sidebar.highlight_indicator.show_on_open_buffers
-            || !is_visible
-        {
-            history.has_highlight(&kind)
-        } else {
-            false
-        };
+    let mut indicators =
+        indicator_state(config, panes, &buffer, &kind, casemapping, history);
+    indicators.merge(collapsed_indicators);
 
     let is_focused = panes.iter().find_map(|(window_id, pane, state)| {
         (Focus {
@@ -1128,51 +1197,14 @@ fn upstream_buffer_button<'a>(
         .then_some((window_id, pane))
     });
 
-    let should_indicate_unread =
-        config.sidebar.unread_indicator.should_indicate(
-            buffer.target().as_ref(),
-            buffer.server(),
-            casemapping,
-        );
-    let should_indicate_highlight =
-        config.sidebar.highlight_indicator.should_indicate(
-            buffer.target().as_ref(),
-            buffer.server(),
-            casemapping,
-        );
-    let is_unread_query =
-        matches!(buffer, buffer::Upstream::Query(_, _)) && has_unread;
-    let has_highlight = has_highlight
-        || (is_unread_query
-            && config.sidebar.unread_indicator.query_as_highlight);
-
-    let (
-        is_collapsed_server_and_has_unread,
-        is_collapsed_server_and_has_highlight,
-    ) = if let buffer::Upstream::Server(server) = &buffer
-        && !is_server_expanded(config, server_visibility, server)
-    {
-        (
-            history.server_has_unread(server),
-            history.server_has_highlight(server),
-        )
-    } else {
-        (false, false)
-    };
-
-    let show_highlight_icon = (has_highlight
-        || is_collapsed_server_and_has_highlight)
-        && config.sidebar.highlight_indicator.has_icon()
-        && should_indicate_highlight;
-    let show_unread_icon = (has_unread || is_collapsed_server_and_has_unread)
-        && config.sidebar.unread_indicator.has_icon()
-        && should_indicate_unread;
-    let show_unread_title = has_unread
-        && config.sidebar.unread_indicator.title
-        && should_indicate_unread;
-    let show_highlight_title = has_highlight
-        && config.sidebar.highlight_indicator.title
-        && should_indicate_highlight;
+    let show_highlight_icon =
+        indicators.highlight && config.sidebar.highlight_indicator.has_icon();
+    let show_unread_icon =
+        indicators.unread && config.sidebar.unread_indicator.has_icon();
+    let show_unread_title =
+        indicators.unread && config.sidebar.unread_indicator.title;
+    let show_highlight_title =
+        indicators.highlight && config.sidebar.highlight_indicator.title;
 
     let buffer_title_style = if show_highlight_title {
         theme::text::highlight_indicator
@@ -1609,9 +1641,13 @@ fn upstream_buffer_button<'a>(
                         };
                         (
                             toggle_text,
-                            Some(Message::ToggleCollapse(
-                                server.name.clone(),
-                                is_server_expanded,
+                            Some(Message::SetServerVisibility(
+                                server.clone(),
+                                if is_server_expanded {
+                                    SidebarVisibility::Collapsed
+                                } else {
+                                    SidebarVisibility::Expanded
+                                },
                             )),
                         )
                     }
