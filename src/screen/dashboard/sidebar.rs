@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::iter;
 use std::time::Duration;
 
@@ -27,6 +26,8 @@ use crate::widget::{
     Element, Text, TextExt, context_menu, double_pass, image, text,
 };
 use crate::{Theme, font, icon, platform_specific, theme, window};
+
+mod collapse;
 
 const CONFIG_RELOAD_DELAY: Duration = Duration::from_secs(1);
 
@@ -97,7 +98,7 @@ pub enum Event {
 #[derive(Clone)]
 pub struct Sidebar {
     pub hidden: bool,
-    server_visibility: HashMap<Server, SidebarVisibility>,
+    collapse: collapse::State,
     reloading_config: bool,
     system_information: Option<iced::system::Information>,
 }
@@ -107,7 +108,7 @@ impl Sidebar {
         (
             Self {
                 hidden: false,
-                server_visibility: HashMap::new(),
+                collapse: collapse::State::default(),
                 reloading_config: false,
                 system_information: None,
             },
@@ -214,7 +215,7 @@ impl Sidebar {
                 Some(Event::ShowMutedBuffers(show_muted_buffers)),
             ),
             Message::SetServerVisibility(server, visibility) => {
-                self.server_visibility.insert(server, visibility);
+                self.collapse.set(server, visibility);
                 (Task::none(), None)
             }
         }
@@ -555,11 +556,8 @@ impl Sidebar {
                 let casemapping =
                     clients.get_server_casemapping_or_default(server);
 
-                let is_server_collapsed = !is_server_expanded(
-                    config,
-                    &self.server_visibility,
-                    server,
-                );
+                let is_server_collapsed =
+                    !self.collapse.is_expanded(config, server);
 
                 let button =
                     |buffer: buffer::Upstream,
@@ -567,7 +565,7 @@ impl Sidebar {
                      connection_status: ConnectionStatus,
                      server_has_members: bool,
                      collapsed_indicators: IndicatorState| {
-                        upstream_buffer_button(
+                        let button_context = UpstreamButtonContext {
                             config,
                             panes,
                             focus,
@@ -582,7 +580,10 @@ impl Sidebar {
                             history,
                             width,
                             theme,
-                            &self.server_visibility,
+                            collapse: &self.collapse,
+                        };
+                        upstream_buffer_button(
+                            button_context,
                             collapsed_indicators,
                         )
                     };
@@ -614,55 +615,20 @@ impl Sidebar {
                             let server_has_members =
                                 connection.channels().next().is_some()
                                     || !queries.is_empty();
-                            let mut collapsed_indicators =
-                                IndicatorState::default();
-
-                            if is_server_collapsed {
-                                for channel in connection.channels() {
-                                    let buffer = buffer::Upstream::Channel(
-                                        server.clone(),
-                                        channel.clone(),
-                                    );
-                                    let kind = history::Kind::Channel(
-                                        server.clone(),
-                                        channel.clone(),
-                                    );
-                                    collapsed_indicators.merge(
-                                        indicator_state(
-                                            config,
-                                            panes,
-                                            &buffer,
-                                            &kind,
-                                            casemapping,
-                                            history,
-                                        ),
-                                    );
-                                }
-
-                                for query in &queries {
-                                    let query = clients
-                                        .resolve_query(server, query)
-                                        .unwrap_or(query);
-                                    let buffer = buffer::Upstream::Query(
-                                        server.clone(),
-                                        query.clone(),
-                                    );
-                                    let kind = history::Kind::Query(
-                                        server.clone(),
-                                        query.clone(),
-                                    );
-                                    collapsed_indicators.merge(
-                                        indicator_state(
-                                            config,
-                                            panes,
-                                            &buffer,
-                                            &kind,
-                                            casemapping,
-                                            history,
-                                        ),
-                                    );
-                                }
-                            }
+                            let collapsed_indicators = if is_server_collapsed {
+                                collapse::indicators(
+                                    config,
+                                    panes,
+                                    clients,
+                                    connection,
+                                    server,
+                                    &queries,
+                                    casemapping,
+                                    history,
+                                )
+                            } else {
+                                IndicatorState::default()
+                            };
 
                             // Connected server.
                             upstream_buffers.push(button(
@@ -1103,20 +1069,6 @@ impl Entry {
     }
 }
 
-fn is_server_expanded(
-    config: &Config,
-    server_visibility: &HashMap<Server, SidebarVisibility>,
-    server: &Server,
-) -> bool {
-    let visibility =
-        match (server_visibility.get(server), config.servers.get(server)) {
-            (Some(server_visibility), _) => *server_visibility,
-            (None, Some(server)) => server.sidebar_visibility,
-            (None, None) => SidebarVisibility::Expanded,
-        };
-    matches!(visibility, SidebarVisibility::Expanded)
-}
-
 #[derive(Debug, Clone, Copy, Default)]
 struct IndicatorState {
     unread: bool,
@@ -1170,7 +1122,8 @@ fn indicator_state(
     IndicatorState { unread, highlight }
 }
 
-fn upstream_buffer_button<'a>(
+#[derive(Clone)]
+struct UpstreamButtonContext<'a> {
     config: &'a Config,
     panes: &'a Panes,
     focus: Focus,
@@ -1185,23 +1138,144 @@ fn upstream_buffer_button<'a>(
     history: &'a history::Manager,
     width: Length,
     theme: &'a Theme,
-    server_visibility: &'a HashMap<Server, SidebarVisibility>,
+    collapse: &'a collapse::State,
+}
+
+fn upstream_buffer_title<'a>(
+    config: &Config,
+    buffer: &buffer::Upstream,
+    casemapping: isupport::CaseMap,
+    title_style: fn(&Theme) -> iced::widget::text::Style,
+    title_font: Option<font::Font>,
+) -> Vec<Element<'a, Message>> {
+    match buffer {
+        buffer::Upstream::Server(server) => {
+            let font_size = config
+                .sidebar
+                .primary_font_size
+                .or(config.sidebar.secondary_font_size)
+                .or(config.font.size)
+                .map_or(theme::TEXT_SIZE, f32::from);
+
+            if let Some(network) = &server.network {
+                vec![
+                    text(network.name.to_string())
+                        .line_height(LineHeight::Relative(1.0))
+                        .size(font_size)
+                        .style(title_style)
+                        .font_maybe(title_font.clone())
+                        .shaping(Shaping::Advanced)
+                        .wrapping(Wrapping::None)
+                        .ellipsis(Ellipsis::End)
+                        .into(),
+                    Space::new().width(6).into(),
+                    text(server.name.to_string())
+                        .line_height(LineHeight::Relative(1.0))
+                        .size(font_size)
+                        .style(theme::text::secondary)
+                        .font_maybe(title_font)
+                        .shaping(Shaping::Advanced)
+                        .wrapping(Wrapping::None)
+                        .ellipsis(Ellipsis::End)
+                        .into(),
+                ]
+            } else {
+                vec![
+                    text(server.to_string())
+                        .line_height(LineHeight::Relative(1.0))
+                        .size(font_size)
+                        .style(title_style)
+                        .font_maybe(title_font)
+                        .shaping(Shaping::Advanced)
+                        .wrapping(Wrapping::None)
+                        .ellipsis(Ellipsis::End)
+                        .into(),
+                ]
+            }
+        }
+        buffer::Upstream::Channel(_, channel) => {
+            let raw_channel = channel.as_str();
+            let display_channel =
+                config.sidebar.channel_name_casing.map_or_else(
+                    || raw_channel.to_owned(),
+                    |casing| casing.apply(raw_channel, casemapping),
+                );
+
+            vec![
+                text(display_channel)
+                    .line_height(LineHeight::Relative(1.0))
+                    .size_maybe(
+                        config
+                            .sidebar
+                            .secondary_font_size
+                            .or(config.font.size)
+                            .map(f32::from),
+                    )
+                    .style(title_style)
+                    .font_maybe(title_font)
+                    .shaping(Shaping::Advanced)
+                    .wrapping(Wrapping::None)
+                    .ellipsis(Ellipsis::End)
+                    .into(),
+            ]
+        }
+        buffer::Upstream::Query(_, query) => {
+            vec![
+                text(query.to_string())
+                    .line_height(LineHeight::Relative(1.0))
+                    .size_maybe(
+                        config
+                            .sidebar
+                            .secondary_font_size
+                            .or(config.font.size)
+                            .map(f32::from),
+                    )
+                    .style(title_style)
+                    .font_maybe(title_font)
+                    .shaping(Shaping::Advanced)
+                    .wrapping(Wrapping::None)
+                    .ellipsis(Ellipsis::End)
+                    .into(),
+            ]
+        }
+    }
+}
+
+fn upstream_buffer_button<'a>(
+    context: UpstreamButtonContext<'a>,
     collapsed_indicators: IndicatorState,
 ) -> Element<'a, Message> {
+    let UpstreamButtonContext {
+        config,
+        panes,
+        focus,
+        server_icons,
+        buffer,
+        kind,
+        connection_status,
+        server_has_members,
+        casemapping,
+        history,
+        width,
+        theme,
+        collapse,
+        ..
+    } = &context;
+
     let open = panes.iter().find_map(|(window_id, pane, state)| {
-        (state.buffer.upstream() == Some(&buffer)).then_some((window_id, pane))
+        (state.buffer.upstream() == Some(buffer)).then_some((window_id, pane))
     });
-    let can_mark_as_read = history.can_mark_as_read(&kind);
+    let can_mark_as_read = history.can_mark_as_read(kind);
     let mut indicators =
-        indicator_state(config, panes, &buffer, &kind, casemapping, history);
+        indicator_state(config, panes, buffer, kind, *casemapping, history);
     indicators.merge(collapsed_indicators);
 
     let is_focused = panes.iter().find_map(|(window_id, pane, state)| {
         (Focus {
             window: window_id,
             pane,
-        } == focus
-            && state.buffer.upstream() == Some(&buffer))
+        } == *focus
+            && state.buffer.upstream() == Some(buffer))
         .then_some((window_id, pane))
     });
 
@@ -1236,7 +1310,7 @@ fn upstream_buffer_button<'a>(
     let dimensions = Dimensions::from(&config.sidebar);
 
     let icon = if dimensions.icon_size > 0
-        && let buffer::Upstream::Server(server) = &buffer
+        && let buffer::Upstream::Server(server) = buffer
     {
         if config
             .servers
@@ -1263,9 +1337,9 @@ fn upstream_buffer_button<'a>(
         } = connection_status
     {
         Some((
-            if connecting {
+            if *connecting {
                 icon::connecting().style(theme::text::success)
-            } else if autoconnect {
+            } else if *autoconnect {
                 icon::disconnected().style(theme::text::error)
             } else {
                 icon::not_connected().style(theme::text::error)
@@ -1319,138 +1393,29 @@ fn upstream_buffer_button<'a>(
         config.sidebar.position.is_horizontal(),
     ));
 
-    match &buffer {
-        buffer::Upstream::Server(server) => {
-            let font_size = config
-                .sidebar
-                .primary_font_size
-                .or(config.sidebar.secondary_font_size)
-                .or(config.font.size)
-                .map_or(theme::TEXT_SIZE, f32::from);
+    content = content.extend(upstream_buffer_title(
+        config,
+        buffer,
+        *casemapping,
+        buffer_title_style,
+        buffer_title_font,
+    ));
 
-            if let Some(network) = &server.network {
-                content = content.push(
-                    text(network.name.to_string())
-                        .line_height(LineHeight::Relative(1.0))
-                        .size(font_size)
-                        .style(buffer_title_style)
-                        .font_maybe(buffer_title_font.clone())
-                        .shaping(Shaping::Advanced)
-                        .wrapping(Wrapping::None)
-                        .ellipsis(Ellipsis::End),
-                );
-                content = content.push(Space::new().width(6));
-                content = content.push(
-                    text(server.name.to_string())
-                        .line_height(LineHeight::Relative(1.0))
-                        .size(font_size)
-                        .style(theme::text::secondary)
-                        .font_maybe(buffer_title_font)
-                        .shaping(Shaping::Advanced)
-                        .wrapping(Wrapping::None)
-                        .ellipsis(Ellipsis::End),
-                );
-            } else {
-                content = content.push(
-                    text(server.to_string())
-                        .line_height(LineHeight::Relative(1.0))
-                        .size(font_size)
-                        .style(buffer_title_style)
-                        .font_maybe(buffer_title_font)
-                        .shaping(Shaping::Advanced)
-                        .wrapping(Wrapping::None)
-                        .ellipsis(Ellipsis::End),
-                );
-            }
-        }
-        buffer::Upstream::Channel(_, channel) => {
-            let font_size = config
-                .sidebar
-                .secondary_font_size
-                .or(config.font.size)
-                .map(f32::from);
-            let raw_channel = channel.as_str();
-            let display_channel =
-                if let Some(casing) = config.sidebar.channel_name_casing {
-                    casing.apply(raw_channel, casemapping)
-                } else {
-                    raw_channel.to_owned()
-                };
-
-            content = content.push(
-                text(display_channel)
-                    .line_height(LineHeight::Relative(1.0))
-                    .size_maybe(font_size)
-                    .style(buffer_title_style)
-                    .font_maybe(buffer_title_font)
-                    .shaping(Shaping::Advanced)
-                    .wrapping(Wrapping::None)
-                    .ellipsis(Ellipsis::End),
-            );
-        }
-        buffer::Upstream::Query(_, query) => {
-            let font_size = config
-                .sidebar
-                .secondary_font_size
-                .or(config.font.size)
-                .map(f32::from);
-
-            content = content.push(
-                text(query.to_string())
-                    .line_height(LineHeight::Relative(1.0))
-                    .size_maybe(font_size)
-                    .style(buffer_title_style)
-                    .font_maybe(buffer_title_font)
-                    .shaping(Shaping::Advanced)
-                    .wrapping(Wrapping::None)
-                    .ellipsis(Ellipsis::End),
-            );
-        }
-    }
-
-    let disclosure = if let buffer::Upstream::Server(server) = &buffer
-        && matches!(connection_status, ConnectionStatus::Connected { .. })
-        && server_has_members
-        && config.sidebar.collapse_button.enabled
-    {
-        let is_expanded = is_server_expanded(config, server_visibility, server);
-        let collapse_indicator = match (config.sidebar.position, is_expanded) {
-            (sidebar::Position::Left | sidebar::Position::Right, true) => {
-                icon::chevron_down()
-            }
-            (sidebar::Position::Left | sidebar::Position::Right, false) => {
-                icon::chevron_right()
-            }
-            (sidebar::Position::Top | sidebar::Position::Bottom, true) => {
-                icon::chevron_right()
-            }
-            (sidebar::Position::Top | sidebar::Position::Bottom, false) => {
-                icon::chevron_left()
-            }
-        };
-
+    let disclosure = if let buffer::Upstream::Server(server) = buffer {
         let font_size = config
             .sidebar
             .primary_font_size
             .or(config.sidebar.secondary_font_size)
             .or(config.font.size)
             .map_or(theme::TEXT_SIZE, f32::from);
-        let button_size = font_size.max(sidebar_icon_height as f32)
-            + 1.0
-            + 2.0 * f32::from(config.sidebar.padding.buffer[0]);
 
-        Some((
-            collapse_indicator,
-            Message::SetServerVisibility(
-                server.clone(),
-                if is_expanded {
-                    SidebarVisibility::Collapsed
-                } else {
-                    SidebarVisibility::Expanded
-                },
-            ),
-            button_size,
-        ))
+        collapse.disclosure(
+            config,
+            server,
+            connection_status,
+            *server_has_members,
+            font_size.max(sidebar_icon_height as f32),
+        )
     } else {
         None
     };
@@ -1459,11 +1424,10 @@ fn upstream_buffer_button<'a>(
         if disclosure.is_some() && !config.sidebar.position.is_horizontal() {
             Length::Fill
         } else {
-            width
+            *width
         };
 
-    let button_size =
-        disclosure.as_ref().map(|(_, _, button_size)| *button_size);
+    let button_size = disclosure.as_ref().map(|disclosure| disclosure.size);
     let mut base = button(
         content
             .width(content_width)
@@ -1533,31 +1497,55 @@ fn upstream_buffer_button<'a>(
         base = base.height(button_size);
     }
 
-    let base: Element<'a, Message> =
-        if let Some((collapse_indicator, message, button_size)) = disclosure {
-            let disclosure_button = button(
-                container(
-                    collapse_indicator.size(8).style(theme::text::secondary),
-                )
+    let base: Element<'a, Message> = if let Some(disclosure) = disclosure {
+        let button_size = disclosure.size;
+        let message = Message::SetServerVisibility(
+            buffer.server().clone(),
+            disclosure.next_visibility,
+        );
+        let disclosure_button = button(
+            container(disclosure.indicator())
                 .center_x(Length::Fill)
                 .center_y(Length::Fill),
-            )
-            .width(button_size)
-            .height(button_size)
-            .style(|theme, status| {
-                theme::button::sidebar_buffer(theme, status, false, false)
-            })
-            .padding(0)
-            .on_press(message);
+        )
+        .width(button_size)
+        .height(button_size)
+        .style(|theme, status| {
+            theme::button::sidebar_buffer(theme, status, false, false)
+        })
+        .padding(0)
+        .on_press(message);
 
-            row![base, disclosure_button]
-                .width(width)
-                .align_y(iced::Alignment::Center)
-                .into()
-        } else {
-            base.into()
-        };
+        row![base, disclosure_button]
+            .width(*width)
+            .align_y(iced::Alignment::Center)
+            .into()
+    } else {
+        base.into()
+    };
 
+    upstream_buffer_context_menu(context, base, open, can_mark_as_read)
+}
+
+fn upstream_buffer_context_menu<'a>(
+    context: UpstreamButtonContext<'a>,
+    base: Element<'a, Message>,
+    open: Option<(window::Id, pane_grid::Pane)>,
+    can_mark_as_read: bool,
+) -> Element<'a, Message> {
+    let UpstreamButtonContext {
+        config,
+        panes,
+        focus,
+        buffer,
+        connection_status,
+        server_has_unread,
+        supports_detach,
+        history,
+        theme,
+        collapse,
+        ..
+    } = context;
     let entries = Entry::list(
         &buffer.clone().into(),
         panes.len(),
@@ -1569,206 +1557,183 @@ fn upstream_buffer_button<'a>(
     );
 
     if entries.is_empty() {
-        base
-    } else {
-        context_menu(
-            context_menu::MouseButton::default(),
-            context_menu::Anchor::Cursor,
-            context_menu::ToggleBehavior::KeepOpen,
-            Some(mouse::Interaction::Pointer),
-            base,
-            entries,
-            move |entry, length| {
-                let (content, message) = match entry {
-                    Entry::CloseAllQueries => {
-                        let queries = history
-                            .get_unique_queries(buffer.server())
-                            .into_iter()
-                            .cloned()
-                            .collect::<Vec<_>>();
+        return base;
+    }
 
-                        (
-                            "Close all queries",
-                            if queries.is_empty() {
-                                None
-                            } else {
-                                Some(Message::CloseAllQueries(
-                                    buffer.server().clone(),
-                                    queries,
-                                ))
-                            },
-                        )
-                    }
-                    Entry::MarkServerAsRead => (
-                        "Mark entire server as read",
-                        if server_has_unread {
-                            Some(Message::MarkServerAsRead(
+    context_menu(
+        context_menu::MouseButton::default(),
+        context_menu::Anchor::Cursor,
+        context_menu::ToggleBehavior::KeepOpen,
+        Some(mouse::Interaction::Pointer),
+        base,
+        entries,
+        move |entry, length| {
+            let (content, message) = match entry {
+                Entry::CloseAllQueries => {
+                    let queries = history
+                        .get_unique_queries(buffer.server())
+                        .into_iter()
+                        .cloned()
+                        .collect::<Vec<_>>();
+
+                    (
+                        "Close all queries",
+                        if queries.is_empty() {
+                            None
+                        } else {
+                            Some(Message::CloseAllQueries(
                                 buffer.server().clone(),
+                                queries,
                             ))
-                        } else {
-                            None
                         },
-                    ),
-                    Entry::MarkAsRead => (
-                        if matches!(&buffer, buffer::Upstream::Server(_)) {
-                            "Mark server buffer as read"
-                        } else {
-                            "Mark as read"
-                        },
-                        if can_mark_as_read {
-                            Some(Message::MarkAsRead(buffer.clone().into()))
-                        } else {
-                            None
-                        },
-                    ),
-                    Entry::NewPane => (
-                        "Open in new pane",
-                        Some(Message::New(buffer.clone().into())),
-                    ),
-                    Entry::Popout => (
-                        "Open in new window",
-                        Some(Message::Popout(buffer.clone().into())),
-                    ),
-                    Entry::Replace => (
-                        "Replace current pane",
-                        Some(Message::Replace(buffer.clone().into())),
-                    ),
-                    Entry::Close(window, pane) => {
-                        ("Close pane", Some(Message::Close(window, pane)))
-                    }
-                    Entry::Swap(window, pane) => (
-                        "Swap with current pane",
-                        Some(Message::Swap(window, pane)),
-                    ),
-                    Entry::Detach => (
-                        "Detach from channel",
-                        Some(Message::Detach(buffer.clone())),
-                    ),
-                    Entry::Leave => (
-                        match &buffer {
-                            buffer::Upstream::Server(_) => {
-                                "Disconnect from server"
-                            }
-                            buffer::Upstream::Channel(_, _) => "Leave channel",
-                            buffer::Upstream::Query(_, _) => "Close query",
-                        },
-                        Some(Message::Leave(buffer.clone())),
-                    ),
-                    Entry::Connect => (
-                        "Connect to server",
-                        Some(Message::Connect(buffer.server().clone())),
-                    ),
-                    Entry::DisableAutoconnect => (
-                        "Disable autoconnect",
-                        Some(Message::DisableAutoconnect(
-                            buffer.server().clone(),
-                        )),
-                    ),
-                    Entry::Remove => (
-                        "Remove server from sidebar",
-                        Some(Message::Remove(buffer.server().clone())),
-                    ),
-                    Entry::Context => {
-                        return container(
-                            row![
-                                text(match &buffer {
-                                    buffer::Upstream::Server(server) => {
-                                        if let Some(network) = &server.network {
-                                            network.name.to_string()
-                                        } else {
-                                            format!("{server}")
-                                        }
-                                    }
-                                    buffer::Upstream::Channel(_, channel) => {
-                                        format!("{channel}")
-                                    }
-                                    buffer::Upstream::Query(_, query) => {
-                                        format!("{query}")
-                                    }
-                                })
-                                .style(theme::text::primary)
-                                .font_maybe(
-                                    theme::font_style::primary(theme)
-                                        .map(font::get),
-                                ),
-                                Space::new().width(6),
-                                match &buffer {
-                                    buffer::Upstream::Server(server) => {
-                                        if server.network.is_some() {
-                                            Some(server.name.to_string())
-                                        } else {
-                                            None
-                                        }
-                                    }
-                                    buffer::Upstream::Channel(server, _) => {
-                                        Some(format!("{server}"))
-                                    }
-                                    buffer::Upstream::Query(server, _) => {
-                                        Some(format!("{server}"))
-                                    }
-                                }
-                                .map(
-                                    |secondary_name| text(secondary_name)
-                                        .style(theme::text::secondary)
-                                        .font_maybe(
-                                            theme::font_style::secondary(theme)
-                                                .map(font::get)
-                                        ),
-                                )
-                            ]
-                            .width(length),
-                        )
-                        .padding(config.context_menu.padding.entry)
-                        .into();
-                    }
-                    Entry::HorizontalRule => match length {
-                        Length::Fill => {
-                            return container(rule::horizontal(1))
-                                .padding([0, 6])
-                                .into();
-                        }
-                        _ => {
-                            return Space::new().width(length).height(1).into();
-                        }
+                    )
+                }
+                Entry::MarkAsRead => (
+                    if matches!(&buffer, buffer::Upstream::Server(_)) {
+                        "Mark server buffer as read"
+                    } else {
+                        "Mark as read"
                     },
-                    Entry::ToggleCollapse => {
-                        let server = buffer.server();
-                        let is_server_expanded = is_server_expanded(
-                            config,
-                            server_visibility,
-                            server,
-                        );
-                        let toggle_text = if is_server_expanded {
+                    can_mark_as_read
+                        .then(|| Message::MarkAsRead(buffer.clone().into())),
+                ),
+                Entry::MarkServerAsRead => (
+                    "Mark entire server as read",
+                    server_has_unread.then(|| {
+                        Message::MarkServerAsRead(buffer.server().clone())
+                    }),
+                ),
+                Entry::NewPane => (
+                    "Open in new pane",
+                    Some(Message::New(buffer.clone().into())),
+                ),
+                Entry::Popout => (
+                    "Open in new window",
+                    Some(Message::Popout(buffer.clone().into())),
+                ),
+                Entry::Replace => (
+                    "Replace current pane",
+                    Some(Message::Replace(buffer.clone().into())),
+                ),
+                Entry::Close(window, pane) => {
+                    ("Close pane", Some(Message::Close(window, pane)))
+                }
+                Entry::Swap(window, pane) => (
+                    "Swap with current pane",
+                    Some(Message::Swap(window, pane)),
+                ),
+                Entry::Detach => (
+                    "Detach from channel",
+                    Some(Message::Detach(buffer.clone())),
+                ),
+                Entry::Leave => (
+                    match &buffer {
+                        buffer::Upstream::Server(_) => "Disconnect from server",
+                        buffer::Upstream::Channel(_, _) => "Leave channel",
+                        buffer::Upstream::Query(_, _) => "Close query",
+                    },
+                    Some(Message::Leave(buffer.clone())),
+                ),
+                Entry::Connect => (
+                    "Connect to server",
+                    Some(Message::Connect(buffer.server().clone())),
+                ),
+                Entry::DisableAutoconnect => (
+                    "Disable autoconnect",
+                    Some(Message::DisableAutoconnect(buffer.server().clone())),
+                ),
+                Entry::Remove => (
+                    "Remove server from sidebar",
+                    Some(Message::Remove(buffer.server().clone())),
+                ),
+                Entry::Context => {
+                    return container(
+                        row![
+                            text(match &buffer {
+                                buffer::Upstream::Server(server) =>
+                                    server.network.as_ref().map_or_else(
+                                        || format!("{server}"),
+                                        |network| network.name.to_string(),
+                                    ),
+                                buffer::Upstream::Channel(_, channel) => {
+                                    format!("{channel}")
+                                }
+                                buffer::Upstream::Query(_, query) => {
+                                    format!("{query}")
+                                }
+                            })
+                            .style(theme::text::primary)
+                            .font_maybe(
+                                theme::font_style::primary(theme)
+                                    .map(font::get),
+                            ),
+                            Space::new().width(6),
+                            match &buffer {
+                                buffer::Upstream::Server(server) => server
+                                    .network
+                                    .is_some()
+                                    .then(|| server.name.to_string()),
+                                buffer::Upstream::Channel(server, _)
+                                | buffer::Upstream::Query(server, _) => {
+                                    Some(format!("{server}"))
+                                }
+                            }
+                            .map(
+                                |secondary_name| text(secondary_name)
+                                    .style(theme::text::secondary)
+                                    .font_maybe(
+                                        theme::font_style::secondary(theme)
+                                            .map(font::get)
+                                    )
+                            ),
+                        ]
+                        .width(length),
+                    )
+                    .padding(config.context_menu.padding.entry)
+                    .into();
+                }
+                Entry::HorizontalRule => match length {
+                    Length::Fill => {
+                        return container(rule::horizontal(1))
+                            .padding([0, 6])
+                            .into();
+                    }
+                    _ => {
+                        return Space::new().width(length).height(1).into();
+                    }
+                },
+                Entry::ToggleCollapse => {
+                    let server = buffer.server();
+                    let is_expanded = collapse.is_expanded(config, server);
+                    (
+                        if is_expanded {
                             "Collapse server"
                         } else {
                             "Expand server"
-                        };
-                        (
-                            toggle_text,
-                            Some(Message::SetServerVisibility(
-                                server.clone(),
-                                if is_server_expanded {
-                                    SidebarVisibility::Collapsed
-                                } else {
-                                    SidebarVisibility::Expanded
-                                },
-                            )),
-                        )
-                    }
-                };
+                        },
+                        Some(Message::SetServerVisibility(
+                            server.clone(),
+                            if is_expanded {
+                                SidebarVisibility::Collapsed
+                            } else {
+                                SidebarVisibility::Expanded
+                            },
+                        )),
+                    )
+                }
+            };
 
-                button(text(content))
-                    .width(length)
-                    .padding(config.context_menu.padding.entry)
-                    .style(|theme, status| {
-                        theme::button::primary(theme, status, false)
-                    })
-                    .on_press_maybe(message)
-                    .into()
-            },
-        )
-        .into()
-    }
+            button(text(content))
+                .width(length)
+                .padding(config.context_menu.padding.entry)
+                .style(|theme, status| {
+                    theme::button::primary(theme, status, false)
+                })
+                .on_press_maybe(message)
+                .into()
+        },
+    )
+    .into()
 }
 
 fn should_show_internal_buffer(
@@ -2250,6 +2215,7 @@ impl Dimensions {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 enum ConnectionStatus {
     Connected { registration_complete: bool },
     Disconnected { autoconnect: bool, connecting: bool },
