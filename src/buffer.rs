@@ -270,6 +270,7 @@ impl Buffer {
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
+            | Buffer::ChannelMonitor(_)
             | Buffer::ChannelDiscovery(_)
             | Buffer::ConfigEditor(_) => None,
         }
