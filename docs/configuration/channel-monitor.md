@@ -1,5 +1,7 @@
 # Channel Monitor
 
+A pane for monitoring all messages in a collection of channels (by default, all channels).
+
 ## `exclude`
 
 [Exclusion conditions](/configuration/conditions.md) for channels which will
@@ -26,5 +28,5 @@ then include those channels.
 ```toml
 [channel_monitor]
 exclude = "all"
-include = { channels = ["#halloy", "#rust"] }
+include = { channels = ["#halloy", "##rust"] }
 ```
