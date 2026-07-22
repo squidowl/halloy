@@ -3,7 +3,7 @@ use futures::{FutureExt, StreamExt, stream};
 
 use super::is_channel_message;
 use crate::history::manager::{Data, History};
-use crate::{client, history};
+use crate::{client, config, history};
 
 const MAX_CONCURRENT: usize = 4;
 
@@ -23,6 +23,7 @@ enum Source {
 pub(super) fn all(
     data: &Data,
     clients: &client::Map,
+    config: &config::ChannelMonitor,
 ) -> BoxFuture<'static, history::Loaded> {
     let sources = clients
         .connected_servers()
@@ -31,7 +32,7 @@ pub(super) fn all(
                 history::Kind::Channel(server.clone(), channel.clone())
             })
         })
-        .filter_map(|kind| source(data, &kind, clients))
+        .filter_map(|kind| source(data, &kind, clients, config))
         .collect();
 
     combine(sources).boxed()
@@ -41,18 +42,25 @@ pub(super) fn channel(
     data: &Data,
     kind: &history::Kind,
     clients: &client::Map,
+    config: &config::ChannelMonitor,
 ) -> Option<BoxFuture<'static, history::Loaded>> {
-    Some(combine(vec![source(data, kind, clients)?]).boxed())
+    Some(combine(vec![source(data, kind, clients, config)?]).boxed())
 }
 
 fn source(
     data: &Data,
     kind: &history::Kind,
     clients: &client::Map,
+    config: &config::ChannelMonitor,
 ) -> Option<Source> {
     let history::Kind::Channel(server, channel) = kind else {
         return None;
     };
+
+    let casemapping = clients.get_server_casemapping_or_default(server);
+    if !config.is_channel_included(server, channel, casemapping) {
+        return None;
+    }
 
     Some(match data.map.get(kind) {
         Some(History::Full {

@@ -21,8 +21,9 @@ impl ChannelMonitor {
         &mut self,
         data: &Data,
         clients: &client::Map,
+        config: &config::ChannelMonitor,
     ) -> BoxFuture<'static, Message> {
-        let history = load::all(data, clients);
+        let history = load::all(data, clients, config);
 
         self.generation = self.generation.wrapping_add(1);
         self.active = true;
@@ -33,6 +34,20 @@ impl ChannelMonitor {
     pub(super) fn close(&mut self, data: &mut Data) {
         self.active = false;
         data.map.remove(&history::Kind::ChannelMonitor);
+    }
+
+    pub(super) fn reload(
+        &mut self,
+        data: &mut Data,
+        clients: &client::Map,
+        config: &config::ChannelMonitor,
+    ) -> Option<BoxFuture<'static, Message>> {
+        if !self.active {
+            return None;
+        }
+
+        data.map.remove(&history::Kind::ChannelMonitor);
+        Some(self.open(data, clients, config))
     }
 
     pub(super) fn clear(&mut self, data: &mut Data) {
@@ -59,13 +74,14 @@ impl ChannelMonitor {
         server: &crate::Server,
         channel: &crate::target::Channel,
         clients: &client::Map,
+        config: &config::ChannelMonitor,
     ) -> Option<BoxFuture<'static, Message>> {
         if !self.active {
             return None;
         }
 
         let kind = history::Kind::Channel(server.clone(), channel.clone());
-        let history = load::channel(data, &kind, clients)?;
+        let history = load::channel(data, &kind, clients, config)?;
         Some(task(self.generation, history))
     }
 
@@ -99,8 +115,10 @@ impl ChannelMonitor {
         data: &mut Data,
         filters: &[super::Filter],
         server: &crate::Server,
+        casemapping: crate::isupport::CaseMap,
         message: &crate::Message,
         labeled_response_context: Option<&LabeledResponseContext>,
+        config: &config::ChannelMonitor,
     ) -> Option<BoxFuture<'static, Message>> {
         if !self.is_active() || !is_channel_message(message) {
             return None;
@@ -112,6 +130,10 @@ impl ChannelMonitor {
         else {
             return None;
         };
+
+        if !config.is_channel_included(server, channel, casemapping) {
+            return None;
+        }
         let mut message = crate::Message {
             target: crate::message::Target::ChannelMonitor {
                 server: server.clone(),

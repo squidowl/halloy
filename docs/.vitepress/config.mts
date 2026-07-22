@@ -58,6 +58,10 @@ const configurationItems = [
     link: "/configuration/buffer",
   },
   {
+    text: "Channel Monitor",
+    link: "/configuration/channel-monitor",
+  },
+  {
     text: "Check for Update on Launch",
     link: "/configuration/check-for-update-on-launch",
   },

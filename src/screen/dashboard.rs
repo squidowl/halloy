@@ -168,7 +168,7 @@ impl Dashboard {
                 .preload_drafts(data::input::load_drafts_sync());
         }
 
-        let command = dashboard.track(None);
+        let command = dashboard.track(None, config);
         let sidebar_task = sidebar_task.map(Message::Sidebar);
 
         (dashboard, Task::batch(vec![command, sidebar_task]))
@@ -182,7 +182,7 @@ impl Dashboard {
         let (mut dashboard, task) =
             Dashboard::from_data(dashboard, config, main_window);
 
-        let tasks = Task::batch(vec![task, dashboard.track(None)]);
+        let tasks = Task::batch(vec![task, dashboard.track(None, config)]);
 
         (dashboard, tasks)
     }
@@ -1476,7 +1476,9 @@ impl Dashboard {
                                 &server,
                                 &query,
                                 event,
-                                &config.buffer,
+                                clients
+                                    .get_server_casemapping_or_default(&server),
+                                config,
                             ),
                             None,
                         );
@@ -3441,15 +3443,17 @@ impl Dashboard {
     pub fn record_message(
         &mut self,
         server: &Server,
+        casemapping: isupport::CaseMap,
         message: data::Message,
         labeled_response_context: Option<LabeledResponseContext>,
-        buffer_config: &config::Buffer,
+        config: &Config,
     ) -> Task<Message> {
         let tasks = self.history.record_message(
             server,
+            casemapping,
             message,
             labeled_response_context,
-            buffer_config,
+            config,
         );
 
         Task::batch(
@@ -3583,9 +3587,22 @@ impl Dashboard {
         server: &Server,
         channel: &target::Channel,
         clients: &client::Map,
+        config: &config::ChannelMonitor,
     ) -> Task<Message> {
         self.history
-            .track_channel_monitor_channel(server, channel, clients)
+            .track_channel_monitor_channel(server, channel, clients, config)
+            .map_or_else(Task::none, |task| {
+                Task::perform(task, Message::History)
+            })
+    }
+
+    pub fn reload_channel_monitor(
+        &mut self,
+        clients: &client::Map,
+        config: &config::ChannelMonitor,
+    ) -> Task<Message> {
+        self.history
+            .reload_channel_monitor(clients, config)
             .map_or_else(Task::none, |task| {
                 Task::perform(task, Message::History)
             })
@@ -3689,14 +3706,14 @@ impl Dashboard {
         casemapping: isupport::CaseMap,
         message: data::Message,
         labeled_response_context: Option<LabeledResponseContext>,
-        buffer_config: &config::Buffer,
+        config: &Config,
     ) -> Task<Message> {
         let tasks = self.history.block_and_record_message(
             server,
             casemapping,
             message,
             labeled_response_context,
-            buffer_config,
+            config,
         );
 
         Task::batch(
@@ -4329,12 +4346,13 @@ impl Dashboard {
     pub fn track(
         &mut self,
         clients: Option<&data::client::Map>,
+        config: &Config,
     ) -> Task<Message> {
         let resources = self.panes.resources().collect();
 
         Task::batch(
             self.history
-                .track(resources, clients)
+                .track(resources, clients, &config.channel_monitor)
                 .into_iter()
                 .map(|fut| Task::perform(fut, Message::History))
                 .collect::<Vec<_>>(),
@@ -4524,7 +4542,8 @@ impl Dashboard {
             server,
             &query,
             event,
-            &config.buffer,
+            casemapping,
+            config,
         );
 
         Some(task)
@@ -4535,7 +4554,8 @@ impl Dashboard {
         server: &Server,
         query: &target::Query,
         event: file_transfer::manager::Event,
-        buffer_config: &config::Buffer,
+        casemapping: isupport::CaseMap,
+        config: &Config,
     ) -> Task<Message> {
         let mut tasks = vec![];
 
@@ -4545,25 +4565,27 @@ impl Dashboard {
                     file_transfer::Direction::Received => {
                         tasks.push(self.record_message(
                             server,
+                            casemapping,
                             data::Message::file_transfer_request_received(
                                 &transfer.remote_user,
                                 query,
                                 &transfer.filename,
                             ),
                             None,
-                            buffer_config,
+                            config,
                         ));
                     }
                     file_transfer::Direction::Sent => {
                         tasks.push(self.record_message(
                             server,
+                            casemapping,
                             data::Message::file_transfer_request_sent(
                                 &transfer.remote_user,
                                 query,
                                 &transfer.filename,
                             ),
                             None,
-                            buffer_config,
+                            config,
                         ));
                     }
                 }

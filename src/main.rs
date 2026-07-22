@@ -625,7 +625,7 @@ impl Halloy {
                 );
 
                 // Retrack after dashboard state changes
-                let track = dashboard.track(Some(&self.clients));
+                let track = dashboard.track(Some(&self.clients), &self.config);
 
                 let event_task = match event {
                     Some(dashboard::Event::ToggleFullscreen) => {
@@ -1626,6 +1626,9 @@ impl Halloy {
     ) -> Task<Message> {
         match config {
             Ok(updated) => {
+                let reload_channel_monitor =
+                    self.config.channel_monitor != updated.channel_monitor;
+
                 // Only reload the runtime when needed.
                 // TODO: Can crash with NVIDIA Vulkan
                 // Maybe related: https://github.com/gfx-rs/wgpu/issues/9277
@@ -1714,6 +1717,17 @@ impl Halloy {
 
                     if let Some(runtime_task) = runtime_task {
                         tasks.push(runtime_task);
+                    }
+
+                    if reload_channel_monitor {
+                        tasks.push(
+                            dashboard
+                                .reload_channel_monitor(
+                                    &self.clients,
+                                    &self.config.channel_monitor,
+                                )
+                                .map(Message::Dashboard),
+                        );
                     }
 
                     tasks.push(
@@ -1928,12 +1942,17 @@ fn handle_client_events(
                 commands.push(
                     dashboard
                         .track_channel_monitor_channel(
-                            server, &channel, clients,
+                            server,
+                            &channel,
+                            clients,
+                            &config.channel_monitor,
                         )
                         .map(Message::Dashboard),
                 );
                 commands.push(
-                    dashboard.track(Some(clients)).map(Message::Dashboard),
+                    dashboard
+                        .track(Some(clients), config)
+                        .map(Message::Dashboard),
                 );
                 commands.push(
                     dashboard
@@ -2227,7 +2246,7 @@ fn handle_single_event(
                 clients.get_server_casemapping_or_default(server),
                 message,
                 None,
-                &config.buffer,
+                config,
             )
             .map(Message::Dashboard),
     );
@@ -2273,7 +2292,7 @@ fn handle_with_target_event(
                 clients.get_server_casemapping_or_default(server),
                 message.with_target(target),
                 None,
-                &config.buffer,
+                config,
             )
             .map(Message::Dashboard),
     );
@@ -2394,9 +2413,10 @@ fn handle_priv_or_notice(
         dashboard
             .record_message(
                 server,
+                casemapping,
                 msg,
                 labeled_response_context,
-                &config.buffer,
+                config,
             )
             .map(Message::Dashboard),
     );

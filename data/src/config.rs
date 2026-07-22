@@ -15,6 +15,7 @@ use tokio_stream::wrappers::ReadDirStream;
 
 pub use self::actions::Actions;
 pub use self::buffer::Buffer;
+pub use self::channel_monitor::ChannelMonitor;
 pub use self::context_menu::ContextMenu;
 pub use self::ctcp::Ctcp;
 pub use self::display::Display;
@@ -45,6 +46,7 @@ use crate::{Theme, environment};
 
 pub mod actions;
 pub mod buffer;
+pub mod channel_monitor;
 pub mod context_menu;
 pub mod ctcp;
 pub mod display;
@@ -78,6 +80,7 @@ pub struct Config {
     pub font: Font,
     pub scale_factor: ScaleFactor,
     pub buffer: Buffer,
+    pub channel_monitor: ChannelMonitor,
     pub pane: Pane,
     pub sidebar: Sidebar,
     pub keyboard: Keyboard,
@@ -108,6 +111,7 @@ impl Default for Config {
             font: Font::default(),
             scale_factor: ScaleFactor::default(),
             buffer: Buffer::default(),
+            channel_monitor: ChannelMonitor::default(),
             pane: Pane::default(),
             sidebar: Sidebar::default(),
             keyboard: Keyboard::default(),
@@ -469,6 +473,7 @@ impl Config {
             pub font: Font,
             pub scale_factor: ScaleFactor,
             pub buffer: Buffer,
+            pub channel_monitor: ChannelMonitor,
             pub pane: Pane,
             pub sidebar: Sidebar,
             pub keyboard: Keyboard,
@@ -499,6 +504,7 @@ impl Config {
                     font: Font::default(),
                     scale_factor: ScaleFactor::default(),
                     buffer: Buffer::default(),
+                    channel_monitor: ChannelMonitor::default(),
                     pane: Pane::default(),
                     sidebar: Sidebar::default(),
                     keyboard: Keyboard::default(),
@@ -540,6 +546,7 @@ impl Config {
             proxy,
             scale_factor,
             buffer,
+            channel_monitor,
             sidebar,
             keyboard,
             notifications,
@@ -594,6 +601,7 @@ impl Config {
             proxy,
             scale_factor,
             buffer,
+            channel_monitor,
             sidebar,
             keyboard,
             notifications,

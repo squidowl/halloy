@@ -149,6 +149,7 @@ impl Manager {
         &mut self,
         mut new_resources: HashSet<Resource>,
         clients: Option<&client::Map>,
+        config: &config::ChannelMonitor,
     ) -> Vec<BoxFuture<'static, Message>> {
         let channel_monitor = Resource::channel_monitor();
 
@@ -173,7 +174,9 @@ impl Manager {
                 let Some(clients) = clients else {
                     continue;
                 };
-                tasks.push(self.channel_monitor.open(&self.data, clients));
+                tasks.push(
+                    self.channel_monitor.open(&self.data, clients, config),
+                );
             } else {
                 let seed = clients
                     .and_then(|clients| clients.get_seed(&resource.kind));
@@ -212,9 +215,18 @@ impl Manager {
         server: &Server,
         channel: &target::Channel,
         clients: &client::Map,
+        config: &config::ChannelMonitor,
     ) -> Option<BoxFuture<'static, Message>> {
         self.channel_monitor
-            .load_channel(&self.data, server, channel, clients)
+            .load_channel(&self.data, server, channel, clients, config)
+    }
+
+    pub fn reload_channel_monitor(
+        &mut self,
+        clients: &client::Map,
+        config: &config::ChannelMonitor,
+    ) -> Option<BoxFuture<'static, Message>> {
+        self.channel_monitor.reload(&mut self.data, clients, config)
     }
 
     fn is_tracked(&self, kind: &history::Kind) -> bool {
@@ -495,7 +507,7 @@ impl Manager {
             casemapping,
             message,
             None,
-            &config.buffer,
+            config,
         ));
 
         tasks
@@ -523,16 +535,20 @@ impl Manager {
     pub fn record_message(
         &mut self,
         server: &Server,
+        casemapping: isupport::CaseMap,
         message: crate::Message,
         labeled_response_context: Option<LabeledResponseContext>,
-        buffer_config: &config::Buffer,
+        config: &Config,
     ) -> Vec<BoxFuture<'static, Message>> {
+        let buffer_config = &config.buffer;
         let channel_monitor = self.channel_monitor.record(
             &mut self.data,
             &self.filters,
             server,
+            casemapping,
             &message,
             labeled_response_context.as_ref(),
+            &config.channel_monitor,
         );
         let mut tasks =
             history::Kind::from_server_message_rerouted_from(server, &message)
@@ -631,7 +647,7 @@ impl Manager {
         casemapping: isupport::CaseMap,
         mut message: crate::Message,
         labeled_response_context: Option<LabeledResponseContext>,
-        buffer_config: &config::Buffer,
+        config: &Config,
     ) -> Vec<BoxFuture<'static, Message>> {
         if let Some(kind) = history::Kind::from_server_message(server, &message)
         {
@@ -640,15 +656,16 @@ impl Manager {
                 &kind,
                 server,
                 casemapping,
-                buffer_config,
+                &config.buffer,
             );
         }
 
         self.record_message(
             server,
+            casemapping,
             message,
             labeled_response_context,
-            buffer_config,
+            config,
         )
     }
 
@@ -942,7 +959,7 @@ impl Manager {
                     casemapping,
                     message,
                     None,
-                    &config.buffer,
+                    config,
                 )
             })
             .collect()
