@@ -2066,10 +2066,6 @@ impl Data {
         self.map
             .iter_mut()
             .filter_map(|(kind, state)| {
-                if matches!(kind, history::Kind::ChannelMonitor) {
-                    return None;
-                }
-
                 let kind = kind.clone();
 
                 state.flush(Some(now), clients.get_seed(&kind)).map(

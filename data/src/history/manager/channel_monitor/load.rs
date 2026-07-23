@@ -183,8 +183,12 @@ async fn combine(sources: Vec<Source>) -> history::Loaded {
 
     combined.sort_unstable_by_key(|message| message.server_time);
 
+    let metadata = history::metadata::load(history::Kind::ChannelMonitor)
+        .await
+        .unwrap_or_default();
+
     history::Loaded {
         messages: combined,
-        metadata: history::Metadata::default(),
+        metadata,
     }
 }

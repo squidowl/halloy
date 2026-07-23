@@ -857,9 +857,21 @@ impl History {
                     && flushing_redactions.is_empty()
                 {
                     let kind = kind.clone();
+                    let read_marker = *read_marker;
+
+                    if matches!(kind, Kind::ChannelMonitor) {
+                        return Some(
+                            async move {
+                                metadata::save(&kind, &[], read_marker, None)
+                                    .await
+                                    .map(|()| Vec::<EchoEvent>::new())
+                            }
+                            .boxed(),
+                        );
+                    }
+
                     let pending_messages = std::mem::take(pending_messages);
                     *flushing_messages = pending_messages.clone();
-                    let read_marker = *read_marker;
                     let max_triggers_unread = *max_triggers_unread;
                     let max_triggers_highlight = *max_triggers_highlight;
                     let chathistory_references = chathistory_references.clone();
@@ -910,6 +922,18 @@ impl History {
                 {
                     let kind = kind.clone();
                     let read_marker = *read_marker;
+
+                    if matches!(kind, Kind::ChannelMonitor) {
+                        return Some(
+                            async move {
+                                metadata::save(&kind, &[], read_marker, None)
+                                    .await
+                                    .map(|()| Vec::<EchoEvent>::new())
+                            }
+                            .boxed(),
+                        );
+                    }
+
                     let chathistory_references = chathistory_references.clone();
                     *last_updated_at = None;
 
