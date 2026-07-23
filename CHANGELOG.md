@@ -78,7 +78,7 @@ Changed:
 
 Thanks:
 
-- Contributions: @englut, @luca020400, @classabbyamp, @KaiKorla, @TheDcoder, @City-busz, @rtmongold, @Gelbpunkt, @zsigisti
+- Contributions: @englut, @luca020400, @classabbyamp, @KaiKorla, @TheDcoder, @City-busz, @rtmongold, @Gelbpunkt, @zsigisti, quark
 - Bug reports: @luca020400, agent314, @FlooferLand, @englut, @rexbinary
 - Feature requests: @FlooferLand, quark, @daniiooo
 
