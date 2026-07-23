@@ -7,6 +7,7 @@ pub struct Runtime {
     pub power_preference: PowerPreference,
     pub vsync: bool,
     pub antialiasing: bool,
+    pub metrics_hinting: bool,
 }
 
 impl Default for Runtime {
@@ -16,6 +17,7 @@ impl Default for Runtime {
             power_preference: PowerPreference::default(),
             vsync: true,
             antialiasing: false,
+            metrics_hinting: true,
         }
     }
 }
