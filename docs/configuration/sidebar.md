@@ -126,7 +126,7 @@ channels = ["#rust", "#halloy", "#halloy-test"]
 # Result: #rust → #halloy → #halloy-test → (any other channels are sorted by "name")
 ```
 
-## `internal_buffers`
+## `internal_buffers` {#internal-buffers}
 
 Configure which internal buffers appear in the sidebar and whether they are
 placed before or after IRC servers.
@@ -337,7 +337,7 @@ exclude = "*"
 include = { channels = ["#halloy"] }
 ```
 
-## `highlight_indicator`
+## `highlight_indicator` {#highlight-indicator}
 
 Unread highlight in buffer indicator style.
 
