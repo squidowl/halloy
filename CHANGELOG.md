@@ -4,7 +4,7 @@ Added:
 
 - Channel Monitor internal buffer for viewing messages from all joined channels
 - Internal buffers (logs, highlights, etc) can be added to sidebar
-  - They can optionally be hidden depending on the presence of unread messages
+- Channel, query, and internal buffers can be muted (only shown if an unread/highlight indicator should be shown) via `servers.<name>.channels`, `servers.<name>.queries`, and `sidebar.internal_buffers.mute`
 - Config editor pane for editing the config file in-app
 - Undo/redo in the message input and config editor (`ctrl`/`cmd` + `z`, `ctrl`/`cmd` + `shift` + `z`)
 - Improved legibility of the returned values of `MONITOR` list (`/monitor L`)
