@@ -188,6 +188,7 @@ fn settings(
         antialiasing: runtime.antialiasing,
         fonts: font::load(),
         vsync: runtime.vsync,
+        metrics_hinting: true,
     }
 }
 
