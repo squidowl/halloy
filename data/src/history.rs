@@ -629,6 +629,17 @@ impl History {
                 (*max_triggers_highlight).max(Some(message.server_time));
         }
 
+        match self {
+            History::Partial {
+                last_updated_at, ..
+            }
+            | History::Full {
+                last_updated_at, ..
+            } => {
+                *last_updated_at = Some(Instant::now());
+            }
+        }
+
         if matches!(
             self,
             History::Partial {
@@ -640,18 +651,8 @@ impl History {
         }
 
         match self {
-            History::Partial {
-                last_updated_at,
-                last_seen,
-                ..
-            }
-            | History::Full {
-                last_updated_at,
-                last_seen,
-                ..
-            } => {
-                *last_updated_at = Some(Instant::now());
-
+            History::Partial { last_seen, .. }
+            | History::Full { last_seen, .. } => {
                 update_last_seen(last_seen, &message);
             }
         }
@@ -871,6 +872,8 @@ impl History {
                     let max_triggers_unread = *max_triggers_unread;
                     let max_triggers_highlight = *max_triggers_highlight;
 
+                    *last_updated_at = None;
+
                     if matches!(kind, Kind::ChannelMonitor) {
                         return Some(
                             async move {
@@ -895,8 +898,6 @@ impl History {
                     *flushing_reactions = pending_reactions.clone();
                     let pending_redactions = std::mem::take(pending_redactions);
                     *flushing_redactions = pending_redactions.clone();
-
-                    *last_updated_at = None;
 
                     return Some(
                         async move {
@@ -939,6 +940,8 @@ impl History {
                     let kind = kind.clone();
                     let read_marker = *read_marker;
 
+                    *last_updated_at = None;
+
                     if matches!(kind, Kind::ChannelMonitor) {
                         let max_triggers_unread =
                             metadata::latest_triggers_unread(messages);
@@ -962,7 +965,6 @@ impl History {
                     }
 
                     let chathistory_references = chathistory_references.clone();
-                    *last_updated_at = None;
 
                     truncate_messages(messages);
 
