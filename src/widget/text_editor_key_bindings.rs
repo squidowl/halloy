@@ -2,8 +2,6 @@ use iced::advanced::graphics::futures::MaybeSend;
 use iced::widget::text_editor;
 use iced::{Task, clipboard};
 
-use super::editor_history::History;
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Kill {
     WordForward,
@@ -50,30 +48,6 @@ pub fn emacs<Message>(
     kill_binding: impl FnOnce(Kill) -> text_editor::Binding<Message>,
 ) -> Option<text_editor::Binding<Message>> {
     emacs_action(key_press).map(|action| action.into_binding(kill_binding))
-}
-
-/// Undo (`cmd+z`) and redo (`cmd+shift+z`, `cmd+y`) shortcuts.
-pub fn undo_redo<Message>(
-    key_press: &text_editor::KeyPress,
-    undo: Message,
-    redo: Message,
-) -> Option<text_editor::Binding<Message>> {
-    if !key_press.modifiers.command() {
-        return None;
-    }
-
-    match key_press.key.as_ref() {
-        iced::keyboard::Key::Character("z") if key_press.modifiers.shift() => {
-            Some(text_editor::Binding::Custom(redo))
-        }
-        iced::keyboard::Key::Character("z") => {
-            Some(text_editor::Binding::Custom(undo))
-        }
-        iced::keyboard::Key::Character("y") => {
-            Some(text_editor::Binding::Custom(redo))
-        }
-        _ => None,
-    }
 }
 
 /// Word/line deletion shortcuts (alt/cmd/ctrl + backspace/delete).
@@ -149,7 +123,6 @@ fn platform_kill_action(
 
 pub fn perform_kill<T>(
     content: &mut text_editor::Content,
-    history: &mut History,
     kill: Kill,
     save_to_clipboard: bool,
     kill_to_clipboard: bool,
@@ -157,7 +130,6 @@ pub fn perform_kill<T>(
 where
     T: MaybeSend + 'static,
 {
-    history.checkpoint(content);
     content.perform(text_editor::Action::Select(kill.motion()));
 
     let task = if save_to_clipboard && kill_to_clipboard {

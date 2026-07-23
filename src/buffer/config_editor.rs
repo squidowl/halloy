@@ -11,7 +11,6 @@ use iced::widget::{
 use iced::{Font, Length, Task, highlighter, padding};
 
 use crate::appearance::theme;
-use crate::widget::editor_history::History;
 use crate::widget::{Element, text_editor_key_bindings, tooltip};
 use crate::{Theme, font, icon};
 
@@ -20,8 +19,6 @@ pub enum Message {
     Action(text_editor::Action),
     Save,
     Refresh,
-    Undo,
-    Redo,
     Kill(text_editor_key_bindings::Kill, bool),
     OpenDirectory,
     OpenConfigFile,
@@ -74,7 +71,6 @@ pub struct ConfigEditor {
     saved_text: String,
     dirty: bool,
     error: Option<Error>,
-    history: History,
 }
 
 impl Clone for ConfigEditor {
@@ -85,7 +81,6 @@ impl Clone for ConfigEditor {
             saved_text: self.saved_text.clone(),
             dirty: self.dirty,
             error: self.error.clone(),
-            history: self.history.clone(),
         }
     }
 }
@@ -106,7 +101,6 @@ impl ConfigEditor {
             saved_text: text,
             dirty: false,
             error,
-            history: History::new(),
         }
     }
 
@@ -136,7 +130,6 @@ impl ConfigEditor {
 
     fn move_cursor(&mut self, motion: text_editor::Motion) {
         let action = text_editor::Action::Move(motion);
-        self.history.track(&self.content, &action);
         self.content.perform(action);
     }
 
@@ -163,7 +156,6 @@ impl ConfigEditor {
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::Action(action) => {
-                self.history.track(&self.content, &action);
                 let is_edit = action.is_edit();
 
                 if is_edit {
@@ -178,26 +170,9 @@ impl ConfigEditor {
 
                 (Task::none(), None)
             }
-            Message::Undo => {
-                if self.history.undo(&mut self.content) {
-                    self.dirty = self.is_dirty();
-                    self.error = None;
-                }
-
-                (Task::none(), None)
-            }
-            Message::Redo => {
-                if self.history.redo(&mut self.content) {
-                    self.dirty = self.is_dirty();
-                    self.error = None;
-                }
-
-                (Task::none(), None)
-            }
             Message::Kill(kill, save_to_clipboard) => {
                 let task = text_editor_key_bindings::perform_kill(
                     &mut self.content,
-                    &mut self.history,
                     kill,
                     save_to_clipboard,
                     config.buffer.text_input.kill_to_clipboard,
@@ -215,7 +190,6 @@ impl ConfigEditor {
                 self.saved_text = text;
                 self.dirty = false;
                 self.error = error;
-                self.history.clear();
 
                 (Task::none(), None)
             }
@@ -381,14 +355,6 @@ pub fn view<'a>(
                 &key_press,
                 state.content.selection().is_some(),
                 |kill| text_editor::Binding::Custom(Message::Kill(kill, false)),
-            ) {
-                return Some(binding);
-            }
-
-            if let Some(binding) = text_editor_key_bindings::undo_redo(
-                &key_press,
-                Message::Undo,
-                Message::Redo,
             ) {
                 return Some(binding);
             }

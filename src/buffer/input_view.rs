@@ -33,7 +33,6 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use self::completion::Completion;
 use self::exec::run as execute_shell_command;
-use crate::widget::editor_history::History;
 use crate::widget::key_press::is_numpad;
 use crate::widget::user_display::UserDisplay;
 use crate::widget::{
@@ -81,8 +80,6 @@ pub enum Event {
 #[derive(Debug, Clone)]
 pub enum Message {
     Action(text_editor::Action),
-    Undo,
-    Redo,
     CloseContextMenu(window::Id, bool),
     ExecFinished {
         buffer: Upstream,
@@ -252,14 +249,6 @@ pub fn view<'a>(
             if let Some(binding) = platform_specific_key_bindings(
                 key_press.clone(),
                 state.input_content.selection().as_deref(),
-            ) {
-                return Some(binding);
-            }
-
-            if let Some(binding) = text_editor_key_bindings::undo_redo(
-                &key_press,
-                Message::Undo,
-                Message::Redo,
             ) {
                 return Some(binding);
             }
@@ -712,7 +701,6 @@ pub struct State {
     upload_abort_handles: Vec<futures::future::AbortHandle>,
     draft_reply: Option<input::DraftReply>,
     reply_preview: Option<message::ReplyPreview>,
-    history: History,
 }
 
 impl Default for State {
@@ -732,7 +720,6 @@ impl Default for State {
             upload_abort_handles: Vec::new(),
             draft_reply: None,
             reply_preview: None,
-            history: History::new(),
         }
     }
 }
@@ -1011,7 +998,6 @@ impl State {
                         self.input_content.text().clone(),
                     );
                     self.input_content = text_editor::Content::new();
-                    self.history.clear();
                     self.reset_typing();
 
                     let lines = self
@@ -1247,7 +1233,6 @@ impl State {
             Message::Cut => {
                 let task =
                     if let Some(selection) = self.input_content.selection() {
-                        self.history.checkpoint(&self.input_content);
                         self.input_content.perform(text_editor::Action::Edit(
                             text_editor::Edit::Delete,
                         ));
@@ -1443,8 +1428,6 @@ impl State {
                 let ghost = upload_ghost(id);
 
                 replace_ghost_with_url(&mut self.input_content, ghost, url);
-                self.history.clear();
-
                 history.record_draft(RawInput {
                     buffer: buffer.clone(),
                     text: self.input_content.text(),
@@ -1456,7 +1439,6 @@ impl State {
             Message::Kill(kill, save_to_clipboard) => {
                 let task = text_editor_key_bindings::perform_kill(
                     &mut self.input_content,
-                    &mut self.history,
                     kill,
                     save_to_clipboard,
                     config.buffer.text_input.kill_to_clipboard,
@@ -1464,23 +1446,7 @@ impl State {
 
                 (task, None)
             }
-            Message::Undo => {
-                if self.history.undo(&mut self.input_content) {
-                    self.on_history_change(buffer, history);
-                }
-
-                (Task::none(), None)
-            }
-            Message::Redo => {
-                if self.history.redo(&mut self.input_content) {
-                    self.on_history_change(buffer, history);
-                }
-
-                (Task::none(), None)
-            }
             Message::Action(action) => {
-                self.history.track(&self.input_content, &action);
-
                 if let text_editor::Action::Edit(text_editor::Edit::Paste(
                     clipboard,
                 )) = &action
@@ -1677,8 +1643,6 @@ impl State {
 
     fn insert_upload_ghost(&mut self, id: u32) {
         // TODO (casper): Can we do better here? What does other programs do?
-        self.history.clear();
-
         let ghost = upload_ghost(id);
         let content = self.input_content.text();
         let cursor_char = line_col_to_char(
@@ -1715,6 +1679,7 @@ impl State {
         self.input_content.perform(text_editor::Action::Edit(
             text_editor::Edit::Paste(std::sync::Arc::new(insert)),
         ));
+        reset_undo_history(&mut self.input_content);
     }
 
     fn schedule_anim_tick() -> Task<Message> {
@@ -2543,22 +2508,6 @@ impl State {
         }
     }
 
-    fn on_history_change(
-        &mut self,
-        buffer: &buffer::Upstream,
-        history: &mut history::Manager,
-    ) {
-        self.completion.reset();
-        self.notice = None;
-        self.selected_history = None;
-
-        history.record_draft(RawInput {
-            buffer: buffer.clone(),
-            text: self.input_content.text(),
-            reply: self.draft_reply.clone(),
-        });
-    }
-
     fn on_completion(
         &mut self,
         buffer: &buffer::Upstream,
@@ -2566,10 +2515,6 @@ impl State {
         actions: Vec<text_editor::Action>,
         record_draft: bool,
     ) -> (Task<Message>, Option<Event>) {
-        if !actions.is_empty() {
-            self.history.checkpoint(&self.input_content);
-        }
-
         for action in actions.into_iter() {
             self.input_content.perform(action);
         }
@@ -2604,7 +2549,6 @@ impl State {
 
         // update the input content
         self.input_content = text_editor::Content::with_text(text);
-        self.history.clear();
         // move the cursor to the end of the input
         self.input_content.perform(text_editor::Action::Move(
             text_editor::Motion::DocumentEnd,
@@ -3190,6 +3134,14 @@ fn replace_ghost_with_url(
             }
         }
     }
+}
+
+fn reset_undo_history(content: &mut text_editor::Content) {
+    let text = content.text();
+    let cursor = content.cursor();
+
+    *content = text_editor::Content::with_text(&text);
+    content.move_to(cursor);
 }
 
 #[cfg(test)]
