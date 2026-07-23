@@ -473,7 +473,9 @@ impl User {
             nickname: Nick::from_str(nick, casemapping),
             username: Some(user.to_string()),
             hostname: Some(host.to_string()),
-            accountname: account.map(ToString::to_string),
+            accountname: account
+                .filter(|account| *account != "*" && *account != "0")
+                .map(ToString::to_string),
             access_levels,
             away,
             bot,
