@@ -1079,14 +1079,21 @@ impl Dashboard {
                         self.panes.main.restore();
                     }
                     CycleNextBuffer => {
-                        let all_buffers =
-                            all_buffers(config, clients, &self.history);
+                        let cycle_buffers = self.side_menu.visible_buffers(
+                            servers,
+                            clients,
+                            &self.history,
+                            &self.panes,
+                            config,
+                            self.buffer_settings.show_muted,
+                        );
+
                         let open_buffers = open_buffers(self);
 
                         if let Some((_, _, state)) = self.get_focused_mut()
                             && let Some(buffer) = cycle_next_buffer(
                                 state.buffer.data().as_ref(),
-                                all_buffers,
+                                cycle_buffers,
                                 &open_buffers,
                             )
                         {
@@ -1102,14 +1109,21 @@ impl Dashboard {
                         }
                     }
                     CyclePreviousBuffer => {
-                        let all_buffers =
-                            all_buffers(config, clients, &self.history);
+                        let cycle_buffers = self.side_menu.visible_buffers(
+                            servers,
+                            clients,
+                            &self.history,
+                            &self.panes,
+                            config,
+                            self.buffer_settings.show_muted,
+                        );
+
                         let open_buffers = open_buffers(self);
 
                         if let Some((_, _, state)) = self.get_focused_mut()
                             && let Some(buffer) = cycle_previous_buffer(
                                 state.buffer.data().as_ref(),
-                                all_buffers,
+                                cycle_buffers,
                                 &open_buffers,
                             )
                         {
@@ -1341,17 +1355,22 @@ impl Dashboard {
                         return (task, None);
                     }
                     CycleNextUnreadBuffer => {
-                        let all_buffers = all_buffers_with_has_unread(
-                            config,
-                            clients,
-                            &self.history,
-                        );
+                        let cycle_buffers =
+                            self.side_menu.visible_buffers_with_has_unread(
+                                servers,
+                                clients,
+                                &self.history,
+                                &self.panes,
+                                config,
+                                self.buffer_settings.show_muted,
+                            );
+
                         let open_buffers = open_buffers(self);
 
                         if let Some((_, _, state)) = self.get_focused_mut()
                             && let Some(buffer) = cycle_next_unread_buffer(
                                 state.buffer.data().as_ref(),
-                                all_buffers,
+                                cycle_buffers,
                                 &open_buffers,
                             )
                         {
@@ -1367,17 +1386,22 @@ impl Dashboard {
                         }
                     }
                     CyclePreviousUnreadBuffer => {
-                        let all_buffers = all_buffers_with_has_unread(
-                            config,
-                            clients,
-                            &self.history,
-                        );
+                        let cycle_buffers =
+                            self.side_menu.visible_buffers_with_has_unread(
+                                servers,
+                                clients,
+                                &self.history,
+                                &self.panes,
+                                config,
+                                self.buffer_settings.show_muted,
+                            );
+
                         let open_buffers = open_buffers(self);
 
                         if let Some((_, _, state)) = self.get_focused_mut()
                             && let Some(buffer) = cycle_previous_unread_buffer(
                                 state.buffer.data().as_ref(),
-                                all_buffers,
+                                cycle_buffers,
                                 &open_buffers,
                             )
                         {
@@ -5420,45 +5444,6 @@ impl Panes {
     }
 }
 
-fn all_buffers(
-    config: &Config,
-    clients: &client::Map,
-    history: &history::Manager,
-) -> Vec<data::Buffer> {
-    let upstream_buffers = all_upstream_buffers(clients, history)
-        .into_iter()
-        .map(data::Buffer::Upstream);
-
-    let internal_buffers = config
-        .sidebar
-        .internal_buffers
-        .buffers
-        .iter()
-        .filter_map(|&kind| {
-            let buffer = data::Buffer::Internal(kind.into());
-
-            if matches!(
-                config.sidebar.internal_buffers.mute,
-                config::sidebar::InternalBuffersMutePolicy::Never
-            ) {
-                return Some(buffer);
-            }
-
-            match history::Kind::from_buffer(buffer.clone()) {
-                Some(history_kind) => {
-                    history.has_unread(&history_kind).then_some(buffer)
-                }
-                None => Some(buffer),
-            }
-        });
-
-    if config.sidebar.internal_buffers.is_before_servers() {
-        internal_buffers.chain(upstream_buffers).collect()
-    } else {
-        upstream_buffers.chain(internal_buffers).collect()
-    }
-}
-
 fn all_upstream_buffers(
     clients: &client::Map,
     history: &history::Manager,
@@ -5477,58 +5462,6 @@ fn all_upstream_buffers(
                 ))
         })
         .collect()
-}
-
-fn all_buffers_with_has_unread(
-    config: &Config,
-    clients: &client::Map,
-    history: &history::Manager,
-) -> Vec<(data::Buffer, bool)> {
-    let upstream_buffers = clients.connected_servers().flat_map(|server| {
-        std::iter::once((
-            buffer::Upstream::Server(server.clone()).into(),
-            history.has_unread(&history::Kind::Server(server.clone())),
-        ))
-        .chain(clients.get_channels(server).map(|channel| {
-            (
-                buffer::Upstream::Channel(server.clone(), channel.clone())
-                    .into(),
-                history.has_unread(&history::Kind::Channel(
-                    server.clone(),
-                    channel.clone(),
-                )),
-            )
-        }))
-        .chain(history.get_unique_queries(server).into_iter().map(|nick| {
-            (
-                buffer::Upstream::Query(server.clone(), nick.clone()).into(),
-                history.has_unread(&history::Kind::Query(
-                    server.clone(),
-                    nick.clone(),
-                )),
-            )
-        }))
-    });
-
-    let internal_buffers = config
-        .sidebar
-        .internal_buffers
-        .buffers
-        .iter()
-        .map(|&kind| data::Buffer::Internal(kind.into()))
-        .map(|buffer| {
-            if let Some(kind) = history::Kind::from_buffer(buffer.clone()) {
-                (buffer, history.has_unread(&kind))
-            } else {
-                (buffer, false)
-            }
-        });
-
-    if config.sidebar.internal_buffers.is_before_servers() {
-        internal_buffers.chain(upstream_buffers).collect()
-    } else {
-        upstream_buffers.chain(internal_buffers).collect()
-    }
 }
 
 fn open_buffers(dashboard: &Dashboard) -> Vec<data::Buffer> {

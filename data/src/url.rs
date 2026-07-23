@@ -9,7 +9,7 @@ use unicode_security::confusable_detection::skeleton;
 use unicode_security::{RestrictionLevel, RestrictionLevelDetection};
 
 use crate::appearance::theme;
-use crate::config::server::default_port;
+use crate::config::server::{Muteable, default_port};
 use crate::server::ServerName;
 use crate::{config, isupport};
 
@@ -186,6 +186,9 @@ fn parse_server_config(url: &url::Url) -> Option<config::Server> {
         }
 
         channels
+            .into_iter()
+            .map(Muteable::default_with_name)
+            .collect()
     };
 
     Some(config::Server::new(
@@ -286,6 +289,22 @@ mod tests {
             expected_channels
                 .iter()
                 .map(ToString::to_string)
+                .map(Muteable::default_with_name)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[track_caller]
+    fn assert_eq_as_unmuted_channels(
+        channels: Vec<Muteable>,
+        channel_names: &[&str],
+    ) {
+        assert_eq!(
+            channels,
+            channel_names
+                .iter()
+                .map(ToString::to_string)
+                .map(Muteable::default_with_name)
                 .collect::<Vec<_>>()
         );
     }
@@ -349,7 +368,7 @@ mod tests {
 
         assert_eq!(config.server, "2001:db8::1");
         assert_eq!(config.port, NonZeroU16::new(6667));
-        assert_eq!(config.channels, vec!["#channel"]);
+        assert_eq_as_unmuted_channels(config.channels, &["#channel"]);
         assert!(!config.use_tls);
     }
 
@@ -360,7 +379,7 @@ mod tests {
                 .unwrap();
         let config = parse_server_config(&url).unwrap();
 
-        assert_eq!(config.channels, vec!["#foo%bar", "&local"]);
+        assert_eq_as_unmuted_channels(config.channels, &["#foo%bar", "&local"]);
     }
 
     #[test]
@@ -369,7 +388,7 @@ mod tests {
             url::Url::parse("irc://irc.example.org/#foo%25bar,%2Bops").unwrap();
         let config = parse_server_config(&url).unwrap();
 
-        assert_eq!(config.channels, vec!["#foo%bar", "#+ops"]);
+        assert_eq_as_unmuted_channels(config.channels, &["#foo%bar", "#+ops"]);
     }
 
     #[test]

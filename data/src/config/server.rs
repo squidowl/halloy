@@ -85,7 +85,7 @@ pub struct Server {
     /// Message reroute settings scoped to this server.
     pub reroute: Reroute,
     /// A list of channels to join on connection.
-    pub channels: Vec<String>,
+    pub channels: Vec<Muteable>,
     /// A mapping of channel names to keys for join-on-connect.
     pub channel_keys: HashMap<String, String>,
     /// A mapping of channel names to keyring entries for join-on-connect.
@@ -93,7 +93,7 @@ pub struct Server {
     /// Order server's channels
     pub order_channels_by: Option<OrderChannelsBy>,
     /// A list of queries to add to the sidebar on connection.
-    pub queries: Vec<String>,
+    pub queries: Vec<Muteable>,
     /// The amount of inactivity in seconds before the client will ping the server.
     #[serde(deserialize_with = "deserialize_u64_positive_integer")]
     pub ping_time: u64,
@@ -173,7 +173,7 @@ impl Server {
         server: String,
         port: Option<NonZeroU16>,
         nickname: String,
-        channels: Vec<String>,
+        channels: Vec<Muteable>,
         use_tls: bool,
         use_websocket: bool,
     ) -> Self {
@@ -335,6 +335,40 @@ impl Default for Server {
             do_not_request: vec![],
             irc_protocol_log: IrcProtocolLog::default(),
             sidebar_visibility: SidebarVisibility::Expanded,
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Debug, Default, Clone)]
+pub struct Muteable {
+    pub name: String,
+    pub mute: bool,
+}
+
+impl<'de> Deserialize<'de> for Muteable {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Data {
+            String(String),
+            Muteable { name: String, mute: bool },
+        }
+
+        match Data::deserialize(deserializer)? {
+            Data::String(name) => Ok(Muteable { name, mute: false }),
+            Data::Muteable { name, mute } => Ok(Muteable { name, mute }),
+        }
+    }
+}
+
+impl Muteable {
+    pub fn default_with_name(name: String) -> Self {
+        Self {
+            name,
+            ..Self::default()
         }
     }
 }
