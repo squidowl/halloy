@@ -3,7 +3,7 @@
 Internal buffers are buffers managed by Halloy instead of an IRC server.
 
 You can open them from the user menu or command bar. You can also
-[add them to the sidebar](https://nightly.halloy.chat/configuration/sidebar#internal-buffers).
+[add them to the sidebar](/configuration/sidebar#internal-buffers).
 
 - **Channel Monitor** shows messages from all joined channels in one place.
   [Configuration](/configuration/channel-monitor)

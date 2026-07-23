@@ -133,7 +133,7 @@ placed before or after IRC servers.
 
 ```toml
 # Type: table
-# Values: `position` and `buffers`
+# Values: `position`, `buffers`, and `mute`
 # Default: `{ position = "after-servers", buffers = [] }`
 
 [sidebar.internal_buffers]
@@ -159,8 +159,8 @@ position = "before-servers"
 Internal buffers shown in the sidebar.
 
 ```toml
-# Type: array
-# Values: `config-editor`, `file-transfers`, `channel-discovery`, `channel-monitor`, `highlights`, `logs`
+# Type: array of strings
+# Values: "channel-discovery", "channel-monitor", "config-editor", "file-transfers", "highlights", "logs"
 # Default: []
 
 [sidebar.internal_buffers]
