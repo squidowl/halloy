@@ -31,9 +31,14 @@ impl ChannelMonitor {
         task(self.generation, history)
     }
 
-    pub(super) fn close(&mut self, data: &mut Data) {
+    pub(super) fn close(
+        &mut self,
+        data: &mut Data,
+    ) -> Option<BoxFuture<'static, Result<(), history::Error>>> {
         self.active = false;
-        data.map.remove(&history::Kind::ChannelMonitor);
+        data.map
+            .get_mut(&history::Kind::ChannelMonitor)
+            .and_then(History::make_partial)
     }
 
     pub(super) fn reload(
@@ -120,7 +125,7 @@ impl ChannelMonitor {
         labeled_response_context: Option<&LabeledResponseContext>,
         config: &config::ChannelMonitor,
     ) -> Option<BoxFuture<'static, Message>> {
-        if !self.is_active() || !is_channel_message(message) {
+        if !is_channel_message(message) {
             return None;
         }
 

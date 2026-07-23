@@ -5,8 +5,8 @@ use std::time::Duration;
 use std::{fmt, io};
 
 use chrono::{DateTime, Utc};
+use futures::FutureExt;
 use futures::future::BoxFuture;
-use futures::{Future, FutureExt};
 use tokio::fs;
 use tokio::time::Instant;
 
@@ -629,6 +629,16 @@ impl History {
                 (*max_triggers_highlight).max(Some(message.server_time));
         }
 
+        if matches!(
+            self,
+            History::Partial {
+                kind: Kind::ChannelMonitor,
+                ..
+            }
+        ) {
+            return None;
+        }
+
         match self {
             History::Partial {
                 last_updated_at,
@@ -858,13 +868,21 @@ impl History {
                 {
                     let kind = kind.clone();
                     let read_marker = *read_marker;
+                    let max_triggers_unread = *max_triggers_unread;
+                    let max_triggers_highlight = *max_triggers_highlight;
 
                     if matches!(kind, Kind::ChannelMonitor) {
                         return Some(
                             async move {
-                                metadata::save(&kind, &[], read_marker, None)
-                                    .await
-                                    .map(|()| Vec::<EchoEvent>::new())
+                                metadata::update(
+                                    &kind,
+                                    read_marker,
+                                    max_triggers_unread,
+                                    max_triggers_highlight,
+                                    None,
+                                )
+                                .await
+                                .map(|()| Vec::<EchoEvent>::new())
                             }
                             .boxed(),
                         );
@@ -872,8 +890,6 @@ impl History {
 
                     let pending_messages = std::mem::take(pending_messages);
                     *flushing_messages = pending_messages.clone();
-                    let max_triggers_unread = *max_triggers_unread;
-                    let max_triggers_highlight = *max_triggers_highlight;
                     let chathistory_references = chathistory_references.clone();
                     let pending_reactions = std::mem::take(pending_reactions);
                     *flushing_reactions = pending_reactions.clone();
@@ -924,11 +940,22 @@ impl History {
                     let read_marker = *read_marker;
 
                     if matches!(kind, Kind::ChannelMonitor) {
+                        let max_triggers_unread =
+                            metadata::latest_triggers_unread(messages);
+                        let max_triggers_highlight =
+                            metadata::latest_triggers_highlight(messages);
+
                         return Some(
                             async move {
-                                metadata::save(&kind, &[], read_marker, None)
-                                    .await
-                                    .map(|()| Vec::<EchoEvent>::new())
+                                metadata::update(
+                                    &kind,
+                                    read_marker,
+                                    max_triggers_unread,
+                                    max_triggers_highlight,
+                                    None,
+                                )
+                                .await
+                                .map(|()| Vec::<EchoEvent>::new())
                             }
                             .boxed(),
                         );
@@ -963,7 +990,7 @@ impl History {
 
     fn make_partial(
         &mut self,
-    ) -> Option<impl Future<Output = Result<(), Error>> + use<>> {
+    ) -> Option<BoxFuture<'static, Result<(), Error>>> {
         match self {
             History::Partial { .. } => None,
             History::Full {
@@ -975,12 +1002,46 @@ impl History {
                 ..
             } => {
                 let kind = kind.clone();
-                let last_seen = last_seen.clone();
                 let read_marker = *read_marker;
                 let max_triggers_unread =
                     metadata::latest_triggers_unread(messages);
                 let max_triggers_highlight =
                     metadata::latest_triggers_highlight(messages);
+
+                if matches!(kind, Kind::ChannelMonitor) {
+                    *self = Self::Partial {
+                        kind: kind.clone(),
+                        pending_messages: vec![],
+                        last_updated_at: None,
+                        read_marker,
+                        max_triggers_unread,
+                        max_triggers_highlight,
+                        chathistory_references: None,
+                        last_seen: HashMap::new(),
+                        pending_reactions: HashMap::new(),
+                        pending_redactions: HashMap::new(),
+                        show_in_sidebar: true,
+                        flushing_messages: vec![],
+                        flushing_reactions: HashMap::new(),
+                        flushing_redactions: HashMap::new(),
+                    };
+
+                    return Some(
+                        async move {
+                            metadata::update(
+                                &kind,
+                                read_marker,
+                                max_triggers_unread,
+                                max_triggers_highlight,
+                                None,
+                            )
+                            .await
+                        }
+                        .boxed(),
+                    );
+                }
+
+                let last_seen = last_seen.clone();
                 let chathistory_references =
                     metadata::latest_can_reference(messages)
                         .max(chathistory_references.clone());
@@ -1007,15 +1068,18 @@ impl History {
 
                 match full_history {
                     History::Partial { .. } => None,
-                    History::Full { kind, messages, .. } => Some(async move {
-                        overwrite(
-                            &kind,
-                            &messages,
-                            read_marker,
-                            chathistory_references,
-                        )
-                        .await
-                    }),
+                    History::Full { kind, messages, .. } => Some(
+                        async move {
+                            overwrite(
+                                &kind,
+                                &messages,
+                                read_marker,
+                                chathistory_references,
+                            )
+                            .await
+                        }
+                        .boxed(),
+                    ),
                 }
             }
         }

@@ -195,9 +195,13 @@ impl Manager {
         }
 
         for resource in removed {
-            if resource == channel_monitor {
-                self.channel_monitor.close(&mut self.data);
-            } else if let Some(task) = self.data.untrack(&resource.kind) {
+            let task = if resource == channel_monitor {
+                self.channel_monitor.close(&mut self.data)
+            } else {
+                self.data.untrack(&resource.kind)
+            };
+
+            if let Some(task) = task {
                 tasks.push(
                     task.map(|result| Message::Closed(resource.kind, result))
                         .boxed(),
@@ -2054,7 +2058,7 @@ impl Data {
     fn untrack(
         &mut self,
         kind: &history::Kind,
-    ) -> Option<impl Future<Output = Result<(), history::Error>> + use<>> {
+    ) -> Option<BoxFuture<'static, Result<(), history::Error>>> {
         self.map.get_mut(kind).and_then(History::make_partial)
     }
 
