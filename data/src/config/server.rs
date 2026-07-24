@@ -165,6 +165,7 @@ pub struct Server {
     pub do_not_request: Vec<Capability>,
     /// Whether & how to log all IRC protocol messages
     pub irc_protocol_log: IrcProtocolLog,
+    pub sidebar_visibility: SidebarVisibility,
 }
 
 impl Server {
@@ -333,6 +334,7 @@ impl Default for Server {
             icon: Icon::default(),
             do_not_request: vec![],
             irc_protocol_log: IrcProtocolLog::default(),
+            sidebar_visibility: SidebarVisibility::Expanded,
         }
     }
 }
@@ -589,6 +591,14 @@ impl Sasl {
             None
         }
     }
+}
+
+#[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SidebarVisibility {
+    Collapsed,
+    #[default]
+    Expanded,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
