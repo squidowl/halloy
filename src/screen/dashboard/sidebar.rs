@@ -1,5 +1,5 @@
-use std::iter;
 use std::time::Duration;
+use std::{convert, iter};
 
 use data::config::server::SidebarVisibility;
 use data::config::{self, Config, sidebar};
@@ -216,7 +216,7 @@ impl Sidebar {
             ),
             Message::SetServerVisibility(server, visibility) => {
                 self.collapse.set(server, visibility);
-                (Task::none(), None)
+                (context_menu::close(convert::identity).discard(), None)
             }
         }
     }
