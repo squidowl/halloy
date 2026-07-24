@@ -88,6 +88,9 @@ pub enum Channel {
     Unknown(char),
 }
 
+// These mappings, where not supplied via ISUPPORT, are from typical/common
+// mode letters and cannot be relied upon when certainty is necessary.
+
 impl From<char> for Channel {
     fn from(c: char) -> Self {
         use Channel::*;
@@ -211,6 +214,9 @@ pub enum User {
     HostHiding,
     Unknown(char),
 }
+
+// These mappings, where not supplied via ISUPPORT, are from typical/common
+// mode letters and cannot be relied upon when certainty is necessary.
 
 impl From<char> for User {
     fn from(c: char) -> Self {
