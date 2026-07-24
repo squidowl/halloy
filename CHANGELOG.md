@@ -22,6 +22,7 @@ Added:
 - `pane.always_show_title_bar_buttons` setting to prevent pane title bar buttons from being hidden when the pane is not hovered
 - Shortcuts displayed in pane button tooltips (where available/configured)
 - `follow` option for reroute rules (`servers.<name>.reroute`) to reroute messages to the focused buffer
+- Add system keyring support for server, NickServ, channel, SASL, filehost credential, and proxy passwords
 - IRCv3
   - IRCv3 `no-implicit-names` support
   - `servers.<name>.do_not_request` can be specified to prevent IRCv3 capability requests (e.g. `servers.<name>.do_not_request = [ "labeled-response" ]` will prevent [labeled-response](https://ircv3.net/specs/extensions/labeled-response) from being requested from the server)
@@ -87,7 +88,7 @@ Thanks:
 
 - Contributions: @englut, @luca020400, @classabbyamp, @KaiKorla, @TheDcoder, @City-busz, @rtmongold, @Gelbpunkt, @zsigisti, quark
 - Bug reports: @luca020400, agent314, @FlooferLand, @englut, @rexbinary, @belthesar, @deepspaceaxolotl, @neilzilla, @0ther0ne
-- Feature requests: @FlooferLand, quark, @daniiooo, @deepspaceaxolotl, @4e554c4c, @RoboDanjal, @Vendicated
+- Feature requests: @FlooferLand, quark, @daniiooo, @deepspaceaxolotl, @4e554c4c, @RoboDanjal, @Vendicated, @raggi, @Avinash-Bhat
 
 # 2026.7.2 (2026-06-08)
 
@@ -95,7 +96,6 @@ Added:
 
 - Add clear buffer shortcut to title bar
 - Indicate in query if user is offline in its title bar
-- Add system keyring support for server, NickServ, channel, SASL, filehost credential, and proxy passwords
 
 Fixed:
 
