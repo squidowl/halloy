@@ -52,6 +52,7 @@ pub struct Sidebar {
     pub channel: Option<BufferAction>,
     pub query: Option<BufferAction>,
     pub focused_buffer: Option<BufferFocusedAction>,
+    pub cycle: CycleAction,
 }
 
 #[derive(Debug, Default, Clone, Deserialize)]
@@ -190,4 +191,18 @@ pub enum ImageClickAction {
     #[default]
     OpenUrl,
     Preview,
+}
+
+#[derive(Debug, Copy, Clone, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum CycleAction {
+    #[default]
+    IntoCollapsed,
+    SkipCollapsed,
+}
+
+impl CycleAction {
+    pub fn include_collapsed(&self) -> bool {
+        matches!(self, Self::IntoCollapsed)
+    }
 }

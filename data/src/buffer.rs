@@ -40,7 +40,15 @@ impl From<Internal> for Buffer {
 }
 
 #[derive(
-    Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, strum::Display,
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
+    strum::Display,
+    strum::IntoStaticStr,
 )]
 pub enum Internal {
     #[strum(serialize = "File Transfers")]
@@ -147,8 +155,8 @@ impl Internal {
     }
 }
 
-impl From<config::sidebar::InternalBuffer> for Internal {
-    fn from(config: config::sidebar::InternalBuffer) -> Self {
+impl From<&config::sidebar::InternalBuffer> for Internal {
+    fn from(config: &config::sidebar::InternalBuffer) -> Self {
         match config {
             config::sidebar::InternalBuffer::ConfigEditor => Self::ConfigEditor,
             config::sidebar::InternalBuffer::FileTransfers => {
@@ -162,6 +170,25 @@ impl From<config::sidebar::InternalBuffer> for Internal {
             config::sidebar::InternalBuffer::ChannelDiscovery => {
                 Self::ChannelDiscovery(None)
             }
+        }
+    }
+}
+
+impl From<config::sidebar::InternalBuffer> for Internal {
+    fn from(config: config::sidebar::InternalBuffer) -> Self {
+        Self::from(&config)
+    }
+}
+
+impl From<&Internal> for config::sidebar::InternalBuffer {
+    fn from(buffer: &Internal) -> Self {
+        match buffer {
+            Internal::ConfigEditor => Self::ConfigEditor,
+            Internal::FileTransfers => Self::FileTransfers,
+            Internal::Logs => Self::Logs,
+            Internal::Highlights => Self::Highlights,
+            Internal::ChannelDiscovery(_) => Self::ChannelDiscovery,
+            Internal::ChannelMonitor => Self::ChannelMonitor,
         }
     }
 }

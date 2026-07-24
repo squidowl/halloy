@@ -1,11 +1,13 @@
 use std::time::Duration;
 use std::{convert, iter};
 
+use data::buffer::Buffer;
 use data::config::server::SidebarVisibility;
+use data::config::sidebar::{InternalBuffer, PrimaryIcon};
 use data::config::{self, Config, sidebar};
 use data::dashboard::{BufferAction, BufferFocusedAction};
 use data::{
-    Image, Version, buffer, file_transfer, history, isupport, server,
+    Image, Version, buffer, client, file_transfer, history, isupport, server,
     server_icon, target,
 };
 use iced::Length::Shrink;
@@ -114,6 +116,292 @@ impl Sidebar {
             },
             iced::system::information().map(Message::SystemInformation),
         )
+    }
+
+    pub fn visible_buffers(
+        &self,
+        servers: &server::Map,
+        clients: &data::client::Map,
+        history: &history::Manager,
+        panes: &Panes,
+        config: &Config,
+        show_muted_buffers: bool,
+        include_collapsed_buffers: bool,
+    ) -> Vec<Buffer> {
+        self.sidebar_buffer_groups(
+            servers,
+            clients,
+            history,
+            panes,
+            config,
+            show_muted_buffers,
+            include_collapsed_buffers,
+        )
+        .into_iter()
+        .flat_map(|sidebar_buffer_group| match sidebar_buffer_group {
+            SidebarBufferGroup::Upstream {
+                visible_buffers, ..
+            } => visible_buffers
+                .into_iter()
+                .map(|buffer_data| Buffer::Upstream(buffer_data.buffer))
+                .collect::<Vec<Buffer>>(),
+            SidebarBufferGroup::Internal { visible_buffers } => visible_buffers
+                .into_iter()
+                .map(|buffer_data| Buffer::Internal(buffer_data.buffer))
+                .collect::<Vec<Buffer>>(),
+        })
+        .collect()
+    }
+
+    pub fn visible_buffers_with_has_unread(
+        &self,
+        servers: &server::Map,
+        clients: &data::client::Map,
+        history: &history::Manager,
+        panes: &Panes,
+        config: &Config,
+        show_muted_buffers: bool,
+        include_collapsed_buffers: bool,
+    ) -> Vec<(Buffer, bool)> {
+        self.sidebar_buffer_groups(
+            servers,
+            clients,
+            history,
+            panes,
+            config,
+            show_muted_buffers,
+            include_collapsed_buffers,
+        )
+        .into_iter()
+        .flat_map(|sidebar_buffer_group| match sidebar_buffer_group {
+            SidebarBufferGroup::Upstream {
+                visible_buffers, ..
+            } => visible_buffers
+                .into_iter()
+                .map(|buffer_data| {
+                    (
+                        Buffer::Upstream(buffer_data.buffer),
+                        buffer_data.has_unread,
+                    )
+                })
+                .collect::<Vec<(Buffer, bool)>>(),
+            SidebarBufferGroup::Internal { visible_buffers } => visible_buffers
+                .into_iter()
+                .map(|buffer_data| {
+                    (
+                        Buffer::Internal(buffer_data.buffer),
+                        buffer_data.has_unread,
+                    )
+                })
+                .collect::<Vec<(Buffer, bool)>>(),
+        })
+        .collect()
+    }
+
+    fn sidebar_buffer_groups(
+        &self,
+        servers: &server::Map,
+        clients: &data::client::Map,
+        history: &history::Manager,
+        panes: &Panes,
+        config: &Config,
+        show_muted_buffers: bool,
+        include_collapsed_buffers: bool,
+    ) -> Vec<SidebarBufferGroup> {
+        let upstream_buffer_data =
+            |buffer: buffer::Upstream,
+             kind: history::Kind,
+             muted: bool,
+             casemapping: isupport::CaseMap|
+             -> Option<UpstreamBufferSidebarData> {
+                UpstreamBufferSidebarData::from_upstream_buffer(
+                    buffer,
+                    kind,
+                    muted,
+                    casemapping,
+                    show_muted_buffers,
+                    history,
+                    panes,
+                    config,
+                )
+            };
+
+        let upstream_buffer_group = |server: &Server,
+                                     state: &client::State|
+         -> Option<SidebarBufferGroup> {
+            let casemapping = clients.get_server_casemapping_or_default(server);
+
+            let is_collapsed = !self.collapse.is_expanded(config, server);
+
+            match state {
+                data::client::State::Disconnected {
+                    autoconnect,
+                    connecting,
+                } => {
+                    // Hide channels & queries for disconnected servers
+                    upstream_buffer_data(
+                        buffer::Upstream::Server(server.clone()),
+                        history::Kind::Server(server.clone()),
+                        false,
+                        casemapping,
+                    )
+                    .map(|buffer_data| {
+                        SidebarBufferGroup::Upstream {
+                            server: server.clone(),
+                            visible_buffers: vec![buffer_data],
+                            connection_status: ConnectionStatus::Disconnected {
+                                autoconnect: *autoconnect,
+                                connecting: *connecting,
+                            },
+                            has_collapsible_buffers: false,
+                            casemapping,
+                        }
+                    })
+                }
+                data::client::State::Ready(connection) => {
+                    // Connected server.
+                    upstream_buffer_data(
+                        buffer::Upstream::Server(server.clone()),
+                        history::Kind::Server(server.clone()),
+                        false,
+                        casemapping,
+                    )
+                    .map(|mut buffer_data| {
+                        let mut collapsible_buffers = vec![];
+
+                        // Channels from the connected server.
+                        for (channel, muted) in connection.channels_with_muted()
+                        {
+                            if let Some(buffer_data) = upstream_buffer_data(
+                                buffer::Upstream::Channel(
+                                    server.clone(),
+                                    channel.clone(),
+                                ),
+                                history::Kind::Channel(
+                                    server.clone(),
+                                    channel.clone(),
+                                ),
+                                muted,
+                                casemapping,
+                            ) {
+                                collapsible_buffers.push(buffer_data);
+                            }
+                        }
+
+                        // Queries from the connected server.
+                        for query in history.get_unique_queries(server) {
+                            let (resolved_query, muted) = connection
+                                .resolve_query_with_muted(
+                                    query,
+                                    show_muted_buffers,
+                                );
+                            let query = resolved_query.unwrap_or(query);
+
+                            if let Some(buffer_data) = upstream_buffer_data(
+                                buffer::Upstream::Query(
+                                    server.clone(),
+                                    query.clone(),
+                                ),
+                                history::Kind::Query(
+                                    server.clone(),
+                                    query.clone(),
+                                ),
+                                muted,
+                                casemapping,
+                            ) {
+                                collapsible_buffers.push(buffer_data);
+                            }
+                        }
+
+                        let has_collapsible_buffers =
+                            !collapsible_buffers.is_empty();
+
+                        let visible_buffers = if is_collapsed {
+                            buffer_data
+                                .collapse_indicators(&collapsible_buffers);
+
+                            vec![buffer_data]
+                                .into_iter()
+                                .chain(collapsible_buffers.into_iter().filter(
+                                    |buffer_data| {
+                                        buffer_data.is_visible_pane
+                                            || include_collapsed_buffers
+                                    },
+                                ))
+                                .collect()
+                        } else {
+                            vec![buffer_data]
+                                .into_iter()
+                                .chain(collapsible_buffers)
+                                .collect()
+                        };
+
+                        SidebarBufferGroup::Upstream {
+                            server: server.clone(),
+                            visible_buffers,
+                            connection_status: ConnectionStatus::Connected {
+                                registration_complete: connection
+                                    .registration_complete(),
+                            },
+                            has_collapsible_buffers,
+                            casemapping,
+                        }
+                    })
+                }
+            }
+        };
+
+        let upstream_buffers: Vec<SidebarBufferGroup> = servers
+            .keys()
+            .filter_map(|server| {
+                clients
+                    .state(server)
+                    .and_then(|state| upstream_buffer_group(server, state))
+            })
+            .collect();
+
+        let internal_buffer_data =
+            |buffer: &InternalBuffer| -> Option<InternalBufferSidebarData> {
+                let muted =
+                    config.sidebar.internal_buffers.mute.contains(buffer);
+
+                InternalBufferSidebarData::from_internal_buffer(
+                    buffer.into(),
+                    muted,
+                    show_muted_buffers,
+                    history,
+                    panes,
+                    config,
+                )
+            };
+
+        let internal_buffers: Vec<InternalBufferSidebarData> = config
+            .sidebar
+            .internal_buffers
+            .buffers
+            .iter()
+            .filter_map(internal_buffer_data)
+            .collect();
+
+        let internal_buffer_group = if internal_buffers.is_empty() {
+            None
+        } else {
+            Some(SidebarBufferGroup::Internal {
+                visible_buffers: internal_buffers,
+            })
+        };
+
+        if config.sidebar.internal_buffers.is_before_servers() {
+            internal_buffer_group
+                .into_iter()
+                .chain(upstream_buffers)
+                .collect()
+        } else {
+            upstream_buffers
+                .into_iter()
+                .chain(internal_buffer_group)
+                .collect()
+        }
     }
 
     pub fn toggle_visibility(&mut self) {
@@ -238,19 +526,20 @@ impl Sidebar {
 
         // Show notification dot if theres a new version, if there're transfers,
         // or if the logs have unread messages.
-        let show_notification_dot =
-            version.is_old()
-                || (!file_transfers.is_empty()
-                    && config.file_transfer.enabled
-                    && !config.sidebar.internal_buffers.buffers.contains(
-                        &config::sidebar::InternalBuffer::FileTransfers,
-                    ))
-                || (logs_has_unread
-                    && !config
-                        .sidebar
-                        .internal_buffers
-                        .buffers
-                        .contains(&config::sidebar::InternalBuffer::Logs));
+        let show_notification_dot = version.is_old()
+            || (!file_transfers.is_empty()
+                && config.file_transfer.enabled
+                && !config
+                    .sidebar
+                    .internal_buffers
+                    .buffers
+                    .contains(&InternalBuffer::FileTransfers))
+            || (logs_has_unread
+                && !config
+                    .sidebar
+                    .internal_buffers
+                    .buffers
+                    .contains(&InternalBuffer::Logs));
         let system_information = self.system_information.clone();
 
         let icon = icon::menu();
@@ -540,241 +829,98 @@ impl Sidebar {
                     )
                 });
 
+            let sidebar_buffer_groups = self.sidebar_buffer_groups(
+                servers,
+                clients,
+                history,
+                panes,
+                config,
+                show_muted_buffers,
+                false,
+            );
+
             let mut buffers = vec![];
 
             if config.sidebar.position.is_horizontal() {
                 buffers.push(space::horizontal().width(4).into());
             }
 
-            let mut upstream_buffers = vec![];
-            let mut client_enumeration = 0;
+            for (index, sidebar_buffer_group) in
+                sidebar_buffer_groups.into_iter().enumerate()
+            {
+                // Separator between servers and between servers and
+                // internal buffers
+                if index > 0 {
+                    if config.sidebar.position.is_horizontal() {
+                        buffers.push(
+                            space::horizontal()
+                                .width(config.sidebar.spacing.server)
+                                .into(),
+                        );
+                    } else {
+                        buffers.push(
+                            space::vertical()
+                                .height(config.sidebar.spacing.server)
+                                .into(),
+                        );
+                    }
+                }
 
-            for server in servers.keys() {
-                let server_has_unread = history.server_has_unread(server);
-                let supports_detach =
-                    clients.get_server_supports_detach(server);
-                let casemapping =
-                    clients.get_server_casemapping_or_default(server);
+                match sidebar_buffer_group {
+                    SidebarBufferGroup::Upstream {
+                        server,
+                        visible_buffers,
+                        connection_status,
+                        has_collapsible_buffers,
+                        casemapping,
+                    } => {
+                        let server_has_unread =
+                            history.server_has_unread(&server);
+                        let supports_detach =
+                            clients.get_server_supports_detach(&server);
 
-                let is_server_collapsed =
-                    !self.collapse.is_expanded(config, server);
-
-                let button =
-                    |buffer: buffer::Upstream,
-                     kind: history::Kind,
-                     connection_status: ConnectionStatus,
-                     server_has_members: bool,
-                     collapsed_indicators: IndicatorState| {
-                        let button_context = UpstreamButtonContext {
-                            config,
-                            panes,
-                            focus,
-                            server_icons,
-                            buffer,
-                            kind,
-                            connection_status,
-                            server_has_members,
-                            server_has_unread,
-                            supports_detach,
-                            casemapping,
-                            history,
-                            width,
-                            theme,
-                            collapse: &self.collapse,
-                        };
-                        upstream_buffer_button(
-                            button_context,
-                            collapsed_indicators,
-                        )
-                    };
-
-                if let Some(state) = clients.state(server) {
-                    client_enumeration += 1;
-
-                    match state {
-                        data::client::State::Disconnected {
-                            autoconnect,
-                            connecting,
-                        } => {
-                            // Disconnected server.
-                            upstream_buffers.push(button(
-                                buffer::Upstream::Server(server.clone()),
-                                history::Kind::Server(server.clone()),
-                                ConnectionStatus::Disconnected {
-                                    autoconnect: *autoconnect,
-                                    connecting: *connecting,
-                                },
-                                false,
-                                IndicatorState::default(),
-                            ));
-                        }
-                        data::client::State::Ready(connection) => {
-                            let registration_complete =
-                                connection.registration_complete();
-                            let queries = history.get_unique_queries(server);
-                            let server_has_members =
-                                connection.channels().next().is_some()
-                                    || !queries.is_empty();
-                            let collapsed_indicators = if is_server_collapsed {
-                                collapse::indicators(
-                                    config,
-                                    panes,
-                                    clients,
-                                    connection,
-                                    server,
-                                    &queries,
-                                    casemapping,
-                                    history,
-                                )
-                            } else {
-                                IndicatorState::default()
+                        for buffer_data in visible_buffers {
+                            let context = UpstreamButtonContext {
+                                config,
+                                panes,
+                                focus,
+                                server_icons,
+                                buffer: buffer_data.buffer,
+                                kind: buffer_data.kind,
+                                indicators: buffer_data.indicators,
+                                connection_status,
+                                server_has_collapsible_buffers:
+                                    has_collapsible_buffers,
+                                server_has_unread,
+                                supports_detach,
+                                casemapping,
+                                history,
+                                width,
+                                theme,
+                                collapse: &self.collapse,
                             };
 
-                            // Connected server.
-                            upstream_buffers.push(button(
-                                buffer::Upstream::Server(server.clone()),
-                                history::Kind::Server(server.clone()),
-                                ConnectionStatus::Connected {
-                                    registration_complete,
-                                },
-                                server_has_members,
-                                collapsed_indicators,
+                            buffers.push(upstream_buffer_button(context));
+                        }
+                    }
+
+                    SidebarBufferGroup::Internal { visible_buffers } => {
+                        for buffer_data in visible_buffers {
+                            buffers.push(internal_buffer_button(
+                                config,
+                                panes,
+                                focus,
+                                buffer_data.buffer,
+                                buffer_data.kind,
+                                buffer_data.indicators,
+                                history,
+                                width,
+                                theme,
                             ));
-
-                            if !is_server_collapsed {
-                                // Channels from the connected server.
-                                for channel in connection.channels() {
-                                    upstream_buffers.push(button(
-                                        buffer::Upstream::Channel(
-                                            server.clone(),
-                                            channel.clone(),
-                                        ),
-                                        history::Kind::Channel(
-                                            server.clone(),
-                                            channel.clone(),
-                                        ),
-                                        ConnectionStatus::Connected {
-                                            registration_complete,
-                                        },
-                                        false,
-                                        IndicatorState::default(),
-                                    ));
-                                }
-
-                                // Queries from the connected server.
-                                for query in queries {
-                                    let query = clients
-                                        .resolve_query(server, query)
-                                        .unwrap_or(query);
-
-                                    upstream_buffers.push(button(
-                                        buffer::Upstream::Query(
-                                            server.clone(),
-                                            query.clone(),
-                                        ),
-                                        history::Kind::Query(
-                                            server.clone(),
-                                            query.clone(),
-                                        ),
-                                        ConnectionStatus::Connected {
-                                            registration_complete,
-                                        },
-                                        false,
-                                        IndicatorState::default(),
-                                    ));
-                                }
-                            }
-
-                            // Separator between servers.
-                            if client_enumeration < clients.len() {
-                                if config.sidebar.position.is_horizontal() {
-                                    upstream_buffers.push(
-                                        space::horizontal()
-                                            .width(
-                                                config.sidebar.spacing.server,
-                                            )
-                                            .into(),
-                                    );
-                                } else {
-                                    upstream_buffers.push(
-                                        space::vertical()
-                                            .height(
-                                                config.sidebar.spacing.server,
-                                            )
-                                            .into(),
-                                    );
-                                }
-                            }
                         }
                     }
                 }
             }
-
-            let internal_buffers: Vec<_> = config
-                .sidebar
-                .internal_buffers
-                .buffers
-                .iter()
-                .filter_map(|internal_buffer| {
-                    let (buffer, title) = match internal_buffer {
-                        config::sidebar::InternalBuffer::ConfigEditor => (
-                            buffer::Internal::ConfigEditor,
-                            "Config Editor",
-                        ),
-                        data::config::sidebar::InternalBuffer::FileTransfers => {
-                            config.file_transfer.enabled.then_some((
-                                buffer::Internal::FileTransfers,
-                                "File Transfers",
-                            ))?
-                        }
-                        data::config::sidebar::InternalBuffer::ChannelDiscovery => (
-                            buffer::Internal::ChannelDiscovery(None),
-                            "Channel Discovery",
-                        ),
-                        data::config::sidebar::InternalBuffer::Highlights => (
-                            buffer::Internal::Highlights,
-                            "Highlights",
-                        ),
-                        data::config::sidebar::InternalBuffer::ChannelMonitor => (
-                            buffer::Internal::ChannelMonitor,
-                            "Channel Monitor",
-                        ),
-                        data::config::sidebar::InternalBuffer::Logs => (
-                            buffer::Internal::Logs,
-                            "Logs",
-                        ),
-                    };
-
-                    if show_muted_buffers || should_show_internal_buffer(buffer.clone(), config, history) {
-                        Some(internal_buffer_button(config, panes, focus, buffer, title, history, width, theme))
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-
-            let spacer = if config.sidebar.position.is_horizontal() {
-                space::horizontal()
-                    .width(config.sidebar.spacing.server)
-                    .into()
-            } else {
-                space::vertical()
-                    .height(config.sidebar.spacing.server)
-                    .into()
-            };
-
-            let (left, right) =
-                if config.sidebar.internal_buffers.is_before_servers() {
-                    (internal_buffers, upstream_buffers)
-                } else {
-                    (upstream_buffers, internal_buffers)
-                };
-
-            buffers.extend(left);
-            if !buffers.is_empty() && !right.is_empty() {
-                buffers.push(spacer);
-            }
-            buffers.extend(right);
 
             match config.sidebar.position {
                 sidebar::Position::Left | sidebar::Position::Right => {
@@ -888,6 +1034,163 @@ impl Sidebar {
     }
 }
 
+enum SidebarBufferGroup {
+    Upstream {
+        server: Server,
+        visible_buffers: Vec<UpstreamBufferSidebarData>,
+        connection_status: ConnectionStatus,
+        casemapping: isupport::CaseMap,
+        has_collapsible_buffers: bool,
+    },
+    Internal {
+        visible_buffers: Vec<InternalBufferSidebarData>,
+    },
+}
+
+struct UpstreamBufferSidebarData {
+    buffer: buffer::Upstream,
+    kind: history::Kind,
+    is_visible_pane: bool,
+    has_unread: bool,
+    #[expect(dead_code)] // TODO: Cycle highlights
+    has_highlight: bool,
+    indicators: IndicatorState,
+}
+
+impl UpstreamBufferSidebarData {
+    fn from_upstream_buffer(
+        buffer: buffer::Upstream,
+        kind: history::Kind,
+        muted: bool,
+        casemapping: isupport::CaseMap,
+        show_muted_buffers: bool,
+        history: &history::Manager,
+        panes: &Panes,
+        config: &Config,
+    ) -> Option<Self> {
+        let is_visible_pane = panes
+            .iter_visible()
+            .any(|(_, _, state)| state.buffer.upstream() == Some(&buffer));
+
+        let has_unread = history.has_unread(&kind);
+
+        let is_unread_query =
+            matches!(buffer, buffer::Upstream::Query(_, _)) && has_unread;
+
+        let has_highlight = history.has_highlight(&kind);
+
+        let indicators = IndicatorState {
+            unread: has_unread
+                && !(is_unread_query
+                    && config.sidebar.unread_indicator.query_as_highlight)
+                && (config.sidebar.unread_indicator.show_on_open_buffers
+                    || !is_visible_pane)
+                && config.sidebar.unread_indicator.should_indicate(
+                    buffer.target().as_ref(),
+                    buffer.server(),
+                    casemapping,
+                ),
+            highlight: (has_highlight
+                || (is_unread_query
+                    && config.sidebar.unread_indicator.query_as_highlight))
+                && (config.sidebar.highlight_indicator.show_on_open_buffers
+                    || !is_visible_pane)
+                && config.sidebar.highlight_indicator.should_indicate(
+                    buffer.target().as_ref(),
+                    buffer.server(),
+                    casemapping,
+                ),
+        };
+
+        if muted
+            && !is_visible_pane
+            && !indicators.unread
+            && !indicators.highlight
+            && !show_muted_buffers
+        {
+            return None;
+        }
+
+        Some(Self {
+            buffer,
+            kind,
+            is_visible_pane,
+            has_unread,
+            has_highlight,
+            indicators,
+        })
+    }
+
+    fn collapse_indicators(
+        &mut self,
+        collapsed_buffers: &[UpstreamBufferSidebarData],
+    ) {
+        for collapsed_buffer_data in collapsed_buffers {
+            self.indicators.merge(collapsed_buffer_data.indicators);
+        }
+    }
+}
+
+struct InternalBufferSidebarData {
+    buffer: buffer::Internal,
+    kind: Option<history::Kind>,
+    has_unread: bool,
+    #[expect(dead_code)] // TODO: Cycle highlights
+    has_highlight: bool,
+    indicators: IndicatorState,
+}
+
+impl InternalBufferSidebarData {
+    fn from_internal_buffer(
+        buffer: buffer::Internal,
+        muted: bool,
+        show_muted_buffers: bool,
+        history: &history::Manager,
+        panes: &Panes,
+        config: &Config,
+    ) -> Option<Self> {
+        let kind =
+            history::Kind::from_buffer(data::Buffer::Internal(buffer.clone()));
+
+        let is_visible_pane = panes.iter_visible().any(|(_, _, state)| {
+            state.buffer.internal().as_ref() == Some(&buffer)
+        });
+
+        let has_unread =
+            kind.as_ref().is_some_and(|kind| history.has_unread(kind));
+
+        let has_highlight = kind
+            .as_ref()
+            .is_some_and(|kind| history.has_highlight(kind));
+
+        let indicators = IndicatorState {
+            unread: has_unread
+                && (config.sidebar.unread_indicator.show_on_open_buffers
+                    || !is_visible_pane),
+            highlight: has_highlight
+                && (config.sidebar.highlight_indicator.show_on_open_buffers
+                    || !is_visible_pane),
+        };
+
+        if muted
+            && !is_visible_pane
+            && !indicators.unread
+            && !indicators.highlight
+            && !show_muted_buffers
+        {
+            return None;
+        }
+
+        Some(Self {
+            buffer,
+            kind,
+            has_unread,
+            has_highlight,
+            indicators,
+        })
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 enum Menu {
     RefreshConfig,
@@ -911,7 +1214,7 @@ impl Menu {
     fn list(
         has_new_version: bool,
         file_transfer_enabled: bool,
-        internal_buffers_in_sidebar: &[config::sidebar::InternalBuffer],
+        internal_buffers_in_sidebar: &[InternalBuffer],
         show_muted_buffers: bool,
     ) -> Vec<Self> {
         let mut list = vec![Self::Version];
@@ -928,32 +1231,28 @@ impl Menu {
 
         if file_transfer_enabled
             && !internal_buffers_in_sidebar
-                .contains(&config::sidebar::InternalBuffer::FileTransfers)
+                .contains(&InternalBuffer::FileTransfers)
         {
             list.push(Self::FileTransfers);
         }
 
         if !internal_buffers_in_sidebar
-            .contains(&config::sidebar::InternalBuffer::ChannelDiscovery)
+            .contains(&InternalBuffer::ChannelDiscovery)
         {
             list.push(Self::ChannelDiscovery);
         }
 
         if !internal_buffers_in_sidebar
-            .contains(&config::sidebar::InternalBuffer::ChannelMonitor)
+            .contains(&InternalBuffer::ChannelMonitor)
         {
             list.push(Self::ChannelMonitor);
         }
 
-        if !internal_buffers_in_sidebar
-            .contains(&config::sidebar::InternalBuffer::Highlights)
-        {
+        if !internal_buffers_in_sidebar.contains(&InternalBuffer::Highlights) {
             list.push(Self::Highlights);
         }
 
-        if !internal_buffers_in_sidebar
-            .contains(&config::sidebar::InternalBuffer::Logs)
-        {
+        if !internal_buffers_in_sidebar.contains(&InternalBuffer::Logs) {
             list.push(Self::Logs);
         }
 
@@ -993,7 +1292,7 @@ impl Entry {
     fn list(
         buffer: &buffer::Buffer,
         num_panes: usize,
-        open: Option<(window::Id, pane_grid::Pane)>,
+        open_as_window_pane: Option<(window::Id, pane_grid::Pane)>,
         focus: Focus,
         connection_status: Option<ConnectionStatus>,
         supports_detach: bool,
@@ -1029,7 +1328,7 @@ impl Entry {
             entries.push(MarkAsRead);
         }
 
-        match open {
+        match open_as_window_pane {
             None => {
                 entries.extend([NewPane, Popout, Replace]);
             }
@@ -1084,46 +1383,6 @@ impl IndicatorState {
     }
 }
 
-fn indicator_state(
-    config: &Config,
-    panes: &Panes,
-    buffer: &buffer::Upstream,
-    kind: &history::Kind,
-    casemapping: isupport::CaseMap,
-    history: &history::Manager,
-) -> IndicatorState {
-    let is_visible = panes
-        .iter_visible()
-        .any(|(_, _, state)| state.buffer.upstream() == Some(buffer));
-
-    let has_unread = (config.sidebar.unread_indicator.show_on_open_buffers
-        || !is_visible)
-        && history.has_unread(kind);
-    let has_highlight =
-        (config.sidebar.highlight_indicator.show_on_open_buffers
-            || !is_visible)
-            && history.has_highlight(kind);
-
-    let target = buffer.target();
-    let unread = has_unread
-        && config.sidebar.unread_indicator.should_indicate(
-            target.as_ref(),
-            buffer.server(),
-            casemapping,
-        );
-    let highlight = (has_highlight
-        || (matches!(buffer, buffer::Upstream::Query(_, _))
-            && has_unread
-            && config.sidebar.unread_indicator.query_as_highlight))
-        && config.sidebar.highlight_indicator.should_indicate(
-            target.as_ref(),
-            buffer.server(),
-            casemapping,
-        );
-
-    IndicatorState { unread, highlight }
-}
-
 #[derive(Clone)]
 struct UpstreamButtonContext<'a> {
     config: &'a Config,
@@ -1132,8 +1391,9 @@ struct UpstreamButtonContext<'a> {
     server_icons: &'a server_icon::Manager,
     buffer: buffer::Upstream,
     kind: history::Kind,
+    indicators: IndicatorState,
     connection_status: ConnectionStatus,
-    server_has_members: bool,
+    server_has_collapsible_buffers: bool,
     server_has_unread: bool,
     supports_detach: bool,
     casemapping: isupport::CaseMap,
@@ -1245,7 +1505,6 @@ fn upstream_buffer_title<'a>(
 
 fn upstream_buffer_button<'a>(
     context: UpstreamButtonContext<'a>,
-    collapsed_indicators: IndicatorState,
 ) -> Element<'a, Message> {
     let UpstreamButtonContext {
         config,
@@ -1254,8 +1513,9 @@ fn upstream_buffer_button<'a>(
         server_icons,
         buffer,
         kind,
+        indicators,
         connection_status,
-        server_has_members,
+        server_has_collapsible_buffers,
         casemapping,
         history,
         width,
@@ -1264,29 +1524,31 @@ fn upstream_buffer_button<'a>(
         ..
     } = &context;
 
-    let open = panes.iter().find_map(|(window_id, pane, state)| {
-        (state.buffer.upstream() == Some(buffer)).then_some((window_id, pane))
-    });
+    let open_as_window_pane =
+        panes.iter().find_map(|(window_id, pane, state)| {
+            (state.buffer.upstream() == Some(buffer))
+                .then_some((window_id, pane))
+        });
+
+    let focused_as_window_pane =
+        panes.iter().find_map(|(window_id, pane, state)| {
+            (Focus {
+                window: window_id,
+                pane,
+            } == *focus
+                && state.buffer.upstream() == Some(buffer))
+            .then_some((window_id, pane))
+        });
+
     let can_mark_as_read = history.can_mark_as_read(kind);
-    let mut indicators =
-        indicator_state(config, panes, buffer, kind, *casemapping, history);
-    indicators.merge(collapsed_indicators);
 
-    let is_focused = panes.iter().find_map(|(window_id, pane, state)| {
-        (Focus {
-            window: window_id,
-            pane,
-        } == *focus
-            && state.buffer.upstream() == Some(buffer))
-        .then_some((window_id, pane))
-    });
-
-    let show_highlight_icon =
-        indicators.highlight && config.sidebar.highlight_indicator.has_icon();
     let show_unread_icon =
         indicators.unread && config.sidebar.unread_indicator.has_icon();
     let show_unread_title =
         indicators.unread && config.sidebar.unread_indicator.title;
+
+    let show_highlight_icon =
+        indicators.highlight && config.sidebar.highlight_indicator.has_icon();
     let show_highlight_title =
         indicators.highlight && config.sidebar.highlight_indicator.title;
 
@@ -1415,7 +1677,7 @@ fn upstream_buffer_button<'a>(
             config,
             server,
             connection_status,
-            *server_has_members,
+            *server_has_collapsible_buffers,
             font_size.max(sidebar_icon_height as f32),
         )
     } else {
@@ -1439,13 +1701,13 @@ fn upstream_buffer_button<'a>(
         theme::button::sidebar_buffer(
             theme,
             status,
-            is_focused.is_some(),
-            open.is_some(),
+            focused_as_window_pane.is_some(),
+            open_as_window_pane.is_some(),
         )
     })
     .padding(config.sidebar.padding.buffer)
     .on_press({
-        match is_focused {
+        match focused_as_window_pane {
             Some((window, pane)) => {
                 if let Some(focus_action) =
                     config.actions.sidebar.focused_buffer
@@ -1462,7 +1724,7 @@ fn upstream_buffer_button<'a>(
                 }
             }
             None => {
-                if let Some((window, pane)) = open {
+                if let Some((window, pane)) = open_as_window_pane {
                     Message::Focus(window, pane)
                 } else {
                     let action = match &buffer {
@@ -1526,13 +1788,18 @@ fn upstream_buffer_button<'a>(
         base.into()
     };
 
-    upstream_buffer_context_menu(context, base, open, can_mark_as_read)
+    upstream_buffer_context_menu(
+        context,
+        base,
+        open_as_window_pane,
+        can_mark_as_read,
+    )
 }
 
 fn upstream_buffer_context_menu<'a>(
     context: UpstreamButtonContext<'a>,
     base: Element<'a, Message>,
-    open: Option<(window::Id, pane_grid::Pane)>,
+    open_as_window_pane: Option<(window::Id, pane_grid::Pane)>,
     can_mark_as_read: bool,
 ) -> Element<'a, Message> {
     let UpstreamButtonContext {
@@ -1548,10 +1815,11 @@ fn upstream_buffer_context_menu<'a>(
         collapse,
         ..
     } = context;
+
     let entries = Entry::list(
         &buffer.clone().into(),
         panes.len(),
-        open,
+        open_as_window_pane,
         focus,
         Some(connection_status),
         supports_detach,
@@ -1738,65 +2006,36 @@ fn upstream_buffer_context_menu<'a>(
     .into()
 }
 
-fn should_show_internal_buffer(
-    buffer: buffer::Internal,
-    config: &Config,
-    history: &history::Manager,
-) -> bool {
-    match config.sidebar.internal_buffers.mute {
-        config::sidebar::InternalBuffersMutePolicy::Never => true,
-        config::sidebar::InternalBuffersMutePolicy::Read => {
-            history::Kind::from_buffer(data::Buffer::Internal(buffer.clone()))
-                .is_none_or(|kind| history.has_unread(&kind))
-        }
-    }
-}
-
 fn internal_buffer_button<'a>(
     config: &'a Config,
     panes: &'a Panes,
     focus: Focus,
     buffer: buffer::Internal,
-    title: &'a str,
+    kind: Option<history::Kind>,
+    indicators: IndicatorState,
     history: &'a history::Manager,
     width: Length,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
-    let open = panes.iter().find_map(|(window_id, pane, state)| {
-        (state.buffer.internal() == Some(buffer.clone()))
+    let open_as_window_pane =
+        panes.iter().find_map(|(window_id, pane, state)| {
+            (state.buffer.internal().as_ref() == Some(&buffer))
+                .then_some((window_id, pane))
+        });
+
+    let focused_as_window_pane =
+        panes.iter().find_map(|(window_id, pane, state)| {
+            (Focus {
+                window: window_id,
+                pane,
+            } == focus
+                && state.buffer.internal().as_ref() == Some(&buffer))
             .then_some((window_id, pane))
-    });
+        });
 
-    let is_focused = panes.iter().find_map(|(window_id, pane, state)| {
-        (Focus {
-            window: window_id,
-            pane,
-        } == focus
-            && state.buffer.internal() == Some(buffer.clone()))
-        .then_some((window_id, pane))
-    });
-
-    let has_history =
-        history::Kind::from_buffer(buffer.clone().into()).is_some();
-
-    let (has_unread, can_mark_as_read, has_highlight) = match buffer {
-        buffer::Internal::ChannelMonitor => (
-            history.has_unread(&history::Kind::ChannelMonitor),
-            history.can_mark_as_read(&history::Kind::ChannelMonitor),
-            history.has_highlight(&history::Kind::ChannelMonitor),
-        ),
-        buffer::Internal::Highlights => (
-            history.has_unread(&history::Kind::Highlights),
-            history.can_mark_as_read(&history::Kind::Highlights),
-            history.has_unread(&history::Kind::Highlights),
-        ),
-        buffer::Internal::Logs => (
-            history.has_unread(&history::Kind::Logs),
-            history.can_mark_as_read(&history::Kind::Logs),
-            history.has_highlight(&history::Kind::Logs),
-        ),
-        _ => (false, false, false),
-    };
+    let can_mark_as_read = kind
+        .as_ref()
+        .is_some_and(|kind| history.can_mark_as_read(kind));
 
     let dimensions = Dimensions::from(&config.sidebar);
 
@@ -1813,9 +2052,7 @@ fn internal_buffer_button<'a>(
             (show_icon.then_some(icon::file_transfer()), None)
         }
         buffer::Internal::Highlights => {
-            let badge = if has_unread
-                && (config.sidebar.highlight_indicator.show_on_open_buffers
-                    || open.is_none())
+            let badge = if indicators.highlight
                 && let Some(highlight_icon) =
                     icon::from_icon(config.sidebar.highlight_indicator.icon)
             {
@@ -1830,9 +2067,9 @@ fn internal_buffer_button<'a>(
             (show_icon.then_some(icon::highlights()), badge)
         }
         buffer::Internal::Logs => {
-            let badge = if has_unread {
+            let badge = if indicators.unread {
                 Some((
-                    icon::log_indicator().style(if has_highlight {
+                    icon::log_indicator().style(if indicators.highlight {
                         theme::text::error
                     } else {
                         theme::text::warning
@@ -1846,9 +2083,7 @@ fn internal_buffer_button<'a>(
             (show_icon.then_some(icon::logs()), badge)
         }
         buffer::Internal::ChannelMonitor => {
-            let badge = if has_highlight
-                && (config.sidebar.highlight_indicator.show_on_open_buffers
-                    || open.is_none())
+            let badge = if indicators.highlight
                 && let Some(highlight_icon) =
                     icon::from_icon(config.sidebar.highlight_indicator.icon)
             {
@@ -1856,9 +2091,7 @@ fn internal_buffer_button<'a>(
                     highlight_icon.style(theme::text::highlight_indicator),
                     dimensions.highlight_indicator_size,
                 ))
-            } else if has_unread
-                && (config.sidebar.unread_indicator.show_on_open_buffers
-                    || open.is_none())
+            } else if indicators.unread
                 && let Some(unread_icon) =
                     icon::from_icon(config.sidebar.unread_indicator.icon)
             {
@@ -1873,6 +2106,8 @@ fn internal_buffer_button<'a>(
             (show_icon.then_some(icon::channel_monitor()), badge)
         }
     };
+
+    let title: &'static str = (&buffer).into();
 
     let mut content = row![].align_y(iced::Alignment::Center);
 
@@ -1907,12 +2142,12 @@ fn internal_buffer_button<'a>(
                 theme::button::sidebar_buffer(
                     theme,
                     status,
-                    is_focused.is_some(),
-                    open.is_some(),
+                    focused_as_window_pane.is_some(),
+                    open_as_window_pane.is_some(),
                 )
             })
             .padding(config.sidebar.padding.buffer)
-            .on_press(match is_focused {
+            .on_press(match focused_as_window_pane {
                 Some((window, pane)) => {
                     if let Some(focus_action) =
                         config.actions.sidebar.focused_buffer
@@ -1929,7 +2164,7 @@ fn internal_buffer_button<'a>(
                     }
                 }
                 None => {
-                    if let Some((window, pane)) = open {
+                    if let Some((window, pane)) = open_as_window_pane {
                         Message::Focus(window, pane)
                     } else {
                         match config.actions.sidebar.buffer {
@@ -1950,11 +2185,11 @@ fn internal_buffer_button<'a>(
     let entries = Entry::list(
         &buffer.clone().into(),
         panes.len(),
-        open,
+        open_as_window_pane,
         focus,
         None,
         false,
-        has_history,
+        kind.is_some(),
     );
 
     if entries.is_empty() {
@@ -2170,14 +2405,14 @@ impl From<&config::sidebar::Sidebar> for Dimensions {
     fn from(config: &config::sidebar::Sidebar) -> Self {
         let (icon_size, icon_badge_padding, icon_badge_size) =
             match config.primary_icon {
-                config::sidebar::PrimaryIcon::Size(icon_size) => {
+                PrimaryIcon::Size(icon_size) => {
                     let icon_badge_padding = 2;
                     let icon_badge_size =
                         (icon_size / 3).max(4) + 2 * icon_badge_padding;
 
                     (icon_size, icon_badge_padding, icon_badge_size)
                 }
-                config::sidebar::PrimaryIcon::Hidden => (0, 0, 0),
+                PrimaryIcon::Hidden => (0, 0, 0),
             };
 
         let unread_indicator_size = if config.unread_indicator.has_icon() {

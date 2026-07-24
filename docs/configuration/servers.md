@@ -257,7 +257,7 @@ Then set `password_command` to `flatpak-spawn --host <password_command>`
 
 ## `channels`
 
-A list of channels to join on connection.
+A list of channels to join on connection.  Channels can be muted (only shown in the sidebar if they have a an unread/highlight indicator), by specifying them as `{ name = "#channel", mute = true }`.
 
 ```toml
 # Type: array of strings
@@ -265,7 +265,7 @@ A list of channels to join on connection.
 # Default: not set
 
 [servers.<name>]
-channels = ["#foo", "#bar"]
+channels = ["#foo", { name = "#bar", mute = true }]
 ```
 
 ## `channel_keys`
@@ -320,7 +320,7 @@ channels = ["#rust", "#halloy", "#halloy-test"]
 
 ## `queries`
 
-A list of queries to add to the sidebar on connection.
+A list of queries to add to the sidebar on connection.  Queries can be muted (only shown in the sidebar if they have a an unread/highlight indicator), by specifying them as `{ name = "#channel", mute = true }`.
 
 ```toml
 # Type: array of strings
@@ -328,7 +328,7 @@ A list of queries to add to the sidebar on connection.
 # Default: not set
 
 [servers.<name>]
-queries = ["alice", "bob"]
+queries = ["alice", { name = "bob", mute = true }]
 ```
 
 ## `ping_time`
@@ -1227,7 +1227,7 @@ timestamp = "utc"
 
 [^2]: Relative paths are prefixed with the config directory (i.e. if you have your config.toml in `/home/me/.config/halloy/config.toml`, path `.passwd/libera` will be converted to `/home/me/.config/halloy/.passwd/libera`).
 
-## `sidebar_visibility`
+## `sidebar_visibility` {#sidebar-visibility}
 
 Control the initial visibility of the server in the sidebar.
 

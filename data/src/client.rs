@@ -374,7 +374,7 @@ impl Client {
                         .iter()
                         .filter_map(|channel| {
                             target::Channel::parse(
-                                channel,
+                                &channel.name,
                                 self.chantypes(),
                                 self.statusmsg(),
                                 self.casemapping(),
@@ -514,7 +514,7 @@ impl Client {
             .iter()
             .filter_map(|query| {
                 target::Query::parse(
-                    query,
+                    &query.name,
                     self.chantypes(),
                     self.statusmsg(),
                     self.casemapping(),
@@ -2612,7 +2612,7 @@ impl Client {
                 // same number as ERR_NOCHANMODES)
                 if !self.chanmap.contains_key(&channel)
                     && self.config.channels.iter().any(|config_channel| {
-                        config_channel == channel.as_str()
+                        config_channel.name == channel.as_str()
                     })
                 {
                     self.registration_required_channels.push(channel.clone());
@@ -3203,7 +3203,7 @@ impl Client {
                     .iter()
                     .filter_map(|channel| {
                         target::Channel::parse(
-                            channel,
+                            &channel.name,
                             self.chantypes(),
                             self.statusmsg(),
                             self.casemapping(),
@@ -3252,7 +3252,7 @@ impl Client {
                     .iter()
                     .filter_map(|query| {
                         target::Query::parse(
-                            query,
+                            &query.name,
                             self.chantypes(),
                             self.statusmsg(),
                             self.casemapping(),
@@ -4117,6 +4117,26 @@ impl Client {
         self.chanmap.keys()
     }
 
+    pub fn channels_with_muted(
+        &self,
+    ) -> impl Iterator<Item = (&target::Channel, bool)> {
+        let casemapping = self.casemapping();
+
+        self.chanmap.keys().map(move |channel| {
+            (
+                channel,
+                self.config
+                    .channels
+                    .iter()
+                    .find(|config_channel| {
+                        casemapping.normalize(&config_channel.name)
+                            == channel.as_normalized_str()
+                    })
+                    .is_some_and(|config_channel| config_channel.mute),
+            )
+        })
+    }
+
     fn channel_users_received(&mut self, target_channel: target::Channel) {
         if let Some(client_channel) = self.chanmap.get_mut(&target_channel)
             && !client_channel.users_init
@@ -4226,6 +4246,30 @@ impl Client {
             .map(|(stored_query, query_state)| {
                 query_state.query.as_ref().unwrap_or(stored_query)
             })
+    }
+
+    pub fn resolve_query_with_muted<'a>(
+        &'a self,
+        query: &target::Query,
+        show_muted_buffers: bool,
+    ) -> (Option<&'a target::Query>, bool) {
+        (
+            self.resolve_query(query),
+            if show_muted_buffers {
+                false
+            } else {
+                let casemapping = self.casemapping();
+
+                self.config
+                    .queries
+                    .iter()
+                    .find(|config_query| {
+                        casemapping.normalize(&config_query.name)
+                            == query.as_normalized_str()
+                    })
+                    .is_some_and(|config_query| config_query.mute)
+            },
+        )
     }
 
     fn record_query(&mut self, query: &target::Query) {
@@ -4649,11 +4693,11 @@ fn compare_channels(
             let a_pos = &config
                 .channels
                 .iter()
-                .position(|ch| casemapping.normalize(ch) == a);
+                .position(|channel| casemapping.normalize(&channel.name) == a);
             let b_pos = &config
                 .channels
                 .iter()
-                .position(|ch| casemapping.normalize(ch) == b);
+                .position(|channel| casemapping.normalize(&channel.name) == b);
             match (a_pos, b_pos) {
                 (Some(a_pos), Some(b_pos)) => a_pos.cmp(b_pos),
                 (Some(_), None) => Ordering::Less,

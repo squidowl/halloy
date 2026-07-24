@@ -44,23 +44,38 @@ pub struct Sidebar {
 #[derive(Debug, Clone, Deserialize, Default)]
 #[serde(default)]
 pub struct InternalBuffers {
-    pub mute: InternalBuffersMutePolicy,
+    #[serde(deserialize_with = "deserialize_muteable_internal_buffers")]
+    pub mute: Vec<InternalBuffer>,
     pub position: InternalBufferPosition,
     pub buffers: Vec<InternalBuffer>,
-}
-
-#[derive(Debug, Copy, Clone, Deserialize, Default)]
-#[serde(rename_all = "kebab-case")]
-pub enum InternalBuffersMutePolicy {
-    #[default]
-    Never,
-    Read,
 }
 
 impl InternalBuffers {
     pub fn is_before_servers(&self) -> bool {
         matches!(self.position, InternalBufferPosition::BeforeServers)
     }
+}
+
+pub fn deserialize_muteable_internal_buffers<'de, D>(
+    deserializer: D,
+) -> Result<Vec<InternalBuffer>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(rename_all = "kebab-case")]
+    enum MuteableInternalBuffer {
+        Highlights,
+        Logs,
+    }
+
+    Ok(Vec::<MuteableInternalBuffer>::deserialize(deserializer)?
+        .into_iter()
+        .map(|muteable_internal_buffer| match muteable_internal_buffer {
+            MuteableInternalBuffer::Highlights => InternalBuffer::Highlights,
+            MuteableInternalBuffer::Logs => InternalBuffer::Logs,
+        })
+        .collect())
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, Default)]

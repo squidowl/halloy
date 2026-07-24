@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 
+use data::Server;
 use data::config::Config;
 use data::config::server::SidebarVisibility;
-use data::{Server, buffer, client, history, isupport, target};
 
-use super::{IndicatorState, Panes, indicator_state};
 use crate::dashboard::sidebar::ConnectionStatus;
 use crate::widget::Text;
 use crate::{icon, theme};
@@ -98,46 +97,4 @@ impl Disclosure {
     pub fn indicator(self) -> Text<'static> {
         self.indicator.size(8).style(theme::text::secondary)
     }
-}
-
-pub fn indicators(
-    config: &Config,
-    panes: &Panes,
-    clients: &client::Map,
-    connection: &client::Client,
-    server: &Server,
-    queries: &[&target::Query],
-    casemapping: isupport::CaseMap,
-    history: &history::Manager,
-) -> IndicatorState {
-    let mut indicators = IndicatorState::default();
-
-    for channel in connection.channels() {
-        let buffer = buffer::Upstream::Channel(server.clone(), channel.clone());
-        let kind = history::Kind::Channel(server.clone(), channel.clone());
-        indicators.merge(indicator_state(
-            config,
-            panes,
-            &buffer,
-            &kind,
-            casemapping,
-            history,
-        ));
-    }
-
-    for query in queries {
-        let query = clients.resolve_query(server, query).unwrap_or(query);
-        let buffer = buffer::Upstream::Query(server.clone(), query.clone());
-        let kind = history::Kind::Query(server.clone(), query.clone());
-        indicators.merge(indicator_state(
-            config,
-            panes,
-            &buffer,
-            &kind,
-            casemapping,
-            history,
-        ));
-    }
-
-    indicators
 }
