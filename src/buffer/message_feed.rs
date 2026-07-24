@@ -35,8 +35,30 @@ pub enum Event {
     ContractMessage(DateTime<Utc>, message::Hash),
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum Kind {
+    Highlights,
+    ChannelMonitor,
+}
+
+impl Kind {
+    pub(super) fn scroll_view(self) -> scroll_view::Kind<'static> {
+        match self {
+            Self::Highlights => scroll_view::Kind::Highlights,
+            Self::ChannelMonitor => scroll_view::Kind::ChannelMonitor,
+        }
+    }
+
+    pub fn history(self) -> history::Kind {
+        match self {
+            Self::Highlights => history::Kind::Highlights,
+            Self::ChannelMonitor => history::Kind::ChannelMonitor,
+        }
+    }
+}
+
 pub fn view<'a>(
-    state: &'a Highlights,
+    state: &'a MessageFeed,
     clients: &'a data::client::Map,
     history: &'a history::Manager,
     previews: &'a preview::Collection,
@@ -47,7 +69,7 @@ pub fn view<'a>(
 ) -> Element<'a, Message> {
     let messages = scroll_view::view(
         &state.scroll_view,
-        scroll_view::Kind::Highlights,
+        state.kind.scroll_view(),
         history,
         None,
         Option::<fn(&Preview, &message::Source) -> bool>::None,
@@ -57,6 +79,11 @@ pub fn view<'a>(
         theme,
         move |message: &'a data::Message, _, _, _| match &message.target {
             message::Target::Highlights {
+                server,
+                channel,
+                source: message::Source::User(user),
+            }
+            | message::Target::ChannelMonitor {
                 server,
                 channel,
                 source: message::Source::User(user),
@@ -302,6 +329,11 @@ pub fn view<'a>(
                 server,
                 channel,
                 source: message::Source::Action(_),
+            }
+            | message::Target::ChannelMonitor {
+                server,
+                channel,
+                source: message::Source::Action(_),
             } => {
                 let timestamp = config
                     .buffer
@@ -380,13 +412,15 @@ pub fn view<'a>(
 }
 
 #[derive(Debug, Clone)]
-pub struct Highlights {
+pub struct MessageFeed {
+    pub kind: Kind,
     pub scroll_view: scroll_view::State,
 }
 
-impl Highlights {
-    pub fn new(pane_size: Size, config: &Config) -> Self {
+impl MessageFeed {
+    pub fn new(kind: Kind, pane_size: Size, config: &Config) -> Self {
         Self {
+            kind,
             scroll_view: scroll_view::State::new(pane_size, config),
         }
     }
@@ -404,7 +438,7 @@ impl Highlights {
                 let (command, event) = self.scroll_view.update(
                     message,
                     false,
-                    scroll_view::Kind::Highlights,
+                    self.kind.scroll_view(),
                     None,
                     history,
                     clients,

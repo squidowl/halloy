@@ -18,8 +18,8 @@ pub use self::channel::Channel;
 pub use self::channel_discovery::ChannelDiscovery;
 pub use self::config_editor::ConfigEditor;
 pub use self::file_transfers::FileTransfers;
-pub use self::highlights::Highlights;
 pub use self::logs::Logs;
+pub use self::message_feed::MessageFeed;
 pub use self::query::Query;
 pub use self::server::Server;
 use crate::Theme;
@@ -33,14 +33,17 @@ pub mod config_editor;
 pub mod context_menu;
 pub mod empty;
 pub mod file_transfers;
-pub mod highlights;
 mod input_view;
 pub mod logs;
+pub mod message_feed;
 mod message_view;
 pub mod query;
 mod scroll_view;
 pub mod server;
 pub mod typing;
+
+pub type Highlights = MessageFeed;
+pub type ChannelMonitor = MessageFeed;
 
 #[derive(Clone, Debug)]
 pub enum Buffer {
@@ -51,6 +54,7 @@ pub enum Buffer {
     FileTransfers(FileTransfers),
     Logs(Logs),
     Highlights(Highlights),
+    ChannelMonitor(ChannelMonitor),
     ChannelDiscovery(ChannelDiscovery),
     ConfigEditor(ConfigEditor),
 }
@@ -62,7 +66,8 @@ pub enum Message {
     Query(query::Message),
     FileTransfers(file_transfers::Message),
     Logs(logs::Message),
-    Highlights(highlights::Message),
+    Highlights(message_feed::Message),
+    ChannelMonitor(message_feed::Message),
     ChannelList(channel_discovery::Message),
     ConfigEditor(config_editor::Message),
 }
@@ -133,7 +138,18 @@ impl Buffer {
                     Self::Logs(Logs::new(pane_size, config))
                 }
                 buffer::Internal::Highlights => {
-                    Self::Highlights(Highlights::new(pane_size, config))
+                    Self::Highlights(Highlights::new(
+                        message_feed::Kind::Highlights,
+                        pane_size,
+                        config,
+                    ))
+                }
+                buffer::Internal::ChannelMonitor => {
+                    Self::ChannelMonitor(ChannelMonitor::new(
+                        message_feed::Kind::ChannelMonitor,
+                        pane_size,
+                        config,
+                    ))
                 }
                 buffer::Internal::ChannelDiscovery(server) => {
                     Self::ChannelDiscovery(ChannelDiscovery::new(server))
@@ -158,6 +174,7 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::ChannelMonitor(_)
             | Buffer::ConfigEditor(_) => None,
         }
     }
@@ -171,6 +188,7 @@ impl Buffer {
             Buffer::FileTransfers(_) => Some(buffer::Internal::FileTransfers),
             Buffer::Logs(_) => Some(buffer::Internal::Logs),
             Buffer::Highlights(_) => Some(buffer::Internal::Highlights),
+            Buffer::ChannelMonitor(_) => Some(buffer::Internal::ChannelMonitor),
             Buffer::ChannelDiscovery(state) => {
                 Some(buffer::Internal::ChannelDiscovery(state.server.clone()))
             }
@@ -199,6 +217,9 @@ impl Buffer {
             Buffer::Highlights(_) => {
                 Some(data::Buffer::Internal(buffer::Internal::Highlights))
             }
+            Buffer::ChannelMonitor(_) => {
+                Some(data::Buffer::Internal(buffer::Internal::ChannelMonitor))
+            }
             Buffer::ChannelDiscovery(state) => Some(data::Buffer::Internal(
                 buffer::Internal::ChannelDiscovery(state.server.clone()),
             )),
@@ -218,6 +239,7 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::ChannelMonitor(_)
             | Buffer::ConfigEditor(_) => None,
         }
     }
@@ -234,6 +256,7 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::ChannelMonitor(_)
             | Buffer::ConfigEditor(_) => None,
         }
     }
@@ -247,6 +270,7 @@ impl Buffer {
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
+            | Buffer::ChannelMonitor(_)
             | Buffer::ChannelDiscovery(_)
             | Buffer::ConfigEditor(_) => None,
         }
@@ -279,6 +303,7 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::ChannelMonitor(_)
             | Buffer::ConfigEditor(_) => None,
         }
     }
@@ -586,50 +611,23 @@ impl Buffer {
 
                 (command.map(Message::Logs), event)
             }
-            (Buffer::Highlights(state), Message::Highlights(message)) => {
+            (Buffer::Highlights(state), Message::Highlights(message))
+            | (
+                Buffer::ChannelMonitor(state),
+                Message::ChannelMonitor(message),
+            ) => {
+                let kind = state.kind;
                 let (command, event) =
                     state.update(message, history, clients, previews, config);
 
-                let event = event.map(|event| match event {
-                    highlights::Event::ContextMenu(event) => {
-                        Event::ContextMenu(event)
-                    }
-                    highlights::Event::OpenBuffer(
-                        server,
-                        target,
-                        buffer_action,
-                    ) => Event::OpenBuffers(
-                        server,
-                        vec![(target, buffer_action)],
-                    ),
-                    highlights::Event::GoToMessage(
-                        server,
-                        channel,
-                        message,
-                        buffer_action,
-                    ) => Event::GoToMessage(
-                        server,
-                        channel,
-                        message,
-                        buffer_action,
-                    ),
-                    highlights::Event::History(task) => Event::History(task),
-                    highlights::Event::MarkAsRead => {
-                        Event::MarkAsRead(history::Kind::Highlights)
-                    }
-                    highlights::Event::OpenUrl(url) => Event::OpenUrl(url),
-                    highlights::Event::ImagePreview(image) => {
-                        Event::ImagePreview(image)
-                    }
-                    highlights::Event::ExpandMessage(server_time, hash) => {
-                        Event::ExpandMessage(server_time, hash)
-                    }
-                    highlights::Event::ContractMessage(server_time, hash) => {
-                        Event::ContractMessage(server_time, hash)
-                    }
-                });
-
-                (command.map(Message::Highlights), event)
+                (
+                    command.map(move |message| {
+                        map_message_feed_message(kind, message)
+                    }),
+                    event.map(|event| {
+                        map_message_feed_event(event, kind.history())
+                    }),
+                )
             }
             _ => (Task::none(), None),
         }
@@ -708,17 +706,21 @@ impl Buffer {
                 channel_is_open,
             )
             .map(Message::Logs),
-            Buffer::Highlights(state) => highlights::view(
-                state,
-                clients,
-                history,
-                previews,
-                config,
-                theme,
-                channel_is_focused,
-                channel_is_open,
-            )
-            .map(Message::Highlights),
+            Buffer::Highlights(state) | Buffer::ChannelMonitor(state) => {
+                let kind = state.kind;
+
+                message_feed::view(
+                    state,
+                    clients,
+                    history,
+                    previews,
+                    config,
+                    theme,
+                    channel_is_focused,
+                    channel_is_open,
+                )
+                .map(move |message| map_message_feed_message(kind, message))
+            }
             Buffer::ChannelDiscovery(state) => channel_discovery::view(
                 state,
                 clients,
@@ -745,6 +747,7 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::ChannelMonitor(_)
             | Buffer::ConfigEditor(_) => false,
         }
     }
@@ -779,7 +782,10 @@ impl Buffer {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
-            | Buffer::Highlights(_) => widget::operate(focusable::unfocus()),
+            | Buffer::Highlights(_)
+            | Buffer::ChannelMonitor(_) => {
+                widget::operate(focusable::unfocus())
+            }
             Buffer::ConfigEditor(config_editor) => {
                 config_editor.focus().map(Message::ConfigEditor)
             }
@@ -799,6 +805,7 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::ChannelMonitor(_)
             | Buffer::ConfigEditor(_) => {}
             Buffer::Channel(channel) => channel.reset(),
             Buffer::Server(server) => server.reset(),
@@ -818,6 +825,7 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::ChannelMonitor(_)
             | Buffer::ConfigEditor(_) => (),
             Buffer::Server(state) => state.input_view.insert_user(
                 nick,
@@ -852,6 +860,7 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::ChannelMonitor(_)
             | Buffer::ConfigEditor(_) => (),
             Buffer::Server(state) => {
                 state.input_view.process_completion_and_notice(
@@ -909,11 +918,14 @@ impl Buffer {
                     Message::Logs(logs::Message::ScrollView(message))
                 })
             }
-            Buffer::Highlights(highlights) => {
-                highlights.scroll_view.scroll_up_page().map(|message| {
-                    Message::Highlights(highlights::Message::ScrollView(
-                        message,
-                    ))
+            Buffer::Highlights(state) | Buffer::ChannelMonitor(state) => {
+                let kind = state.kind;
+
+                state.scroll_view.scroll_up_page().map(move |message| {
+                    map_message_feed_message(
+                        kind,
+                        message_feed::Message::ScrollView(message),
+                    )
                 })
             }
         }
@@ -948,11 +960,14 @@ impl Buffer {
                     Message::Logs(logs::Message::ScrollView(message))
                 })
             }
-            Buffer::Highlights(highlights) => {
-                highlights.scroll_view.scroll_down_page().map(|message| {
-                    Message::Highlights(highlights::Message::ScrollView(
-                        message,
-                    ))
+            Buffer::Highlights(state) | Buffer::ChannelMonitor(state) => {
+                let kind = state.kind;
+
+                state.scroll_view.scroll_down_page().map(move |message| {
+                    map_message_feed_message(
+                        kind,
+                        message_feed::Message::ScrollView(message),
+                    )
                 })
             }
         }
@@ -987,14 +1002,19 @@ impl Buffer {
                     Message::Logs(logs::Message::ScrollView(message))
                 })
             }
-            Buffer::Highlights(highlights) => highlights
-                .scroll_view
-                .scroll_to_start(config)
-                .map(|message| {
-                    Message::Highlights(highlights::Message::ScrollView(
-                        message,
-                    ))
-                }),
+            Buffer::Highlights(state) | Buffer::ChannelMonitor(state) => {
+                let kind = state.kind;
+
+                state
+                    .scroll_view
+                    .scroll_to_start(config)
+                    .map(move |message| {
+                        map_message_feed_message(
+                            kind,
+                            message_feed::Message::ScrollView(message),
+                        )
+                    })
+            }
         }
     }
 
@@ -1027,11 +1047,14 @@ impl Buffer {
                     Message::Logs(logs::Message::ScrollView(message))
                 })
             }
-            Buffer::Highlights(highlights) => {
-                highlights.scroll_view.scroll_to_end(config).map(|message| {
-                    Message::Highlights(highlights::Message::ScrollView(
-                        message,
-                    ))
+            Buffer::Highlights(state) | Buffer::ChannelMonitor(state) => {
+                let kind = state.kind;
+
+                state.scroll_view.scroll_to_end(config).map(move |message| {
+                    map_message_feed_message(
+                        kind,
+                        message_feed::Message::ScrollView(message),
+                    )
                 })
             }
         }
@@ -1092,19 +1115,24 @@ impl Buffer {
                 .map(|message| {
                     Message::Logs(logs::Message::ScrollView(message))
                 }),
-            Buffer::Highlights(state) => state
-                .scroll_view
-                .scroll_to_message(
-                    message,
-                    scroll_view::Kind::Highlights,
-                    history,
-                    config,
-                )
-                .map(|message| {
-                    Message::Highlights(highlights::Message::ScrollView(
+            Buffer::Highlights(state) | Buffer::ChannelMonitor(state) => {
+                let kind = state.kind;
+
+                state
+                    .scroll_view
+                    .scroll_to_message(
                         message,
-                    ))
-                }),
+                        kind.scroll_view(),
+                        history,
+                        config,
+                    )
+                    .map(move |message| {
+                        map_message_feed_message(
+                            kind,
+                            message_feed::Message::ScrollView(message),
+                        )
+                    })
+            }
         }
     }
 
@@ -1154,18 +1182,19 @@ impl Buffer {
                 .map(|message| {
                     Message::Logs(logs::Message::ScrollView(message))
                 }),
-            Buffer::Highlights(state) => state
-                .scroll_view
-                .scroll_to_backlog(
-                    scroll_view::Kind::Highlights,
-                    history,
-                    config,
-                )
-                .map(|message| {
-                    Message::Highlights(highlights::Message::ScrollView(
-                        message,
-                    ))
-                }),
+            Buffer::Highlights(state) | Buffer::ChannelMonitor(state) => {
+                let kind = state.kind;
+
+                state
+                    .scroll_view
+                    .scroll_to_backlog(kind.scroll_view(), history, config)
+                    .map(move |message| {
+                        map_message_feed_message(
+                            kind,
+                            message_feed::Message::ScrollView(message),
+                        )
+                    })
+            }
         }
     }
 
@@ -1179,7 +1208,7 @@ impl Buffer {
             Buffer::Server(state) => state.scroll_view.has_pending_scroll_to(),
             Buffer::Query(state) => state.scroll_view.has_pending_scroll_to(),
             Buffer::Logs(state) => state.scroll_view.has_pending_scroll_to(),
-            Buffer::Highlights(state) => {
+            Buffer::Highlights(state) | Buffer::ChannelMonitor(state) => {
                 state.scroll_view.has_pending_scroll_to()
             }
         }
@@ -1235,18 +1264,23 @@ impl Buffer {
                 .map(|message| {
                     Message::Logs(logs::Message::ScrollView(message))
                 }),
-            Buffer::Highlights(state) => state
-                .scroll_view
-                .prepare_for_pending_scroll_to(
-                    scroll_view::Kind::Highlights,
-                    history,
-                    config,
-                )
-                .map(|message| {
-                    Message::Highlights(highlights::Message::ScrollView(
-                        message,
-                    ))
-                }),
+            Buffer::Highlights(state) | Buffer::ChannelMonitor(state) => {
+                let kind = state.kind;
+
+                state
+                    .scroll_view
+                    .prepare_for_pending_scroll_to(
+                        kind.scroll_view(),
+                        history,
+                        config,
+                    )
+                    .map(move |message| {
+                        map_message_feed_message(
+                            kind,
+                            message_feed::Message::ScrollView(message),
+                        )
+                    })
+            }
         }
     }
 
@@ -1266,8 +1300,8 @@ impl Buffer {
                 Some(query.scroll_view.is_scrolled_to_bottom())
             }
             Buffer::Logs(log) => Some(log.scroll_view.is_scrolled_to_bottom()),
-            Buffer::Highlights(highlights) => {
-                Some(highlights.scroll_view.is_scrolled_to_bottom())
+            Buffer::Highlights(state) | Buffer::ChannelMonitor(state) => {
+                Some(state.scroll_view.is_scrolled_to_bottom())
             }
         }
     }
@@ -1279,6 +1313,7 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::ChannelMonitor(_)
             | Buffer::ConfigEditor(_) => false,
             Buffer::Server(state) => state.input_view.close_picker(),
             Buffer::Channel(state) => state.input_view.close_picker(),
@@ -1297,6 +1332,7 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::ChannelMonitor(_)
             | Buffer::ConfigEditor(_) => false,
             Buffer::Server(state) => state.input_view.clear_draft_reply(
                 &state.buffer,
@@ -1334,8 +1370,8 @@ impl Buffer {
             Buffer::Logs(log) => {
                 log.scroll_view.update_pane_size(pane_size, config);
             }
-            Buffer::Highlights(highlights) => {
-                highlights.scroll_view.update_pane_size(pane_size, config);
+            Buffer::Highlights(state) | Buffer::ChannelMonitor(state) => {
+                state.scroll_view.update_pane_size(pane_size, config);
             }
         }
     }
@@ -1347,6 +1383,7 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::ChannelMonitor(_)
             | Buffer::ConfigEditor(_) => None,
             Buffer::Server(state) => state.input_view.draft_reply(),
             Buffer::Channel(state) => state.input_view.draft_reply(),
@@ -1361,6 +1398,7 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::ChannelMonitor(_)
             | Buffer::ConfigEditor(_) => (),
             Buffer::Server(state) => {
                 state.input_view.set_reply_preview(reply_preview);
@@ -1371,6 +1409,44 @@ impl Buffer {
             Buffer::Query(state) => {
                 state.input_view.set_reply_preview(reply_preview);
             }
+        }
+    }
+}
+
+fn map_message_feed_message(
+    kind: message_feed::Kind,
+    message: message_feed::Message,
+) -> Message {
+    match kind {
+        message_feed::Kind::Highlights => Message::Highlights(message),
+        message_feed::Kind::ChannelMonitor => Message::ChannelMonitor(message),
+    }
+}
+
+fn map_message_feed_event(
+    event: message_feed::Event,
+    kind: history::Kind,
+) -> Event {
+    match event {
+        message_feed::Event::ContextMenu(event) => Event::ContextMenu(event),
+        message_feed::Event::OpenBuffer(server, target, buffer_action) => {
+            Event::OpenBuffers(server, vec![(target, buffer_action)])
+        }
+        message_feed::Event::GoToMessage(
+            server,
+            channel,
+            message,
+            buffer_action,
+        ) => Event::GoToMessage(server, channel, message, buffer_action),
+        message_feed::Event::History(task) => Event::History(task),
+        message_feed::Event::MarkAsRead => Event::MarkAsRead(kind),
+        message_feed::Event::OpenUrl(url) => Event::OpenUrl(url),
+        message_feed::Event::ImagePreview(image) => Event::ImagePreview(image),
+        message_feed::Event::ExpandMessage(server_time, hash) => {
+            Event::ExpandMessage(server_time, hash)
+        }
+        message_feed::Event::ContractMessage(server_time, hash) => {
+            Event::ContractMessage(server_time, hash)
         }
     }
 }
@@ -1386,6 +1462,7 @@ impl fmt::Display for Buffer {
             Buffer::Logs(_) => write!(f, "Logs"),
             Buffer::Highlights(_) => write!(f, "Highlights"),
             Buffer::ChannelDiscovery(_) => write!(f, "Channel Discovery"),
+            Buffer::ChannelMonitor(_) => write!(f, "Channel Monitor"),
             Buffer::ConfigEditor(_) => write!(f, "Config Editor"),
         }
     }

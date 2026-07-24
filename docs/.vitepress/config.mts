@@ -43,6 +43,7 @@ const guidesItems = [
     link: "/guides/keyring",
   },
   { text: "File Uploads", link: "/guides/filehost" },
+  { text: "Internal Buffers", link: "/guides/internal-buffers" },
   { text: "Unix Signals", link: "/guides/unix-signals" },
   { text: "Text Formatting", link: "/guides/text-formatting" },
   { text: "URL Schemes", link: "/guides/url-schemes" },
@@ -56,6 +57,10 @@ const configurationItems = [
   {
     text: "Buffer",
     link: "/configuration/buffer",
+  },
+  {
+    text: "Channel Monitor",
+    link: "/configuration/channel-monitor",
   },
   {
     text: "Check for Update on Launch",

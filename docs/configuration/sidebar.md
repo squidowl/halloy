@@ -126,14 +126,14 @@ channels = ["#rust", "#halloy", "#halloy-test"]
 # Result: #rust → #halloy → #halloy-test → (any other channels are sorted by "name")
 ```
 
-## `internal_buffers`
+## `internal_buffers` {#internal-buffers}
 
 Configure which internal buffers appear in the sidebar and whether they are
 placed before or after IRC servers.
 
 ```toml
 # Type: table
-# Values: `position` and `buffers`
+# Values: `position`, `buffers`, and `mute`
 # Default: `{ position = "after-servers", buffers = [] }`
 
 [sidebar.internal_buffers]
@@ -159,8 +159,8 @@ position = "before-servers"
 Internal buffers shown in the sidebar.
 
 ```toml
-# Type: array
-# Values: 'config-editor', `file-transfers`, `channel-discovery`, `highlights`, `logs`
+# Type: array of strings
+# Values: "channel-discovery", "channel-monitor", "config-editor", "file-transfers", "highlights", "logs"
 # Default: []
 
 [sidebar.internal_buffers]
@@ -337,7 +337,7 @@ exclude = "*"
 include = { channels = ["#halloy"] }
 ```
 
-## `highlight_indicator`
+## `highlight_indicator` {#highlight-indicator}
 
 Unread highlight in buffer indicator style.
 

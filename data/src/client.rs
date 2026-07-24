@@ -5517,7 +5517,7 @@ impl Map {
 
     pub fn get_seed(&self, kind: &history::Kind) -> Option<history::Seed> {
         match kind {
-            history::Kind::Highlights => {
+            history::Kind::Highlights | history::Kind::ChannelMonitor => {
                 let casemappings: HashMap<Server, isupport::CaseMap> = self
                     .servers()
                     .filter_map(|server| {

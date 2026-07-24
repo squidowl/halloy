@@ -387,6 +387,7 @@ pub enum InternalBuffer {
     ConfigEditor,
     FileTransfers,
     ChannelDiscovery,
+    ChannelMonitor,
     Highlights,
     Logs,
 }

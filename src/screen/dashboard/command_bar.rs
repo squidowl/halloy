@@ -436,6 +436,9 @@ impl std::fmt::Display for Buffer {
                     buffer::Internal::ConfigEditor => {
                         write!(f, "Open config editor")
                     }
+                    buffer::Internal::ChannelMonitor => {
+                        write!(f, "Open channel monitor")
+                    }
                 },
                 data::Buffer::Upstream(upstream) => match upstream {
                     buffer::Upstream::Server(server) => {
