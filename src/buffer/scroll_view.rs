@@ -17,8 +17,8 @@ use data::server::Server;
 use data::target::{self, Target};
 use data::{Config, Image, Preview, client, history, metadata, reaction};
 use iced::widget::{
-    self, Scrollable, button, column, container, row, rule, scrollable, space,
-    text,
+    self, Scrollable, button, column, container, row, rule, scrollable, sensor,
+    space, text,
 };
 use iced::{Length, Size, Task, padding};
 use tokio::time;
@@ -27,7 +27,7 @@ use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
 use super::context_menu;
 use crate::widget::user_display::UserDisplay;
-use crate::widget::{Element, notify_visibility, on_resize};
+use crate::widget::{Element, notify_visibility};
 use crate::{Theme, buffer, font, theme};
 
 const SCROLL_TO_TIMEOUT: Duration = Duration::from_millis(200);
@@ -774,7 +774,7 @@ pub fn view<'a>(
         row![]
     };
 
-    let content = on_resize(
+    let content = sensor(
         column![
             top_row,
             top_spacer,
@@ -786,8 +786,8 @@ pub fn view<'a>(
         ]
         .padding(padding::bottom(reserved_bottom_padding))
         .spacing(line_spacing),
-        Message::ContentResized,
-    );
+    )
+    .on_resize(Message::ContentResized);
 
     correct_viewport(
         Scrollable::new(container(content).width(Length::Fill).padding([0, 8]))
@@ -839,7 +839,7 @@ impl State {
         Self {
             scrollable: widget::Id::unique(),
             pane_size,
-            content_size: Size::default(), // Will get set initially via `on_resize`
+            content_size: Size::default(), // Set initially by the content sensor.
             limit: Limit::Bottom(step_messages),
             status: Status::default(),
             last_scroll_offset: 0.0,
