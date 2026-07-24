@@ -86,8 +86,8 @@ Changed:
 Thanks:
 
 - Contributions: @englut, @luca020400, @classabbyamp, @KaiKorla, @TheDcoder, @City-busz, @rtmongold, @Gelbpunkt, @zsigisti, quark
-- Bug reports: @luca020400, agent314, @FlooferLand, @englut, @rexbinary
-- Feature requests: @FlooferLand, quark, @daniiooo
+- Bug reports: @luca020400, agent314, @FlooferLand, @englut, @rexbinary, @belthesar, @deepspaceaxolotl, @neilzilla, @0ther0ne
+- Feature requests: @FlooferLand, quark, @daniiooo, @deepspaceaxolotl, @4e554c4c, @RoboDanjal, @Vendicated
 
 # 2026.7.2 (2026-06-08)
 
