@@ -1,12 +1,14 @@
 use data::user::{ChannelUsers, User};
 use data::{Config, Server, file_transfer, history, preview, target};
 use iced::widget::text::Wrapping;
-use iced::widget::{button, center, column, container, pane_grid, row, text};
+use iced::widget::{
+    button, center, column, container, pane_grid, row, sensor, text,
+};
 use iced::{Length, Padding, Size, Task, padding};
 
 use super::sidebar;
 use crate::buffer::{self, Buffer};
-use crate::widget::{Element, on_resize, tooltip};
+use crate::widget::{Element, tooltip};
 use crate::{Theme, font, icon, theme, widget};
 
 #[derive(Debug, Clone)]
@@ -206,8 +208,8 @@ impl Pane {
             )
             .map(move |msg| Message::Buffer(id, msg));
 
-        let content =
-            on_resize(content, move |size| Message::ContentResized(id, size));
+        let content = sensor(content)
+            .on_resize(move |size| Message::ContentResized(id, size));
 
         let content = match &self.modal {
             Some(modal) => widget::modal(

@@ -29,6 +29,7 @@ pub fn tooltip<'a, Message: 'a>(
             position,
         )
         .delay(iced::time::Duration::ZERO)
+        .smart_placement(true)
         .into(),
         None => content.into(),
     }

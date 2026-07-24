@@ -177,7 +177,7 @@ where
                 shaping: self.format.shaping,
                 wrapping: self.format.wrapping,
                 ellipsis: text::Ellipsis::default(),
-                hint_factor: renderer.scale_factor(),
+                hint_factor: renderer.hint_factor(),
             });
 
             state.paragraph.min_bounds()

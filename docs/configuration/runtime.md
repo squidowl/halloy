@@ -66,3 +66,16 @@ Whether to enable antialiasing renderer for primitives.
 [runtime]
 antialiasing = false
 ```
+
+## `metrics_hinting`
+
+Whether to enable metrics hinting when rendering certain widgets.  Can improve the readability of smaller text on low-DPI screens and the clarity of widgets that render thin lines.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[runtime]
+metrics_hinting = false
+```

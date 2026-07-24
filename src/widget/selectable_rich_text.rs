@@ -481,7 +481,7 @@ where
                         shaping: Shaping::Advanced,
                         wrapping: text::Wrapping::WordOrGlyph,
                         ellipsis: text::Ellipsis::default(),
-                        hint_factor: renderer.scale_factor(),
+                        hint_factor: renderer.hint_factor(),
                     };
 
                     // If a spoiler is currently shown and we clicked on it, hide it
@@ -913,7 +913,7 @@ where
             shaping: Shaping::Advanced,
             wrapping: text::Wrapping::WordOrGlyph,
             ellipsis: text::Ellipsis::default(),
-            hint_factor: renderer.scale_factor(),
+            hint_factor: renderer.hint_factor(),
         };
 
         if state.spans != spans {
@@ -942,7 +942,7 @@ where
                 shaping: Shaping::Advanced,
                 wrapping: text::Wrapping::WordOrGlyph,
                 ellipsis: text::Ellipsis::default(),
-                hint_factor: renderer.scale_factor(),
+                hint_factor: renderer.hint_factor(),
             }) {
                 text::Difference::None => {}
                 text::Difference::Bounds => {
