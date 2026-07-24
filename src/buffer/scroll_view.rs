@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 use chrono::{DateTime, Local, NaiveDate, Utc};
-use data::buffer::RightAlignmentWidths;
+use data::buffer::{RightAlignmentWidths, TimestampPosition};
 use data::command::Irc;
 use data::config::actions::{ImageClickAction, NicknameClickAction};
 use data::config::buffer::{CondensationIcon, HideConsecutiveEnabled};
@@ -428,6 +428,16 @@ pub fn view<'a>(
                 } else {
                     0.0
                 };
+
+            // Timestamps are not on the left, so reserve no left-hand
+            // range-end timestamp width.
+            let range_end_timestamp_width = if config.buffer.timestamp.position
+                == TimestampPosition::Left
+            {
+                range_end_timestamp_width
+            } else {
+                0.0
+            };
 
             let message_marker_width =
                 font::width_of_message_marker(&config.font) + 1.0;
@@ -2410,6 +2420,10 @@ fn prefixes_width(message: &data::Message, config: &Config) -> Option<f32> {
 }
 
 fn timestamp_width(message: &data::Message, config: &Config) -> Option<f32> {
+    if config.buffer.timestamp.position != TimestampPosition::Left {
+        return None;
+    }
+
     config
         .buffer
         .format_timestamp(&message.server_time)

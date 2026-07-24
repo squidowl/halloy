@@ -28,6 +28,7 @@ Added:
 - Allow image preview on URL click
 - `servers.<name>.max_connection_attempts` setting to control the number of connection of attempts made before autoconnect is automatically disabled (defaults to 10)
 - `logs.file_timestamp` setting to control what timezone is used for timestamps in log files and log file names
+- `buffer.timestamp.position` setting (`"left"` (default), `"right"`, or `"hidden"`) to control where message timestamps are rendered
 - `servers.<name>.irc_protocol_log` settings to enable logging of the IRC protocol messages sent-to / received-from the server
 
 Fixed:
@@ -78,7 +79,7 @@ Changed:
 
 Thanks:
 
-- Contributions: @englut, @luca020400, @classabbyamp, @KaiKorla, @TheDcoder, @City-busz, @rtmongold, @Gelbpunkt, @zsigisti, quark
+- Contributions: @englut, @luca020400, @classabbyamp, @KaiKorla, @TheDcoder, @City-busz, @rtmongold, @Gelbpunkt, @zsigisti, quark, @rollecode
 - Bug reports: @luca020400, agent314, @FlooferLand, @englut, @rexbinary
 - Feature requests: @FlooferLand, quark, @daniiooo
 

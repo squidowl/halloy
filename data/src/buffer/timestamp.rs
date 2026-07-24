@@ -8,6 +8,15 @@ use crate::serde::{
     deserialize_strftime_date, deserialize_strftime_date_maybe,
 };
 
+#[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TimestampPosition {
+    #[default]
+    Left,
+    Right,
+    Hidden,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Timestamp {
@@ -20,6 +29,7 @@ pub struct Timestamp {
     pub copy_format: Option<String>,
     #[serde(deserialize_with = "deserialize_locale")]
     pub locale: Locale,
+    pub position: TimestampPosition,
     pub hide_consecutive: HideConsecutive,
 }
 
@@ -31,6 +41,7 @@ impl Default for Timestamp {
             context_menu_format: "%x".to_string(),
             copy_format: None,
             locale: Locale::default(),
+            position: TimestampPosition::default(),
             hide_consecutive: HideConsecutive::default(),
         }
     }

@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use chrono::{DateTime, TimeDelta, Utc};
-use data::buffer::RightAlignmentWidths;
+use data::buffer::{RightAlignmentWidths, TimestampPosition};
 use data::config::buffer::nickname::ShownStatus;
 use data::config::buffer::{CondensationIcon, Dimmed};
 use data::config::preview::HideUrlCondition;
@@ -198,6 +198,10 @@ impl<'a> ChannelQueryLayout<'a> {
         message: &'a data::Message,
         hide_timestamp: bool,
     ) -> Option<Element<'a, Message>> {
+        if self.config.buffer.timestamp.position == TimestampPosition::Hidden {
+            return None;
+        }
+
         self.config
             .buffer
             .format_timestamp(&message.server_time)
@@ -229,6 +233,10 @@ impl<'a> ChannelQueryLayout<'a> {
         end_server_time: &'a DateTime<Utc>,
         hide_timestamp: bool,
     ) -> Option<Element<'a, Message>> {
+        if self.config.buffer.timestamp.position == TimestampPosition::Hidden {
+            return None;
+        }
+
         self.config
             .buffer
             .format_range_end_timestamp(end_server_time)
@@ -1129,10 +1137,19 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             ));
         }
 
+        let timestamp_on_left =
+            self.config.buffer.timestamp.position == TimestampPosition::Left;
+        let timestamp_on_right =
+            self.config.buffer.timestamp.position == TimestampPosition::Right;
+
         let mut timestamp: Option<Element<_>> =
             self.format_timestamp(message, hide_timestamp);
 
-        if let Some(right_alignment_widths) = right_alignment_widths {
+        // Only reserve a fixed left-hand timestamp column when the timestamp
+        // is rendered on the left.
+        if timestamp_on_left
+            && let Some(right_alignment_widths) = right_alignment_widths
+        {
             timestamp = Some(timestamp.map_or(
                 Space::new().width(right_alignment_widths.timestamp).into(),
                 |timestamp| {
@@ -1143,7 +1160,18 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             ));
         }
 
-        let left_is_hidden = prefixes.is_none() && hide_timestamp;
+        // Pull the timestamp out for right-edge placement after the body.
+        let right_timestamp = if timestamp_on_right {
+            timestamp.take()
+        } else {
+            None
+        };
+
+        let left_is_hidden = if timestamp_on_left {
+            prefixes.is_none() && hide_timestamp
+        } else {
+            prefixes.is_none()
+        };
 
         let right_alignment_middle_width = right_alignment_widths
             .map(|right_alignment_widths| right_alignment_widths.middle);
@@ -1395,19 +1423,20 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
 
         let middle_is_some = middle.is_some();
 
-        let row = row![
-            prefixes,
-            timestamp,
-            if left_is_hidden {
-                let width = font::width_from_str(" ", &self.config.font);
+        let spacer = if left_is_hidden {
+            let width = font::width_from_str(" ", &self.config.font);
+            Element::from(Space::new().width(width))
+        } else {
+            Element::from(selectable_text(" "))
+        };
 
-                Element::from(Space::new().width(width))
-            } else {
-                Element::from(selectable_text(" "))
-            },
-            middle,
-            middle_is_some.then_some(selectable_text(" ")),
-        ];
+        let trailing_space = middle_is_some.then_some(selectable_text(" "));
+
+        let row = if timestamp_on_left {
+            row![prefixes, timestamp, spacer, middle, trailing_space]
+        } else {
+            row![prefixes, spacer, middle, trailing_space]
+        };
 
         let content = if message_has_urls {
             let mut column = column![].spacing(2);
@@ -1478,10 +1507,25 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             column![content].extend(after_content).into()
         };
 
-        let message_element = if self.content_on_new_line(message) {
-            container(column![row, content]).into()
+        let body: Element<_> = if self.content_on_new_line(message) {
+            column![row, content].into()
         } else {
-            container(row![row, content]).into()
+            row![row, content].into()
+        };
+
+        let message_element = if let Some(right_timestamp) = right_timestamp {
+            // Gap between the message and the right-aligned timestamp, plus a
+            // little breathing room from the edge.
+            let gap = font::width_from_str("  ", &self.config.font);
+            container(
+                row![container(body).width(Length::Fill), right_timestamp]
+                    .spacing(gap)
+                    .align_y(alignment::Vertical::Top),
+            )
+            .padding(padding::right(gap))
+            .into()
+        } else {
+            container(body).into()
         };
 
         let message_element = if let Some(reply_row) = self.reply_line(
@@ -1674,11 +1718,16 @@ impl<'a> ChannelQueryLayout<'a> {
 
         let char_width = font::width_from_str("a", &self.config.font);
 
-        let timestamp_chars = self
-            .config
-            .buffer
-            .format_timestamp(&message.server_time)
-            .map_or(0, |s| s.chars().count());
+        let timestamp_chars = if self.config.buffer.timestamp.position
+            == TimestampPosition::Left
+        {
+            self.config
+                .buffer
+                .format_timestamp(&message.server_time)
+                .map_or(0, |s| s.chars().count())
+        } else {
+            0
+        };
 
         // right-aligned: fixed short arm offset to content column.
         // left-aligned / top-aligned: arm spans from timestamp midpoint to its edge.
@@ -1982,13 +2031,24 @@ impl<'a> ChannelQueryLayout<'a> {
             )
         });
 
+        let timestamp_on_left =
+            self.config.buffer.timestamp.position == TimestampPosition::Left;
+
         let body: Element<_> = row![]
             .spacing(font::width_from_str(" ", &self.config.font))
-            .extend(self.config.buffer.format_timestamp(&server_time).map(
-                |timestamp| -> Element<_> {
-                    text(timestamp).style(theme::text::timestamp).into()
-                },
-            ))
+            .extend(
+                timestamp_on_left
+                    .then(|| {
+                        self.config.buffer.format_timestamp(&server_time).map(
+                            |timestamp| -> Element<_> {
+                                text(timestamp)
+                                    .style(theme::text::timestamp)
+                                    .into()
+                            },
+                        )
+                    })
+                    .flatten(),
+            )
             .extend(action_marker)
             .extend(nick)
             .push(content_col)

@@ -7,7 +7,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 pub mod timestamp;
 
-pub use self::timestamp::Timestamp;
+pub use self::timestamp::{Timestamp, TimestampPosition};
 use crate::appearance::theme::hex_to_color;
 use crate::serde::deserialize_strftime_date;
 use crate::target::{self, Target};
