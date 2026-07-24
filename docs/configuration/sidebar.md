@@ -490,3 +490,16 @@ Controls the vertical spacing between servers (i.e. between the last buffer for 
 [sidebar.spacing]
 server = 4
 ```
+
+## `cycle_into_collapsed`
+
+Whether to cycle into collapsed buffers when using [cycle shortcuts](/configuration/keyboard#actions).  If `cycle_into_collapsed` is `false` then buffers that are hidden because the server has been [collapsed](/configuration/servers#sidebar-visibility) will be skipped when cycling to the next/previous buffer.
+
+```toml
+# Type: bool
+# Values: true, false
+# Default: false
+
+[sidebar]
+cycle_into_collapsed = true
+```

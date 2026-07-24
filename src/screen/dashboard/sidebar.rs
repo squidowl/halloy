@@ -126,6 +126,7 @@ impl Sidebar {
         panes: &Panes,
         config: &Config,
         show_muted_buffers: bool,
+        include_collapsed_buffers: bool,
     ) -> Vec<Buffer> {
         self.sidebar_buffer_groups(
             servers,
@@ -134,6 +135,7 @@ impl Sidebar {
             panes,
             config,
             show_muted_buffers,
+            include_collapsed_buffers,
         )
         .into_iter()
         .flat_map(|sidebar_buffer_group| match sidebar_buffer_group {
@@ -159,6 +161,7 @@ impl Sidebar {
         panes: &Panes,
         config: &Config,
         show_muted_buffers: bool,
+        include_collapsed_buffers: bool,
     ) -> Vec<(Buffer, bool)> {
         self.sidebar_buffer_groups(
             servers,
@@ -167,6 +170,7 @@ impl Sidebar {
             panes,
             config,
             show_muted_buffers,
+            include_collapsed_buffers,
         )
         .into_iter()
         .flat_map(|sidebar_buffer_group| match sidebar_buffer_group {
@@ -202,6 +206,7 @@ impl Sidebar {
         panes: &Panes,
         config: &Config,
         show_muted_buffers: bool,
+        include_collapsed_buffers: bool,
     ) -> Vec<SidebarBufferGroup> {
         let upstream_buffer_data =
             |buffer: buffer::Upstream,
@@ -316,6 +321,14 @@ impl Sidebar {
                                 .collapse_indicators(&collapsible_buffers);
 
                             vec![buffer_data]
+                                .into_iter()
+                                .chain(collapsible_buffers.into_iter().filter(
+                                    |buffer_data| {
+                                        buffer_data.is_visible_pane
+                                            || include_collapsed_buffers
+                                    },
+                                ))
+                                .collect()
                         } else {
                             vec![buffer_data]
                                 .into_iter()
@@ -823,6 +836,7 @@ impl Sidebar {
                 panes,
                 config,
                 show_muted_buffers,
+                false,
             );
 
             let mut buffers = vec![];
@@ -1036,6 +1050,7 @@ enum SidebarBufferGroup {
 struct UpstreamBufferSidebarData {
     buffer: buffer::Upstream,
     kind: history::Kind,
+    is_visible_pane: bool,
     has_unread: bool,
     #[expect(dead_code)] // TODO: Cycle highlights
     has_highlight: bool,
@@ -1099,6 +1114,7 @@ impl UpstreamBufferSidebarData {
         Some(Self {
             buffer,
             kind,
+            is_visible_pane,
             has_unread,
             has_highlight,
             indicators,

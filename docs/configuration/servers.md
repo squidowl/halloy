@@ -1227,7 +1227,7 @@ timestamp = "utc"
 
 [^2]: Relative paths are prefixed with the config directory (i.e. if you have your config.toml in `/home/me/.config/halloy/config.toml`, path `.passwd/libera` will be converted to `/home/me/.config/halloy/.passwd/libera`).
 
-## `sidebar_visibility`
+## `sidebar_visibility` {#sidebar-visibility}
 
 Control the initial visibility of the server in the sidebar.
 
