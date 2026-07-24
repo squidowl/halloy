@@ -280,3 +280,16 @@ Action when clicking a focused buffer in the sidebar. `"close-pane"` will close 
 [actions.sidebar]
 focused_buffer = "close-pane"
 ```
+
+### `cycle`
+
+How to cycle between buffers when using [cycle shortcuts](/configuration/keyboard#actions).  If set to `"skip-collapsed"` then buffers that are hidden because the server has been [collapsed](/configuration/servers#sidebar-visibility) will be skipped when cycling to the next/previous (unread) buffer.  If set to `"into-collapsed"` then cycling to the next/previous (unread) buffer will include buffers hidden because the server has been [collapsed](/configuration/servers#sidebar-visibility) (collapsed buffers with an open pane will be shown in the sidebar).
+
+```toml
+# Type: string
+# Values: "into-collapsed", "skip-collapsed"
+# Default: "into-collapsed"
+
+[actions.sidebar]
+cycle = "skip-collapsed"
+```

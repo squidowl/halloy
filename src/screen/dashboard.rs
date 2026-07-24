@@ -1086,7 +1086,7 @@ impl Dashboard {
                             &self.panes,
                             config,
                             self.buffer_settings.show_muted,
-                            config.sidebar.cycle_into_collapsed,
+                            config.actions.sidebar.cycle.include_collapsed(),
                         );
 
                         let open_buffers = open_buffers(self);
@@ -1117,7 +1117,7 @@ impl Dashboard {
                             &self.panes,
                             config,
                             self.buffer_settings.show_muted,
-                            config.sidebar.cycle_into_collapsed,
+                            config.actions.sidebar.cycle.include_collapsed(),
                         );
 
                         let open_buffers = open_buffers(self);
@@ -1365,7 +1365,11 @@ impl Dashboard {
                                 &self.panes,
                                 config,
                                 self.buffer_settings.show_muted,
-                                config.sidebar.cycle_into_collapsed,
+                                config
+                                    .actions
+                                    .sidebar
+                                    .cycle
+                                    .include_collapsed(),
                             );
 
                         let open_buffers = open_buffers(self);
@@ -1397,7 +1401,11 @@ impl Dashboard {
                                 &self.panes,
                                 config,
                                 self.buffer_settings.show_muted,
-                                config.sidebar.cycle_into_collapsed,
+                                config
+                                    .actions
+                                    .sidebar
+                                    .cycle
+                                    .include_collapsed(),
                             );
 
                         let open_buffers = open_buffers(self);
