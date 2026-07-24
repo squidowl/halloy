@@ -13,7 +13,6 @@ use iced::{Color, Length, Size, Task, padding};
 use super::{context_menu, input_view, scroll_view};
 use crate::widget::user_display::UserDisplay;
 use crate::widget::{Element, message_content, selectable_text};
-use crate::window::Window;
 use crate::{Theme, font, theme};
 
 fn row_with_timestamp<'a>(
@@ -376,7 +375,6 @@ impl Server {
         clients: &mut data::client::Map,
         history: &mut history::Manager,
         previews: &preview::Collection,
-        main_window: &Window,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         match message {
@@ -436,7 +434,6 @@ impl Server {
                     &self.buffer,
                     clients,
                     history,
-                    main_window,
                     config,
                 );
                 let command = command.map(Message::InputView);
@@ -504,7 +501,6 @@ impl Server {
                     &self.buffer,
                     clients,
                     history,
-                    main_window,
                     config,
                 );
                 (task.map(Message::InputView), None)
@@ -515,7 +511,6 @@ impl Server {
                     &self.buffer,
                     clients,
                     history,
-                    main_window,
                     config,
                 );
                 (

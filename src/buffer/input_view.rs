@@ -40,8 +40,7 @@ use crate::widget::{
     double_pass, reply_preview_content, text, text_editor_key_bindings,
     tooltip,
 };
-use crate::window::Window;
-use crate::{Theme, font, theme, window};
+use crate::{Theme, font, theme};
 
 mod completion;
 mod exec;
@@ -80,7 +79,6 @@ pub enum Event {
 #[derive(Debug, Clone)]
 pub enum Message {
     Action(text_editor::Action),
-    CloseContextMenu(window::Id, bool),
     ExecFinished {
         buffer: Upstream,
         result: Result<String, String>,
@@ -767,7 +765,6 @@ impl State {
         buffer: &buffer::Upstream,
         clients: &mut client::Map,
         history: &mut history::Manager,
-        main_window: &Window,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         let current_target = buffer.target();
@@ -1228,7 +1225,7 @@ impl State {
                     })
                 };
 
-                Self::close_context_menu(main_window.id, vec![task])
+                Self::close_context_menu(vec![task])
             }
             Message::Cut => {
                 let task =
@@ -1242,7 +1239,7 @@ impl State {
                         Task::none()
                     };
 
-                Self::close_context_menu(main_window.id, vec![task])
+                Self::close_context_menu(vec![task])
             }
             Message::Copy => {
                 let task = if let Some(input) = self.input_content.selection() {
@@ -1251,20 +1248,19 @@ impl State {
                     Task::none()
                 };
 
-                Self::close_context_menu(main_window.id, vec![task])
+                Self::close_context_menu(vec![task])
             }
             Message::CopyAll => {
                 let input = self.input_content.text();
                 let task = clipboard::write(input.to_string()).discard();
 
-                Self::close_context_menu(main_window.id, vec![task])
+                Self::close_context_menu(vec![task])
             }
             Message::SelectAll => {
                 self.input_content.perform(text_editor::Action::SelectAll);
 
-                Self::close_context_menu(main_window.id, vec![])
+                Self::close_context_menu(vec![])
             }
-            Message::CloseContextMenu(_, _) => (Task::none(), None),
             Message::UploadFile => (
                 Task::perform(
                     async {
@@ -1689,19 +1685,14 @@ impl State {
     }
 
     fn close_context_menu(
-        window: window::Id,
         tasks: Vec<Task<Message>>,
     ) -> (Task<Message>, Option<Event>) {
         (
             Task::batch(
-                vec![context_menu::close(convert::identity).map(
-                    move |any_closed| {
-                        Message::CloseContextMenu(window, any_closed)
-                    },
-                )]
-                .into_iter()
-                .chain(tasks)
-                .collect::<Vec<_>>(),
+                vec![context_menu::close(convert::identity).discard()]
+                    .into_iter()
+                    .chain(tasks)
+                    .collect::<Vec<_>>(),
             ),
             None,
         )

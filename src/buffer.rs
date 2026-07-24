@@ -25,7 +25,6 @@ pub use self::server::Server;
 use crate::Theme;
 use crate::screen::dashboard::sidebar;
 use crate::widget::Element;
-use crate::window::Window;
 
 pub mod channel;
 pub mod channel_discovery;
@@ -315,19 +314,12 @@ impl Buffer {
         history: &mut history::Manager,
         previews: &preview::Collection,
         file_transfers: &mut file_transfer::Manager,
-        main_window: &Window,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         match (self, message) {
             (Buffer::Channel(state), Message::Channel(message)) => {
-                let (command, event) = state.update(
-                    message,
-                    clients,
-                    history,
-                    previews,
-                    main_window,
-                    config,
-                );
+                let (command, event) =
+                    state.update(message, clients, history, previews, config);
 
                 let event = event.map(|event| match event {
                     channel::Event::ContextMenu(event) => {
@@ -402,14 +394,8 @@ impl Buffer {
                 (command.map(Message::Channel), event)
             }
             (Buffer::Server(state), Message::Server(message)) => {
-                let (command, event) = state.update(
-                    message,
-                    clients,
-                    history,
-                    previews,
-                    main_window,
-                    config,
-                );
+                let (command, event) =
+                    state.update(message, clients, history, previews, config);
 
                 let event = event.map(|event| match event {
                     server::Event::ContextMenu(event) => {
@@ -469,14 +455,8 @@ impl Buffer {
                 (command.map(Message::Server), event)
             }
             (Buffer::Query(state), Message::Query(message)) => {
-                let (command, event) = state.update(
-                    message,
-                    clients,
-                    history,
-                    previews,
-                    main_window,
-                    config,
-                );
+                let (command, event) =
+                    state.update(message, clients, history, previews, config);
 
                 let event = event.map(|event| match event {
                     query::Event::ContextMenu(event) => {
