@@ -1058,6 +1058,8 @@ impl Entry {
             entries.push(Leave);
         }
 
+        // TODO: Use sort or insert order to arrange context menu
+        // entries, not both
         entries.sort();
 
         if let buffer::Buffer::Upstream(buffer::Upstream::Server(_)) = buffer
