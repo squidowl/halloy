@@ -1,15 +1,19 @@
 use std::collections::HashMap;
 use std::num::NonZeroU16;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 
+use indexmap::IndexMap;
 use irc::connection;
 use serde::{Deserialize, Deserializer};
 use tokio::fs;
 use tokio::process::Command;
 
+use self::bouncer_network::Overrides;
 use self::filehost::Filehost;
 use self::icon::Icon;
+use crate::bouncer::BouncerNetwork;
 use crate::capabilities::Capability;
 use crate::config::inclusivities::{
     Inclusivities, is_target_channel_included, is_target_query_included,
@@ -23,6 +27,7 @@ use crate::serde::{
 };
 use crate::{config, isupport, metadata, target};
 
+mod bouncer_network;
 pub mod filehost;
 pub mod filters;
 pub mod icon;
@@ -166,6 +171,8 @@ pub struct Server {
     /// Whether & how to log all IRC protocol messages
     pub irc_protocol_log: IrcProtocolLog,
     pub sidebar_visibility: SidebarVisibility,
+    /// Settings for this bouncer's networks.
+    pub(crate) networks: Arc<IndexMap<String, Overrides>>,
 }
 
 impl Server {
@@ -229,22 +236,40 @@ impl Server {
         }
     }
 
-    pub fn bouncer_config(&self) -> Self {
+    /// Returns the config for a bouncer network.
+    pub fn bouncer_network_config(
+        &self,
+        network: &BouncerNetwork,
+    ) -> Arc<Self> {
+        let mut config = self.bouncer_network_defaults();
+
+        if let Some((_, overrides)) = self
+            .networks
+            .iter()
+            .find(|(name, _)| name.eq_ignore_ascii_case(&network.name))
+        {
+            overrides.apply(&mut config);
+        }
+
+        Arc::new(config)
+    }
+
+    fn bouncer_network_defaults(&self) -> Self {
+        let defaults = Self::default();
+
         Self {
-            // nickserv info not relevant to the bounced network
-            nick_password_keyring: config::keyring::Password::default(),
-            nick_password_file: Option::default(),
-            nick_password_command: Option::default(),
-            nick_identify_syntax: Option::default(),
-
-            // channel_keys not relevant
-            channel_keys: HashMap::default(),
-            channel_keys_keyring: HashMap::default(),
-
-            // ghost sequence not relevant
-            should_ghost: Default::default(),
-            ghost_sequence: Server::default().ghost_sequence,
-
+            nick_password: defaults.nick_password,
+            nick_password_keyring: defaults.nick_password_keyring,
+            nick_password_file: defaults.nick_password_file,
+            nick_password_file_first_line_only: defaults
+                .nick_password_file_first_line_only,
+            nick_password_command: defaults.nick_password_command,
+            nick_identify_syntax: defaults.nick_identify_syntax,
+            channel_keys: defaults.channel_keys,
+            channel_keys_keyring: defaults.channel_keys_keyring,
+            should_ghost: defaults.should_ghost,
+            ghost_sequence: defaults.ghost_sequence,
+            networks: defaults.networks,
             ..self.clone()
         }
     }
@@ -335,6 +360,7 @@ impl Default for Server {
             do_not_request: vec![],
             irc_protocol_log: IrcProtocolLog::default(),
             sidebar_visibility: SidebarVisibility::Expanded,
+            networks: Arc::default(),
         }
     }
 }
@@ -903,5 +929,36 @@ mod tests {
                 if label == "Filehost credentials password"
                     && context == "server `libera`"
         ));
+    }
+
+    #[test]
+    fn bouncer_network_config_uses_network_overrides() {
+        let config: Server = toml::from_str(
+            r##"
+            server = "bouncer.example.org"
+            nick_password = "secret"
+            channel_keys = { "#halloy" = "secret" }
+            should_ghost = true
+
+            [networks.libera]
+            channels = ["#rust"]
+
+            [networks.libera.filters]
+            ignore = ["Guest9702"]
+            "##,
+        )
+        .unwrap();
+
+        let network_config = config.bouncer_network_config(&BouncerNetwork {
+            id: "1".into(),
+            name: "Libera".into(),
+        });
+
+        assert_eq!(network_config.server, "bouncer.example.org");
+        assert_eq!(network_config.channels[0].name, "#rust");
+        assert_eq!(network_config.filters.as_ref().unwrap().ignore.len(), 1);
+        assert!(network_config.nick_password.is_none());
+        assert!(network_config.channel_keys.is_empty());
+        assert!(!network_config.should_ghost);
     }
 }

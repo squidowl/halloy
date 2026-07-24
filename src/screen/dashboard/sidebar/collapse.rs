@@ -18,18 +18,13 @@ impl State {
         self.visibility.insert(server, visibility);
     }
 
-    pub fn is_expanded(&self, config: &Config, server: &Server) -> bool {
-        let visibility = self
-            .visibility
-            .get(server)
-            .copied()
-            .or_else(|| {
-                config
-                    .servers
-                    .get(server)
-                    .map(|server| server.sidebar_visibility)
-            })
-            .unwrap_or_default();
+    pub fn is_expanded(
+        &self,
+        server: &Server,
+        default: SidebarVisibility,
+    ) -> bool {
+        let visibility =
+            self.visibility.get(server).copied().unwrap_or(default);
 
         matches!(visibility, SidebarVisibility::Expanded)
     }
@@ -38,6 +33,7 @@ impl State {
         &self,
         config: &Config,
         server: &Server,
+        default: SidebarVisibility,
         connection_status: &ConnectionStatus,
         has_members: bool,
         content_height: f32,
@@ -49,7 +45,7 @@ impl State {
             return None;
         }
 
-        let is_expanded = self.is_expanded(config, server);
+        let is_expanded = self.is_expanded(server, default);
         let indicator = match (config.sidebar.position, is_expanded) {
             (
                 data::config::sidebar::Position::Left

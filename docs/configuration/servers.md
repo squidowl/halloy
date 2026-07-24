@@ -9,6 +9,33 @@ Examples can be found in the following guides:
 - [Connect with soju](../guides/connect-with-soju.md)
 - [Connect with ZNC](../guides/connect-with-znc.md)
 
+## `networks`
+
+Use `networks` to change settings for individual networks on a bouncer.
+
+```toml
+# Type: map of network names to server settings
+# Default: not set
+
+[servers.home.networks.libera.filters]
+ignore = ["Guest9702"]
+```
+
+Here, `home` is the server name and `libera` is the network name from
+the bouncer. Network names are not case-sensitive.
+
+The network uses the settings from `[servers.home]` unless you override them.
+
+You can override:
+
+`filters`, `reroute`, `channels`, `order_channels_by`, `queries`, `umodes`,
+`on_connect`, `who_poll_enabled`, `monitor`, `automated_chathistory`,
+`confirm_message_delivery`, `typing`, `metadata`, `icon`,
+`sidebar_visibility`
+
+See [Connect with soju](../guides/connect-with-soju.md#configure-individual-networks)
+for an example.
+
 ## `nickname`
 
 The client's nickname.

@@ -230,8 +230,18 @@ impl Sidebar {
                                      state: &client::State|
          -> Option<SidebarBufferGroup> {
             let casemapping = clients.get_server_casemapping_or_default(server);
+            let server_config = servers.get(server);
+            let server_icon_enabled = server_config
+                .as_ref()
+                .is_some_and(|config| config.icon.enabled);
+            let server_sidebar_visibility = server_config
+                .as_ref()
+                .map_or_else(SidebarVisibility::default, |config| {
+                    config.sidebar_visibility
+                });
 
-            let is_collapsed = !self.collapse.is_expanded(config, server);
+            let is_collapsed =
+                !self.collapse.is_expanded(server, server_sidebar_visibility);
 
             match state {
                 data::client::State::Disconnected {
@@ -255,6 +265,8 @@ impl Sidebar {
                             },
                             has_collapsible_buffers: false,
                             casemapping,
+                            server_icon_enabled,
+                            server_sidebar_visibility,
                         }
                     })
                 }
@@ -345,6 +357,8 @@ impl Sidebar {
                             },
                             has_collapsible_buffers,
                             casemapping,
+                            server_icon_enabled,
+                            server_sidebar_visibility,
                         }
                     })
                 }
@@ -873,6 +887,8 @@ impl Sidebar {
                         connection_status,
                         has_collapsible_buffers,
                         casemapping,
+                        server_icon_enabled,
+                        server_sidebar_visibility,
                     } => {
                         let server_has_unread =
                             history.server_has_unread(&server);
@@ -894,6 +910,8 @@ impl Sidebar {
                                 server_has_unread,
                                 supports_detach,
                                 casemapping,
+                                server_icon_enabled,
+                                server_sidebar_visibility,
                                 history,
                                 width,
                                 theme,
@@ -1041,6 +1059,8 @@ enum SidebarBufferGroup {
         connection_status: ConnectionStatus,
         casemapping: isupport::CaseMap,
         has_collapsible_buffers: bool,
+        server_icon_enabled: bool,
+        server_sidebar_visibility: SidebarVisibility,
     },
     Internal {
         visible_buffers: Vec<InternalBufferSidebarData>,
@@ -1397,6 +1417,8 @@ struct UpstreamButtonContext<'a> {
     server_has_unread: bool,
     supports_detach: bool,
     casemapping: isupport::CaseMap,
+    server_icon_enabled: bool,
+    server_sidebar_visibility: SidebarVisibility,
     history: &'a history::Manager,
     width: Length,
     theme: &'a Theme,
@@ -1517,6 +1539,8 @@ fn upstream_buffer_button<'a>(
         connection_status,
         server_has_collapsible_buffers,
         casemapping,
+        server_icon_enabled,
+        server_sidebar_visibility,
         history,
         width,
         theme,
@@ -1576,10 +1600,7 @@ fn upstream_buffer_button<'a>(
     let icon = if dimensions.icon_size > 0
         && let buffer::Upstream::Server(server) = buffer
     {
-        if config
-            .servers
-            .get(server)
-            .is_some_and(|server_config| server_config.icon.enabled)
+        if *server_icon_enabled
             && let Some(server_icon) = server_icons.get(server)
         {
             Some(Icon::Upstream(server_icon))
@@ -1676,6 +1697,7 @@ fn upstream_buffer_button<'a>(
         collapse.disclosure(
             config,
             server,
+            *server_sidebar_visibility,
             connection_status,
             *server_has_collapsible_buffers,
             font_size.max(sidebar_icon_height as f32),
@@ -1813,6 +1835,7 @@ fn upstream_buffer_context_menu<'a>(
         history,
         theme,
         collapse,
+        server_sidebar_visibility,
         ..
     } = context;
 
@@ -1974,7 +1997,8 @@ fn upstream_buffer_context_menu<'a>(
                 },
                 Entry::ToggleCollapse => {
                     let server = buffer.server();
-                    let is_expanded = collapse.is_expanded(config, server);
+                    let is_expanded =
+                        collapse.is_expanded(server, server_sidebar_visibility);
                     (
                         if is_expanded {
                             "Collapse server"

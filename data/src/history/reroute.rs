@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use crate::user::Nick;
 use crate::{
@@ -70,7 +69,7 @@ impl RerouteRules {
     pub fn sync_isupport(
         &mut self,
         server: &Server,
-        config: Arc<config::Server>,
+        config: &config::Server,
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,

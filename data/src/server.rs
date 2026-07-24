@@ -340,8 +340,9 @@ impl ConfigMap {
         self.0.iter()
     }
 
-    pub fn get(&self, server: &Server) -> Option<Arc<config::Server>> {
-        self.0.get(&server.name).cloned()
+    /// Returns a configured parent server.
+    pub fn get(&self, server: &ServerName) -> Option<Arc<config::Server>> {
+        self.0.get(server).cloned()
     }
 }
 
