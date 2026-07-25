@@ -27,7 +27,8 @@ pub struct Sidebar {
     #[serde(
         deserialize_with = "deserialize_primary_icon",
         alias = "server_icon",
-        alias = "server_icon_size"
+        alias = "server_icon_size",
+        alias = "primary_icon_size"
     )]
     pub primary_icon: PrimaryIcon,
     #[serde(alias = "server_font_size")]

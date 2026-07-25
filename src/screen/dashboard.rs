@@ -383,7 +383,6 @@ impl Dashboard {
                                 &mut self.history,
                                 &self.previews,
                                 &mut self.file_transfers,
-                                main_window,
                                 config,
                             );
 
@@ -550,7 +549,6 @@ impl Dashboard {
                                         &mut self.history,
                                         &self.previews,
                                         &mut self.file_transfers,
-                                        main_window,
                                         config,
                                     );
 
