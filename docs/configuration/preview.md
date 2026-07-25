@@ -369,7 +369,7 @@ include = { users = ["BridgeBot"] }
 Settings to control how the image cache is managed. The cache is stored in:
 
 - Windows: `%AppData%\Roaming\Local\halloy\previews\images\`
-- Mac: `~/Library/Caches/halloy/previews/images/` or `$HOME/.cache/halloy/previews/images/`
+- macOS: `~/Library/Caches/halloy/previews/images/` or `$HOME/.cache/halloy/previews/images/`
 - Linux: `$XDG_CACHE_HOME/halloy/previews/images/`, `$HOME/.cache/halloy/previews/images/`, or `$HOME/.var/app/org.squidowl.halloy/cache/halloy/previews/images/` (Flatpak)
 
 ### `max_size`

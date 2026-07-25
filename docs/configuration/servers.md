@@ -1238,7 +1238,7 @@ do_not_request = [ "labeled-response" ]
 Logs of **all** IRC messages received from and sent to and the server (logged messages may contain sensitive information and will be stored in plain text).  Log files can be found in:
 
 * Windows: `%AppData%\Roaming\halloy\irc_protocol_logs\<name>\`
-* Mac: `~/Library/Application Support/halloy/irc_protocol_logs/<name>/` or `$HOME/.local/share/halloy/irc_protocol_logs/<name>/`
+* macOS: `~/Library/Application Support/halloy/irc_protocol_logs/<name>/` or `$HOME/.local/share/halloy/irc_protocol_logs/<name>/`
 * Linux: `$XDG_DATA_HOME/halloy/irc_protocol_logs/<name>/`, `$HOME/.local/share/halloy/irc_protocol_logs/<name>/`, or `$HOME/.var/app/org.squidowl.halloy/data/halloy/irc_protocol_logs/<name>/` (Flatpak)
 
 ::: warning
