@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2026.8 (2026-07-24)
+
 Added:
 
 - Channel Monitor internal buffer for viewing messages from all joined channels
