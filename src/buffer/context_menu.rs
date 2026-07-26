@@ -418,6 +418,12 @@ impl Entry {
                 list.push(Entry::SendFile);
             }
 
+            list.extend([
+                Entry::HorizontalRule,
+                Entry::CtcpRequestVersion,
+                Entry::CtcpRequestTime,
+            ]);
+
             list
         }
     }

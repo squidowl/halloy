@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- CTCP actions to private message context menus
+
 # 2026.8 (2026-07-24)
 
 Added:
