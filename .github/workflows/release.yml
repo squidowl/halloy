@@ -20,7 +20,7 @@ jobs:
             os: macos-latest
             make: bash scripts/build-macos.sh
             artifact_path: |
-              echo "ARTIFACT_PATH=target/packaging/macos/halloy.dmg" >> "$GITHUB_ENV"
+              echo "ARTIFACT_PATH=target/packaging/halloy.dmg" >> "$GITHUB_ENV"
           - target: windows
             os: windows-latest
             artifact_path: |
