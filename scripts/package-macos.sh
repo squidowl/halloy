@@ -11,10 +11,13 @@ if [ "$VERSION" = "$NIGHTLY" ]; then
 else
   DMG_NAME="halloy.dmg"
 fi
-DMG_DIR="$RELEASE_DIR/macos"
+DMG_DIR="$RELEASE_DIR"
 
 # package dmg
 echo "Packing disk image..."
-ln -sf /Applications "$DMG_DIR/Applications"
+# Remove disk images restored from caches created before DMG output was moved
+# outside the source directory.
+rm -f "$APP_DIR/halloy.dmg" "$APP_DIR/halloy-nightly.dmg"
+ln -sf /Applications "$APP_DIR/Applications"
 hdiutil create "$DMG_DIR/$DMG_NAME" -volname "Halloy" -fs HFS+ -srcfolder "$APP_DIR" -ov -format UDZO
-echo "Packed '$APP_NAME' in '$APP_DIR'"
+echo "Packed '$APP_NAME' in '$DMG_DIR/$DMG_NAME'"
