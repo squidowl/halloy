@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- Remember sidebar visibility
+
 # 2026.8 (2026-07-24)
 
 Added:

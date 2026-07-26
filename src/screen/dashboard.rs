@@ -133,7 +133,7 @@ impl Dashboard {
         let (main_panes, pane) =
             pane_grid::State::new(Pane::new(Buffer::Empty));
 
-        let (sidebar, sidebar_task) = Sidebar::new();
+        let (sidebar, sidebar_task) = Sidebar::new(false);
 
         let mut dashboard = Dashboard {
             panes: Panes {
@@ -1178,7 +1178,7 @@ impl Dashboard {
                         }
                     }
                     ToggleSidebar => {
-                        self.side_menu.toggle_visibility();
+                        self.toggle_sidebar();
                     }
                     CommandBar => {
                         return (
@@ -3001,7 +3001,7 @@ impl Dashboard {
                     (window::toggle_fullscreen(), Some(Event::ToggleFullscreen))
                 }
                 command_bar::Application::ToggleSidebarVisibility => {
-                    self.side_menu.toggle_visibility();
+                    self.toggle_sidebar();
                     (Task::none(), None)
                 }
             },
@@ -4500,6 +4500,11 @@ impl Dashboard {
         }
     }
 
+    fn toggle_sidebar(&mut self) {
+        self.side_menu.toggle_visibility();
+        self.last_changed = Some(Instant::now());
+    }
+
     fn open_command_bar(
         &mut self,
         servers: &server::Map,
@@ -4712,7 +4717,7 @@ impl Dashboard {
                 }
             });
 
-        let (sidebar, sidebar_task) = Sidebar::new();
+        let (sidebar, sidebar_task) = Sidebar::new(data.sidebar.is_hidden());
 
         let mut dashboard = Self {
             panes,
@@ -5346,6 +5351,11 @@ impl<'a> From<&'a Dashboard> for data::Dashboard {
                     .then_some(state.buffer.data())
                     .flatten()
             }),
+            sidebar: if dashboard.side_menu.hidden {
+                data::dashboard::Sidebar::Hidden
+            } else {
+                data::dashboard::Sidebar::Visible
+            },
         }
     }
 }

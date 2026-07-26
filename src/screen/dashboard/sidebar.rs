@@ -106,10 +106,10 @@ pub struct Sidebar {
 }
 
 impl Sidebar {
-    pub fn new() -> (Self, Task<Message>) {
+    pub fn new(hidden: bool) -> (Self, Task<Message>) {
         (
             Self {
-                hidden: false,
+                hidden,
                 collapse: collapse::State::default(),
                 reloading_config: false,
                 system_information: None,
