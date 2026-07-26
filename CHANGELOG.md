@@ -12,6 +12,11 @@ Added:
 Fixed:
 
 - Remove blank space above the input after marking a buffer as read
+- User avatars are only shown when `avatar` is included in `metadata.preferred_keys`
+
+Changed:
+
+- User avatars are configurable with `metadata.avatar.size`
 
 Thanks:
 
