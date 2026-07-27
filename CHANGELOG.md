@@ -13,6 +13,7 @@ Added:
   (`buffer.text_input.autocomplete.include_ignored`)
 - Optional `font.code` setting for code-formatted text
 - Settings to control how internal and server buffers are opened from the sidebar (`actions.sidebar.internal` and `actions.sidebar.server`)
+- `buffer.nickname.offline` supports `"dimmed"` / `{ dimmed = float }`, and `{ color = "theme"|"nickname", alpha = ...}` so theme offline color and dimming can be combined
 
 Fixed:
 
@@ -30,6 +31,7 @@ Changed:
 - Ensure Theme Editor appends a `.toml` extension when saving a theme without one
 - Right-aligned nickname columns now size to nearby messages instead of the entire loaded history
 - The XDG data directory `~/.local/share/halloy` can be used for storing history/logs/etc macOS, instead of `~/Library/Application Support/halloy/` (move entire directory to migrate)
+- Offline nicknames are styled only by `buffer.nickname.offline`; `buffer.nickname.away` no longer applies to them
 
 Thanks:
 

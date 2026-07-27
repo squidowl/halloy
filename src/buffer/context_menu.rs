@@ -1454,17 +1454,13 @@ fn user_info<'a>(
         ),
     };
 
-    // Dimmed if away or offline.
     let is_user_away = config
         .buffer
         .nickname
         .away
-        .is_away(current_user.is_none_or(User::is_away));
-    let is_user_offline = config
-        .buffer
-        .nickname
-        .offline
-        .is_offline(current_user.is_none());
+        .is_away(current_user.is_some_and(User::is_away));
+    let user_offline = current_user.is_none();
+    let is_user_offline = config.buffer.nickname.offline.style(user_offline);
     let style = theme::text::nickname(
         theme,
         &config.buffer.nickname.color,
@@ -1474,7 +1470,7 @@ fn user_info<'a>(
     );
 
     let nickname = text(nickname.to_string()).style(move |_| style).font_maybe(
-        theme::font_style::nickname(theme, is_user_offline).map(font::get),
+        theme::font_style::nickname(theme, user_offline).map(font::get),
     );
 
     column![

@@ -7,6 +7,7 @@ use serde::{Deserialize, Deserializer};
 
 pub use self::channel::{Channel, ChannelNameCasing};
 pub use self::hide_consecutive::{HideConsecutive, HideConsecutiveEnabled};
+pub use self::nickname::Offline;
 pub use self::redaction::Redaction;
 pub use self::typing::{Animation, Style, Typing};
 pub use crate::appearance::theme::{alpha_color, alpha_color_calculate};
@@ -391,24 +392,24 @@ where
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum Away {
+pub enum Alpha {
     Dimmed(Dimmed),
     None,
 }
 
-impl Away {
-    pub fn is_away(&self, is_user_away: bool) -> Option<Away> {
+impl Alpha {
+    pub fn is_away(&self, is_user_away: bool) -> Option<Alpha> {
         is_user_away.then_some(*self)
     }
 }
 
-impl Default for Away {
+impl Default for Alpha {
     fn default() -> Self {
-        Away::Dimmed(Dimmed::default())
+        Alpha::Dimmed(Dimmed::default())
     }
 }
 
-impl<'de> Deserialize<'de> for Away {
+impl<'de> Deserialize<'de> for Alpha {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -421,6 +422,7 @@ impl<'de> Deserialize<'de> for Away {
         }
 
         #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
         struct DimmedStruct {
             dimmed: Option<f32>,
         }
@@ -428,16 +430,16 @@ impl<'de> Deserialize<'de> for Away {
         let repr = AppearanceRepr::deserialize(deserializer)?;
         match repr {
             AppearanceRepr::String(s) => match s.as_str() {
-                "dimmed" => Ok(Away::Dimmed(Dimmed {
+                "dimmed" => Ok(Alpha::Dimmed(Dimmed {
                     enabled: true,
                     alpha: None,
                 })),
-                "solid" | "none" => Ok(Away::None),
+                "solid" | "none" => Ok(Alpha::None),
                 _ => Err(serde::de::Error::custom(format!(
                     "unknown appearance: {s}",
                 ))),
             },
-            AppearanceRepr::Struct(s) => Ok(Away::Dimmed(Dimmed {
+            AppearanceRepr::Struct(s) => Ok(Alpha::Dimmed(Dimmed {
                 enabled: true,
                 alpha: s.dimmed,
             })),

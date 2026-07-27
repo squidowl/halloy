@@ -814,16 +814,36 @@ color = { palette = ["#B11E3A", "#2A7FFF", "#1E9E5A"] }
 
 ### `offline`
 
-Controls the appearance of offline nicknames.
+Controls the color of offline nicknames. Can combine a color source with dimming (same alpha options as [`away`](#away)). The "(Offline)" label is independent of this setting.
 
 ```toml
 # Type: string or object
-# Values: "solid" or "none"
+# Values: "solid", "dimmed", "none", { dimmed = float }, or { color = "...", alpha = "..." }
 # Default: "solid"
+#
+# color: "theme" (theme nickname_offline, else nick color) or "nickname" (keep nick color)
+# alpha: same as away - "dimmed", "none", or { dimmed = float }
+
 [buffer.nickname]
 offline = "solid"
+# same as { color = "theme", alpha = "none" }
 
-# no offline indication
+[buffer.nickname]
+offline = "dimmed"
+# same as { color = "nickname", alpha = "dimmed" }
+
+[buffer.nickname]
+offline = { dimmed = 0.5 }
+# same as { color = "nickname", alpha = { dimmed = 0.5 } }
+
+# theme offline color and dim together
+[buffer.nickname]
+offline = { color = "theme", alpha = "dimmed" }
+
+[buffer.nickname]
+offline = { color = "theme", alpha = { dimmed = 0.5 } }
+
+# no offline color styling
 [buffer.nickname]
 offline = "none"
 ```

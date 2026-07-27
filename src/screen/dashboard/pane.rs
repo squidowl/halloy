@@ -837,14 +837,13 @@ fn query_title<'a>(
         .nickname
         .away
         .is_away(current_user.is_some_and(User::is_away));
-    let is_user_offline = config.buffer.nickname.offline.is_offline(
-        shared_channels.is_empty()
-            && !clients
-                .client(server)
-                .is_some_and(|client| client.is_monitored_user_online(&user)),
-    );
+    let user_offline = shared_channels.is_empty()
+        && !clients
+            .client(server)
+            .is_some_and(|client| client.is_monitored_user_online(&user));
+    let is_user_offline = config.buffer.nickname.offline.style(user_offline);
 
-    let state = if is_user_offline {
+    let state = if user_offline {
         Some(
             container(
                 text("(Offline)").style(theme::text::secondary).font_maybe(
@@ -868,7 +867,7 @@ fn query_title<'a>(
             )
         })
         .font_maybe(
-            theme::font_style::nickname(theme, is_user_offline).map(font::get),
+            theme::font_style::nickname(theme, user_offline).map(font::get),
         )
         .shaping(text::Shaping::Advanced)
         .wrapping(Wrapping::None)
