@@ -746,7 +746,7 @@ pub fn view<'a>(
         }
     };
 
-    let divider = if show_backlog_divider {
+    let divider = show_backlog_divider.then(|| {
         match &config.buffer.backlog_separator.text {
             data::buffer::BacklogText::Hidden => row![
                 container(rule::horizontal(1).style(theme::rule::backlog))
@@ -772,22 +772,46 @@ pub fn view<'a>(
             .padding(2)
             .align_y(iced::Alignment::Center),
         }
-    } else {
-        row![]
-    };
+    });
+
+    // Only push parts that render something. `Column::push` skips void
+    // children, but an empty `row![]` or `column()` is not void, so it still
+    // claims a `spacing(line_spacing)` gap. Once a buffer is marked as read the
+    // divider and the `new` column both empty out, stranding that spacing at
+    // the end as blank space above the input.
+    let mut content_column = widget::Column::new()
+        .padding(padding::bottom(reserved_bottom_padding))
+        .spacing(line_spacing);
+
+    if let Some(top_row) = top_row {
+        content_column = content_column.push(top_row);
+    }
+
+    if let Some(top_spacer) = top_spacer {
+        content_column = content_column.push(top_spacer);
+    }
+
+    if !old.is_empty() {
+        content_column =
+            content_column.push(column(old).spacing(line_spacing));
+    }
+
+    if let Some(divider) = divider {
+        content_column =
+            content_column.push(keyed(keyed::Key::Divider, divider));
+    }
+
+    if !new.is_empty() {
+        content_column =
+            content_column.push(column(new).spacing(line_spacing));
+    }
+
+    if let Some(bottom_spacer) = bottom_spacer {
+        content_column = content_column.push(bottom_spacer);
+    }
 
     let content = sensor(
-        column![
-            top_row,
-            top_spacer,
-            column(old).spacing(line_spacing),
-            keyed(keyed::Key::Divider, divider),
-            column(new).spacing(line_spacing),
-            bottom_spacer,
-            space::vertical().height(line_spacing),
-        ]
-        .padding(padding::bottom(reserved_bottom_padding))
-        .spacing(line_spacing),
+        content_column.push(space::vertical().height(line_spacing)),
     )
     .on_resize(Message::ContentResized);
 
