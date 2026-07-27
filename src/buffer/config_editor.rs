@@ -265,6 +265,10 @@ pub fn view<'a>(
     config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
+    let file_path = text(format!("{}", Config::path().display()))
+        .style(theme::text::secondary)
+        .font_maybe(theme::font_style::secondary(theme).map(font::get));
+
     let cursor = state.content.cursor();
     let position = text(format!(
         "{}:{}",
@@ -297,11 +301,15 @@ pub fn view<'a>(
             .into()
     };
 
-    let mut info =
-        row![position, error_or_section, Space::new().width(Length::Fill)]
-            .spacing(8)
-            .padding(padding::bottom(6))
-            .align_y(iced::Alignment::Center);
+    let mut info = row![
+        file_path,
+        position,
+        error_or_section,
+        Space::new().width(Length::Fill)
+    ]
+    .spacing(8)
+    .padding(padding::bottom(6))
+    .align_y(iced::Alignment::Center);
 
     let dirty_indicator: Element<'a, Message> = if state.dirty {
         tooltip(
