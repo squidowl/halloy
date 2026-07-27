@@ -175,10 +175,16 @@ impl Dashboard {
     }
 
     pub fn restore(
-        dashboard: data::Dashboard,
+        mut dashboard: data::Dashboard,
         config: &Config,
         main_window: &Window,
     ) -> (Self, Task<Message>) {
+        if !config.pane.restore_on_launch {
+            dashboard.pane = data::Pane::Empty;
+            dashboard.popout_panes.clear();
+            dashboard.focus_buffer = None;
+        }
+
         let (mut dashboard, task) =
             Dashboard::from_data(dashboard, config, main_window);
 
