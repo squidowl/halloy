@@ -1,5 +1,9 @@
 # Unreleased
 
+Fixed:
+
+- Remove blank space above the input after marking a buffer as read
+
 # 2026.8 (2026-07-24)
 
 Added:

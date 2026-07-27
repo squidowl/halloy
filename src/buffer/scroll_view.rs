@@ -792,8 +792,7 @@ pub fn view<'a>(
     }
 
     if !old.is_empty() {
-        content_column =
-            content_column.push(column(old).spacing(line_spacing));
+        content_column = content_column.push(column(old).spacing(line_spacing));
     }
 
     if let Some(divider) = divider {
@@ -802,18 +801,16 @@ pub fn view<'a>(
     }
 
     if !new.is_empty() {
-        content_column =
-            content_column.push(column(new).spacing(line_spacing));
+        content_column = content_column.push(column(new).spacing(line_spacing));
     }
 
     if let Some(bottom_spacer) = bottom_spacer {
         content_column = content_column.push(bottom_spacer);
     }
 
-    let content = sensor(
-        content_column.push(space::vertical().height(line_spacing)),
-    )
-    .on_resize(Message::ContentResized);
+    let content =
+        sensor(content_column.push(space::vertical().height(line_spacing)))
+            .on_resize(Message::ContentResized);
 
     correct_viewport(
         Scrollable::new(container(content).width(Length::Fill).padding([0, 8]))
