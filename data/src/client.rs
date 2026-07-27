@@ -369,6 +369,13 @@ impl Client {
                 }
             }
 
+            if self.connection_role() == ConnectionRole::BouncerControl
+                && config.reenables_bouncer_network(&self.config)
+            {
+                let _ =
+                    self.handle.try_send(command!("BOUNCER", "LISTNETWORKS"));
+            }
+
             // TODO: allow from_modal when modal matching to bouncer networks is added.
             if !self.capabilities.acknowledged(Capability::BouncerNetworks)
                 || config.do_not_request.contains(&Capability::BouncerNetworks)
@@ -1349,8 +1356,11 @@ impl Client {
                 }
 
                 let network = BouncerNetwork::parse(netid, network)?;
-                let network_config =
-                    self.config.bouncer_network_config(&network);
+                let Some(network_config) =
+                    self.config.bouncer_network_config(&network)
+                else {
+                    return Ok(vec![]);
+                };
                 return Ok(vec![Event::BouncerNetwork(
                     Server {
                         network: Some(network.into()),

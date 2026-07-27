@@ -236,11 +236,11 @@ impl Server {
         }
     }
 
-    /// Returns the config for a bouncer network.
+    /// Returns the config for an enabled bouncer network.
     pub fn bouncer_network_config(
         &self,
         network: &BouncerNetwork,
-    ) -> Arc<Self> {
+    ) -> Option<Arc<Self>> {
         let mut config = self.bouncer_network_defaults();
 
         if let Some((_, overrides)) = self
@@ -248,10 +248,25 @@ impl Server {
             .iter()
             .find(|(name, _)| name.eq_ignore_ascii_case(&network.name))
         {
+            if !overrides.enabled() {
+                return None;
+            }
+
             overrides.apply(&mut config);
         }
 
-        Arc::new(config)
+        Some(Arc::new(config))
+    }
+
+    pub(crate) fn reenables_bouncer_network(&self, old: &Self) -> bool {
+        old.networks.iter().any(|(name, old)| {
+            !old.enabled()
+                && self
+                    .networks
+                    .iter()
+                    .find(|(new_name, _)| new_name.eq_ignore_ascii_case(name))
+                    .is_none_or(|(_, new)| new.enabled())
+        })
     }
 
     fn bouncer_network_defaults(&self) -> Self {
@@ -941,18 +956,24 @@ mod tests {
             should_ghost = true
 
             [networks.libera]
+            enabled = true
             channels = ["#rust"]
 
             [networks.libera.filters]
             ignore = ["Guest9702"]
+
+            [networks.quakenet]
+            enabled = false
             "##,
         )
         .unwrap();
 
-        let network_config = config.bouncer_network_config(&BouncerNetwork {
-            id: "1".into(),
-            name: "Libera".into(),
-        });
+        let network_config = config
+            .bouncer_network_config(&BouncerNetwork {
+                id: "1".into(),
+                name: "Libera".into(),
+            })
+            .unwrap();
 
         assert_eq!(network_config.server, "bouncer.example.org");
         assert_eq!(network_config.channels[0].name, "#rust");
@@ -960,5 +981,14 @@ mod tests {
         assert!(network_config.nick_password.is_none());
         assert!(network_config.channel_keys.is_empty());
         assert!(!network_config.should_ghost);
+
+        assert!(
+            config
+                .bouncer_network_config(&BouncerNetwork {
+                    id: "2".into(),
+                    name: "QuakeNet".into(),
+                })
+                .is_none()
+        );
     }
 }

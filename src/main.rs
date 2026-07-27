@@ -1618,8 +1618,21 @@ impl Halloy {
                                 continue;
                             };
 
-                            let network_config =
-                                config.bouncer_network_config(network);
+                            let Some(network_config) =
+                                config.bouncer_network_config(network)
+                            else {
+                                self.controllers.end(
+                                    &bouncer_network,
+                                    &updated
+                                        .buffer
+                                        .commands
+                                        .quit
+                                        .default_reason,
+                                );
+                                self.servers.remove(&bouncer_network);
+                                self.clients.remove(&bouncer_network);
+                                continue;
+                            };
 
                             if let Some(existing) =
                                 self.servers.get_mut(&bouncer_network)

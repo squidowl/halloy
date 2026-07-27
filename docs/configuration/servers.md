@@ -26,11 +26,15 @@ the bouncer. Network names are not case-sensitive.
 
 The network uses the settings from `[servers.home]` unless you override them.
 
-You can override:
+You can use `enabled = false` to hide a network and disconnect Halloy from it.
+Changing it back to `true` reconnects the network.
+This does not disable the network on the bouncer.
 
-`filters`, `reroute`, `channels`, `order_channels_by`, `queries`, `umodes`,
-`on_connect`, `who_poll_enabled`, `monitor`, `automated_chathistory`,
-`confirm_message_delivery`, `typing`, `metadata`, `icon`,
+You can also override:
+
+`enabled`, `filters`, `reroute`, `channels`, `order_channels_by`, `queries`,
+`umodes`, `on_connect`, `who_poll_enabled`, `monitor`,
+`automated_chathistory`, `confirm_message_delivery`, `typing`, `metadata`, `icon`,
 `sidebar_visibility`
 
 See [Connect with soju](../guides/connect-with-soju.md#configure-individual-networks)

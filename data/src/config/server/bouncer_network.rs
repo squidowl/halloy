@@ -15,6 +15,7 @@ use crate::metadata;
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[serde(default)]
 pub(crate) struct Overrides {
+    enabled: Option<bool>,
     filters: Option<Filters>,
     reroute: Option<Reroute>,
     channels: Option<Vec<Muteable>>,
@@ -34,6 +35,10 @@ pub(crate) struct Overrides {
 }
 
 impl Overrides {
+    pub(super) fn enabled(&self) -> bool {
+        self.enabled.unwrap_or(true)
+    }
+
     pub(super) fn apply(&self, config: &mut Server) {
         if let Some(value) = &self.filters {
             config.filters = Some(value.clone());
