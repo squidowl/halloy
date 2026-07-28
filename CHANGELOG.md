@@ -10,7 +10,7 @@ Fixed:
 
 Thanks:
 
-- Contributions: @luca020400
+- Contributions: @rollecode, @luca020400
 
 # 2026.8 (2026-07-24)
 
