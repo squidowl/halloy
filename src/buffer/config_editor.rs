@@ -301,14 +301,13 @@ pub fn view<'a>(
             .into()
     };
 
-    let mut info = row![
+    let first_row = row![
         file_path,
+        Space::new().width(Length::Fill),
+        Space::new().width(Length::Fill),
         position,
-        error_or_section,
-        Space::new().width(Length::Fill)
     ]
     .spacing(8)
-    .padding(padding::bottom(6))
     .align_y(iced::Alignment::Center);
 
     let dirty_indicator: Element<'a, Message> = if state.dirty {
@@ -322,11 +321,19 @@ pub fn view<'a>(
         Space::new().into()
     };
 
-    info = info.push(
+    let second_row = row![
+        error_or_section,
+        Space::new().width(Length::Fill),
         container(dirty_indicator)
             .width(12)
             .align_x(iced::Alignment::Center),
-    );
+    ]
+    .spacing(8)
+    .align_y(iced::Alignment::Center);
+
+    let info = column![first_row, second_row]
+        .spacing(4)
+        .padding(padding::bottom(6));
 
     let footer = container(
         column![container(rule::horizontal(1)).width(Length::Fill), info]
