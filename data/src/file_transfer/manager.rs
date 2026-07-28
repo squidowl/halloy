@@ -323,8 +323,8 @@ impl Manager {
                             Direction::Sent => "to",
                             Direction::Received => "from",
                         },
-                        &file_transfer.remote_user.nickname(),
-                        &file_transfer.filename,
+                        file_transfer.remote_user.nickname(),
+                        file_transfer.filename,
                         elapsed.as_secs_f32()
                     );
 
@@ -348,8 +348,8 @@ impl Manager {
                             Direction::Sent => "to",
                             Direction::Received => "from",
                         },
-                        &file_transfer.remote_user.nickname(),
-                        &file_transfer.filename,
+                        file_transfer.remote_user.nickname(),
+                        file_transfer.filename,
                     );
                     file_transfer.status = Status::Failed { error };
 

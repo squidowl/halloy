@@ -1329,7 +1329,7 @@ impl Client {
                     bail!(
                         "[{}] Invalid BOUNCER NETWORKS message {:?}",
                         self.server,
-                        &message.command,
+                        message.command,
                     );
                 };
 
