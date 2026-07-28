@@ -42,11 +42,12 @@ Older ZNC or OpenSSL installations may only offer legacy cipher suites that
 are not supported by Halloy's TLS library. A server offering TLS 1.2 is not
 necessarily compatible if the client and server have no cipher suite in
 common. See [TLS compatibility and troubleshooting](/guides/tls) for Halloy's
-TLS defaults and commands that can be used to test a server.
+TLS defaults and commands that can be used to diagnose failed TLS handshakes.
 
 ZNC administrators can configure the accepted cipher suites and protocol
-versions using `SSLCiphers` and `SSLProtocols`. Refer to the official
-[ZNC configuration documentation](https://wiki.znc.in/Configuration) for the
-options supported by the installed ZNC version. Updating ZNC and OpenSSL and
-enabling modern ECDHE cipher suites is recommended instead of weakening the
-client-side TLS requirements.
+versions using global configuration settings `SSLCiphers` and `SSLProtocols`.
+Refer to the official [ZNC configuration
+documentation](https://wiki.znc.in/Configuration) for the options supported by
+the installed ZNC version. The official [ZNC hardening
+documentation](https://wiki.znc.in/HardeningTest) provides further security
+recommendations that are compatible with Halloy.
