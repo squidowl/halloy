@@ -37,3 +37,19 @@ On Windows, entry names are not case-sensitive.
 
 To replace a saved password, remove it from the system store. Halloy asks for
 it again when the configuration is loaded.
+
+### Access in Flatpak
+
+To access keyrings while running in Flatpak, you will need to manually grant your install of
+Halloy access to the system keyring. You can do this by running:
+
+
+```bash
+flatpak override org.squidowl.halloy --talk-name=org.freedesktop.secrets --user
+```
+
+If Halloy Flatpak is installed to the system rather than user:
+
+```bash
+sudo flatpak override org.squidowl.halloy --talk-name=org.freedesktop.secrets --system
+```
