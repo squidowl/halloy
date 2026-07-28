@@ -15,6 +15,7 @@ pub struct Dashboard {
     pub popout_panes: Vec<Pane>,
     pub buffer_settings: BufferSettings,
     pub focus_buffer: Option<Buffer>,
+    pub sidebar: Sidebar,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -69,6 +70,20 @@ impl BufferSettings {
         self.settings
             .entry(buffer.key())
             .or_insert_with(|| maybe_default.unwrap_or_default())
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Sidebar {
+    Hidden,
+    #[default]
+    Visible,
+}
+
+impl Sidebar {
+    pub fn is_hidden(self) -> bool {
+        matches!(self, Self::Hidden)
     }
 }
 
