@@ -46,6 +46,8 @@ The following third party repositories are available for Linux
 winget install squidowl.halloy
 ```
 
+Command-line options for the GitHub Windows installer (`.exe`) are documented in the [Command Line](/guides/command-line) guide.
+
 ### Build from source
 
 Clone the Halloy GitHub repository into a directory of your choice and build with cargo.
