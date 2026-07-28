@@ -3,6 +3,15 @@
 Added:
 
 - Remember sidebar visibility
+- Expanded `servers.<name>.max_connection_attempts` to allow unlimited attempts
+
+Fixed:
+
+- Remove blank space above the input after marking a buffer as read
+
+Thanks:
+
+- Contributions: @rollecode, @luca020400
 
 # 2026.8 (2026-07-24)
 

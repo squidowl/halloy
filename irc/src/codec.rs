@@ -31,7 +31,7 @@ impl Decoder for Codec {
         &mut self,
         src: &mut BytesMut,
     ) -> Result<Option<Self::Item>, Self::Error> {
-        let Some(pos) = src.windows(2).position(|b| b == [b'\r', b'\n']) else {
+        let Some(pos) = src.windows(2).position(|b| b == *b"\r\n") else {
             // Guard against a peer that never sends CRLF: without a cap the framed stream would
             // buffer the "line" without bound, exhausting memory from a single connection.
             if src.len() > MAX_LINE_LENGTH {

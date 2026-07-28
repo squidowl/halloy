@@ -519,6 +519,7 @@ impl Modifiers {
         }
         if inner.contains(keyboard::Modifiers::LOGO) {
             if cfg!(target_os = "macos") {
+                mods.push("cmd");
             } else if cfg!(target_os = "windows") {
                 mods.push("win");
             } else {
