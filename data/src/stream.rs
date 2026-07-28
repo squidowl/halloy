@@ -271,9 +271,11 @@ async fn _run(
 
                                 retry.reset();
 
-                                if connection_attempt
-                                    >= config.max_connection_attempts
-                                {
+                                if config.max_connection_attempts.is_some_and(
+                                    |max_attempts| {
+                                        connection_attempt >= max_attempts
+                                    },
+                                ) {
                                     *autoconnect = false;
                                 }
 
@@ -528,13 +530,12 @@ async fn _run(
                         }
                         Control::Connect(_) | Control::DisableAutoconnect => (),
                         Control::AuthenticationFailed { error } => {
-                            let autoconnect = if connection_attempt
-                                >= config.max_connection_attempts
-                            {
-                                false
-                            } else {
-                                config.autoconnect
-                            };
+                            let autoconnect = config.autoconnect
+                                && config.max_connection_attempts.is_none_or(
+                                    |max_attempt| {
+                                        connection_attempt < max_attempt
+                                    },
+                                );
 
                             let _ =
                                 sender.unbounded_send(Update::Disconnected {
