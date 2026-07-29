@@ -43,6 +43,7 @@ enum NotificationDelayKey {
     Channel(Box<str>),
     Reaction,
     Reply(Box<str>),
+    Script(Box<str>),
 }
 
 impl From<&Notification> for NotificationDelayKey {
@@ -80,6 +81,9 @@ impl From<&Notification> for NotificationDelayKey {
             Notification::Reaction { .. } => NotificationDelayKey::Reaction,
             Notification::Reply { channel, .. } => {
                 NotificationDelayKey::Reply(channel.as_normalized_str().into())
+            }
+            Notification::Script { script, .. } => {
+                NotificationDelayKey::Script(script.as_str().into())
             }
         }
     }
@@ -131,8 +135,25 @@ impl Notifications {
         notification: &Notification,
         server: &Server,
     ) {
+        let default_script_notification = notification::Notification::default();
         let (notification_config, title, subtitle, body, sound_name, buffer) =
             match notification {
+                Notification::Script {
+                    script,
+                    title,
+                    body,
+                } => (
+                    config
+                        .notifications
+                        .scripts
+                        .get(script.as_str())
+                        .unwrap_or(&default_script_notification),
+                    title.to_owned(),
+                    None,
+                    body.to_owned(),
+                    None,
+                    None,
+                ),
                 Notification::Connected => (
                     &config.notifications.connected,
                     "Connected".to_string(),

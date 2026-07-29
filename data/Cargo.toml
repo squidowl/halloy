@@ -15,8 +15,16 @@ path = "src/bin.rs"
 required-features = ["message_tests"]
 
 [features]
+default = ["lua54", "lua-vendored"]
 tor = ["irc/tor"]
 message_tests = ["iced/tokio"]
+lua51 = ["mlua/lua51"]
+lua52 = ["mlua/lua52"]
+lua53 = ["mlua/lua53"]
+lua54 = ["mlua/lua54"]
+luajit = ["mlua/luajit"]
+luajit52 = ["mlua/luajit52"]
+lua-vendored = ["mlua/vendored"]
 
 [dependencies]
 thiserror = { workspace = true }
@@ -75,6 +83,7 @@ mime_guess = "2.0.5"
 any_ascii = "0.3.3"
 idna = "1.1.0"
 unicode-security = "0.1.2"
+mlua = { version = "0.11.4", features = ["send"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 apple-native-keyring-store = { version = "1", default-features = false, features = [

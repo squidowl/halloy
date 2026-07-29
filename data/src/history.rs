@@ -142,6 +142,7 @@ impl Kind {
             Buffer::Internal(buffer::Internal::ChannelMonitor) => {
                 Some(Kind::ChannelMonitor)
             }
+            Buffer::Internal(buffer::Internal::Scripts) => None,
             Buffer::Internal(buffer::Internal::ChannelDiscovery(_)) => None,
             Buffer::Internal(buffer::Internal::ConfigEditor) => None,
         }

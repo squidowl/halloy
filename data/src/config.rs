@@ -30,6 +30,7 @@ pub use self::platform_specific::PlatformSpecific;
 pub use self::preview::Preview;
 pub use self::proxy::Proxy;
 pub use self::runtime::Runtime;
+pub use self::scripts::Scripts;
 pub use self::server::Server;
 pub use self::sidebar::Sidebar;
 pub use self::window::Window;
@@ -64,6 +65,7 @@ pub mod platform_specific;
 pub mod preview;
 pub mod proxy;
 pub mod runtime;
+pub mod scripts;
 pub mod server;
 pub mod sidebar;
 pub mod window;
@@ -92,6 +94,7 @@ pub struct Config {
     pub preview: Preview,
     pub highlights: Highlights,
     pub actions: Actions,
+    pub scripts: Scripts,
     pub ctcp: Ctcp,
     pub display: Display,
     pub logs: Logs,
@@ -123,6 +126,7 @@ impl Default for Config {
             preview: Preview::default(),
             highlights: Highlights::default(),
             actions: Actions::default(),
+            scripts: Scripts::default(),
             ctcp: Ctcp::default(),
             display: Display::default(),
             logs: Logs::default(),
@@ -378,6 +382,17 @@ impl Config {
         dir
     }
 
+    pub fn scripts_dir() -> PathBuf {
+        let dir = Self::config_dir().join("scripts");
+
+        if !dir.exists() {
+            std::fs::create_dir_all(dir.as_path())
+                .expect("expected permissions to create scripts folder");
+        }
+
+        dir
+    }
+
     pub fn path() -> PathBuf {
         Self::config_dir().join(environment::CONFIG_FILE_NAME)
     }
@@ -485,6 +500,7 @@ impl Config {
             pub preview: Preview,
             pub highlights: Highlights,
             pub actions: Actions,
+            pub scripts: Scripts,
             pub ctcp: Ctcp,
             pub display: Display,
             pub logs: Logs,
@@ -516,6 +532,7 @@ impl Config {
                     preview: Preview::default(),
                     highlights: Highlights::default(),
                     actions: Actions::default(),
+                    scripts: Scripts::default(),
                     ctcp: Ctcp::default(),
                     display: Display::default(),
                     logs: Logs::default(),
@@ -558,6 +575,7 @@ impl Config {
             pane,
             highlights,
             actions,
+            scripts,
             ctcp,
             display,
             logs,
@@ -613,6 +631,7 @@ impl Config {
             pane,
             highlights,
             actions,
+            scripts,
             ctcp,
             display,
             logs,

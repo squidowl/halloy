@@ -8,9 +8,16 @@ license.workspace = true
 edition.workspace = true
 
 [features]
-default = ["iosevka-font"]
+default = ["iosevka-font", "lua54", "lua-vendored"]
 iosevka-font = []
 tor = ["data/tor"]
+lua51 = ["data/lua51"]
+lua52 = ["data/lua52"]
+lua53 = ["data/lua53"]
+lua54 = ["data/lua54"]
+luajit = ["data/luajit"]
+luajit52 = ["data/luajit52"]
+lua-vendored = ["data/lua-vendored"]
 
 [workspace]
 members = ["data", "ipc", "irc", "irc/proto"]
@@ -95,7 +102,7 @@ iced = { workspace = true, features = [
 ] }
 percent-encoding = { workspace = true }
 
-data = { version = "0.1.0", path = "data" }
+data = { version = "0.1.0", path = "data", default-features = false }
 ipc = { version = "0.1.0", path = "ipc" }
 irc = { version = "0.1.0", path = "irc" }
 
