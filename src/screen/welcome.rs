@@ -87,7 +87,7 @@ impl Welcome {
             .spacing(1)
             .push(image(self.logo.clone()).width(128))
             .push(space::vertical().height(10))
-            .push(text("Welcome to Halloy!").font(font::MONO_BOLD.clone()))
+            .push(text("Welcome to Halloy!").font(font::PRIMARY_BOLD.clone()))
             .push(space::vertical().height(4))
             .push(text("Halloy is configured through a config file."))
             .push(row![

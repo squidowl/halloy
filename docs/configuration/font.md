@@ -12,11 +12,7 @@ If Halloy is unable to load the specified font, stretch, & weight, an fallback f
 
 ## `family`
 
-Monospaced font family to use.
-
-::: warning
-Variable-weight fonts are not currently supported.
-:::
+Font family to use.
 
 ```toml
 # Type: string
