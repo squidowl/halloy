@@ -21,8 +21,9 @@ Use `networks` to change settings for individual networks on a bouncer.
 ignore = ["Guest9702"]
 ```
 
-Here, `home` is the server name and `libera` is the network name from
-the bouncer. Network names are not case-sensitive.
+Here, `home` is the server name given for the bouncer in Halloy's configuration
+file, and `libera` is the network name as configured on the bouncer. Network
+names are not case-sensitive.
 
 The network uses the settings from `[servers.home]` unless you override them.
 
