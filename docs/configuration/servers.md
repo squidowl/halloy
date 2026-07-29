@@ -26,9 +26,9 @@ the bouncer. Network names are not case-sensitive.
 
 The network uses the settings from `[servers.home]` unless you override them.
 
-You can use `enabled = false` to hide a network and disconnect Halloy from it.
-Changing it back to `true` reconnects the network.
-This does not disable the network on the bouncer.
+You can use `enabled = false` to hide a network and disconnect Halloy from it
+(this does not disable the network on the bouncer). Changing `enabled` back to
+`true` will reconnect Halloy to the network.
 
 You can also override:
 
