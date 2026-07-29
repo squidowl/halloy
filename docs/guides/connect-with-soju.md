@@ -63,7 +63,7 @@ password = "<your-password>"
 ignore = ["Guest9702"]
 ```
 
-`home` is the server name. `libera` is the network name from soju.
+`home` is the locally configured server name for the bouncer, and `libera` is the network name as specified with soju.
 The filter only applies to that network. Other supported settings still come
 from `[servers.home]`.
 
