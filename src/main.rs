@@ -284,11 +284,7 @@ impl Halloy {
             .and_then(Self::modal_for_missing_keyring_password);
         let load_dashboard = |config: &Config| match data::Dashboard::load() {
             Ok(dashboard) => {
-                if config.pane.restore_on_launch {
-                    screen::Dashboard::restore(dashboard, config, &main_window)
-                } else {
-                    screen::Dashboard::empty(&main_window, config)
-                }
+                screen::Dashboard::restore(dashboard, config, &main_window)
             }
             Err(error) => {
                 if data::Dashboard::exists().is_ok_and(|exists| exists) {
