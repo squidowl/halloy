@@ -36,7 +36,21 @@ You can also override:
 `enabled`, `filters`, `reroute`, `channels`, `order_channels_by`, `queries`,
 `umodes`, `on_connect`, `who_poll_enabled`, `monitor`,
 `automated_chathistory`, `confirm_message_delivery`, `typing`, `metadata`, `icon`,
-`sidebar_visibility`
+- `automated_chathistory`
+- `channels`
+- `confirm_message_delivery`
+- `filters`
+- `icon`
+- `metadata`
+- `monitor`
+- `on_connect`
+- `order_channels_by`
+- `queries`
+- `reroute`
+- `sidebar_visibility`
+- `typing`
+- `umodes`
+- `who_poll_enabled`
 
 See [Connect with soju](../guides/connect-with-soju.md#configure-individual-networks)
 for an example.
