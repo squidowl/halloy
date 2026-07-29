@@ -25,9 +25,9 @@ Changed:
 
 Thanks:
 
-- Contributions: @rollecode, @luca020400, @rtmongold
-- Bug reports: sebbu
-- Feature requests: @daniiooo
+- Contributions: @rollecode, @luca020400, @rtmongold, @tranzystorekk, @englut
+- Bug reports: sebbu, @dpedu
+- Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium
 
 # 2026.8 (2026-07-24)
 
