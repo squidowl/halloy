@@ -126,6 +126,7 @@ impl Manager {
             self.server(config),
             Duration::from_secs(config.file_transfer.timeout),
             config.proxy.clone(),
+            config.file_transfer.send_completion_message,
         );
 
         self.items.insert(
@@ -199,6 +200,7 @@ impl Manager {
             self.server(config),
             Duration::from_secs(config.file_transfer.timeout),
             config.proxy.as_ref().cloned(),
+            config.file_transfer.send_completion_message,
         );
 
         // Auto-accept if enabled and save directory is set

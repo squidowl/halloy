@@ -55,6 +55,20 @@ Time (in seconds) to wait before timing out a transfer waiting to be accepted.
 timeout = 300
 ```
 
+## `send_completion_message`
+
+If true, send a PRIVMSG to the remote user when a file transfer completes
+(including the filename and SHA-256 checksum).
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[file_transfer]
+send_completion_message = true
+```
+
 ## `auto_accept`
 
 Configuration for automatically accepting incoming file transfers.

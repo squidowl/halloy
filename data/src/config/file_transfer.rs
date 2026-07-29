@@ -20,6 +20,8 @@ pub struct FileTransfer {
     pub passive: bool,
     /// Time in seconds to wait before timing out a transfer waiting to be accepted.
     pub timeout: u64,
+    /// If true, send a PRIVMSG to the remote user when a file transfer completes.
+    pub send_completion_message: bool,
     /// Auto-accept configuration for incoming file transfers.
     pub auto_accept: AutoAccept,
     pub server: Option<Server>,
@@ -32,6 +34,7 @@ impl Default for FileTransfer {
             save_directory: None,
             passive: true,
             timeout: 60 * 5,
+            send_completion_message: true,
             auto_accept: AutoAccept::default(),
             server: None,
         }

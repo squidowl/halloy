@@ -105,6 +105,7 @@ impl Task {
         server: Option<Server>,
         timeout: Duration,
         proxy: Option<config::Proxy>,
+        send_completion_message: bool,
     ) -> (Handle, impl Stream<Item = Update>) {
         let (action_sender, action_receiver) = mpsc::channel(1);
         let (update_sender, update_receiver) = mpsc::channel(100);
@@ -129,6 +130,7 @@ impl Task {
                         server,
                         timeout,
                         proxy,
+                        send_completion_message,
                     )
                     .await
                     {
@@ -157,6 +159,7 @@ impl Task {
                         server,
                         timeout,
                         proxy,
+                        send_completion_message,
                     )
                     .await
                     {
@@ -217,6 +220,7 @@ async fn receive(
     server: Option<Server>,
     timeout: Duration,
     proxy: Option<config::Proxy>,
+    send_completion_message: bool,
 ) -> Result<(), Error> {
     // Wait for approval
     let Some(Action::Approve { save_to }) = action.next().await else {
@@ -352,13 +356,15 @@ async fn receive(
 
     let sha256 = hex::encode(hasher.finalize());
 
-    let _ = server_handle
-        .send(command!(
-            "PRIVMSG",
-            remote_user.nickname().to_string(),
-            format!("Finished receiving \"{filename}\", sha256: {sha256}")
-        ))
-        .await;
+    if send_completion_message {
+        let _ = server_handle
+            .send(command!(
+                "PRIVMSG",
+                remote_user.nickname().to_string(),
+                format!("Finished receiving \"{filename}\", sha256: {sha256}")
+            ))
+            .await;
+    }
 
     let _ = update
         .send(Update::Finished {
@@ -383,6 +389,7 @@ async fn send(
     server: Option<Server>,
     timeout: Duration,
     proxy: Option<config::Proxy>,
+    send_completion_message: bool,
 ) -> Result<(), Error> {
     let mut file = File::open(path).await?;
     let size = file.metadata().await?.len();
@@ -516,15 +523,17 @@ async fn send(
 
     let sha256 = hex::encode(hasher.finalize());
 
-    let _ = server_handle
-        .send(command!(
-            "PRIVMSG",
-            remote_user.nickname().to_string(),
-            format!(
-                "Finished sending \"{sanitized_filename}\", sha256: {sha256}"
-            )
-        ))
-        .await;
+    if send_completion_message {
+        let _ = server_handle
+            .send(command!(
+                "PRIVMSG",
+                remote_user.nickname().to_string(),
+                format!(
+                    "Finished sending \"{sanitized_filename}\", sha256: {sha256}"
+                )
+            ))
+            .await;
+    }
 
     let _ = update
         .send(Update::Finished {
