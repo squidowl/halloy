@@ -265,6 +265,10 @@ pub fn view<'a>(
     config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
+    let file_path = text(format!("{}", Config::path().display()))
+        .style(theme::text::secondary)
+        .font_maybe(theme::font_style::secondary(theme).map(font::get));
+
     let cursor = state.content.cursor();
     let position = text(format!(
         "{}:{}",
@@ -297,11 +301,14 @@ pub fn view<'a>(
             .into()
     };
 
-    let mut info =
-        row![position, error_or_section, Space::new().width(Length::Fill)]
-            .spacing(8)
-            .padding(padding::bottom(6))
-            .align_y(iced::Alignment::Center);
+    let first_row = row![
+        file_path,
+        Space::new().width(Length::Fill),
+        Space::new().width(Length::Fill),
+        position,
+    ]
+    .spacing(8)
+    .align_y(iced::Alignment::Center);
 
     let dirty_indicator: Element<'a, Message> = if state.dirty {
         tooltip(
@@ -314,11 +321,19 @@ pub fn view<'a>(
         Space::new().into()
     };
 
-    info = info.push(
+    let second_row = row![
+        error_or_section,
+        Space::new().width(Length::Fill),
         container(dirty_indicator)
             .width(12)
             .align_x(iced::Alignment::Center),
-    );
+    ]
+    .spacing(8)
+    .align_y(iced::Alignment::Center);
+
+    let info = column![first_row, second_row]
+        .spacing(4)
+        .padding(padding::bottom(6));
 
     let footer = container(
         column![container(rule::horizontal(1)).width(Length::Fill), info]
