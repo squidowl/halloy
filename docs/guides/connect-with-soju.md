@@ -46,12 +46,37 @@ username = "<your-username>"
 password = "<your-password>"
 ```
 
-If you haven't configured any networks beforehand, you can do so after connecting. Note that you might need to restart Halloy to see newly created networks in the sidebar.
+### Configure individual networks
 
-```sh
-/msg BouncerServ net create -addr irc.libera.chat
+Add a `networks` section when one network needs different settings:
+
+```toml
+[servers.home]
+nickname = "<your-nickname>"
+server = "<your-bouncer-url>"
+
+[servers.home.sasl.plain]
+username = "<your-username>"
+password = "<your-password>"
+
+[servers.home.networks.libera.filters]
+ignore = ["Guest9702"]
 ```
 
+`home` is the locally configured server name for the bouncer, and `libera` is the network name as specified with soju.
+The filter only applies to that network. Other supported settings still come
+from `[servers.home]`.
+
+See [`networks`](../configuration/servers.md#networks) for all supported
+settings.
+
+To add a network to soju after connecting:
+
+```sh
+/msg BouncerServ net create -addr irc.libera.chat -name libera
+```
+
+Restart Halloy if the new network does not appear in the sidebar.
 
 ## Manual per-network configuration (legacy)
 

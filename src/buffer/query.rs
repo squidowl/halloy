@@ -76,11 +76,13 @@ pub fn view<'a>(
     let registry = clients.get_registry(server);
     let query = &state.target;
     let confirm_message_delivery = clients.get_server_supports_echoes(server)
-        && config.servers.get(server).is_some_and(|server_config| {
-            server_config
-                .confirm_message_delivery
-                .is_target_query_included(query, server, casemapping)
-        });
+        && clients
+            .get_server_config(server)
+            .is_some_and(|server_config| {
+                server_config
+                    .confirm_message_delivery
+                    .is_target_query_included(query, server, casemapping)
+            });
     let our_nick = clients.nickname(server);
     let our_user = our_nick.map(|our_nick| User::from(Nick::from(our_nick)));
     let show_typing = clients.get_server_show_typing(server);

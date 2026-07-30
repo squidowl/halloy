@@ -1006,29 +1006,15 @@ impl Halloy {
                     server,
                     updated_config,
                 } => {
+                    // Bouncer networks are updated separately.
                     let events = self.clients.update_config(
                         &server,
-                        updated_config.clone(),
+                        updated_config,
                         false,
                     );
 
-                    let mut bouncer_network_events = vec![];
-
-                    for bouncer_network in
-                        self.servers.get_bouncer_networks(&server)
-                    {
-                        bouncer_network_events.push((
-                            bouncer_network.clone(),
-                            self.clients.update_config(
-                                bouncer_network,
-                                updated_config.bouncer_config().into(),
-                                false,
-                            ),
-                        ));
-                    }
-
                     if let Screen::Dashboard(dashboard) = &mut self.screen {
-                        let commands = handle_client_events(
+                        return handle_client_events(
                             &server,
                             events,
                             dashboard,
@@ -1039,32 +1025,6 @@ impl Halloy {
                             &mut self.controllers,
                             &self.main_window,
                         );
-
-                        if bouncer_network_events.is_empty() {
-                            return commands;
-                        }
-
-                        let mut bouncer_network_commands = vec![];
-
-                        for (bouncer_network, events) in bouncer_network_events
-                        {
-                            bouncer_network_commands.push(
-                                handle_client_events(
-                                    &bouncer_network,
-                                    events,
-                                    dashboard,
-                                    &mut self.clients,
-                                    &self.config,
-                                    &mut self.notifications,
-                                    &mut self.servers,
-                                    &mut self.controllers,
-                                    &self.main_window,
-                                ),
-                            );
-                        }
-
-                        return commands
-                            .chain(Task::batch(bouncer_network_commands));
                     }
 
                     Task::none()
@@ -1652,12 +1612,39 @@ impl Halloy {
                             .collect::<Vec<_>>();
 
                         for bouncer_network in bouncer_networks {
-                            if let Some(bouncer_network) =
+                            let Some(network) =
+                                bouncer_network.network.as_ref()
+                            else {
+                                continue;
+                            };
+
+                            let Some(network_config) =
+                                config.bouncer_network_config(network)
+                            else {
+                                self.controllers.end(
+                                    &bouncer_network,
+                                    &updated
+                                        .buffer
+                                        .commands
+                                        .quit
+                                        .default_reason,
+                                );
+                                self.servers.remove(&bouncer_network);
+                                self.clients.remove(&bouncer_network);
+                                continue;
+                            };
+
+                            if let Some(existing) =
                                 self.servers.get_mut(&bouncer_network)
                             {
-                                *bouncer_network =
-                                    config.bouncer_config().into();
+                                existing.clone_from(&network_config);
                             }
+
+                            self.controllers.update_config(
+                                &bouncer_network,
+                                network_config,
+                                updated.proxy.clone(),
+                            );
                         }
 
                         self.controllers.update_config(
@@ -2065,7 +2052,7 @@ fn handle_client_events(
                 );
             }
             Event::BouncerNetwork(server, server_config) => {
-                servers.insert(server, server_config.into());
+                servers.insert(server, server_config);
 
                 dashboard.set_reroute_rules(servers, clients);
 
@@ -2809,7 +2796,7 @@ fn handle_isupport_param(
             let chantypes = clients.get_server_chantypes_or_default(server);
             let casemapping = clients.get_server_casemapping_or_default(server);
 
-            if let Some(server_config) = config.servers.get(server) {
+            if let Some(server_config) = clients.get_server_config(server) {
                 let reroute_rules = dashboard.get_reroute_rules_mut();
 
                 reroute_rules.sync_isupport(

@@ -181,7 +181,7 @@ pub enum Event {
     MonitoredOnline(Vec<User>),
     MonitoredOffline(Vec<Nick>),
     OnConnect(on_connect::Stream),
-    BouncerNetwork(Server, config::Server),
+    BouncerNetwork(Server, Arc<config::Server>),
     AddToSidebar(target::Query),
     AuthenticationFailed(Option<String>),
     UpdateIcon,
@@ -197,6 +197,17 @@ struct ChatHistoryRequest {
 struct MonitoredUser {
     online: bool,
     automated: bool,
+}
+
+/// How Halloy should use a connection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ConnectionRole {
+    /// A normal IRC connection.
+    Regular,
+    /// Lists and manages a bouncer's networks.
+    BouncerControl,
+    /// A connection to one network on a bouncer.
+    BouncerNetwork,
 }
 
 pub struct Client {
@@ -309,22 +320,16 @@ impl Client {
         }
     }
 
-    // For each bouncer, we reserve a primary (unbound) TCP connection for bouncer communication.
-    // This function returns true if we are that connection.
-    //
-    // The curious reader may wonder why we store the netID twice. The answer is that the netID in
-    // `self.server` is the netID that we are _requesting_, while `resolved_netid` is the netID
-    // that is received. Even if we do not request to be bound to a network, we may be bound
-    // nonetheless. For example, this happens in soju when one uses a `user/network` username.
-    //
-    // If we realize the server we connected to is bound, we could try to update this `Server`
-    // across the halloy structures... but this would be very difficult and error prone. Instead in
-    // this file we simply accept being a non-primary connection and forego any bouncer
-    // communication.
-    //
-    // If !is_primary holds, then resolved_netid and server.bouncer_netid() must match.
-    fn is_primary(&self) -> bool {
-        !self.server.is_bouncer_network() && self.resolved_netid.is_none()
+    fn connection_role(&self) -> ConnectionRole {
+        if !self.capabilities.acknowledged(Capability::BouncerNetworks) {
+            ConnectionRole::Regular
+        } else if self.server.bouncer_netid().is_some()
+            || self.resolved_netid.is_some()
+        {
+            ConnectionRole::BouncerNetwork
+        } else {
+            ConnectionRole::BouncerControl
+        }
     }
 
     pub fn connect(&mut self) -> Result<()> {
@@ -362,6 +367,13 @@ impl Client {
                 for message in group_capability_requests(&requested) {
                     let _ = self.handle.try_send(message);
                 }
+            }
+
+            if self.connection_role() == ConnectionRole::BouncerControl
+                && config.reenables_bouncer_network(&self.config)
+            {
+                let _ =
+                    self.handle.try_send(command!("BOUNCER", "LISTNETWORKS"));
             }
 
             // TODO: allow from_modal when modal matching to bouncer networks is added.
@@ -1320,9 +1332,8 @@ impl Client {
                 }
             }
             Command::BOUNCER(subcommand, params) if subcommand == "NETWORK" => {
-                if !self.is_primary() {
-                    // we should only be receiving bouncer communication on the primary channel. Just for
-                    // safety and future proofing, ignore in bound networks.
+                // Only the bouncer control connection discovers networks.
+                if self.connection_role() != ConnectionRole::BouncerControl {
                     return Ok(vec![]);
                 }
                 let [netid, network] = params.as_slice() else {
@@ -1345,7 +1356,11 @@ impl Client {
                 }
 
                 let network = BouncerNetwork::parse(netid, network)?;
-                let network_config = self.config.bouncer_config();
+                let Some(network_config) =
+                    self.config.bouncer_network_config(&network)
+                else {
+                    return Ok(vec![]);
+                };
                 return Ok(vec![Event::BouncerNetwork(
                     Server {
                         network: Some(network.into()),
@@ -3159,11 +3174,7 @@ impl Client {
                 // Request bouncer networks
                 // TODO(pounce) replace this with "bouncer-networks-notify" after the cap handling
                 // is cleaned up.
-                if self.is_primary()
-                    && self
-                        .capabilities
-                        .acknowledged(Capability::BouncerNetworks)
-                {
+                if self.connection_role() == ConnectionRole::BouncerControl {
                     self.handle
                         .try_send(command!("BOUNCER", "LISTNETWORKS"))?;
                 }
@@ -3212,7 +3223,7 @@ impl Client {
                     })
                     .collect::<Vec<_>>();
 
-                // Send JOIN on non bouncer networks
+                // The bouncer keeps the upstream channel state.
                 if !self.capabilities.acknowledged(Capability::BouncerNetworks)
                 {
                     for message in group_joins(
@@ -3272,10 +3283,7 @@ impl Client {
                     ))))
                     .collect::<Vec<_>>();
 
-                if (!self
-                    .capabilities
-                    .acknowledged(Capability::BouncerNetworks)
-                    || !self.is_primary())
+                if self.connection_role() != ConnectionRole::BouncerControl
                     && matches!(
                         self.features.version_request,
                         VersionRequest::Need(true)
@@ -5360,6 +5368,16 @@ impl Map {
         self.client(server).is_some_and(|client| {
             client.capabilities.acknowledged(Capability::EchoMessage)
         })
+    }
+
+    /// The config used by this server connection.
+    ///
+    /// Unlike `config.servers`, this distinguishes networks on the same bouncer.
+    pub fn get_server_config(
+        &self,
+        server: &Server,
+    ) -> Option<&config::Server> {
+        self.client(server).map(|client| client.config.as_ref())
     }
 
     pub fn get_server_supports_typing(&self, server: &Server) -> bool {

@@ -2,6 +2,7 @@
 
 Added:
 
+- Ability to configure individual bouncer networks with `servers.<name>.networks.<network>`
 - CTCP actions to private message context menus
 - Remember sidebar visibility
 - Expanded `servers.<name>.max_connection_attempts` to allow unlimited attempts

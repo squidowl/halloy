@@ -81,11 +81,13 @@ pub fn view<'a>(
     let registry = clients.get_registry(server);
     let channel = &state.target;
     let confirm_message_delivery = clients.get_server_supports_echoes(server)
-        && config.servers.get(server).is_some_and(|server_config| {
-            server_config
-                .confirm_message_delivery
-                .is_target_channel_included(channel, server, casemapping)
-        });
+        && clients
+            .get_server_config(server)
+            .is_some_and(|server_config| {
+                server_config
+                    .confirm_message_delivery
+                    .is_target_channel_included(channel, server, casemapping)
+            });
     let our_nick: Option<data::user::NickRef<'_>> =
         clients.nickname(&state.server);
 

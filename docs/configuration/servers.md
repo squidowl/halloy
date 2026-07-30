@@ -9,6 +9,52 @@ Examples can be found in the following guides:
 - [Connect with soju](../guides/connect-with-soju.md)
 - [Connect with ZNC](../guides/connect-with-znc.md)
 
+## `networks`
+
+Use `networks` to change settings for individual networks on a bouncer.
+
+```toml
+# Type: map of network names to server settings
+# Default: not set
+
+[servers.home.networks.libera.filters]
+ignore = ["Guest9702"]
+```
+
+Here, `home` is the server name given for the bouncer in Halloy's configuration
+file, and `libera` is the network name as configured on the bouncer. Network
+names are not case-sensitive.
+
+The network uses the settings from `[servers.home]` unless you override them.
+
+You can use `enabled = false` to hide a network and disconnect Halloy from it
+(this does not disable the network on the bouncer). Changing `enabled` back to
+`true` will reconnect Halloy to the network.
+
+You can also override:
+
+`enabled`, `filters`, `reroute`, `channels`, `order_channels_by`, `queries`,
+`umodes`, `on_connect`, `who_poll_enabled`, `monitor`,
+`automated_chathistory`, `confirm_message_delivery`, `typing`, `metadata`, `icon`,
+- `automated_chathistory`
+- `channels`
+- `confirm_message_delivery`
+- `filters`
+- `icon`
+- `metadata`
+- `monitor`
+- `on_connect`
+- `order_channels_by`
+- `queries`
+- `reroute`
+- `sidebar_visibility`
+- `typing`
+- `umodes`
+- `who_poll_enabled`
+
+See [Connect with soju](../guides/connect-with-soju.md#configure-individual-networks)
+for an example.
+
 ## `nickname`
 
 The client's nickname.
