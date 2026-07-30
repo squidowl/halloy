@@ -78,7 +78,7 @@ that connection. Nmap is an alternative that can be used to enumerate the cipher
 suites accepted by a server.  Using the command:
 
 ```sh
-nmap -sV --script ssl-enum-ciphers -p PORT HOST
+nmap -Pn --script ssl-enum-ciphers -p PORT HOST
 ```
 
 Nmap will attempt to enumerate all cipher suites that the server accepts by
