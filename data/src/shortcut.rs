@@ -5,6 +5,8 @@ use std::{fmt, ops};
 use iced_core::keyboard::{self, key};
 use serde::Deserialize;
 
+use crate::list_format;
+
 pub fn shortcut(key_bind: KeyBind, command: Command) -> Shortcut {
     Shortcut { key_bind, command }
 }
@@ -29,8 +31,15 @@ impl KeyBind {
         )
     }
 
+    pub fn key_code(&self) -> Option<&KeyCode> {
+        match self {
+            KeyBind::Bind { key_code, .. } => Some(key_code),
+            KeyBind::Unbind => None,
+        }
+    }
+
     /// Built-in (non-configurable) gestures while a message selection is active
-    pub fn builtin_message_focus(&self) -> Option<MessageFocus> {
+    pub fn builtin_focus_command(&self) -> Option<FocusCommand> {
         let KeyBind::Bind {
             key_code,
             modifiers,
@@ -44,17 +53,15 @@ impl KeyBind {
         }
 
         match &key_code.0 {
-            keyboard::Key::Named(key::Named::ArrowUp) => {
-                Some(MessageFocus::NavigateUp)
-            }
+            keyboard::Key::Named(key::Named::ArrowUp) => Some(FocusCommand::Up),
             keyboard::Key::Named(key::Named::ArrowDown) => {
-                Some(MessageFocus::NavigateDown)
+                Some(FocusCommand::Down)
             }
             keyboard::Key::Named(key::Named::ArrowRight) => {
-                Some(MessageFocus::OpenMenu)
+                Some(FocusCommand::Right)
             }
             keyboard::Key::Named(key::Named::ArrowLeft) => {
-                Some(MessageFocus::OpenNickMenu)
+                Some(FocusCommand::Left)
             }
             _ => None,
         }
@@ -132,7 +139,9 @@ impl<'de> Deserialize<'de> for KeyBinds {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumIter,
+)]
 #[strum(serialize_all = "snake_case")]
 pub enum Command {
     MoveUp,
@@ -170,18 +179,24 @@ pub enum Command {
     OpenConfigFile,
     ShowMutedBuffers,
     HideMutedBuffers,
+    FocusUp,
+    FocusDown,
 }
 
 /// Message-focus actions. Unlike [`Command`], these are matched against live
 /// config in the dashboard (gated on the event being ignored) rather than
 /// dispatched through the shortcut widget, so they don't fire while typing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MessageFocus {
-    NavigateUp,
-    NavigateDown,
-    OpenMenu,
-    OpenNickMenu,
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumIter,
+)]
+#[strum(prefix = "focus_", serialize_all = "snake_case")]
+pub enum FocusCommand {
+    Up,
+    Down,
+    Right,
+    Left,
     Activate,
+    ActivateAlt,
     Reply,
     React,
     Redact,
@@ -236,32 +251,22 @@ impl From<Vec<Command>> for Commands {
 
 impl Commands {
     pub fn as_config_string(&self) -> String {
-        if let Some((last, rest)) = self.0.split_last() {
-            if self.0.len() == 1 {
-                format!("{last}")
-            } else {
-                let mut config_string = String::new();
+        list_format::join(&self.0)
+    }
+}
 
-                if self.0.len() == 2 {
-                    if let Some(command) = rest.first() {
-                        config_string
-                            .push_str(format!("{command} and ").as_str());
-                    }
+#[derive(Debug, Clone, Default)]
+pub struct FocusCommands(Vec<FocusCommand>);
 
-                    config_string.push_str(format!("{last}").as_str());
-                } else {
-                    for command in rest {
-                        config_string.push_str(format!("{command}, ").as_str());
-                    }
+impl From<Vec<FocusCommand>> for FocusCommands {
+    fn from(commands: Vec<FocusCommand>) -> Self {
+        Self(commands)
+    }
+}
 
-                    config_string.push_str(format!("and {last}").as_str());
-                }
-
-                config_string
-            }
-        } else {
-            String::new()
-        }
+impl FocusCommands {
+    pub fn as_config_string(&self) -> String {
+        list_format::join(&self.0)
     }
 }
 
@@ -449,18 +454,45 @@ impl KeyBind {
     default!(open_config_file);
     default!(show_muted_buffers);
     default!(hide_muted_buffers);
-
     default!(focus_up, ArrowUp, ALT);
     default!(focus_down, ArrowDown, ALT);
     default!(focus_left, ArrowLeft, ALT);
     default!(focus_right, ArrowRight, ALT);
-    default!(focus_activate, Enter);
-    default!(focus_activate_space, Space);
-    default!(focus_activate_alt, Enter, SHIFT);
-    default!(focus_activate_alt_space, Space, SHIFT);
-    default!(focus_reply_message, "r", Modifiers::default());
-    default!(focus_react_to_message, "=", Modifiers::default());
-    default!(focus_redact_message, Backspace);
+    pub fn focus_activate() -> Vec<KeyBind> {
+        vec![
+            KeyBind::Bind {
+                key_code: KeyCode(iced_core::keyboard::Key::Named(
+                    iced_core::keyboard::key::Named::Enter,
+                )),
+                modifiers: Modifiers::default(),
+            },
+            KeyBind::Bind {
+                key_code: KeyCode(iced_core::keyboard::Key::Named(
+                    iced_core::keyboard::key::Named::Space,
+                )),
+                modifiers: Modifiers::default(),
+            },
+        ]
+    }
+    pub fn focus_activate_alt() -> Vec<KeyBind> {
+        vec![
+            KeyBind::Bind {
+                key_code: KeyCode(iced_core::keyboard::Key::Named(
+                    iced_core::keyboard::key::Named::Enter,
+                )),
+                modifiers: SHIFT,
+            },
+            KeyBind::Bind {
+                key_code: KeyCode(iced_core::keyboard::Key::Named(
+                    iced_core::keyboard::key::Named::Space,
+                )),
+                modifiers: SHIFT,
+            },
+        ]
+    }
+    default!(focus_reply, "r", Modifiers::default());
+    default!(focus_react, "=", Modifiers::default());
+    default!(focus_redact, Backspace);
 }
 
 impl From<(keyboard::Key, keyboard::Modifiers)> for KeyBind {

@@ -310,19 +310,6 @@ pub fn view<'a>(
                 iced::keyboard::Key::Named(
                     iced::keyboard::key::Named::ArrowUp,
                 ) => {
-                    // A modifier-bearing focus bind (e.g. alt+up) enters
-                    // message focus: let it stay ignored so it reaches the
-                    // global handler rather than recalling history here.
-                    let key_bind = shortcut::KeyBind::from((
-                        key_press.key.clone(),
-                        key_press.modifiers,
-                    ));
-                    if key_bind.has_modifiers()
-                        && config.keyboard.message_focus(&key_bind).is_some()
-                    {
-                        return None;
-                    }
-
                     let cursor_position = state.input_content.cursor().position;
 
                     if cursor_position.line == 0 {
@@ -337,19 +324,6 @@ pub fn view<'a>(
                 iced::keyboard::Key::Named(
                     iced::keyboard::key::Named::ArrowDown,
                 ) => {
-                    // A modifier-bearing focus bind (e.g. alt+down) enters
-                    // message focus: let it stay ignored so it reaches the
-                    // global handler rather than recalling history here.
-                    let key_bind = shortcut::KeyBind::from((
-                        key_press.key.clone(),
-                        key_press.modifiers,
-                    ));
-                    if key_bind.has_modifiers()
-                        && config.keyboard.message_focus(&key_bind).is_some()
-                    {
-                        return None;
-                    }
-
                     let cursor_position = state.input_content.cursor().position;
 
                     if cursor_position.line

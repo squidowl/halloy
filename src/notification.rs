@@ -6,9 +6,8 @@ use data::audio::Sound;
 use data::buffer::{self, Buffer};
 use data::config::actions::NotificationAction;
 use data::config::notification;
-use data::target::join_targets;
 use data::user::Nick;
-use data::{Config, Notification, Server, User};
+use data::{Config, Notification, Server, User, list_format};
 use iced::Task;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
@@ -166,7 +165,9 @@ impl Notifications {
                     }
                     .to_string(),
                     None,
-                    join_targets(targets.iter().map(User::as_str).collect()),
+                    list_format::join(
+                        &targets.iter().map(User::as_str).collect::<Vec<_>>(),
+                    ),
                     None,
                     None,
                 ),
@@ -179,7 +180,9 @@ impl Notifications {
                     }
                     .to_string(),
                     None,
-                    join_targets(targets.iter().map(Nick::as_str).collect()),
+                    list_format::join(
+                        &targets.iter().map(Nick::as_str).collect::<Vec<_>>(),
+                    ),
                     None,
                     None,
                 ),
