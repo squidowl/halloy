@@ -1486,7 +1486,7 @@ impl State {
                             });
                             let last_seen = history.get_last_seen(buffer);
                             let filters =
-                                FilterChain::borrow(history.get_filters());
+                                FilterChain::borrow(history.filters());
                             let is_connected = clients
                                 .get_server_is_connected(buffer.server());
                             let isupport =

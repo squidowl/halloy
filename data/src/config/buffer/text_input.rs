@@ -93,6 +93,7 @@ pub struct Autocomplete {
     pub order_by: OrderBy,
     pub sort_direction: SortDirection,
     pub completion_suffixes: [String; 2],
+    pub include_ignored: bool,
 }
 
 impl Default for Autocomplete {
@@ -101,6 +102,7 @@ impl Default for Autocomplete {
             order_by: OrderBy::default(),
             sort_direction: SortDirection::default(),
             completion_suffixes: [": ".to_string(), " ".to_string()],
+            include_ignored: false,
         }
     }
 }
