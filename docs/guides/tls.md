@@ -5,17 +5,7 @@ provider for TLS connections. TLS 1.2 and TLS 1.3 are enabled, with the
 protocol versions, cipher suites, key exchange groups, and signature
 verification algorithms provided by rustls's secure defaults. The definitive
 listing of the default cipher suites can be found in the [`rustls`
-documentation](https://docs.rs/rustls/latest/rustls/crypto/ring/static.DEFAULT_CIPHER_SUITES.html),
-but for convenience it is reproduced here:
-
-| TLS 1.2                                        | TLS 1.3                        |
-| ---------------------------------------------- | ------------------------------ |
-| TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384        | TLS13_AES_256_GCM_SHA384       |
-| TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256        | TLS13_AES_128_GCM_SHA256       |
-| TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256  | TLS13_CHACHA20_POLY1305_SHA256 |
-| TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384          |                                |
-| TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256          |                                |
-| TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256    |                                |
+documentation](https://docs.rs/rustls/latest/rustls/crypto/ring/static.DEFAULT_CIPHER_SUITES.html).
 
 ## Troubleshooting a TLS handshake
 
@@ -53,23 +43,6 @@ address, then adding `-servername HOST` after `HOST:PORT` may be necessary. This
 option sets the TLS Server Name Indication, informing the server which hostname
 the client is attempting to connect to.
 :::
-
-For TLS 1.2, the following OpenSSL command can be used to check whether the
-server accepts modern ECDHE cipher suites:
-
-```sh
-echo | openssl s_client \
-  -connect HOST:PORT \
-  -tls1_2 \
-  -cipher 'ECDHE+AESGCM:ECDHE+CHACHA20' \
-  -brief
-```
-
-If an unrestricted TLS 1.2 handshake succeeds but the ECDHE-restricted test
-fails, the server may only offer obsolete cipher suites which rustls
-intentionally does not support. If possible, it is recommended that the TLS
-configuration of the IRC server or bouncer be updated to offer modern cipher
-suites.
 
 ### [Nmap](https://nmap.org/)
 
