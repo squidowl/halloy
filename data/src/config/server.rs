@@ -243,11 +243,7 @@ impl Server {
     ) -> Option<Arc<Self>> {
         let mut config = self.bouncer_network_defaults();
 
-        if let Some((_, overrides)) = self
-            .networks
-            .iter()
-            .find(|(name, _)| name.eq_ignore_ascii_case(&network.name))
-        {
+        if let Some(overrides) = self.networks.get(&network.name) {
             if !overrides.enabled() {
                 return None;
             }
@@ -261,11 +257,7 @@ impl Server {
     pub(crate) fn reenables_bouncer_network(&self, old: &Self) -> bool {
         old.networks.iter().any(|(name, old)| {
             !old.enabled()
-                && self
-                    .networks
-                    .iter()
-                    .find(|(new_name, _)| new_name.eq_ignore_ascii_case(name))
-                    .is_none_or(|(_, new)| new.enabled())
+                && self.networks.get(name).is_none_or(Overrides::enabled)
         })
     }
 
