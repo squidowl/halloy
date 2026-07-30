@@ -947,14 +947,14 @@ mod tests {
             channel_keys = { "#halloy" = "secret" }
             should_ghost = true
 
-            [networks.libera]
+            [networks.Libera]
             enabled = true
             channels = ["#rust"]
 
-            [networks.libera.filters]
+            [networks.Libera.filters]
             ignore = ["Guest9702"]
 
-            [networks.quakenet]
+            [networks.QuakeNet]
             enabled = false
             "##,
         )
