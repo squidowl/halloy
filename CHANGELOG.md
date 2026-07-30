@@ -8,6 +8,7 @@ Added:
 - Expanded `servers.<name>.max_connection_attempts` to allow unlimited attempts
 - `file_transfer.send_completion_message` setting to control whether a PRIVMSG is sent to the remote user when a file
   transfer completes.
+- Config file path is now shown in config editor
 
 Fixed:
 
