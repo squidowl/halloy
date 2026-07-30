@@ -1536,6 +1536,32 @@ impl Dashboard {
                     HideMutedBuffers => {
                         self.buffer_settings.show_muted = false;
                     }
+                    FocusUp | FocusDown => {
+                        if let Some((window, pane, state)) = self.get_focused()
+                        {
+                            let direction = if matches!(shortcut, FocusUp) {
+                                buffer::Direction::Up
+                            } else {
+                                buffer::Direction::Down
+                            };
+
+                            if let Some(message) =
+                                state.buffer.focus_navigate_message(direction)
+                            {
+                                return (
+                                    Task::done(message).map(move |message| {
+                                        Message::Pane(
+                                            window,
+                                            pane::Message::Buffer(
+                                                pane, message,
+                                            ),
+                                        )
+                                    }),
+                                    None,
+                                );
+                            }
+                        }
+                    }
                 }
             }
             Message::FileTransfer(update) => {
@@ -2967,7 +2993,7 @@ impl Dashboard {
                 })
             }
             Key(key_bind) => {
-                use data::shortcut::MessageFocus;
+                use data::shortcut::FocusCommand;
 
                 let Some((window, pane, state)) = self.get_focused() else {
                     return Task::none();
@@ -2980,31 +3006,26 @@ impl Dashboard {
                 let in_focus = state.buffer.in_focus_mode();
 
                 let Some(command) =
-                    config.keyboard.message_focus(&key_bind).or_else(|| {
-                        in_focus
-                            .then(|| key_bind.builtin_message_focus())
-                            .flatten()
-                    })
+                    config.keyboard.focus_command(&key_bind, in_focus)
                 else {
                     return Task::none();
                 };
 
                 let msg = match command {
-                    MessageFocus::NavigateUp | MessageFocus::NavigateDown => {
-                        let direction =
-                            if matches!(command, MessageFocus::NavigateUp) {
-                                buffer::Direction::Up
-                            } else {
-                                buffer::Direction::Down
-                            };
+                    FocusCommand::Up | FocusCommand::Down => {
+                        let direction = if matches!(command, FocusCommand::Up) {
+                            buffer::Direction::Up
+                        } else {
+                            buffer::Direction::Down
+                        };
 
                         state.buffer.focus_navigate_message(direction)
                     }
-                    MessageFocus::OpenMenu => in_focus
+                    FocusCommand::Right => in_focus
                         .then(|| state.buffer.open_focus_menu_message())
                         .flatten(),
-                    MessageFocus::Activate if !in_focus => None,
-                    MessageFocus::Activate
+                    FocusCommand::Activate if !in_focus => None,
+                    FocusCommand::Activate
                         if state.buffer.focus_sub_element_selected() =>
                     {
                         state.buffer.focus_action_message(
@@ -3012,19 +3033,23 @@ impl Dashboard {
                             clients,
                         )
                     }
-                    MessageFocus::Activate => {
+                    FocusCommand::Activate => {
                         state.buffer.open_focus_menu_message()
                     }
-                    MessageFocus::OpenNickMenu if !in_focus => None,
-                    MessageFocus::OpenNickMenu
+                    FocusCommand::Left | FocusCommand::ActivateAlt
+                        if !in_focus =>
+                    {
+                        None
+                    }
+                    FocusCommand::Left | FocusCommand::ActivateAlt
                         if state.buffer.focus_sub_element_selected() =>
                     {
                         state.buffer.open_focus_menu_message()
                     }
-                    MessageFocus::OpenNickMenu => {
+                    FocusCommand::Left | FocusCommand::ActivateAlt => {
                         state.buffer.open_nick_focus_menu_message()
                     }
-                    MessageFocus::Reply => in_focus
+                    FocusCommand::Reply => in_focus
                         .then(|| {
                             state.buffer.focus_action_message(
                                 buffer::FocusAction::Reply,
@@ -3032,7 +3057,7 @@ impl Dashboard {
                             )
                         })
                         .flatten(),
-                    MessageFocus::React => in_focus
+                    FocusCommand::React => in_focus
                         .then(|| {
                             state.buffer.focus_action_message(
                                 buffer::FocusAction::OpenReactionModal,
@@ -3040,7 +3065,7 @@ impl Dashboard {
                             )
                         })
                         .flatten(),
-                    MessageFocus::Redact => in_focus
+                    FocusCommand::Redact => in_focus
                         .then(|| {
                             state.buffer.focus_action_message(
                                 buffer::FocusAction::Redact,

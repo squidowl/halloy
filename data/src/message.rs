@@ -30,10 +30,11 @@ use crate::reaction::Reaction;
 use crate::redaction::Redaction;
 use crate::serde::fail_as_none;
 use crate::server::Server;
-use crate::target::join_targets;
 use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
-use crate::{Config, User, buffer, command, ctcp, isupport, message, target};
+use crate::{
+    Config, User, buffer, command, ctcp, isupport, list_format, message, target,
+};
 
 // References:
 // - https://datatracker.ietf.org/doc/html/rfc1738#section-5
@@ -4099,10 +4100,7 @@ fn monitored_targets_text(targets: Vec<String>) -> Option<String> {
     } else if targets.len() == 1 {
         Some(format!("User {} is", targets.first()?))
     } else {
-        Some(format!(
-            "Users {} are",
-            join_targets(targets.iter().map(String::as_ref).collect())
-        ))
+        Some(format!("Users {} are", list_format::join(&targets)))
     }
 }
 

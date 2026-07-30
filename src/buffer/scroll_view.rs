@@ -14,6 +14,7 @@ use data::preview::{self, Previews};
 use data::rate_limit::TokenPriority;
 use data::reaction::Reaction;
 use data::server::Server;
+use data::shortcut::{FocusCommand, KeyBind};
 use data::target::{self, Target};
 use data::{
     Config, Image, Preview, User, client, history, isupport, metadata, reaction,
@@ -30,9 +31,7 @@ use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
 use super::{context_menu, input_view};
 use crate::widget::user_display::UserDisplay;
-use crate::widget::{
-    Element, double_pass, key_press, notify_visibility, on_key,
-};
+use crate::widget::{Element, double_pass, notify_visibility, on_key};
 use crate::{Theme, buffer, font, theme};
 
 const SCROLL_TO_TIMEOUT: Duration = Duration::from_millis(200);
@@ -108,6 +107,27 @@ pub enum Message {
 impl From<context_menu::Message> for Message {
     fn from(message: context_menu::Message) -> Self {
         Message::ContextMenu(message)
+    }
+}
+
+impl Message {
+    fn from_focus_command(
+        focus_command: FocusCommand,
+        selection: usize,
+    ) -> Option<Self> {
+        match focus_command {
+            FocusCommand::Up => Some(Message::FocusMenuMove(Direction::Up)),
+            FocusCommand::Down => Some(Message::FocusMenuMove(Direction::Down)),
+            FocusCommand::Left => Some(Message::FocusMenuClose),
+            FocusCommand::Right
+            | FocusCommand::Activate
+            | FocusCommand::ActivateAlt => {
+                Some(Message::FocusMenuActivate(selection))
+            }
+            FocusCommand::Reply
+            | FocusCommand::React
+            | FocusCommand::Redact => None,
+        }
     }
 }
 
@@ -601,7 +621,7 @@ fn focus_menu_view<'a>(
     entries: &[FocusEntry],
     selection: usize,
     theme: &Theme,
-    config: &Config,
+    config: &'a Config,
 ) -> Element<'a, Message> {
     let build = |width: Length| -> Element<'a, Message> {
         let entries = entries.iter().enumerate().fold(
@@ -635,28 +655,13 @@ fn focus_menu_view<'a>(
     let panel = double_pass(build(Length::Shrink), build(Length::Fill));
 
     on_key(panel, move |key, modifiers| {
-        use key_press::{Key, Named};
+        let key_bind = KeyBind::from((key.clone(), modifiers));
 
-        match key {
-            Key::Named(Named::ArrowUp) => {
-                Some(Message::FocusMenuMove(Direction::Up))
-            }
-            Key::Named(Named::ArrowDown) => {
-                Some(Message::FocusMenuMove(Direction::Down))
-            }
-            Key::Named(Named::Tab) => {
-                Some(Message::FocusMenuMove(if modifiers.shift() {
-                    Direction::Up
-                } else {
-                    Direction::Down
-                }))
-            }
-            Key::Named(Named::ArrowLeft) => Some(Message::FocusMenuClose),
-            Key::Named(Named::ArrowRight | Named::Enter | Named::Space) => {
-                Some(Message::FocusMenuActivate(selection))
-            }
-            _ => None,
-        }
+        config.keyboard.focus_command(&key_bind, true).and_then(
+            |focus_command| {
+                Message::from_focus_command(focus_command, selection)
+            },
+        )
     })
 }
 
@@ -713,28 +718,14 @@ fn nick_focus_menu_view<'a>(
 
     let panel = double_pass(build(Length::Shrink), build(Length::Fill));
 
-    on_key(panel, move |key, _modifiers| {
-        use key_press::{Key, Named};
+    on_key(panel, move |key, modifiers| {
+        let key_bind = KeyBind::from((key.clone(), modifiers));
 
-        match key {
-            Key::Named(Named::ArrowUp) => {
-                Some(Message::FocusMenuMove(Direction::Up))
-            }
-            Key::Named(Named::ArrowDown) => {
-                Some(Message::FocusMenuMove(Direction::Down))
-            }
-            Key::Named(Named::Tab) => {
-                Some(Message::FocusMenuMove(Direction::Down))
-            }
-            // The opposite focus key refocuses the message body.
-            Key::Named(Named::ArrowRight) => Some(Message::FocusMenuClose),
-            // Left (the direction this menu opened toward) and Enter activate
-            // the selected item, mirroring Right in the message actions menu.
-            Key::Named(Named::ArrowLeft | Named::Enter | Named::Space) => {
-                Some(Message::FocusMenuActivate(selection))
-            }
-            _ => None,
-        }
+        config.keyboard.focus_command(&key_bind, true).and_then(
+            |focus_command| {
+                Message::from_focus_command(focus_command, selection)
+            },
+        )
     })
 }
 
