@@ -142,6 +142,7 @@ impl ThemeEditor {
                     rfd::AsyncFileDialog::new()
                         .set_directory(Config::themes_dir())
                         .set_file_name("custom-theme.toml")
+                        .add_filter("TOML", &["toml"])
                         .save_file()
                         .await
                         .map(|handle| handle.path().to_path_buf())
@@ -210,8 +211,12 @@ impl ThemeEditor {
                 return (Task::none(), None);
             }
             Message::SavePath(None) => {}
-            Message::SavePath(Some(path)) => {
+            Message::SavePath(Some(mut path)) => {
                 log::debug!("Saving theme to {path:?}");
+
+                if path.extension().is_none() {
+                    path.set_extension("toml");
+                }
 
                 let styles = *theme.styles();
 

@@ -12,6 +12,7 @@ Added:
 Fixed:
 
 - Remove blank space above the input after marking a buffer as read
+- Ensure Theme Editor appends a `.toml` extension when saving a theme without one
 
 Thanks:
 
