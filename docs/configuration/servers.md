@@ -772,6 +772,10 @@ See the [guide by Libera.Chat](https://libera.chat/guides/certfp) for more infor
 
 On some networks, `sasl.external` may be labelled as [SSL + CertFP](https://www.oftc.net/NickServ/CertFP/#automatically-identifying-using-ssl--certfp).
 
+:::tip
+Having issues attempting to register a new certificate? See [`disconnect_on_failure`](#disconnect_on_failure).
+:::
+
 ### `cert`
 
 The path to PEM encoded X509 user certificate for external auth.[^1] [^2]
@@ -800,7 +804,11 @@ key = "/path/to/your/private_key.pem"
 
 ### `disconnect_on_failure`
 
-Disconnect from the server if SASL authentication fails. This is useful on servers which apply a hostname cloak after identifying, such as Libera.Chat. Without this option, a failed SASL authentication would result in connecting with your real IP/hostname exposed.
+Disconnect from the server if SASL authentication fails. This is useful on servers which apply a hostname cloak after identifying, such as Libera.Chat.
+
+:::warning
+With this option set to `false`, a failed SASL authentication may result in connecting with your real IP/hostname exposed.
+:::
 
 ```toml
 # Type: boolean
@@ -810,6 +818,12 @@ Disconnect from the server if SASL authentication fails. This is useful on serve
 [servers.<name>.sasl.external]
 disconnect_on_failure = false
 ```
+
+:::tip
+If you're experiencing immediate disconnects when using an unregistered certificate fingerprint, you will need to set `disconnect_on_failure` to `false` before continuing with the fingerprint registration step.
+
+Unless needed, change `disconnect_on_failure` back to `true` afterwards.
+:::
 
 ## `sasl.plain` {#sasl-plain}
 
