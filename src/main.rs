@@ -2820,7 +2820,7 @@ fn handle_isupport_param(
                     | data::isupport::Parameter::CHANTYPES(_)
             ) {
                 FilterChain::sync_isupport(
-                    dashboard.get_filters(),
+                    dashboard.get_filters_mut(),
                     server,
                     chantypes,
                     casemapping,

@@ -4778,7 +4778,11 @@ impl Dashboard {
         &self.history
     }
 
-    pub fn get_filters(&mut self) -> &mut Vec<Filter> {
+    pub fn get_filters_mut(&mut self) -> &mut Vec<Filter> {
+        self.history.get_filters_mut()
+    }
+
+    pub fn get_filters(&self) -> &[Filter] {
         self.history.get_filters()
     }
 

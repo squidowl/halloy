@@ -475,7 +475,7 @@ impl Query {
                 &clients.get_query_typing_users(server, query),
                 None,
                 server,
-                FilterChain::borrow(history.filters()),
+                FilterChain::borrow(history.get_filters()),
                 casemapping,
             ),
             casemapping,
