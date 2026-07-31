@@ -11,9 +11,9 @@
         "--device=dri",
         "--share=ipc",
         "--share=network",
-        "--socket=fallback-x11",
-        "--socket=pulseaudio",
         "--socket=wayland",
+        "--socket=x11",
+        "--socket=pulseaudio",
         "--talk-name=org.freedesktop.Notifications"
     ],
     "build-options": {
