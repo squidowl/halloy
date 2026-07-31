@@ -424,7 +424,10 @@ umodes = "+RB-x"
 
 ## `use_tls`
 
-Whether or not to use TLS. Clients will automatically panic if this is enabled without TLS support.
+Whether or not to use TLS. Halloy uses the secure protocol and cipher suite
+defaults provided by rustls. See
+[TLS compatibility and troubleshooting](/guides/tls) for details and commands
+that can be used to test a server.
 
 ```toml
 # Type: boolean
@@ -476,7 +479,10 @@ websocket_ping_interval = 60
 
 ## `dangerously_accept_invalid_certs`
 
-When `true`, all certificate validations are skipped.
+When `true`, all certificate validations are skipped. This does not enable
+unsupported protocol versions, cipher suites, signature algorithms, or key
+exchange methods. See
+[TLS compatibility and troubleshooting](/guides/tls) for more information.
 
 ```toml
 # Type: boolean
