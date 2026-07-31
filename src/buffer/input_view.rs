@@ -1486,7 +1486,7 @@ impl State {
                             });
                             let last_seen = history.get_last_seen(buffer);
                             let filters =
-                                FilterChain::borrow(history.filters());
+                                FilterChain::borrow(history.get_filters());
                             let is_connected = clients
                                 .get_server_is_connected(buffer.server());
                             let isupport =
@@ -2470,7 +2470,7 @@ impl State {
                 clients.get_channel_users(buffer.server(), channel)
             });
             let last_seen = history.get_last_seen(buffer);
-            let filters = FilterChain::borrow(history.filters());
+            let filters = FilterChain::borrow(history.get_filters());
             let is_connected = clients.get_server_is_connected(buffer.server());
             let isupport = clients.get_isupport_ref(buffer.server());
             let features = clients.get_features_ref(buffer.server());
