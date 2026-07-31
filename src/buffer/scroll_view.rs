@@ -39,7 +39,15 @@ const SCROLL_TO_TIMEOUT: Duration = Duration::from_millis(200);
 const BUFFER_PAGES: usize = 3;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Direction {
+pub enum FocusDirection {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FocusMenuDirection {
     Up,
     Down,
 }
@@ -95,10 +103,9 @@ pub enum Message {
         msgid: message::Id,
         text: Cow<'static, str>,
     },
-    NavigateFocus(Direction),
+    NavigateFocus(FocusDirection),
     OpenFocusMenu,
-    OpenNickFocusMenu,
-    FocusMenuMove(Direction),
+    FocusMenuMove(FocusMenuDirection),
     FocusMenuActivate(usize),
     FocusMenuClose,
     FocusMenuDismiss,
@@ -116,15 +123,18 @@ impl Message {
         selection: usize,
     ) -> Option<Self> {
         match focus_command {
-            FocusCommand::Up => Some(Message::FocusMenuMove(Direction::Up)),
-            FocusCommand::Down => Some(Message::FocusMenuMove(Direction::Down)),
-            FocusCommand::Left => Some(Message::FocusMenuClose),
-            FocusCommand::Right
-            | FocusCommand::Activate
-            | FocusCommand::ActivateAlt => {
+            FocusCommand::Up => {
+                Some(Message::FocusMenuMove(FocusMenuDirection::Up))
+            }
+            FocusCommand::Down => {
+                Some(Message::FocusMenuMove(FocusMenuDirection::Down))
+            }
+            FocusCommand::Activate | FocusCommand::ActivateAlt => {
                 Some(Message::FocusMenuActivate(selection))
             }
-            FocusCommand::Reply
+            FocusCommand::Left
+            | FocusCommand::Right
+            | FocusCommand::Reply
             | FocusCommand::React
             | FocusCommand::Redact => None,
         }
@@ -157,6 +167,35 @@ pub struct FocusMenu {
     hash: message::Hash,
     selection: usize,
     content: FocusMenuContent,
+}
+
+impl FocusMenu {
+    fn on_open(
+        &self,
+        registry: &dyn metadata::Registry,
+        previews: &preview::Collection,
+        config: &Config,
+    ) -> Task<Message> {
+        match &self.content {
+            FocusMenuContent::Message(_) => Task::none(),
+            FocusMenuContent::Nick(nick_focus_data) => config
+                .metadata
+                .avatar_size()
+                .filter(|_| config.context_menu.show_user_metadata)
+                .and_then(|size| {
+                    metadata::avatar_url(&nick_focus_data.user, registry, size)
+                })
+                .filter(|url| !previews.contains_key(url))
+                .map_or(Task::none(), |url| {
+                    Task::done(Message::ContextMenu(
+                        context_menu::Message::LoadUserAvatar(
+                            nick_focus_data.server.clone(),
+                            url.clone(),
+                        ),
+                    ))
+                }),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -229,7 +268,7 @@ impl FocusMenu {
             .unwrap_or(0)
     }
 
-    fn move_selection(&mut self, direction: Direction) {
+    fn move_selection(&mut self, direction: FocusMenuDirection) {
         let len = self.entry_count();
         if len == 0 {
             return;
@@ -238,8 +277,8 @@ impl FocusMenu {
         let mut next = self.selection;
         for _ in 0..len {
             next = match direction {
-                Direction::Up => (next + len - 1) % len,
-                Direction::Down => (next + 1) % len,
+                FocusMenuDirection::Up => (next + len - 1) % len,
+                FocusMenuDirection::Down => (next + 1) % len,
             };
 
             if self.is_actionable(next) {
@@ -337,7 +376,7 @@ pub trait LayoutMessage<'a> {
         hovered_preview: Option<(message::Hash, usize)>,
         hovered_reply: Option<message::Hash>,
         channels_context: &'a dyn context_menu::ChannelsContext,
-        focused_link: Option<usize>,
+        focused_component: Option<FocusedComponent>,
     ) -> Option<Element<'a, Message>>;
 }
 
@@ -363,7 +402,7 @@ where
         _hovered_preview: Option<(message::Hash, usize)>,
         _hovered_reply: Option<message::Hash>,
         _channels_context: &'a dyn context_menu::ChannelsContext,
-        _focused_link: Option<usize>,
+        _focused_component: Option<FocusedComponent>,
     ) -> Option<Element<'a, Message>> {
         self(
             message,
@@ -451,18 +490,19 @@ fn menu_separator<'a>(width: Length) -> Element<'a, Message> {
     }
 }
 
-fn build_focus_entries(
+fn build_focus_menu(
     message: &data::Message,
-    focused_link: Option<usize>,
+    focused_component: Option<FocusedComponent>,
     server: &Server,
+    channel: Option<&target::Channel>,
     clients: &client::Map,
+    registry: &dyn metadata::Registry,
     previews: &preview::Collection,
     config: &Config,
     channels_context: &dyn context_menu::ChannelsContext,
-) -> Vec<FocusEntry> {
-    let focus_target = focused_link
-        .and_then(|index| message_focus_target_at(message, index))
-        .or_else(|| message_single_url(message).map(FocusTarget::Url));
+) -> FocusMenu {
+    let focus_target = focused_component
+        .and_then(|focused_component| focused_component.focus_target(message));
 
     let message_entry =
         |action: input_view::FocusAction, separator_before| FocusEntry {
@@ -473,7 +513,7 @@ fn build_focus_entries(
 
     let has_id = message.id.is_some();
     let mut interaction_actions = vec![];
-    if focused_link.is_none() {
+    if focused_component.is_none() {
         if has_id && clients.get_server_can_send_replies(server) {
             interaction_actions.push(input_view::FocusAction::Reply);
         }
@@ -541,7 +581,11 @@ fn build_focus_entries(
 
             entries.extend(interaction_entries);
 
-            entries
+            FocusMenu {
+                hash: message.hash,
+                selection: 0,
+                content: FocusMenuContent::Message(entries),
+            }
         }
         Some(FocusTarget::Channel(channel)) => {
             let target = target::Channel::from_str(
@@ -603,16 +647,66 @@ fn build_focus_entries(
 
             entries.extend(interaction_entries);
 
-            entries
+            FocusMenu {
+                hash: message.hash,
+                selection: 0,
+                content: FocusMenuContent::Message(entries),
+            }
+        }
+        Some(FocusTarget::User(user)) => {
+            let current_user = channel.and_then(|channel| {
+                clients.resolve_user_attributes(server, channel, &user)
+            });
+
+            let our_user = channel.and_then(|channel| {
+                clients.nickname(server).and_then(|our_nick| {
+                    let our_user = User::from(data::user::Nick::from(our_nick));
+                    clients.resolve_user_attributes(server, channel, &our_user)
+                })
+            });
+
+            let entries = context_menu::Entry::user_list(
+                channel.is_some(),
+                current_user,
+                our_user,
+                config.file_transfer.enabled,
+                context_menu::has_user_metadata(&user, registry, config),
+                message.is_rerouted(),
+            );
+
+            let nick_focus_data = NickFocusData {
+                server: server.clone(),
+                channel: channel.cloned(),
+                prefix: clients.get_server_prefix_or_default(server).to_vec(),
+                user: user.clone(),
+                current_user: current_user.cloned(),
+                entries,
+            };
+
+            let mut menu = FocusMenu {
+                hash: message.hash,
+                selection: 0,
+                content: FocusMenuContent::Nick(nick_focus_data),
+            };
+
+            menu.selection = menu.first_actionable();
+
+            menu
         }
         None => {
             // Parent message is focused - offer message actions
-            std::iter::once(message_entry(
+            let entries = std::iter::once(message_entry(
                 input_view::FocusAction::CopyText,
                 false,
             ))
             .chain(interaction_entries)
-            .collect()
+            .collect();
+
+            FocusMenu {
+                hash: message.hash,
+                selection: 0,
+                content: FocusMenuContent::Message(entries),
+            }
         }
     }
 }
@@ -666,8 +760,7 @@ fn focus_menu_view<'a>(
 }
 
 /// Renders the nick (user) actions menu — the full right-click user menu
-/// (avatar / metadata header plus actions) made keyboard-navigable. The
-/// opposite focus key (right) returns to the message body.
+/// (avatar / metadata header plus actions) made keyboard-navigable.
 fn nick_focus_menu_view<'a>(
     data: &'a NickFocusData,
     selection: usize,
@@ -676,7 +769,12 @@ fn nick_focus_menu_view<'a>(
     theme: &'a Theme,
     config: &'a Config,
 ) -> Element<'a, Message> {
-    let avatar = context_menu::user_avatar(&data.user, registry, previews);
+    let avatar = context_menu::user_avatar(
+        &data.user,
+        registry,
+        previews,
+        config.metadata.avatar_size(),
+    );
 
     let build = |width: Length| -> Element<'a, Message> {
         let entries = data.entries.iter().enumerate().fold(
@@ -871,60 +969,58 @@ pub fn view<'a>(
         .copied()
         .unwrap_or_default();
 
-    let (render_start, render_end) = if state.pending_scroll_to.is_some()
-        || state.is_scrolling_to
-        || total <= render_budget
-    {
-        (0, total)
-    } else {
-        let first_visible = match state.status {
-            Status::Bottom => {
-                let offset = state.last_scroll_offset;
-                let mut acc = 0.0_f32;
-                let mut from_bottom = 0;
-                for m in old_messages.iter().chain(&new_messages).rev() {
-                    if from_bottom == new_messages.len() {
-                        acc += div_height;
+    let (render_start, render_end) =
+        if state.scroll_to.is_some() || total <= render_budget {
+            (0, total)
+        } else {
+            let first_visible = match state.status {
+                Status::Bottom => {
+                    let offset = state.last_scroll_offset;
+                    let mut acc = 0.0_f32;
+                    let mut from_bottom = 0;
+                    for m in old_messages.iter().chain(&new_messages).rev() {
+                        if from_bottom == new_messages.len() {
+                            acc += div_height;
+                            if acc > offset {
+                                break;
+                            }
+                        }
+
+                        acc += msg_height(m);
                         if acc > offset {
                             break;
                         }
+                        from_bottom += 1;
                     }
-
-                    acc += msg_height(m);
-                    if acc > offset {
-                        break;
-                    }
-                    from_bottom += 1;
+                    total.saturating_sub(from_bottom + visible)
                 }
-                total.saturating_sub(from_bottom + visible)
-            }
-            Status::Unlocked => {
-                let offset = state.last_scroll_offset;
-                let mut acc = 0.0_f32;
-                let mut idx = 0;
-                for m in old_messages.iter().chain(&new_messages) {
-                    if idx == old_messages.len() {
-                        acc += div_height;
+                Status::Unlocked => {
+                    let offset = state.last_scroll_offset;
+                    let mut acc = 0.0_f32;
+                    let mut idx = 0;
+                    for m in old_messages.iter().chain(&new_messages) {
+                        if idx == old_messages.len() {
+                            acc += div_height;
+                            if acc > offset {
+                                break;
+                            }
+                        }
+
+                        acc += msg_height(m);
                         if acc > offset {
                             break;
                         }
+                        idx += 1;
                     }
-
-                    acc += msg_height(m);
-                    if acc > offset {
-                        break;
-                    }
-                    idx += 1;
+                    idx
                 }
-                idx
-            }
+            };
+
+            (
+                first_visible.saturating_sub(buffer),
+                (first_visible + visible + buffer).min(total),
+            )
         };
-
-        (
-            first_visible.saturating_sub(buffer),
-            (first_visible + visible + buffer).min(total),
-        )
-    };
 
     let old_start = render_start.min(old_messages.len());
     let old_end = render_end.min(old_messages.len());
@@ -1113,7 +1209,7 @@ pub fn view<'a>(
                                     |menu| menu.hash == message.hash,
                                 )
                             {
-                                state.focused_link
+                                state.focused_component
                             } else {
                                 None
                             },
@@ -1131,7 +1227,7 @@ pub fn view<'a>(
                 *last_date = Some(date);
 
                 let element = if focused_message == Some(message.hash)
-                    && state.focused_link.is_none()
+                    && state.focused_component.is_none()
                     && !state
                         .focus_menu
                         .as_ref()
@@ -1366,10 +1462,7 @@ pub struct State {
     status: Status,
     last_scroll_offset: f32,
     height_cache: HashMap<keyed::Key, f32>,
-    pending_scroll_to: Option<keyed::Key>,
-    pending_scroll_animate: bool,
-    pending_scroll_align: ScrollAnchor,
-    is_scrolling_to: bool,
+    scroll_to: Option<ScrollTo>,
     highlighted_message: Option<(message::Hash, f32)>,
     hover_highlighted_message: Option<message::Hash>,
     highlight_generation: u64,
@@ -1379,7 +1472,7 @@ pub struct State {
     reply_preview_urls: HashMap<message::Hash, Vec<url::Url>>,
     hovered_preview: Option<(message::Hash, usize)>,
     focus_menu: Option<FocusMenu>,
-    focused_link: Option<usize>,
+    focused_component: Option<FocusedComponent>,
 }
 
 impl State {
@@ -1394,10 +1487,7 @@ impl State {
             status: Status::default(),
             last_scroll_offset: 0.0,
             height_cache: HashMap::new(),
-            pending_scroll_to: None,
-            pending_scroll_animate: true,
-            pending_scroll_align: ScrollAnchor::default(),
-            is_scrolling_to: false,
+            scroll_to: None,
             highlighted_message: None,
             hover_highlighted_message: None,
             highlight_generation: 0,
@@ -1408,7 +1498,7 @@ impl State {
             reply_preview_urls: HashMap::new(),
             hovered_preview: None,
             focus_menu: None,
-            focused_link: None,
+            focused_component: None,
         }
     }
 
@@ -1434,7 +1524,7 @@ impl State {
                 status: old_status,
                 viewport,
             } => {
-                if self.pending_scroll_to.is_some() || self.is_scrolling_to {
+                if self.scroll_to.is_some() {
                     return (Task::none(), None);
                 }
 
@@ -1697,13 +1787,14 @@ impl State {
                 hit_bounds,
                 scrollable,
             }) => {
-                self.is_scrolling_to = false;
-
-                self.pending_scroll_to = None;
-                let animate = self.pending_scroll_animate;
-                self.pending_scroll_animate = true;
-                let align = self.pending_scroll_align;
-                self.pending_scroll_align = ScrollAnchor::default();
+                let (animate, align) =
+                    if let Some(ScrollTo { animate, align, .. }) =
+                        std::mem::take(&mut self.scroll_to)
+                    {
+                        (animate, align)
+                    } else {
+                        (false, ScrollAnchor::default())
+                    };
 
                 let fade_task = if animate {
                     if let keyed::Key::Message(hash) = key {
@@ -1906,12 +1997,11 @@ impl State {
                 return (Task::none(), Some(Event::ImagePreview(image)));
             }
             Message::PendingScrollTo => {
-                if let Some(key) = &self.pending_scroll_to {
+                if let Some(ScrollTo { key, state, .. }) = &mut self.scroll_to {
                     let scroll_to = keyed::find(self.scrollable.clone(), *key)
                         .map(Message::ScrollTo);
 
-                    self.pending_scroll_to = None;
-                    self.is_scrolling_to = true;
+                    *state = ScrollToState::Active;
 
                     return (scroll_to, None);
                 }
@@ -1983,12 +2073,11 @@ impl State {
 
                 let event = preview_changed.then_some(Event::PreviewChanged);
 
-                if let Some(key) = &self.pending_scroll_to {
+                if let Some(ScrollTo { key, state, .. }) = &mut self.scroll_to {
                     let scroll_to = keyed::find(self.scrollable.clone(), *key)
                         .map(Message::ScrollTo);
 
-                    self.pending_scroll_to = None;
-                    self.is_scrolling_to = true;
+                    *state = ScrollToState::Active;
 
                     return (scroll_to, event);
                 }
@@ -2020,7 +2109,9 @@ impl State {
                     .iter()
                     .copied()
                     .chain(new_messages.iter().copied())
-                    .filter(|m| m.target.source().user().is_some())
+                    .filter(|message| {
+                        !message.blocked && !message.text().is_empty()
+                    })
                     .collect();
 
                 if all.is_empty() {
@@ -2029,116 +2120,170 @@ impl State {
 
                 // The focus sequence steps through each message and then its
                 // individual links before moving on to the next message
-                let next: Option<(message::Hash, Option<usize>)> =
-                    match *focused_message {
-                        None => match direction {
-                            // Entering with Up lands on the bottom-most stop -
-                            // the last message's last link
-                            Direction::Up => all
+                let next: Option<(message::Hash, Option<FocusedComponent>)> =
+                    match direction {
+                        FocusDirection::Up => match *focused_message {
+                            None => all
                                 .iter()
                                 .rev()
-                                .find(|m| {
-                                    self.visible_messages.contains(&m.hash)
+                                .find(|message| {
+                                    self.visible_messages
+                                        .contains(&message.hash)
                                 })
                                 .or_else(|| all.last())
-                                .map(|m| {
-                                    (
-                                        m.hash,
-                                        message_focus_target_count(m)
-                                            .checked_sub(1),
-                                    )
-                                }),
-                            Direction::Down => all
-                                .iter()
-                                .find(|m| {
-                                    self.visible_messages.contains(&m.hash)
-                                })
-                                .or_else(|| all.first())
-                                .map(|m| (m.hash, None)),
+                                .map(|message| (message.hash, None)),
+                            Some(hash) => {
+                                let Some(focused_position) = all
+                                    .iter()
+                                    .position(|message| message.hash == hash)
+                                else {
+                                    return self.exit_focus(
+                                        focused_message,
+                                        Task::none(),
+                                    );
+                                };
+
+                                let next_hash = all
+                                    .get(focused_position.saturating_sub(1))
+                                    .map_or(hash, |message| message.hash);
+
+                                Some((next_hash, None))
+                            }
                         },
-                        Some(hash) => {
-                            match all.iter().position(|m| m.hash == hash) {
-                                None => all.last().map(|m| (m.hash, None)),
-                                Some(i) => {
-                                    let links =
-                                        message_focus_target_count(all[i]);
-                                    match direction {
-                                        Direction::Down => {
-                                            match self.focused_link {
-                                                None if links > 0 => {
-                                                    Some((hash, Some(0)))
-                                                }
-                                                Some(u) if u + 1 < links => {
-                                                    Some((hash, Some(u + 1)))
-                                                }
-                                                _ if i + 1 >= all.len() => {
-                                                    // End of the last message
-                                                    // — exit selection.
-                                                    *focused_message = None;
-                                                    self.focused_link = None;
-                                                    return (
-                                                        Task::none(),
-                                                        Some(Event::ExitFocus),
-                                                    );
-                                                }
-                                                _ => Some((
-                                                    all[i + 1].hash,
-                                                    None,
-                                                )),
-                                            }
-                                        }
-                                        Direction::Up => {
-                                            match self.focused_link {
-                                                Some(0) => Some((hash, None)),
-                                                Some(u) => {
-                                                    Some((hash, Some(u - 1)))
-                                                }
-                                                None if i == 0 => {
-                                                    Some((hash, None))
-                                                }
-                                                None => {
-                                                    // Previous message's last stop.
-                                                    let prev = all[i - 1];
-                                                    Some((
-                                                    prev.hash,
-                                                    message_focus_target_count(prev)
-                                                        .checked_sub(1),
-                                                ))
-                                                }
-                                            }
+                        FocusDirection::Down => match *focused_message {
+                            None => {
+                                return (Task::none(), None);
+                            }
+                            Some(hash) => {
+                                let Some(focused_position) = all
+                                    .iter()
+                                    .position(|message| message.hash == hash)
+                                else {
+                                    return self.exit_focus(
+                                        focused_message,
+                                        Task::none(),
+                                    );
+                                };
+
+                                let focus_position =
+                                    focused_position.saturating_add(1);
+
+                                if focus_position == all.len() {
+                                    return self.exit_focus(
+                                        focused_message,
+                                        Task::none(),
+                                    );
+                                };
+
+                                let next_hash = all
+                                    .get(focus_position)
+                                    .map_or(hash, |message| message.hash);
+
+                                Some((next_hash, None))
+                            }
+                        },
+                        FocusDirection::Left => focused_message
+                            .and_then(|hash| {
+                                all.iter().find(|message| message.hash == hash)
+                            })
+                            .map(|message| {
+                                let is_user_message = matches!(
+                                    message.target.source(),
+                                    message::Source::User(_)
+                                );
+
+                                let next_component = match self
+                                    .focused_component
+                                {
+                                    None => None,
+                                    Some(FocusedComponent::User) => None,
+                                    Some(FocusedComponent::Link { index }) => {
+                                        if index > 0 {
+                                            Some(FocusedComponent::Link {
+                                                index: index - 1,
+                                            })
+                                        } else {
+                                            is_user_message.then_some(
+                                                FocusedComponent::User,
+                                            )
                                         }
                                     }
-                                }
-                            }
-                        }
+                                };
+
+                                (message.hash, next_component)
+                            }),
+                        FocusDirection::Right => focused_message
+                            .and_then(|hash| {
+                                all.iter().find(|message| message.hash == hash)
+                            })
+                            .map(|message| {
+                                let link_count =
+                                    message_focus_target_count(message);
+
+                                let is_user_message = matches!(
+                                    message.target.source(),
+                                    message::Source::User(_)
+                                );
+
+                                let next_component =
+                                    match self.focused_component {
+                                        None => {
+                                            if is_user_message {
+                                                Some(FocusedComponent::User)
+                                            } else if link_count > 0 {
+                                                Some(FocusedComponent::Link {
+                                                    index: 0,
+                                                })
+                                            } else {
+                                                None
+                                            }
+                                        }
+                                        Some(FocusedComponent::User) => {
+                                            if link_count > 0 {
+                                                Some(FocusedComponent::Link {
+                                                    index: 0,
+                                                })
+                                            } else {
+                                                Some(FocusedComponent::User)
+                                            }
+                                        }
+                                        Some(FocusedComponent::Link {
+                                            index,
+                                        }) => Some(FocusedComponent::Link {
+                                            index: (index + 1)
+                                                .min(link_count - 1),
+                                        }),
+                                    };
+
+                                (message.hash, next_component)
+                            }),
                     };
 
-                let Some((target_hash, target_url)) = next else {
+                let Some((next_hash, next_component)) = next else {
                     return (Task::none(), None);
                 };
 
-                *focused_message = Some(target_hash);
-                self.focused_link = target_url;
+                *focused_message = Some(next_hash);
+                self.focused_component = next_component;
 
                 // Anchor the message to the edge we're moving toward, so a
                 // scroll reveals it at that edge rather than snapping it to the
                 // opposite side of the viewport.
-                let align = match direction {
-                    Direction::Up => ScrollAnchor::Top,
-                    Direction::Down => ScrollAnchor::Bottom,
+                let anchor = match direction {
+                    FocusDirection::Up => Some(ScrollAnchor::Top),
+                    FocusDirection::Down => Some(ScrollAnchor::Bottom),
+                    FocusDirection::Left | FocusDirection::Right => None,
                 };
 
-                return (
+                let task = if let Some(anchor) = anchor {
                     self.scroll_to_message(
-                        target_hash,
-                        kind,
-                        history,
-                        config,
-                        false,
-                        align,
-                    ),
-                    None,
-                );
+                        next_hash, kind, history, config, false, anchor,
+                    )
+                } else {
+                    Task::none()
+                };
+
+                return (task, None);
             }
             Message::OpenFocusMenu => {
                 let Some(hash) = *focused_message else {
@@ -2162,103 +2307,25 @@ impl State {
                     return (Task::none(), None);
                 };
 
-                let entries = build_focus_entries(
+                let registry = clients.get_registry(server);
+
+                let focus_menu = build_focus_menu(
                     message,
-                    self.focused_link,
+                    self.focused_component,
                     server,
+                    buffer.and_then(buffer::Upstream::channel),
                     clients,
+                    registry,
                     previews,
                     config,
                     channels_context,
                 );
 
-                self.focus_menu = Some(FocusMenu {
-                    hash,
-                    selection: 0,
-                    content: FocusMenuContent::Message(entries),
-                });
+                let open_task = focus_menu.on_open(registry, previews, config);
 
-                return (Task::none(), None);
-            }
-            Message::OpenNickFocusMenu => {
-                let Some(hash) = *focused_message else {
-                    return (Task::none(), None);
-                };
+                self.focus_menu = Some(focus_menu);
 
-                let (server, channel) = match kind {
-                    Kind::Channel(server, channel) => (server, Some(channel)),
-                    Kind::Query(server, _) => (server, None),
-                    Kind::Server(_)
-                    | Kind::Logs
-                    | Kind::Highlights
-                    | Kind::ChannelMonitor => {
-                        return (Task::none(), None);
-                    }
-                };
-
-                let Some(message) = history
-                    .get_messages(&kind.into(), None, config)
-                    .and_then(|view| {
-                        view.old_messages
-                            .iter()
-                            .chain(view.new_messages.iter())
-                            .find(|m| m.hash == hash)
-                            .copied()
-                    })
-                else {
-                    return (Task::none(), None);
-                };
-
-                // The nick menu only applies to messages authored by a user.
-                let Some(user) = message.target.source().user() else {
-                    return (Task::none(), None);
-                };
-
-                let registry = clients.get_registry(server);
-
-                let current_user = channel.and_then(|channel| {
-                    clients.resolve_user_attributes(server, channel, user)
-                });
-
-                let our_user = channel.and_then(|channel| {
-                    clients.nickname(server).and_then(|our_nick| {
-                        let our_user =
-                            User::from(data::user::Nick::from(our_nick));
-                        clients
-                            .resolve_user_attributes(server, channel, &our_user)
-                    })
-                });
-
-                let entries = context_menu::Entry::user_list(
-                    channel.is_some(),
-                    current_user,
-                    our_user,
-                    config.file_transfer.enabled,
-                    context_menu::has_user_metadata(user, registry, config),
-                    message.is_rerouted(),
-                );
-
-                let data = NickFocusData {
-                    server: server.clone(),
-                    channel: channel.cloned(),
-                    prefix: clients
-                        .get_server_prefix_or_default(server)
-                        .to_vec(),
-                    user: user.clone(),
-                    current_user: current_user.cloned(),
-                    entries,
-                };
-
-                let mut menu = FocusMenu {
-                    hash,
-                    selection: 0,
-                    content: FocusMenuContent::Nick(data),
-                };
-                menu.selection = menu.first_actionable();
-
-                self.focus_menu = Some(menu);
-
-                return (Task::none(), None);
+                return (open_task, None);
             }
             Message::FocusMenuMove(direction) => {
                 if let Some(menu) = &mut self.focus_menu {
@@ -2273,7 +2340,7 @@ impl State {
                 };
 
                 // Activating an action leaves focus mode.
-                self.focused_link = None;
+                self.focused_component = None;
 
                 match menu.content {
                     FocusMenuContent::Message(entries) => {
@@ -2291,10 +2358,9 @@ impl State {
                             ),
                             FocusEntryAction::Link(link) => {
                                 // Re-dispatch as a link click and exit focus mode.
-                                *focused_message = None;
-                                (
+                                self.exit_focus(
+                                    focused_message,
                                     Task::done(Message::Link(link)),
-                                    Some(Event::ExitFocus),
                                 )
                             }
                         };
@@ -2331,13 +2397,10 @@ impl State {
             }
 
             Message::FocusMenuDismiss => {
-                self.focus_menu = None;
-                self.focused_link = None;
-                *focused_message = None;
-
-                return (Task::none(), Some(Event::ExitFocus));
+                return self.exit_focus(focused_message, Task::none());
             }
         }
+
         (Task::none(), None)
     }
 
@@ -2349,13 +2412,25 @@ impl State {
         self.focus_menu.as_ref()
     }
 
-    pub fn focused_link(&self) -> Option<usize> {
-        self.focused_link
+    pub fn focused_component(&self) -> Option<FocusedComponent> {
+        self.focused_component
     }
 
     pub fn close_focus_menu(&mut self) {
         self.focus_menu = None;
-        self.focused_link = None;
+        self.focused_component = None;
+    }
+
+    fn exit_focus(
+        &mut self,
+        focused_message: &mut Option<message::Hash>,
+        task: Task<Message>,
+    ) -> (Task<Message>, Option<Event>) {
+        *focused_message = None;
+        self.focused_component = None;
+        self.focus_menu = None;
+
+        (task, Some(Event::ExitFocus))
     }
 
     pub fn update_pane_size(&mut self, pane_size: Size, config: &Config) {
@@ -2446,9 +2521,12 @@ impl State {
         else {
             // We're still loading history, which will trigger scroll_to_backlog
             // after loading. If this is set, we will scroll_to_message
-            self.pending_scroll_to = Some(keyed::Key::Message(message));
-            self.pending_scroll_animate = animate;
-            self.pending_scroll_align = align;
+            self.scroll_to = Some(ScrollTo {
+                key: keyed::Key::Message(message),
+                animate,
+                align,
+                state: ScrollToState::Pending,
+            });
 
             return Task::none();
         };
@@ -2461,15 +2539,17 @@ impl State {
             return Task::none();
         };
 
-        self.pending_scroll_animate = animate;
-        self.pending_scroll_align = align;
-
         // If the message is already rendered, skip the load and fire immediately.
         if self
             .height_cache
             .contains_key(&keyed::Key::Message(message))
         {
-            self.is_scrolling_to = true;
+            self.scroll_to = Some(ScrollTo {
+                key: keyed::Key::Message(message),
+                animate,
+                align,
+                state: ScrollToState::Active,
+            });
 
             // cache real heights while fully rendered so the virtualized
             // layout's doesn't drift from estimates as focus moves.
@@ -2505,7 +2585,12 @@ impl State {
         let around_count = step_messages(4.0 * self.pane_size.height, config);
         self.limit = Limit::Around(around_count, target.hash);
 
-        self.pending_scroll_to = Some(keyed::Key::Message(message));
+        self.scroll_to = Some(ScrollTo {
+            key: keyed::Key::Message(message),
+            animate,
+            align,
+            state: ScrollToState::Pending,
+        });
 
         Task::perform(time::sleep(SCROLL_TO_TIMEOUT), move |()| {
             Message::PendingScrollTo
@@ -2518,7 +2603,7 @@ impl State {
         history: &history::Manager,
         config: &Config,
     ) -> Task<Message> {
-        if self.pending_scroll_to.is_some() {
+        if self.scroll_to.is_some() {
             return Task::perform(time::sleep(SCROLL_TO_TIMEOUT), move |()| {
                 Message::PendingScrollTo
             });
@@ -2549,24 +2634,29 @@ impl State {
         let around_count = step_messages(4.0 * self.pane_size.height, config);
         self.limit = Limit::Around(around_count, target.hash);
 
-        self.pending_scroll_to = Some(keyed::Key::Divider);
+        self.scroll_to = Some(ScrollTo {
+            key: keyed::Key::Divider,
+            animate: false,
+            align: ScrollAnchor::Top,
+            state: ScrollToState::Pending,
+        });
 
         Task::perform(time::sleep(SCROLL_TO_TIMEOUT), move |()| {
             Message::PendingScrollTo
         })
     }
 
-    pub fn has_pending_scroll_to(&self) -> bool {
-        self.pending_scroll_to.is_some()
+    pub fn has_scroll_to(&self) -> bool {
+        self.scroll_to.is_some()
     }
 
-    pub fn prepare_for_pending_scroll_to(
+    pub fn prepare_for_scroll_to(
         &mut self,
         kind: Kind,
         history: &history::Manager,
         config: &Config,
     ) -> Task<Message> {
-        let Some(key) = self.pending_scroll_to else {
+        let Some(ScrollTo { key, .. }) = self.scroll_to else {
             return Task::none();
         };
 
@@ -3407,25 +3497,50 @@ fn prefixes_width(message: &data::Message, config: &Config) -> Option<f32> {
 pub(crate) enum FocusTarget {
     Url(url::Url),
     Channel(String),
+    User(User),
 }
 
-/// The URL of a message whose entire content is a single URL, if any.
-///
-/// Such a message is already selectable as a whole, so it gets no separate
-/// link target; its link actions are folded into the message focus menu.
-pub(crate) fn message_single_url(message: &data::Message) -> Option<url::Url> {
-    let data::message::Content::Fragments(fragments) = &message.content else {
-        return None;
-    };
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ScrollTo {
+    key: keyed::Key,
+    animate: bool,
+    align: ScrollAnchor,
+    state: ScrollToState,
+}
 
-    let urls = message.content.urls();
-    let url = urls.first()?;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ScrollToState {
+    Pending,
+    Active,
+}
 
-    (urls.len() == 1
-        && fragments
-            .iter()
-            .all(|f| f.url().is_some() || f.as_str().trim().is_empty()))
-    .then(|| (*url).clone())
+#[derive(Debug, Clone, Copy)]
+pub enum FocusedComponent {
+    Link { index: usize },
+    User,
+}
+
+impl FocusedComponent {
+    pub(crate) fn focus_target(
+        &self,
+        message: &data::Message,
+    ) -> Option<FocusTarget> {
+        match self {
+            FocusedComponent::User => {
+                message.user().map(|user| FocusTarget::User(user.clone()))
+            }
+            FocusedComponent::Link { index } => {
+                message_focus_target_at(message, *index)
+            }
+        }
+    }
+
+    pub fn link_index(&self) -> Option<usize> {
+        match self {
+            Self::Link { index } => Some(*index),
+            Self::User => None,
+        }
+    }
 }
 
 /// Iterator over a message's focusable link fragments, in display order.
@@ -3442,10 +3557,6 @@ fn message_focus_target_fragments(
 
 /// Number of separately-navigable link targets in a message, in display order.
 fn message_focus_target_count(message: &data::Message) -> usize {
-    if message_single_url(message).is_some() {
-        return 0;
-    }
-
     message_focus_target_fragments(message).count()
 }
 
@@ -3462,6 +3573,9 @@ pub(crate) fn message_focus_target_at(
             }
             message::Fragment::Channel(channel) => {
                 Some(FocusTarget::Channel(channel.clone()))
+            }
+            message::Fragment::User(user, _) => {
+                Some(FocusTarget::User(user.clone()))
             }
             _ => None,
         })

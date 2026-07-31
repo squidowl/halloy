@@ -203,6 +203,7 @@ pub fn view<'a>(
                     None,
                     false,
                     true,
+                    false,
                     theme,
                     config,
                 );

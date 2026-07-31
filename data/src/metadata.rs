@@ -5,8 +5,8 @@ use std::str::FromStr;
 use iced::Color;
 use serde::Deserialize;
 
-use crate::Url;
 use crate::target::{Channel, Query, Target, TargetRef};
+use crate::{Url, User};
 
 type Metadata = HashMap<String, String>;
 
@@ -159,3 +159,18 @@ impl Registry for EmptyRegistry {
 }
 
 pub static EMPTY: &EmptyRegistry = &EmptyRegistry();
+
+pub fn avatar_url(
+    user: &User,
+    registry: &dyn Registry,
+    size: u16,
+) -> Option<url::Url> {
+    let query = Query::from(user);
+    let avatar = registry.avatar(TargetRef::Query(&query))?;
+
+    // Replace optional `{size}` in the avatar URL with the display size
+    // https://ircv3.net/registry#user-metadata
+    let sized_avatar = avatar.replace("{size}", &size.to_string());
+
+    url::Url::parse(&sized_avatar).ok()
+}

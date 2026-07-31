@@ -183,11 +183,10 @@ impl From<super::input_view::FocusAction> for Entry {
 
         match action {
             FocusAction::CopyText => Entry::CopyMessage,
-            FocusAction::CopyUrl => Entry::CopyUrl,
             FocusAction::Reply => Entry::Reply,
             FocusAction::OpenReactionModal => Entry::AddReaction,
             FocusAction::Redact => Entry::Redact,
-            FocusAction::OpenUrl => Entry::OpenUrl,
+            FocusAction::OpenLink => Entry::OpenUrl,
         }
     }
 }
@@ -1472,7 +1471,7 @@ fn user_with_entries<'a>(
     let avatar = user_avatar(user, registry, previews, avatar_size);
     let on_open = avatar_size
         .filter(|_| config.context_menu.show_user_metadata)
-        .and_then(|size| avatar_url(user, registry, size))
+        .and_then(|size| metadata::avatar_url(user, registry, size))
         .filter(|url| !previews.contains_key(url))
         .map(|url| {
             let server = server.clone();
@@ -1783,21 +1782,6 @@ fn user_metadata<'a>(
     content.padding(right_justified_padding(config)).into()
 }
 
-fn avatar_url(
-    user: &User,
-    registry: &dyn metadata::Registry,
-    size: u16,
-) -> Option<url::Url> {
-    let query = target::Query::from(user);
-    let avatar = registry.avatar(target::TargetRef::Query(&query))?;
-
-    // Replace optional `{size}` in the avatar URL with the display size
-    // https://ircv3.net/registry#user-metadata
-    let sized_avatar = avatar.replace("{size}", &size.to_string());
-
-    url::Url::parse(&sized_avatar).ok()
-}
-
 pub fn user_avatar<'a>(
     user: &User,
     registry: &dyn metadata::Registry,
@@ -1806,11 +1790,13 @@ pub fn user_avatar<'a>(
 ) -> Option<UserAvatar<'a>> {
     let size = size?;
 
-    avatar_url(user, registry, size).map(|url| match previews.get(&url) {
-        Some(preview::State::Loaded(preview)) => {
-            UserAvatar::Loaded(preview.image())
+    metadata::avatar_url(user, registry, size).map(|url| {
+        match previews.get(&url) {
+            Some(preview::State::Loaded(preview)) => {
+                UserAvatar::Loaded(preview.image())
+            }
+            _ => UserAvatar::Pending,
         }
-        _ => UserAvatar::Pending,
     })
 }
 

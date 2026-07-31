@@ -158,6 +158,8 @@ impl Keyboard {
                     HideMutedBuffers => &self.hide_muted_buffers,
                     FocusUp => &self.focus_up,
                     FocusDown => &self.focus_down,
+                    FocusLeft => &self.focus_left,
+                    FocusRight => &self.focus_right,
                 };
 
                 (field, command)

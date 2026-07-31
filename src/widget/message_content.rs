@@ -168,7 +168,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                     leading_nick_offsets(fragments, nick)
                 });
 
-            // Translate the focused URL ordinal into the underlying fragment index
+            // Translate the focused link ordinal into the underlying fragment index
             let focused_fragment_index = focused_link_index.and_then(|n| {
                 fragments
                     .iter()
@@ -207,16 +207,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
 
                         let focus_border = (Some(index)
                             == focused_fragment_index)
-                            .then(|| {
-                                let buffer = theme.styles().buffer;
-                                iced::Border {
-                                    width: 2.0,
-                                    color: buffer
-                                        .focus
-                                        .unwrap_or(buffer.border_selected),
-                                    radius: 3.0.into(),
-                                }
-                            });
+                            .then(|| theme::focus_border(theme));
 
                         let span = match fragment {
                             data::message::Fragment::Text(s) => {
@@ -268,6 +259,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                                             .map(font::get),
                                     )
                                     .color(transform_color(color))
+                                    .border_maybe(focus_border)
                                     .link(message::Link::User(
                                         server.clone(),
                                         user.clone(),
