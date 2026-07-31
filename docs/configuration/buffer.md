@@ -1349,6 +1349,19 @@ Sets what suffix is added after autocompleting. The first option is for when a n
 completion_suffixes = [": ", " "]
 ```
 
+#### `include_ignored`
+
+Include ignored nicknames in nickname autocomplete. Ignore filters still hide their messages (and typing).
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[buffer.text_input.autocomplete]
+include_ignored = false
+```
+
 ### `nickname`
 
 Customize nickname left of text input

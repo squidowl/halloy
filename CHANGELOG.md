@@ -8,6 +8,9 @@ Added:
 - Expanded `servers.<name>.max_connection_attempts` to allow unlimited attempts
 - `file_transfer.send_completion_message` setting to control whether a PRIVMSG is sent to the remote user when a file
   transfer completes.
+- Config file path is now shown in config editor
+- Config option to include ignored nicknames in autocomplete
+  (`buffer.text_input.autocomplete.include_ignored`)
 
 Fixed:
 
@@ -17,10 +20,12 @@ Fixed:
 Changed:
 
 - User avatars are configurable with `metadata.avatar.size`
+- Ensure Theme Editor appends a `.toml` extension when saving a theme without one
 
 Thanks:
 
 - Contributions: @rollecode, @luca020400, @rtmongold
+- Feature requests: @daniiooo
 
 # 2026.8 (2026-07-24)
 

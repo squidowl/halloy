@@ -2035,7 +2035,8 @@ impl Words {
             .into_iter()
             .flatten()
             .filter(|user| {
-                !filters.filter_user(user, current_channel, server)
+                (autocomplete.include_ignored
+                    || !filters.filter_user(user, current_channel, server))
                     && user.as_normalized_str().starts_with(&nick)
             })
             .sorted_by(|a, b| {
