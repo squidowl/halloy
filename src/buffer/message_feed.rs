@@ -289,6 +289,7 @@ pub fn view<'a>(
                                     user,
                                     clients.get_registry(server),
                                     previews,
+                                    config.metadata.avatar_size(),
                                 ),
                                 user,
                                 current_user,

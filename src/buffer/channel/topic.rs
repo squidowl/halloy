@@ -176,7 +176,10 @@ pub fn view<'a>(
                             channel: Some(channel),
                             registry,
                             avatar: context_menu::user_avatar(
-                                user, registry, previews,
+                                user,
+                                registry,
+                                previews,
+                                config.metadata.avatar_size(),
                             ),
                             user,
                             current_user,

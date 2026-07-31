@@ -1070,6 +1070,7 @@ impl<'a> ChannelQueryLayout<'a> {
                         user,
                         self.registry,
                         self.previews.collection(),
+                        self.config.metadata.avatar_size(),
                     ),
                     user,
                     current_user,

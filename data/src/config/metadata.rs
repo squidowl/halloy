@@ -33,6 +33,12 @@ impl Metadata {
     pub fn preferred_key_strs(&self) -> impl Iterator<Item = &'static str> {
         self.preferred_keys.iter().copied().map(Key::to_str)
     }
+
+    pub fn avatar_size(&self) -> Option<u16> {
+        self.preferred_keys
+            .contains(&metadata::Key::Avatar)
+            .then_some(self.avatar.size)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -40,6 +46,7 @@ impl Metadata {
 pub struct Avatar {
     pub enabled: bool,
     pub exclude: Exclude,
+    pub size: u16,
 }
 
 impl Default for Avatar {
@@ -47,6 +54,7 @@ impl Default for Avatar {
         Self {
             enabled: true,
             exclude: Exclude::default(),
+            size: 64,
         }
     }
 }
