@@ -20,6 +20,7 @@ Fixed:
 Thanks:
 
 - Contributions: @rollecode, @luca020400, @rtmongold
+- Feature requests: @daniiooo
 
 # 2026.8 (2026-07-24)
 
