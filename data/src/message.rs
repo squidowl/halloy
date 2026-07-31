@@ -2499,7 +2499,10 @@ impl Fragment {
     }
 
     pub fn is_focus_target(&self) -> bool {
-        matches!(self, Fragment::Url(..) | Fragment::Channel(_))
+        matches!(
+            self,
+            Fragment::Url(..) | Fragment::Channel(_) | Fragment::User(..)
+        )
     }
 
     pub fn as_str(&self) -> &str {

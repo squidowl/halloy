@@ -22,7 +22,7 @@ use iced::{Color, ContentFit, Length, alignment, padding};
 use crate::buffer::context_menu::{self, Context, UrlContext, UserContext};
 use crate::buffer::scroll_view::keyed::{self, keyed};
 use crate::buffer::scroll_view::{
-    FocusMenu, LayoutMessage, Message, focus_menu_overlay,
+    FocusMenu, FocusedComponent, LayoutMessage, Message, focus_menu_overlay,
 };
 use crate::widget::anchored_overlay::{self, anchored_overlay};
 use crate::widget::preview::preview_card_parts;
@@ -547,7 +547,7 @@ impl<'a> ChannelQueryLayout<'a> {
         hide_nickname: bool,
         nick_prefix_to_strip: Option<&str>,
         channels_context: &'a dyn context_menu::ChannelsContext,
-        focused_link: Option<usize>,
+        focused_component: Option<FocusedComponent>,
     ) -> (
         Option<Element<'a, Message>>,
         Element<'a, Message>,
@@ -592,67 +592,74 @@ impl<'a> ChannelQueryLayout<'a> {
             true,
         );
 
-        let nick_element: Element<_> = if hide_nickname {
-            let width = if let Some(right_alignment_middle_width) =
-                right_alignment_middle_width
-            {
-                right_alignment_middle_width
+        let focused_nick_component =
+            focused_component.is_some_and(|focused_component| {
+                matches!(focused_component, FocusedComponent::User)
+            });
+
+        let nick_element: Element<_> =
+            if hide_nickname && !focused_nick_component {
+                let width = if let Some(right_alignment_middle_width) =
+                    right_alignment_middle_width
+                {
+                    right_alignment_middle_width
+                } else {
+                    user_display.width(self.config)
+                };
+
+                Space::new().width(width).into()
             } else {
-                user_display.width(self.config)
+                let mut nick_text = user_display.into_element(
+                    user,
+                    is_user_away,
+                    is_user_offline,
+                    dimmed_background_tuple,
+                    None,
+                    false,
+                    true,
+                    focused_nick_component,
+                    self.theme,
+                    self.config,
+                );
+
+                if let Some(width) = right_alignment_middle_width {
+                    nick_text = container(nick_text)
+                        .width(width)
+                        .align_x(text::Alignment::Right)
+                        .into();
+                }
+
+                if rerouted_message && user_in_channel.is_none() {
+                    context_menu::rerouted_message_user(
+                        nick_text,
+                        self.server,
+                        self.prefix,
+                        self.registry,
+                        self.previews.collection(),
+                        user,
+                        self.config,
+                        self.theme,
+                        &self.config.actions.buffer.click_username,
+                    )
+                    .map(Message::ContextMenu)
+                } else {
+                    context_menu::user(
+                        nick_text,
+                        self.server,
+                        self.prefix,
+                        self.target.channel(),
+                        self.registry,
+                        self.previews.collection(),
+                        user,
+                        user_in_channel,
+                        self.target.our_user(),
+                        self.config,
+                        self.theme,
+                        &self.config.actions.buffer.click_username,
+                    )
+                    .map(Message::ContextMenu)
+                }
             };
-
-            Space::new().width(width).into()
-        } else {
-            let mut nick_text = user_display.into_element(
-                user,
-                is_user_away,
-                is_user_offline,
-                dimmed_background_tuple,
-                None,
-                false,
-                true,
-                self.theme,
-                self.config,
-            );
-
-            if let Some(width) = right_alignment_middle_width {
-                nick_text = container(nick_text)
-                    .width(width)
-                    .align_x(text::Alignment::Right)
-                    .into();
-            }
-
-            if rerouted_message && user_in_channel.is_none() {
-                context_menu::rerouted_message_user(
-                    nick_text,
-                    self.server,
-                    self.prefix,
-                    self.registry,
-                    self.previews.collection(),
-                    user,
-                    self.config,
-                    self.theme,
-                    &self.config.actions.buffer.click_username,
-                )
-                .map(Message::ContextMenu)
-            } else {
-                context_menu::user(
-                    nick_text,
-                    self.server,
-                    self.prefix,
-                    self.target.channel(),
-                    self.registry,
-                    self.previews.collection(),
-                    user,
-                    user_in_channel,
-                    self.target.our_user(),
-                    self.config,
-                    self.theme,
-                    &self.config.actions.buffer.click_username,
-                )
-                .map(Message::ContextMenu)
-            }
-        };
 
         let formatter = *self;
 
@@ -744,7 +751,9 @@ impl<'a> ChannelQueryLayout<'a> {
                             },
                             nick_prefix_to_strip,
                             self.config,
-                            focused_link,
+                            focused_component
+                                .as_ref()
+                                .and_then(FocusedComponent::link_index),
                         ),
                         redaction_message,
                         tooltip::Position::Top,
@@ -874,6 +883,7 @@ impl<'a> ChannelQueryLayout<'a> {
         message: &'a data::Message,
         right_alignment_middle_width: Option<f32>,
         hide_timestamp: bool,
+        focused_component: Option<FocusedComponent>,
         channels_context: &'a dyn context_menu::ChannelsContext,
     ) -> (
         Option<Element<'a, Message>>,
@@ -996,7 +1006,9 @@ impl<'a> ChannelQueryLayout<'a> {
             },
             None,
             self.config,
-            None,
+            focused_component
+                .as_ref()
+                .and_then(FocusedComponent::link_index),
         );
 
         (middle, container(message_content).into(), vec![])
@@ -1116,7 +1128,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         hovered_preview: Option<(message::Hash, usize)>,
         hovered_reply: Option<message::Hash>,
         channels_context: &'a dyn context_menu::ChannelsContext,
-        focused_link: Option<usize>,
+        focused_component: Option<FocusedComponent>,
     ) -> Option<Element<'a, Message>> {
         let mut prefixes: Option<Element<_>> = self.format_prefixes(message);
 
@@ -1236,7 +1248,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                 hide_nickname,
                 reply_nick_to_strip,
                 channels_context,
-                focused_link,
+                focused_component,
             )),
             message::Source::Server(server_message) => {
                 Some(self.format_server_message(
@@ -1316,7 +1328,9 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     },
                     None,
                     formatter.config,
-                    None,
+                    focused_component
+                        .as_ref()
+                        .and_then(FocusedComponent::link_index),
                 );
 
                 let after_content =
@@ -1371,6 +1385,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     message,
                     right_alignment_middle_width,
                     hide_timestamp,
+                    focused_component,
                     channels_context,
                 ),
             ),
@@ -1432,8 +1447,10 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
 
             // If the URL is hidden, we show focus on the preview widget, o
             // otherwise we focus the fragment.
-            let focused_fragment_index =
-                focused_link.and_then(|n| match &message.content {
+            let focused_fragment_index = focused_component
+                .as_ref()
+                .and_then(FocusedComponent::link_index)
+                .and_then(|n| match &message.content {
                     message::Content::Fragments(fragments) => fragments
                         .iter()
                         .enumerate()
@@ -1656,6 +1673,7 @@ impl<'a> ChannelQueryLayout<'a> {
                                 false,
                                 None,
                                 None,
+                                false,
                                 false,
                                 false,
                                 self.theme,

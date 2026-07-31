@@ -33,7 +33,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use self::completion::Completion;
 use self::exec::run as execute_shell_command;
-use super::scroll_view::Direction;
+use super::scroll_view::FocusDirection;
 use crate::widget::key_press::is_numpad;
 use crate::widget::user_display::UserDisplay;
 use crate::widget::{
@@ -53,9 +53,8 @@ pub enum FocusAction {
     Redact,
     Reply,
     CopyText,
-    CopyUrl,
     OpenReactionModal,
-    OpenUrl,
+    OpenLink,
 }
 
 pub enum Event {
@@ -85,7 +84,7 @@ pub enum Event {
         upload_ids: Vec<u32>,
         abort_registrations: Vec<futures::future::AbortRegistration>,
     },
-    NavigateFocus(Direction),
+    NavigateFocus(FocusDirection),
     ExitFocus,
     FocusAction(FocusAction),
 }
@@ -133,7 +132,7 @@ pub enum Message {
         to_nick: Nick,
     },
     ClearDraftReply,
-    NavigateFocus(Direction),
+    NavigateFocus(FocusDirection),
     ExitFocus,
     FocusAction(FocusAction),
 }
@@ -611,6 +610,7 @@ fn maybe_our_user<'a>(
                         false,
                         None,
                         None,
+                        false,
                         false,
                         false,
                         theme,

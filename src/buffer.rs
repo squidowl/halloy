@@ -22,7 +22,7 @@ pub use self::input_view::FocusAction;
 pub use self::logs::Logs;
 pub use self::message_feed::MessageFeed;
 pub use self::query::Query;
-pub use self::scroll_view::Direction;
+pub use self::scroll_view::FocusDirection;
 pub use self::server::Server;
 use crate::Theme;
 use crate::screen::dashboard::sidebar;
@@ -1208,23 +1208,23 @@ impl Buffer {
         }
     }
 
-    pub fn has_pending_scroll_to(&self) -> bool {
+    pub fn has_scroll_to(&self) -> bool {
         match self {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::ChannelDiscovery(_)
             | Buffer::ConfigEditor(_) => false,
-            Buffer::Channel(state) => state.scroll_view.has_pending_scroll_to(),
-            Buffer::Server(state) => state.scroll_view.has_pending_scroll_to(),
-            Buffer::Query(state) => state.scroll_view.has_pending_scroll_to(),
-            Buffer::Logs(state) => state.scroll_view.has_pending_scroll_to(),
+            Buffer::Channel(state) => state.scroll_view.has_scroll_to(),
+            Buffer::Server(state) => state.scroll_view.has_scroll_to(),
+            Buffer::Query(state) => state.scroll_view.has_scroll_to(),
+            Buffer::Logs(state) => state.scroll_view.has_scroll_to(),
             Buffer::Highlights(state) | Buffer::ChannelMonitor(state) => {
-                state.scroll_view.has_pending_scroll_to()
+                state.scroll_view.has_scroll_to()
             }
         }
     }
 
-    pub fn prepare_for_pending_scroll_to(
+    pub fn prepare_for_scroll_to(
         &mut self,
         history: &history::Manager,
         config: &Config,
@@ -1236,7 +1236,7 @@ impl Buffer {
             | Buffer::ConfigEditor(_) => Task::none(),
             Buffer::Channel(state) => state
                 .scroll_view
-                .prepare_for_pending_scroll_to(
+                .prepare_for_scroll_to(
                     scroll_view::Kind::Channel(&state.server, &state.target),
                     history,
                     config,
@@ -1246,7 +1246,7 @@ impl Buffer {
                 }),
             Buffer::Server(state) => state
                 .scroll_view
-                .prepare_for_pending_scroll_to(
+                .prepare_for_scroll_to(
                     scroll_view::Kind::Server(&state.server),
                     history,
                     config,
@@ -1256,7 +1256,7 @@ impl Buffer {
                 }),
             Buffer::Query(state) => state
                 .scroll_view
-                .prepare_for_pending_scroll_to(
+                .prepare_for_scroll_to(
                     scroll_view::Kind::Query(&state.server, &state.target),
                     history,
                     config,
@@ -1266,11 +1266,7 @@ impl Buffer {
                 }),
             Buffer::Logs(state) => state
                 .scroll_view
-                .prepare_for_pending_scroll_to(
-                    scroll_view::Kind::Logs,
-                    history,
-                    config,
-                )
+                .prepare_for_scroll_to(scroll_view::Kind::Logs, history, config)
                 .map(|message| {
                     Message::Logs(logs::Message::ScrollView(message))
                 }),
@@ -1279,11 +1275,7 @@ impl Buffer {
 
                 state
                     .scroll_view
-                    .prepare_for_pending_scroll_to(
-                        kind.scroll_view(),
-                        history,
-                        config,
-                    )
+                    .prepare_for_scroll_to(kind.scroll_view(), history, config)
                     .map(move |message| {
                         map_message_feed_message(
                             kind,
@@ -1452,12 +1444,14 @@ impl Buffer {
         }
     }
 
-    pub fn focus_sub_element_selected(&self) -> bool {
+    pub fn focus_component_selected(&self) -> bool {
         match self {
             Buffer::Channel(state) => {
-                state.scroll_view.focused_link().is_some()
+                state.scroll_view.focused_component().is_some()
             }
-            Buffer::Query(state) => state.scroll_view.focused_link().is_some(),
+            Buffer::Query(state) => {
+                state.scroll_view.focused_component().is_some()
+            }
             _ => false,
         }
     }
@@ -1472,22 +1466,6 @@ impl Buffer {
             Buffer::Query(_) => Some(Message::Query(
                 query::Message::ScrollView(scroll_view::Message::OpenFocusMenu),
             )),
-            _ => None,
-        }
-    }
-
-    pub fn open_nick_focus_menu_message(&self) -> Option<Message> {
-        match self {
-            Buffer::Channel(_) => {
-                Some(Message::Channel(channel::Message::ScrollView(
-                    scroll_view::Message::OpenNickFocusMenu,
-                )))
-            }
-            Buffer::Query(_) => {
-                Some(Message::Query(query::Message::ScrollView(
-                    scroll_view::Message::OpenNickFocusMenu,
-                )))
-            }
             _ => None,
         }
     }
@@ -1510,7 +1488,7 @@ impl Buffer {
 
     pub fn focus_navigate_message(
         &self,
-        direction: scroll_view::Direction,
+        direction: scroll_view::FocusDirection,
     ) -> Option<Message> {
         match self {
             Buffer::Channel(_) => {
@@ -1536,9 +1514,7 @@ impl Buffer {
         // menu uses, so an unsupported keybind is a no-op.
         let server = self.server()?;
         let permitted = match action {
-            FocusAction::CopyText
-            | FocusAction::CopyUrl
-            | FocusAction::OpenUrl => true,
+            FocusAction::CopyText | FocusAction::OpenLink => true,
             FocusAction::Reply => clients.get_server_can_send_replies(&server),
             FocusAction::OpenReactionModal => {
                 clients.get_server_can_send_reactions(&server)

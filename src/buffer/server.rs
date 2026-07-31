@@ -225,7 +225,7 @@ pub fn view<'a>(
                         } else {
                             let mut nick_text = user_display.into_element(
                                 user, false, false, None, None, false, true,
-                                theme, config,
+                                false, theme, config,
                             );
 
                             if let Some(right_alignment_widths) =

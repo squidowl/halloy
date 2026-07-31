@@ -181,6 +181,8 @@ pub enum Command {
     HideMutedBuffers,
     FocusUp,
     FocusDown,
+    FocusLeft,
+    FocusRight,
 }
 
 /// Message-focus actions. Unlike [`Command`], these are matched against live
@@ -492,7 +494,22 @@ impl KeyBind {
     }
     default!(focus_reply, "r", Modifiers::default());
     default!(focus_react, "=", Modifiers::default());
-    default!(focus_redact, Backspace);
+    pub fn focus_redact() -> Vec<KeyBind> {
+        vec![
+            KeyBind::Bind {
+                key_code: KeyCode(iced_core::keyboard::Key::Named(
+                    iced_core::keyboard::key::Named::Backspace,
+                )),
+                modifiers: Modifiers::default(),
+            },
+            KeyBind::Bind {
+                key_code: KeyCode(iced_core::keyboard::Key::Named(
+                    iced_core::keyboard::key::Named::Delete,
+                )),
+                modifiers: Modifiers::default(),
+            },
+        ]
+    }
 }
 
 impl From<(keyboard::Key, keyboard::Modifiers)> for KeyBind {

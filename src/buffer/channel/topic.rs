@@ -83,7 +83,8 @@ pub fn view<'a>(
         // Otherwise selectable_text component.
         let content = context_menu::user(
             user_display.into_element(
-                user, false, false, None, None, false, true, theme, config,
+                user, false, false, None, None, false, true, false, theme,
+                config,
             ),
             server,
             prefix,

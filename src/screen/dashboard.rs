@@ -37,7 +37,7 @@ use self::pane::Pane;
 use self::sidebar::Sidebar;
 use self::theme_editor::ThemeEditor;
 use crate::buffer::context_menu::ChannelsContext;
-use crate::buffer::{self, Buffer};
+use crate::buffer::{self, Buffer, FocusDirection};
 use crate::notification::{self, Notifications, toast};
 use crate::widget::{
     Column, Element, Row, anchored_overlay, context_menu, selectable_text,
@@ -877,11 +877,11 @@ impl Dashboard {
                                         .set_reply_preview(reply_preview);
                                 }
 
-                                if state.buffer.has_pending_scroll_to() {
+                                if state.buffer.has_scroll_to() {
                                     return (
                                         state
                                             .buffer
-                                            .prepare_for_pending_scroll_to(
+                                            .prepare_for_scroll_to(
                                                 &self.history,
                                                 config,
                                             )
@@ -1536,13 +1536,15 @@ impl Dashboard {
                     HideMutedBuffers => {
                         self.buffer_settings.show_muted = false;
                     }
-                    FocusUp | FocusDown => {
+                    FocusUp | FocusDown | FocusLeft | FocusRight => {
                         if let Some((window, pane, state)) = self.get_focused()
                         {
-                            let direction = if matches!(shortcut, FocusUp) {
-                                buffer::Direction::Up
-                            } else {
-                                buffer::Direction::Down
+                            let direction = match shortcut {
+                                FocusUp => FocusDirection::Up,
+                                FocusDown => FocusDirection::Down,
+                                FocusLeft => FocusDirection::Left,
+                                FocusRight => FocusDirection::Right,
+                                _ => unreachable!(),
                             };
 
                             if let Some(message) =
@@ -2954,7 +2956,7 @@ impl Dashboard {
                 if let Some((window, pane, state)) = self.get_focused()
                     && state.buffer.in_focus_mode()
                     && let Some(msg) = state.buffer.focus_action_message(
-                        buffer::FocusAction::CopyUrl,
+                        buffer::FocusAction::CopyText,
                         clients,
                     )
                 {
@@ -3012,42 +3014,35 @@ impl Dashboard {
                 };
 
                 let msg = match command {
-                    FocusCommand::Up | FocusCommand::Down => {
-                        let direction = if matches!(command, FocusCommand::Up) {
-                            buffer::Direction::Up
-                        } else {
-                            buffer::Direction::Down
+                    FocusCommand::Up
+                    | FocusCommand::Down
+                    | FocusCommand::Left
+                    | FocusCommand::Right => {
+                        let direction = match command {
+                            FocusCommand::Up => FocusDirection::Up,
+                            FocusCommand::Down => FocusDirection::Down,
+                            FocusCommand::Left => FocusDirection::Left,
+                            FocusCommand::Right => FocusDirection::Right,
+                            _ => unreachable!(),
                         };
 
                         state.buffer.focus_navigate_message(direction)
                     }
-                    FocusCommand::Right => in_focus
-                        .then(|| state.buffer.open_focus_menu_message())
-                        .flatten(),
-                    FocusCommand::Activate if !in_focus => None,
-                    FocusCommand::Activate
-                        if state.buffer.focus_sub_element_selected() =>
-                    {
-                        state.buffer.focus_action_message(
-                            buffer::FocusAction::OpenUrl,
-                            clients,
-                        )
-                    }
-                    FocusCommand::Activate => {
-                        state.buffer.open_focus_menu_message()
-                    }
-                    FocusCommand::Left | FocusCommand::ActivateAlt
+                    FocusCommand::Activate | FocusCommand::ActivateAlt
                         if !in_focus =>
                     {
                         None
                     }
-                    FocusCommand::Left | FocusCommand::ActivateAlt
-                        if state.buffer.focus_sub_element_selected() =>
+                    FocusCommand::Activate
+                        if state.buffer.focus_component_selected() =>
                     {
-                        state.buffer.open_focus_menu_message()
+                        state.buffer.focus_action_message(
+                            buffer::FocusAction::OpenLink,
+                            clients,
+                        )
                     }
-                    FocusCommand::Left | FocusCommand::ActivateAlt => {
-                        state.buffer.open_nick_focus_menu_message()
+                    FocusCommand::Activate | FocusCommand::ActivateAlt => {
+                        state.buffer.open_focus_menu_message()
                     }
                     FocusCommand::Reply => in_focus
                         .then(|| {

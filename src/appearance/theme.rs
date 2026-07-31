@@ -3,6 +3,7 @@ pub use data::appearance::theme::{
     color_to_hex, hex_to_color,
 };
 use data::config;
+use iced::Border;
 use iced::widget::text::LineHeight;
 
 use crate::widget::combo_box;
@@ -125,4 +126,14 @@ pub fn resolve_line_height(config: &config::Font) -> f32 {
             .into(),
         )
         .0
+}
+
+pub fn focus_border(theme: &Theme) -> Border {
+    let buffer = theme.styles().buffer;
+
+    Border {
+        width: 2.0,
+        color: buffer.focus.unwrap_or(buffer.border_selected),
+        radius: 3.0.into(),
+    }
 }

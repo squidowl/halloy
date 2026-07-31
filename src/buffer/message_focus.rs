@@ -1,5 +1,6 @@
 use data::user::{Nick, NickRef};
 use data::{Config, buffer, client, history, message, preview, target};
+use iced::widget::text_editor;
 use iced::{Task, widget};
 
 use super::{context_menu, input_view, message_view, scroll_view};
@@ -7,6 +8,7 @@ use super::{context_menu, input_view, message_view, scroll_view};
 #[derive(Debug, Clone)]
 pub struct Manager {
     focus_capture_id: widget::Id,
+    focus_capture_content: text_editor::Content,
     focused_message: Option<message::Hash>,
 }
 
@@ -14,6 +16,7 @@ impl Manager {
     pub fn new() -> Self {
         Self {
             focus_capture_id: widget::Id::unique(),
+            focus_capture_content: text_editor::Content::new(),
             focused_message: None,
         }
     }
@@ -34,14 +37,14 @@ impl Manager {
         self.focused_message = None;
     }
 
-    // Returns a zero-size hidden text_input. While a message is focused this widget
+    // Returns a zero-size hidden text_editor. While a message is focused this widget
     // holds keyboard focus so that Alt+Arrow events reach the global subscription
-    // rather than being consumed by the text editor.
+    // rather than being consumed by the input_view text editor.
     pub fn focus_capture<'a, M: Clone + 'a>(
-        &self,
+        &'a self,
     ) -> crate::widget::Element<'a, M> {
         widget::container(
-            widget::text_input("", "")
+            widget::text_editor(&self.focus_capture_content)
                 .id(self.focus_capture_id.clone())
                 .padding(0),
         )
@@ -127,7 +130,7 @@ impl Manager {
                 })
                 .flatten();
 
-                let focused_link = scroll_view.focused_link();
+                let focused_component = scroll_view.focused_component();
 
                 let (exit_task, _) = input_view.update(
                     input_view::Message::ExitFocus,
@@ -181,28 +184,14 @@ impl Manager {
                     }
                     action => {
                         let focus_target = message.and_then(|message| {
-                            focused_link
-                                .and_then(|index| {
-                                    scroll_view::message_focus_target_at(
-                                        message, index,
-                                    )
-                                })
-                                .or_else(|| {
-                                    scroll_view::message_single_url(message)
-                                        .map(scroll_view::FocusTarget::Url)
-                                })
+                            focused_component.and_then(|focused_component| {
+                                focused_component.focus_target(message)
+                            })
                         });
 
                         let mut scroll_task = Task::none();
 
                         let context_message = match action {
-                            input_view::FocusAction::CopyText => {
-                                message.map(|message| {
-                                    context_menu::Message::CopyText(
-                                        message.text().into_owned(),
-                                    )
-                                })
-                            }
                             input_view::FocusAction::Redact => message
                                 .and_then(|message| message.id.clone())
                                 .map(context_menu::Message::Redact),
@@ -220,7 +209,7 @@ impl Manager {
                                         ),
                                     )
                                 }),
-                            input_view::FocusAction::OpenUrl => {
+                            input_view::FocusAction::OpenLink => {
                                 match focus_target {
                                     Some(scroll_view::FocusTarget::Url(url)) => {
                                         Some(context_menu::Message::OpenUrl(
@@ -249,10 +238,24 @@ impl Manager {
                                         }
                                         None
                                     }
+                                    Some(scroll_view::FocusTarget::User(
+                                        user,
+                                    )) => {
+                                        if let Some(server) = kind.server() {
+                                            let link = message::Link::User(
+                                                server.clone(),
+                                                user.clone(),
+                                            );
+                                            scroll_task = Task::done(
+                                                scroll_view::Message::Link(link),
+                                            );
+                                        }
+                                        None
+                                    }
                                     None => None,
                                 }
                             }
-                            input_view::FocusAction::CopyUrl => {
+                            input_view::FocusAction::CopyText => {
                                 match focus_target {
                                     Some(scroll_view::FocusTarget::Url(url)) => {
                                         Some(context_menu::Message::CopyText(
@@ -264,6 +267,11 @@ impl Manager {
                                     )) => Some(
                                         context_menu::Message::CopyText(channel),
                                     ),
+                                    Some(scroll_view::FocusTarget::User(user)) => {
+                                        Some(context_menu::Message::CopyText(
+                                            user.nickname().to_string(),
+                                        ))
+                                    }
                                     // Copy the message text when no link is
                                     // focused.
                                     None => message.map(|message| {

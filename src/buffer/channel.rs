@@ -775,6 +775,7 @@ mod nick_list {
                     None,
                     false,
                     true,
+                    false,
                     theme,
                     config,
                 ),

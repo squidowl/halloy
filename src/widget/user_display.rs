@@ -88,6 +88,7 @@ impl UserDisplay {
         size: Option<f32>,
         highlight: bool,
         selectable: bool,
+        focused: bool,
         theme: &'a Theme,
         config: &'a Config,
     ) -> Element<'a, M> {
@@ -124,7 +125,7 @@ impl UserDisplay {
             base
         };
 
-        if let Some(tooltip) = self.tooltip {
+        let base = if let Some(tooltip) = self.tooltip {
             let mut suffix = String::new();
 
             if tooltip.bot_icon {
@@ -181,6 +182,17 @@ impl UserDisplay {
             )
             .delay(iced::time::Duration::ZERO)
             .into()
+        } else {
+            base
+        };
+
+        if focused {
+            container(base)
+                .style(move |_| iced::widget::container::Style {
+                    border: theme::focus_border(theme),
+                    ..Default::default()
+                })
+                .into()
         } else {
             base
         }
