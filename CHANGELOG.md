@@ -17,6 +17,7 @@ Fixed:
 - Remove blank space above the input after marking a buffer as read
 - User avatars are only shown when `avatar` is included in `metadata.preferred_keys`
 - Text in input box being scrolled/clipped 2px on the left on pane load or when navigating history
+- Expand `$HOME` or `%AppData%` when first component in a path setting
 
 Changed:
 
@@ -26,7 +27,7 @@ Changed:
 Thanks:
 
 - Contributions: @rollecode, @luca020400, @rtmongold, @tranzystorekk, @englut
-- Bug reports: sebbu, @dpedu
+- Bug reports: sebbu, @dpedu, kurwavidae
 - Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium
 
 # 2026.8 (2026-07-24)
