@@ -28,7 +28,12 @@ impl Version {
 
     pub fn is_old(&self) -> bool {
         match &self.remote {
-            Some(remote) => &self.current != remote,
+            Some(remote) => version_compare::compare_to(
+                &self.current,
+                remote,
+                version_compare::Cmp::Lt,
+            )
+            .is_ok_and(|less_than| less_than),
             None => false,
         }
     }
