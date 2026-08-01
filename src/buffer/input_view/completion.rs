@@ -130,6 +130,7 @@ impl Completion {
                 cursor_position,
                 casemapping,
                 users,
+                our_nickname,
                 filters,
                 last_seen,
                 channels.iter().copied(),
@@ -1980,6 +1981,7 @@ impl Words {
         cursor_position: usize,
         casemapping: isupport::CaseMap,
         users: Option<&ChannelUsers>,
+        our_nickname: Option<NickRef>,
         filters: FilterChain,
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         channels: impl IntoIterator<Item = &'a target::Channel>,
@@ -2001,6 +2003,7 @@ impl Words {
                 cursor_position,
                 casemapping,
                 users,
+                our_nickname,
                 filters,
                 current_target.and_then(Target::as_channel),
                 server,
@@ -2016,6 +2019,7 @@ impl Words {
         cursor_position: usize,
         casemapping: isupport::CaseMap,
         users: Option<&ChannelUsers>,
+        our_nickname: Option<NickRef>,
         filters: FilterChain,
         current_channel: Option<&target::Channel>,
         server: &Server,
@@ -2040,34 +2044,51 @@ impl Words {
                     && user.as_normalized_str().starts_with(&nick)
             })
             .sorted_by(|a, b| {
-                if matches!(autocomplete.order_by, OrderBy::Recent) {
-                    if let Some(a_last_seen) =
-                        last_seen.get(&a.nickname().to_owned())
-                    {
-                        if let Some(b_last_seen) =
-                            last_seen.get(&b.nickname().to_owned())
-                        {
-                            b_last_seen.cmp(a_last_seen)
+                let a_is_self =
+                    our_nickname.is_some_and(|nick| a.nickname() == nick);
+                let b_is_self =
+                    our_nickname.is_some_and(|nick| b.nickname() == nick);
+
+                match (a_is_self, b_is_self) {
+                    (true, false) => Ordering::Greater,
+                    (false, true) => Ordering::Less,
+                    _ => {
+                        if matches!(autocomplete.order_by, OrderBy::Recent) {
+                            if let Some(a_last_seen) =
+                                last_seen.get(&a.nickname().to_owned())
+                            {
+                                if let Some(b_last_seen) =
+                                    last_seen.get(&b.nickname().to_owned())
+                                {
+                                    b_last_seen.cmp(a_last_seen)
+                                } else {
+                                    Ordering::Less
+                                }
+                            } else if last_seen
+                                .get(&b.nickname().to_owned())
+                                .is_some()
+                            {
+                                Ordering::Greater
+                            } else {
+                                match autocomplete.sort_direction {
+                                    SortDirection::Asc => {
+                                        a.nickname().cmp(&b.nickname())
+                                    }
+                                    SortDirection::Desc => {
+                                        b.nickname().cmp(&a.nickname())
+                                    }
+                                }
+                            }
                         } else {
-                            Ordering::Less
-                        }
-                    } else if last_seen.get(&b.nickname().to_owned()).is_some()
-                    {
-                        Ordering::Greater
-                    } else {
-                        match autocomplete.sort_direction {
-                            SortDirection::Asc => {
-                                a.nickname().cmp(&b.nickname())
-                            }
-                            SortDirection::Desc => {
-                                b.nickname().cmp(&a.nickname())
+                            match autocomplete.sort_direction {
+                                SortDirection::Asc => {
+                                    a.nickname().cmp(&b.nickname())
+                                }
+                                SortDirection::Desc => {
+                                    b.nickname().cmp(&a.nickname())
+                                }
                             }
                         }
-                    }
-                } else {
-                    match autocomplete.sort_direction {
-                        SortDirection::Asc => a.nickname().cmp(&b.nickname()),
-                        SortDirection::Desc => b.nickname().cmp(&a.nickname()),
                     }
                 }
             })

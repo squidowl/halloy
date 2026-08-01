@@ -21,6 +21,7 @@ Changed:
 
 - User avatars are configurable with `metadata.avatar.size`
 - Ensure Theme Editor appends a `.toml` extension when saving a theme without one
+- Recent nick autocomplete now counts `/me` actions, keeps last-seen across nick changes, and sorts your own nick last
 
 Thanks:
 
