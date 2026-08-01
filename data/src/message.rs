@@ -2219,7 +2219,7 @@ fn parse_regex_fragments<'a>(
     let mut i = 0;
     let mut fragments = Vec::with_capacity(1);
 
-    for re_match in regex.find_iter(&text).filter_map(Result::ok) {
+    for re_match in regex.find_iter::<str>(&text).filter_map(Result::ok) {
         let (matching, trailing_punctuation) =
             filter_trailing_punctuation(re_match, &text);
         let (matching, trailing_delimiter) = filter_trailing_delimiter(
