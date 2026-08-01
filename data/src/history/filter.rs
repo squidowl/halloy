@@ -226,7 +226,7 @@ impl Filter {
                 _ => false,
             },
             FilterTarget::MessageRegex(regex) => regex
-                .is_match(&message.text())
+                .is_match::<str>(&message.text())
                 .is_ok_and(|is_match| is_match),
         }
     }
