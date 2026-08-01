@@ -4,7 +4,7 @@
 
 ![halloy](./assets/animation.gif)
 
-Halloy is an open-source IRC client for Mac, Windows, and Linux, focused on being simple and fast.
+Halloy is an open-source IRC client for macOS, Windows, and Linux, focused on being simple and fast.
 
 Documentation: [halloy.chat](https://halloy.chat)
 

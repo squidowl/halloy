@@ -19,5 +19,5 @@ See the following guides for example configurations:
 The location of the configuration directory depends on your system:
 
 * Windows: `%AppData%\halloy`
-* Mac: `~/Library/Application Support/halloy` or `$HOME/.config/halloy`
+* macOS: `~/Library/Application Support/halloy` or `$HOME/.config/halloy`
 * Linux: `$XDG_CONFIG_HOME/halloy`, `$HOME/.config/halloy` or `$HOME/.var/app/org.squidowl.halloy/config` (Flatpak)
