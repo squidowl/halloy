@@ -1794,7 +1794,7 @@ pub fn update_last_seen(
     last_seen: &mut HashMap<Nick, DateTime<Utc>>,
     message: &Message,
 ) {
-    if let Source::User(user) = message.target.source() {
+    if let Some(user) = message.target.source().user() {
         let nickname = user.nickname().to_owned();
 
         if let Some(date_time) = last_seen.get_mut(&nickname) {
@@ -1803,6 +1803,18 @@ pub fn update_last_seen(
             }
         } else {
             last_seen.insert(nickname, message.server_time);
+        }
+    } else if let Source::Server(Some(server)) = message.target.source()
+        && matches!(server.kind(), message::source::server::Kind::ChangeNick)
+        && let (Some(old), Some(message::source::server::Change::Nick(new))) =
+            (server.nick(), server.change())
+        && let Some(when) = last_seen.remove(old)
+    {
+        match last_seen.get(new) {
+            Some(existing) if *existing >= when => {}
+            _ => {
+                last_seen.insert(new.clone(), when);
+            }
         }
     }
 }
