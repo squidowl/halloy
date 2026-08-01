@@ -16,6 +16,7 @@ Fixed:
 
 - Remove blank space above the input after marking a buffer as read
 - User avatars are only shown when `avatar` is included in `metadata.preferred_keys`
+- Text in input box being scrolled/clipped 2px on the left on pane load or when navigating history
 
 Changed:
 
@@ -25,6 +26,7 @@ Changed:
 Thanks:
 
 - Contributions: @rollecode, @luca020400, @rtmongold
+- Bug reports: sebbu
 - Feature requests: @daniiooo
 
 # 2026.8 (2026-07-24)
