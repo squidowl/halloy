@@ -11,6 +11,7 @@ use tokio::fs;
 use tokio::process::Command;
 
 use self::bouncer_network::Overrides;
+use self::encoding::Encoding;
 use self::filehost::Filehost;
 use self::icon::Icon;
 use crate::bouncer::BouncerNetwork;
@@ -28,6 +29,7 @@ use crate::serde::{
 use crate::{config, isupport, metadata, target};
 
 mod bouncer_network;
+pub mod encoding;
 pub mod filehost;
 pub mod filters;
 pub mod icon;
@@ -138,6 +140,10 @@ pub struct Server {
         deserialize_with = "deserialize_path_buf_with_path_transformations_maybe"
     )]
     pub root_cert_path: Option<PathBuf>,
+    /// The character encoding used to read from and write to the server.
+    /// Accepts any WHATWG encoding label, e.g. "utf-8" or "iso-8859-15".
+    /// Defaults to "utf-8".
+    pub encoding: Encoding,
     /// Sasl authentication
     pub sasl: Option<Sasl>,
     /// Commands which are executed once connected.
@@ -295,6 +301,7 @@ impl Server {
             || self.dangerously_accept_invalid_certs
                 != other.dangerously_accept_invalid_certs
             || self.root_cert_path != other.root_cert_path
+            || self.encoding != other.encoding
             || self.proxy.as_ref().or(default_proxy)
                 != other.proxy.as_ref().or(other_default_proxy)
             || self.username != other.username
@@ -349,6 +356,7 @@ impl Default for Server {
             websocket_ping_interval: Duration::from_secs(60),
             dangerously_accept_invalid_certs: Default::default(),
             root_cert_path: Option::default(),
+            encoding: Encoding::default(),
             sasl: Option::default(),
             on_connect: Vec::default(),
             who_poll_enabled: true,

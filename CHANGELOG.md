@@ -11,6 +11,8 @@ Added:
 - Config file path is now shown in config editor
 - Config option to include ignored nicknames in autocomplete
   (`buffer.text_input.autocomplete.include_ignored`)
+- `servers.<name>.encoding` setting to select the server's character encoding (e.g. `iso-8859-15`),
+  for servers that don't speak UTF-8
 
 Fixed:
 

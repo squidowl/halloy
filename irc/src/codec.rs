@@ -15,11 +15,15 @@ const MAX_LINE_LENGTH: usize = 16 * 1024;
 
 pub struct Codec {
     logger: Option<UnboundedSender<CodecLog>>,
+    encoding: &'static encoding_rs::Encoding,
 }
 
 impl Codec {
-    pub fn new(logger: Option<UnboundedSender<CodecLog>>) -> Self {
-        Self { logger }
+    pub fn new(
+        logger: Option<UnboundedSender<CodecLog>>,
+        encoding: &'static encoding_rs::Encoding,
+    ) -> Self {
+        Self { logger, encoding }
     }
 }
 
@@ -36,9 +40,9 @@ impl Decoder for Codec {
             // buffer the "line" without bound, exhausting memory from a single connection.
             if src.len() > MAX_LINE_LENGTH {
                 if let Some(logger) = &self.logger {
-                    let _ = logger.send(CodecLog::Received(
-                        String::from_utf8_lossy(src).to_string(),
-                    ));
+                    let (decoded, _, _) = self.encoding.decode(src);
+                    let _ =
+                        logger.send(CodecLog::Received(decoded.into_owned()));
                 }
 
                 return Err(Error::LineTooLong);
@@ -48,13 +52,14 @@ impl Decoder for Codec {
 
         let bytes = src.split_to(pos + 2);
 
+        let (decoded, _, _) = self.encoding.decode(&bytes);
+        let decoded = decoded.into_owned();
+
         if let Some(logger) = &self.logger {
-            let _ = logger.send(CodecLog::Received(
-                String::from_utf8_lossy(&bytes).to_string(),
-            ));
+            let _ = logger.send(CodecLog::Received(decoded.clone()));
         }
 
-        Ok(Some(parse::message_bytes(&bytes)))
+        Ok(Some(parse::message(&decoded)))
     }
 }
 
@@ -68,15 +73,12 @@ impl Encoder<Message> for Codec {
     ) -> Result<(), Self::Error> {
         let encoded = format::message(message);
 
-        let bytes = encoded.into_bytes();
+        let (bytes, _, _) = self.encoding.encode(&encoded);
+        dst.extend(bytes.as_ref());
 
         if let Some(logger) = &self.logger {
-            let _ = logger.send(CodecLog::Sent(
-                String::from_utf8_lossy(&bytes).to_string(),
-            ));
+            let _ = logger.send(CodecLog::Sent(encoded));
         }
-
-        dst.extend(bytes);
 
         Ok(())
     }
@@ -93,4 +95,31 @@ pub enum Error {
     Io(#[from] io::Error),
     #[error("IRC line exceeded the maximum buffered length")]
     LineTooLong,
+}
+
+#[cfg(test)]
+mod tests {
+    use proto::Command;
+
+    use super::*;
+
+    #[test]
+    fn encodes_and_decodes_iso_8859_15() {
+        let mut codec = Codec::new(None, encoding_rs::ISO_8859_15);
+
+        let message: Message =
+            Command::PRIVMSG("#canal".into(), "café à la euro €".into()).into();
+
+        let mut buf = BytesMut::new();
+        codec.encode(message.clone(), &mut buf).unwrap();
+
+        // The euro sign is the tell: it's absent from ISO-8859-1 but present
+        // in ISO-8859-15, and is encoded as a single byte, not the 3
+        // UTF-8 bytes it would take otherwise.
+        assert!(buf.contains(&0xA4));
+
+        let decoded = codec.decode(&mut buf).unwrap().unwrap().unwrap();
+
+        assert_eq!(decoded, message);
+    }
 }

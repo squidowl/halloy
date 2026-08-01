@@ -620,9 +620,11 @@ async fn connect(
         None
     };
 
-    let connection =
-        Connection::new(config.connection(proxy), irc::Codec::new(logger))
-            .await?;
+    let connection = Connection::new(
+        config.connection(proxy),
+        irc::Codec::new(logger, config.encoding.0),
+    )
+    .await?;
 
     let (sender, receiver) = mpsc::channel(100);
 

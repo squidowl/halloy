@@ -97,6 +97,22 @@ The path to the root TLS certificate for this server in PEM format.[^1] [^2]
 root_cert_path = ""
 ```
 
+### `encoding`
+
+The character encoding used to read from and write to the server. Accepts any
+[WHATWG encoding label](https://encoding.spec.whatwg.org/#names-and-labels),
+matched case-insensitively (e.g. `"utf-8"`, `"iso-8859-15"`, `"windows-1252"`).
+Useful for legacy servers or networks that don't speak UTF-8.
+
+```toml
+# Type: string
+# Values: any recognized character encoding label
+# Default: "utf-8"
+
+[servers.<name>]
+encoding = "iso-8859-15"
+```
+
 ### `use_websocket`
 
 Whether or not to connect using IRCv3 WebSocket transport. When enabled, Halloy connects to `ws://` if [`use_tls`](#use_tls) is `false`, and `wss://` if [`use_tls`](#use_tls) is `true`.

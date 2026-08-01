@@ -24,6 +24,7 @@ futures = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "fs", "rt"] }
 chrono = { workspace = true }
 bytes = { workspace = true }
+encoding_rs = { workspace = true }
 strum = { workspace = true }
 anyhow = { workspace = true }
 url = { workspace = true }
