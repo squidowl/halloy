@@ -535,7 +535,13 @@ impl Sasl {
                 password_command: None,
                 ..
             } => {
-                let mut pass = fs::read_to_string(pass_file).await?;
+                let mut pass = fs::read_to_string(&*pass_file).await.map_err(
+                    |io_error| config::Error::Io {
+                        path: pass_file.display().to_string(),
+                        context: Some(format!(" for server `{server}`")),
+                        error: io_error.to_string(),
+                    },
+                )?;
 
                 if password_file_first_line_only
                     .is_none_or(|first_line_only| first_line_only)
@@ -556,7 +562,7 @@ impl Sasl {
                 password_command: Some(pass_command),
                 ..
             } => {
-                let pass = read_from_command(pass_command).await?;
+                let pass = read_from_command(pass_command, server).await?;
 
                 *password = Some(pass);
             }
@@ -792,28 +798,41 @@ pub fn default_port(use_tls: bool, use_websocket: bool) -> NonZeroU16 {
 
 pub async fn read_from_command(
     pass_command: &str,
+    server: &str,
 ) -> Result<String, config::Error> {
     let output = if cfg!(target_os = "windows") {
         Command::new("cmd")
             .arg("/C")
             .arg(pass_command)
             .output()
-            .await?
+            .await
+            .map_err(|io_error| config::Error::ExecutePasswordCommand {
+                server: server.to_string(),
+                command: pass_command.to_string(),
+                error: io_error.to_string(),
+            })?
     } else {
         Command::new("sh")
             .arg("-c")
             .arg(pass_command)
             .output()
-            .await?
+            .await
+            .map_err(|io_error| config::Error::ExecutePasswordCommand {
+                server: server.to_string(),
+                command: pass_command.to_string(),
+                error: io_error.to_string(),
+            })?
     };
     if output.status.success() {
         // we remove trailing whitespace, which might be present from unix pipelines with a
         // trailing newline
         Ok(str::from_utf8(&output.stdout)?.trim_end().to_string())
     } else {
-        Err(config::Error::ExecutePasswordCommand(String::from_utf8(
-            output.stderr,
-        )?))
+        Err(config::Error::ExecutePasswordCommand {
+            server: server.to_string(),
+            command: pass_command.to_string(),
+            error: String::from_utf8(output.stderr)?,
+        })
     }
 }
 

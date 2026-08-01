@@ -182,14 +182,22 @@ impl ConfigMap {
                     || config.password_keyring.is_enabled()
                     || config.password_command.is_some()
                 {
-                    return Err(Error::DuplicatePassword);
+                    return Err(Error::DuplicatePassword {
+                        server: server.to_string(),
+                    });
                 }
                 config::check_sensitive_file_permissions(
                     &server,
                     pass_file,
                     "password file",
                 );
-                let mut pass = fs::read_to_string(pass_file).await?;
+                let mut pass = fs::read_to_string(pass_file).await.map_err(
+                    |io_error| Error::Io {
+                        path: pass_file.display().to_string(),
+                        context: Some(format!(" for server `{server}`")),
+                        error: io_error.to_string(),
+                    },
+                )?;
                 if config.password_file_first_line_only {
                     pass = pass
                         .lines()
@@ -203,15 +211,20 @@ impl ConfigMap {
                 if config.password.is_some()
                     || config.password_keyring.is_enabled()
                 {
-                    return Err(Error::DuplicatePassword);
+                    return Err(Error::DuplicatePassword {
+                        server: server.to_string(),
+                    });
                 }
-                config.password = Some(read_from_command(pass_command).await?);
+                config.password =
+                    Some(read_from_command(pass_command, &server).await?);
             }
             if let Some(key) = config.password_keyring.key_or_default(|| {
                 config::keyring::server_password_key(&server)
             }) {
                 if config.password.is_some() {
-                    return Err(Error::DuplicatePassword);
+                    return Err(Error::DuplicatePassword {
+                        server: server.to_string(),
+                    });
                 }
 
                 let password = config::keyring::get_password(&key)
@@ -229,14 +242,22 @@ impl ConfigMap {
                     || config.nick_password_keyring.is_enabled()
                     || config.nick_password_command.is_some()
                 {
-                    return Err(Error::DuplicateNickPassword);
+                    return Err(Error::DuplicateNickPassword {
+                        server: server.to_string(),
+                    });
                 }
                 config::check_sensitive_file_permissions(
                     &server,
                     nick_pass_file,
                     "nick password file",
                 );
-                let mut nick_pass = fs::read_to_string(nick_pass_file).await?;
+                let mut nick_pass = fs::read_to_string(nick_pass_file)
+                    .await
+                    .map_err(|io_error| Error::Io {
+                        path: nick_pass_file.display().to_string(),
+                        context: Some(format!(" for server `{server}`")),
+                        error: io_error.to_string(),
+                    })?;
                 if config.nick_password_file_first_line_only {
                     nick_pass = nick_pass
                         .lines()
@@ -250,17 +271,21 @@ impl ConfigMap {
                 if config.nick_password.is_some()
                     || config.nick_password_keyring.is_enabled()
                 {
-                    return Err(Error::DuplicateNickPassword);
+                    return Err(Error::DuplicateNickPassword {
+                        server: server.to_string(),
+                    });
                 }
                 config.nick_password =
-                    Some(read_from_command(nick_pass_command).await?);
+                    Some(read_from_command(nick_pass_command, &server).await?);
             }
             if let Some(key) = config
                 .nick_password_keyring
                 .key_or_default(|| config::keyring::nick_password_key(&server))
             {
                 if config.nick_password.is_some() {
-                    return Err(Error::DuplicateNickPassword);
+                    return Err(Error::DuplicateNickPassword {
+                        server: server.to_string(),
+                    });
                 }
 
                 let password = config::keyring::get_password(&key)
@@ -468,6 +493,8 @@ mod tests {
 
     use super::*;
 
+    const SERVER: &str = "libera";
+
     fn server_config() -> config::Server {
         config::Server {
             server: "irc.example.com".to_string(),
@@ -477,7 +504,7 @@ mod tests {
 
     fn load_server(config: config::Server) -> Result<ConfigMap, Error> {
         futures::executor::block_on(ConfigMap::new(
-            vec![(Arc::<str>::from("libera"), config)],
+            vec![(Arc::<str>::from(SERVER), config)],
             OrderChannelsBy::Name,
             Typing::default(),
         ))
@@ -489,7 +516,9 @@ mod tests {
         config.password = Some("password".to_string());
         config.password_keyring = config::keyring::Password::Enabled;
 
-        assert!(matches!(load_server(config), Err(Error::DuplicatePassword)));
+        assert!(
+            matches!(load_server(config), Err(Error::DuplicatePassword { server }) if server == SERVER)
+        );
     }
 
     #[test]
@@ -498,7 +527,9 @@ mod tests {
         config.password_file = Some(PathBuf::from("unused"));
         config.password_keyring = config::keyring::Password::Enabled;
 
-        assert!(matches!(load_server(config), Err(Error::DuplicatePassword)));
+        assert!(
+            matches!(load_server(config), Err(Error::DuplicatePassword { server }) if server == SERVER)
+        );
     }
 
     #[test]
@@ -507,7 +538,10 @@ mod tests {
         config.password_command = Some("unused".to_string());
         config.password_keyring = config::keyring::Password::Enabled;
 
-        assert!(matches!(load_server(config), Err(Error::DuplicatePassword)));
+        assert!(matches!(
+            load_server(config),
+            Err(Error::DuplicatePassword { server }) if server == SERVER
+        ));
     }
 
     #[test]
@@ -523,7 +557,7 @@ mod tests {
         assert!(matches!(
             load_server(config),
             Err(Error::DuplicateChannelKey { server, channel })
-                if server == "libera" && channel == "#halloy"
+                if server == SERVER && channel == "#halloy"
         ));
     }
 }
