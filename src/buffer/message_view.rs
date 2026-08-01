@@ -1529,16 +1529,16 @@ impl<'a> ChannelQueryLayout<'a> {
         fragments
             .iter()
             .filter_map(message::Fragment::url)
-            .filter(|url| {
-                self.config.preview.is_enabled(url.as_str())
-                    && !self.history.is_preview_hidden(
-                        &kind,
-                        reply_preview.hash,
-                        reply_preview.server_time,
-                        url,
-                    )
-            })
+            .filter(|url| self.config.preview.is_enabled(url.as_str()))
             .take(self.config.preview.max_per_message)
+            .filter(|url| {
+                !self.history.is_preview_hidden(
+                    &kind,
+                    reply_preview.hash,
+                    reply_preview.server_time,
+                    url,
+                )
+            })
             .cloned()
             .collect()
     }
@@ -1817,14 +1817,16 @@ impl<'a> ChannelQueryLayout<'a> {
                     .filter_map(|(idx, f)| f.url().map(|url| (idx, url)))
                     .filter(|(_, url)| {
                         self.config.preview.is_enabled(url.as_str())
-                            && !self.history.is_preview_hidden(
-                                &kind,
-                                reply_hash,
-                                server_time,
-                                url,
-                            )
                     })
                     .take(self.config.preview.max_per_message)
+                    .filter(|(_, url)| {
+                        !self.history.is_preview_hidden(
+                            &kind,
+                            reply_hash,
+                            server_time,
+                            url,
+                        )
+                    })
                     .filter_map(|(fragment_idx, url)| {
                         match self.previews.get(url) {
                             Some(preview::State::Loaded(p)) => {
@@ -2051,8 +2053,8 @@ fn eligible_preview_urls<'a>(
         .iter()
         .enumerate()
         .filter_map(|(index, fragment)| fragment.url().map(|url| (index, url)))
-        .filter(|(_, url)| !hidden_urls.contains(*url))
         .take(max_per_message)
+        .filter(|(_, url)| !hidden_urls.contains(*url))
         .collect()
 }
 
