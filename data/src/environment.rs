@@ -25,11 +25,7 @@ pub fn config_dir() -> PathBuf {
 }
 
 pub fn data_dir() -> PathBuf {
-    portable_dir().unwrap_or_else(|| {
-        dirs_next::data_dir()
-            .expect("expected valid data dir")
-            .join("halloy")
-    })
+    portable_dir().unwrap_or_else(platform_specific_data_dir)
 }
 
 pub fn cache_dir() -> PathBuf {
@@ -89,4 +85,36 @@ fn xdg_config_dir() -> Option<PathBuf> {
         .join(CONFIG_FILE_NAME)
         .is_file()
         .then_some(halloy_config_dir)
+}
+
+fn platform_specific_data_dir() -> PathBuf {
+    #[cfg(target_os = "macos")]
+    {
+        // Priority order for data directory on macOS:
+        // 1. XDG data dir (~/.local/share/halloy)
+        // 2. User data directory (~/Library/Application Support/halloy)
+        xdg_data_dir().unwrap_or_else(|| {
+            dirs_next::data_dir()
+                .expect("expected valid data dir")
+                .join("halloy")
+        })
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        dirs_next::data_dir()
+            .expect("expected valid data dir")
+            .join("halloy")
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn xdg_data_dir() -> Option<PathBuf> {
+    let data_path = xdg::BaseDirectories::new().data_home?;
+    let halloy_data_dir = data_path.join("halloy");
+
+    // if the history directory exists, use the xdg data dir
+    halloy_data_dir
+        .join("history")
+        .is_dir()
+        .then_some(halloy_data_dir)
 }

@@ -23,12 +23,13 @@ Changed:
 
 - User avatars are configurable with `metadata.avatar.size`
 - Ensure Theme Editor appends a `.toml` extension when saving a theme without one
+- The XDG data directory `~/.local/share/halloy` can be used for storing history/logs/etc macOS, instead of `~/Library/Application Support/halloy/` (move entire directory to migrate)
 
 Thanks:
 
 - Contributions: @rollecode, @luca020400, @rtmongold, @tranzystorekk, @englut
 - Bug reports: sebbu, @dpedu, kurwavidae
-- Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium
+- Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo
 
 # 2026.8 (2026-07-24)
 
