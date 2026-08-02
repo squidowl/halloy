@@ -12,6 +12,7 @@ Added:
 - Config option to include ignored nicknames in autocomplete
   (`buffer.text_input.autocomplete.include_ignored`)
 - Optional `font.code` setting for code-formatted text
+- Settings to control how internal and server buffers are opened from the sidebar (`actions.sidebar.internal` and `actions.sidebar.server`)
 
 Fixed:
 
@@ -32,8 +33,8 @@ Changed:
 Thanks:
 
 - Contributions: @rollecode, @luca020400, @rtmongold, @tranzystorekk, @englut
-- Bug reports: sebbu, @dpedu, kurwavidae, @ncfavier, wwWraith
-- Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo
+- Bug reports: sebbu, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae
+- Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo, ivocavalcante
 
 # 2026.8 (2026-07-24)
 

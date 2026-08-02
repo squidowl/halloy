@@ -20,6 +20,12 @@ pub enum Buffer {
     Internal(Internal),
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum BufferRef<'a> {
+    Upstream(&'a Upstream),
+    Internal(&'a Internal),
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Upstream {
     Server(Server),
