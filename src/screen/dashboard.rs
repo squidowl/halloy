@@ -3127,6 +3127,10 @@ impl Dashboard {
         }
     }
 
+    fn clear_modifiers(&mut self) {
+        self.modifiers = iced::keyboard::Modifiers::default();
+    }
+
     fn open_buffer(
         &mut self,
         buffer: data::Buffer,
@@ -3303,6 +3307,8 @@ impl Dashboard {
                 Task::none()
             }
             BufferAction::NewWindow => {
+                self.clear_modifiers();
+
                 iced::window::position(self.main_window()).then({
                     let pane = Pane::new(Buffer::from_data(
                         buffer.clone(),
