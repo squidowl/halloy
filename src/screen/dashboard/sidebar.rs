@@ -1739,7 +1739,17 @@ fn upstream_buffer_button<'a>(
             if let Some((window, pane)) = open_as_window_pane {
                 Message::Focus(window, pane)
             } else {
-                Message::Popout(buffer.clone().into())
+                match config.actions.sidebar.channel_with_modifier {
+                    BufferAction::NewPane => {
+                        Message::New(buffer.clone().into())
+                    }
+                    BufferAction::ReplacePane => {
+                        Message::Replace(buffer.clone().into())
+                    }
+                    BufferAction::NewWindow => {
+                        Message::Popout(buffer.clone().into())
+                    }
+                }
             }
         } else {
             match focused_as_window_pane {
@@ -2190,7 +2200,17 @@ fn internal_buffer_button<'a>(
                 if let Some((window, pane)) = open_as_window_pane {
                     Message::Focus(window, pane)
                 } else {
-                    Message::Popout(buffer.clone().into())
+                    match config.actions.sidebar.channel_with_modifier {
+                        BufferAction::NewPane => {
+                            Message::New(buffer.clone().into())
+                        }
+                        BufferAction::ReplacePane => {
+                            Message::Replace(buffer.clone().into())
+                        }
+                        BufferAction::NewWindow => {
+                            Message::Popout(buffer.clone().into())
+                        }
+                    }
                 }
             } else {
                 match focused_as_window_pane {

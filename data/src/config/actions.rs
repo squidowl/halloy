@@ -53,6 +53,12 @@ pub struct Sidebar {
     pub query: Option<BufferAction>,
     pub focused_buffer: Option<BufferFocusedAction>,
     pub cycle: CycleAction,
+    #[serde(default = "default_channel_with_modifier")]
+    pub channel_with_modifier: BufferAction,
+}
+
+fn default_channel_with_modifier() -> BufferAction {
+    BufferAction::NewWindow
 }
 
 #[derive(Debug, Default, Clone, Deserialize)]
