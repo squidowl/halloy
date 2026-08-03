@@ -1746,52 +1746,50 @@ fn upstream_buffer_button<'a>(
     })
     .padding(config.sidebar.padding.buffer)
     .on_press({
-        if modifiers.command() {
-            if let Some((window, pane)) = open_as_window_pane {
-                Message::Focus(window, pane)
-            } else {
-                buffer_action_message(
-                    config.actions.sidebar.channel_with_modifier,
-                    buffer.clone().into(),
-                )
-            }
+        // Select the normal or modifier action set, then resolve identically.
+        let (base, channel, query, focused) = if modifiers.command() {
+            (
+                config.actions.sidebar.buffer_with_modifier,
+                config.actions.sidebar.channel_with_modifier,
+                config.actions.sidebar.query_with_modifier,
+                config.actions.sidebar.focused_buffer_with_modifier,
+            )
         } else {
-            match focused_as_window_pane {
-                Some((window, pane)) => {
-                    if let Some(focus_action) =
-                        config.actions.sidebar.focused_buffer
-                    {
-                        match focus_action {
-                            BufferFocusedAction::ClosePane => {
-                                Message::Close(window, pane)
-                            }
-                        }
-                    } else {
-                        // Re-focus pane on press instead of disabling the button in order
-                        // to have hover status of the button for styling
-                        Message::Focus(window, pane)
-                    }
-                }
-                None => {
-                    if let Some((window, pane)) = open_as_window_pane {
-                        Message::Focus(window, pane)
-                    } else {
-                        let action = match &buffer {
-                            buffer::Upstream::Channel(_, _) => config
-                                .actions
-                                .sidebar
-                                .channel
-                                .unwrap_or(config.actions.sidebar.buffer),
-                            buffer::Upstream::Query(_, _) => config
-                                .actions
-                                .sidebar
-                                .query
-                                .unwrap_or(config.actions.sidebar.buffer),
-                            _ => config.actions.sidebar.buffer,
-                        };
+            (
+                config.actions.sidebar.buffer,
+                config.actions.sidebar.channel,
+                config.actions.sidebar.query,
+                config.actions.sidebar.focused_buffer,
+            )
+        };
 
-                        buffer_action_message(action, buffer.clone().into())
+        match focused_as_window_pane {
+            Some((window, pane)) => {
+                if let Some(focus_action) = focused {
+                    match focus_action {
+                        BufferFocusedAction::ClosePane => {
+                            Message::Close(window, pane)
+                        }
                     }
+                } else {
+                    // Re-focus pane on press instead of disabling the button in order
+                    // to have hover status of the button for styling
+                    Message::Focus(window, pane)
+                }
+            }
+            None => {
+                if let Some((window, pane)) = open_as_window_pane {
+                    Message::Focus(window, pane)
+                } else {
+                    let action = match &buffer {
+                        buffer::Upstream::Channel(_, _) => {
+                            channel.unwrap_or(base)
+                        }
+                        buffer::Upstream::Query(_, _) => query.unwrap_or(base),
+                        _ => base,
+                    };
+
+                    buffer_action_message(action, buffer.clone().into())
                 }
             }
         }
@@ -2190,21 +2188,22 @@ fn internal_buffer_button<'a>(
                 )
             })
             .padding(config.sidebar.padding.buffer)
-            .on_press(if modifiers.command() {
-                if let Some((window, pane)) = open_as_window_pane {
-                    Message::Focus(window, pane)
-                } else {
-                    buffer_action_message(
-                        config.actions.sidebar.channel_with_modifier,
-                        buffer.clone().into(),
+            .on_press({
+                let (base, focused) = if modifiers.command() {
+                    (
+                        config.actions.sidebar.buffer_with_modifier,
+                        config.actions.sidebar.focused_buffer_with_modifier,
                     )
-                }
-            } else {
+                } else {
+                    (
+                        config.actions.sidebar.buffer,
+                        config.actions.sidebar.focused_buffer,
+                    )
+                };
+
                 match focused_as_window_pane {
                     Some((window, pane)) => {
-                        if let Some(focus_action) =
-                            config.actions.sidebar.focused_buffer
-                        {
+                        if let Some(focus_action) = focused {
                             match focus_action {
                                 BufferFocusedAction::ClosePane => {
                                     Message::Close(window, pane)
@@ -2220,10 +2219,7 @@ fn internal_buffer_button<'a>(
                         if let Some((window, pane)) = open_as_window_pane {
                             Message::Focus(window, pane)
                         } else {
-                            buffer_action_message(
-                                config.actions.sidebar.buffer,
-                                buffer.clone().into(),
-                            )
+                            buffer_action_message(base, buffer.clone().into())
                         }
                     }
                 }
