@@ -57,7 +57,6 @@ pub struct Sidebar {
     pub buffer_with_modifier: BufferAction,
     pub channel_with_modifier: Option<BufferAction>,
     pub query_with_modifier: Option<BufferAction>,
-    pub focused_buffer_with_modifier: Option<BufferFocusedAction>,
 }
 
 fn default_buffer_with_modifier() -> BufferAction {

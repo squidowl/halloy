@@ -1747,25 +1747,25 @@ fn upstream_buffer_button<'a>(
     .padding(config.sidebar.padding.buffer)
     .on_press({
         // Select the normal or modifier action set, then resolve identically.
-        let (base, channel, query, focused) = if modifiers.command() {
+        let (base, channel, query) = if modifiers.command() {
             (
                 config.actions.sidebar.buffer_with_modifier,
                 config.actions.sidebar.channel_with_modifier,
                 config.actions.sidebar.query_with_modifier,
-                config.actions.sidebar.focused_buffer_with_modifier,
             )
         } else {
             (
                 config.actions.sidebar.buffer,
                 config.actions.sidebar.channel,
                 config.actions.sidebar.query,
-                config.actions.sidebar.focused_buffer,
             )
         };
 
         match focused_as_window_pane {
             Some((window, pane)) => {
-                if let Some(focus_action) = focused {
+                if let Some(focus_action) =
+                    config.actions.sidebar.focused_buffer
+                {
                     match focus_action {
                         BufferFocusedAction::ClosePane => {
                             Message::Close(window, pane)
@@ -2189,21 +2189,17 @@ fn internal_buffer_button<'a>(
             })
             .padding(config.sidebar.padding.buffer)
             .on_press({
-                let (base, focused) = if modifiers.command() {
-                    (
-                        config.actions.sidebar.buffer_with_modifier,
-                        config.actions.sidebar.focused_buffer_with_modifier,
-                    )
+                let base = if modifiers.command() {
+                    config.actions.sidebar.buffer_with_modifier
                 } else {
-                    (
-                        config.actions.sidebar.buffer,
-                        config.actions.sidebar.focused_buffer,
-                    )
+                    config.actions.sidebar.buffer
                 };
 
                 match focused_as_window_pane {
                     Some((window, pane)) => {
-                        if let Some(focus_action) = focused {
+                        if let Some(focus_action) =
+                            config.actions.sidebar.focused_buffer
+                        {
                             match focus_action {
                                 BufferFocusedAction::ClosePane => {
                                     Message::Close(window, pane)
