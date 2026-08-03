@@ -1736,7 +1736,11 @@ fn upstream_buffer_button<'a>(
     .padding(config.sidebar.padding.buffer)
     .on_press({
         if modifiers.command() {
-            Message::Popout(buffer.clone().into())
+            if let Some((window, pane)) = open_as_window_pane {
+                Message::Focus(window, pane)
+            } else {
+                Message::Popout(buffer.clone().into())
+            }
         } else {
             match focused_as_window_pane {
                 Some((window, pane)) => {
@@ -2183,7 +2187,11 @@ fn internal_buffer_button<'a>(
             })
             .padding(config.sidebar.padding.buffer)
             .on_press(if modifiers.command() {
-                Message::Popout(buffer.clone().into())
+                if let Some((window, pane)) = open_as_window_pane {
+                    Message::Focus(window, pane)
+                } else {
+                    Message::Popout(buffer.clone().into())
+                }
             } else {
                 match focused_as_window_pane {
                     Some((window, pane)) => {
