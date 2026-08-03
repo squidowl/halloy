@@ -5,6 +5,7 @@ pub enum Event {
     Copy,
     Escape,
     LeftClick,
+    ModifiersChanged(keyboard::Modifiers),
     UpdatePrimaryClipboard,
 }
 
@@ -29,6 +30,9 @@ fn filtered_events(
             modifiers,
             ..
         }) if c.as_str() == "c" && modifiers.command() => Some(Event::Copy),
+        iced::Event::Keyboard(keyboard::Event::ModifiersChanged(modifiers)) => {
+            Some(Event::ModifiersChanged(*modifiers))
+        }
         iced::Event::Mouse(mouse::Event::ButtonPressed {
             button: mouse::Button::Left,
             ..

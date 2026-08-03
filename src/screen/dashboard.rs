@@ -73,6 +73,7 @@ pub struct Dashboard {
     typing_animation: Option<buffer::typing::Animation>,
     http_client: Option<Arc<reqwest::Client>>,
     buffer_settings: dashboard::BufferSettings,
+    modifiers: iced::keyboard::Modifiers,
     pub filehost: filehost::Manager,
 }
 
@@ -159,6 +160,7 @@ impl Dashboard {
             typing_animation: None,
             http_client: http_client_from_config(config).map(Arc::new),
             buffer_settings: dashboard::BufferSettings::default(),
+            modifiers: iced::keyboard::Modifiers::default(),
             filehost: filehost::Manager::new(),
         };
 
@@ -1864,6 +1866,7 @@ impl Dashboard {
                 version,
                 theme,
                 self.buffer_settings.show_muted,
+                self.modifiers,
             )
             .map(|e| e.map(Message::Sidebar));
 
@@ -2887,6 +2890,10 @@ impl Dashboard {
                 )
             }),
             LeftClick => self.refocus_pane(),
+            ModifiersChanged(modifiers) => {
+                self.modifiers = modifiers;
+                Task::none()
+            }
             UpdatePrimaryClipboard => {
                 selectable_text::selected(|selected_text| {
                     Message::SelectedText(
@@ -4742,6 +4749,7 @@ impl Dashboard {
             typing_animation: None,
             http_client: http_client_from_config(config).map(Arc::new),
             buffer_settings: data.buffer_settings.clone(),
+            modifiers: iced::keyboard::Modifiers::default(),
             filehost: filehost::Manager::new(),
         };
 
