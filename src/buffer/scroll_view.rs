@@ -1687,7 +1687,7 @@ impl State {
                         keyed::collect_heights(self.scrollable.clone())
                             .map(Message::HeightsCollected);
 
-                    return (Task::batch([scroll_to, collect]), event);
+                    return (scroll_to.chain(collect), event);
                 }
 
                 let collect = keyed::collect_heights(self.scrollable.clone())
@@ -1819,21 +1819,32 @@ impl State {
 
                 let content_top = hit_bounds.y - scrollable.content.y;
                 let content_bottom = content_top + hit_bounds.height;
+
+                let inset = theme::resolve_line_height(&config.font) * 2.75;
+
                 let viewport_top = scrollable.offset.y;
+                let viewport_top_inset = viewport_top + inset;
+
                 let viewport_bottom =
                     scrollable.offset.y + scrollable.viewport.height;
+                let viewport_bottom_inset = viewport_bottom - inset;
 
-                let fully_visible = content_top >= viewport_top
-                    && content_bottom <= viewport_bottom;
+                let fully_within_inset_viewport = match align {
+                    ScrollAnchor::Top => {
+                        content_top >= viewport_top_inset
+                            && content_bottom <= viewport_bottom
+                    }
+                    ScrollAnchor::Bottom => {
+                        content_top >= viewport_top
+                            && content_bottom <= viewport_bottom_inset
+                    }
+                };
                 let covers_viewport = content_top <= viewport_top
                     && content_bottom >= viewport_bottom;
 
-                if fully_visible || covers_viewport {
+                if fully_within_inset_viewport || covers_viewport {
                     return (fade_task, None);
                 }
-
-                let overlaps_viewport = content_top < viewport_bottom
-                    && content_bottom > viewport_top;
 
                 // offset that puts the message's bottom at the viewport's bottom
                 let bottom_aligned =
@@ -1842,21 +1853,11 @@ impl State {
                 // top pushed out the other side
                 let reveal_bottom = bottom_aligned.min(content_top);
 
-                // if partially visible reveal whichever edge is clipped,
-                // nudging it into view
-                let aligned_y = if overlaps_viewport {
-                    if content_top < viewport_top {
-                        content_top
-                    } else {
-                        reveal_bottom
-                    }
-                } else {
-                    // if off-screen align to the edge
-                    match align {
-                        ScrollAnchor::Top => content_top,
-                        ScrollAnchor::Bottom => reveal_bottom,
-                    }
+                let aligned_y = match align {
+                    ScrollAnchor::Top => content_top - inset,
+                    ScrollAnchor::Bottom => reveal_bottom + inset,
                 };
+
                 let offset = aligned_y.max(0.0).min(max_offset);
 
                 if (offset - max_offset).abs() <= f32::EPSILON {
@@ -1997,11 +1998,13 @@ impl State {
                 return (Task::none(), Some(Event::ImagePreview(image)));
             }
             Message::PendingScrollTo => {
-                if let Some(ScrollTo { key, state, .. }) = &mut self.scroll_to {
+                if let Some(ScrollTo { key, state, .. }) = &mut self.scroll_to
+                    && matches!(state, ScrollToState::Pending)
+                {
+                    *state = ScrollToState::Active;
+
                     let scroll_to = keyed::find(self.scrollable.clone(), *key)
                         .map(Message::ScrollTo);
-
-                    *state = ScrollToState::Active;
 
                     return (scroll_to, None);
                 }
@@ -2074,10 +2077,20 @@ impl State {
                 let event = preview_changed.then_some(Event::PreviewChanged);
 
                 if let Some(ScrollTo { key, state, .. }) = &mut self.scroll_to {
-                    let scroll_to = keyed::find(self.scrollable.clone(), *key)
-                        .map(Message::ScrollTo);
+                    if matches!(state, ScrollToState::Active) {
+                        // Ideally we are never collecting heights while there
+                        // is an active scroll_to, but if we are then we should
+                        // still trigger a new scroll_to here (after heights
+                        // have been collected).
+                        log::debug!(
+                            "active scroll_to while collecting heights"
+                        );
+                    }
 
                     *state = ScrollToState::Active;
+
+                    let scroll_to = keyed::find(self.scrollable.clone(), *key)
+                        .map(Message::ScrollTo);
 
                     return (scroll_to, event);
                 }
@@ -2544,22 +2557,10 @@ impl State {
             .height_cache
             .contains_key(&keyed::Key::Message(message))
         {
-            self.scroll_to = Some(ScrollTo {
-                key: keyed::Key::Message(message),
-                animate,
-                align,
-                state: ScrollToState::Active,
-            });
-
             // cache real heights while fully rendered so the virtualized
             // layout's doesn't drift from estimates as focus moves.
             // without this, the error increases over time which leads to
             // unpredictable scrolling.
-            let find = keyed::find(
-                self.scrollable.clone(),
-                keyed::Key::Message(message),
-            )
-            .map(Message::ScrollTo);
 
             // only do this when something is unmeasured — in steady state every
             // height is already cached and re-collecting would be wasted work.
@@ -2570,15 +2571,31 @@ impl State {
                         .contains_key(&keyed::Key::Message(m.hash))
                 });
 
-            return if needs_heights {
-                Task::batch([
+            let (task, scroll_to_state) = if needs_heights {
+                (
                     keyed::collect_heights(self.scrollable.clone())
                         .map(Message::HeightsCollected),
-                    find,
-                ])
+                    ScrollToState::Pending, // ScrollTo is pending heights collection
+                )
             } else {
-                find
+                (
+                    keyed::find(
+                        self.scrollable.clone(),
+                        keyed::Key::Message(message),
+                    )
+                    .map(Message::ScrollTo),
+                    ScrollToState::Active, // ScrollTo right away
+                )
             };
+
+            self.scroll_to = Some(ScrollTo {
+                key: keyed::Key::Message(message),
+                animate,
+                align,
+                state: scroll_to_state,
+            });
+
+            return task;
         }
 
         // Load a window of messages centered on the target.
