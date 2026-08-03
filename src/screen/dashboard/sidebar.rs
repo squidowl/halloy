@@ -1530,6 +1530,17 @@ fn upstream_buffer_title<'a>(
     }
 }
 
+fn buffer_action_message(
+    action: BufferAction,
+    buffer: data::Buffer,
+) -> Message {
+    match action {
+        BufferAction::NewPane => Message::New(buffer),
+        BufferAction::ReplacePane => Message::Replace(buffer),
+        BufferAction::NewWindow => Message::Popout(buffer),
+    }
+}
+
 fn upstream_buffer_button<'a>(
     context: UpstreamButtonContext<'a>,
 ) -> Element<'a, Message> {
@@ -1739,17 +1750,10 @@ fn upstream_buffer_button<'a>(
             if let Some((window, pane)) = open_as_window_pane {
                 Message::Focus(window, pane)
             } else {
-                match config.actions.sidebar.channel_with_modifier {
-                    BufferAction::NewPane => {
-                        Message::New(buffer.clone().into())
-                    }
-                    BufferAction::ReplacePane => {
-                        Message::Replace(buffer.clone().into())
-                    }
-                    BufferAction::NewWindow => {
-                        Message::Popout(buffer.clone().into())
-                    }
-                }
+                buffer_action_message(
+                    config.actions.sidebar.channel_with_modifier,
+                    buffer.clone().into(),
+                )
             }
         } else {
             match focused_as_window_pane {
@@ -1786,17 +1790,7 @@ fn upstream_buffer_button<'a>(
                             _ => config.actions.sidebar.buffer,
                         };
 
-                        match action {
-                            BufferAction::NewPane => {
-                                Message::New(buffer.clone().into())
-                            }
-                            BufferAction::ReplacePane => {
-                                Message::Replace(buffer.clone().into())
-                            }
-                            BufferAction::NewWindow => {
-                                Message::Popout(buffer.clone().into())
-                            }
-                        }
+                        buffer_action_message(action, buffer.clone().into())
                     }
                 }
             }
@@ -2200,17 +2194,10 @@ fn internal_buffer_button<'a>(
                 if let Some((window, pane)) = open_as_window_pane {
                     Message::Focus(window, pane)
                 } else {
-                    match config.actions.sidebar.channel_with_modifier {
-                        BufferAction::NewPane => {
-                            Message::New(buffer.clone().into())
-                        }
-                        BufferAction::ReplacePane => {
-                            Message::Replace(buffer.clone().into())
-                        }
-                        BufferAction::NewWindow => {
-                            Message::Popout(buffer.clone().into())
-                        }
-                    }
+                    buffer_action_message(
+                        config.actions.sidebar.channel_with_modifier,
+                        buffer.clone().into(),
+                    )
                 }
             } else {
                 match focused_as_window_pane {
@@ -2233,17 +2220,10 @@ fn internal_buffer_button<'a>(
                         if let Some((window, pane)) = open_as_window_pane {
                             Message::Focus(window, pane)
                         } else {
-                            match config.actions.sidebar.buffer {
-                                BufferAction::NewPane => {
-                                    Message::New(buffer.clone().into())
-                                }
-                                BufferAction::ReplacePane => {
-                                    Message::Replace(buffer.clone().into())
-                                }
-                                BufferAction::NewWindow => {
-                                    Message::Popout(buffer.clone().into())
-                                }
-                            }
+                            buffer_action_message(
+                                config.actions.sidebar.buffer,
+                                buffer.clone().into(),
+                            )
                         }
                     }
                 }
