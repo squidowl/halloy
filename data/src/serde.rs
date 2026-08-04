@@ -14,7 +14,7 @@ where
 {
     let path_buf: PathBuf = Deserialize::deserialize(deserializer)?;
 
-    Ok(prefix_with_config_path(tilde_expansion(path_buf)))
+    Ok(prefix_with_config_path(transform_path(path_buf)))
 }
 
 pub fn deserialize_path_buf_with_path_transformations_maybe<'de, D>(
@@ -25,7 +25,7 @@ where
 {
     let path_buf: Option<PathBuf> = Deserialize::deserialize(deserializer)?;
 
-    Ok(path_buf.map(tilde_expansion).map(prefix_with_config_path))
+    Ok(path_buf.map(transform_path).map(prefix_with_config_path))
 }
 
 fn prefix_with_config_path(path_buf: PathBuf) -> PathBuf {
@@ -36,7 +36,7 @@ fn prefix_with_config_path(path_buf: PathBuf) -> PathBuf {
     }
 }
 
-fn tilde_expansion(path_buf: PathBuf) -> PathBuf {
+fn transform_path(path_buf: PathBuf) -> PathBuf {
     let mut expanded_path_buf = PathBuf::new();
 
     let mut components = path_buf.components();
@@ -46,6 +46,31 @@ fn tilde_expansion(path_buf: PathBuf) -> PathBuf {
             path::Component::Normal(os_str) if os_str == "~" => {
                 if let Some(home_dir) = dirs_next::home_dir() {
                     expanded_path_buf.push(home_dir);
+                } else {
+                    expanded_path_buf.push(first_component);
+                }
+            }
+            #[cfg(not(target_os = "windows"))]
+            path::Component::Normal(os_str) => {
+                if let Some(var) = os_str
+                    .to_str()
+                    .and_then(|s| s.strip_prefix('$'))
+                    .and_then(std::env::var_os)
+                {
+                    expanded_path_buf.push(var);
+                } else {
+                    expanded_path_buf.push(first_component);
+                }
+            }
+            #[cfg(target_os = "windows")]
+            path::Component::Normal(os_str) => {
+                if let Some(var) = os_str
+                    .to_str()
+                    .and_then(|s| s.strip_prefix('%'))
+                    .and_then(|s| s.strip_suffix('%'))
+                    .and_then(std::env::var_os)
+                {
+                    expanded_path_buf.push(var);
                 } else {
                     expanded_path_buf.push(first_component);
                 }
@@ -341,8 +366,52 @@ mod tests {
                     .join(".config/halloy"),
             ),
         ];
-        for (tilde_str, directory) in tests {
-            assert_eq!(tilde_expansion(tilde_str.into()), directory);
+        for (test_str, expected_path_buf) in tests {
+            assert_eq!(transform_path(test_str.into()), expected_path_buf);
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn home_from_home_environment_variable() {
+        let tests = [
+            (
+                "$HOME",
+                dirs_next::home_dir().expect("expected valid home dir"),
+            ),
+            (
+                "$HOME/.config/halloy/",
+                dirs_next::home_dir()
+                    .expect("expected valid home dir")
+                    .join(".config/halloy"),
+            ),
+        ];
+        for (test_str, expected_path_buf) in tests {
+            assert_eq!(transform_path(test_str.into()), expected_path_buf);
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn data_from_appdata_environment_variable() {
+        let tests = [
+            (
+                "%AppData%",
+                dirs_next::data_dir().expect("expected valid data dir"),
+            ),
+            (
+                "%appdata%", // Should be case-insensitive
+                dirs_next::data_dir().expect("expected valid data dir"),
+            ),
+            (
+                "%AppData%/.config/halloy/",
+                dirs_next::data_dir()
+                    .expect("expected valid data dir")
+                    .join(".config/halloy"),
+            ),
+        ];
+        for (test_str, expected_path_buf) in tests {
+            assert_eq!(transform_path(test_str.into()), expected_path_buf);
         }
     }
 }

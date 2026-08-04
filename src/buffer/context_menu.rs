@@ -21,8 +21,6 @@ use crate::widget::{
 };
 use crate::{Theme, font, icon, theme, widget};
 
-const AVATAR_SIZE: u16 = 36;
-
 pub struct UserContext<'a> {
     pub server: &'a Server,
     pub prefix: &'a [isupport::PrefixMap],
@@ -1296,12 +1294,11 @@ fn user_with_entries<'a>(
     } else {
         content.into()
     };
-    let avatar = user_avatar(user, registry, previews);
-    let on_open = config
-        .context_menu
-        .show_user_metadata
-        .then(|| avatar_url(user, registry))
-        .flatten()
+    let avatar_size = config.metadata.avatar_size();
+    let avatar = user_avatar(user, registry, previews, avatar_size);
+    let on_open = avatar_size
+        .filter(|_| config.context_menu.show_user_metadata)
+        .and_then(|size| avatar_url(user, registry, size))
         .filter(|url| !previews.contains_key(url))
         .map(|url| {
             let server = server.clone();
@@ -1514,20 +1511,21 @@ fn user_metadata<'a>(
     length: Length,
 ) -> Element<'a, Message> {
     let query = target::Query::from(user);
+    let avatar_size = config.metadata.avatar.size;
     let avatar: Option<Element<'a, Message>> = avatar.map(|avatar| {
         let content: Element<'a, Message> = match avatar {
             UserAvatar::Loaded(data) => {
                 container(image::from_data(data, true, ContentFit::Cover))
-                    .width(f32::from(AVATAR_SIZE))
-                    .height(f32::from(AVATAR_SIZE))
+                    .width(f32::from(avatar_size))
+                    .height(f32::from(avatar_size))
                     .into()
             }
-            UserAvatar::Pending => avatar_placeholder(),
+            UserAvatar::Pending => avatar_placeholder(avatar_size),
         };
 
         container(content)
-            .width(Length::Fixed(f32::from(AVATAR_SIZE)))
-            .height(Length::Fixed(f32::from(AVATAR_SIZE)))
+            .width(Length::Fixed(f32::from(avatar_size)))
+            .height(Length::Fixed(f32::from(avatar_size)))
             .into()
     });
     let rows = config
@@ -1599,33 +1597,27 @@ fn user_metadata<'a>(
             )
         });
 
-    let mut content = column![];
-
-    let inter_column_spacing = if let Some(avatar) = avatar {
-        content = content.push(avatar);
-
-        6
+    let rows = column(rows).spacing(2);
+    let content = if let Some(avatar) = avatar {
+        column![avatar, rows].spacing(6)
     } else {
-        0
+        column![rows]
     };
 
-    row![content, column(rows).spacing(2)]
-        .spacing(inter_column_spacing)
-        .align_y(iced::alignment::Vertical::Top)
-        .padding(right_justified_padding(config))
-        .into()
+    content.padding(right_justified_padding(config)).into()
 }
 
 fn avatar_url(
     user: &User,
     registry: &dyn metadata::Registry,
+    size: u16,
 ) -> Option<url::Url> {
     let query = target::Query::from(user);
     let avatar = registry.avatar(target::TargetRef::Query(&query))?;
 
     // Replace optional `{size}` in the avatar URL with the display size
     // https://ircv3.net/registry#user-metadata
-    let sized_avatar = avatar.replace("{size}", &format!("{AVATAR_SIZE}"));
+    let sized_avatar = avatar.replace("{size}", &size.to_string());
 
     url::Url::parse(&sized_avatar).ok()
 }
@@ -1634,8 +1626,11 @@ pub fn user_avatar<'a>(
     user: &User,
     registry: &dyn metadata::Registry,
     previews: &'a preview::Collection,
+    size: Option<u16>,
 ) -> Option<UserAvatar<'a>> {
-    avatar_url(user, registry).map(|url| match previews.get(&url) {
+    let size = size?;
+
+    avatar_url(user, registry, size).map(|url| match previews.get(&url) {
         Some(preview::State::Loaded(preview)) => {
             UserAvatar::Loaded(preview.image())
         }
@@ -1643,10 +1638,10 @@ pub fn user_avatar<'a>(
     })
 }
 
-fn avatar_placeholder<'a>() -> Element<'a, Message> {
+fn avatar_placeholder<'a>(size: u16) -> Element<'a, Message> {
     center(icon::people().size(16).style(theme::text::secondary))
-        .width(Length::Fixed(f32::from(AVATAR_SIZE)))
-        .height(Length::Fixed(f32::from(AVATAR_SIZE)))
+        .width(Length::Fixed(f32::from(size)))
+        .height(Length::Fixed(f32::from(size)))
         .style(|theme| {
             let general = theme.styles().general;
             let text = theme.styles().text;

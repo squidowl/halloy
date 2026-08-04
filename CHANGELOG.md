@@ -8,16 +8,30 @@ Added:
 - Expanded `servers.<name>.max_connection_attempts` to allow unlimited attempts
 - `file_transfer.send_completion_message` setting to control whether a PRIVMSG is sent to the remote user when a file
   transfer completes.
+- Config file path is now shown in config editor
+- Config option to include ignored nicknames in autocomplete
+  (`buffer.text_input.autocomplete.include_ignored`)
 
 Fixed:
 
 - Remove blank space above the input after marking a buffer as read
+- User avatars are only shown when `avatar` is included in `metadata.preferred_keys`
+- Text in input box being scrolled/clipped 2px on the left on pane load or when navigating history
+- Expand `$HOME` or `%AppData%` when first component in a path setting
+- Don't show another preview from the same message after hiding one
+
+Changed:
+
+- User avatars are configurable with `metadata.avatar.size`
 - Ensure Theme Editor appends a `.toml` extension when saving a theme without one
 - Right-aligned nickname columns now size to nearby messages instead of the entire loaded history
+- The XDG data directory `~/.local/share/halloy` can be used for storing history/logs/etc macOS, instead of `~/Library/Application Support/halloy/` (move entire directory to migrate)
 
 Thanks:
 
-- Contributions: @rollecode, @luca020400, @rtmongold
+- Contributions: @rollecode, @luca020400, @rtmongold, @tranzystorekk, @englut
+- Bug reports: sebbu, @dpedu, kurwavidae
+- Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo
 
 # 2026.8 (2026-07-24)
 

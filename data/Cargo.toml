@@ -49,7 +49,7 @@ nom = { workspace = true }
 percent-encoding = { workspace = true }
 keyring-core = "1"
 
-base64 = "0.22.1"
+base64 = "0.23.0"
 dirs-next = "2.0.0"
 xdg = "3.0.0"
 flate2 = "1.0"
@@ -63,18 +63,19 @@ serde_ignored = "0.1"
 serde-untagged = "0.1"
 sha2 = "0.11.0"
 toml = { version = "1.1.2", features = ["preserve_order"] }
-fancy-regex = "0.18"
+fancy-regex = "0.19"
 walkdir = "2.5.0"
 derive_more = { version = "2.0.1", features = ["full"] }
 image = "0.25.10"
 html-escape = "0.2.13"
 display-info = "0.5.9"
-infer = "0.19"
+infer = "0.22"
 sys-locale = "0.3"
 mime_guess = "2.0.5"
 any_ascii = "0.3.3"
 idna = "1.1.0"
 unicode-security = "0.1.2"
+version-compare = "0.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 apple-native-keyring-store = { version = "1", default-features = false, features = [

@@ -41,6 +41,19 @@ Enable or disable loading avatars.
 enabled = true
 ```
 
+### `size`
+
+Avatar width and height in pixels.
+
+```toml
+# Type: integer
+# Values: positive integers
+# Default: 64
+
+[metadata.avatar]
+size = 64
+```
+
 ### `exclude`
 
 Exclude avatar URLs from loading by providing regex patterns.

@@ -2057,6 +2057,12 @@ fn handle_client_events(
                 dashboard.set_reroute_rules(servers, clients);
 
                 dashboard.update_filters(servers, clients, &config.buffer);
+
+                commands.push(
+                    dashboard
+                        .request_override_server_icons(servers)
+                        .map(Message::Dashboard),
+                );
             }
             Event::AddToSidebar(query) => {
                 dashboard.add_to_sidebar(server.clone(), query);
@@ -2814,7 +2820,7 @@ fn handle_isupport_param(
                     | data::isupport::Parameter::CHANTYPES(_)
             ) {
                 FilterChain::sync_isupport(
-                    dashboard.get_filters(),
+                    dashboard.get_filters_mut(),
                     server,
                     chantypes,
                     casemapping,

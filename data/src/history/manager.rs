@@ -373,11 +373,11 @@ impl Manager {
         );
     }
 
-    pub fn get_filters(&mut self) -> &mut Vec<Filter> {
+    pub fn get_filters_mut(&mut self) -> &mut Vec<Filter> {
         &mut self.filters
     }
 
-    pub fn filters(&self) -> &[Filter] {
+    pub fn get_filters(&self) -> &[Filter] {
         &self.filters
     }
 

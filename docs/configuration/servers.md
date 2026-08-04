@@ -9,6 +9,1215 @@ Examples can be found in the following guides:
 - [Connect with soju](../guides/connect-with-soju.md)
 - [Connect with ZNC](../guides/connect-with-znc.md)
 
+## Connection
+
+Settings that control how the connection is made and maintained.
+
+### `server`
+
+The server to connect to. Should not contain the protocol, port, username, or password (i.e. should look like `"irc.libera.chat"` not `"ircs://irc.libera.chat:6697"`).
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>]
+server = "irc.libera.chat"
+```
+
+### `port`
+
+The port to connect on. If you want to use a plain text port like 6667 you MUST also change the `use_tls` setting.
+
+```toml
+# Type: integer
+# Values: any non-negative integer
+# Default: 6697
+
+[servers.<name>]
+port = 6697
+```
+
+::: tip
+If you leave `port` unset, default ports will be chosen based on `use_tls` and
+`use_websocket` values:
+
+| `use_tls` | `use_websocket` | `port` |
+| --------- | --------------- | ------ |
+| `true`    | `false`         | `6697` |
+| `false`   | `false`         | `6667` |
+| `true`    | `true`          | `443`  |
+| `false`   | `true`          | `80`   |
+
+:::
+
+### `use_tls`
+
+Whether or not to use TLS. Halloy uses the secure protocol and cipher suite
+defaults provided by rustls. See
+[TLS compatibility and troubleshooting](/guides/tls) for details and commands
+that can be used to test a server.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>]
+use_tls = true
+```
+
+### `dangerously_accept_invalid_certs`
+
+When `true`, all certificate validations are skipped. This does not enable
+unsupported protocol versions, cipher suites, signature algorithms, or key
+exchange methods. See
+[TLS compatibility and troubleshooting](/guides/tls) for more information.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[servers.<name>]
+dangerously_accept_invalid_certs = false
+```
+
+### `root_cert_path`
+
+The path to the root TLS certificate for this server in PEM format.[^1] [^2]
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>]
+root_cert_path = ""
+```
+
+### `use_websocket`
+
+Whether or not to connect using IRCv3 WebSocket transport. When enabled, Halloy connects to `ws://` if [`use_tls`](#use_tls) is `false`, and `wss://` if [`use_tls`](#use_tls) is `true`.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[servers.<name>]
+use_websocket = false
+```
+
+### `websocket_path`
+
+The WebSocket request path. For soju HTTPS listeners or reverse proxies, this is usually `"/socket"`.
+
+```toml
+# Type: string
+# Values: any path
+# Default: "/"
+
+[servers.<name>]
+websocket_path = "/"
+```
+
+### `websocket_ping_interval`
+
+The interval in seconds at which to send WebSocket pings when [`use_websocket`](#use_websocket) is `true`. This is in addition to regular IRC pings controlled by [`ping_time`](#ping_time).
+
+```toml
+# Type: integer
+# Values: any non-negative integer
+# Default: 60
+
+[servers.<name>]
+websocket_ping_interval = 60
+```
+
+### `proxy`
+
+Custom proxy for specified server
+
+The logic is as follows:
+
+- If a server proxy is provided, it will be used.
+- If a server proxy is not provided, the global proxy will be used.
+- If the global proxy is not provided, a plain connection will be used.
+
+The configuration syntax and supported proxy types are similar to the global [Proxy](/configuration/proxy) but associated with the current `servers.<name>`:
+
+```toml
+[servers.<name>.proxy.http]
+host = "192.168.1.100"
+port = 1080
+username = "username"
+password_keyring = true
+```
+
+or
+
+```toml
+[servers.<name>.proxy.socks5]
+host = "192.168.1.100"
+port = 1080
+username = "username"
+password_keyring = true
+```
+
+With `password_keyring = true`, Halloy uses `servers.<name>.proxy.http.password` or `servers.<name>.proxy.socks5.password`. See the [system keyring guide](../guides/keyring.md).
+
+### `autoconnect`
+
+Whether or not to connect to the server when launching Halloy or when changing the connection details in the server configuration.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>]
+autoconnect = true
+```
+
+### `reconnect_delay`
+
+The amount of time in seconds before attempting to reconnect to the server when disconnected.
+
+```toml
+# Type: integer
+# Values: any positive integer
+# Default: 10
+
+[servers.<name>]
+reconnect_delay = 10
+```
+
+### `max_connection_attempts`
+
+Maximum number of connection attempts before autoconnect is disabled, or `"unlimited"` for unlimited attempts.  Connection attempts can be manually restarted from the context menu (right-click menu) on the server buffer.
+
+```toml
+# Type: integer
+# Values: any positive integer or "unlimited"
+# Default: 10
+
+[servers.<name>]
+max_connection_attempts = 10
+```
+
+### `ping_time`
+
+The amount of inactivity in seconds before the client will ping the server.
+
+```toml
+# Type: integer
+# Values: any positive integer
+# Default: 180
+
+[servers.<name>]
+ping_time = 180
+```
+
+### `ping_timeout`
+
+The amount of time in seconds to wait for a ping response before attempting to reconnect.
+
+```toml
+# Type: integer
+# Values: any positive integer
+# Default: 20
+
+[servers.<name>]
+ping_timeout = 20
+```
+
+### `anti_flood`
+
+The time (in milliseconds) between sending messages to servers without SAFERATE. Timing is not strictly guaranteed; small groups of messages may be allowed to be sent at a faster rate, messages may be delayed in order to be batched, automated messages are included in the queue (most at a lower priority than user messages), etc.
+
+```toml
+# Type: integer
+# Values: 100 .. 60000
+# Default: 2000
+
+[servers.<name>]
+anti_flood = 2000
+```
+
+## User
+
+### `nickname`
+
+The client's nickname.
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>]
+nickname = ""
+```
+
+### `alt_nicks`
+
+Alternative nicknames for the client, if the default is taken.
+
+```toml
+# Type: array of strings
+# Values: array of any strings
+# Default: not set
+
+[servers.<name>]
+alt_nicks = ["Foo", "Bar"]
+```
+
+### `realname`
+
+The client's real name.
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>]
+realname = ""
+```
+
+### `metadata`
+
+Set values for metadata keys (`"display-name"`, `"avatar"`, `"pronouns"`, `"homepage"`, `"color"`, or `"status"`).
+
+```toml
+# Type: map
+# Values: metadata key & string value key-value pairs
+# Default: not set
+
+[servers.<name>]
+metadata = { pronouns = "they/them" }
+```
+
+| **Key**        | **Utilization in Halloy** | **Value Format** | **Example Value** |
+| -------------- | ------------------------- | ---------------- | ----------------- |
+| `avatar`       | Avatar that is shown in the user's context menu | URL for an image, with an optional {size} substitution denoting the size to load in pixels | `https://example.com/avatar/{size}/asdf.jpg` |
+| `color`        | Color used to style nickname ([`display.adapt_metadata_colors`](/configuration/display#adapt_metadata_colors)), and shown in the user's context menu | HTML-style 6 hexadecimal digits | `#800040` |
+| `display-name` | Name that can be displayed as the primary identifier for a user ([`display.nickname`](/configuration/display#nickname) & [`display.nicklist_nickname`](/configuration/display#nicklist_nickname)), and shown in the user's context menu | Any string | Cio Cioelle Estrella Von Maximus the Third |
+| `homepage`     | Shown as a clickable link in the user's context menu | Any URL | `https:://personal-site.meow/` |
+| `pronouns`     | Pronouns that can be displayed by the user's name ([`display.nickname`](/configuration/display#nickname) & [`display.nicklist_nickname`](/configuration/display#nicklist_nickname)), and shown in the user's context menu | Any string | `she/her (妳/她)` |
+| `status`       | Shown in the user's context menu | Any string | `awaiting a new life in the off-world colonies` |
+
+For more details, see the IRCv3 [user metadata](https://ircv3.net/registry.html#user-metadata) registry.
+
+:::info
+For configuring metadata key subscriptions, see [`metadata`](/configuration/metadata).
+:::
+
+### `umodes`
+
+User modestring to set on connect.
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>]
+umodes = "+RB-x"
+```
+
+## Authentication
+
+Settings that control how Halloy authenticates with the server.
+
+### `sasl.plain` {#sasl-plain}
+
+Plain SASL auth using a username and password. See the [guide by Libera.Chat](https://libera.chat/guides/sasl) for more information.
+
+#### `username`
+
+The account name used for authentication.  If not set, then the configured [`nickname`](#nickname) will be used.
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>.sasl.plain]
+username = "username"
+```
+
+#### `password`
+
+The password associated with the account used for authentication.
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>.sasl.plain]
+password = "password"
+```
+
+#### `password_keyring`
+
+Read `password` from the [system keyring](../guides/keyring.md). Set this to `true` to use `servers.<name>.sasl.plain.password`. Set a string to use a custom entry name.
+
+```toml
+# Type: boolean or string
+# Values: true, false, or any non-empty string
+# Default: false
+
+[servers.<name>.sasl.plain]
+password_keyring = true
+```
+
+#### `password_file`
+
+Read `password` from the file at the given path.[^1] [^2]
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>.sasl.plain]
+password_file = "/path/to/password-file"
+```
+
+#### `password_file_first_line_only`
+
+Read `password` from the first line of `password_file` only.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>.sasl.plain]
+password_file_first_line_only = true
+```
+
+#### `password_command`
+
+Executes the command with `sh` (or equivalent) and reads `password` as the output.
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>.sasl.plain]
+password_command = ""
+```
+
+#### `disconnect_on_failure`
+
+Disconnect from the server if SASL authentication fails. This is useful on servers which apply a hostname cloak after identifying, such as Libera.Chat. Without this option, a failed SASL authentication would result in connecting with your real IP/hostname exposed.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>.sasl.plain]
+disconnect_on_failure = false
+```
+
+### `sasl.external` {#sasl-external}
+
+External SASL auth uses a PEM encoded X509 certificate.
+
+See the [guide by Libera.Chat](https://libera.chat/guides/certfp) for more information.
+
+On some networks, `sasl.external` may be labelled as [SSL + CertFP](https://www.oftc.net/NickServ/CertFP/#automatically-identifying-using-ssl--certfp).
+
+::: tip
+Having issues attempting to register a new certificate? See [`disconnect_on_failure`](#disconnect_on_failure).
+:::
+
+#### `cert`
+
+The path to PEM encoded X509 user certificate for external auth.[^1] [^2]
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>.sasl.external]
+cert = "/path/to/your/certificate.pem"
+```
+
+#### `key`
+
+The path to PEM encoded PKCS#8 private key for external auth (optional).[^1] [^2]
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>.sasl.external]
+key = "/path/to/your/private_key.pem"
+```
+
+#### `disconnect_on_failure`
+
+Disconnect from the server if SASL authentication fails. This is useful on servers which apply a hostname cloak after identifying, such as Libera.Chat.
+
+::: warning
+With this option set to `false`, a failed SASL authentication may result in connecting with your real IP/hostname exposed.
+:::
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>.sasl.external]
+disconnect_on_failure = false
+```
+
+::: tip
+If you're experiencing immediate disconnects when using an unregistered certificate fingerprint, you will need to set `disconnect_on_failure` to `false` before continuing with the fingerprint registration step.
+
+Unless needed, change `disconnect_on_failure` back to `true` afterwards.
+:::
+
+### `nick_password`
+
+The client's NICKSERV password. Whenever possible, using [`sasl.plain`](#sasl-plain) or [`sasl.external`](#sasl-external) instead of NICKSERV is recommended.
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>]
+nick_password = ""
+```
+
+### `nick_password_keyring`
+
+Read `nick_password` from the [system keyring](../guides/keyring.md). Set this to `true` to use `servers.<name>.nick_password`. Set a string to use a custom entry name.
+
+```toml
+# Type: boolean or string
+# Values: true, false, or any non-empty string
+# Default: false
+
+[servers.<name>]
+nick_password_keyring = true
+```
+
+### `nick_password_file`
+
+Read `nick_password` from the file at the given path.[^1] [^2]
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>]
+nick_password_file = "/path/to/nick-password-file"
+```
+
+### `nick_password_file_first_line_only`
+
+Read `nick_password` from the first line of `nick_password_file` only.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>]
+nick_password_file_first_line_only = true
+```
+
+### `nick_password_command`
+
+Executes the command with `sh` (or equivalent) and reads `nick_password` as the output.
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>]
+nick_password_command = ""
+```
+
+### `nick_identify_syntax`
+
+The server's NICKSERV IDENTIFY syntax.
+
+```toml
+# Type: string
+# Values: "nick-password", "password-nick"
+# Default: not set
+
+[servers.<name>]
+nick_identify_syntax = ""
+```
+
+### `should_ghost`
+
+Whether the client should use NickServ GHOST to reclaim its primary nickname if it is in use.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[servers.<name>]
+should_ghost = false
+```
+
+### `ghost_sequence`
+
+The command(s) that should be sent to NickServ to recover a nickname.
+
+```toml
+# Type: array of strings
+# Values: array of any strings
+# Default: ["REGAIN"]
+
+[servers.<name>]
+ghost_sequence = ["REGAIN"]
+```
+
+### `username`
+
+The client's username.  If not set, then the configured [`nickname`](#nickname) will be used.
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>]
+username = ""
+```
+
+### `password`
+
+The password to connect to the server.
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>]
+password = ""
+```
+
+### `password_keyring`
+
+Read `password` from the [system keyring](../guides/keyring.md). Set this to `true` to use `servers.<name>.password`. Set a string to use a custom entry name.
+
+```toml
+# Type: boolean or string
+# Values: true, false, or any non-empty string
+# Default: false
+
+[servers.<name>]
+password_keyring = true
+```
+
+### `password_file`
+
+Read password from the file at the given path.[^1] [^2]
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>]
+password_file = "/path/to/password-file"
+```
+
+### `password_file_first_line_only`
+
+Read `password` from the first line of `password_file` only.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>]
+password_file_first_line_only = true
+```
+
+### `password_command`
+
+Executes the command with `sh` (or equivalent) and reads `password` as the output.
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>]
+password_command = ""
+```
+
+::: tip
+Flatpak users need to grant host command access.
+
+Run the following in terminal:
+
+```sh
+flatpak override org.squidowl.halloy --talk-name=org.freedesktop.Flatpak
+```
+
+Then set `password_command` to `flatpak-spawn --host <password_command>`
+:::
+
+## On Connect
+
+Settings that control how state is set when connecting to the server.
+
+### `channels`
+
+A list of channels to join on connection.  Channels can be muted (only shown in the sidebar if they have a an unread/highlight indicator), by specifying them as `{ name = "#channel", mute = true }`.
+
+```toml
+# Type: array of strings
+# Values: array of any strings
+# Default: not set
+
+[servers.<name>]
+channels = ["#foo", { name = "#bar", mute = true }]
+```
+
+### `channel_keys`
+
+A mapping of channel names to keys (passwords) for join-on-connect.
+
+```toml
+# Type: map
+# Values: map with string key value
+# Default: {}
+
+[servers.<name>]
+channel_keys = { "#foo" = "password" }
+```
+
+### `channel_keys_keyring`
+
+A map of channel names to [system keyring](../guides/keyring.md) entries. Set a channel to `true` to use `servers.<name>.channel_keys.<channel>`. Set a string to use a custom entry name.
+
+```toml
+# Type: map
+# Values: map with string key and boolean or string value
+# Default: {}
+
+[servers.<name>]
+channel_keys_keyring = { "#foo" = true }
+```
+
+### `order_channels_by`
+
+Ordering for channels listed in the sidebar for the current server.
+
+- `"name"`: Sort channels by name only, ignoring chantypes (channel prefixes, e.g., `#` and `##`).
+- `"name-and-prefix"`: Sort channels by name including their chantypes.
+- `"config"`: Sort channels in the order they appear in your server's `channels`
+  list. Any channels not in the list appear last, using default (`"name"`) sort.
+
+If not set, the value will be taken from the sidebar config: [order_channels_by](/configuration/sidebar#order_channels_by).
+
+```toml
+# Type: string
+# Values: "name", "name-and-prefix", "config"
+# Default: "name"
+
+[servers.<name>]
+order_channels_by = "config"
+
+# Example: When using "config", channels appear in this exact order:
+channels = ["#rust", "#halloy", "#halloy-test"]
+# Result: #rust → #halloy → #halloy-test → (any other channels are sorted by "name")
+```
+
+### `queries`
+
+A list of queries to add to the sidebar on connection.  Queries can be muted (only shown in the sidebar if they have a an unread/highlight indicator), by specifying them as `{ name = "#channel", mute = true }`.
+
+```toml
+# Type: array of strings
+# Values: array of any strings
+# Default: not set
+
+[servers.<name>]
+queries = ["alice", { name = "bob", mute = true }]
+```
+
+### `on_connect`
+
+Commands which are executed once connected, in the order they are specified. The `/delay <seconds>` command can be used to add a delay between commands.
+
+```toml
+# Type: array of string
+# Values: array of any strings
+# Default: not set
+
+[servers.<name>]
+on_connect = ["/msg NickServ IDENTIFY foo bar", "/delay 2", "/join registered-club"]
+```
+
+## Features
+
+Settings that control how features provided by the server and/or Halloy are utilized.
+
+### `icon`
+
+Settings for server icons.
+
+#### `enabled`
+
+Control whether to use a custom server icon in the sidebar.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>.icon]
+enabled = true
+```
+
+#### `override_url`
+
+Override the server icon URL advertised by the server via ISUPPORT.
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>.icon]
+override_url = "https://libera.chat/static/img/libera-color.svg"
+```
+
+### `sidebar_visibility` {#sidebar-visibility}
+
+Control the initial visibility of the server in the sidebar.
+
+```toml
+# Type: string
+# Values: "expanded", "collapsed"
+# Default: "expanded"
+
+[servers.<name>]
+sidebar_visibility = "collapsed"
+```
+
+### `filters`
+
+Filter messages based on various criteria.
+
+#### `ignore`
+
+A list of users to ignore. Users may be identified in any of these four ways:
+
+- A string of the exact nickname to ignore in all contexts (equivalent nicknames, as defined by the server's [casemapping](https://modern.ircdocs.horse/#casemapping-parameter), will be ignored).
+- A user & channel pair, written as `{ user = "nickname", channel = "#channel" }`, to ignore the user only in the specified channel.
+- A regular expression, written as `{ regex = "pattern" }`, where any user whose nickname matches the regular expression will be ignored.
+- A regular expression & channel pair, written as `{ regex = "pattern", channel = "#channel" }`, where any user whose nicknames matches the regular expression will be ignored in the specified channel.
+
+```toml
+# Type: array of user identifiers
+# Values: array of any user identifiers
+# Default: not set
+
+[servers.<name>.filters]
+ignore = [
+"ignored_user",
+{ regex = '''(?i)ignored_users-.*''' },
+{ user = "user_in_channel", channel = "#channel_with_user" },
+{ regex = '''(?i)users_in_channel-.*''', channel = "#channel_with_users" }
+]
+```
+
+#### `regex`
+
+A list of regex used to filter messages; if a match is found in the message text, then the message will be hidden.
+
+```toml
+# Type: array of strings
+# Values: array of any strings
+# Default: not set
+
+[servers.<name>.filters]
+regex = [
+'''(?i)\bunwanted_pattern\b''',
+'''^[A-Z ]+$''',
+]
+```
+
+### `reroute`
+
+Reroutes private `PRIVMSG` / `NOTICE` traffic from users into another buffer instead of a query buffer.
+
+Each entry supports:
+
+- `user` - the private-message sender/target to match, "\*" will specify all users
+- `target` - destination buffer for matching private messages:
+  - `{ channel = "#name" }` routes to a channel buffer
+  - `"server"` routes to the server buffer
+- `follow` - when `true`, routes to the currently focused channel or server
+  buffer on the same server. Falls back to `target` when no buffer is
+  focused.
+
+#### `query`
+
+Reroute private `PRIVMSG` traffic from specific users into another buffer instead of a query buffer.
+
+This only changes where Halloy displays the messages. The messages are still private and are not visible to other users in the channel.
+
+```toml
+# Type: array
+# Default: []
+
+[servers.<name>.reroute]
+query = [
+  { user = "Q", target = { channel = "#foo" }, follow = true },
+  { user = "ChanServ", target = "server" },
+]
+```
+
+#### `notice`
+
+Reroute private `NOTICE` traffic from specific users into another buffer instead of a query buffer.
+
+This only changes where Halloy displays the notices. The notices are still private and are not visible to other users in the channel.
+
+```toml
+# Type: array
+# Default: []
+
+[servers.<name>.reroute]
+notice = [
+  { user = "MyBot", target = { channel = "#my-channel" } },
+  { user = "*", target = "server" },
+]
+```
+
+### `automated_chathistory`
+
+Whether or not to enable automated [IRCv3 Chat History](https://ircv3.net/specs/extensions/chathistory) requests (if it is supported by the server).  For example, automatically requesting history when joining a channel since the last received message in the channel.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>]
+automated_chathistory = true
+```
+
+### `filehost`
+
+See the [Filehost guide](/guides/filehost) for usage information. For global upload options see [File Upload](/configuration/file-upload).
+
+#### `enabled`
+
+Enable or disable filehost support for this server.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>.filehost]
+enabled = true
+```
+
+#### `override_url`
+
+Override the filehost URL advertised by the server via ISUPPORT. The filehost must be compatible with the `soju.im/filehost` spec.
+
+When connecting over TLS, plain `http://` URLs are rejected unless the host is a loopback address.
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>.filehost]
+override_url = "https://example.org/upload"
+```
+
+#### `credentials`
+
+Specify what credentials to use for filehost. By default the SASL credentials used for the server will be used, if they have been specified.
+
+```toml
+# Type: string or SASL
+# Values: "server", "none", or SASL as described in credentials.plain or credentials.external
+# Default: "server"
+
+[servers.<name>.filehost]
+credentials = "none"
+```
+
+##### `credentials.plain`
+
+Plain SASL auth using a username and password, to be used for filehost instead of server authentication.
+
+###### `username`
+
+The account name used for authentication.
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>.filehost.credentials.plain]
+username = "username"
+```
+
+###### `password`
+
+The password associated with the account used for authentication.
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>.filehost.credentials.plain]
+password = "password"
+```
+
+###### `password_keyring`
+
+Read `password` from the [system keyring](../guides/keyring.md). Set this to `true` to use `servers.<name>.filehost.credentials.plain.password`. Set a string to use a custom entry name.
+
+```toml
+# Type: boolean or string
+# Values: true, false, or any non-empty string
+# Default: false
+
+[servers.<name>.filehost.credentials.plain]
+password_keyring = true
+```
+
+###### `password_file`
+
+Read `password` from the file at the given path.[^1] [^2]
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>.filehost.credentials.plain]
+password_file = "/path/to/password-file"
+```
+
+###### `password_file_first_line_only`
+
+Read `password` from the first line of `password_file` only.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>.filehost.credentials.plain]
+password_file_first_line_only = true
+```
+
+###### `password_command`
+
+Executes the command with `sh` (or equivalent) and reads `password` as the output.
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>.filehost.credentials.plain]
+password_command = ""
+```
+
+##### `credentials.external`
+
+External SASL auth uses a PEM encoded X509 certificate, to be used for filehost instead of server authentication. [Reference](https://libera.chat/guides/certfp).
+
+###### `cert`
+
+The path to PEM encoded X509 user certificate for external auth.[^1] [^2]
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>.filehost.credentials.external]
+cert = "/path/to/your/certificate.pem"
+```
+
+###### `key`
+
+The path to PEM encoded PKCS#8 private key for external auth (optional).[^1] [^2]
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>.filehost.credentials.external]
+key = "/path/to/your/private_key.pem"
+```
+
+### `typing`
+
+Typing settings for channel and query buffers on server.
+
+#### `share`
+
+Control whether Halloy shares your typing status with other users on the server.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: `buffer.typing.share` is used if no value is provided for the server
+
+[servers.<name>.typing]
+share = false
+```
+
+#### `show`
+
+Control whether Halloy shows typing status from other users on the server.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: `buffer.typing.show` is used if no value is provided for the server
+
+[servers.<name>.typing]
+show = true
+```
+
+### `monitor`
+
+A list of nicknames to [monitor](https://ircv3.net/specs/extensions/monitor) (if IRCv3 Monitor is supported by the server).
+
+::: info
+Read more about [monitoring users](../guides/monitor-users.md).
+:::
+
+```toml
+# Type: array of string
+# Values: array of any strings
+# Default: not set
+
+[servers.<name>]
+monitor = ["Foo", "Bar"]
+```
+
+### `confirm_message_delivery`
+
+Whether and where to confirm delivery of sent messages, if the server supports [`echo-message`](https://ircv3.net/specs/extensions/echo-message)
+
+#### `enabled`
+
+Control if delivery of sent messages is to be confirmed (if the server supports [`echo-message`](https://ircv3.net/specs/extensions/echo-message)).
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>.confirm_message_delivery]
+enabled = true
+```
+
+#### `exclude`
+
+[Exclusion conditions](/configuration/conditions.md) in which sent message
+delivery confirmation will be skipped. Inclusion conditions will take precedence
+over exclusion conditions. You can also exclude all conditions by setting to
+`"all"` or `"*"`.
+
+```toml
+# Type: inclusion/exclusion conditions
+# Values: user & channel inclusion/exclusion conditions
+# Default: not set
+
+[servers.<name>.confirm_message_delivery]
+exclude = "*"
+```
+
+#### `include`
+
+[Inclusion conditions](/configuration/conditions.md) in which sent message
+delivery will be confirmed . Delivery of sent messages be confirmed in all
+conditions (when enabled) unless explicitly excluded, so this setting is only
+relevant when combined with the `exclude` setting.
+
+```toml
+# Type: inclusion/exclusion conditions
+# Values: user & channel inclusion/exclusion conditions
+# Default: not set
+
+[servers.<name>.confirm_message_delivery]
+include = { channels = ["#halloy"] }
+```
+
+### `who_poll_enabled`
+
+Whether or not to WHO polling is enabled (used to provide away state on servers that do not support [away-notify](https://ircv3.net/specs/extensions/away-notify)).
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>]
+who_poll_enabled = true
+```
+
+### `who_poll_interval`
+
+WHO poll interval (in seconds) for servers without [away-notify](https://ircv3.net/specs/extensions/away-notify). Specifically, the time between individual WHO requests. Will be increased automatically if the server sends a rate-limiting message. When the server does not support SAFERATE (and [anti-flood protections](#anti_flood) are enabled) then `who_poll_interval` will be increased to more than twice [`anti_flood`](#anti_flood) if it is not already.
+
+```toml
+# Type: integer
+# Values: 1 .. 3600
+# Default: 2
+
+[servers.<name>]
+who_poll_interval = 2
+```
+
+### `do_not_request`
+
+[IRCv3 capabilities](https://ircv3.net/irc/) to **not** request from the server.  All [supported IRCv3 capabilities](/index.md#ircv3-capabilities) that are available are requested by default.
+
+```toml
+# Type: array of strings
+# Values: "account-notify", "away-notify", "batch", "bouncer-networks", "chathistory", "chghost", "echo-message", "event-playback", "extended-join", "extended-monitor", "invite-notify", "labeled-response", "message-tags", "message-redaction", "multiline", "multi-prefix", "metadata", "no-implicit-names", "read-marker", "sasl", "server-time", "setname", "userhost-in-names", "whoami"
+# Default: not set
+
+[servers.<name>]
+do_not_request = [ "labeled-response" ]
+```
+
 ## `networks`
 
 Use `networks` to change settings for individual networks on a bouncer.
@@ -55,1170 +1264,12 @@ You can also override:
 See [Connect with soju](../guides/connect-with-soju.md#configure-individual-networks)
 for an example.
 
-## `nickname`
-
-The client's nickname.
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>]
-nickname = ""
-```
-
-## `nick_password`
-
-The client's NICKSERV password. Whenever possible, using [`sasl.plain`](#sasl-plain) or [`sasl.external`](#sasl-external) instead of NICKSERV is recommended.
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>]
-nick_password = ""
-```
-
-## `nick_password_keyring`
-
-Read `nick_password` from the [system keyring](../guides/keyring.md). Set this to `true` to use `servers.<name>.nick_password`. Set a string to use a custom entry name.
-
-```toml
-# Type: boolean or string
-# Values: true, false, or any non-empty string
-# Default: false
-
-[servers.<name>]
-nick_password_keyring = true
-```
-
-## `nick_password_file`
-
-Read `nick_password` from the file at the given path.[^1] [^2]
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>]
-nick_password_file = "/path/to/nick-password-file"
-```
-
-## `nick_password_file_first_line_only`
-
-Read `nick_password` from the first line of `nick_password_file` only.
-
-```toml
-# Type: boolean
-# Values: true, false
-# Default: true
-
-[servers.<name>]
-nick_password_file_first_line_only = true
-```
-
-## `nick_password_command`
-
-Executes the command with `sh` (or equivalent) and reads `nick_password` as the output.
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>]
-nick_password_command = ""
-```
-
-## `nick_identify_syntax`
-
-The server's NICKSERV IDENTIFY syntax.
-
-```toml
-# Type: string
-# Values: "nick-password", "password-nick"
-# Default: not set
-
-[servers.<name>]
-nick_identify_syntax = ""
-```
-
-## `alt_nicks`
-
-Alternative nicknames for the client, if the default is taken.
-
-```toml
-# Type: array of strings
-# Values: array of any strings
-# Default: not set
-
-[servers.<name>]
-alt_nicks = ["Foo", "Bar"]
-```
-
-## `username`
-
-The client's username.  If not set, then the configured [`nickname`](#nickname) will be used.
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>]
-username = ""
-```
-
-## `realname`
-
-The client's real name.
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>]
-realname = ""
-```
-
-## `server`
-
-The server to connect to. Should not contain the protocol, port, username, or password (i.e. should look like `"irc.libera.chat"` not `"ircs://irc.libera.chat:6697"`).
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>]
-server = "irc.libera.chat"
-```
-
-## `port`
-
-The port to connect on. If you want to use a plain text port like 6667 you MUST also change the `use_tls` setting.
-
-```toml
-# Type: integer
-# Values: any non-negative integer
-# Default: 6697
-
-[servers.<name>]
-port = 6697
-```
-
-::: tip
-If you leave `port` unset, default ports will be chosen based on `use_tls` and
-`use_websocket` values:
-
-| `use_tls` | `use_websocket` | `port` |
-| --------- | --------------- | ------ |
-| `true`    | `false`         | `6697` |
-| `false`   | `false`         | `6667` |
-| `true`    | `true`          | `443`  |
-| `false`   | `true`          | `80`   |
-
-:::
-
-## `password`
-
-The password to connect to the server.
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>]
-password = ""
-```
-
-## `password_keyring`
-
-Read `password` from the [system keyring](../guides/keyring.md). Set this to `true` to use `servers.<name>.password`. Set a string to use a custom entry name.
-
-```toml
-# Type: boolean or string
-# Values: true, false, or any non-empty string
-# Default: false
-
-[servers.<name>]
-password_keyring = true
-```
-
-## `password_file`
-
-Read password from the file at the given path.[^1] [^2]
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>]
-password_file = "/path/to/password-file"
-```
-
-## `password_file_first_line_only`
-
-Read `password` from the first line of `password_file` only.
-
-```toml
-# Type: boolean
-# Values: true, false
-# Default: true
-
-[servers.<name>]
-password_file_first_line_only = true
-```
-
-## `password_command`
-
-Executes the command with `sh` (or equivalent) and reads `password` as the output.
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>]
-password_command = ""
-```
-
-::: tip
-Flatpak users need to grant host command access.
-
-Run the following in terminal:
-
-```sh
-flatpak override org.squidowl.halloy --talk-name=org.freedesktop.Flatpak
-```
-
-Then set `password_command` to `flatpak-spawn --host <password_command>`
-:::
-
-## `channels`
-
-A list of channels to join on connection.  Channels can be muted (only shown in the sidebar if they have a an unread/highlight indicator), by specifying them as `{ name = "#channel", mute = true }`.
-
-```toml
-# Type: array of strings
-# Values: array of any strings
-# Default: not set
-
-[servers.<name>]
-channels = ["#foo", { name = "#bar", mute = true }]
-```
-
-## `channel_keys`
-
-A mapping of channel names to keys (passwords) for join-on-connect.
-
-```toml
-# Type: map
-# Values: map with string key value
-# Default: {}
-
-[servers.<name>]
-channel_keys = { "#foo" = "password" }
-```
-
-## `channel_keys_keyring`
-
-A map of channel names to [system keyring](../guides/keyring.md) entries. Set a channel to `true` to use `servers.<name>.channel_keys.<channel>`. Set a string to use a custom entry name.
-
-```toml
-# Type: map
-# Values: map with string key and boolean or string value
-# Default: {}
-
-[servers.<name>]
-channel_keys_keyring = { "#foo" = true }
-```
-
-## `order_channels_by`
-
-Ordering for channels listed in the sidebar for the current server.
-
-- `"name"`: Sort channels by name only, ignoring chantypes (channel prefixes, e.g., `#` and `##`).
-- `"name-and-prefix"`: Sort channels by name including their chantypes.
-- `"config"`: Sort channels in the order they appear in your server's `channels`
-  list. Any channels not in the list appear last, using default (`"name"`) sort.
-
-If not set, the value will be taken from the sidebar config: [order_channels_by](/configuration/sidebar#order_channels_by).
-
-```toml
-# Type: string
-# Values: "name", "name-and-prefix", "config"
-# Default: "name"
-
-[servers.<name>]
-order_channels_by = "config"
-
-# Example: When using "config", channels appear in this exact order:
-channels = ["#rust", "#halloy", "#halloy-test"]
-# Result: #rust → #halloy → #halloy-test → (any other channels are sorted by "name")
-```
-
-## `queries`
-
-A list of queries to add to the sidebar on connection.  Queries can be muted (only shown in the sidebar if they have a an unread/highlight indicator), by specifying them as `{ name = "#channel", mute = true }`.
-
-```toml
-# Type: array of strings
-# Values: array of any strings
-# Default: not set
-
-[servers.<name>]
-queries = ["alice", { name = "bob", mute = true }]
-```
-
-## `ping_time`
-
-The amount of inactivity in seconds before the client will ping the server.
-
-```toml
-# Type: integer
-# Values: any positive integer
-# Default: 180
-
-[servers.<name>]
-ping_time = 180
-```
-
-## `ping_timeout`
-
-The amount of time in seconds to wait for a ping response before attempting to reconnect.
-
-```toml
-# Type: integer
-# Values: any positive integer
-# Default: 20
-
-[servers.<name>]
-ping_timeout = 20
-```
-
-## `reconnect_delay`
-
-The amount of time in seconds before attempting to reconnect to the server when disconnected.
-
-```toml
-# Type: integer
-# Values: any positive integer
-# Default: 10
-
-[servers.<name>]
-reconnect_delay = 10
-```
-
-## `max_connection_attempts`
-
-Maximum number of connection attempts before autoconnect is disabled, or `"unlimited"` for unlimited attempts.  Connection attempts can be manually restarted from the context menu (right-click menu) on the server buffer.
-
-```toml
-# Type: integer
-# Values: any positive integer or "unlimited"
-# Default: 10
-
-[servers.<name>]
-max_connection_attempts = 10
-```
-
-## `should_ghost`
-
-Whether the client should use NickServ GHOST to reclaim its primary nickname if it is in use.
-
-```toml
-# Type: boolean
-# Values: true, false
-# Default: false
-
-[servers.<name>]
-should_ghost = false
-```
-
-## `ghost_sequence`
-
-The command(s) that should be sent to NickServ to recover a nickname.
-
-```toml
-# Type: array of strings
-# Values: array of any strings
-# Default: ["REGAIN"]
-
-[servers.<name>]
-ghost_sequence = ["REGAIN"]
-```
-
-## `umodes`
-
-User modestring to set on connect.
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>]
-umodes = "+RB-x"
-```
-
-## `use_tls`
-
-Whether or not to use TLS. Clients will automatically panic if this is enabled without TLS support.
-
-```toml
-# Type: boolean
-# Values: true, false
-# Default: true
-
-[servers.<name>]
-use_tls = true
-```
-
-## `use_websocket`
-
-Whether or not to connect using IRCv3 WebSocket transport. When enabled, Halloy connects to `ws://` if [`use_tls`](#use_tls) is `false`, and `wss://` if [`use_tls`](#use_tls) is `true`.
-
-```toml
-# Type: boolean
-# Values: true, false
-# Default: false
-
-[servers.<name>]
-use_websocket = false
-```
-
-## `websocket_path`
-
-The WebSocket request path. For soju HTTPS listeners or reverse proxies, this is usually `"/socket"`.
-
-```toml
-# Type: string
-# Values: any path
-# Default: "/"
-
-[servers.<name>]
-websocket_path = "/"
-```
-
-## `websocket_ping_interval`
-
-The interval in seconds at which to send WebSocket pings when [`use_websocket`](#use_websocket) is `true`. This is in addition to regular IRC pings controlled by [`ping_time`](#ping_time).
-
-```toml
-# Type: integer
-# Values: any non-negative integer
-# Default: 60
-
-[servers.<name>]
-websocket_ping_interval = 60
-```
-
-## `dangerously_accept_invalid_certs`
-
-When `true`, all certificate validations are skipped.
-
-```toml
-# Type: boolean
-# Values: true, false
-# Default: false
-
-[servers.<name>]
-dangerously_accept_invalid_certs = false
-```
-
-## `root_cert_path`
-
-The path to the root TLS certificate for this server in PEM format.[^1] [^2]
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>]
-root_cert_path = ""
-```
-
-## `on_connect`
-
-Commands which are executed once connected, in the order they are specified. The `/delay <seconds>` command can be used to add a delay between commands.
-
-```toml
-# Type: array of string
-# Values: array of any strings
-# Default: not set
-
-[servers.<name>]
-on_connect = ["/msg NickServ IDENTIFY foo bar", "/delay 2", "/join registered-club"]
-```
-
-## `anti_flood`
-
-The time (in milliseconds) between sending messages to servers without SAFERATE. Timing is not strictly guaranteed; small groups of messages may be allowed to be sent at a faster rate, messages may be delayed in order to be batched, automated messages are included in the queue (most at a lower priority than user messages), etc.
-
-```toml
-# Type: integer
-# Values: 100 .. 60000
-# Default: 2000
-
-[servers.<name>]
-anti_flood = 2000
-```
-
-## `who_poll_enabled`
-
-Whether or not to WHO polling is enabled.
-
-```toml
-# Type: boolean
-# Values: true, false
-# Default: true
-
-[servers.<name>]
-who_poll_enabled = true
-```
-
-## `who_poll_interval`
-
-WHO poll interval (in seconds) for servers without away-notify. Specifically, the time between individual WHO requests. Will be increased automatically if the server sends a rate-limiting message. When the server does not support SAFERATE (and [anti-flood protections](#anti_flood) are enabled) then `who_poll_interval` will be increased to more than twice [`anti_flood`](#anti_flood) if it is not already.
-
-```toml
-# Type: integer
-# Values: 1 .. 3600
-# Default: 2
-
-[servers.<name>]
-who_poll_interval = 2
-```
-
-## `monitor`
-
-A list of nicknames to [monitor](https://ircv3.net/specs/extensions/monitor) (if IRCv3 Monitor is supported by the server).
-
-::: info
-Read more about [monitoring users](../guides/monitor-users.md).
-:::
-
-```toml
-# Type: array of string
-# Values: array of any strings
-# Default: not set
-
-[servers.<name>]
-monitor = ["Foo", "Bar"]
-```
-
-## `automated_chathistory`
-
-Whether or not to enable automated [IRCv3 Chat History](https://ircv3.net/specs/extensions/chathistory) requests (if it is supported by the server).  For example, automatically requesting history when joining a channel since the last received message in the channel.
-
-```toml
-# Type: boolean
-# Values: true, false
-# Default: true
-
-[servers.<name>]
-automated_chathistory = true
-```
-
-## `proxy`
-
-Custom proxy for specified server
-
-The logic is as follows:
-
-- If a server proxy is provided, it will be used.
-- If a server proxy is not provided, the global proxy will be used.
-- If the global proxy is not provided, a plain connection will be used.
-
-The configuration syntax and supported proxy types are similar to the global [Proxy](/configuration/proxy) but associated with the current `servers.<name>`:
-
-```toml
-[servers.<name>.proxy.http]
-host = "192.168.1.100"
-port = 1080
-username = "username"
-password_keyring = true
-```
-
-or
-
-```toml
-[servers.<name>.proxy.socks5]
-host = "192.168.1.100"
-port = 1080
-username = "username"
-password_keyring = true
-```
-
-With `password_keyring = true`, Halloy uses `servers.<name>.proxy.http.password` or `servers.<name>.proxy.socks5.password`. See the [system keyring guide](../guides/keyring.md).
-
-## `autoconnect`
-
-Whether or not to connect to the server when launching Halloy or when changing the connection details in the server configuration.
-
-```toml
-# Type: boolean
-# Values: true, false
-# Default: true
-
-[servers.<name>]
-autoconnect = true
-```
-
-## `filters`
-
-Filter messages based on various criteria.
-
-### `ignore`
-
-A list of users to ignore. Users may be identified in any of these four ways:
-
-- A string of the exact nickname to ignore in all contexts (equivalent nicknames, as defined by the server's [casemapping](https://modern.ircdocs.horse/#casemapping-parameter), will be ignored).
-- A user & channel pair, written as `{ user = "nickname", channel = "#channel" }`, to ignore the user only in the specified channel.
-- A regular expression, written as `{ regex = "pattern" }`, where any user whose nickname matches the regular expression will be ignored.
-- A regular expression & channel pair, written as `{ regex = "pattern", channel = "#channel" }`, where any user whose nicknames matches the regular expression will be ignored in the specified channel.
-
-```toml
-# Type: array of user identifiers
-# Values: array of any user identifiers
-# Default: not set
-
-[servers.<name>.filters]
-ignore = [
-"ignored_user",
-{ regex = '''(?i)ignored_users-.*''' },
-{ user = "user_in_channel", channel = "#channel_with_user" },
-{ regex = '''(?i)users_in_channel-.*''', channel = "#channel_with_users" }
-]
-```
-
-### `regex`
-
-A list of regex used to filter messages; if a match is found in the message text, then the message will be hidden.
-
-```toml
-# Type: array of strings
-# Values: array of any strings
-# Default: not set
-
-[servers.<name>.filters]
-regex = [
-'''(?i)\bunwanted_pattern\b''',
-'''^[A-Z ]+$''',
-]
-```
-
-## `reroute`
-
-Reroutes private `PRIVMSG` / `NOTICE` traffic from users into another buffer instead of a query buffer.
-
-Each entry supports:
-
-- `user` - the private-message sender/target to match, "\*" will specify all users
-- `target` - destination buffer for matching private messages:
-  - `{ channel = "#name" }` routes to a channel buffer
-  - `"server"` routes to the server buffer
-- `follow` - when `true`, routes to the currently focused channel or server
-  buffer on the same server. Falls back to `target` when no buffer is
-  focused.
-
-### `query`
-
-Reroute private `PRIVMSG` traffic from specific users into another buffer instead of a query buffer.
-
-This only changes where Halloy displays the messages. The messages are still private and are not visible to other users in the channel.
-
-```toml
-# Type: array
-# Default: []
-
-[servers.<name>.reroute]
-query = [
-  { user = "Q", target = { channel = "#foo" }, follow = true },
-  { user = "ChanServ", target = "server" },
-]
-```
-
-### `notice`
-
-Reroute private `NOTICE` traffic from specific users into another buffer instead of a query buffer.
-
-This only changes where Halloy displays the notices. The notices are still private and are not visible to other users in the channel.
-
-```toml
-# Type: array
-# Default: []
-
-[servers.<name>.reroute]
-notice = [
-  { user = "MyBot", target = { channel = "#my-channel" } },
-  { user = "*", target = "server" },
-]
-```
-
-## `sasl.external` {#sasl-external}
-
-External SASL auth uses a PEM encoded X509 certificate.
-
-See the [guide by Libera.Chat](https://libera.chat/guides/certfp) for more information.
-
-On some networks, `sasl.external` may be labelled as [SSL + CertFP](https://www.oftc.net/NickServ/CertFP/#automatically-identifying-using-ssl--certfp).
-
-### `cert`
-
-The path to PEM encoded X509 user certificate for external auth.[^1] [^2]
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>.sasl.external]
-cert = "/path/to/your/certificate.pem"
-```
-
-### `key`
-
-The path to PEM encoded PKCS#8 private key for external auth (optional).[^1] [^2]
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>.sasl.external]
-key = "/path/to/your/private_key.pem"
-```
-
-### `disconnect_on_failure`
-
-Disconnect from the server if SASL authentication fails. This is useful on servers which apply a hostname cloak after identifying, such as Libera.Chat. Without this option, a failed SASL authentication would result in connecting with your real IP/hostname exposed.
-
-```toml
-# Type: boolean
-# Values: true, false
-# Default: true
-
-[servers.<name>.sasl.external]
-disconnect_on_failure = false
-```
-
-## `sasl.plain` {#sasl-plain}
-
-Plain SASL auth using a username and password. See the [guide by Libera.Chat](https://libera.chat/guides/sasl) for more information.
-
-### `username`
-
-The account name used for authentication.  If not set, then the configured [`nickname`](#nickname) will be used.
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>.sasl.plain]
-username = "username"
-```
-
-### `password`
-
-The password associated with the account used for authentication.
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>.sasl.plain]
-password = "password"
-```
-
-### `password_keyring`
-
-Read `password` from the [system keyring](../guides/keyring.md). Set this to `true` to use `servers.<name>.sasl.plain.password`. Set a string to use a custom entry name.
-
-```toml
-# Type: boolean or string
-# Values: true, false, or any non-empty string
-# Default: false
-
-[servers.<name>.sasl.plain]
-password_keyring = true
-```
-
-### `password_file`
-
-Read `password` from the file at the given path.[^1] [^2]
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>.sasl.plain]
-password_file = "/path/to/password-file"
-```
-
-### `password_file_first_line_only`
-
-Read `password` from the first line of `password_file` only.
-
-```toml
-# Type: boolean
-# Values: true, false
-# Default: true
-
-[servers.<name>.sasl.plain]
-password_file_first_line_only = true
-```
-
-### `password_command`
-
-Executes the command with `sh` (or equivalent) and reads `password` as the output.
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>.sasl.plain]
-password_command = ""
-```
-
-### `disconnect_on_failure`
-
-Disconnect from the server if SASL authentication fails. This is useful on servers which apply a hostname cloak after identifying, such as Libera.Chat. Without this option, a failed SASL authentication would result in connecting with your real IP/hostname exposed.
-
-```toml
-# Type: boolean
-# Values: true, false
-# Default: true
-
-[servers.<name>.sasl.plain]
-disconnect_on_failure = false
-```
-
-## `confirm_message_delivery`
-
-Whether and where to confirm delivery of sent messages, if the server supports [`echo-message`](https://ircv3.net/specs/extensions/echo-message)
-
-### `enabled`
-
-Control if delivery of sent messages is to be confirmed (if the server supports [`echo-message`](https://ircv3.net/specs/extensions/echo-message)).
-
-```toml
-# Type: boolean
-# Values: true, false
-# Default: true
-
-[servers.<name>.confirm_message_delivery]
-enabled = true
-```
-
-### `exclude`
-
-[Exclusion conditions](/configuration/conditions.md) in which sent message
-delivery confirmation will be skipped. Inclusion conditions will take precedence
-over exclusion conditions. You can also exclude all conditions by setting to
-`"all"` or `"*"`.
-
-```toml
-# Type: inclusion/exclusion conditions
-# Values: user & channel inclusion/exclusion conditions
-# Default: not set
-
-[servers.<name>.confirm_message_delivery]
-exclude = "*"
-```
-
-### `include`
-
-[Inclusion conditions](/configuration/conditions.md) in which sent message
-delivery will be confirmed . Delivery of sent messages be confirmed in all
-conditions (when enabled) unless explicitly excluded, so this setting is only
-relevant when combined with the `exclude` setting.
-
-```toml
-# Type: inclusion/exclusion conditions
-# Values: user & channel inclusion/exclusion conditions
-# Default: not set
-
-[servers.<name>.confirm_message_delivery]
-include = { channels = ["#halloy"] }
-```
-
-## `filehost`
-
-See the [Filehost guide](/guides/filehost) for usage information. For global upload options see [File Upload](/configuration/file-upload).
-
-### `enabled`
-
-Enable or disable filehost support for this server.
-
-```toml
-# Type: boolean
-# Values: true, false
-# Default: true
-
-[servers.<name>.filehost]
-enabled = true
-```
-
-### `override_url`
-
-Override the filehost URL advertised by the server via ISUPPORT. The filehost must be compatible with the `soju.im/filehost` spec.
-
-When connecting over TLS, plain `http://` URLs are rejected unless the host is a loopback address.
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>.filehost]
-override_url = "https://example.org/upload"
-```
-
-### `credentials`
-
-Specify what credentials to use for filehost. By default the SASL credentials used for the server will be used, if they have been specified.
-
-```toml
-# Type: string or SASL
-# Values: "server", "none", or SASL as described in credentials.plain or credentials.external
-# Default: "server"
-
-[servers.<name>.filehost]
-credentials = "none"
-```
-
-#### `credentials.plain`
-
-Plain SASL auth using a username and password, to be used for filehost instead of server authentication.
-
-##### `username`
-
-The account name used for authentication.
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>.filehost.credentials.plain]
-username = "username"
-```
-
-##### `password`
-
-The password associated with the account used for authentication.
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>.filehost.credentials.plain]
-password = "password"
-```
-
-##### `password_keyring`
-
-Read `password` from the [system keyring](../guides/keyring.md). Set this to `true` to use `servers.<name>.filehost.credentials.plain.password`. Set a string to use a custom entry name.
-
-```toml
-# Type: boolean or string
-# Values: true, false, or any non-empty string
-# Default: false
-
-[servers.<name>.filehost.credentials.plain]
-password_keyring = true
-```
-
-##### `password_file`
-
-Read `password` from the file at the given path.[^1] [^2]
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>.filehost.credentials.plain]
-password_file = "/path/to/password-file"
-```
-
-##### `password_file_first_line_only`
-
-Read `password` from the first line of `password_file` only.
-
-```toml
-# Type: boolean
-# Values: true, false
-# Default: true
-
-[servers.<name>.filehost.credentials.plain]
-password_file_first_line_only = true
-```
-
-##### `password_command`
-
-Executes the command with `sh` (or equivalent) and reads `password` as the output.
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>.filehost.credentials.plain]
-password_command = ""
-```
-
-#### `credentials.external`
-
-External SASL auth uses a PEM encoded X509 certificate, to be used for filehost instead of server authentication. [Reference](https://libera.chat/guides/certfp).
-
-##### `cert`
-
-The path to PEM encoded X509 user certificate for external auth.[^1] [^2]
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>.filehost.credentials.external]
-cert = "/path/to/your/certificate.pem"
-```
-
-##### `key`
-
-The path to PEM encoded PKCS#8 private key for external auth (optional).[^1] [^2]
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>.filehost.credentials.external]
-key = "/path/to/your/private_key.pem"
-```
-
-## `typing`
-
-Typing settings for channel and query buffers on server.
-
-### `share`
-
-Control whether Halloy shares your typing status with other users on the server.
-
-```toml
-# Type: boolean
-# Values: true, false
-# Default: `buffer.typing.share` is used if no value is provided for the server
-
-[servers.<name>.typing]
-share = false
-```
-
-### `show`
-
-Control whether Halloy shows typing status from other users on the server.
-
-```toml
-# Type: boolean
-# Values: true, false
-# Default: `buffer.typing.show` is used if no value is provided for the server
-
-[servers.<name>.typing]
-show = true
-```
-
-## `metadata`
-
-Set values for metadata keys (`"display-name"`, `"avatar"`, `"pronouns"`, `"homepage"`, `"color"`, or `"status"`).
-
-```toml
-# Type: map
-# Values: metadata key & string value key-value pairs
-# Default: not set
-
-[servers.<name>]
-metadata = { pronouns = "they/them" }
-```
-
-| **Key**        | **Utilization in Halloy** | **Value Format** | **Example Value** |
-| -------------- | ------------------------- | ---------------- | ----------------- |
-| `avatar`       | Avatar that is shown in the user's context menu | URL for an image, with an optional {size} substitution denoting the size to load in pixels | `https://example.com/avatar/{size}/asdf.jpg` |
-| `color`        | Color used to style nickname ([`display.adapt_metadata_colors`](/configuration/display#adapt_metadata_colors)), and shown in the user's context menu | HTML-style 6 hexadecimal digits | `#800040` |
-| `display-name` | Name that can be displayed as the primary identifier for a user ([`display.nickname`](/configuration/display#nickname) & [`display.nicklist_nickname`](/configuration/display#nicklist_nickname)), and shown in the user's context menu | Any string | Cio Cioelle Estrella Von Maximus the Third |
-| `homepage`     | Shown as a clickable link in the user's context menu | Any URL | `https:://personal-site.meow/` |
-| `pronouns`     | Pronouns that can be displayed by the user's name ([`display.nickname`](/configuration/display#nickname) & [`display.nicklist_nickname`](/configuration/display#nicklist_nickname)), and shown in the user's context menu | Any string | `she/her (妳/她)` |
-| `status`       | Shown in the user's context menu | Any string | `awaiting a new life in the off-world colonies` |
-
-For more details, see the IRCv3 [user metadata](https://ircv3.net/registry.html#user-metadata) registry.
-
-:::info
-For configuring metadata key subscriptions, see [`metadata`](/configuration/metadata).
-:::
-
-## `icon`
-
-Settings for server icons.
-
-### `enabled`
-
-Control whether to use a custom server icon in the sidebar.
-
-```toml
-# Type: boolean
-# Values: true, false
-# Default: true
-
-[servers.<name>.icon]
-enabled = true
-```
-
-### `override_url`
-
-Override the server icon URL advertised by the server via ISUPPORT.
-
-```toml
-# Type: string
-# Values: any string
-# Default: not set
-
-[servers.<name>.icon]
-override_url = "https://libera.chat/static/img/libera-color.svg"
-```
-
-## `do_not_request`
-
-[IRCv3 capabilities](https://ircv3.net/irc/) to **not** request from the server.  All [supported IRCv3 capabilities](/index.md#ircv3-capabilities) that are available are requested by default.
-
-```toml
-# Type: array of strings
-# Values: "account-notify", "away-notify", "batch", "bouncer-networks", "chathistory", "chghost", "echo-message", "event-playback", "extended-join", "extended-monitor", "invite-notify", "labeled-response", "message-tags", "message-redaction", "multiline", "multi-prefix", "metadata", "no-implicit-names", "read-marker", "sasl", "server-time", "setname", "userhost-in-names", "whoami"
-# Default: not set
-
-[servers.<name>]
-do_not_request = [ "labeled-response" ]
-```
-
 ## `irc_protocol_log`
 
 Logs of **all** IRC messages received from and sent to and the server (logged messages may contain sensitive information and will be stored in plain text).  Log files can be found in:
 
 * Windows: `%AppData%\Roaming\halloy\irc_protocol_logs\<name>\`
-* Mac: `~/Library/Application Support/halloy/irc_protocol_logs/<name>/` or `$HOME/.local/share/halloy/irc_protocol_logs/<name>/`
+* macOS: `~/Library/Application Support/halloy/irc_protocol_logs/<name>/` or `$HOME/.local/share/halloy/irc_protocol_logs/<name>/`
 * Linux: `$XDG_DATA_HOME/halloy/irc_protocol_logs/<name>/`, `$HOME/.local/share/halloy/irc_protocol_logs/<name>/`, or `$HOME/.var/app/org.squidowl.halloy/data/halloy/irc_protocol_logs/<name>/` (Flatpak)
 
 ::: warning
@@ -1272,16 +1323,3 @@ timestamp = "utc"
 [^1]: Windows path strings should usually be specified as literal strings (e.g. `'C:\Users\Default\'`), otherwise directory separators will need to be escaped (e.g. `"C:\\Users\\Default\\"`).
 
 [^2]: Relative paths are prefixed with the config directory (i.e. if you have your config.toml in `/home/me/.config/halloy/config.toml`, path `.passwd/libera` will be converted to `/home/me/.config/halloy/.passwd/libera`).
-
-## `sidebar_visibility` {#sidebar-visibility}
-
-Control the initial visibility of the server in the sidebar.
-
-```toml
-# Type: string
-# Values: "expanded", "collapsed"
-# Default: "expanded"
-
-[servers.<name>]
-sidebar_visibility = "collapsed"
-```

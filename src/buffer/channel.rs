@@ -577,7 +577,7 @@ impl Channel {
                 &clients.get_channel_typing_users(server, channel),
                 Some(channel),
                 server,
-                FilterChain::borrow(history.filters()),
+                FilterChain::borrow(history.get_filters()),
                 casemapping,
             ),
             casemapping,

@@ -539,7 +539,7 @@ fn parse_meta_tag_properties(
     let mut meta = MetaTagProperties::default();
 
     for meta_tag in META_TAG_REGEX
-        .find_iter(&String::from_utf8_lossy(bytes))
+        .find_iter::<str>(&String::from_utf8_lossy(bytes))
         .filter_map(Result::ok)
     {
         let meta_tag = meta_tag.as_str();

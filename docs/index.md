@@ -1,6 +1,6 @@
 # Halloy
 
-An open-source IRC client for Mac, Windows, and Linux, focused on being simple and fast.
+An open-source IRC client for macOS, Windows, and Linux, focused on being simple and fast.
 
 <br />
 <img src="./images/banner.png" style="display: block; width: 100%; margin: 0;" alt="Halloy banner">

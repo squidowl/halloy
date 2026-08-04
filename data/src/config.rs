@@ -528,7 +528,10 @@ impl Config {
         }
 
         let path = Self::path();
-        if !path.try_exists()? {
+        if !path
+            .try_exists()
+            .map_err(|io_error| Error::LoadConfigFile(io_error.to_string()))?
+        {
             return Err(Error::ConfigMissing);
         }
         let content = fs::read_to_string(path)
@@ -655,8 +658,15 @@ impl Config {
         let mut second_theme = theme_keys.1.clone().map(|_| Theme::default());
         let mut has_halloy_theme = false;
 
-        let mut stream =
-            ReadDirStream::new(fs::read_dir(Self::themes_dir()).await?);
+        let mut stream = ReadDirStream::new(
+            fs::read_dir(Self::themes_dir()).await.map_err(|io_error| {
+                Error::Io {
+                    path: Self::themes_dir().display().to_string(),
+                    context: None,
+                    error: io_error.to_string(),
+                }
+            })?,
+        );
         while let Some(entry) = stream.next().await {
             let Ok(entry) = entry else {
                 continue;
@@ -852,12 +862,22 @@ impl ParseError {
 
 #[derive(Debug, Error, Clone)]
 pub enum Error {
-    #[error("config could not be read: {0}")]
+    #[error("Config file could not be read: {0}")]
     LoadConfigFile(String),
-    #[error("command could not be run: {0}")]
-    ExecutePasswordCommand(String),
-    #[error("{0}")]
-    Io(String),
+    #[error(
+        "Command `{command}` could not be run for server `{server}`: {error}"
+    )]
+    ExecutePasswordCommand {
+        server: String,
+        command: String,
+        error: String,
+    },
+    #[error("Unable to read `{path}`{}: {error}", context.as_ref().map_or("", |context| context))]
+    Io {
+        path: String,
+        context: Option<String>,
+        error: String,
+    },
     #[error("{}", .0.details)]
     Parse(ParseError),
     #[error("UTF8 parsing error: {0}")]
@@ -867,13 +887,13 @@ pub enum Error {
     #[error(transparent)]
     LoadSounds(#[from] audio::LoadError),
     #[error(
-        "Only one of password, password_file, password_command and password_keyring can be set."
+        "Only one of password, password_file, password_command and password_keyring can be set. Multiple set for server {server}."
     )]
-    DuplicatePassword,
+    DuplicatePassword { server: String },
     #[error(
-        "Only one of nick_password, nick_password_file, nick_password_command and nick_password_keyring can be set."
+        "Only one of nick_password, nick_password_file, nick_password_command and nick_password_keyring can be set. Multiple set for server {server}."
     )]
-    DuplicateNickPassword,
+    DuplicateNickPassword { server: String },
     #[error(
         "Only one of channel_keys and channel_keys_keyring can be set for channel `{channel}` on server `{server}`."
     )]
@@ -902,10 +922,4 @@ pub enum Error {
     Keyring { key: String, error: String },
     #[error("Config does not exist")]
     ConfigMissing,
-}
-
-impl From<std::io::Error> for Error {
-    fn from(error: std::io::Error) -> Self {
-        Self::Io(error.to_string())
-    }
 }
