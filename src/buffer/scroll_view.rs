@@ -334,23 +334,111 @@ pub fn view<'a>(
         .map_or_else(Utc::now, |message| message.server_time);
     let status = state.status;
 
+    let line_spacing = config.buffer.line_spacing;
+
+    // Only create widgets for messages near the viewport, use height
+    // spacers for the rest so we don't lay out thousands of children.
+    let row_height =
+        theme::resolve_line_height(&config.font) + line_spacing as f32;
+    let total = old_messages.len() + new_messages.len();
+    let visible = (state.pane_size.height / row_height).ceil() as usize;
+    let buffer = visible * BUFFER_PAGES;
+    let render_budget = visible + 2 * buffer;
+
+    let msg_height = |m: &&data::Message| -> f32 {
+        state
+            .height_cache
+            .get(&keyed::Key::Message(m.hash))
+            .copied()
+            .map_or(row_height, |h| h + line_spacing as f32)
+    };
+    let div_height = state
+        .height_cache
+        .get(&keyed::Key::Divider)
+        .copied()
+        .unwrap_or_default();
+
+    let (render_start, render_end) = if state.pending_scroll_to.is_some()
+        || state.is_scrolling_to
+        || total <= render_budget
+    {
+        (0, total)
+    } else {
+        let first_visible = match state.status {
+            Status::Bottom => {
+                let offset = state.last_scroll_offset;
+                let mut acc = 0.0_f32;
+                let mut from_bottom = 0;
+                for m in old_messages.iter().chain(&new_messages).rev() {
+                    if from_bottom == new_messages.len() {
+                        acc += div_height;
+                        if acc > offset {
+                            break;
+                        }
+                    }
+
+                    acc += msg_height(m);
+                    if acc > offset {
+                        break;
+                    }
+                    from_bottom += 1;
+                }
+                total.saturating_sub(from_bottom + visible)
+            }
+            Status::Unlocked => {
+                let offset = state.last_scroll_offset;
+                let mut acc = 0.0_f32;
+                let mut idx = 0;
+                for m in old_messages.iter().chain(&new_messages) {
+                    if idx == old_messages.len() {
+                        acc += div_height;
+                        if acc > offset {
+                            break;
+                        }
+                    }
+
+                    acc += msg_height(m);
+                    if acc > offset {
+                        break;
+                    }
+                    idx += 1;
+                }
+                idx
+            }
+        };
+
+        (
+            first_visible.saturating_sub(buffer),
+            (first_visible + visible + buffer).min(total),
+        )
+    };
+
+    let old_start = render_start.min(old_messages.len());
+    let old_end = render_end.min(old_messages.len());
+    let new_start = render_start
+        .saturating_sub(old_messages.len())
+        .min(new_messages.len());
+    let new_end = render_end
+        .saturating_sub(old_messages.len())
+        .min(new_messages.len());
+
+    let alignment_messages = || {
+        old_messages[old_start..old_end]
+            .iter()
+            .chain(&new_messages[new_start..new_end])
+    };
+
     let right_alignment_widths =
         config.buffer.nickname.alignment.is_right().then_some({
-            let max_prefixes_width = old_messages
-                .iter()
-                .chain(&new_messages)
+            let max_prefixes_width = alignment_messages()
                 .filter_map(|message| prefixes_width(message, config))
                 .fold(0.0, f32::max);
 
-            let max_timestamp_width = old_messages
-                .iter()
-                .chain(&new_messages)
+            let max_timestamp_width = alignment_messages()
                 .filter_map(|message| timestamp_width(message, config))
                 .fold(0.0, f32::max);
 
-            let max_nick_width = old_messages
-                .iter()
-                .chain(&new_messages)
+            let max_nick_width = alignment_messages()
                 .filter_map(|message| match message.target.source() {
                     message::Source::User(user) => {
                         let user_display = UserDisplay::new(
@@ -374,9 +462,7 @@ pub fn view<'a>(
 
             let range_end_timestamp_width =
                 if config.buffer.server_messages.condense.any() {
-                    old_messages
-                        .iter()
-                        .chain(&new_messages)
+                    alignment_messages()
                         .filter_map(|message| {
                             if let message::Source::Internal(
                                 message::source::Internal::Condensed(
@@ -610,94 +696,6 @@ pub fn view<'a>(
             })
             .collect::<Vec<_>>()
     };
-
-    let line_spacing = config.buffer.line_spacing;
-
-    // Only create widgets for messages near the viewport, use height
-    // spacers for the rest so we doesn't lay out thousands of children
-    let row_height =
-        theme::resolve_line_height(&config.font) + line_spacing as f32;
-    let total = old_messages.len() + new_messages.len();
-    let visible = (state.pane_size.height / row_height).ceil() as usize;
-    let buffer = visible * BUFFER_PAGES;
-    let render_budget = visible + 2 * buffer;
-
-    let msg_height = |m: &&data::Message| -> f32 {
-        state
-            .height_cache
-            .get(&keyed::Key::Message(m.hash))
-            .copied()
-            .map_or(row_height, |h| h + line_spacing as f32)
-    };
-    let div_height = state
-        .height_cache
-        .get(&keyed::Key::Divider)
-        .copied()
-        .unwrap_or_default();
-
-    let (render_start, render_end) = if state.pending_scroll_to.is_some()
-        || state.is_scrolling_to
-        || total <= render_budget
-    {
-        (0, total)
-    } else {
-        let first_visible = match state.status {
-            Status::Bottom => {
-                let offset = state.last_scroll_offset;
-                let mut acc = 0.0_f32;
-                let mut from_bottom = 0;
-                for m in old_messages.iter().chain(&new_messages).rev() {
-                    if from_bottom == new_messages.len() {
-                        acc += div_height;
-                        if acc > offset {
-                            break;
-                        }
-                    }
-
-                    acc += msg_height(m);
-                    if acc > offset {
-                        break;
-                    }
-                    from_bottom += 1;
-                }
-                total.saturating_sub(from_bottom + visible)
-            }
-            Status::Unlocked => {
-                let offset = state.last_scroll_offset;
-                let mut acc = 0.0_f32;
-                let mut idx = 0;
-                for m in old_messages.iter().chain(&new_messages) {
-                    if idx == old_messages.len() {
-                        acc += div_height;
-                        if acc > offset {
-                            break;
-                        }
-                    }
-
-                    acc += msg_height(m);
-                    if acc > offset {
-                        break;
-                    }
-                    idx += 1;
-                }
-                idx
-            }
-        };
-
-        (
-            first_visible.saturating_sub(buffer),
-            (first_visible + visible + buffer).min(total),
-        )
-    };
-
-    let old_start = render_start.min(old_messages.len());
-    let old_end = render_end.min(old_messages.len());
-    let new_start = render_start
-        .saturating_sub(old_messages.len())
-        .min(new_messages.len());
-    let new_end = render_end
-        .saturating_sub(old_messages.len())
-        .min(new_messages.len());
 
     let date_of =
         |m: &data::Message| m.server_time.with_timezone(&Local).date_naive();

@@ -24,6 +24,7 @@ Changed:
 
 - User avatars are configurable with `metadata.avatar.size`
 - Ensure Theme Editor appends a `.toml` extension when saving a theme without one
+- Right-aligned nickname columns now size to nearby messages instead of the entire loaded history
 - The XDG data directory `~/.local/share/halloy` can be used for storing history/logs/etc macOS, instead of `~/Library/Application Support/halloy/` (move entire directory to migrate)
 
 Thanks:
