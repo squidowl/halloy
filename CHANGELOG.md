@@ -18,6 +18,7 @@ Fixed:
 - User avatars are only shown when `avatar` is included in `metadata.preferred_keys`
 - Text in input box being scrolled/clipped 2px on the left on pane load or when navigating history
 - Expand `$HOME` or `%AppData%` when first component in a path setting
+- Don't show another preview from the same message after hiding one
 
 Changed:
 
