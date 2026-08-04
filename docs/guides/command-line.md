@@ -28,9 +28,9 @@ Common options:
 
 | Argument | Description |
 | --- | --- |
-| `/SILENT` | Install with a progress window, without prompts. |
-| `/VERYSILENT` | Install with no UI. |
-| `/DIR="path"` | Set the installation directory. |
+| `/SILENT` | Hide the installer wizard, but show the installation progress window. |
+| `/VERYSILENT` | Hide the installer wizard and installation progress window. |
+| `/DIR="C:\Apps\Halloy"` | Set the installation directory. Use an absolute path. |
 | `/TASKS="desktopicon"` | Create a desktop shortcut. |
 
 For the full list, see the [Inno Setup command-line documentation](https://jrsoftware.org/ishelp/index.php?topic=setupcmdline).
