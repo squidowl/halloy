@@ -19,6 +19,7 @@ Fixed:
 - Text in input box being scrolled/clipped 2px on the left on pane load or when navigating history
 - Expand `$HOME` or `%AppData%` when first component in a path setting
 - Don't show another preview from the same message after hiding one
+- Restrict commonly used (`()<>"`) chars from being used to highlight nicks
 
 Changed:
 
@@ -30,7 +31,7 @@ Changed:
 Thanks:
 
 - Contributions: @rollecode, @luca020400, @rtmongold, @tranzystorekk, @englut
-- Bug reports: sebbu, @dpedu, kurwavidae
+- Bug reports: sebbu, @dpedu, kurwavidae, @ncfavier
 - Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo
 
 # 2026.8 (2026-07-24)

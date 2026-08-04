@@ -69,10 +69,23 @@ static CHANNEL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 
 // Regex for nicks per spec: https://modern.ircdocs.horse/#clients
 // The capturing group is split in `MUST NOT start with` and `MUST NOT contain`
+const NICK_CHARS_START_RESTRICTED: &str = r#" ,*?!@$:#&~%*+"#;
+const NICK_CHARS_CONTAIN_RESTRICTED: &str = r#" ,*?!@\."#;
+
+const NICK_CHARS_HIGHLIGHT_RESTRICTED: &str = r#"\"()<>"#;
+
 static USER_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    RegexBuilder::new(r#"(?i)(?<!\w)([^ ,*?!@$:#&~%+][^ ,*?!@\.]*)(?!\w)"#)
-        .build()
-        .unwrap()
+    RegexBuilder::new(concatcp!(
+        r#"(?i)(?<!\w)([^"#,
+        NICK_CHARS_START_RESTRICTED,
+        NICK_CHARS_HIGHLIGHT_RESTRICTED,
+        r#"][^"#,
+        NICK_CHARS_CONTAIN_RESTRICTED,
+        NICK_CHARS_HIGHLIGHT_RESTRICTED,
+        r#"]*)(?!\w)"#,
+    ))
+    .build()
+    .unwrap()
 });
 
 // used for matching punctuation that are commonly used at the end of a word
@@ -81,14 +94,14 @@ static EXCLUDED_TRAILING_CHARS_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 // matching delimiters, used to match and strip trailing chars if no matching delimiter
-const PAIRED_DELIMITERS: [(char, char); 3] =
-    [('(', ')'), ('{', '}'), ('[', ']')];
+const PAIRED_DELIMITERS: [(char, char); 4] =
+    [('(', ')'), ('{', '}'), ('[', ']'), ('<', '>')];
 
 const SYMMETRIC_DELIMITERS: [char; 2] = ['"', '\''];
 
 // used for matching delimiter chars at the end of a word
 static EXCLUDED_TRAILING_DELIMITER_CHARS_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| RegexBuilder::new(r#"(?i)(["')\]}])$"#).build().unwrap());
+    LazyLock::new(|| RegexBuilder::new(r#"(?i)(["')\]}>])$"#).build().unwrap());
 
 pub(crate) mod broadcast;
 pub mod formatting;
@@ -1976,6 +1989,7 @@ pub fn parse_fragments_with_highlights(
                                 Some(Fragment::HighlightMatch(text.to_owned()))
                             },
                             |_| false,
+                            true,
                             |_| None,
                         )
                         .into_iter(),
@@ -2084,6 +2098,7 @@ fn parse_fragments_with_users_inner(
                         }
                         false
                     },
+                    false,
                     |matching: &str| {
                         // extend filtering to strip possessives
                         if let Some(stripped_matching) =
@@ -2130,6 +2145,7 @@ fn parse_fragments_inner<'a>(
                             })
                         },
                         |_| false,
+                        true,
                         |_| None,
                     )
                     .into_iter(),
@@ -2146,6 +2162,7 @@ fn parse_fragments_inner<'a>(
                         text,
                         |channel| Some(Fragment::Channel(channel.to_owned())),
                         |_| false,
+                        true,
                         |_| None,
                     )
                     .into_iter(),
@@ -2212,6 +2229,7 @@ fn parse_regex_fragments<'a>(
     text: impl Into<Cow<'a, str>>,
     mut fragment_match: impl FnMut(&str) -> Option<Fragment>,
     should_skip: impl Fn((&Match, &str)) -> bool,
+    filter_delimiters: bool,
     filter_trailing_extended: impl Fn(&str) -> Option<(&str, Option<&str>)>,
 ) -> Vec<Fragment> {
     let text: Cow<'a, str> = text.into();
@@ -2220,15 +2238,18 @@ fn parse_regex_fragments<'a>(
     let mut fragments = Vec::with_capacity(1);
 
     for re_match in regex.find_iter::<str>(&text).filter_map(Result::ok) {
-        let (matching, trailing_punctuation) =
+        let (mut leading_delimiter, mut trailing_delimiter) = (None, None);
+        let (mut matching, trailing_punctuation) =
             filter_trailing_punctuation(re_match, &text);
-        let (matching, trailing_delimiter) = filter_trailing_delimiter(
-            matching,
-            re_match.start(),
-            re_match.end(),
-            &text,
-        );
-        let (matching, leading_delimiter) = filter_leading_delimiter(matching);
+        if filter_delimiters {
+            (matching, trailing_delimiter) = filter_trailing_delimiter(
+                matching,
+                re_match.start(),
+                re_match.end(),
+                &text,
+            );
+            (matching, leading_delimiter) = filter_leading_delimiter(matching);
+        }
         let (matching, trailing_extended) =
             if let Some((matching, trailing_extended)) =
                 filter_trailing_extended(matching)
@@ -4793,6 +4814,45 @@ pub mod tests {
                     Fragment::Text(
                         "'s matches but i.t. and t.i. should not!".into(),
                     ),
+                ],
+            ),
+            (
+                (
+                    "These brackets <ExcludeBracketsNick> should strip and these (Nick1 and Nick2)"
+                        .to_string(),
+                    ["ExcludeBracketsNick", "Nick1", "Nick2"]
+                        .into_iter()
+                        .map(|nick| {
+                            User::from(Nick::from_str(nick, casemapping))
+                        })
+                        .collect::<ChannelUsers>(),
+                ),
+                vec![
+                    Fragment::Text("These brackets <".into()),
+                    Fragment::User(
+                        User::from(Nick::from_str(
+                            "ExcludeBracketsNick",
+                            casemapping,
+                        )),
+                        "ExcludeBracketsNick".into(),
+                    ),
+                    Fragment::Text("> should strip and these (".into()),
+                    Fragment::User(
+                        User::from(Nick::from_str(
+                            "Nick1",
+                            casemapping,
+                        )),
+                        "Nick1".into(),
+                    ),
+                    Fragment::Text(" and ".into()),
+                    Fragment::User(
+                        User::from(Nick::from_str(
+                            "Nick2",
+                            casemapping,
+                        )),
+                        "Nick2".into(),
+                    ),
+                    Fragment::Text(")".into()),
                 ],
             ),
         ];
