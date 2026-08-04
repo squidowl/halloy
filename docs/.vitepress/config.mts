@@ -18,6 +18,7 @@ const guidesItems = [
   { text: "Connect with soju", link: "/guides/connect-with-soju" },
   { text: "Connect with ZNC", link: "/guides/connect-with-znc" },
   { text: "TLS Troubleshooting", link: "/guides/tls" },
+  { text: "Command Line", link: "/guides/command-line" },
   { text: "Custom Themes", link: "/guides/custom-themes" },
   { text: "Exec Command", link: "/guides/exec-command" },
   {
