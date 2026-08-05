@@ -242,6 +242,19 @@ Action when clicking buffers in the sidebar. `"new-pane"` opens a new pane each 
 buffer = "replace-pane"
 ```
 
+### `buffer_with_modifier`
+
+Action when clicking buffers in the sidebar while holding the modifier key (Command/⌘ key on macOs, Control on Linux/Windows). `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with the clicked buffer. `"new-window"` opens a new window each time.
+
+```toml
+# Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-window"
+
+[actions.sidebar]
+buffer_with_modifier = "new-window"
+```
+
 ### `channel`
 
 Action when clicking a channel buffer in the sidebar. If unset, it falls back to the value of `buffer`.
@@ -255,6 +268,19 @@ Action when clicking a channel buffer in the sidebar. If unset, it falls back to
 channel = "replace-pane"
 ```
 
+### `channel_with_modifier`
+
+Action when clicking a channel buffer in the sidebar while holding the modifier key (Command/⌘ key on macOs, Control on Linux/Windows). If unset, it falls back to the value of `buffer_with_modifier`.
+
+```toml
+# Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: not set (falls back to `buffer_with_modifier`)
+
+[actions.sidebar]
+channel_with_modifier = "replace-pane"
+```
+
 ### `query`
 
 Action when clicking a user/query buffer in the sidebar. If unset, it falls back to the value of `buffer`.
@@ -266,6 +292,19 @@ Action when clicking a user/query buffer in the sidebar. If unset, it falls back
 
 [actions.sidebar]
 query = "new-window"
+```
+
+### `query_with_modifier`
+
+Action when clicking a user/query buffer in the sidebar while holding the modifier key (Command/⌘ key on macOs, Control on Linux/Windows). If unset, it falls back to the value of `buffer_with_modifier`.
+
+```toml
+# Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: not set (falls back to `buffer_with_modifier`)
+
+[actions.sidebar]
+query_with_modifier = "new-window"
 ```
 
 ### `focused_buffer`
