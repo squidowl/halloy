@@ -759,6 +759,14 @@ impl Config {
 
         let _ = create_owned_file(config_path.as_path(), config_bytes);
     }
+
+    pub fn can_show_any_typing(&self) -> bool {
+        self.buffer.typing.show
+            || self
+                .servers
+                .iter()
+                .any(|(_, server)| server.typing.show.is_some_and(|show| show))
+    }
 }
 
 #[cfg(unix)]
