@@ -32,7 +32,7 @@ Changed:
 Thanks:
 
 - Contributions: @rollecode, @luca020400, @rtmongold, @tranzystorekk, @englut
-- Bug reports: sebbu, @dpedu, kurwavidae, @ncfavier
+- Bug reports: sebbu, @dpedu, kurwavidae, @ncfavier, wwWraith
 - Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo
 
 # 2026.8 (2026-07-24)
