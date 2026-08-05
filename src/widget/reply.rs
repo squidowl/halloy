@@ -20,7 +20,7 @@ pub fn reply_preview_content<'a, Message: 'a + std::clone::Clone>(
     config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
-    let char_width = font::width_from_str("a", &config.font);
+    let spacing = font::width_from_str(" ", &config.font);
 
     // the message may not be loaded
     let Some(reply) = reply else {
@@ -39,7 +39,7 @@ pub fn reply_preview_content<'a, Message: 'a + std::clone::Clone>(
     } else {
         row![]
     }
-    .spacing(char_width);
+    .spacing(spacing);
 
     if !reply.blocked {
         if reply.is_action {

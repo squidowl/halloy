@@ -45,10 +45,7 @@ where
         Text {
             fragment: fragment.into_fragment(),
             format: Format {
-                #[cfg(debug_assertions)]
-                shaping: Shaping::Basic,
-                #[cfg(not(debug_assertions))]
-                shaping: Shaping::Advanced,
+                shaping: crate::font::shaping(),
                 wrapping: Wrapping::WordOrGlyph,
                 line_height: crate::font::line_height(),
                 ..Format::default()

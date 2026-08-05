@@ -48,3 +48,10 @@ pub fn date(theme: &Theme) -> Style {
         snap: true,
     }
 }
+
+pub fn timestamp(theme: &Theme) -> Style {
+    Style {
+        color: theme.styles().buffer.timestamp.color,
+        ..primary(theme)
+    }
+}

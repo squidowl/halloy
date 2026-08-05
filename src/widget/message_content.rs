@@ -345,7 +345,16 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                                     formatting.italics,
                                 )));
 
-                                span.font_maybe(formatted_style.map(font::get))
+                                let formatted_font =
+                                    formatted_style.map(|style| {
+                                        if formatting.monospace {
+                                            font::get_code(style)
+                                        } else {
+                                            font::get(style)
+                                        }
+                                    });
+
+                                span.font_maybe(formatted_font)
                             }
                             data::message::Fragment::Condensed {
                                 text,

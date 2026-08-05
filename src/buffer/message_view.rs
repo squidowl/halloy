@@ -14,8 +14,8 @@ use data::{Config, Preview, User, history, message, metadata, target};
 use iced::Length::Fit;
 use iced::widget::text::LineHeight;
 use iced::widget::{
-    Space, button, center, column, container, mouse_area, right, row, space,
-    stack, text,
+    Space, button, center, column, container, mouse_area, right, row, rule,
+    space, stack, text,
 };
 use iced::{Color, ContentFit, Length, alignment, padding};
 
@@ -1673,42 +1673,52 @@ impl<'a> ChannelQueryLayout<'a> {
             )
         };
 
-        let char_width = font::width_from_str("a", &self.config.font);
-
-        let timestamp_chars = self
+        let timestamp_width = self
             .config
             .buffer
             .format_timestamp(&message.server_time)
-            .map_or(0, |s| s.chars().count());
+            .map_or(0.0, |timestamp| {
+                font::width_from_str(&timestamp, &self.config.font)
+            });
+        let elbow_width = font::width_from_str("┌", &self.config.font);
 
         // right-aligned: fixed short arm offset to content column.
         // left-aligned / top-aligned: arm spans from timestamp midpoint to its edge.
-        let arm_text: Element<'_, _> = if let Some(nick_col_width) =
-            right_aligned_width
-        {
-            let nick_col_chars = (nick_col_width / char_width).round() as usize;
-            let indent = timestamp_chars + nick_col_chars - 2;
-            text(" ".repeat(indent) + "┌──")
-                .size(text_size)
-                .style(theme::text::timestamp)
-                .line_height(LineHeight::Relative(1.0))
-                .into()
-        } else {
-            let half = timestamp_chars / 2;
-            let arm = format!(
-                "{}┌{}",
-                " ".repeat(half),
-                "─".repeat(
-                    half.saturating_sub(1)
-                        + usize::from(!timestamp_chars.is_multiple_of(2))
-                ),
-            );
-            text(arm)
-                .size(text_size)
-                .style(theme::text::timestamp)
-                .line_height(LineHeight::Relative(1.0))
-                .into()
-        };
+        let (indent_width, arm_width) =
+            if let Some(nick_col_width) = right_aligned_width {
+                let arm_width = font::width_from_str("──", &self.config.font);
+
+                (
+                    (timestamp_width + nick_col_width - arm_width).max(0.0),
+                    arm_width,
+                )
+            } else {
+                let indent_width = timestamp_width / 2.0;
+                (
+                    indent_width,
+                    (timestamp_width - indent_width - elbow_width).max(0.0),
+                )
+            };
+        let connector_width = elbow_width + arm_width;
+        let connector_height = text_size;
+        let arm: Element<'_, _> = row![
+            Space::new().width(indent_width),
+            stack![
+                container(rule::vertical(1).style(theme::rule::timestamp))
+                    .padding(padding::top(connector_height / 2.0))
+                    .width(connector_width)
+                    .height(connector_height),
+                container(rule::horizontal(1).style(theme::rule::timestamp))
+                    .width(connector_width)
+                    .height(connector_height)
+                    .align_y(alignment::Vertical::Center),
+            ]
+            .width(connector_width)
+            .height(connector_height),
+        ]
+        .spacing(0)
+        .align_y(iced::Alignment::Center)
+        .into();
 
         let delay = iced::time::Duration::from_millis(
             self.config.buffer.reply.tooltip.delay,
@@ -1770,8 +1780,9 @@ impl<'a> ChannelQueryLayout<'a> {
                 interactive
             };
 
-        let element: Element<'_, _> =
-            row![arm_text, interactive].spacing(char_width).into();
+        let element: Element<'_, _> = row![arm, interactive]
+            .spacing(font::width_from_str(" ", &self.config.font))
+            .into();
 
         Some(element)
     }

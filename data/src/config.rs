@@ -238,6 +238,7 @@ impl Default for Scrollbar {
 #[serde(default)]
 pub struct Font {
     pub family: Option<String>,
+    pub code: Option<String>,
     #[serde(deserialize_with = "deserialize_font_stretch_from_string")]
     pub stretch: font::Stretch,
     #[serde(deserialize_with = "deserialize_u8_positive_integer_maybe")]
@@ -257,6 +258,7 @@ impl Default for Font {
     fn default() -> Self {
         Self {
             family: None,
+            code: None,
             stretch: font::Stretch::Normal,
             size: None,
             line_height: None,

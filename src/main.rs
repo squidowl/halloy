@@ -178,7 +178,7 @@ fn settings(
         .map_or_else(|_| Runtime::default(), |config| config.runtime);
 
     iced::Settings {
-        default_font: font::MONO.clone().into(),
+        default_font: font::PRIMARY.clone().into(),
         default_text_size: default_text_size.into(),
         backend: backend_from_config(runtime.backend),
         power_preference: power_preference_from_config(
