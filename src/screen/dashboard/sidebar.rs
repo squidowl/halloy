@@ -17,7 +17,8 @@ use iced::widget::{
     rule, scrollable, space, stack,
 };
 use iced::{
-    Alignment, Border, ContentFit, Length, Padding, Task, mouse, padding,
+    Alignment, Border, ContentFit, Length, Padding, Task, keyboard, mouse,
+    padding,
 };
 use itertools::Either;
 use tokio::time;
@@ -825,6 +826,7 @@ impl Sidebar {
         version: &'a Version,
         theme: &'a Theme,
         show_muted_buffers: bool,
+        modifiers: keyboard::Modifiers,
     ) -> Option<Element<'a, Message>> {
         if self.hidden {
             return None;
@@ -916,6 +918,7 @@ impl Sidebar {
                                 width,
                                 theme,
                                 collapse: &self.collapse,
+                                modifiers,
                             };
 
                             buffers.push(upstream_buffer_button(context));
@@ -934,6 +937,7 @@ impl Sidebar {
                                 history,
                                 width,
                                 theme,
+                                modifiers,
                             ));
                         }
                     }
@@ -1423,6 +1427,7 @@ struct UpstreamButtonContext<'a> {
     width: Length,
     theme: &'a Theme,
     collapse: &'a collapse::State,
+    modifiers: keyboard::Modifiers,
 }
 
 fn upstream_buffer_title<'a>(
@@ -1525,6 +1530,17 @@ fn upstream_buffer_title<'a>(
     }
 }
 
+fn buffer_action_message(
+    action: BufferAction,
+    buffer: data::Buffer,
+) -> Message {
+    match action {
+        BufferAction::NewPane => Message::New(buffer),
+        BufferAction::ReplacePane => Message::Replace(buffer),
+        BufferAction::NewWindow => Message::Popout(buffer),
+    }
+}
+
 fn upstream_buffer_button<'a>(
     context: UpstreamButtonContext<'a>,
 ) -> Element<'a, Message> {
@@ -1545,6 +1561,7 @@ fn upstream_buffer_button<'a>(
         width,
         theme,
         collapse,
+        modifiers,
         ..
     } = &context;
 
@@ -1729,6 +1746,21 @@ fn upstream_buffer_button<'a>(
     })
     .padding(config.sidebar.padding.buffer)
     .on_press({
+        // Select the normal or modifier action set, then resolve identically.
+        let (base, channel, query) = if modifiers.command() {
+            (
+                config.actions.sidebar.buffer_with_modifier,
+                config.actions.sidebar.channel_with_modifier,
+                config.actions.sidebar.query_with_modifier,
+            )
+        } else {
+            (
+                config.actions.sidebar.buffer,
+                config.actions.sidebar.channel,
+                config.actions.sidebar.query,
+            )
+        };
+
         match focused_as_window_pane {
             Some((window, pane)) => {
                 if let Some(focus_action) =
@@ -1750,30 +1782,14 @@ fn upstream_buffer_button<'a>(
                     Message::Focus(window, pane)
                 } else {
                     let action = match &buffer {
-                        buffer::Upstream::Channel(_, _) => config
-                            .actions
-                            .sidebar
-                            .channel
-                            .unwrap_or(config.actions.sidebar.buffer),
-                        buffer::Upstream::Query(_, _) => config
-                            .actions
-                            .sidebar
-                            .query
-                            .unwrap_or(config.actions.sidebar.buffer),
-                        _ => config.actions.sidebar.buffer,
+                        buffer::Upstream::Channel(_, _) => {
+                            channel.unwrap_or(base)
+                        }
+                        buffer::Upstream::Query(_, _) => query.unwrap_or(base),
+                        _ => base,
                     };
 
-                    match action {
-                        BufferAction::NewPane => {
-                            Message::New(buffer.clone().into())
-                        }
-                        BufferAction::ReplacePane => {
-                            Message::Replace(buffer.clone().into())
-                        }
-                        BufferAction::NewWindow => {
-                            Message::Popout(buffer.clone().into())
-                        }
-                    }
+                    buffer_action_message(action, buffer.clone().into())
                 }
             }
         }
@@ -2040,6 +2056,7 @@ fn internal_buffer_button<'a>(
     history: &'a history::Manager,
     width: Length,
     theme: &'a Theme,
+    modifiers: keyboard::Modifiers,
 ) -> Element<'a, Message> {
     let open_as_window_pane =
         panes.iter().find_map(|(window_id, pane, state)| {
@@ -2171,36 +2188,34 @@ fn internal_buffer_button<'a>(
                 )
             })
             .padding(config.sidebar.padding.buffer)
-            .on_press(match focused_as_window_pane {
-                Some((window, pane)) => {
-                    if let Some(focus_action) =
-                        config.actions.sidebar.focused_buffer
-                    {
-                        match focus_action {
-                            BufferFocusedAction::ClosePane => {
-                                Message::Close(window, pane)
+            .on_press({
+                let base = if modifiers.command() {
+                    config.actions.sidebar.buffer_with_modifier
+                } else {
+                    config.actions.sidebar.buffer
+                };
+
+                match focused_as_window_pane {
+                    Some((window, pane)) => {
+                        if let Some(focus_action) =
+                            config.actions.sidebar.focused_buffer
+                        {
+                            match focus_action {
+                                BufferFocusedAction::ClosePane => {
+                                    Message::Close(window, pane)
+                                }
                             }
+                        } else {
+                            // Re-focus pane on press instead of disabling the button in order
+                            // to have hover status of the button for styling
+                            Message::Focus(window, pane)
                         }
-                    } else {
-                        // Re-focus pane on press instead of disabling the button in order
-                        // to have hover status of the button for styling
-                        Message::Focus(window, pane)
                     }
-                }
-                None => {
-                    if let Some((window, pane)) = open_as_window_pane {
-                        Message::Focus(window, pane)
-                    } else {
-                        match config.actions.sidebar.buffer {
-                            BufferAction::NewPane => {
-                                Message::New(buffer.clone().into())
-                            }
-                            BufferAction::ReplacePane => {
-                                Message::Replace(buffer.clone().into())
-                            }
-                            BufferAction::NewWindow => {
-                                Message::Popout(buffer.clone().into())
-                            }
+                    None => {
+                        if let Some((window, pane)) = open_as_window_pane {
+                            Message::Focus(window, pane)
+                        } else {
+                            buffer_action_message(base, buffer.clone().into())
                         }
                     }
                 }
