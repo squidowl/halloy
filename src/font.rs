@@ -10,6 +10,10 @@ pub static PRIMARY: Font = Font::new(false, false);
 pub static PRIMARY_BOLD: Font = Font::new(true, false);
 pub static PRIMARY_ITALICS: Font = Font::new(false, true);
 pub static PRIMARY_BOLD_ITALICS: Font = Font::new(true, true);
+pub static CODE: Font = Font::new(false, false);
+pub static CODE_BOLD: Font = Font::new(true, false);
+pub static CODE_ITALICS: Font = Font::new(false, true);
+pub static CODE_BOLD_ITALICS: Font = Font::new(true, true);
 pub static ICON: LazyLock<iced::Font> =
     LazyLock::new(|| iced::Font::with_family("halloy-icons"));
 pub const MESSAGE_MARKER_FONT_SCALE: f32 = 1.33;
@@ -93,6 +97,10 @@ pub fn set(config: &config::Font) {
     let font = config.family.as_ref().map_or_else(default_font, |family| {
         iced::Font::with_family(family.as_str())
     });
+    let code_font = config
+        .code
+        .as_ref()
+        .map_or(font, |family| iced::Font::with_family(family.as_str()));
 
     let bold_weight = config.bold_weight.unwrap_or(match config.weight {
         font::Weight::Thin => font::Weight::Normal,
@@ -110,6 +118,15 @@ pub fn set(config: &config::Font) {
     PRIMARY_BOLD.set(font, config.stretch, config.weight, bold_weight);
     PRIMARY_ITALICS.set(font, config.stretch, config.weight, bold_weight);
     PRIMARY_BOLD_ITALICS.set(font, config.stretch, config.weight, bold_weight);
+    CODE.set(code_font, config.stretch, config.weight, bold_weight);
+    CODE_BOLD.set(code_font, config.stretch, config.weight, bold_weight);
+    CODE_ITALICS.set(code_font, config.stretch, config.weight, bold_weight);
+    CODE_BOLD_ITALICS.set(
+        code_font,
+        config.stretch,
+        config.weight,
+        bold_weight,
+    );
 
     let line_height = config
         .line_height
@@ -207,5 +224,14 @@ pub fn get(font_style: FontStyle) -> Font {
         FontStyle::Bold => PRIMARY_BOLD.clone(),
         FontStyle::Italic => PRIMARY_ITALICS.clone(),
         FontStyle::ItalicBold => PRIMARY_BOLD_ITALICS.clone(),
+    }
+}
+
+pub fn get_code(font_style: FontStyle) -> Font {
+    match font_style {
+        FontStyle::Normal => CODE.clone(),
+        FontStyle::Bold => CODE_BOLD.clone(),
+        FontStyle::Italic => CODE_ITALICS.clone(),
+        FontStyle::ItalicBold => CODE_BOLD_ITALICS.clone(),
     }
 }

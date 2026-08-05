@@ -346,7 +346,7 @@ pub fn view<'a>(
         .id(state.id.clone())
         .padding(8)
         .height(Length::Fill)
-        .font(font::PRIMARY.clone())
+        .font(font::CODE.clone())
         .style(theme::text_editor::primary)
         .on_action(Message::Action)
         .key_binding(move |key_press| {

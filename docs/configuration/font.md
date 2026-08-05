@@ -27,6 +27,19 @@ Font family to use.
 family = "Comic Mono"
 ```
 
+## `code`
+
+Font family to use for monospace-formatted text and the config editor. If not set, `family` is used.
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[font]
+code = "SF Mono"
+```
+
 ## `stretch`
 
 Font stretch.
