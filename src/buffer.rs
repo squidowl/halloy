@@ -1444,14 +1444,12 @@ impl Buffer {
         }
     }
 
-    pub fn focus_component_selected(&self) -> bool {
+    pub fn has_focused_component(&self) -> bool {
         match self {
             Buffer::Channel(state) => {
-                state.scroll_view.focused_component().is_some()
+                state.message_focus.has_focused_component()
             }
-            Buffer::Query(state) => {
-                state.scroll_view.focused_component().is_some()
-            }
+            Buffer::Query(state) => state.message_focus.has_focused_component(),
             _ => false,
         }
     }

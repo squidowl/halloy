@@ -671,6 +671,24 @@ impl History {
         }
     }
 
+    pub fn find_message(
+        &self,
+        hash: message::Hash,
+        server_time: &DateTime<Utc>,
+    ) -> Option<&Message> {
+        match self {
+            History::Partial {
+                pending_messages, ..
+            } => pending_messages
+                .iter()
+                .find(|(m, _)| m.hash == hash)
+                .map(|(m, _)| m),
+            History::Full { messages, .. } => {
+                find_message(messages, hash, server_time)
+            }
+        }
+    }
+
     pub fn find_reply_target(
         &self,
         id: &message::Id,
@@ -1817,6 +1835,15 @@ pub fn get_last_seen(messages: &[Message]) -> HashMap<Nick, DateTime<Utc>> {
     last_seen
 }
 
+pub fn find_message<'a>(
+    messages: &'a [Message],
+    hash: message::Hash,
+    server_time: &DateTime<Utc>,
+) -> Option<&'a Message> {
+    position_message(messages, |message| message.hash == hash, server_time)
+        .and_then(|position| messages.get(position))
+}
+
 pub fn find_reply_target<'a>(
     messages: &'a [Message],
     id: &message::Id,
@@ -1840,6 +1867,18 @@ pub fn position_reply_target(
     id: &message::Id,
     server_time: &DateTime<Utc>,
 ) -> Option<usize> {
+    position_message(
+        messages,
+        |message| message.id.as_deref() == Some(id),
+        server_time,
+    )
+}
+
+pub fn position_message(
+    messages: &[Message],
+    is_match: impl Fn(&Message) -> bool,
+    server_time: &DateTime<Utc>,
+) -> Option<usize> {
     if messages.is_empty() {
         return None;
     }
@@ -1860,13 +1899,13 @@ pub fn position_reply_target(
         .iter()
         .take(start_index)
         .rev()
-        .position(|m| m.id.as_deref() == Some(id))
+        .position(&is_match)
         .map(|position| start_index - 1 - position)
         .or(messages
             .iter()
             .skip(start_index)
             .rev()
-            .position(|m| m.id.as_deref() == Some(id))
+            .position(is_match)
             .map(|position| messages.len() - 1 - position))
 }
 

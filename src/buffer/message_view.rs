@@ -20,9 +20,10 @@ use iced::widget::{
 use iced::{Color, ContentFit, Length, alignment, padding};
 
 use crate::buffer::context_menu::{self, Context, UrlContext, UserContext};
+use crate::buffer::message_focus::FocusedComponent;
 use crate::buffer::scroll_view::keyed::{self, keyed};
 use crate::buffer::scroll_view::{
-    FocusMenu, FocusedComponent, LayoutMessage, Message, focus_menu_overlay,
+    FocusMenu, LayoutMessage, Message, focus_menu_overlay,
 };
 use crate::widget::anchored_overlay::{self, anchored_overlay};
 use crate::widget::preview::preview_card_parts;
@@ -547,7 +548,7 @@ impl<'a> ChannelQueryLayout<'a> {
         hide_nickname: bool,
         nick_prefix_to_strip: Option<&str>,
         channels_context: &'a dyn context_menu::ChannelsContext,
-        focused_component: Option<FocusedComponent>,
+        focused_component: Option<&FocusedComponent>,
     ) -> (
         Option<Element<'a, Message>>,
         Element<'a, Message>,
@@ -752,7 +753,6 @@ impl<'a> ChannelQueryLayout<'a> {
                             nick_prefix_to_strip,
                             self.config,
                             focused_component
-                                .as_ref()
                                 .and_then(FocusedComponent::link_index),
                         ),
                         redaction_message,
@@ -883,7 +883,7 @@ impl<'a> ChannelQueryLayout<'a> {
         message: &'a data::Message,
         right_alignment_middle_width: Option<f32>,
         hide_timestamp: bool,
-        focused_component: Option<FocusedComponent>,
+        focused_component: Option<&FocusedComponent>,
         channels_context: &'a dyn context_menu::ChannelsContext,
     ) -> (
         Option<Element<'a, Message>>,
@@ -1006,9 +1006,7 @@ impl<'a> ChannelQueryLayout<'a> {
             },
             None,
             self.config,
-            focused_component
-                .as_ref()
-                .and_then(FocusedComponent::link_index),
+            focused_component.and_then(FocusedComponent::link_index),
         );
 
         (middle, container(message_content).into(), vec![])
@@ -1128,7 +1126,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         hovered_preview: Option<(message::Hash, usize)>,
         hovered_reply: Option<message::Hash>,
         channels_context: &'a dyn context_menu::ChannelsContext,
-        focused_component: Option<FocusedComponent>,
+        focused_component: Option<&FocusedComponent>,
     ) -> Option<Element<'a, Message>> {
         let mut prefixes: Option<Element<_>> = self.format_prefixes(message);
 
@@ -1328,9 +1326,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     },
                     None,
                     formatter.config,
-                    focused_component
-                        .as_ref()
-                        .and_then(FocusedComponent::link_index),
+                    focused_component.and_then(FocusedComponent::link_index),
                 );
 
                 let after_content =
@@ -1448,7 +1444,6 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             // If the URL is hidden, we show focus on the preview widget, o
             // otherwise we focus the fragment.
             let focused_fragment_index = focused_component
-                .as_ref()
                 .and_then(FocusedComponent::link_index)
                 .and_then(|n| match &message.content {
                     message::Content::Fragments(fragments) => fragments
