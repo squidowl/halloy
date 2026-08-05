@@ -3032,7 +3032,7 @@ impl Dashboard {
                         None
                     }
                     FocusCommand::Activate
-                        if state.buffer.focus_component_selected() =>
+                        if state.buffer.has_focused_component() =>
                     {
                         state.buffer.focus_action_message(
                             buffer::FocusAction::OpenLink,

@@ -29,6 +29,7 @@ use tokio::time;
 
 use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
+use super::message_focus::{FocusTarget, FocusedComponent, FocusedMessage};
 use super::{context_menu, input_view};
 use crate::widget::user_display::UserDisplay;
 use crate::widget::{Element, double_pass, notify_visibility, on_key};
@@ -376,7 +377,7 @@ pub trait LayoutMessage<'a> {
         hovered_preview: Option<(message::Hash, usize)>,
         hovered_reply: Option<message::Hash>,
         channels_context: &'a dyn context_menu::ChannelsContext,
-        focused_component: Option<FocusedComponent>,
+        focused_component: Option<&FocusedComponent>,
     ) -> Option<Element<'a, Message>>;
 }
 
@@ -402,7 +403,7 @@ where
         _hovered_preview: Option<(message::Hash, usize)>,
         _hovered_reply: Option<message::Hash>,
         _channels_context: &'a dyn context_menu::ChannelsContext,
-        _focused_component: Option<FocusedComponent>,
+        _focused_component: Option<&FocusedComponent>,
     ) -> Option<Element<'a, Message>> {
         self(
             message,
@@ -492,7 +493,7 @@ fn menu_separator<'a>(width: Length) -> Element<'a, Message> {
 
 fn build_focus_menu(
     message: &data::Message,
-    focused_component: Option<FocusedComponent>,
+    focused_component: Option<&FocusedComponent>,
     server: &Server,
     channel: Option<&target::Channel>,
     clients: &client::Map,
@@ -877,7 +878,7 @@ pub(crate) fn focus_outline<'a>(
 
 pub fn view<'a>(
     state: &State,
-    focused_message: Option<message::Hash>,
+    focused_message: Option<FocusedMessage>,
     kind: Kind,
     history: &'a history::Manager,
     previews: Option<Previews<'a>>,
@@ -1204,12 +1205,14 @@ pub fn view<'a>(
                             state.hovered_preview,
                             state.hover_highlighted_message,
                             channels_context,
-                            if focused_message == Some(message.hash)
+                            if let Some(focused_message) =
+                                focused_message.as_ref()
+                                && focused_message.is_match(message)
                                 && !state.focus_menu.as_ref().is_some_and(
                                     |menu| menu.hash == message.hash,
                                 )
                             {
-                                state.focused_component
+                                focused_message.focused_component()
                             } else {
                                 None
                             },
@@ -1226,38 +1229,46 @@ pub fn view<'a>(
 
                 *last_date = Some(date);
 
-                let element = if focused_message == Some(message.hash)
-                    && state.focused_component.is_none()
-                    && !state
+                let element =
+                    if focused_message.as_ref().is_some_and(|focused_message| {
+                        focused_message.is_match(message)
+                            && !focused_message.has_focused_component()
+                    }) && !state
                         .focus_menu
                         .as_ref()
                         .is_some_and(|menu| menu.hash == message.hash)
-                {
-                    // Only show focus on the whole message when no link/preview
-                    focus_outline(container(element).width(Length::Fill).into())
-                } else if let Some((hash, alpha)) = state.highlighted_message
-                    && hash == message.hash
-                {
-                    container(element)
-                        .width(Length::Fill)
-                        .style(move |theme| {
-                            theme::container::highlighted_message(theme, alpha)
-                        })
-                        .into()
-                } else if state.hover_highlighted_message == Some(message.hash)
-                {
-                    container(element)
-                        .width(Length::Fill)
-                        .style(move |theme| {
-                            theme::container::highlighted_message(
-                                theme,
-                                HOVER_HIGHLIGHT_ALPHA,
-                            )
-                        })
-                        .into()
-                } else {
-                    element
-                };
+                    {
+                        // Only show focus on the whole message when no link/preview
+                        focus_outline(
+                            container(element).width(Length::Fill).into(),
+                        )
+                    } else if let Some((hash, alpha)) =
+                        state.highlighted_message
+                        && hash == message.hash
+                    {
+                        container(element)
+                            .width(Length::Fill)
+                            .style(move |theme| {
+                                theme::container::highlighted_message(
+                                    theme, alpha,
+                                )
+                            })
+                            .into()
+                    } else if state.hover_highlighted_message
+                        == Some(message.hash)
+                    {
+                        container(element)
+                            .width(Length::Fill)
+                            .style(move |theme| {
+                                theme::container::highlighted_message(
+                                    theme,
+                                    HOVER_HIGHLIGHT_ALPHA,
+                                )
+                            })
+                            .into()
+                    } else {
+                        element
+                    };
 
                 let element = {
                     let is_visible =
@@ -1472,7 +1483,6 @@ pub struct State {
     reply_preview_urls: HashMap<message::Hash, Vec<url::Url>>,
     hovered_preview: Option<(message::Hash, usize)>,
     focus_menu: Option<FocusMenu>,
-    focused_component: Option<FocusedComponent>,
 }
 
 impl State {
@@ -1498,14 +1508,13 @@ impl State {
             reply_preview_urls: HashMap::new(),
             hovered_preview: None,
             focus_menu: None,
-            focused_component: None,
         }
     }
 
     pub fn update(
         &mut self,
         message: Message,
-        focused_message: &mut Option<message::Hash>,
+        focused_message: &mut Option<FocusedMessage>,
         infinite_scroll: bool,
         kind: Kind,
         buffer: Option<&buffer::Upstream>,
@@ -2122,9 +2131,6 @@ impl State {
                     .iter()
                     .copied()
                     .chain(new_messages.iter().copied())
-                    .filter(|message| {
-                        !message.blocked && !message.text().is_empty()
-                    })
                     .collect();
 
                 if all.is_empty() {
@@ -2133,151 +2139,77 @@ impl State {
 
                 // The focus sequence steps through each message and then its
                 // individual links before moving on to the next message
-                let next: Option<(message::Hash, Option<FocusedComponent>)> =
-                    match direction {
-                        FocusDirection::Up => match *focused_message {
-                            None => all
+                let message_to_focus: Option<FocusedMessage> = match direction {
+                    FocusDirection::Up => match focused_message.as_ref() {
+                        None => all
+                            .iter()
+                            .rev()
+                            .find(|message| {
+                                self.visible_messages.contains(&message.hash)
+                            })
+                            .map(|message| FocusedMessage::new(message)),
+                        Some(fm) => {
+                            let Some(focused_position) = all
                                 .iter()
-                                .rev()
-                                .find(|message| {
-                                    self.visible_messages
-                                        .contains(&message.hash)
-                                })
-                                .or_else(|| all.last())
-                                .map(|message| (message.hash, None)),
-                            Some(hash) => {
-                                let Some(focused_position) = all
-                                    .iter()
-                                    .position(|message| message.hash == hash)
-                                else {
-                                    return self.exit_focus(
-                                        focused_message,
-                                        Task::none(),
-                                    );
-                                };
+                                .position(|message| fm.is_match(message))
+                            else {
+                                return self
+                                    .exit_focus(focused_message, Task::none());
+                            };
 
-                                let next_hash = all
-                                    .get(focused_position.saturating_sub(1))
-                                    .map_or(hash, |message| message.hash);
-
-                                Some((next_hash, None))
+                            // Re-select the same message if already at the oldest message.
+                            if let Some(previous_message) =
+                                all.get(focused_position.saturating_sub(1))
+                            {
+                                Some(FocusedMessage::new(previous_message))
+                            } else {
+                                return self
+                                    .exit_focus(focused_message, Task::none());
                             }
-                        },
-                        FocusDirection::Down => match *focused_message {
-                            None => {
-                                return (Task::none(), None);
+                        }
+                    },
+                    FocusDirection::Down => match focused_message.as_ref() {
+                        None => None,
+                        Some(fm) => {
+                            let Some(focused_position) = all
+                                .iter()
+                                .position(|message| fm.is_match(message))
+                            else {
+                                return self
+                                    .exit_focus(focused_message, Task::none());
+                            };
+
+                            if let Some(next_message) =
+                                all.get(focused_position.saturating_add(1))
+                            {
+                                Some(FocusedMessage::new(next_message))
+                            } else {
+                                return self
+                                    .exit_focus(focused_message, Task::none());
                             }
-                            Some(hash) => {
-                                let Some(focused_position) = all
-                                    .iter()
-                                    .position(|message| message.hash == hash)
-                                else {
-                                    return self.exit_focus(
-                                        focused_message,
-                                        Task::none(),
-                                    );
-                                };
+                        }
+                    },
+                    FocusDirection::Left => {
+                        if let Some(fm) = focused_message.as_mut() {
+                            fm.focus_previous_component();
+                        }
+                        None
+                    }
+                    FocusDirection::Right => {
+                        if let Some(fm) = focused_message.as_mut() {
+                            fm.focus_next_component();
+                        }
+                        None
+                    }
+                };
 
-                                let focus_position =
-                                    focused_position.saturating_add(1);
-
-                                if focus_position == all.len() {
-                                    return self.exit_focus(
-                                        focused_message,
-                                        Task::none(),
-                                    );
-                                };
-
-                                let next_hash = all
-                                    .get(focus_position)
-                                    .map_or(hash, |message| message.hash);
-
-                                Some((next_hash, None))
-                            }
-                        },
-                        FocusDirection::Left => focused_message
-                            .and_then(|hash| {
-                                all.iter().find(|message| message.hash == hash)
-                            })
-                            .map(|message| {
-                                let is_user_message = matches!(
-                                    message.target.source(),
-                                    message::Source::User(_)
-                                );
-
-                                let next_component = match self
-                                    .focused_component
-                                {
-                                    None => None,
-                                    Some(FocusedComponent::User) => None,
-                                    Some(FocusedComponent::Link { index }) => {
-                                        if index > 0 {
-                                            Some(FocusedComponent::Link {
-                                                index: index - 1,
-                                            })
-                                        } else {
-                                            is_user_message.then_some(
-                                                FocusedComponent::User,
-                                            )
-                                        }
-                                    }
-                                };
-
-                                (message.hash, next_component)
-                            }),
-                        FocusDirection::Right => focused_message
-                            .and_then(|hash| {
-                                all.iter().find(|message| message.hash == hash)
-                            })
-                            .map(|message| {
-                                let link_count =
-                                    message_focus_target_count(message);
-
-                                let is_user_message = matches!(
-                                    message.target.source(),
-                                    message::Source::User(_)
-                                );
-
-                                let next_component =
-                                    match self.focused_component {
-                                        None => {
-                                            if is_user_message {
-                                                Some(FocusedComponent::User)
-                                            } else if link_count > 0 {
-                                                Some(FocusedComponent::Link {
-                                                    index: 0,
-                                                })
-                                            } else {
-                                                None
-                                            }
-                                        }
-                                        Some(FocusedComponent::User) => {
-                                            if link_count > 0 {
-                                                Some(FocusedComponent::Link {
-                                                    index: 0,
-                                                })
-                                            } else {
-                                                Some(FocusedComponent::User)
-                                            }
-                                        }
-                                        Some(FocusedComponent::Link {
-                                            index,
-                                        }) => Some(FocusedComponent::Link {
-                                            index: (index + 1)
-                                                .min(link_count - 1),
-                                        }),
-                                    };
-
-                                (message.hash, next_component)
-                            }),
-                    };
-
-                let Some((next_hash, next_component)) = next else {
+                let Some(message_to_focus) = message_to_focus else {
                     return (Task::none(), None);
                 };
 
-                *focused_message = Some(next_hash);
-                self.focused_component = next_component;
+                let scroll_to_hash = message_to_focus.hash();
+
+                *focused_message = Some(message_to_focus);
 
                 // Anchor the message to the edge we're moving toward, so a
                 // scroll reveals it at that edge rather than snapping it to the
@@ -2290,7 +2222,12 @@ impl State {
 
                 let task = if let Some(anchor) = anchor {
                     self.scroll_to_message(
-                        next_hash, kind, history, config, false, anchor,
+                        scroll_to_hash,
+                        kind,
+                        history,
+                        config,
+                        false,
+                        anchor,
                     )
                 } else {
                     Task::none()
@@ -2299,7 +2236,7 @@ impl State {
                 return (task, None);
             }
             Message::OpenFocusMenu => {
-                let Some(hash) = *focused_message else {
+                let Some(focused_message) = focused_message.as_mut() else {
                     return (Task::none(), None);
                 };
 
@@ -2307,16 +2244,11 @@ impl State {
                     return (Task::none(), None);
                 };
 
-                let Some(message) = history
-                    .get_messages(&kind.into(), None, config)
-                    .and_then(|view| {
-                        view.old_messages
-                            .iter()
-                            .chain(view.new_messages.iter())
-                            .find(|m| m.hash == hash)
-                            .copied()
-                    })
-                else {
+                let Some(message) = history.find_message(
+                    focused_message.hash(),
+                    &kind.into(),
+                    focused_message.server_time(),
+                ) else {
                     return (Task::none(), None);
                 };
 
@@ -2324,7 +2256,7 @@ impl State {
 
                 let focus_menu = build_focus_menu(
                     message,
-                    self.focused_component,
+                    focused_message.focused_component(),
                     server,
                     buffer.and_then(buffer::Upstream::channel),
                     clients,
@@ -2351,9 +2283,6 @@ impl State {
                 let Some(menu) = self.focus_menu.take() else {
                     return (Task::none(), None);
                 };
-
-                // Activating an action leaves focus mode.
-                self.focused_component = None;
 
                 match menu.content {
                     FocusMenuContent::Message(entries) => {
@@ -2425,22 +2354,16 @@ impl State {
         self.focus_menu.as_ref()
     }
 
-    pub fn focused_component(&self) -> Option<FocusedComponent> {
-        self.focused_component
-    }
-
     pub fn close_focus_menu(&mut self) {
         self.focus_menu = None;
-        self.focused_component = None;
     }
 
     fn exit_focus(
         &mut self,
-        focused_message: &mut Option<message::Hash>,
+        focused_message: &mut Option<FocusedMessage>,
         task: Task<Message>,
     ) -> (Task<Message>, Option<Event>) {
         *focused_message = None;
-        self.focused_component = None;
         self.focus_menu = None;
 
         (task, Some(Event::ExitFocus))
@@ -3508,15 +3431,6 @@ fn prefixes_width(message: &data::Message, config: &Config) -> Option<f32> {
     })
 }
 
-/// A keyboard-focusable link target within a message: a URL or a channel
-/// mention.
-#[derive(Debug, Clone)]
-pub(crate) enum FocusTarget {
-    Url(url::Url),
-    Channel(String),
-    User(User),
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct ScrollTo {
     key: keyed::Key,
@@ -3529,73 +3443,6 @@ struct ScrollTo {
 enum ScrollToState {
     Pending,
     Active,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum FocusedComponent {
-    Link { index: usize },
-    User,
-}
-
-impl FocusedComponent {
-    pub(crate) fn focus_target(
-        &self,
-        message: &data::Message,
-    ) -> Option<FocusTarget> {
-        match self {
-            FocusedComponent::User => {
-                message.user().map(|user| FocusTarget::User(user.clone()))
-            }
-            FocusedComponent::Link { index } => {
-                message_focus_target_at(message, *index)
-            }
-        }
-    }
-
-    pub fn link_index(&self) -> Option<usize> {
-        match self {
-            Self::Link { index } => Some(*index),
-            Self::User => None,
-        }
-    }
-}
-
-/// Iterator over a message's focusable link fragments, in display order.
-fn message_focus_target_fragments(
-    message: &data::Message,
-) -> impl Iterator<Item = &message::Fragment> {
-    let fragments: &[message::Fragment] = match &message.content {
-        data::message::Content::Fragments(fragments) => fragments,
-        _ => &[],
-    };
-
-    fragments.iter().filter(|f| f.is_focus_target())
-}
-
-/// Number of separately-navigable link targets in a message, in display order.
-fn message_focus_target_count(message: &data::Message) -> usize {
-    message_focus_target_fragments(message).count()
-}
-
-/// The `index`-th focusable link target of a message, in display order.
-pub(crate) fn message_focus_target_at(
-    message: &data::Message,
-    index: usize,
-) -> Option<FocusTarget> {
-    message_focus_target_fragments(message)
-        .nth(index)
-        .and_then(|fragment| match fragment {
-            message::Fragment::Url(url, _) => {
-                Some(FocusTarget::Url(url.clone()))
-            }
-            message::Fragment::Channel(channel) => {
-                Some(FocusTarget::Channel(channel.clone()))
-            }
-            message::Fragment::User(user, _) => {
-                Some(FocusTarget::User(user.clone()))
-            }
-            _ => None,
-        })
 }
 
 fn timestamp_width(message: &data::Message, config: &Config) -> Option<f32> {

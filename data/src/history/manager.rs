@@ -821,6 +821,18 @@ impl Manager {
             .is_some_and(|history| history.is_our_message(id, server_time))
     }
 
+    pub fn find_message(
+        &self,
+        hash: message::Hash,
+        kind: &history::Kind,
+        server_time: &DateTime<Utc>,
+    ) -> Option<&crate::Message> {
+        self.data
+            .map
+            .get(kind)
+            .and_then(|history| history.find_message(hash, server_time))
+    }
+
     pub fn get_messages(
         &self,
         kind: &history::Kind,
@@ -1696,10 +1708,12 @@ impl Data {
                     if message.expanded {
                         Some(message)
                     } else {
-                        message
-                            .condensed
-                            .as_ref()
-                            .map(std::convert::AsRef::as_ref)
+                        message.condensed.as_ref().and_then(
+                            |condensed_message| {
+                                (!condensed_message.text().is_empty())
+                                    .then_some(condensed_message.as_ref())
+                            },
+                        )
                     }
                 } else {
                     match message.target.source() {
