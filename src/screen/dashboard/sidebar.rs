@@ -1,7 +1,7 @@
 use std::time::Duration;
 use std::{convert, iter};
 
-use data::buffer::Buffer;
+use data::buffer::{Buffer, BufferRef};
 use data::config::server::SidebarVisibility;
 use data::config::sidebar::{InternalBuffer, PrimaryIcon};
 use data::config::{self, Config, sidebar};
@@ -1749,19 +1749,10 @@ fn upstream_buffer_button<'a>(
                 if let Some((window, pane)) = open_as_window_pane {
                     Message::Focus(window, pane)
                 } else {
-                    let action = match &buffer {
-                        buffer::Upstream::Channel(_, _) => config
-                            .actions
-                            .sidebar
-                            .channel
-                            .unwrap_or(config.actions.sidebar.buffer),
-                        buffer::Upstream::Query(_, _) => config
-                            .actions
-                            .sidebar
-                            .query
-                            .unwrap_or(config.actions.sidebar.buffer),
-                        _ => config.actions.sidebar.buffer,
-                    };
+                    let action = config
+                        .actions
+                        .sidebar
+                        .get_buffer_action(BufferRef::Upstream(buffer));
 
                     match action {
                         BufferAction::NewPane => {
@@ -2191,7 +2182,12 @@ fn internal_buffer_button<'a>(
                     if let Some((window, pane)) = open_as_window_pane {
                         Message::Focus(window, pane)
                     } else {
-                        match config.actions.sidebar.buffer {
+                        let action = config
+                            .actions
+                            .sidebar
+                            .get_buffer_action(BufferRef::Internal(&buffer));
+
+                        match action {
                             BufferAction::NewPane => {
                                 Message::New(buffer.clone().into())
                             }

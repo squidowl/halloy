@@ -1,5 +1,6 @@
 use serde::{Deserialize, Deserializer};
 
+use crate::buffer::{BufferRef, Upstream};
 use crate::dashboard::{BufferAction, BufferFocusedAction};
 
 #[derive(Debug, Default, Clone, Deserialize)]
@@ -51,8 +52,27 @@ pub struct Sidebar {
     pub buffer: BufferAction,
     pub channel: Option<BufferAction>,
     pub query: Option<BufferAction>,
+    pub internal: Option<BufferAction>,
+    pub server: Option<BufferAction>,
     pub focused_buffer: Option<BufferFocusedAction>,
     pub cycle: CycleAction,
+}
+
+impl Sidebar {
+    pub fn get_buffer_action(&self, buffer: BufferRef) -> BufferAction {
+        match buffer {
+            BufferRef::Upstream(Upstream::Channel(_, _)) => {
+                self.channel.unwrap_or(self.buffer)
+            }
+            BufferRef::Upstream(Upstream::Query(_, _)) => {
+                self.query.unwrap_or(self.buffer)
+            }
+            BufferRef::Upstream(Upstream::Server(_)) => {
+                self.server.unwrap_or(self.buffer)
+            }
+            BufferRef::Internal(_) => self.internal.unwrap_or(self.buffer),
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone, Deserialize)]

@@ -12,6 +12,7 @@ Added:
 - Config option to include ignored nicknames in autocomplete
   (`buffer.text_input.autocomplete.include_ignored`)
 - Optional `font.code` setting for code-formatted text
+- Settings to control how internal and server buffers are opened from the sidebar (`actions.sidebar.internal` and `actions.sidebar.server`)
 
 Fixed:
 
@@ -21,6 +22,7 @@ Fixed:
 - Expand `$HOME` or `%AppData%` when first component in a path setting
 - Don't show another preview from the same message after hiding one
 - Restrict commonly used (`()<>"`) chars from being used to highlight nicks
+- Receiving an invite will reveal the query with the inviter in the sidebar
 
 Changed:
 
@@ -32,8 +34,8 @@ Changed:
 Thanks:
 
 - Contributions: @rollecode, @luca020400, @rtmongold, @tranzystorekk, @englut
-- Bug reports: sebbu, @dpedu, kurwavidae, @ncfavier, wwWraith
-- Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo
+- Bug reports: @sebbu2, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae
+- Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo, ivocavalcante, @sebbu2, @coraxioU9
 
 # 2026.8 (2026-07-24)
 
