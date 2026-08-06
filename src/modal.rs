@@ -175,30 +175,34 @@ impl Modal {
         }
     }
 
-    pub fn view<'a>(&'a self, theme: &'a Theme) -> Element<'a, Message> {
+    pub fn view<'a>(
+        &'a self,
+        font: &'a config::Font,
+        theme: &'a Theme,
+    ) -> Element<'a, Message> {
         match self {
             Modal::ReloadConfigurationError(error) => {
-                reload_configuration_error::view(error, theme)
+                reload_configuration_error::view(error, font, theme)
             }
             Modal::ServerConnect {
                 url: raw, config, ..
-            } => connect_to_server::view(raw, config, theme),
-            Modal::About(about) => about.view(theme),
+            } => connect_to_server::view(raw, config, font, theme),
+            Modal::About(about) => about.view(font, theme),
             Modal::PromptBeforeOpenUrl { url, window: _ } => {
-                prompt_before_open_url::view(url, theme)
+                prompt_before_open_url::view(url, font, theme)
             }
             Modal::ConfirmFileUpload {
                 url,
                 has_credentials,
                 window: _,
-            } => confirm_file_upload::view(url, *has_credentials, theme),
+            } => confirm_file_upload::view(url, *has_credentials, font, theme),
             Modal::ImagePreview {
                 image,
                 timer,
                 window: _,
             } => image_preview::view(image, timer, theme),
             Modal::KeyringPassword(keyring_password) => {
-                keyring_password.view(theme)
+                keyring_password.view(font, theme)
             }
         }
     }

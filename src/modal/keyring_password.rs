@@ -1,9 +1,10 @@
 use data::config;
+use iced::widget::text::Wrapping;
 use iced::widget::{button, column, container, text, text_input};
 use iced::{Length, Task, alignment};
 
 use super::{Event, Message};
-use crate::widget::Element;
+use crate::widget::{self, Element};
 use crate::{Theme, font, theme};
 
 #[derive(Debug)]
@@ -80,31 +81,45 @@ impl KeyringPassword {
         }
     }
 
-    pub fn view<'a>(&'a self, theme: &Theme) -> Element<'a, Message> {
+    pub fn view<'a>(
+        &'a self,
+        font_config: &config::Font,
+        theme: &Theme,
+    ) -> Element<'a, Message> {
         let can_save = !self.password.is_empty() && !self.saving;
         let save = can_save.then_some(Message::KeyringPassword(Action::Save));
 
         let mut content = column![
-            text(format!("{} for {}", self.label, self.context)),
+            text(format!("{} for {}", self.label, self.context))
+                .width(Length::Fill)
+                .wrapping(Wrapping::WordOrGlyph)
+                .align_x(iced::widget::text::Alignment::Center),
             text(&self.key)
                 .style(theme::text::tertiary)
-                .font_maybe(theme::font_style::tertiary(theme).map(font::get)),
+                .font_maybe(theme::font_style::tertiary(theme).map(font::get))
+                .width(Length::Fill)
+                .wrapping(Wrapping::WordOrGlyph)
+                .align_x(iced::widget::text::Alignment::Center),
             text_input("Password", &self.password)
                 .secure(true)
                 .on_input(|password| {
                     Message::KeyringPassword(Action::PasswordChanged(password))
                 })
                 .on_submit_maybe(save.clone())
-                .width(Length::Fixed(300.0)),
+                .width(Length::Fill),
         ]
         .spacing(12)
         .align_x(iced::Alignment::Center);
 
         if let Some(error) = &self.error {
-            content =
-                content.push(text(error).style(theme::text::error).font_maybe(
-                    theme::font_style::error(theme).map(font::get),
-                ));
+            content = content.push(
+                text(error)
+                    .style(theme::text::error)
+                    .font_maybe(theme::font_style::error(theme).map(font::get))
+                    .width(Length::Fill)
+                    .wrapping(Wrapping::WordOrGlyph)
+                    .align_x(iced::widget::text::Alignment::Center),
+            );
         }
 
         let label = if self.saving { "Saving..." } else { "Save" };
@@ -117,7 +132,7 @@ impl KeyringPassword {
                         .width(Length::Fill),
                 )
                 .padding(5)
-                .width(Length::Fixed(250.0))
+                .width(widget::modal::button_width(font_config))
                 .style(|theme, status| {
                     theme::button::secondary(theme, status, false)
                 })
@@ -130,17 +145,15 @@ impl KeyringPassword {
                         .width(Length::Fill),
                 )
                 .padding(5)
-                .width(Length::Fixed(250.0))
+                .width(widget::modal::button_width(font_config))
                 .style(|theme, status| {
                     theme::button::secondary(theme, status, false)
                 })
                 .on_press_maybe((!self.saving).then_some(Message::Cancel)),
             );
 
-        container(content)
-            .width(Length::Shrink)
+        widget::modal::container(content, font_config)
             .style(theme::container::tooltip)
-            .padding(25)
             .into()
     }
 }

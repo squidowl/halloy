@@ -8,6 +8,31 @@ use iced::{
     keyboard, mouse, touch,
 };
 
+const BASE_WIDTH: f32 = 380.0;
+const BASE_BUTTON_WIDTH: f32 = 250.0;
+const BASE_PADDING: f32 = 25.0;
+
+pub fn width(font: &data::config::Font) -> Length {
+    Length::Fixed(BASE_WIDTH * crate::theme::scale_for_font_size(font))
+}
+
+pub fn button_width(font: &data::config::Font) -> Length {
+    Length::Fixed(BASE_BUTTON_WIDTH * crate::theme::scale_for_font_size(font))
+}
+
+pub fn container<'a, Message: 'a>(
+    content: impl Into<crate::widget::Element<'a, Message>>,
+    font: &data::config::Font,
+) -> crate::widget::Container<'a, Message> {
+    let scale = crate::theme::scale_for_font_size(font);
+
+    iced::widget::container(
+        iced::widget::scrollable(content).height(Length::Shrink),
+    )
+    .width(width(font))
+    .padding(BASE_PADDING * scale)
+}
+
 pub fn modal<'a, Message, Theme, Renderer>(
     base: impl Into<Element<'a, Message, Theme, Renderer>>,
     modal: impl Into<Element<'a, Message, Theme, Renderer>>,
