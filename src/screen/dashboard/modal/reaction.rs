@@ -10,7 +10,6 @@ use iced::{Length, Task};
 use crate::widget::{Element, Row, key_press, text};
 use crate::{emoji, theme, widget};
 
-const MODAL_WIDTH: f32 = 380.0;
 const MODAL_HEIGHT: f32 = 250.0;
 const EMOJI_BUTTON_WIDTH: f32 = 32.0;
 const EMOJI_BUTTON_HEIGHT: f32 = 32.0;
@@ -139,9 +138,11 @@ impl State {
 }
 
 pub fn view<'a>(state: &'a State, config: &'a Config) -> Element<'a, Message> {
+    let scale = theme::scale_for_font_size(&config.font);
     let filtered = state.filtered_emojis();
     let has_results = !filtered.is_empty();
-    let grid = emoji_grid(&filtered, &state.already_reacted, state.selection);
+    let grid =
+        emoji_grid(&filtered, &state.already_reacted, state.selection, scale);
 
     let body: Element<'a, Message> = if has_results {
         Scrollable::new(container(grid).width(Length::Fill))
@@ -169,7 +170,7 @@ pub fn view<'a>(state: &'a State, config: &'a Config) -> Element<'a, Message> {
                     .id(state.search_query_id.clone())
                     .on_input(Message::SearchChanged)
                     .on_submit(Message::SearchSelect)
-                    .padding(8),
+                    .padding(8.0 * scale),
                 key_press::Key::Named(key_press::Named::Tab),
                 key_press::Modifiers::SHIFT,
                 Message::Tab(true),
@@ -180,13 +181,13 @@ pub fn view<'a>(state: &'a State, config: &'a Config) -> Element<'a, Message> {
         ),
         body
     ]
-    .spacing(12)
+    .spacing(12.0 * scale)
     .height(Length::Fill);
 
     container(content)
-        .width(Length::Fixed(MODAL_WIDTH))
-        .height(Length::Fixed(MODAL_HEIGHT))
-        .padding(8)
+        .width(widget::modal::width(&config.font))
+        .height(Length::Fixed(MODAL_HEIGHT * scale))
+        .padding(8.0 * scale)
         .style(theme::container::tooltip)
         .into()
 }
@@ -195,15 +196,17 @@ fn emoji_grid<'a>(
     emojis: &[&'static emojis::Emoji],
     already_reacted: &HashSet<Cow<'static, str>>,
     selection: Option<usize>,
+    scale: f32,
 ) -> Element<'a, Message> {
     emojis
         .iter()
         .enumerate()
-        .fold(Row::new().spacing(4), |row, (index, emoji)| {
+        .fold(Row::new().spacing(4.0 * scale), |row, (index, emoji)| {
             row.push(emoji_button(
                 emoji,
                 already_reacted.contains(emoji.as_str()),
                 selection.is_some_and(|selection| selection == index),
+                scale,
             ))
         })
         .wrap()
@@ -214,16 +217,17 @@ fn emoji_button<'a>(
     emoji: &'static emojis::Emoji,
     already_reacted: bool,
     selection: bool,
+    scale: f32,
 ) -> widget::Button<'a, Message> {
     button(
-        container(text(emoji.as_str()).size(16))
+        container(text(emoji.as_str()).size(16.0 * scale))
             .width(Length::Fill)
             .center_x(Length::Fill)
             .center_y(Length::Fill),
     )
-    .padding(4)
-    .width(Length::Fixed(EMOJI_BUTTON_WIDTH))
-    .height(Length::Fixed(EMOJI_BUTTON_HEIGHT))
+    .padding(4.0 * scale)
+    .width(Length::Fixed(EMOJI_BUTTON_WIDTH * scale))
+    .height(Length::Fixed(EMOJI_BUTTON_HEIGHT * scale))
     .style(move |theme, status| {
         theme::button::reaction(theme, status, already_reacted, selection)
     })
