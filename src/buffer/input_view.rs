@@ -33,7 +33,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use self::completion::Completion;
 use self::exec::run as execute_shell_command;
-use super::scroll_view::FocusDirection;
+use super::message_focus::FocusDirection;
 use crate::widget::key_press::is_numpad;
 use crate::widget::user_display::UserDisplay;
 use crate::widget::{

@@ -20,11 +20,11 @@ use iced::widget::{
 use iced::{Color, ContentFit, Length, alignment, padding};
 
 use crate::buffer::context_menu::{self, Context, UrlContext, UserContext};
-use crate::buffer::message_focus::FocusedComponent;
-use crate::buffer::scroll_view::keyed::{self, keyed};
-use crate::buffer::scroll_view::{
-    FocusMenu, LayoutMessage, Message, focus_menu_overlay,
+use crate::buffer::message_focus::{
+    FocusMenu, FocusedComponent, focus_menu_overlay, focus_outline,
 };
+use crate::buffer::scroll_view::keyed::{self, keyed};
+use crate::buffer::scroll_view::{LayoutMessage, Message};
 use crate::widget::anchored_overlay::{self, anchored_overlay};
 use crate::widget::preview::preview_card_parts;
 use crate::widget::reaction_row::{has_visible_reactions, reaction_row};
@@ -101,35 +101,58 @@ pub struct ChannelQueryLayout<'a> {
     pub previews: Previews<'a>,
     pub target: TargetInfo<'a>,
     pub history: &'a history::Manager,
-    pub focus_menu: Option<&'a FocusMenu>,
 }
 
 impl<'a> ChannelQueryLayout<'a> {
     fn anchor_focus_menu(
         &self,
-        message: &data::Message,
-        nick: bool,
         base: Element<'a, Message>,
+        focus_menu: &'a FocusMenu,
+        message: &'a data::Message,
+        channels_context: &'a dyn context_menu::ChannelsContext,
     ) -> Element<'a, Message> {
-        let Some(menu) = self.focus_menu.filter(|menu| {
-            menu.hash() == message.hash && menu.is_nick() == nick
-        }) else {
-            return base;
+        let (entries, context) = match focus_menu.link() {
+            Some(link) => (
+                self.link_entries(message, link, channels_context),
+                self.link_context(message, link, channels_context),
+            ),
+            None => (
+                context_menu::Entry::message_list(
+                    message.redaction.is_some(),
+                    message.redaction_expanded(&self.config.buffer.redaction),
+                    self.can_send_reactions && message.id.is_some(),
+                    self.can_redact && message.id.is_some(),
+                    self.can_send_replies
+                        && message.id.is_some()
+                        && message.rerouted_from.is_none(),
+                ),
+                Some(context_menu::Context::Message {
+                    message,
+                    selected_reactions: &selected_reactions(
+                        message,
+                        self.our_nick,
+                    ),
+                }),
+            ),
         };
 
-        anchored_overlay(
-            base,
-            focus_menu_overlay(
-                menu,
-                self.registry,
-                self.previews.collection(),
-                self.theme,
-                self.config,
-            ),
-            anchored_overlay::Anchor::BelowTopCentered,
-            0.0,
-            Some(Box::new(|| Message::FocusMenuDismiss)),
-        )
+        if let Some(context) = context {
+            anchored_overlay(
+                base,
+                focus_menu_overlay(
+                    focus_menu,
+                    entries,
+                    context,
+                    self.theme,
+                    self.config,
+                ),
+                anchored_overlay::Anchor::BelowTopCentered,
+                0.0,
+                Some(Box::new(|| Message::ExitFocus)),
+            )
+        } else {
+            base
+        }
     }
 
     fn reply_nick_to_strip<'m>(
@@ -528,7 +551,7 @@ impl<'a> ChannelQueryLayout<'a> {
             .padding(padding::top(4).bottom(4));
 
         let content: Element<'a, Message> = if selected {
-            crate::buffer::scroll_view::focus_outline(content.into())
+            focus_outline(content.into())
         } else {
             content.into()
         };
@@ -593,13 +616,13 @@ impl<'a> ChannelQueryLayout<'a> {
             true,
         );
 
-        let focused_nick_component =
+        let focused_user_component =
             focused_component.is_some_and(|focused_component| {
                 matches!(focused_component, FocusedComponent::User)
             });
 
         let nick_element: Element<_> =
-            if hide_nickname && !focused_nick_component {
+            if hide_nickname && !focused_user_component {
                 let width = if let Some(right_alignment_middle_width) =
                     right_alignment_middle_width
                 {
@@ -618,7 +641,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     None,
                     false,
                     true,
-                    focused_nick_component,
+                    focused_user_component,
                     self.theme,
                     self.config,
                 );
@@ -1127,6 +1150,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         hovered_reply: Option<message::Hash>,
         channels_context: &'a dyn context_menu::ChannelsContext,
         focused_component: Option<&FocusedComponent>,
+        focus_menu: Option<&'a FocusMenu>,
     ) -> Option<Element<'a, Message>> {
         let mut prefixes: Option<Element<_>> = self.format_prefixes(message);
 
@@ -1401,9 +1425,21 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             self.theme,
         );
 
-        let middle = middle.map(|nick| {
-            self.anchor_focus_menu(message, /* nick */ true, nick)
-        });
+        let middle = if focused_component.is_some_and(|focused_component| {
+            matches!(focused_component, FocusedComponent::User)
+        }) && let Some(focus_menu) = focus_menu
+        {
+            middle.map(|middle| {
+                self.anchor_focus_menu(
+                    middle,
+                    focus_menu,
+                    message,
+                    channels_context,
+                )
+            })
+        } else {
+            middle
+        };
 
         let middle_is_some = middle.is_some();
 
@@ -1515,8 +1551,19 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             column![content].extend(after_content).into()
         };
 
-        let content =
-            self.anchor_focus_menu(message, /* nick */ false, content);
+        let content = if focused_component.is_none_or(|focused_component| {
+            matches!(focused_component, FocusedComponent::Link { .. })
+        }) && let Some(focus_menu) = focus_menu
+        {
+            self.anchor_focus_menu(
+                content,
+                focus_menu,
+                message,
+                channels_context,
+            )
+        } else {
+            content
+        };
 
         let message_element = if self.content_on_new_line(message) {
             container(column![row, content]).into()
