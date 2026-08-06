@@ -3026,22 +3026,23 @@ fn target(
         Command::INVITE(invitee, channel) => {
             let invitee = User::from(Nick::from_str(invitee, casemapping));
 
+            let source = Source::Server(Some(source::Server::new(
+                Kind::Invite,
+                Some(invitee.nickname().to_owned()),
+                None,
+            )));
+
             if invitee.nickname() == *our_nick {
                 if let Some(user) = user {
                     return Some((
                         Target::Query {
                             query: target::Query::from(user),
-                            source: Source::Server(None),
+                            source,
                         },
                         None,
                     ));
                 } else {
-                    return Some((
-                        Target::Server {
-                            source: Source::Server(None),
-                        },
-                        None,
-                    ));
+                    return Some((Target::Server { source }, None));
                 }
             }
 
@@ -3053,13 +3054,7 @@ fn target(
             )
             .ok()?;
 
-            Some((
-                Target::Channel {
-                    channel,
-                    source: Source::Server(None),
-                },
-                None,
-            ))
+            Some((Target::Channel { channel, source }, None))
         }
         // Server
         Command::PASS(_)
