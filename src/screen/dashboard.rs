@@ -383,8 +383,6 @@ impl Dashboard {
                         return (self.split_pane(axis), None);
                     }
                     pane::Message::Buffer(id, message) => {
-                        let channels_context = self.channels_context_snapshot();
-
                         if let Some(pane) = self.panes.get_mut(window, id) {
                             let (command, event) = pane.buffer.update(
                                 message,
@@ -393,7 +391,6 @@ impl Dashboard {
                                 &self.previews,
                                 &mut self.file_transfers,
                                 config,
-                                &channels_context,
                             );
 
                             let task = command.map(move |message| {
@@ -525,9 +522,6 @@ impl Dashboard {
                     }
                     pane::Message::Modal(id, message) => {
                         let (task, buffer_event) = {
-                            let channels_context =
-                                self.channels_context_snapshot();
-
                             let Some(pane) = self.panes.get_mut(window, id)
                             else {
                                 return (Task::none(), None);
@@ -563,7 +557,6 @@ impl Dashboard {
                                         &self.previews,
                                         &mut self.file_transfers,
                                         config,
-                                        &channels_context,
                                     );
 
                                     let task = self.refocus_pane().chain(
@@ -3043,28 +3036,22 @@ impl Dashboard {
                         state.buffer.open_focus_menu_message()
                     }
                     FocusCommand::Reply => in_focus
-                        .then(|| {
-                            state.buffer.focus_action_message(
-                                buffer::FocusAction::Reply,
-                                clients,
-                            )
-                        })
+                        .then_some(state.buffer.focus_action_message(
+                            buffer::FocusAction::Reply,
+                            clients,
+                        ))
                         .flatten(),
                     FocusCommand::React => in_focus
-                        .then(|| {
-                            state.buffer.focus_action_message(
-                                buffer::FocusAction::OpenReactionModal,
-                                clients,
-                            )
-                        })
+                        .then_some(state.buffer.focus_action_message(
+                            buffer::FocusAction::OpenReactionModal,
+                            clients,
+                        ))
                         .flatten(),
                     FocusCommand::Redact => in_focus
-                        .then(|| {
-                            state.buffer.focus_action_message(
-                                buffer::FocusAction::Redact,
-                                clients,
-                            )
-                        })
+                        .then_some(state.buffer.focus_action_message(
+                            buffer::FocusAction::Redact,
+                            clients,
+                        ))
                         .flatten(),
                 };
 
@@ -5475,40 +5462,6 @@ impl Dashboard {
             })
             .collect()
     }
-
-    fn channels_context_snapshot(&self) -> ChannelsContextSnapshot {
-        ChannelsContextSnapshot {
-            focused: self
-                .panes
-                .iter()
-                .find(|(window, pane, _)| {
-                    self.focus
-                        == Focus {
-                            window: *window,
-                            pane: *pane,
-                        }
-                })
-                .and_then(|(_, _, pane)| match pane.buffer.upstream() {
-                    Some(buffer::Upstream::Channel(
-                        focused_server,
-                        focused_channel,
-                    )) => {
-                        Some((focused_server.clone(), focused_channel.clone()))
-                    }
-                    _ => None,
-                }),
-            open: self
-                .panes
-                .iter()
-                .filter_map(|(_, _, pane)| match pane.buffer.upstream() {
-                    Some(buffer::Upstream::Channel(server, channel)) => {
-                        Some((server.clone(), channel.clone()))
-                    }
-                    _ => None,
-                })
-                .collect(),
-        }
-    }
 }
 
 impl ChannelsContext for Dashboard {
@@ -5526,35 +5479,6 @@ impl ChannelsContext for Dashboard {
         channel: &target::Channel,
     ) -> bool {
         self.has_open_pane_channel(server, channel)
-    }
-}
-
-struct ChannelsContextSnapshot {
-    focused: Option<(data::Server, target::Channel)>,
-    open: Vec<(data::Server, target::Channel)>,
-}
-
-impl ChannelsContext for ChannelsContextSnapshot {
-    fn is_focused(
-        &self,
-        server: &data::Server,
-        channel: &target::Channel,
-    ) -> bool {
-        self.focused.as_ref().is_some_and(
-            |(focused_server, focused_channel)| {
-                focused_server == server && focused_channel == channel
-            },
-        )
-    }
-
-    fn is_open(
-        &self,
-        server: &data::Server,
-        channel: &target::Channel,
-    ) -> bool {
-        self.open.iter().any(|(open_server, open_channel)| {
-            open_server == server && open_channel == channel
-        })
     }
 }
 

@@ -134,7 +134,6 @@ pub fn view<'a>(
             our_user,
         },
         history,
-        focus_menu: state.scroll_view.focus_menu(),
     };
 
     let messages = container(
@@ -310,7 +309,6 @@ impl Channel {
         history: &mut history::Manager,
         previews: &preview::Collection,
         config: &Config,
-        channels_context: &dyn context_menu::ChannelsContext,
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::ScrollView(message) => {
@@ -324,7 +322,6 @@ impl Channel {
                     clients,
                     previews,
                     config,
-                    channels_context,
                 );
 
                 if let Some(scroll_view::Event::ContextMenu(
@@ -376,7 +373,6 @@ impl Channel {
                             history,
                             previews,
                             config,
-                            channels_context,
                         )
                 {
                     return (
@@ -535,7 +531,6 @@ impl Channel {
                                 history,
                                 previews,
                                 config,
-                                channels_context,
                             );
                         (
                             Task::batch([

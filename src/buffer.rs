@@ -21,8 +21,8 @@ pub use self::file_transfers::FileTransfers;
 pub use self::input_view::FocusAction;
 pub use self::logs::Logs;
 pub use self::message_feed::MessageFeed;
+pub use self::message_focus::FocusDirection;
 pub use self::query::Query;
-pub use self::scroll_view::FocusDirection;
 pub use self::server::Server;
 use crate::Theme;
 use crate::screen::dashboard::sidebar;
@@ -318,18 +318,11 @@ impl Buffer {
         previews: &preview::Collection,
         file_transfers: &mut file_transfer::Manager,
         config: &Config,
-        channels_context: &dyn context_menu::ChannelsContext,
     ) -> (Task<Message>, Option<Event>) {
         match (self, message) {
             (Buffer::Channel(state), Message::Channel(message)) => {
-                let (command, event) = state.update(
-                    message,
-                    clients,
-                    history,
-                    previews,
-                    config,
-                    channels_context,
-                );
+                let (command, event) =
+                    state.update(message, clients, history, previews, config);
 
                 let event = event.map(|event| match event {
                     channel::Event::ContextMenu(event) => {
@@ -404,14 +397,8 @@ impl Buffer {
                 (command.map(Message::Channel), event)
             }
             (Buffer::Server(state), Message::Server(message)) => {
-                let (command, event) = state.update(
-                    message,
-                    clients,
-                    history,
-                    previews,
-                    config,
-                    channels_context,
-                );
+                let (command, event) =
+                    state.update(message, clients, history, previews, config);
 
                 let event = event.map(|event| match event {
                     server::Event::ContextMenu(event) => {
@@ -471,14 +458,8 @@ impl Buffer {
                 (command.map(Message::Server), event)
             }
             (Buffer::Query(state), Message::Query(message)) => {
-                let (command, event) = state.update(
-                    message,
-                    clients,
-                    history,
-                    previews,
-                    config,
-                    channels_context,
-                );
+                let (command, event) =
+                    state.update(message, clients, history, previews, config);
 
                 let event = event.map(|event| match event {
                     query::Event::ContextMenu(event) => {
@@ -588,14 +569,8 @@ impl Buffer {
                 (command.map(Message::ConfigEditor), event)
             }
             (Buffer::Logs(state), Message::Logs(message)) => {
-                let (command, event) = state.update(
-                    message,
-                    history,
-                    clients,
-                    previews,
-                    config,
-                    channels_context,
-                );
+                let (command, event) =
+                    state.update(message, history, clients, previews, config);
 
                 let event = event.map(|event| match event {
                     logs::Event::ContextMenu(event) => {
@@ -625,14 +600,8 @@ impl Buffer {
                 Message::ChannelMonitor(message),
             ) => {
                 let kind = state.kind;
-                let (command, event) = state.update(
-                    message,
-                    history,
-                    clients,
-                    previews,
-                    config,
-                    channels_context,
-                );
+                let (command, event) =
+                    state.update(message, history, clients, previews, config);
 
                 (
                     command.map(move |message| {
@@ -1426,11 +1395,9 @@ impl Buffer {
         match self {
             Buffer::Channel(state) => {
                 state.message_focus.clear();
-                state.scroll_view.close_focus_menu();
             }
             Buffer::Query(state) => {
                 state.message_focus.clear();
-                state.scroll_view.close_focus_menu();
             }
             _ => {}
         }
@@ -1438,8 +1405,8 @@ impl Buffer {
 
     pub fn in_focus_menu(&self) -> bool {
         match self {
-            Buffer::Channel(state) => state.scroll_view.has_focus_menu(),
-            Buffer::Query(state) => state.scroll_view.has_focus_menu(),
+            Buffer::Channel(state) => state.message_focus.has_menu(),
+            Buffer::Query(state) => state.message_focus.has_menu(),
             _ => false,
         }
     }
@@ -1486,7 +1453,7 @@ impl Buffer {
 
     pub fn focus_navigate_message(
         &self,
-        direction: scroll_view::FocusDirection,
+        direction: FocusDirection,
     ) -> Option<Message> {
         match self {
             Buffer::Channel(_) => {

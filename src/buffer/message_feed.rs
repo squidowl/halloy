@@ -66,7 +66,7 @@ pub fn view<'a>(
 ) -> Element<'a, Message> {
     let messages = scroll_view::view(
         &state.scroll_view,
-        None,
+        &None,
         state.kind.scroll_view(),
         history,
         None,
@@ -425,7 +425,6 @@ impl MessageFeed {
         clients: &mut data::client::Map,
         previews: &preview::Collection,
         config: &Config,
-        channels_context: &dyn context_menu::ChannelsContext,
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::ScrollView(message) => {
@@ -439,7 +438,6 @@ impl MessageFeed {
                     clients,
                     previews,
                     config,
-                    channels_context,
                 );
 
                 let event = event.and_then(|event| match event {
