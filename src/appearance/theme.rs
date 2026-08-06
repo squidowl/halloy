@@ -135,11 +135,9 @@ pub fn scale_for_font_size(font: &config::Font) -> f32 {
 }
 
 pub fn focus_border(theme: &Theme) -> Border {
-    let buffer = theme.styles().buffer;
-
     Border {
-        width: 2.0,
-        color: buffer.focus.unwrap_or(buffer.border_selected),
+        width: 1.0,
+        color: theme.styles().buffer.focus_border_or_fallback(),
         radius: 3.0.into(),
     }
 }

@@ -205,9 +205,15 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                             }
                         };
 
-                        let focus_border = (Some(index)
-                            == focused_fragment_index)
-                            .then(|| theme::focus_border(theme));
+                        let is_focused = Some(index) == focused_fragment_index;
+                        let focus_border =
+                            is_focused.then_some(theme::focus_border(theme));
+                        let focus_background = is_focused.then_some(
+                            theme
+                                .styles()
+                                .buffer
+                                .focus_background_or_fallback(),
+                        );
 
                         let span = match fragment {
                             data::message::Fragment::Text(s) => {
@@ -232,6 +238,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                                         theme.styles().buffer.url.color,
                                     ))
                                     .border_maybe(focus_border)
+                                    .background_maybe(focus_background)
                                     .link(message::Link::Channel(
                                         server.clone(),
                                         target::Channel::from_str(
@@ -260,6 +267,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                                     )
                                     .color(transform_color(color))
                                     .border_maybe(focus_border)
+                                    .background_maybe(focus_background)
                                     .link(message::Link::User(
                                         server.clone(),
                                         user.clone(),
@@ -320,6 +328,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                                     theme.styles().buffer.url.color,
                                 ))
                                 .border_maybe(focus_border)
+                                .background_maybe(focus_background)
                                 // Copy to clipboard in IDNA-compliant encoding.
                                 .link(
                                     message::Link::Url(u.as_str().to_string()),

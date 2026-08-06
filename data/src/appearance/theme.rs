@@ -88,6 +88,36 @@ impl Styles {
 
         Ok(binary::decode(&bytes))
     }
+
+    pub fn horizontal_rule_text_or_fallback(&self) -> Color {
+        self.general
+            .horizontal_rule_text
+            .unwrap_or(self.text.secondary.color)
+    }
+
+    pub fn backlog_rule_or_fallback(&self) -> Color {
+        self.buffer
+            .backlog_rule
+            .unwrap_or(self.general.horizontal_rule)
+    }
+
+    pub fn backlog_rule_text_or_fallback(&self) -> Color {
+        self.buffer
+            .backlog_rule_text
+            .unwrap_or(self.horizontal_rule_text_or_fallback())
+    }
+
+    pub fn date_rule_or_fallback(&self) -> Color {
+        self.buffer
+            .date_rule
+            .unwrap_or(self.general.horizontal_rule)
+    }
+
+    pub fn date_rule_text_or_fallback(&self) -> Color {
+        self.buffer
+            .date_rule_text
+            .unwrap_or(self.horizontal_rule_text_or_fallback())
+    }
 }
 
 #[derive(Debug, Error)]
@@ -167,6 +197,16 @@ impl Default for General {
     }
 }
 
+impl General {
+    pub fn highlight_indicator_or_fallback(&self) -> Color {
+        self.highlight_indicator.unwrap_or(self.unread_indicator)
+    }
+
+    pub fn scrollbar_or_fallback(&self) -> Color {
+        self.scrollbar.unwrap_or(self.horizontal_rule)
+    }
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Buffer {
@@ -201,7 +241,9 @@ pub struct Buffer {
     #[serde(with = "color_serde_maybe")]
     pub date_rule_text: Option<Color>,
     #[serde(with = "color_serde_maybe")]
-    pub focus: Option<Color>,
+    pub focus_border: Option<Color>,
+    #[serde(with = "color_serde_maybe")]
+    pub focus_background: Option<Color>,
 }
 
 impl Default for Buffer {
@@ -226,8 +268,19 @@ impl Default for Buffer {
             backlog_rule_text: None,
             date_rule: None,
             date_rule_text: None,
-            focus: None,
+            focus_border: None,
+            focus_background: None,
         }
+    }
+}
+
+impl Buffer {
+    pub fn focus_border_or_fallback(&self) -> Color {
+        self.focus_border.unwrap_or(self.border_selected)
+    }
+
+    pub fn focus_background_or_fallback(&self) -> Color {
+        self.focus_background.unwrap_or(self.background_text_input)
     }
 }
 
@@ -850,6 +903,8 @@ mod binary {
         BufferServerMessagesRequestTopic = 57,
         ButtonsPrimaryBorderActive = 58,
         ButtonsSecondaryBorderActive = 59,
+        BufferFocusBorder = 60,
+        BufferFocusBackground = 61,
     }
 
     impl Tag {
@@ -977,6 +1032,8 @@ mod binary {
                 Tag::BufferServerMessagesChangeTopic => {
                     styles.buffer.server_messages.change_topic.color?
                 }
+                Tag::BufferFocusBorder => styles.buffer.focus_border?,
+                Tag::BufferFocusBackground => styles.buffer.focus_background?,
             };
 
             Some(color.into_rgba8())
@@ -1132,6 +1189,12 @@ mod binary {
                 Tag::BufferServerMessagesChangeTopic => {
                     styles.buffer.server_messages.change_topic.color =
                         Some(color);
+                }
+                Tag::BufferFocusBorder => {
+                    styles.buffer.focus_border = Some(color);
+                }
+                Tag::BufferFocusBackground => {
+                    styles.buffer.focus_background = Some(color);
                 }
             }
         }
