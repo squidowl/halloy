@@ -794,21 +794,29 @@ pub(crate) fn focus_outline<'a, Message: 'a>(
                   layout: Layout<'_>,
                   cursor: mouse::Cursor,
                   viewport: &iced::Rectangle| {
-                inner.as_widget().draw(
-                    tree, renderer, theme, style, layout, cursor, viewport,
-                );
-
-                let b = layout.bounds();
-                let bounds = iced::Rectangle {
-                    x: b.x - 2.0,
-                    y: b.y - 2.0,
-                    width: b.width + 2.0,
-                    height: b.height + 2.0,
+                let layout_bounds = layout.bounds();
+                let focus_outline_bounds = iced::Rectangle {
+                    x: layout_bounds.x - 2.0,
+                    y: layout_bounds.y - 2.0,
+                    width: layout_bounds.width + 4.0,
+                    height: layout_bounds.height + 4.0,
                 };
 
                 renderer.fill_quad(
                     renderer::Quad {
-                        bounds,
+                        bounds: focus_outline_bounds,
+                        ..renderer::Quad::default()
+                    },
+                    theme.styles().buffer.background_text_input,
+                );
+
+                inner.as_widget().draw(
+                    tree, renderer, theme, style, layout, cursor, viewport,
+                );
+
+                renderer.fill_quad(
+                    renderer::Quad {
+                        bounds: focus_outline_bounds,
                         border: theme::focus_border(theme),
                         ..renderer::Quad::default()
                     },

@@ -25,11 +25,7 @@ pub fn primary(theme: &Theme) -> Style {
 
 pub fn backlog(theme: &Theme) -> Style {
     Style {
-        color: theme
-            .styles()
-            .buffer
-            .backlog_rule
-            .unwrap_or(theme.styles().general.horizontal_rule),
+        color: theme.styles().backlog_rule_or_fallback(),
         radius: 0.0.into(),
         fill_mode: FillMode::Full,
         snap: true,
@@ -38,11 +34,7 @@ pub fn backlog(theme: &Theme) -> Style {
 
 pub fn date(theme: &Theme) -> Style {
     Style {
-        color: theme
-            .styles()
-            .buffer
-            .date_rule
-            .unwrap_or(theme.styles().general.horizontal_rule),
+        color: theme.styles().date_rule_or_fallback(),
         radius: 0.0.into(),
         fill_mode: FillMode::Full,
         snap: true,

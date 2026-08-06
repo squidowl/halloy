@@ -535,19 +535,14 @@ impl General {
         match self {
             General::Background => styles.general.background,
             General::Border => styles.general.border,
-            General::HighlightIndicator => styles
-                .general
-                .highlight_indicator
-                .unwrap_or(styles.general.unread_indicator),
+            General::HighlightIndicator => {
+                styles.general.highlight_indicator_or_fallback()
+            }
             General::HorizontalRule => styles.general.horizontal_rule,
-            General::HorizontalRuleText => styles
-                .general
-                .horizontal_rule_text
-                .unwrap_or(styles.text.secondary.color),
-            General::Scrollbar => styles
-                .general
-                .scrollbar
-                .unwrap_or(styles.general.horizontal_rule),
+            General::HorizontalRuleText => {
+                styles.horizontal_rule_text_or_fallback()
+            }
+            General::Scrollbar => styles.general.scrollbar_or_fallback(),
             General::UnreadIndicator => styles.general.unread_indicator,
         }
     }
@@ -693,7 +688,8 @@ pub enum Buffer {
     Border,
     BorderSelected,
     Code,
-    Focus,
+    FocusBorder,
+    FocusBackground,
     Highlight,
     Nickname,
     NicknameOffline,
@@ -723,9 +719,12 @@ impl Buffer {
             Buffer::Border => Some(styles.buffer.border),
             Buffer::BorderSelected => Some(styles.buffer.border_selected),
             Buffer::Code => Some(styles.buffer.code.color),
-            Buffer::Focus => Some(
-                styles.buffer.focus.unwrap_or(styles.buffer.border_selected),
-            ),
+            Buffer::FocusBorder => {
+                Some(styles.buffer.focus_border_or_fallback())
+            }
+            Buffer::FocusBackground => {
+                Some(styles.buffer.focus_background_or_fallback())
+            }
             Buffer::Highlight => Some(styles.buffer.highlight),
             Buffer::Nickname => Some(styles.buffer.nickname.color),
             Buffer::NicknameOffline => styles.buffer.nickname_offline.color,
@@ -736,32 +735,12 @@ impl Buffer {
             Buffer::Timestamp => Some(styles.buffer.timestamp.color),
             Buffer::Topic => Some(styles.buffer.topic.color),
             Buffer::Url => Some(styles.buffer.url.color),
-            Buffer::BacklogRule => Some(
-                styles
-                    .buffer
-                    .backlog_rule
-                    .unwrap_or(styles.general.horizontal_rule),
-            ),
-            Buffer::BacklogRuleText => Some(
-                styles
-                    .buffer
-                    .backlog_rule_text
-                    .or(styles.general.horizontal_rule_text)
-                    .unwrap_or(styles.text.secondary.color),
-            ),
-            Buffer::DateRule => Some(
-                styles
-                    .buffer
-                    .date_rule
-                    .unwrap_or(styles.general.horizontal_rule),
-            ),
-            Buffer::DateRuleText => Some(
-                styles
-                    .buffer
-                    .date_rule_text
-                    .or(styles.general.horizontal_rule_text)
-                    .unwrap_or(styles.text.secondary.color),
-            ),
+            Buffer::BacklogRule => Some(styles.backlog_rule_or_fallback()),
+            Buffer::BacklogRuleText => {
+                Some(styles.backlog_rule_text_or_fallback())
+            }
+            Buffer::DateRule => Some(styles.date_rule_or_fallback()),
+            Buffer::DateRuleText => Some(styles.date_rule_text_or_fallback()),
         }
     }
 
@@ -774,7 +753,8 @@ impl Buffer {
             Buffer::Border => None,
             Buffer::BorderSelected => None,
             Buffer::Code => Some(styles.buffer.code.font_style),
-            Buffer::Focus => None,
+            Buffer::FocusBorder => None,
+            Buffer::FocusBackground => None,
             Buffer::Highlight => None,
             Buffer::Nickname => Some(styles.buffer.nickname.font_style),
             Buffer::NicknameOffline => {
@@ -838,9 +818,14 @@ impl Buffer {
                 }
                 styles.code.font_style = font_style;
             }
-            Buffer::Focus => {
+            Buffer::FocusBorder => {
                 if let Some(color) = color {
-                    styles.focus = Some(color);
+                    styles.focus_border = Some(color);
+                }
+            }
+            Buffer::FocusBackground => {
+                if let Some(color) = color {
+                    styles.focus_background = Some(color);
                 }
             }
             Buffer::Highlight => {
