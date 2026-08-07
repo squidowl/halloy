@@ -27,6 +27,7 @@ Fixed:
 - Don't show another preview from the same message after hiding one
 - Restrict commonly used (`()<>"`) chars from being used to highlight nicks
 - Receiving an invite will reveal the query with the inviter in the sidebar
+- Scroll-to-reply when clicking a reply preview
 
 Changed:
 
