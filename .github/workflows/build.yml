@@ -79,7 +79,7 @@ jobs:
       - name: Clippy
         run: cargo clippy --locked --profile ci --workspace --all-targets -- -D warnings
 
-      - uses: taiki-e/install-action@18b1216eba7f8039b0f8d131d5473787f0edce68 # v2
+      - uses: taiki-e/install-action@cb33e69fad06166ca28a42b2575e4dadabf62ee8 # v2
         with:
           tool: cargo-nextest
       - name: Test
