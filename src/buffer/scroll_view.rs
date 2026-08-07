@@ -1184,14 +1184,12 @@ impl State {
             )) => {
                 return (
                     Task::none(),
-                    buffer_action.map(|buffer_action| {
-                        Event::GoToMessage(
-                            server,
-                            channel,
-                            message,
-                            buffer_action,
-                        )
-                    }),
+                    Some(Event::GoToMessage(
+                        server,
+                        channel,
+                        message,
+                        buffer_action.unwrap_or_default(),
+                    )),
                 );
             }
             Message::ScrollTo(keyed::Hit {
