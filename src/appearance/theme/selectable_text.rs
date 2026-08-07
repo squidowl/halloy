@@ -138,18 +138,25 @@ pub fn nickname(
     is_away: bool,
     is_user_offline: bool,
 ) -> Style {
-    let is_away = config
-        .buffer
-        .nickname
-        .away
-        .is_away(is_away || is_user_offline);
+    let offline_style = config.buffer.nickname.offline.style(is_user_offline);
+    let away_alpha = config.buffer.nickname.away.alpha(is_away);
 
     if let Some(metadata_color) = metadata_color {
-        let color = nickname_alpha(
-            metadata_color,
-            is_away,
-            theme.styles().buffer.background,
-        );
+        let background = theme.styles().buffer.background;
+        let color = if let Some(style) = offline_style {
+            let color = match style.color {
+                buffer::nickname::OfflineColor::Theme => theme
+                    .styles()
+                    .buffer
+                    .nickname_offline
+                    .color
+                    .unwrap_or(metadata_color),
+                buffer::nickname::OfflineColor::Nickname => metadata_color,
+            };
+            nickname_alpha(color, Some(style.alpha), background)
+        } else {
+            nickname_alpha(metadata_color, away_alpha, background)
+        };
 
         Style {
             color: Some(color),
@@ -160,8 +167,8 @@ pub fn nickname(
             theme,
             &config.buffer.nickname.color,
             user,
-            is_away,
-            config.buffer.nickname.offline.is_offline(is_user_offline),
+            away_alpha,
+            offline_style,
         )
     }
 }
@@ -170,12 +177,17 @@ fn nickname_style(
     theme: &Theme,
     kind: &data::buffer::Color,
     user: &User,
-    is_away: Option<buffer::Away>,
-    is_offline: bool,
+    away_alpha: Option<buffer::Alpha>,
+    offline_style: Option<buffer::nickname::OfflineStyle>,
 ) -> Style {
-    let color =
-        text::nickname(theme, kind, Some(user.seed()), is_away, is_offline)
-            .color;
+    let color = text::nickname(
+        theme,
+        kind,
+        Some(user.seed()),
+        away_alpha,
+        offline_style,
+    )
+    .color;
 
     Style {
         color,
