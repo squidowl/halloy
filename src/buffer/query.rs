@@ -189,7 +189,7 @@ pub fn view<'a>(
                 .into()
         };
 
-    container(column![state.message_focus.focus_capture(), body])
+    container(body)
         .width(Length::Fill)
         .height(Length::Fill)
         .into()
