@@ -50,7 +50,7 @@ pub struct OfflineStyle {
 }
 
 fn default_offline_alpha() -> Alpha {
-    Alpha::None
+    Alpha::default()
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
@@ -65,7 +65,7 @@ impl Default for Offline {
     fn default() -> Self {
         Offline::Enabled(OfflineStyle {
             color: OfflineColor::Theme,
-            alpha: Alpha::None,
+            alpha: default_offline_alpha(),
         })
     }
 }
