@@ -291,7 +291,7 @@ fn channel_list_view<'a>(
                                 Option::<fn(&str) -> UrlContext>::None,
                                 Some(|server, channel|  {
                                         channels_context
-                                            .channel_context(server, channel)
+                                            .channel_context(server, channel, None)
                                 }),
                             ),
                             length,
@@ -327,11 +327,7 @@ fn channel_list_view<'a>(
                         context_menu::Entry::link_list(
                             link,
                             Option::<fn(&User) -> Vec<context_menu::Entry>>::None,
-                            Some(|_| {
-                                context_menu::Entry::url_list(
-                                    false, None, None, false, false, false,
-                                )
-                            }),
+                            Some(|_| context_menu::Entry::url_list(None)),
                             Some(|server, channel| {
                                 context_menu::Entry::channel_list(
                                     channels_context.is_open(server, channel),
@@ -349,11 +345,10 @@ fn channel_list_view<'a>(
                                     Some(|url| UrlContext {
                                         url,
                                         message: None,
-                                        selected_reactions: vec![],
                                     }),
                                     Some(|server, channel| {
                                         channels_context
-                                            .channel_context(server, channel)
+                                            .channel_context(server, channel, None)
                                     }),
                                 ),
                                 length,

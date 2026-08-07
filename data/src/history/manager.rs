@@ -821,7 +821,7 @@ impl Manager {
             .is_some_and(|history| history.is_our_message(id, server_time))
     }
 
-    pub fn find_message(
+    pub fn find_message_by_hash(
         &self,
         hash: message::Hash,
         kind: &history::Kind,
@@ -830,7 +830,19 @@ impl Manager {
         self.data
             .map
             .get(kind)
-            .and_then(|history| history.find_message(hash, server_time))
+            .and_then(|history| history.find_message_by_hash(hash, server_time))
+    }
+
+    pub fn find_message_by_id(
+        &self,
+        id: &message::Id,
+        kind: &history::Kind,
+        server_time: &DateTime<Utc>,
+    ) -> Option<&crate::Message> {
+        self.data
+            .map
+            .get(kind)
+            .and_then(|history| history.find_message_by_id(id, server_time))
     }
 
     pub fn get_messages(
@@ -1570,7 +1582,7 @@ impl Data {
                     {
                         if let Some(server_time) = pending.server_time()
                             && let Some(message) =
-                                history::find_reply_target_mut(
+                                history::find_message_mut_by_id(
                                     &mut messages,
                                     &id,
                                     &server_time,
@@ -1594,7 +1606,7 @@ impl Data {
                         .into_iter()
                         .chain(std::mem::take(flushing_redactions))
                     {
-                        if let Some(message) = history::find_reply_target_mut(
+                        if let Some(message) = history::find_message_mut_by_id(
                             &mut messages,
                             &id,
                             &pending.server_time,
@@ -1797,7 +1809,7 @@ impl Data {
         if let Some(reply_id) = message.reply_to.as_ref()
             && let Some(history) = self.map.get(&kind)
             && let Some(reply_target) =
-                history.find_reply_target(reply_id, &message.server_time)
+                history.find_message_by_id(reply_id, &message.server_time)
         {
             message.reply_preview = Some(reply_target.as_reply_preview());
         }
@@ -1903,7 +1915,7 @@ impl Data {
     ) -> Option<&message::ReplyPreview> {
         self.map
             .get(&kind)
-            .and_then(|history| history.find_reply_target(id, server_time))
+            .and_then(|history| history.find_message_by_id(id, server_time))
             .and_then(|message| message.reply_preview.as_ref())
     }
 
@@ -1915,7 +1927,7 @@ impl Data {
     ) -> Option<ReplyPreview> {
         self.map
             .get_mut(&kind)
-            .and_then(|history| history.find_reply_target_mut(id, server_time))
+            .and_then(|history| history.find_message_mut_by_id(id, server_time))
             .map(|message| message.as_reply_preview())
     }
 

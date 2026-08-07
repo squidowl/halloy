@@ -156,7 +156,6 @@ pub fn view<'a>(
                         Some(context_menu::message(
                             row_with_timestamp(timestamp, text_content),
                             message,
-                            vec![],
                             false,
                             false,
                             false,
@@ -284,7 +283,6 @@ pub fn view<'a>(
                                 timestamp, nick, content,
                             ),
                             message,
-                            vec![],
                             false,
                             false,
                             false,
@@ -424,7 +422,7 @@ impl Server {
                     scroll_view::Event::ContractMessage(server_time, hash) => {
                         Some(Event::ContractMessage(server_time, hash))
                     }
-                    scroll_view::Event::ExitFocus
+                    scroll_view::Event::ExitFocus(_)
                     | scroll_view::Event::FocusAction(_)
                     | scroll_view::Event::FocusContextAction(_) => None,
                 });

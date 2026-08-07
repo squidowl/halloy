@@ -355,7 +355,7 @@ impl Query {
                     scroll_view::Event::ContractMessage(server_time, hash) => {
                         Some(Event::ContractMessage(server_time, hash))
                     }
-                    scroll_view::Event::ExitFocus
+                    scroll_view::Event::ExitFocus(_)
                     | scroll_view::Event::FocusAction(_)
                     | scroll_view::Event::FocusContextAction(_) => None,
                 });

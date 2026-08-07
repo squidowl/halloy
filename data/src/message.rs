@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::{DefaultHasher, Hash as _, Hasher};
 use std::iter;
 use std::sync::{Arc, LazyLock};
@@ -923,6 +923,36 @@ impl Message {
             blocked: self.blocked,
             is_action: matches!(self.target.source(), Source::Action(_)),
         }
+    }
+
+    pub fn selected_reactions(
+        &self,
+        our_nick: Option<NickRef<'_>>,
+    ) -> Vec<String> {
+        let Some(our_nick) = our_nick else {
+            return vec![];
+        };
+
+        let mut selected = BTreeMap::new();
+
+        for reaction in &self.reactions {
+            if reaction.sender.as_str() == our_nick.as_str() {
+                let count =
+                    selected.entry(reaction.text.as_str()).or_insert(0i16);
+                if reaction.unreact {
+                    *count -= 1;
+                } else {
+                    *count += 1;
+                }
+            }
+        }
+
+        selected
+            .into_iter()
+            .filter_map(|(text, count)| {
+                (count >= 1).then_some(text.to_string())
+            })
+            .collect()
     }
 }
 

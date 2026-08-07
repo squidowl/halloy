@@ -1,13 +1,13 @@
 use chrono::{DateTime, Utc};
 use data::shortcut::{FocusCommand, KeyBind};
-use data::user::{Nick, NickRef, User};
+use data::user::User;
 use data::{
     Config, Server, buffer, client, history, message, metadata, preview, target,
 };
 use iced::widget::{column, container, text_editor};
 use iced::{Length, Task, widget};
 
-use super::{context_menu, input_view, message_view, scroll_view};
+use super::{context_menu, input_view, scroll_view};
 use crate::widget::{Element, double_pass, on_key};
 use crate::{Theme, theme};
 
@@ -83,6 +83,10 @@ impl Manager {
         .into()
     }
 
+    pub fn focus<M: Clone>(&self) -> Task<M> {
+        widget::operation::focus(self.focus_capture_id.clone())
+    }
+
     pub fn handle_input_event(
         &mut self,
         event: input_view::Event,
@@ -115,7 +119,9 @@ impl Manager {
                     config,
                 );
 
-                if let Some(scroll_view::Event::ExitFocus) = scroll_event {
+                if let Some(scroll_view::Event::ExitFocus(context_menu_event)) =
+                    scroll_event
+                {
                     let (input_task, _) = input_view.update(
                         input_view::Message::ExitFocus,
                         false,
@@ -125,14 +131,14 @@ impl Manager {
                         config,
                     );
 
-                    return (scroll_task, input_task, None);
+                    return (scroll_task, input_task, context_menu_event);
                 }
 
                 let entered_mode =
                     !was_in_mode && self.focused_message.is_some();
 
-                let focus_task: Task<input_view::Message> = if entered_mode {
-                    widget::operation::focus(self.focus_capture_id.clone())
+                let focus_task = if entered_mode {
+                    self.focus()
                 } else {
                     Task::none()
                 };
@@ -146,17 +152,6 @@ impl Manager {
             }
             input_view::Event::FocusAction(action) => {
                 let focused_message = self.focused_message.take();
-
-                let our_nick: Option<Nick> = matches!(
-                    action,
-                    input_view::FocusAction::OpenReactionModal
-                )
-                .then(|| {
-                    kind.server()
-                        .and_then(|s| clients.nickname(s))
-                        .map(NickRef::to_owned)
-                })
-                .flatten();
 
                 let focused_component = focused_message
                     .as_ref()
@@ -173,7 +168,7 @@ impl Manager {
 
                 let message =
                     focused_message.as_ref().and_then(|focused_message| {
-                        history.find_message(
+                        history.find_message_by_hash(
                             focused_message.hash(),
                             &kind.into(),
                             focused_message.server_time(),
@@ -228,14 +223,9 @@ impl Manager {
                             input_view::FocusAction::OpenReactionModal => message
                                 .and_then(|message| {
                                     let id = message.id.clone()?;
-                                    let selected =
-                                        message_view::selected_reactions(
-                                            message,
-                                            our_nick.as_ref().map(NickRef::from),
-                                        );
                                     Some(
                                         context_menu::Message::OpenReactionModal(
-                                            id, selected,
+                                            id, message.server_time,
                                         ),
                                     )
                                 }),
@@ -349,7 +339,7 @@ impl Manager {
         Option<context_menu::Event>,
     )> {
         match event {
-            scroll_view::Event::ExitFocus => {
+            scroll_view::Event::ExitFocus(context_menu_event) => {
                 let (exit_task, _) = input_view.update(
                     input_view::Message::ExitFocus,
                     false,
@@ -358,8 +348,8 @@ impl Manager {
                     history,
                     config,
                 );
-                let focus_task = input_view.focus();
-                Some((Task::none(), Task::batch([exit_task, focus_task]), None))
+
+                Some((Task::none(), exit_task, context_menu_event.clone()))
             }
             scroll_view::Event::FocusAction(action) => {
                 Some(self.handle_input_event(

@@ -2398,20 +2398,38 @@ impl Dashboard {
                     }
                     buffer::context_menu::Event::OpenReactionModal(
                         msgid,
-                        selected_reactions,
+                        server_time,
                     ) => {
-                        tasks.push(
-                            pane.open_modal(
-                                id,
-                                modal::Modal::AddReaction(
-                                    reaction_modal::State::new(
-                                        msgid,
-                                        selected_reactions,
+                        if let Some(kind) =
+                            pane.buffer.upstream().map(|buffer| {
+                                history::Kind::from_input_buffer(buffer.clone())
+                            })
+                            && let Some(server) = kind.server()
+                            && let Some(message) = self
+                                .history
+                                .find_message_by_id(&msgid, &kind, &server_time)
+                        {
+                            let selected_reactions = message
+                                .selected_reactions(clients.nickname(server));
+
+                            tasks.push(
+                                pane.open_modal(
+                                    id,
+                                    modal::Modal::AddReaction(
+                                        reaction_modal::State::new(
+                                            msgid,
+                                            selected_reactions,
+                                        ),
                                     ),
+                                )
+                                .map(
+                                    move |message| {
+                                        Message::Pane(window, message)
+                                    },
                                 ),
-                            )
-                            .map(move |message| Message::Pane(window, message)),
-                        );
+                            );
+                        }
+
                         None
                     }
                     buffer::context_menu::Event::RedactMessage(msgid) => {
