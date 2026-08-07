@@ -635,7 +635,7 @@ impl Entry {
                 Entry::HidePreview,
                 Context::Url(UrlContext { url, message, .. }),
             ) => Some((
-                "Hide Preview".to_string(),
+                "Hide preview".to_string(),
                 message.map(|message| {
                     Message::HidePreview(message.hash, url.to_string())
                 }),
@@ -644,7 +644,7 @@ impl Entry {
                 Entry::ShowPreview,
                 Context::Url(UrlContext { url, message, .. }),
             ) => Some((
-                "Show Preview".to_string(),
+                "Show preview".to_string(),
                 message.map(|message| {
                     Message::ShowPreview(message.hash, url.to_string())
                 }),
@@ -1395,7 +1395,7 @@ fn user_metadata<'a>(
     user: &User,
     registry: &dyn metadata::Registry,
     avatar: Option<&UserAvatar>,
-    config: &Config,
+    config: &'a Config,
     theme: &'a Theme,
     length: Length,
 ) -> Element<'a, Message> {
@@ -1403,12 +1403,15 @@ fn user_metadata<'a>(
     let avatar_size = config.metadata.avatar.size;
     let avatar: Option<Element<'a, Message>> = avatar.map(|avatar| {
         let content: Element<'a, Message> = match avatar {
-            UserAvatar::Loaded(data) => {
-                container(image::from_data(data, true, ContentFit::Cover))
-                    .width(f32::from(avatar_size))
-                    .height(f32::from(avatar_size))
-                    .into()
-            }
+            UserAvatar::Loaded(data) => container(image::from_data(
+                data,
+                true,
+                ContentFit::Cover,
+                config.preview.image.can_animate(),
+            ))
+            .width(f32::from(avatar_size))
+            .height(f32::from(avatar_size))
+            .into(),
             UserAvatar::Pending => avatar_placeholder(avatar_size),
         };
 

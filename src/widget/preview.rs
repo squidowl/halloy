@@ -47,6 +47,7 @@ pub fn preview_card_parts<'a, M: 'a>(
             card_image,
             config.preview.card.round_image_corners,
             ContentFit::ScaleDown,
+            config.preview.image.can_preview_animate(),
         ))
         .padding(Padding::default().top(8))
         .height(Fit.max(config.preview.card.image_max_height))
@@ -79,6 +80,7 @@ pub fn preview_content<'a, M: 'a>(
             img,
             config.preview.image.round_corners,
             ContentFit::ScaleDown,
+            config.preview.image.can_preview_animate(),
         ))
         .width(Fit.max(config.preview.image.max_width))
         .height(Fit.max(config.preview.image.max_height))

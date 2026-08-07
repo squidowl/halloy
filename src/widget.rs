@@ -178,20 +178,88 @@ pub mod button {
 }
 
 pub mod image {
-    use iced::{ContentFit, Length, widget};
+    use std::fs;
+    use std::path::PathBuf;
+
+    use iced::alignment::{Horizontal, Vertical};
+    use iced::widget::{self, container, stack, text};
+    use iced::{ContentFit, Fill, Length};
+    use iced_gif::widget::gif;
 
     use super::Element;
+    use crate::appearance::theme;
 
-    pub fn from_data<'a, Message>(
-        data: &data::Image,
+    fn image_widget<'a, Message: 'a>(
+        path: &PathBuf,
         round_corners: bool,
         content_fit: ContentFit,
     ) -> Element<'a, Message> {
-        match data.format {
-            data::image::Format::Raster(_) => widget::image(&data.path)
+        widget::image(path)
+            .border_radius(if round_corners { 4 } else { 0 })
+            .content_fit(content_fit)
+            .into()
+    }
+
+    fn render_gif<'a, Message: 'a>(
+        path: &PathBuf,
+        round_corners: bool,
+        content_fit: ContentFit,
+        can_animate: bool,
+    ) -> Option<Element<'a, Message>> {
+        let bytes = fs::read(path).ok()?;
+        let frames = gif::Frames::from_bytes(bytes).ok()?;
+        let gif_widget = gif(frames);
+
+        if !gif_widget.is_animated() {
+            return None;
+        }
+
+        Some(if can_animate {
+            gif_widget
                 .border_radius(if round_corners { 4 } else { 0 })
-                .content_fit(content_fit)
-                .into(),
+                .into()
+        } else {
+            stack![
+                image_widget(path, round_corners, content_fit),
+                container(
+                    container(
+                        text("GIF")
+                            .size(10)
+                            .line_height(1.0)
+                            .style(theme::text::secondary)
+                    )
+                    .padding(2)
+                    .style(theme::container::transparent_overlay)
+                )
+                .padding(2)
+                .width(Fill)
+                .height(Fill)
+                .align_x(Horizontal::Right)
+                .align_y(Vertical::Bottom)
+            ]
+            .into()
+        })
+    }
+
+    pub fn from_data<'a, Message: 'a>(
+        data: &data::Image,
+        round_corners: bool,
+        content_fit: ContentFit,
+        can_animate: bool,
+    ) -> Element<'a, Message> {
+        match data.format {
+            data::image::Format::Raster(image_format) => match image_format {
+                image::ImageFormat::Gif => render_gif(
+                    &data.path,
+                    round_corners,
+                    content_fit,
+                    can_animate,
+                )
+                .unwrap_or_else(|| {
+                    image_widget(&data.path, round_corners, content_fit)
+                }),
+                _ => image_widget(&data.path, round_corners, content_fit),
+            },
             data::image::Format::Svg => {
                 widget::svg(widget::svg::Handle::from_path(&data.path))
                     .width(Length::Shrink)
