@@ -118,6 +118,7 @@ mundy = { version = "0.1.9", default-features = false, features = [
     "tokio",
     "log",
 ] }
+iced_gif = { version = "0.15.0-dev", features = ["tokio"] }
 
 [dev-dependencies]
 iced = { workspace = true, features = [
@@ -171,6 +172,10 @@ windows_exe_info = "0.4"
 iced = { git = "https://github.com/squidowl/iced", rev = "de8164b9aed4f4bfa88c0458e4076a37be6496cc" }
 iced_core = { git = "https://github.com/squidowl/iced", rev = "de8164b9aed4f4bfa88c0458e4076a37be6496cc" }
 iced_wgpu = { git = "https://github.com/squidowl/iced", rev = "de8164b9aed4f4bfa88c0458e4076a37be6496cc" }
+iced_futures = { git = "https://github.com/squidowl/iced", rev = "de8164b9aed4f4bfa88c0458e4076a37be6496cc" }
+iced_runtime = { git = "https://github.com/squidowl/iced", rev = "de8164b9aed4f4bfa88c0458e4076a37be6496cc" }
+iced_widget = { git = "https://github.com/squidowl/iced", rev = "de8164b9aed4f4bfa88c0458e4076a37be6496cc" }
+iced_gif = { git = "https://github.com/squidowl/iced_gif", rev = "4c6a8fffb8b27da5196372a2ecdbe17728e5e240" }
 
 [profile.packaging]
 inherits = "release"

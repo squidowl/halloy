@@ -56,6 +56,7 @@ flate2 = "1.0"
 hex = "0.4.3"
 iced_core = "0.15.0-dev"
 iced_wgpu = "0.15.0-dev"
+iced_gif = "0.15.0-dev"
 indexmap = { version = "2.14", features = ["std", "serde"] }
 seahash = "4.1.0"
 serde_json = "1.0"
