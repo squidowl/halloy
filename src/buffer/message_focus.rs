@@ -4,8 +4,10 @@ use data::user::User;
 use data::{
     Config, Server, buffer, client, history, message, metadata, preview, target,
 };
-use iced::widget::{column, container, text_editor};
-use iced::{Length, Task, widget};
+use iced::advanced::widget;
+use iced::advanced::widget::operation::focusable;
+use iced::widget::{column, container};
+use iced::{Length, Task};
 
 use super::{context_menu, input_view, scroll_view};
 use crate::widget::{Element, double_pass, on_key};
@@ -21,16 +23,12 @@ pub enum FocusDirection {
 
 #[derive(Debug, Clone)]
 pub struct Manager {
-    focus_capture_id: widget::Id,
-    focus_capture_content: text_editor::Content,
     focused_message: Option<FocusedMessage>,
 }
 
 impl Manager {
     pub fn new() -> Self {
         Self {
-            focus_capture_id: widget::Id::unique(),
-            focus_capture_content: text_editor::Content::new(),
             focused_message: None,
         }
     }
@@ -67,24 +65,6 @@ impl Manager {
 
     pub fn clear(&mut self) {
         self.focused_message = None;
-    }
-
-    // Returns a zero-size hidden text_editor. While a message is focused this widget
-    // holds keyboard focus so that Alt+Arrow events reach the global subscription
-    // rather than being consumed by the input_view text editor.
-    pub fn focus_capture<'a, M: Clone + 'a>(&'a self) -> Element<'a, M> {
-        container(
-            text_editor(&self.focus_capture_content)
-                .id(self.focus_capture_id.clone())
-                .padding(0),
-        )
-        .width(0)
-        .height(0)
-        .into()
-    }
-
-    pub fn focus<M: Clone>(&self) -> Task<M> {
-        widget::operation::focus(self.focus_capture_id.clone())
     }
 
     pub fn handle_input_event(
@@ -138,7 +118,7 @@ impl Manager {
                     !was_in_mode && self.focused_message.is_some();
 
                 let focus_task = if entered_mode {
-                    self.focus()
+                    widget::operate(focusable::unfocus())
                 } else {
                     Task::none()
                 };
