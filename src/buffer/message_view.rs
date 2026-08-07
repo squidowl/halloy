@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, TimeDelta, Utc};
 use data::buffer::RightAlignmentWidths;
@@ -113,26 +113,12 @@ impl<'a> ChannelQueryLayout<'a> {
     ) -> Element<'a, Message> {
         let (entries, context) = match focus_menu.link() {
             Some(link) => (
-                self.link_entries(message, link, channels_context),
+                self.link_entries(message, link, channels_context, false),
                 self.link_context(message, link, channels_context),
             ),
             None => (
-                context_menu::Entry::message_list(
-                    message.redaction.is_some(),
-                    message.redaction_expanded(&self.config.buffer.redaction),
-                    self.can_send_reactions && message.id.is_some(),
-                    self.can_redact && message.id.is_some(),
-                    self.can_send_replies
-                        && message.id.is_some()
-                        && message.rerouted_from.is_none(),
-                ),
-                Some(context_menu::Context::Message {
-                    message,
-                    selected_reactions: &selected_reactions(
-                        message,
-                        self.our_nick,
-                    ),
-                }),
+                self.message_entries(message),
+                Some(context_menu::Context::Message { message }),
             ),
         };
 
@@ -386,8 +372,6 @@ impl<'a> ChannelQueryLayout<'a> {
             return None;
         }
 
-        let selected_reaction_texts =
-            selected_reactions(message, self.our_nick);
         let mut on_react = None;
         let mut on_unreact = None;
         let mut on_open_picker = None;
@@ -406,7 +390,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 on_open_picker = Some(Message::ContextMenu(
                     context_menu::Message::OpenReactionModal(
                         msgid.clone(),
-                        selected_reaction_texts.clone(),
+                        message.server_time,
                     ),
                 ));
             }
@@ -506,11 +490,8 @@ impl<'a> ChannelQueryLayout<'a> {
         let content = context_menu::preview(
             content,
             url.as_str(),
-            self.can_send_replies,
-            self.can_send_reactions,
-            self.can_redact_message(message),
             message,
-            selected_reactions_refs(message, self.our_nick),
+            self.message_entries(message),
             self.config,
             self.theme,
         );
@@ -756,6 +737,7 @@ impl<'a> ChannelQueryLayout<'a> {
                                     message,
                                     link,
                                     channels_context,
+                                    true,
                                 )
                             },
                             move |link, entry, length| {
@@ -877,7 +859,9 @@ impl<'a> ChannelQueryLayout<'a> {
                     color
                 }
             }),
-            move |link| formatter.link_entries(message, link, channels_context),
+            move |link| {
+                formatter.link_entries(message, link, channels_context, true)
+            },
             move |link, entry, length| {
                 entry
                     .view(
@@ -1015,7 +999,9 @@ impl<'a> ChannelQueryLayout<'a> {
                     color
                 }
             }),
-            move |link| formatter.link_entries(message, link, channels_context),
+            move |link| {
+                formatter.link_entries(message, link, channels_context, true)
+            },
             move |link, entry, length| {
                 entry
                     .view(
@@ -1052,8 +1038,9 @@ impl<'a> ChannelQueryLayout<'a> {
         message: &'b data::Message,
         link: &'b message::Link,
         channels_context: &'b dyn context_menu::ChannelsContext,
+        include_message_entries: bool,
     ) -> Vec<context_menu::Entry> {
-        context_menu::Entry::link_list(
+        let mut entries = context_menu::Entry::link_list(
             link,
             Some(|user| {
                 let user_in_channel =
@@ -1073,22 +1060,22 @@ impl<'a> ChannelQueryLayout<'a> {
                 )
             }),
             Some(|url| {
-                let can_send_replies =
-                    self.can_send_replies && message.id.is_some();
-
                 context_menu::Entry::url_list(
-                    message.redaction.is_some(),
-                    message.redaction_expanded(&self.config.buffer.redaction),
                     self.preview_hidden_for_url(message, url),
-                    self.can_send_reactions,
-                    self.can_redact_message(message),
-                    can_send_replies,
                 )
             }),
             Some(|server, channel| {
                 channels_context.channel_entries(server, channel)
             }),
-        )
+        );
+
+        if include_message_entries {
+            entries.push(context_menu::Entry::HorizontalRule);
+
+            entries.extend(self.message_entries(message));
+        }
+
+        entries
     }
 
     fn link_context<'b>(
@@ -1116,21 +1103,31 @@ impl<'a> ChannelQueryLayout<'a> {
                     ),
                     user,
                     current_user,
+                    message: Some(message),
                 }
             }),
-            Some(|url| {
-                let selected_reaction_texts =
-                    selected_reactions_refs(message, self.our_nick);
-
-                UrlContext {
-                    url,
-                    message: Some(message),
-                    selected_reactions: selected_reaction_texts,
-                }
+            Some(|url| UrlContext {
+                url,
+                message: Some(message),
             }),
             Some(|server, channel| {
-                channels_context.channel_context(server, channel)
+                channels_context.channel_context(server, channel, Some(message))
             }),
+        )
+    }
+
+    fn message_entries<'b>(
+        &'b self,
+        message: &'b data::Message,
+    ) -> Vec<context_menu::Entry> {
+        context_menu::Entry::message_list(
+            message.redaction.is_some(),
+            message.redaction_expanded(&self.config.buffer.redaction),
+            self.can_send_reactions && message.id.is_some(),
+            self.can_redact && message.id.is_some(),
+            self.can_send_replies
+                && message.id.is_some()
+                && message.rerouted_from.is_none(),
         )
     }
 }
@@ -1331,7 +1328,12 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     theme::font_style::action,
                     color_transformation,
                     move |link| {
-                        formatter.link_entries(message, link, channels_context)
+                        formatter.link_entries(
+                            message,
+                            link,
+                            channels_context,
+                            true,
+                        )
                     },
                     move |link, entry, length| {
                         entry
@@ -1411,13 +1413,9 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             ),
         }?;
 
-        let selected_reaction_texts =
-            selected_reactions(message, self.our_nick);
-
         let content = context_menu::message(
             content,
             message,
-            selected_reaction_texts,
             self.can_send_replies,
             self.can_send_reactions,
             self.can_redact_message(message),
@@ -2103,43 +2101,6 @@ impl<'a> ChannelQueryLayout<'a> {
             .width(Fit.max(self.config.buffer.reply.tooltip.max_width))
             .into()
     }
-}
-
-pub(crate) fn selected_reactions(
-    message: &data::Message,
-    our_nick: Option<NickRef<'_>>,
-) -> Vec<String> {
-    selected_reactions_refs(message, our_nick)
-        .into_iter()
-        .map(ToString::to_string)
-        .collect()
-}
-
-fn selected_reactions_refs<'a>(
-    message: &'a data::Message,
-    our_nick: Option<NickRef<'_>>,
-) -> Vec<&'a str> {
-    let Some(our_nick) = our_nick else {
-        return vec![];
-    };
-
-    let mut selected = BTreeMap::new();
-
-    for reaction in &message.reactions {
-        if reaction.sender.as_str() == our_nick.as_str() {
-            let count = selected.entry(reaction.text.as_str()).or_insert(0i16);
-            if reaction.unreact {
-                *count -= 1;
-            } else {
-                *count += 1;
-            }
-        }
-    }
-
-    selected
-        .into_iter()
-        .filter_map(|(text, count)| (count >= 1).then_some(text))
-        .collect()
 }
 
 fn eligible_preview_urls<'a>(

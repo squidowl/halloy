@@ -155,8 +155,9 @@ pub fn view<'a>(
                                     Option::<fn(&User) -> UserContext>::None,
                                     Option::<fn(&str) -> UrlContext>::None,
                                     Some(|server, channel| {
-                                        channels_context
-                                            .channel_context(server, channel)
+                                        channels_context.channel_context(
+                                            server, channel, None,
+                                        )
                                     }),
                                 ),
                                 length,
@@ -259,11 +260,7 @@ pub fn view<'a>(
                                     true,
                                 )
                             }),
-                            Some(|_| {
-                                context_menu::Entry::url_list(
-                                    false, None, None, false, false, false,
-                                )
-                            }),
+                            Some(|_| context_menu::Entry::url_list(None)),
                             Some(|server, channel| {
                                 channels_context
                                     .channel_entries(server, channel)
@@ -286,15 +283,12 @@ pub fn view<'a>(
                                 ),
                                 user,
                                 current_user,
-                            }),
-                            Some(|url| UrlContext {
-                                url,
                                 message: None,
-                                selected_reactions: vec![],
                             }),
+                            Some(|url| UrlContext { url, message: None }),
                             Some(|server, channel| {
                                 channels_context
-                                    .channel_context(server, channel)
+                                    .channel_context(server, channel, None)
                             }),
                         );
 
@@ -473,7 +467,7 @@ impl MessageFeed {
                     scroll_view::Event::ContractMessage(server_time, hash) => {
                         Some(Event::ContractMessage(server_time, hash))
                     }
-                    scroll_view::Event::ExitFocus
+                    scroll_view::Event::ExitFocus(_)
                     | scroll_view::Event::FocusAction(_)
                     | scroll_view::Event::FocusContextAction(_) => None,
                 });

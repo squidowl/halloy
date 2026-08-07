@@ -148,11 +148,7 @@ pub fn view<'a>(
                             false,
                         )
                     }),
-                    Some(|_| {
-                        context_menu::Entry::url_list(
-                            false, None, None, false, false, false,
-                        )
-                    }),
+                    Some(|_| context_menu::Entry::url_list(None)),
                     Some(|server, channel| {
                         channels_context.channel_entries(server, channel)
                     }),
@@ -178,15 +174,12 @@ pub fn view<'a>(
                             ),
                             user,
                             current_user,
+                            message: None,
                         }
                     }),
-                    Some(|url| UrlContext {
-                        url,
-                        message: None,
-                        selected_reactions: vec![],
-                    }),
+                    Some(|url| UrlContext { url, message: None }),
                     Some(|server, channel| {
-                        channels_context.channel_context(server, channel)
+                        channels_context.channel_context(server, channel, None)
                     }),
                 );
 

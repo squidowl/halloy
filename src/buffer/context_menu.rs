@@ -30,13 +30,13 @@ pub struct UserContext<'a> {
     pub avatar: Option<UserAvatar<'a>>,
     pub user: &'a User,
     pub current_user: Option<&'a User>,
+    pub message: Option<&'a message::Message>,
 }
 
 #[derive(Clone)]
 pub struct UrlContext<'a> {
     pub url: &'a str,
     pub message: Option<&'a message::Message>,
-    pub selected_reactions: Vec<&'a str>,
 }
 
 #[derive(Clone)]
@@ -44,6 +44,7 @@ pub struct ChannelContext<'a> {
     pub server: &'a Server,
     pub channel: &'a target::Channel,
     pub is_open: bool,
+    pub message: Option<&'a message::Message>,
 }
 
 pub trait ChannelsContext {
@@ -65,11 +66,13 @@ pub trait ChannelsContext {
         &'a self,
         server: &'a Server,
         channel: &'a target::Channel,
+        message: Option<&'a message::Message>,
     ) -> ChannelContext<'a> {
         ChannelContext {
             server,
             channel,
             is_open: self.is_open(server, channel),
+            message,
         }
     }
 }
@@ -81,10 +84,7 @@ pub enum Context<'a> {
     Channel(ChannelContext<'a>),
     Timestamp(&'a DateTime<Utc>),
     NotSentMessage(&'a DateTime<Utc>, &'a message::Hash),
-    Message {
-        message: &'a message::Message,
-        selected_reactions: &'a [String],
-    },
+    Message { message: &'a message::Message },
 }
 
 impl<'a> Context<'a> {
@@ -311,24 +311,8 @@ impl Entry {
         entries
     }
 
-    pub fn url_list(
-        has_redaction: bool,
-        redaction_expanded: Option<bool>,
-        preview_hidden: Option<bool>,
-        can_send_reactions: bool,
-        can_redact: bool,
-        can_send_replies: bool,
-    ) -> Vec<Self> {
+    pub fn url_list(preview_hidden: Option<bool>) -> Vec<Self> {
         let mut entries = vec![];
-
-        if let Some(redaction_expanded) = redaction_expanded {
-            entries.push(if redaction_expanded {
-                Entry::HideWithRedaction
-            } else {
-                Entry::ShowRedactedMessage
-            });
-            entries.push(Entry::HorizontalRule);
-        }
 
         entries.push(Entry::CopyUrl);
         entries.push(Entry::OpenUrl);
@@ -340,28 +324,6 @@ impl Entry {
             } else {
                 Entry::HidePreview
             });
-        }
-
-        entries.push(Entry::HorizontalRule);
-        entries.push(Entry::CopyMessage);
-        if has_redaction {
-            entries.push(Entry::CopyRedaction);
-        }
-
-        if can_send_replies || can_send_reactions || can_redact {
-            entries.push(Entry::HorizontalRule);
-        }
-
-        if can_send_replies {
-            entries.push(Entry::Reply);
-        }
-
-        if can_send_reactions {
-            entries.push(Entry::AddReaction);
-        }
-
-        if can_redact {
-            entries.push(Entry::Redact);
         }
 
         entries
@@ -495,7 +457,12 @@ impl Entry {
                 theme,
                 length,
             ),
-            (Entry::HorizontalRule, _) => menu_separator(length),
+            (Entry::HorizontalRule, _) => match length {
+                Length::Fill => {
+                    container(rule::horizontal(1)).padding([0, 6]).into()
+                }
+                _ => Space::new().width(length).height(1).into(),
+            },
             (_, context) => self.as_label_and_message(&context, config).map_or(
                 row![].into(),
                 |(label, message)| {
@@ -711,6 +678,7 @@ impl Entry {
                     server,
                     channel,
                     is_open,
+                    ..
                 }),
             ) => Some((
                 if *is_open {
@@ -742,14 +710,37 @@ impl Entry {
                 "Re-send Message".to_string(),
                 Some(Message::ResendMessage(**server_time, **hash)),
             )),
-            (Entry::CopyMessage, Context::Message { message, .. }) => Some((
+            (
+                Entry::CopyMessage,
+                Context::Message { message, .. }
+                | Context::User(UserContext {
+                    message: Some(message),
+                    ..
+                })
+                | Context::Url(UrlContext {
+                    message: Some(message),
+                    ..
+                })
+                | Context::Channel(ChannelContext {
+                    message: Some(message),
+                    ..
+                }),
+            ) => Some((
                 "Copy message".to_string(),
                 Some(Message::CopyText(message.text().into_owned())),
             )),
             (
                 Entry::CopyRedaction,
                 Context::Message { message, .. }
+                | Context::User(UserContext {
+                    message: Some(message),
+                    ..
+                })
                 | Context::Url(UrlContext {
+                    message: Some(message),
+                    ..
+                })
+                | Context::Channel(ChannelContext {
                     message: Some(message),
                     ..
                 }),
@@ -762,7 +753,15 @@ impl Entry {
             (
                 Entry::Reply,
                 Context::Message { message, .. }
+                | Context::User(UserContext {
+                    message: Some(message),
+                    ..
+                })
                 | Context::Url(UrlContext {
+                    message: Some(message),
+                    ..
+                })
+                | Context::Channel(ChannelContext {
                     message: Some(message),
                     ..
                 }),
@@ -780,25 +779,17 @@ impl Entry {
             ),
             (
                 Entry::AddReaction,
-                Context::Message {
-                    message,
-                    selected_reactions,
-                    ..
-                },
-            ) => message.id.as_ref().map(|msgid| {
-                (
-                    "Add reaction".to_string(),
-                    Some(Message::OpenReactionModal(
-                        msgid.clone(),
-                        selected_reactions.to_vec(),
-                    )),
-                )
-            }),
-            (
-                Entry::AddReaction,
-                Context::Url(UrlContext {
+                Context::Message { message }
+                | Context::User(UserContext {
                     message: Some(message),
-                    selected_reactions,
+                    ..
+                })
+                | Context::Url(UrlContext {
+                    message: Some(message),
+                    ..
+                })
+                | Context::Channel(ChannelContext {
+                    message: Some(message),
                     ..
                 }),
             ) => message.id.as_ref().map(|msgid| {
@@ -806,17 +797,22 @@ impl Entry {
                     "Add reaction".to_string(),
                     Some(Message::OpenReactionModal(
                         msgid.clone(),
-                        selected_reactions
-                            .iter()
-                            .map(ToString::to_string)
-                            .collect(),
+                        message.server_time,
                     )),
                 )
             }),
             (
                 Entry::Redact,
                 Context::Message { message, .. }
+                | Context::User(UserContext {
+                    message: Some(message),
+                    ..
+                })
                 | Context::Url(UrlContext {
+                    message: Some(message),
+                    ..
+                })
+                | Context::Channel(ChannelContext {
                     message: Some(message),
                     ..
                 }),
@@ -829,7 +825,15 @@ impl Entry {
             (
                 Entry::HideWithRedaction,
                 Context::Message { message, .. }
+                | Context::User(UserContext {
+                    message: Some(message),
+                    ..
+                })
                 | Context::Url(UrlContext {
+                    message: Some(message),
+                    ..
+                })
+                | Context::Channel(ChannelContext {
                     message: Some(message),
                     ..
                 }),
@@ -840,17 +844,15 @@ impl Entry {
                     message.hash,
                 )),
             )),
-            (
-                Entry::ShowRedactedMessage,
-                Context::Message { message, .. }
-                | Context::Url(UrlContext {
-                    message: Some(message),
-                    ..
-                }),
-            ) => Some((
-                "Show redacted message".to_string(),
-                Some(Message::ExpandMessage(message.server_time, message.hash)),
-            )),
+            (Entry::ShowRedactedMessage, Context::Message { message, .. }) => {
+                Some((
+                    "Show redacted message".to_string(),
+                    Some(Message::ExpandMessage(
+                        message.server_time,
+                        message.hash,
+                    )),
+                ))
+            }
             _ => None,
         }
     }
@@ -874,7 +876,7 @@ pub enum Message {
     DeleteMessage(DateTime<Utc>, message::Hash),
     #[allow(clippy::enum_variant_names)]
     ResendMessage(DateTime<Utc>, message::Hash),
-    OpenReactionModal(message::Id, Vec<String>),
+    OpenReactionModal(message::Id, DateTime<Utc>),
     Redact(message::Id),
     Reply {
         msgid: message::Id,
@@ -905,7 +907,7 @@ pub enum Event {
     CopyTimestamp(DateTime<Utc>),
     DeleteMessage(DateTime<Utc>, message::Hash),
     ResendMessage(DateTime<Utc>, message::Hash),
-    OpenReactionModal(message::Id, Vec<String>),
+    OpenReactionModal(message::Id, DateTime<Utc>),
     RedactMessage(message::Id),
     Reply {
         msgid: message::Id,
@@ -949,8 +951,8 @@ pub fn update(message: Message) -> Option<Event> {
         Message::ResendMessage(server_time, hash) => {
             Some(Event::ResendMessage(server_time, hash))
         }
-        Message::OpenReactionModal(msgid, selected_reactions) => {
-            Some(Event::OpenReactionModal(msgid, selected_reactions))
+        Message::OpenReactionModal(msgid, server_time) => {
+            Some(Event::OpenReactionModal(msgid, server_time))
         }
         Message::Redact(msgid) => Some(Event::RedactMessage(msgid)),
         Message::Reply {
@@ -979,7 +981,6 @@ pub fn update(message: Message) -> Option<Event> {
 pub fn message<'a, M>(
     content: impl Into<Element<'a, M>>,
     message: &'a message::Message,
-    selected_reactions: Vec<String>,
     can_send_replies: bool,
     can_send_reactions: bool,
     can_redact: bool,
@@ -1013,10 +1014,7 @@ where
         move |entry, length| {
             entry
                 .view(
-                    Some(Context::Message {
-                        message,
-                        selected_reactions: &selected_reactions,
-                    }),
+                    Some(Context::Message { message }),
                     length,
                     config,
                     theme,
@@ -1031,25 +1029,21 @@ where
 pub fn preview<'a, M>(
     content: impl Into<Element<'a, M>>,
     url: &'a str,
-    can_send_replies: bool,
-    can_send_reactions: bool,
-    can_redact: bool,
     message: &'a message::Message,
-    selected_reactions: Vec<&'a str>,
+    append_entries: Vec<Entry>,
     config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, M>
 where
     M: From<Message> + 'a,
 {
-    let entries = Entry::url_list(
-        false, // Previews are hidden if the message is redacted
-        None,  // Previews are hidden if the message is redacted
-        Some(false),
-        can_send_reactions && message.id.is_some(),
-        can_redact && message.id.is_some(),
-        can_send_replies && message.id.is_some(),
-    );
+    let mut entries = Entry::url_list(Some(false));
+
+    if !append_entries.is_empty() {
+        entries.push(Entry::HorizontalRule);
+
+        entries.extend(append_entries);
+    }
 
     context_menu(
         context_menu::MouseButton::Right,
@@ -1064,7 +1058,6 @@ where
                     Some(Context::Url(UrlContext {
                         url,
                         message: Some(message),
-                        selected_reactions: selected_reactions.clone(),
                     })),
                     length,
                     config,
@@ -1205,6 +1198,7 @@ fn user_with_entries<'a>(
                     avatar: avatar.clone(),
                     user,
                     current_user,
+                    message: None,
                 })),
                 length,
                 config,
@@ -1528,11 +1522,4 @@ fn avatar_placeholder<'a>(size: u16) -> Element<'a, Message> {
             }
         })
         .into()
-}
-
-pub fn menu_separator<'a, Message: 'a>(width: Length) -> Element<'a, Message> {
-    match width {
-        Length::Fill => container(rule::horizontal(1)).padding([0, 6]).into(),
-        _ => Space::new().width(width).height(1).into(),
-    }
 }

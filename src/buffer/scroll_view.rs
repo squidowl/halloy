@@ -117,7 +117,7 @@ pub enum Event {
     ImagePreview(Image),
     ExpandMessage(DateTime<Utc>, message::Hash),
     ContractMessage(DateTime<Utc>, message::Hash),
-    ExitFocus,
+    ExitFocus(Option<context_menu::Event>),
     FocusAction(input_view::FocusAction),
     FocusContextAction(context_menu::Message),
 }
@@ -1553,8 +1553,7 @@ impl State {
                                 .iter()
                                 .position(|message| fm.is_match(message))
                             else {
-                                return self
-                                    .exit_focus(focused_message, Task::none());
+                                return self.exit_focus(focused_message, None);
                             };
 
                             // Re-select the same message if already at the oldest message.
@@ -1563,8 +1562,7 @@ impl State {
                             {
                                 Some(FocusedMessage::new(previous_message))
                             } else {
-                                return self
-                                    .exit_focus(focused_message, Task::none());
+                                return self.exit_focus(focused_message, None);
                             }
                         }
                     },
@@ -1575,8 +1573,7 @@ impl State {
                                 .iter()
                                 .position(|message| fm.is_match(message))
                             else {
-                                return self
-                                    .exit_focus(focused_message, Task::none());
+                                return self.exit_focus(focused_message, None);
                             };
 
                             if let Some(next_message) =
@@ -1584,8 +1581,7 @@ impl State {
                             {
                                 Some(FocusedMessage::new(next_message))
                             } else {
-                                return self
-                                    .exit_focus(focused_message, Task::none());
+                                return self.exit_focus(focused_message, None);
                             }
                         }
                     },
@@ -1643,9 +1639,11 @@ impl State {
                 let hash = focused_message.hash();
                 let server_time = focused_message.server_time();
 
-                let Some(message) =
-                    history.find_message(hash, &kind.into(), server_time)
-                else {
+                let Some(message) = history.find_message_by_hash(
+                    hash,
+                    &kind.into(),
+                    server_time,
+                ) else {
                     return (Task::none(), None);
                 };
 
@@ -1682,7 +1680,7 @@ impl State {
                     return (Task::none(), None);
                 };
 
-                let Some(message) = history.find_message(
+                let Some(message) = history.find_message_by_hash(
                     focused_message.hash(),
                     &kind.into(),
                     focused_message.server_time(),
@@ -1701,9 +1699,9 @@ impl State {
                 }
             }
             Message::FocusMenuActivate(message) => {
-                return (
-                    Task::done(Message::ExitFocus),
-                    context_menu::update(message).map(Event::ContextMenu),
+                return self.exit_focus(
+                    focused_message,
+                    context_menu::update(message),
                 );
             }
             Message::FocusMenuClose => {
@@ -1712,7 +1710,7 @@ impl State {
                 }
             }
             Message::ExitFocus => {
-                return self.exit_focus(focused_message, Task::none());
+                return self.exit_focus(focused_message, None);
             }
         }
 
@@ -1722,11 +1720,11 @@ impl State {
     fn exit_focus(
         &mut self,
         focused_message: &mut Option<FocusedMessage>,
-        task: Task<Message>,
+        context_menu_event: Option<context_menu::Event>,
     ) -> (Task<Message>, Option<Event>) {
         *focused_message = None;
 
-        (task, Some(Event::ExitFocus))
+        (Task::none(), Some(Event::ExitFocus(context_menu_event)))
     }
 
     pub fn update_pane_size(&mut self, pane_size: Size, config: &Config) {
