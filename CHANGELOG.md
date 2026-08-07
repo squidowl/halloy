@@ -29,6 +29,7 @@ Fixed:
 - Receiving an invite will reveal the query with the inviter in the sidebar
 - Better support for larger font sizes in modals
 - "Apply Colors & Font Styles" button in Theme Editor persists modifications made via the theme editor
+- Scroll-to-reply when clicking a reply preview
 
 Changed:
 
