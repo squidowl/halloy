@@ -1421,6 +1421,22 @@ impl Buffer {
         }
     }
 
+    pub fn activate_focused_message_message(&self) -> Option<Message> {
+        match self {
+            Buffer::Channel(_) => {
+                Some(Message::Channel(channel::Message::ScrollView(
+                    scroll_view::Message::ActivateFocusedMessage,
+                )))
+            }
+            Buffer::Query(_) => {
+                Some(Message::Query(query::Message::ScrollView(
+                    scroll_view::Message::ActivateFocusedMessage,
+                )))
+            }
+            _ => None,
+        }
+    }
+
     pub fn open_focus_menu_message(&self) -> Option<Message> {
         match self {
             Buffer::Channel(_) => {
