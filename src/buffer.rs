@@ -858,7 +858,7 @@ impl Buffer {
     }
 
     pub fn scroll_up_page(&mut self) -> Task<Message> {
-        match self {
+        self.clear_focus_mode_and_refocus().chain(match self {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::ChannelDiscovery(_) => Task::none(),
@@ -896,11 +896,11 @@ impl Buffer {
                     )
                 })
             }
-        }
+        })
     }
 
     pub fn scroll_down_page(&mut self) -> Task<Message> {
-        match self {
+        self.clear_focus_mode_and_refocus().chain(match self {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::ChannelDiscovery(_) => Task::none(),
@@ -938,12 +938,11 @@ impl Buffer {
                     )
                 })
             }
-        }
+        })
     }
 
     pub fn scroll_to_start(&mut self, config: &Config) -> Task<Message> {
-        self.clear_focus_mode();
-        match self {
+        self.clear_focus_mode_and_refocus().chain(match self {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::ChannelDiscovery(_) => Task::none(),
@@ -984,11 +983,11 @@ impl Buffer {
                         )
                     })
             }
-        }
+        })
     }
 
     pub fn scroll_to_end(&mut self, config: &Config) -> Task<Message> {
-        match self {
+        self.clear_focus_mode_and_refocus().chain(match self {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::ChannelDiscovery(_) => Task::none(),
@@ -1026,7 +1025,7 @@ impl Buffer {
                     )
                 })
             }
-        }
+        })
     }
 
     pub fn scroll_to_message(
@@ -1391,15 +1390,20 @@ impl Buffer {
         }
     }
 
-    pub fn clear_focus_mode(&mut self) {
+    // Returns whether the buffer was in focus mode
+    pub fn clear_focus_mode(&mut self) -> bool {
         match self {
-            Buffer::Channel(state) => {
-                state.message_focus.clear();
-            }
-            Buffer::Query(state) => {
-                state.message_focus.clear();
-            }
-            _ => {}
+            Buffer::Channel(state) => state.message_focus.clear(),
+            Buffer::Query(state) => state.message_focus.clear(),
+            _ => false,
+        }
+    }
+
+    pub fn clear_focus_mode_and_refocus(&mut self) -> Task<Message> {
+        if self.clear_focus_mode() {
+            self.focus()
+        } else {
+            Task::none()
         }
     }
 

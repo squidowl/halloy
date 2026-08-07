@@ -63,8 +63,12 @@ impl Manager {
         }
     }
 
-    pub fn clear(&mut self) {
+    pub fn clear(&mut self) -> bool {
+        let was_focused = self.focused_message.is_some();
+
         self.focused_message = None;
+
+        was_focused
     }
 
     pub fn handle_input_event(

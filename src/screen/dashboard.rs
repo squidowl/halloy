@@ -1265,35 +1265,16 @@ impl Dashboard {
                             self.get_focused_mut().map_or_else(
                                 Task::none,
                                 |(window, pane, state)| {
-                                    let exit_task =
-                                        if state.buffer.in_focus_mode() {
-                                            state.buffer.clear_focus_mode();
-                                            state
-                                                .buffer
-                                                .exit_focus_mode_message()
-                                                .map_or_else(Task::none, |msg| {
-                                                    Task::done(Message::Pane(
-                                                        window,
-                                                        pane::Message::Buffer(
-                                                            pane, msg,
-                                                        ),
-                                                    ))
-                                                })
-                                        } else {
-                                            Task::none()
-                                        };
-                                    let scroll_task = state
-                                        .buffer
-                                        .scroll_up_page()
-                                        .map(move |message| {
+                                    state.buffer.scroll_up_page().map(
+                                        move |message| {
                                             Message::Pane(
                                                 window,
                                                 pane::Message::Buffer(
                                                     pane, message,
                                                 ),
                                             )
-                                        });
-                                    Task::batch([exit_task, scroll_task])
+                                        },
+                                    )
                                 },
                             ),
                             None,
@@ -1304,35 +1285,16 @@ impl Dashboard {
                             self.get_focused_mut().map_or_else(
                                 Task::none,
                                 |(window, pane, state)| {
-                                    let exit_task =
-                                        if state.buffer.in_focus_mode() {
-                                            state.buffer.clear_focus_mode();
-                                            state
-                                                .buffer
-                                                .exit_focus_mode_message()
-                                                .map_or_else(Task::none, |msg| {
-                                                    Task::done(Message::Pane(
-                                                        window,
-                                                        pane::Message::Buffer(
-                                                            pane, msg,
-                                                        ),
-                                                    ))
-                                                })
-                                        } else {
-                                            Task::none()
-                                        };
-                                    let scroll_task = state
-                                        .buffer
-                                        .scroll_down_page()
-                                        .map(move |message| {
+                                    state.buffer.scroll_down_page().map(
+                                        move |message| {
                                             Message::Pane(
                                                 window,
                                                 pane::Message::Buffer(
                                                     pane, message,
                                                 ),
                                             )
-                                        });
-                                    Task::batch([exit_task, scroll_task])
+                                        },
+                                    )
                                 },
                             ),
                             None,
@@ -4316,7 +4278,7 @@ impl Dashboard {
         if (self.focus != Focus { window, pane })
             || self.focus_history.is_empty()
         {
-            // Clear selection mode on the buffer losing focus
+            // Clear focus mode on the buffer losing focus
             let old_focus = self.focus;
             if let Some(state) =
                 self.panes.get_mut(old_focus.window, old_focus.pane)
