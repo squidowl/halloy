@@ -249,7 +249,7 @@ struct Halloy {
     focused_window: Option<window::Id>,
     pending_logs: Vec<data::log::Record>,
     notifications: Notifications,
-    power: system::State,
+    system: system::State,
 }
 
 impl Halloy {
@@ -332,6 +332,7 @@ impl Halloy {
         };
 
         let (notifications, stream) = Notifications::new(&config);
+        let system = system::State::new(servers.entries().next().is_some());
 
         let commands =
             Task::batch(vec![stream.map(Message::Notification), commands]);
@@ -351,7 +352,7 @@ impl Halloy {
                 focused_window: None,
                 pending_logs: vec![],
                 notifications,
-                power: system::State::default(),
+                system,
             },
             commands,
         )
@@ -832,12 +833,12 @@ impl Halloy {
             }
             Message::System(system::Event::Suspending) => {
                 log::info!("system suspending");
-                self.power = system::State::Suspended;
+                self.system.suspending();
                 Task::none()
             }
             Message::System(system::Event::Resumed) => {
                 log::info!("system resumed");
-                self.power = system::State::Awake;
+                self.system.resumed();
                 Task::none()
             }
             Message::Stream(update) => match update {
@@ -860,7 +861,8 @@ impl Halloy {
                         &self.config,
                     );
 
-                    if is_initial || self.power.suppresses_connection_events() {
+                    if is_initial || self.system.suppresses_connection_events()
+                    {
                         Task::none()
                     } else {
                         if !self.main_window.focused {
@@ -891,7 +893,7 @@ impl Halloy {
                 stream::Update::Connecting { server, sent_time } => {
                     self.clients.connecting(&server);
 
-                    if self.power.suppresses_connection_events() {
+                    if self.system.suppresses_connection_events() {
                         return Task::none();
                     }
 
@@ -930,7 +932,7 @@ impl Halloy {
                         &self.config,
                     );
 
-                    if self.power.suppresses_connection_events() {
+                    if self.system.suppresses_connection_events() {
                         return Task::none();
                     }
 
@@ -973,7 +975,7 @@ impl Halloy {
                 } => {
                     self.clients.connection_failed(&server, autoconnect);
 
-                    if self.power.suppresses_connection_events() {
+                    if self.system.suppresses_connection_events() {
                         return Task::none();
                     }
 
@@ -1658,6 +1660,9 @@ impl Halloy {
                 }
 
                 self.servers.set_order(updated.sidebar.order_by);
+                self.system.set_maintain_connections(
+                    self.servers.entries().next().is_some(),
+                );
 
                 self.theme = self
                     .current_mode

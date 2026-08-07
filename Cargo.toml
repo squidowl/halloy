@@ -159,6 +159,7 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = [
 ] }
 objc2-foundation = { version = "0.3.2", default-features = false, features = [
     "std",
+    "NSProcessInfo",
     "NSString",
     "NSURL",
 ] }
