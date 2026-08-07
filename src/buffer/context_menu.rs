@@ -21,6 +21,7 @@ use crate::widget::{
 };
 use crate::{Theme, font, icon, theme, widget};
 
+#[derive(Clone)]
 pub struct UserContext<'a> {
     pub server: &'a Server,
     pub prefix: &'a [isupport::PrefixMap],
@@ -29,30 +30,61 @@ pub struct UserContext<'a> {
     pub avatar: Option<UserAvatar<'a>>,
     pub user: &'a User,
     pub current_user: Option<&'a User>,
+    pub message: Option<&'a message::Message>,
 }
 
+#[derive(Clone)]
 pub struct UrlContext<'a> {
     pub url: &'a str,
     pub message: Option<&'a message::Message>,
-    pub selected_reactions: Vec<&'a str>,
 }
 
+#[derive(Clone)]
 pub struct ChannelContext<'a> {
     pub server: &'a Server,
     pub channel: &'a target::Channel,
     pub is_open: bool,
+    pub message: Option<&'a message::Message>,
 }
 
+pub trait ChannelsContext {
+    fn is_focused(&self, server: &Server, channel: &target::Channel) -> bool;
+    fn is_open(&self, server: &Server, channel: &target::Channel) -> bool;
+
+    fn channel_entries(
+        &self,
+        server: &Server,
+        channel: &target::Channel,
+    ) -> Vec<Entry> {
+        Entry::channel_list(
+            self.is_open(server, channel),
+            self.is_focused(server, channel),
+        )
+    }
+
+    fn channel_context<'a>(
+        &'a self,
+        server: &'a Server,
+        channel: &'a target::Channel,
+        message: Option<&'a message::Message>,
+    ) -> ChannelContext<'a> {
+        ChannelContext {
+            server,
+            channel,
+            is_open: self.is_open(server, channel),
+            message,
+        }
+    }
+}
+
+#[derive(Clone)]
 pub enum Context<'a> {
     User(UserContext<'a>),
     Url(UrlContext<'a>),
     Channel(ChannelContext<'a>),
     Timestamp(&'a DateTime<Utc>),
     NotSentMessage(&'a DateTime<Utc>, &'a message::Hash),
-    Message {
-        message: &'a message::Message,
-        selected_reactions: &'a [String],
-    },
+    Message { message: &'a message::Message },
 }
 
 impl<'a> Context<'a> {
@@ -279,24 +311,8 @@ impl Entry {
         entries
     }
 
-    pub fn url_list(
-        has_redaction: bool,
-        redaction_expanded: Option<bool>,
-        preview_hidden: Option<bool>,
-        can_send_reactions: bool,
-        can_redact: bool,
-        can_send_replies: bool,
-    ) -> Vec<Self> {
+    pub fn url_list(preview_hidden: Option<bool>) -> Vec<Self> {
         let mut entries = vec![];
-
-        if let Some(redaction_expanded) = redaction_expanded {
-            entries.push(if redaction_expanded {
-                Entry::HideWithRedaction
-            } else {
-                Entry::ShowRedactedMessage
-            });
-            entries.push(Entry::HorizontalRule);
-        }
 
         entries.push(Entry::CopyUrl);
         entries.push(Entry::OpenUrl);
@@ -308,28 +324,6 @@ impl Entry {
             } else {
                 Entry::HidePreview
             });
-        }
-
-        entries.push(Entry::HorizontalRule);
-        entries.push(Entry::CopyMessage);
-        if has_redaction {
-            entries.push(Entry::CopyRedaction);
-        }
-
-        if can_send_replies || can_send_reactions || can_redact {
-            entries.push(Entry::HorizontalRule);
-        }
-
-        if can_send_replies {
-            entries.push(Entry::Reply);
-        }
-
-        if can_send_reactions {
-            entries.push(Entry::AddReaction);
-        }
-
-        if can_redact {
-            entries.push(Entry::Redact);
         }
 
         entries
@@ -432,146 +426,9 @@ impl Entry {
         length: Length,
         config: &'a Config,
         theme: &'a Theme,
+        selected: bool,
     ) -> Element<'a, Message> {
         context.map_or(row![].into(), |context| match (self, context) {
-            (Entry::Whois, Context::User(UserContext { server, user, .. })) => {
-                let message =
-                    Message::Whois(server.clone(), user.nickname().to_owned());
-
-                menu_button(
-                    "Whois".to_string(),
-                    Some(message),
-                    length,
-                    theme,
-                    config,
-                )
-            }
-            (
-                Entry::Whowas,
-                Context::User(UserContext { server, user, .. }),
-            ) => {
-                let message =
-                    Message::Whowas(server.clone(), user.nickname().to_owned());
-
-                menu_button(
-                    "Whowas".to_string(),
-                    Some(message),
-                    length,
-                    theme,
-                    config,
-                )
-            }
-            (Entry::Query, Context::User(UserContext { server, user, .. })) => {
-                let message = Message::OpenTarget(
-                    server.clone(),
-                    target::Query::from(user.clone()).to_target(),
-                    config.actions.buffer.message_user,
-                );
-
-                menu_button(
-                    "Message".to_string(),
-                    Some(message),
-                    length,
-                    theme,
-                    config,
-                )
-            }
-            (
-                Entry::ToggleAccessLevelOp,
-                Context::User(UserContext {
-                    server,
-                    prefix,
-                    channel,
-                    user,
-                    ..
-                }),
-            ) => {
-                let operator_mode = prefix.iter().find_map(|prefix_map| {
-                    (prefix_map.prefix == '@').then_some(prefix_map.mode)
-                });
-
-                let (label, message) =
-                    if let (Some(channel), Some(operator_mode)) =
-                        (channel, operator_mode)
-                    {
-                        let is_op = user
-                            .has_access_level(data::user::AccessLevel::Oper);
-                        let prefix = if is_op { "-" } else { "+" };
-                        let action = format!("{prefix}{operator_mode}");
-
-                        (
-                            format!(
-                                "{} Op ({action})",
-                                if is_op { "Take" } else { "Give" }
-                            ),
-                            Some(Message::ToggleAccessLevel(
-                                server.clone(),
-                                channel.clone(),
-                                user.nickname().to_owned(),
-                                action,
-                            )),
-                        )
-                    } else {
-                        (String::new(), None)
-                    };
-
-                menu_button(label, message, length, theme, config)
-            }
-            (
-                Entry::ToggleAccessLevelVoice,
-                Context::User(UserContext {
-                    server,
-                    prefix,
-                    channel,
-                    user,
-                    ..
-                }),
-            ) => {
-                let voice_mode = prefix.iter().find_map(|prefix_map| {
-                    (prefix_map.prefix == '+').then_some(prefix_map.mode)
-                });
-
-                let (label, message) =
-                    if let (Some(channel), Some(voice_mode)) =
-                        (channel, voice_mode)
-                    {
-                        let has_voice = user
-                            .has_access_level(data::user::AccessLevel::Voice);
-                        let prefix = if has_voice { "-" } else { "+" };
-                        let action = format!("{prefix}{voice_mode}");
-
-                        (
-                            format!(
-                                "{} Voice ({action})",
-                                if has_voice { "Take" } else { "Give" }
-                            ),
-                            Some(Message::ToggleAccessLevel(
-                                server.clone(),
-                                channel.clone(),
-                                user.nickname().to_owned(),
-                                action,
-                            )),
-                        )
-                    } else {
-                        (String::new(), None)
-                    };
-
-                menu_button(label, message, length, theme, config)
-            }
-            (
-                Entry::SendFile,
-                Context::User(UserContext { server, user, .. }),
-            ) => {
-                let message = Message::SendFile(server.clone(), user.clone());
-
-                menu_button(
-                    "Send File".to_string(),
-                    Some(message),
-                    length,
-                    theme,
-                    config,
-                )
-            }
             (
                 Entry::UserInfo,
                 Context::User(UserContext {
@@ -606,373 +463,398 @@ impl Entry {
                 }
                 _ => Space::new().width(length).height(1).into(),
             },
+            (_, context) => self.as_label_and_message(&context, config).map_or(
+                row![].into(),
+                |(label, message)| {
+                    menu_button(label, message, selected, length, theme, config)
+                },
+            ),
+        })
+    }
+
+    pub fn as_label_and_message(
+        &self,
+        context: &Context<'_>,
+        config: &Config,
+    ) -> Option<(String, Option<Message>)> {
+        match (self, context) {
+            (Entry::Whois, Context::User(UserContext { server, user, .. })) => {
+                Some((
+                    "Whois".to_string(),
+                    Some(Message::Whois(
+                        (*server).clone(),
+                        user.nickname().to_owned(),
+                    )),
+                ))
+            }
+            (
+                Entry::Whowas,
+                Context::User(UserContext { server, user, .. }),
+            ) => Some((
+                "Whowas".to_string(),
+                Some(Message::Whowas(
+                    (*server).clone(),
+                    user.nickname().to_owned(),
+                )),
+            )),
+            (Entry::Query, Context::User(UserContext { server, user, .. })) => {
+                Some((
+                    "Message".to_string(),
+                    Some(Message::OpenTarget(
+                        (*server).clone(),
+                        target::Query::from(*user).into_target(),
+                        config.actions.buffer.message_user,
+                    )),
+                ))
+            }
+            (
+                Entry::ToggleAccessLevelOp,
+                Context::User(UserContext {
+                    server,
+                    prefix,
+                    channel,
+                    user,
+                    ..
+                }),
+            ) => {
+                let operator_mode = prefix.iter().find_map(|prefix_map| {
+                    (prefix_map.prefix == '@').then_some(prefix_map.mode)
+                });
+
+                if let (Some(channel), Some(operator_mode)) =
+                    (channel, operator_mode)
+                {
+                    let is_op =
+                        user.has_access_level(data::user::AccessLevel::Oper);
+                    let prefix = if is_op { "-" } else { "+" };
+                    let action = format!("{prefix}{operator_mode}");
+
+                    Some((
+                        format!(
+                            "{} Op ({action})",
+                            if is_op { "Take" } else { "Give" }
+                        ),
+                        Some(Message::ToggleAccessLevel(
+                            (*server).clone(),
+                            (*channel).clone(),
+                            user.nickname().to_owned(),
+                            action,
+                        )),
+                    ))
+                } else {
+                    None
+                }
+            }
+            (
+                Entry::ToggleAccessLevelVoice,
+                Context::User(UserContext {
+                    server,
+                    prefix,
+                    channel,
+                    user,
+                    ..
+                }),
+            ) => {
+                let voice_mode = prefix.iter().find_map(|prefix_map| {
+                    (prefix_map.prefix == '+').then_some(prefix_map.mode)
+                });
+
+                if let (Some(channel), Some(voice_mode)) = (channel, voice_mode)
+                {
+                    let has_voice =
+                        user.has_access_level(data::user::AccessLevel::Voice);
+                    let prefix = if has_voice { "-" } else { "+" };
+                    let action = format!("{prefix}{voice_mode}");
+
+                    Some((
+                        format!(
+                            "{} Voice ({action})",
+                            if has_voice { "Take" } else { "Give" }
+                        ),
+                        Some(Message::ToggleAccessLevel(
+                            (*server).clone(),
+                            (*channel).clone(),
+                            user.nickname().to_owned(),
+                            action,
+                        )),
+                    ))
+                } else {
+                    None
+                }
+            }
+            (
+                Entry::SendFile,
+                Context::User(UserContext { server, user, .. }),
+            ) => Some((
+                "Send File".to_string(),
+                Some(Message::SendFile((*server).clone(), (*user).clone())),
+            )),
             (
                 Entry::CtcpRequestTime,
                 Context::User(UserContext { server, user, .. }),
-            ) => {
-                let message = Message::CtcpRequest(
+            ) => Some((
+                "Local Time (TIME)".to_string(),
+                Some(Message::CtcpRequest(
                     ctcp::Command::Time,
-                    server.clone(),
+                    (*server).clone(),
                     user.nickname().to_owned(),
                     None,
-                );
-
-                menu_button(
-                    "Local Time (TIME)".to_string(),
-                    Some(message),
-                    length,
-                    theme,
-                    config,
-                )
-            }
+                )),
+            )),
             (
                 Entry::CtcpRequestVersion,
                 Context::User(UserContext { server, user, .. }),
-            ) => {
-                let message = Message::CtcpRequest(
+            ) => Some((
+                "Client (VERSION)".to_string(),
+                Some(Message::CtcpRequest(
                     ctcp::Command::Version,
-                    server.clone(),
+                    (*server).clone(),
                     user.nickname().to_owned(),
                     None,
-                );
-
-                menu_button(
-                    "Client (VERSION)".to_string(),
-                    Some(message),
-                    length,
-                    theme,
-                    config,
-                )
-            }
-            (Entry::CopyUrl, Context::Url(UrlContext { url, .. })) => {
-                let message = Message::CopyText(url.to_string());
-
-                menu_button(
-                    "Copy URL".to_string(),
-                    Some(message),
-                    length,
-                    theme,
-                    config,
-                )
-            }
-            (Entry::OpenUrl, Context::Url(UrlContext { url, .. })) => {
-                let message = Message::OpenUrl(url.to_string());
-
-                menu_button(
-                    "Open URL".to_string(),
-                    Some(message),
-                    length,
-                    theme,
-                    config,
-                )
-            }
+                )),
+            )),
+            (Entry::CopyUrl, Context::Url(UrlContext { url, .. })) => Some((
+                "Copy URL".to_string(),
+                Some(Message::CopyText(url.to_string())),
+            )),
+            (Entry::OpenUrl, Context::Url(UrlContext { url, .. })) => Some((
+                "Open URL".to_string(),
+                Some(Message::OpenUrl(url.to_string())),
+            )),
             (
                 Entry::HidePreview,
                 Context::Url(UrlContext { url, message, .. }),
-            ) => {
-                let message = message.map(|message| {
+            ) => Some((
+                "Hide Preview".to_string(),
+                message.map(|message| {
                     Message::HidePreview(message.hash, url.to_string())
-                });
-
-                menu_button(
-                    "Hide Preview".to_string(),
-                    message,
-                    length,
-                    theme,
-                    config,
-                )
-            }
+                }),
+            )),
             (
                 Entry::ShowPreview,
                 Context::Url(UrlContext { url, message, .. }),
-            ) => {
-                let message = message.map(|message| {
+            ) => Some((
+                "Show Preview".to_string(),
+                message.map(|message| {
                     Message::ShowPreview(message.hash, url.to_string())
-                });
-
-                menu_button(
-                    "Show Preview".to_string(),
-                    message,
-                    length,
-                    theme,
-                    config,
-                )
-            }
+                }),
+            )),
             (
                 Entry::CopyChannel,
                 Context::Channel(ChannelContext { channel, .. }),
-            ) => {
-                let message = Message::CopyText(channel.to_string());
-
-                menu_button(
-                    "Copy channel".to_string(),
-                    Some(message),
-                    length,
-                    theme,
-                    config,
-                )
-            }
+            ) => Some((
+                "Copy channel".to_string(),
+                Some(Message::CopyText(channel.to_string())),
+            )),
             (
                 Entry::OpenChannelInNewPane,
                 Context::Channel(ChannelContext {
                     server, channel, ..
                 }),
-            ) => {
-                let message = Message::OpenTarget(
-                    server.clone(),
+            ) => Some((
+                "Open channel in new pane".to_string(),
+                Some(Message::OpenTarget(
+                    (*server).clone(),
                     channel.to_target(),
                     BufferAction::NewPane,
-                );
-
-                menu_button(
-                    "Open channel in new pane".to_string(),
-                    Some(message),
-                    length,
-                    theme,
-                    config,
-                )
-            }
+                )),
+            )),
             (
                 Entry::OpenChannelInNewWindow,
                 Context::Channel(ChannelContext {
                     server, channel, ..
                 }),
-            ) => {
-                let message = Message::OpenTarget(
-                    server.clone(),
+            ) => Some((
+                "Open channel in new window".to_string(),
+                Some(Message::OpenTarget(
+                    (*server).clone(),
                     channel.to_target(),
                     BufferAction::NewWindow,
-                );
-
-                menu_button(
-                    "Open channel in new window".to_string(),
-                    Some(message),
-                    length,
-                    theme,
-                    config,
-                )
-            }
+                )),
+            )),
             (
                 Entry::OpenChannelInFocusedPane,
                 Context::Channel(ChannelContext {
                     server,
                     channel,
                     is_open,
+                    ..
                 }),
-            ) => {
-                let message = Message::OpenTarget(
-                    server.clone(),
-                    channel.to_target(),
-                    BufferAction::ReplacePane,
-                );
-
-                let text = if is_open {
+            ) => Some((
+                if *is_open {
                     "Swap channel pane with current pane".to_string()
                 } else {
                     "Replace current pane with channel".to_string()
-                };
-
-                menu_button(text, Some(message), length, theme, config)
-            }
-            (Entry::Timestamp, Context::Timestamp(date_time)) => {
-                let context_menu_timestamp =
-                    config.buffer.format_context_menu_timestamp(date_time);
-
-                let message = Message::CopyTimestamp(*date_time);
-
-                menu_button(
-                    context_menu_timestamp,
-                    Some(message),
-                    length,
-                    theme,
-                    config,
-                )
-            }
+                },
+                Some(Message::OpenTarget(
+                    (*server).clone(),
+                    channel.to_target(),
+                    BufferAction::ReplacePane,
+                )),
+            )),
+            (Entry::Timestamp, Context::Timestamp(date_time)) => Some((
+                config.buffer.format_context_menu_timestamp(date_time),
+                Some(Message::CopyTimestamp(**date_time)),
+            )),
             (
                 Entry::DeleteMessage,
                 Context::NotSentMessage(server_time, hash),
-            ) => {
-                let message = Message::DeleteMessage(*server_time, *hash);
-
-                menu_button(
-                    "Delete Message".to_string(),
-                    Some(message),
-                    length,
-                    theme,
-                    config,
-                )
-            }
+            ) => Some((
+                "Delete Message".to_string(),
+                Some(Message::DeleteMessage(**server_time, **hash)),
+            )),
             (
                 Entry::ResendMessage,
                 Context::NotSentMessage(server_time, hash),
-            ) => {
-                let message = Message::ResendMessage(*server_time, *hash);
-
-                menu_button(
-                    "Re-send Message".to_string(),
-                    Some(message),
-                    length,
-                    theme,
-                    config,
-                )
-            }
-            (Entry::CopyMessage, Context::Message { message, .. }) => {
-                menu_button(
-                    "Copy message".to_string(),
-                    Some(Message::CopyText(message.text().into_owned())),
-                    length,
-                    theme,
-                    config,
-                )
-            }
+            ) => Some((
+                "Re-send Message".to_string(),
+                Some(Message::ResendMessage(**server_time, **hash)),
+            )),
+            (
+                Entry::CopyMessage,
+                Context::Message { message, .. }
+                | Context::User(UserContext {
+                    message: Some(message),
+                    ..
+                })
+                | Context::Url(UrlContext {
+                    message: Some(message),
+                    ..
+                })
+                | Context::Channel(ChannelContext {
+                    message: Some(message),
+                    ..
+                }),
+            ) => Some((
+                "Copy message".to_string(),
+                Some(Message::CopyText(message.text().into_owned())),
+            )),
             (
                 Entry::CopyRedaction,
                 Context::Message { message, .. }
+                | Context::User(UserContext {
+                    message: Some(message),
+                    ..
+                })
                 | Context::Url(UrlContext {
                     message: Some(message),
                     ..
+                })
+                | Context::Channel(ChannelContext {
+                    message: Some(message),
+                    ..
                 }),
-            ) => {
-                if let Some(redaction) = message.redaction.as_ref() {
-                    menu_button(
-                        "Copy redaction".to_string(),
-                        Some(Message::CopyText(redaction.message())),
-                        length,
-                        theme,
-                        config,
-                    )
-                } else {
-                    row![].into()
-                }
-            }
+            ) => message.redaction.as_ref().map(|redaction| {
+                (
+                    "Copy redaction".to_string(),
+                    Some(Message::CopyText(redaction.message())),
+                )
+            }),
             (
                 Entry::Reply,
                 Context::Message { message, .. }
+                | Context::User(UserContext {
+                    message: Some(message),
+                    ..
+                })
                 | Context::Url(UrlContext {
                     message: Some(message),
                     ..
+                })
+                | Context::Channel(ChannelContext {
+                    message: Some(message),
+                    ..
                 }),
-            ) => {
-                if let Some(msgid) = message.id.as_ref()
-                    && let Some(user) = message.target.source().user()
-                {
-                    menu_button(
+            ) => message.id.as_ref().zip(message.target.source().user()).map(
+                |(msgid, user)| {
+                    (
                         "Reply".to_string(),
                         Some(Message::Reply {
                             msgid: msgid.clone(),
                             server_time: message.server_time,
                             to_nick: user.nickname().to_owned(),
                         }),
-                        length,
-                        theme,
-                        config,
                     )
-                } else {
-                    row![].into()
-                }
-            }
-            (
-                Entry::AddReaction,
-                Context::Message {
-                    message,
-                    selected_reactions,
-                    ..
                 },
-            ) => {
-                if let Some(msgid) = message.id.as_ref() {
-                    menu_button(
-                        "Add reaction".to_string(),
-                        Some(Message::OpenReactionModal(
-                            msgid.clone(),
-                            selected_reactions.to_vec(),
-                        )),
-                        length,
-                        theme,
-                        config,
-                    )
-                } else {
-                    row![].into()
-                }
-            }
+            ),
             (
                 Entry::AddReaction,
-                Context::Url(UrlContext {
+                Context::Message { message }
+                | Context::User(UserContext {
                     message: Some(message),
-                    selected_reactions,
+                    ..
+                })
+                | Context::Url(UrlContext {
+                    message: Some(message),
+                    ..
+                })
+                | Context::Channel(ChannelContext {
+                    message: Some(message),
                     ..
                 }),
-            ) => {
-                if let Some(msgid) = message.id.as_ref() {
-                    menu_button(
-                        "Add reaction".to_string(),
-                        Some(Message::OpenReactionModal(
-                            msgid.clone(),
-                            selected_reactions
-                                .into_iter()
-                                .map(ToString::to_string)
-                                .collect(),
-                        )),
-                        length,
-                        theme,
-                        config,
-                    )
-                } else {
-                    row![].into()
-                }
-            }
+            ) => message.id.as_ref().map(|msgid| {
+                (
+                    "Add reaction".to_string(),
+                    Some(Message::OpenReactionModal(
+                        msgid.clone(),
+                        message.server_time,
+                    )),
+                )
+            }),
             (
                 Entry::Redact,
                 Context::Message { message, .. }
+                | Context::User(UserContext {
+                    message: Some(message),
+                    ..
+                })
                 | Context::Url(UrlContext {
                     message: Some(message),
                     ..
+                })
+                | Context::Channel(ChannelContext {
+                    message: Some(message),
+                    ..
                 }),
-            ) => {
-                if let Some(msgid) = message.id.as_ref() {
-                    menu_button(
-                        "Redact message".to_string(),
-                        Some(Message::Redact(msgid.clone())),
-                        length,
-                        theme,
-                        config,
-                    )
-                } else {
-                    row![].into()
-                }
-            }
+            ) => message.id.as_ref().map(|msgid| {
+                (
+                    "Redact message".to_string(),
+                    Some(Message::Redact(msgid.clone())),
+                )
+            }),
             (
                 Entry::HideWithRedaction,
                 Context::Message { message, .. }
+                | Context::User(UserContext {
+                    message: Some(message),
+                    ..
+                })
                 | Context::Url(UrlContext {
                     message: Some(message),
                     ..
+                })
+                | Context::Channel(ChannelContext {
+                    message: Some(message),
+                    ..
                 }),
-            ) => menu_button(
+            ) => Some((
                 "Hide with redaction".to_string(),
                 Some(Message::ContractMessage(
                     message.server_time,
                     message.hash,
                 )),
-                length,
-                theme,
-                config,
-            ),
-            (
-                Entry::ShowRedactedMessage,
-                Context::Message { message, .. }
-                | Context::Url(UrlContext {
-                    message: Some(message),
-                    ..
-                }),
-            ) => menu_button(
-                "Show redacted message".to_string(),
-                Some(Message::ExpandMessage(message.server_time, message.hash)),
-                length,
-                theme,
-                config,
-            ),
-            _ => row![].into(),
-        })
+            )),
+            (Entry::ShowRedactedMessage, Context::Message { message, .. }) => {
+                Some((
+                    "Show redacted message".to_string(),
+                    Some(Message::ExpandMessage(
+                        message.server_time,
+                        message.hash,
+                    )),
+                ))
+            }
+            _ => None,
+        }
     }
 }
 
@@ -994,7 +876,7 @@ pub enum Message {
     DeleteMessage(DateTime<Utc>, message::Hash),
     #[allow(clippy::enum_variant_names)]
     ResendMessage(DateTime<Utc>, message::Hash),
-    OpenReactionModal(message::Id, Vec<String>),
+    OpenReactionModal(message::Id, DateTime<Utc>),
     Redact(message::Id),
     Reply {
         msgid: message::Id,
@@ -1025,7 +907,7 @@ pub enum Event {
     CopyTimestamp(DateTime<Utc>),
     DeleteMessage(DateTime<Utc>, message::Hash),
     ResendMessage(DateTime<Utc>, message::Hash),
-    OpenReactionModal(message::Id, Vec<String>),
+    OpenReactionModal(message::Id, DateTime<Utc>),
     RedactMessage(message::Id),
     Reply {
         msgid: message::Id,
@@ -1069,8 +951,8 @@ pub fn update(message: Message) -> Option<Event> {
         Message::ResendMessage(server_time, hash) => {
             Some(Event::ResendMessage(server_time, hash))
         }
-        Message::OpenReactionModal(msgid, selected_reactions) => {
-            Some(Event::OpenReactionModal(msgid, selected_reactions))
+        Message::OpenReactionModal(msgid, server_time) => {
+            Some(Event::OpenReactionModal(msgid, server_time))
         }
         Message::Redact(msgid) => Some(Event::RedactMessage(msgid)),
         Message::Reply {
@@ -1099,7 +981,6 @@ pub fn update(message: Message) -> Option<Event> {
 pub fn message<'a, M>(
     content: impl Into<Element<'a, M>>,
     message: &'a message::Message,
-    selected_reactions: Vec<String>,
     can_send_replies: bool,
     can_send_reactions: bool,
     can_redact: bool,
@@ -1133,13 +1014,11 @@ where
         move |entry, length| {
             entry
                 .view(
-                    Some(Context::Message {
-                        message,
-                        selected_reactions: &selected_reactions,
-                    }),
+                    Some(Context::Message { message }),
                     length,
                     config,
                     theme,
+                    false,
                 )
                 .map(M::from)
         },
@@ -1150,25 +1029,21 @@ where
 pub fn preview<'a, M>(
     content: impl Into<Element<'a, M>>,
     url: &'a str,
-    can_send_replies: bool,
-    can_send_reactions: bool,
-    can_redact: bool,
     message: &'a message::Message,
-    selected_reactions: Vec<&'a str>,
+    append_entries: Vec<Entry>,
     config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, M>
 where
     M: From<Message> + 'a,
 {
-    let entries = Entry::url_list(
-        false, // Previews are hidden if the message is redacted
-        None,  // Previews are hidden if the message is redacted
-        Some(false),
-        can_send_reactions && message.id.is_some(),
-        can_redact && message.id.is_some(),
-        can_send_replies && message.id.is_some(),
-    );
+    let mut entries = Entry::url_list(Some(false));
+
+    if !append_entries.is_empty() {
+        entries.push(Entry::HorizontalRule);
+
+        entries.extend(append_entries);
+    }
 
     context_menu(
         context_menu::MouseButton::Right,
@@ -1183,11 +1058,11 @@ where
                     Some(Context::Url(UrlContext {
                         url,
                         message: Some(message),
-                        selected_reactions: selected_reactions.clone(),
                     })),
                     length,
                     config,
                     theme,
+                    false,
                 )
                 .map(M::from)
         },
@@ -1279,7 +1154,7 @@ fn user_with_entries<'a>(
         NicknameClickAction::OpenQuery(buffer_action) => {
             Some(Message::OpenTarget(
                 server.clone(),
-                target::Query::from(user).to_target(),
+                target::Query::from(user).into_target(),
                 *buffer_action,
             ))
         }
@@ -1298,7 +1173,7 @@ fn user_with_entries<'a>(
     let avatar = user_avatar(user, registry, previews, avatar_size);
     let on_open = avatar_size
         .filter(|_| config.context_menu.show_user_metadata)
-        .and_then(|size| avatar_url(user, registry, size))
+        .and_then(|size| metadata::avatar_url(user, registry, size))
         .filter(|url| !previews.contains_key(url))
         .map(|url| {
             let server = server.clone();
@@ -1323,10 +1198,12 @@ fn user_with_entries<'a>(
                     avatar: avatar.clone(),
                     user,
                     current_user,
+                    message: None,
                 })),
                 length,
                 config,
                 theme,
+                false,
             )
         },
     );
@@ -1359,6 +1236,7 @@ pub fn timestamp<'a>(
                 length,
                 config,
                 theme,
+                false,
             )
         },
     )
@@ -1388,19 +1266,21 @@ pub fn not_sent_message<'a>(
                 length,
                 config,
                 theme,
+                false,
             )
         },
     )
     .into()
 }
 
-fn menu_button(
+pub(crate) fn menu_button<'a, M: Clone + 'a>(
     content: String,
-    message: Option<Message>,
+    message: Option<M>,
+    selected: bool,
     length: Length,
     theme: &Theme,
     config: &Config,
-) -> Element<'static, Message> {
+) -> Element<'a, M> {
     let text_style = if message.is_some() {
         theme::text::primary
     } else {
@@ -1415,6 +1295,7 @@ fn menu_button(
     .padding(config.context_menu.padding.entry)
     .width(length)
     .on_press_maybe(message)
+    .style(move |theme, status| theme::button::primary(theme, status, selected))
     .into()
 }
 
@@ -1604,21 +1485,6 @@ fn user_metadata<'a>(
     content.padding(right_justified_padding(config)).into()
 }
 
-fn avatar_url(
-    user: &User,
-    registry: &dyn metadata::Registry,
-    size: u16,
-) -> Option<url::Url> {
-    let query = target::Query::from(user);
-    let avatar = registry.avatar(target::TargetRef::Query(&query))?;
-
-    // Replace optional `{size}` in the avatar URL with the display size
-    // https://ircv3.net/registry#user-metadata
-    let sized_avatar = avatar.replace("{size}", &size.to_string());
-
-    url::Url::parse(&sized_avatar).ok()
-}
-
 pub fn user_avatar<'a>(
     user: &User,
     registry: &dyn metadata::Registry,
@@ -1627,11 +1493,13 @@ pub fn user_avatar<'a>(
 ) -> Option<UserAvatar<'a>> {
     let size = size?;
 
-    avatar_url(user, registry, size).map(|url| match previews.get(&url) {
-        Some(preview::State::Loaded(preview)) => {
-            UserAvatar::Loaded(preview.image())
+    metadata::avatar_url(user, registry, size).map(|url| {
+        match previews.get(&url) {
+            Some(preview::State::Loaded(preview)) => {
+                UserAvatar::Loaded(preview.image())
+            }
+            _ => UserAvatar::Pending,
         }
-        _ => UserAvatar::Pending,
     })
 }
 

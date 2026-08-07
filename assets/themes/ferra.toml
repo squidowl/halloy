@@ -31,6 +31,7 @@ nickname_offline = "#a8a8a8"
 url = "#d1d1e0"
 selection = "#453d41"
 border_selected = "#7d6e76"
+focus = "#7aaedc"
 
 [buffer.server_messages]
 default = "#f5d76e"

@@ -337,6 +337,10 @@ impl Channel {
         &self.0.prefixes
     }
 
+    pub fn into_target(self) -> Target {
+        Target::Channel(self)
+    }
+
     pub fn to_target(&self) -> Target {
         Target::Channel(self.clone())
     }
@@ -454,6 +458,10 @@ impl Query {
         data.normalized = casemapping.normalize(&data.raw);
     }
 
+    pub fn into_target(self) -> Target {
+        Target::Query(self)
+    }
+
     pub fn to_target(&self) -> Target {
         Target::Query(self.clone())
     }
@@ -501,23 +509,4 @@ pub enum ParseError {
     InvalidChannel(String),
     #[error("unable to parse query from {0}")]
     InvalidQuery(String),
-}
-
-pub fn join_targets(targets: Vec<&str>) -> String {
-    if let Some((last_target, targets)) = targets.split_last() {
-        if let Some((first_target, targets)) = targets.split_first() {
-            if targets.is_empty() {
-                format!("{first_target} and {last_target}")
-            } else {
-                format!(
-                    "{first_target}, {}, and {last_target}",
-                    targets.join(", ")
-                )
-            }
-        } else {
-            last_target.to_string()
-        }
-    } else {
-        String::new()
-    }
 }

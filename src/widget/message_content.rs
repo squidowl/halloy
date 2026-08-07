@@ -42,6 +42,7 @@ pub fn message_content<'a, M: 'a + std::clone::Clone>(
         Option::<(fn(&message::Link) -> _, fn(&message::Link, _, _) -> _)>::None,
         nick_prefix_to_strip,
         config,
+        None,
     )
 }
 
@@ -62,6 +63,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
     entry: impl Fn(&message::Link, T, Length) -> Element<'a, M> + 'a,
     nick_prefix_to_strip: Option<&str>,
     config: &Config,
+    focused_link_index: Option<usize>,
 ) -> Element<'a, M> {
     message_content_impl(
         content,
@@ -79,6 +81,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
         Some((link_entries, entry)),
         nick_prefix_to_strip,
         config,
+        focused_link_index,
     )
 }
 
@@ -102,6 +105,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
     )>,
     nick_prefix_to_strip: Option<&str>,
     config: &Config,
+    focused_link_index: Option<usize>,
 ) -> Element<'a, M> {
     let color_from_user = |user: &User| -> Color {
         config
@@ -163,6 +167,17 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                 nick_prefix_to_strip.map_or((0, None), |nick| {
                     leading_nick_offsets(fragments, nick)
                 });
+
+            // Translate the focused link ordinal into the underlying fragment index
+            let focused_fragment_index = focused_link_index.and_then(|n| {
+                fragments
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, fragment)| fragment.is_focus_target())
+                    .nth(n)
+                    .map(|(index, _)| index)
+            });
+
             let mut text = selectable_rich_text::<
                 M,
                 message::Link,
@@ -190,6 +205,16 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                             }
                         };
 
+                        let is_focused = Some(index) == focused_fragment_index;
+                        let focus_border =
+                            is_focused.then_some(theme::focus_border(theme));
+                        let focus_background = is_focused.then_some(
+                            theme
+                                .styles()
+                                .buffer
+                                .focus_background_or_fallback(),
+                        );
+
                         let span = match fragment {
                             data::message::Fragment::Text(s) => {
                                 let text = prefix_text_override
@@ -212,6 +237,8 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                                     .color(transform_color(
                                         theme.styles().buffer.url.color,
                                     ))
+                                    .border_maybe(focus_border)
+                                    .background_maybe(focus_background)
                                     .link(message::Link::Channel(
                                         server.clone(),
                                         target::Channel::from_str(
@@ -239,6 +266,8 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                                             .map(font::get),
                                     )
                                     .color(transform_color(color))
+                                    .border_maybe(focus_border)
+                                    .background_maybe(focus_background)
                                     .link(message::Link::User(
                                         server.clone(),
                                         user.clone(),
@@ -281,27 +310,30 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                                     ))
                                     .background(theme.styles().buffer.highlight)
                             }
-                            data::message::Fragment::Url(u, s) => if config
-                                .display
-                                .decode_urls
-                            {
-                                span(data::url::display(u))
-                            } else {
-                                span(s.as_str())
+                            data::message::Fragment::Url(u, s) => {
+                                if config.display.decode_urls {
+                                    span(data::url::display(u))
+                                } else {
+                                    span(s.as_str())
+                                }
+                                .font_maybe(
+                                    theme
+                                        .styles()
+                                        .buffer
+                                        .url
+                                        .font_style
+                                        .map(font::get),
+                                )
+                                .color(transform_color(
+                                    theme.styles().buffer.url.color,
+                                ))
+                                .border_maybe(focus_border)
+                                .background_maybe(focus_background)
+                                // Copy to clipboard in IDNA-compliant encoding.
+                                .link(
+                                    message::Link::Url(u.as_str().to_string()),
+                                )
                             }
-                            .font_maybe(
-                                theme
-                                    .styles()
-                                    .buffer
-                                    .url
-                                    .font_style
-                                    .map(font::get),
-                            )
-                            .color(transform_color(
-                                theme.styles().buffer.url.color,
-                            ))
-                            // Copy to clipboard in IDNA-compliant encoding.
-                            .link(message::Link::Url(u.as_str().to_string())),
                             data::message::Fragment::Formatted {
                                 text,
                                 formatting,

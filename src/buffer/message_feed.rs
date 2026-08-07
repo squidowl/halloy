@@ -8,9 +8,7 @@ use data::{
 use iced::widget::{container, row, span};
 use iced::{Color, Length, Size, Task};
 
-use super::context_menu::{
-    self, ChannelContext, Context, UrlContext, UserContext,
-};
+use super::context_menu::{self, Context, UrlContext, UserContext};
 use super::scroll_view;
 use crate::widget::user_display::UserDisplay;
 use crate::widget::{
@@ -64,11 +62,11 @@ pub fn view<'a>(
     previews: &'a preview::Collection,
     config: &'a Config,
     theme: &'a Theme,
-    channel_is_focused: impl Fn(&Server, &target::Channel) -> bool + Copy + 'a,
-    channel_is_open: impl Fn(&Server, &target::Channel) -> bool + Copy + 'a,
+    channels_context: &'a dyn context_menu::ChannelsContext,
 ) -> Element<'a, Message> {
     let messages = scroll_view::view(
         &state.scroll_view,
+        &None,
         state.kind.scroll_view(),
         history,
         None,
@@ -144,10 +142,8 @@ pub fn view<'a>(
                                         fn(&str) -> Vec<context_menu::Entry>,
                                     >::None,
                                     Some(|server, channel| {
-                                        context_menu::Entry::channel_list(
-                                            channel_is_open(server, channel),
-                                            channel_is_focused(server, channel),
-                                        )
+                                        channels_context
+                                            .channel_entries(server, channel)
                                     }),
                                 )
                     },
@@ -158,17 +154,16 @@ pub fn view<'a>(
                                     link,
                                     Option::<fn(&User) -> UserContext>::None,
                                     Option::<fn(&str) -> UrlContext>::None,
-                                    Some(|server, channel| ChannelContext {
-                                        server,
-                                        channel,
-                                        is_open: channel_is_open(
-                                            server, channel,
-                                        ),
+                                    Some(|server, channel| {
+                                        channels_context.channel_context(
+                                            server, channel, None,
+                                        )
                                     }),
                                 ),
                                 length,
                                 config,
                                 theme,
+                                false,
                             )
                             .map(scroll_view::Message::ContextMenu)
                     },
@@ -209,6 +204,7 @@ pub fn view<'a>(
                     None,
                     false,
                     true,
+                    false,
                     theme,
                     config,
                 );
@@ -264,16 +260,10 @@ pub fn view<'a>(
                                     true,
                                 )
                             }),
-                            Some(|_| {
-                                context_menu::Entry::url_list(
-                                    false, None, None, false, false, false,
-                                )
-                            }),
+                            Some(|_| context_menu::Entry::url_list(None)),
                             Some(|server, channel| {
-                                context_menu::Entry::channel_list(
-                                    channel_is_open(server, channel),
-                                    channel_is_focused(server, channel),
-                                )
+                                channels_context
+                                    .channel_entries(server, channel)
                             }),
                         )
                     },
@@ -293,25 +283,22 @@ pub fn view<'a>(
                                 ),
                                 user,
                                 current_user,
-                            }),
-                            Some(|url| UrlContext {
-                                url,
                                 message: None,
-                                selected_reactions: vec![],
                             }),
-                            Some(|server, channel| ChannelContext {
-                                server,
-                                channel,
-                                is_open: channel_is_open(server, channel),
+                            Some(|url| UrlContext { url, message: None }),
+                            Some(|server, channel| {
+                                channels_context
+                                    .channel_context(server, channel, None)
                             }),
                         );
 
                         entry
-                            .view(context, length, config, theme)
+                            .view(context, length, config, theme, false)
                             .map(scroll_view::Message::ContextMenu)
                     },
                     None,
                     config,
+                    None,
                 );
 
                 Some(
@@ -400,8 +387,7 @@ pub fn view<'a>(
             _ => None,
         },
         metadata::EMPTY,
-        channel_is_focused,
-        channel_is_open,
+        channels_context,
     )
     .map(Message::ScrollView);
 
@@ -438,6 +424,7 @@ impl MessageFeed {
             Message::ScrollView(message) => {
                 let (command, event) = self.scroll_view.update(
                     message,
+                    &mut None,
                     false,
                     self.kind.scroll_view(),
                     None,
@@ -480,6 +467,9 @@ impl MessageFeed {
                     scroll_view::Event::ContractMessage(server_time, hash) => {
                         Some(Event::ContractMessage(server_time, hash))
                     }
+                    scroll_view::Event::ExitFocus(_)
+                    | scroll_view::Event::FocusAction(_)
+                    | scroll_view::Event::FocusContextAction(_) => None,
                 });
 
                 (command.map(Message::ScrollView), event)

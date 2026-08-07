@@ -11,7 +11,7 @@ use iced::widget::{column, container, stack};
 use iced::{Length, Size, Task, padding};
 
 use super::message_view::{ChannelQueryLayout, TargetInfo};
-use super::{context_menu, input_view, scroll_view, typing};
+use super::{context_menu, input_view, message_focus, scroll_view, typing};
 use crate::Theme;
 use crate::widget::Element;
 
@@ -62,8 +62,7 @@ pub fn view<'a>(
     config: &'a Config,
     theme: &'a Theme,
     is_focused: bool,
-    channel_is_focused: impl Fn(&Server, &target::Channel) -> bool + Copy + 'a,
-    channel_is_open: impl Fn(&Server, &target::Channel) -> bool + Copy + 'a,
+    channels_context: &'a dyn context_menu::ChannelsContext,
 ) -> Element<'a, Message> {
     let server = &state.server;
     let connected = matches!(clients.status(server), client::Status::Connected);
@@ -123,6 +122,7 @@ pub fn view<'a>(
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
+            state.message_focus.focused(),
             scroll_view::Kind::Query(server, query),
             history,
             Some(previews),
@@ -137,8 +137,7 @@ pub fn view<'a>(
             theme,
             message_formatter,
             clients.get_registry(server),
-            channel_is_focused,
-            channel_is_open,
+            channels_context,
         )
         .map(Message::ScrollView),
     )
@@ -203,6 +202,7 @@ pub struct Query {
     pub target: target::Query,
     pub scroll_view: scroll_view::State,
     pub input_view: input_view::State,
+    pub message_focus: message_focus::Manager,
 }
 
 impl Query {
@@ -228,6 +228,7 @@ impl Query {
             server,
             target,
             scroll_view: scroll_view::State::new(pane_size, config),
+            message_focus: message_focus::Manager::new(),
         }
     }
 
@@ -243,6 +244,7 @@ impl Query {
             Message::ScrollView(message) => {
                 let (command, event) = self.scroll_view.update(
                     message,
+                    self.message_focus.focused_mut(),
                     config.buffer.chathistory.infinite_scroll,
                     scroll_view::Kind::Query(&self.server, &self.target),
                     Some(&self.buffer),
@@ -266,6 +268,7 @@ impl Query {
                             server_time,
                             to_nick: to_nick.clone(),
                         },
+                        self.message_focus.is_focused(),
                         &self.buffer,
                         clients,
                         history,
@@ -282,6 +285,33 @@ impl Query {
                             server_time,
                             to_nick,
                         })),
+                    );
+                }
+
+                if let Some(event) = &event
+                    && let Some((scroll_task, input_task, context_menu_event)) =
+                        self.message_focus.handle_scroll_event(
+                            event,
+                            &mut self.scroll_view,
+                            &mut self.input_view,
+                            &self.buffer,
+                            scroll_view::Kind::Query(
+                                &self.server,
+                                &self.target,
+                            ),
+                            clients,
+                            history,
+                            previews,
+                            config,
+                        )
+                {
+                    return (
+                        Task::batch([
+                            command.map(Message::ScrollView),
+                            scroll_task.map(Message::ScrollView),
+                            input_task.map(Message::InputView),
+                        ]),
+                        context_menu_event.map(Event::ContextMenu),
                     );
                 }
 
@@ -325,13 +355,18 @@ impl Query {
                     scroll_view::Event::ContractMessage(server_time, hash) => {
                         Some(Event::ContractMessage(server_time, hash))
                     }
+                    scroll_view::Event::ExitFocus(_)
+                    | scroll_view::Event::FocusAction(_)
+                    | scroll_view::Event::FocusContextAction(_) => None,
                 });
 
                 (command.map(Message::ScrollView), event)
             }
             Message::InputView(message) => {
+                let was_focused = self.message_focus.is_focused();
                 let (command, event) = self.input_view.update(
                     message,
+                    was_focused,
                     &self.buffer,
                     clients,
                     history,
@@ -397,12 +432,42 @@ impl Query {
                             abort_registrations,
                         }),
                     ),
+                    Some(
+                        event @ (input_view::Event::NavigateFocus(_)
+                        | input_view::Event::ExitFocus
+                        | input_view::Event::FocusAction(_)),
+                    ) => {
+                        let (scroll_task, input_task, context_menu_event) =
+                            self.message_focus.handle_input_event(
+                                event,
+                                &mut self.scroll_view,
+                                &mut self.input_view,
+                                &self.buffer,
+                                scroll_view::Kind::Query(
+                                    &self.server,
+                                    &self.target,
+                                ),
+                                clients,
+                                history,
+                                previews,
+                                config,
+                            );
+                        (
+                            Task::batch([
+                                command,
+                                scroll_task.map(Message::ScrollView),
+                                input_task.map(Message::InputView),
+                            ]),
+                            context_menu_event.map(Event::ContextMenu),
+                        )
+                    }
                     None => (command, None),
                 }
             }
             Message::FilehostUploadDone { id, url } => {
                 let (task, _) = self.input_view.update(
                     input_view::Message::FilehostUploadDone { id, url },
+                    false,
                     &self.buffer,
                     clients,
                     history,
@@ -413,6 +478,7 @@ impl Query {
             Message::FilesDropped(paths) => {
                 let (task, event) = self.input_view.update(
                     input_view::Message::FilesSelected(paths),
+                    false,
                     &self.buffer,
                     clients,
                     history,

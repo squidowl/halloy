@@ -301,7 +301,7 @@ pub async fn append(
     for (id, pending) in pending_reactions.into_iter() {
         if let Some(server_time) = pending.server_time()
             && let Some(message) =
-                find_reply_target_mut(&mut all_messages, &id, &server_time)
+                find_message_mut_by_id(&mut all_messages, &id, &server_time)
         {
             if message.is_echo
                 && message.direction == Direction::Received
@@ -340,7 +340,7 @@ pub async fn append(
 
     for (id, pending) in pending_redactions.into_iter() {
         if let Some(message) =
-            find_reply_target_mut(&mut all_messages, &id, &pending.server_time)
+            find_message_mut_by_id(&mut all_messages, &id, &pending.server_time)
         {
             message.redaction = Some(pending.redaction);
         }
@@ -350,8 +350,11 @@ pub async fn append(
         if !message.is_echo
             && !message.deduplicate
             && let Some(reply_id) = &message.reply_to
-            && let Some(original) =
-                find_reply_target(&all_messages, reply_id, &message.server_time)
+            && let Some(original) = find_message_by_id(
+                &all_messages,
+                reply_id,
+                &message.server_time,
+            )
             && original.is_echo
             && original.direction == Direction::Received
         {
@@ -671,7 +674,25 @@ impl History {
         }
     }
 
-    pub fn find_reply_target(
+    pub fn find_message_by_hash(
+        &self,
+        hash: message::Hash,
+        server_time: &DateTime<Utc>,
+    ) -> Option<&Message> {
+        match self {
+            History::Partial {
+                pending_messages, ..
+            } => pending_messages
+                .iter()
+                .find(|(m, _)| m.hash == hash)
+                .map(|(m, _)| m),
+            History::Full { messages, .. } => {
+                find_message_by_hash(messages, hash, server_time)
+            }
+        }
+    }
+
+    pub fn find_message_by_id(
         &self,
         id: &message::Id,
         server_time: &DateTime<Utc>,
@@ -684,12 +705,12 @@ impl History {
                 .find(|(m, _)| m.id.as_deref() == Some(id))
                 .map(|(m, _)| m),
             History::Full { messages, .. } => {
-                find_reply_target(messages, id, server_time)
+                find_message_by_id(messages, id, server_time)
             }
         }
     }
 
-    pub fn find_reply_target_mut(
+    pub fn find_message_mut_by_id(
         &mut self,
         id: &message::Id,
         server_time: &DateTime<Utc>,
@@ -702,7 +723,7 @@ impl History {
                 .find(|(m, _)| m.id.as_deref() == Some(id))
                 .map(|(m, _)| m),
             History::Full { messages, .. } => {
-                find_reply_target_mut(messages, id, server_time)
+                find_message_mut_by_id(messages, id, server_time)
             }
         }
     }
@@ -712,7 +733,7 @@ impl History {
         id: &message::Id,
         server_time: &DateTime<Utc>,
     ) -> bool {
-        self.find_reply_target(id, server_time)
+        self.find_message_by_id(id, server_time)
             .is_some_and(|msg| msg.direction == Direction::Sent || msg.is_echo)
     }
 
@@ -1445,7 +1466,7 @@ impl History {
                 last_updated_at,
                 ..
             } => {
-                let message = find_reply_target_mut(
+                let message = find_message_mut_by_id(
                     messages,
                     &reaction.in_reply_to,
                     &reaction.inner.server_time,
@@ -1817,7 +1838,16 @@ pub fn get_last_seen(messages: &[Message]) -> HashMap<Nick, DateTime<Utc>> {
     last_seen
 }
 
-pub fn find_reply_target<'a>(
+pub fn find_message_by_hash<'a>(
+    messages: &'a [Message],
+    hash: message::Hash,
+    server_time: &DateTime<Utc>,
+) -> Option<&'a Message> {
+    position_message(messages, |message| message.hash == hash, server_time)
+        .and_then(|position| messages.get(position))
+}
+
+pub fn find_message_by_id<'a>(
     messages: &'a [Message],
     id: &message::Id,
     server_time: &DateTime<Utc>,
@@ -1826,7 +1856,7 @@ pub fn find_reply_target<'a>(
         .and_then(|position| messages.get(position))
 }
 
-pub fn find_reply_target_mut<'a>(
+pub fn find_message_mut_by_id<'a>(
     messages: &'a mut [Message],
     id: &message::Id,
     server_time: &DateTime<Utc>,
@@ -1838,6 +1868,18 @@ pub fn find_reply_target_mut<'a>(
 pub fn position_reply_target(
     messages: &[Message],
     id: &message::Id,
+    server_time: &DateTime<Utc>,
+) -> Option<usize> {
+    position_message(
+        messages,
+        |message| message.id.as_deref() == Some(id),
+        server_time,
+    )
+}
+
+pub fn position_message(
+    messages: &[Message],
+    is_match: impl Fn(&Message) -> bool,
     server_time: &DateTime<Utc>,
 ) -> Option<usize> {
     if messages.is_empty() {
@@ -1860,13 +1902,13 @@ pub fn position_reply_target(
         .iter()
         .take(start_index)
         .rev()
-        .position(|m| m.id.as_deref() == Some(id))
+        .position(&is_match)
         .map(|position| start_index - 1 - position)
         .or(messages
             .iter()
             .skip(start_index)
             .rev()
-            .position(|m| m.id.as_deref() == Some(id))
+            .position(is_match)
             .map(|position| messages.len() - 1 - position))
 }
 

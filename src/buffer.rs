@@ -18,8 +18,10 @@ pub use self::channel::Channel;
 pub use self::channel_discovery::ChannelDiscovery;
 pub use self::config_editor::ConfigEditor;
 pub use self::file_transfers::FileTransfers;
+pub use self::input_view::FocusAction;
 pub use self::logs::Logs;
 pub use self::message_feed::MessageFeed;
+pub use self::message_focus::FocusDirection;
 pub use self::query::Query;
 pub use self::server::Server;
 use crate::Theme;
@@ -35,6 +37,7 @@ pub mod file_transfers;
 mod input_view;
 pub mod logs;
 pub mod message_feed;
+pub mod message_focus;
 mod message_view;
 pub mod query;
 mod scroll_view;
@@ -625,12 +628,7 @@ impl Buffer {
         theme: &'a Theme,
         is_focused: bool,
         sidebar: &'a sidebar::Sidebar,
-        channel_is_focused: impl Fn(&data::Server, &target::Channel) -> bool
-        + Copy
-        + 'a,
-        channel_is_open: impl Fn(&data::Server, &target::Channel) -> bool
-        + Copy
-        + 'a,
+        channels_context: &'a dyn context_menu::ChannelsContext,
     ) -> Element<'a, Message> {
         match self {
             Buffer::Empty => empty::view(config, sidebar),
@@ -644,8 +642,7 @@ impl Buffer {
                 config,
                 theme,
                 is_focused,
-                channel_is_focused,
-                channel_is_open,
+                channels_context,
             )
             .map(Message::Channel),
             Buffer::Server(state) => server::view(
@@ -656,8 +653,7 @@ impl Buffer {
                 config,
                 theme,
                 is_focused,
-                channel_is_focused,
-                channel_is_open,
+                channels_context,
             )
             .map(Message::Server),
             Buffer::Query(state) => query::view(
@@ -669,23 +665,17 @@ impl Buffer {
                 config,
                 theme,
                 is_focused,
-                channel_is_focused,
-                channel_is_open,
+                channels_context,
             )
             .map(Message::Query),
             Buffer::FileTransfers(state) => {
                 file_transfers::view(state, file_transfers, theme)
                     .map(Message::FileTransfers)
             }
-            Buffer::Logs(state) => logs::view(
-                state,
-                history,
-                config,
-                theme,
-                channel_is_focused,
-                channel_is_open,
-            )
-            .map(Message::Logs),
+            Buffer::Logs(state) => {
+                logs::view(state, history, config, theme, channels_context)
+                    .map(Message::Logs)
+            }
             Buffer::Highlights(state) | Buffer::ChannelMonitor(state) => {
                 let kind = state.kind;
 
@@ -696,8 +686,7 @@ impl Buffer {
                     previews,
                     config,
                     theme,
-                    channel_is_focused,
-                    channel_is_open,
+                    channels_context,
                 )
                 .map(move |message| map_message_feed_message(kind, message))
             }
@@ -706,8 +695,7 @@ impl Buffer {
                 clients,
                 config,
                 theme,
-                channel_is_focused,
-                channel_is_open,
+                channels_context,
             )
             .map(Message::ChannelList),
             Buffer::ConfigEditor(state) => {
@@ -870,7 +858,7 @@ impl Buffer {
     }
 
     pub fn scroll_up_page(&mut self) -> Task<Message> {
-        match self {
+        self.clear_focus_mode_and_refocus().chain(match self {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::ChannelDiscovery(_) => Task::none(),
@@ -908,11 +896,11 @@ impl Buffer {
                     )
                 })
             }
-        }
+        })
     }
 
     pub fn scroll_down_page(&mut self) -> Task<Message> {
-        match self {
+        self.clear_focus_mode_and_refocus().chain(match self {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::ChannelDiscovery(_) => Task::none(),
@@ -950,11 +938,11 @@ impl Buffer {
                     )
                 })
             }
-        }
+        })
     }
 
     pub fn scroll_to_start(&mut self, config: &Config) -> Task<Message> {
-        match self {
+        self.clear_focus_mode_and_refocus().chain(match self {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::ChannelDiscovery(_) => Task::none(),
@@ -995,11 +983,11 @@ impl Buffer {
                         )
                     })
             }
-        }
+        })
     }
 
     pub fn scroll_to_end(&mut self, config: &Config) -> Task<Message> {
-        match self {
+        self.clear_focus_mode_and_refocus().chain(match self {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::ChannelDiscovery(_) => Task::none(),
@@ -1037,7 +1025,7 @@ impl Buffer {
                     )
                 })
             }
-        }
+        })
     }
 
     pub fn scroll_to_message(
@@ -1058,6 +1046,8 @@ impl Buffer {
                     scroll_view::Kind::Channel(&state.server, &state.target),
                     history,
                     config,
+                    true,
+                    scroll_view::ScrollAnchor::Top,
                 )
                 .map(|message| {
                     Message::Channel(channel::Message::ScrollView(message))
@@ -1069,6 +1059,8 @@ impl Buffer {
                     scroll_view::Kind::Server(&state.server),
                     history,
                     config,
+                    true,
+                    scroll_view::ScrollAnchor::Top,
                 )
                 .map(|message| {
                     Message::Server(server::Message::ScrollView(message))
@@ -1080,6 +1072,8 @@ impl Buffer {
                     scroll_view::Kind::Query(&state.server, &state.target),
                     history,
                     config,
+                    true,
+                    scroll_view::ScrollAnchor::Top,
                 )
                 .map(|message| {
                     Message::Query(query::Message::ScrollView(message))
@@ -1091,6 +1085,8 @@ impl Buffer {
                     scroll_view::Kind::Logs,
                     history,
                     config,
+                    true,
+                    scroll_view::ScrollAnchor::Top,
                 )
                 .map(|message| {
                     Message::Logs(logs::Message::ScrollView(message))
@@ -1105,6 +1101,8 @@ impl Buffer {
                         kind.scroll_view(),
                         history,
                         config,
+                        true,
+                        scroll_view::ScrollAnchor::Top,
                     )
                     .map(move |message| {
                         map_message_feed_message(
@@ -1178,23 +1176,23 @@ impl Buffer {
         }
     }
 
-    pub fn has_pending_scroll_to(&self) -> bool {
+    pub fn has_scroll_to(&self) -> bool {
         match self {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::ChannelDiscovery(_)
             | Buffer::ConfigEditor(_) => false,
-            Buffer::Channel(state) => state.scroll_view.has_pending_scroll_to(),
-            Buffer::Server(state) => state.scroll_view.has_pending_scroll_to(),
-            Buffer::Query(state) => state.scroll_view.has_pending_scroll_to(),
-            Buffer::Logs(state) => state.scroll_view.has_pending_scroll_to(),
+            Buffer::Channel(state) => state.scroll_view.has_scroll_to(),
+            Buffer::Server(state) => state.scroll_view.has_scroll_to(),
+            Buffer::Query(state) => state.scroll_view.has_scroll_to(),
+            Buffer::Logs(state) => state.scroll_view.has_scroll_to(),
             Buffer::Highlights(state) | Buffer::ChannelMonitor(state) => {
-                state.scroll_view.has_pending_scroll_to()
+                state.scroll_view.has_scroll_to()
             }
         }
     }
 
-    pub fn prepare_for_pending_scroll_to(
+    pub fn prepare_for_scroll_to(
         &mut self,
         history: &history::Manager,
         config: &Config,
@@ -1206,7 +1204,7 @@ impl Buffer {
             | Buffer::ConfigEditor(_) => Task::none(),
             Buffer::Channel(state) => state
                 .scroll_view
-                .prepare_for_pending_scroll_to(
+                .prepare_for_scroll_to(
                     scroll_view::Kind::Channel(&state.server, &state.target),
                     history,
                     config,
@@ -1216,7 +1214,7 @@ impl Buffer {
                 }),
             Buffer::Server(state) => state
                 .scroll_view
-                .prepare_for_pending_scroll_to(
+                .prepare_for_scroll_to(
                     scroll_view::Kind::Server(&state.server),
                     history,
                     config,
@@ -1226,7 +1224,7 @@ impl Buffer {
                 }),
             Buffer::Query(state) => state
                 .scroll_view
-                .prepare_for_pending_scroll_to(
+                .prepare_for_scroll_to(
                     scroll_view::Kind::Query(&state.server, &state.target),
                     history,
                     config,
@@ -1236,11 +1234,7 @@ impl Buffer {
                 }),
             Buffer::Logs(state) => state
                 .scroll_view
-                .prepare_for_pending_scroll_to(
-                    scroll_view::Kind::Logs,
-                    history,
-                    config,
-                )
+                .prepare_for_scroll_to(scroll_view::Kind::Logs, history, config)
                 .map(|message| {
                     Message::Logs(logs::Message::ScrollView(message))
                 }),
@@ -1249,11 +1243,7 @@ impl Buffer {
 
                 state
                     .scroll_view
-                    .prepare_for_pending_scroll_to(
-                        kind.scroll_view(),
-                        history,
-                        config,
-                    )
+                    .prepare_for_scroll_to(kind.scroll_view(), history, config)
                     .map(move |message| {
                         map_message_feed_message(
                             kind,
@@ -1389,6 +1379,162 @@ impl Buffer {
             Buffer::Query(state) => {
                 state.input_view.set_reply_preview(reply_preview);
             }
+        }
+    }
+
+    pub fn in_focus_mode(&self) -> bool {
+        match self {
+            Buffer::Channel(state) => state.message_focus.is_focused(),
+            Buffer::Query(state) => state.message_focus.is_focused(),
+            _ => false,
+        }
+    }
+
+    // Returns whether the buffer was in focus mode
+    pub fn clear_focus_mode(&mut self) -> bool {
+        match self {
+            Buffer::Channel(state) => state.message_focus.clear(),
+            Buffer::Query(state) => state.message_focus.clear(),
+            _ => false,
+        }
+    }
+
+    pub fn clear_focus_mode_and_refocus(&mut self) -> Task<Message> {
+        if self.clear_focus_mode() {
+            self.focus()
+        } else {
+            Task::none()
+        }
+    }
+
+    pub fn in_focus_menu(&self) -> bool {
+        match self {
+            Buffer::Channel(state) => state.message_focus.has_menu(),
+            Buffer::Query(state) => state.message_focus.has_menu(),
+            _ => false,
+        }
+    }
+
+    pub fn has_focused_component(&self) -> bool {
+        match self {
+            Buffer::Channel(state) => {
+                state.message_focus.has_focused_component()
+            }
+            Buffer::Query(state) => state.message_focus.has_focused_component(),
+            _ => false,
+        }
+    }
+
+    pub fn activate_focused_message_message(&self) -> Option<Message> {
+        match self {
+            Buffer::Channel(_) => {
+                Some(Message::Channel(channel::Message::ScrollView(
+                    scroll_view::Message::ActivateFocusedMessage,
+                )))
+            }
+            Buffer::Query(_) => {
+                Some(Message::Query(query::Message::ScrollView(
+                    scroll_view::Message::ActivateFocusedMessage,
+                )))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn open_focus_menu_message(&self) -> Option<Message> {
+        match self {
+            Buffer::Channel(_) => {
+                Some(Message::Channel(channel::Message::ScrollView(
+                    scroll_view::Message::OpenFocusMenu,
+                )))
+            }
+            Buffer::Query(_) => Some(Message::Query(
+                query::Message::ScrollView(scroll_view::Message::OpenFocusMenu),
+            )),
+            _ => None,
+        }
+    }
+
+    pub fn close_focus_menu_message(&self) -> Option<Message> {
+        match self {
+            Buffer::Channel(_) => {
+                Some(Message::Channel(channel::Message::ScrollView(
+                    scroll_view::Message::FocusMenuClose,
+                )))
+            }
+            Buffer::Query(_) => {
+                Some(Message::Query(query::Message::ScrollView(
+                    scroll_view::Message::FocusMenuClose,
+                )))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn focus_navigate_message(
+        &self,
+        direction: FocusDirection,
+    ) -> Option<Message> {
+        match self {
+            Buffer::Channel(_) => {
+                Some(Message::Channel(channel::Message::InputView(
+                    input_view::Message::NavigateFocus(direction),
+                )))
+            }
+            Buffer::Query(_) => {
+                Some(Message::Query(query::Message::InputView(
+                    input_view::Message::NavigateFocus(direction),
+                )))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn focus_action_message(
+        &self,
+        action: input_view::FocusAction,
+        clients: &data::client::Map,
+    ) -> Option<Message> {
+        // Gate the action on the same server capabilities the right-click
+        // menu uses, so an unsupported keybind is a no-op.
+        let server = self.server()?;
+        let permitted = match action {
+            FocusAction::CopyText | FocusAction::OpenLink => true,
+            FocusAction::Reply => clients.get_server_can_send_replies(&server),
+            FocusAction::OpenReactionModal => {
+                clients.get_server_can_send_reactions(&server)
+            }
+            FocusAction::Redact => clients.get_server_can_redact(&server),
+        };
+
+        if !permitted {
+            return None;
+        }
+
+        match self {
+            Buffer::Channel(_) => {
+                Some(Message::Channel(channel::Message::InputView(
+                    input_view::Message::FocusAction(action),
+                )))
+            }
+            Buffer::Query(_) => {
+                Some(Message::Query(query::Message::InputView(
+                    input_view::Message::FocusAction(action),
+                )))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn exit_focus_mode_message(&self) -> Option<Message> {
+        match self {
+            Buffer::Channel(_) => Some(Message::Channel(
+                channel::Message::InputView(input_view::Message::ExitFocus),
+            )),
+            Buffer::Query(_) => Some(Message::Query(
+                query::Message::InputView(input_view::Message::ExitFocus),
+            )),
+            _ => None,
         }
     }
 }

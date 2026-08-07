@@ -41,7 +41,7 @@ use crate::serde::{
     deserialize_f32_positive_float_maybe, deserialize_u8_positive_integer_maybe,
 };
 use crate::server::{ConfigMap as ServerMap, ServerName};
-use crate::shortcut::{Commands, KeyBind};
+use crate::shortcut::{Commands, FocusCommands, KeyBind};
 use crate::{Theme, environment};
 
 pub mod actions;
@@ -914,6 +914,11 @@ pub enum Error {
     MissingSaslPassword { label: String, context: String },
     #[error("Keybind \"{}\" is assigned to multiple actions: {}", keybind.as_config_string(), actions.as_config_string())]
     KeyBindConflict { keybind: KeyBind, actions: Commands },
+    #[error("Keybind \"{}\" is assigned to multiple actions: {}", keybind.as_config_string(), actions.as_config_string())]
+    FocusKeyBindConflict {
+        keybind: KeyBind,
+        actions: FocusCommands,
+    },
     #[error("{label} keyring entry `{key}` is missing for {context}.")]
     MissingKeyringPasswordEntry {
         label: String,

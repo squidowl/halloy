@@ -25,7 +25,10 @@ use tokio::time;
 
 use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
-use super::context_menu;
+use super::message_focus::{
+    FocusDirection, FocusMenu, FocusedComponent, FocusedMessage, focus_outline,
+};
+use super::{context_menu, input_view};
 use crate::widget::user_display::UserDisplay;
 use crate::widget::{Element, notify_visibility};
 use crate::{Theme, buffer, font, theme};
@@ -33,6 +36,13 @@ use crate::{Theme, buffer, font, theme};
 const SCROLL_TO_TIMEOUT: Duration = Duration::from_millis(200);
 /// Pages of off-screen messages to keep rendered above and below the viewport
 const BUFFER_PAGES: usize = 3;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ScrollAnchor {
+    #[default]
+    Top,
+    Bottom,
+}
 
 const HIGHLIGHT_HOLD_MS: u64 = 2000;
 const HIGHLIGHT_ALPHA_START: f32 = 1.0;
@@ -78,6 +88,14 @@ pub enum Message {
         msgid: message::Id,
         text: Cow<'static, str>,
     },
+    NavigateFocus(FocusDirection),
+    #[allow(clippy::enum_variant_names)]
+    ActivateFocusedMessage,
+    OpenFocusMenu,
+    FocusMenuSelect(usize),
+    FocusMenuActivate(context_menu::Message),
+    FocusMenuClose,
+    ExitFocus,
 }
 
 impl From<context_menu::Message> for Message {
@@ -99,6 +117,9 @@ pub enum Event {
     ImagePreview(Image),
     ExpandMessage(DateTime<Utc>, message::Hash),
     ContractMessage(DateTime<Utc>, message::Hash),
+    ExitFocus(Option<context_menu::Event>),
+    FocusAction(input_view::FocusAction),
+    FocusContextAction(context_menu::Message),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -112,7 +133,7 @@ pub enum Kind<'a> {
 }
 
 impl Kind<'_> {
-    fn server(&self) -> Option<&Server> {
+    pub(crate) fn server(&self) -> Option<&Server> {
         match self {
             Kind::Server(server)
             | Kind::Channel(server, _)
@@ -140,10 +161,6 @@ impl From<Kind<'_>> for history::Kind {
 }
 
 pub trait LayoutMessage<'a> {
-    fn should_track_reply_target_visibility(&self) -> bool {
-        false
-    }
-
     fn format(
         &self,
         message: &'a data::Message,
@@ -156,8 +173,9 @@ pub trait LayoutMessage<'a> {
         visible_url_messages: &HashMap<message::Hash, Vec<url::Url>>,
         hovered_preview: Option<(message::Hash, usize)>,
         hovered_reply: Option<message::Hash>,
-        channel_is_focused: impl Fn(&Server, &target::Channel) -> bool + Copy + 'a,
-        channel_is_open: impl Fn(&Server, &target::Channel) -> bool + Copy + 'a,
+        channels_context: &'a dyn context_menu::ChannelsContext,
+        focused_component: Option<&FocusedComponent>,
+        focus_menu: Option<&'a FocusMenu>,
     ) -> Option<Element<'a, Message>>;
 }
 
@@ -182,8 +200,9 @@ where
         _visible_url_messages: &HashMap<message::Hash, Vec<url::Url>>,
         _hovered_preview: Option<(message::Hash, usize)>,
         _hovered_reply: Option<message::Hash>,
-        _channel_is_focused: impl Fn(&Server, &target::Channel) -> bool + Copy + 'a,
-        _channel_is_open: impl Fn(&Server, &target::Channel) -> bool + Copy + 'a,
+        _channels_context: &'a dyn context_menu::ChannelsContext,
+        _focused_component: Option<&FocusedComponent>,
+        _focus_menu: Option<&'a FocusMenu>,
     ) -> Option<Element<'a, Message>> {
         self(
             message,
@@ -266,6 +285,7 @@ fn is_consecutive_user_message(
 
 pub fn view<'a>(
     state: &State,
+    focused_message: &'a Option<FocusedMessage>,
     kind: Kind,
     history: &'a history::Manager,
     previews: Option<Previews<'a>>,
@@ -276,8 +296,7 @@ pub fn view<'a>(
     theme: &'a Theme,
     formatter: impl LayoutMessage<'a> + 'a,
     registry: &'a dyn metadata::Registry,
-    channel_is_focused: impl Fn(&Server, &target::Channel) -> bool + Copy + 'a,
-    channel_is_open: impl Fn(&Server, &target::Channel) -> bool + Copy + 'a,
+    channels_context: &'a dyn context_menu::ChannelsContext,
 ) -> Element<'a, Message> {
     let divider_font_size =
         config.font.size.map_or(theme::TEXT_SIZE, f32::from) - 1.0;
@@ -358,60 +377,58 @@ pub fn view<'a>(
         .copied()
         .unwrap_or_default();
 
-    let (render_start, render_end) = if state.pending_scroll_to.is_some()
-        || state.is_scrolling_to
-        || total <= render_budget
-    {
-        (0, total)
-    } else {
-        let first_visible = match state.status {
-            Status::Bottom => {
-                let offset = state.last_scroll_offset;
-                let mut acc = 0.0_f32;
-                let mut from_bottom = 0;
-                for m in old_messages.iter().chain(&new_messages).rev() {
-                    if from_bottom == new_messages.len() {
-                        acc += div_height;
+    let (render_start, render_end) =
+        if state.scroll_to.is_some() || total <= render_budget {
+            (0, total)
+        } else {
+            let first_visible = match state.status {
+                Status::Bottom => {
+                    let offset = state.last_scroll_offset;
+                    let mut acc = 0.0_f32;
+                    let mut from_bottom = 0;
+                    for m in old_messages.iter().chain(&new_messages).rev() {
+                        if from_bottom == new_messages.len() {
+                            acc += div_height;
+                            if acc > offset {
+                                break;
+                            }
+                        }
+
+                        acc += msg_height(m);
                         if acc > offset {
                             break;
                         }
+                        from_bottom += 1;
                     }
-
-                    acc += msg_height(m);
-                    if acc > offset {
-                        break;
-                    }
-                    from_bottom += 1;
+                    total.saturating_sub(from_bottom + visible)
                 }
-                total.saturating_sub(from_bottom + visible)
-            }
-            Status::Unlocked => {
-                let offset = state.last_scroll_offset;
-                let mut acc = 0.0_f32;
-                let mut idx = 0;
-                for m in old_messages.iter().chain(&new_messages) {
-                    if idx == old_messages.len() {
-                        acc += div_height;
+                Status::Unlocked => {
+                    let offset = state.last_scroll_offset;
+                    let mut acc = 0.0_f32;
+                    let mut idx = 0;
+                    for m in old_messages.iter().chain(&new_messages) {
+                        if idx == old_messages.len() {
+                            acc += div_height;
+                            if acc > offset {
+                                break;
+                            }
+                        }
+
+                        acc += msg_height(m);
                         if acc > offset {
                             break;
                         }
+                        idx += 1;
                     }
-
-                    acc += msg_height(m);
-                    if acc > offset {
-                        break;
-                    }
-                    idx += 1;
+                    idx
                 }
-                idx
-            }
+            };
+
+            (
+                first_visible.saturating_sub(buffer),
+                (first_visible + visible + buffer).min(total),
+            )
         };
-
-        (
-            first_visible.saturating_sub(buffer),
-            (first_visible + visible + buffer).min(total),
-        )
-    };
 
     let old_start = render_start.min(old_messages.len());
     let old_end = render_end.min(old_messages.len());
@@ -583,6 +600,18 @@ pub fn view<'a>(
 
                 *prev_message = Some(message);
 
+                let (focused_component, focus_menu) =
+                    if let Some(focused_message) = focused_message.as_ref()
+                        && focused_message.is_match(message)
+                    {
+                        (
+                            focused_message.focused_component(),
+                            focused_message.menu(),
+                        )
+                    } else {
+                        (None, None)
+                    };
+
                 Some(
                     formatter
                         .format(
@@ -594,8 +623,9 @@ pub fn view<'a>(
                             &state.visible_url_messages,
                             state.hovered_preview,
                             state.hover_highlighted_message,
-                            channel_is_focused,
-                            channel_is_open,
+                            channels_context,
+                            focused_component,
+                            focus_menu,
                         )
                         .map(|element| (message, element)),
                 )
@@ -609,56 +639,64 @@ pub fn view<'a>(
 
                 *last_date = Some(date);
 
-                let element = if let Some((hash, alpha)) =
-                    state.highlighted_message
-                    && hash == message.hash
-                {
-                    container(element)
-                        .width(Length::Fill)
-                        .style(move |theme| {
-                            theme::container::highlighted_message(theme, alpha)
-                        })
-                        .into()
-                } else if state.hover_highlighted_message == Some(message.hash)
-                {
-                    container(element)
-                        .width(Length::Fill)
-                        .style(move |theme| {
-                            theme::container::highlighted_message(
-                                theme,
-                                HOVER_HIGHLIGHT_ALPHA,
-                            )
-                        })
-                        .into()
-                } else {
-                    element
-                };
-
-                // this prevents flicker when a message sits right at the edge
                 let element =
-                    if formatter.should_track_reply_target_visibility() {
-                        let is_visible =
-                            state.visible_messages.contains(&message.hash);
-                        if is_visible {
-                            notify_visibility(
-                                element,
-                                0.0,
-                                notify_visibility::When::NotContained,
-                                message.hash,
-                                Message::ExitedViewport(message.hash),
-                            )
-                        } else {
-                            notify_visibility(
-                                element,
-                                0.0,
-                                notify_visibility::When::Contained,
-                                message.hash,
-                                Message::EnteredViewport(message.hash),
-                            )
-                        }
+                    if focused_message.as_ref().is_some_and(|focused_message| {
+                        focused_message.is_match(message)
+                            && !focused_message.has_focused_component()
+                    }) {
+                        // Only show focus on the whole message when no link/preview
+                        focus_outline(
+                            container(element).width(Length::Fill).into(),
+                        )
+                    } else if let Some((hash, alpha)) =
+                        state.highlighted_message
+                        && hash == message.hash
+                    {
+                        container(element)
+                            .width(Length::Fill)
+                            .style(move |theme| {
+                                theme::container::highlighted_message(
+                                    theme, alpha,
+                                )
+                            })
+                            .into()
+                    } else if state.hover_highlighted_message
+                        == Some(message.hash)
+                    {
+                        container(element)
+                            .width(Length::Fill)
+                            .style(move |theme| {
+                                theme::container::highlighted_message(
+                                    theme,
+                                    HOVER_HIGHLIGHT_ALPHA,
+                                )
+                            })
+                            .into()
                     } else {
                         element
                     };
+
+                let element = {
+                    let is_visible =
+                        state.visible_messages.contains(&message.hash);
+                    if is_visible {
+                        notify_visibility(
+                            element,
+                            0.0,
+                            notify_visibility::When::MostlyOutside,
+                            message.hash,
+                            Message::ExitedViewport(message.hash),
+                        )
+                    } else {
+                        notify_visibility(
+                            element,
+                            0.0,
+                            notify_visibility::When::MostlyContained,
+                            message.hash,
+                            Message::EnteredViewport(message.hash),
+                        )
+                    }
+                };
 
                 let content = if is_new_day
                     && config.buffer.date_separators.show
@@ -841,8 +879,7 @@ pub struct State {
     status: Status,
     last_scroll_offset: f32,
     height_cache: HashMap<keyed::Key, f32>,
-    pending_scroll_to: Option<keyed::Key>,
-    is_scrolling_to: bool,
+    scroll_to: Option<ScrollTo>,
     highlighted_message: Option<(message::Hash, f32)>,
     hover_highlighted_message: Option<message::Hash>,
     highlight_generation: u64,
@@ -865,8 +902,7 @@ impl State {
             status: Status::default(),
             last_scroll_offset: 0.0,
             height_cache: HashMap::new(),
-            pending_scroll_to: None,
-            is_scrolling_to: false,
+            scroll_to: None,
             highlighted_message: None,
             hover_highlighted_message: None,
             highlight_generation: 0,
@@ -882,6 +918,7 @@ impl State {
     pub fn update(
         &mut self,
         message: Message,
+        focused_message: &mut Option<FocusedMessage>,
         infinite_scroll: bool,
         kind: Kind,
         buffer: Option<&buffer::Upstream>,
@@ -899,7 +936,7 @@ impl State {
                 status: old_status,
                 viewport,
             } => {
-                if self.pending_scroll_to.is_some() || self.is_scrolling_to {
+                if self.scroll_to.is_some() {
                     return (Task::none(), None);
                 }
 
@@ -1062,7 +1099,7 @@ impl State {
                         keyed::collect_heights(self.scrollable.clone())
                             .map(Message::HeightsCollected);
 
-                    return (Task::batch([scroll_to, collect]), event);
+                    return (scroll_to.chain(collect), event);
                 }
 
                 let collect = keyed::collect_heights(self.scrollable.clone())
@@ -1147,14 +1184,12 @@ impl State {
             )) => {
                 return (
                     Task::none(),
-                    buffer_action.map(|buffer_action| {
-                        Event::GoToMessage(
-                            server,
-                            channel,
-                            message,
-                            buffer_action,
-                        )
-                    }),
+                    Some(Event::GoToMessage(
+                        server,
+                        channel,
+                        message,
+                        buffer_action.unwrap_or_default(),
+                    )),
                 );
             }
             Message::ScrollTo(keyed::Hit {
@@ -1162,35 +1197,78 @@ impl State {
                 hit_bounds,
                 scrollable,
             }) => {
-                self.is_scrolling_to = false;
+                let (animate, align) =
+                    if let Some(ScrollTo { animate, align, .. }) =
+                        self.scroll_to.take()
+                    {
+                        (animate, align)
+                    } else {
+                        (false, ScrollAnchor::default())
+                    };
 
-                let fade_task = if let keyed::Key::Message(hash) = key {
-                    self.highlight_generation += 1;
-                    let generation = self.highlight_generation;
-                    self.highlighted_message =
-                        Some((hash, HIGHLIGHT_ALPHA_START));
-                    Task::perform(
-                        time::sleep(Duration::from_millis(HIGHLIGHT_HOLD_MS)),
-                        move |()| Message::FadeHighlight(hash, generation),
-                    )
+                let fade_task = if animate {
+                    if let keyed::Key::Message(hash) = key {
+                        self.highlight_generation += 1;
+                        let generation = self.highlight_generation;
+                        self.highlighted_message =
+                            Some((hash, HIGHLIGHT_ALPHA_START));
+                        Task::perform(
+                            time::sleep(Duration::from_millis(
+                                HIGHLIGHT_HOLD_MS,
+                            )),
+                            move |()| Message::FadeHighlight(hash, generation),
+                        )
+                    } else {
+                        Task::none()
+                    }
                 } else {
                     Task::none()
                 };
 
                 let max_offset = scrollable.max_vertical_offset();
 
-                let content_y = hit_bounds.y - scrollable.content.y;
+                let content_top = hit_bounds.y - scrollable.content.y;
+                let content_bottom = content_top + hit_bounds.height;
+
+                let inset = theme::resolve_line_height(&config.font) * 2.75;
+
                 let viewport_top = scrollable.offset.y;
+                let viewport_top_inset = viewport_top + inset;
+
                 let viewport_bottom =
                     scrollable.offset.y + scrollable.viewport.height;
-                let is_visible = content_y >= viewport_top
-                    && content_y + hit_bounds.height <= viewport_bottom;
+                let viewport_bottom_inset = viewport_bottom - inset;
 
-                if is_visible {
+                let fully_within_inset_viewport = match align {
+                    ScrollAnchor::Top => {
+                        content_top >= viewport_top_inset
+                            && content_bottom <= viewport_bottom
+                    }
+                    ScrollAnchor::Bottom => {
+                        content_top >= viewport_top
+                            && content_bottom <= viewport_bottom_inset
+                    }
+                };
+                let covers_viewport = content_top <= viewport_top
+                    && content_bottom >= viewport_bottom;
+
+                if fully_within_inset_viewport || covers_viewport {
                     return (fade_task, None);
                 }
 
-                let offset = content_y.max(0.0).min(max_offset);
+                // offset that puts the message's bottom at the viewport's bottom
+                let bottom_aligned =
+                    content_bottom - scrollable.viewport.height;
+                // capped so a message taller than the viewport doesn't get its
+                // top pushed out the other side
+                let reveal_bottom = bottom_aligned.min(content_top);
+
+                let aligned_y = match align {
+                    ScrollAnchor::Top => content_top - inset,
+                    ScrollAnchor::Bottom => reveal_bottom + inset,
+                };
+
+                let offset = aligned_y.max(0.0).min(max_offset);
 
                 if (offset - max_offset).abs() <= f32::EPSILON {
                     self.status = Status::Bottom;
@@ -1330,12 +1408,13 @@ impl State {
                 return (Task::none(), Some(Event::ImagePreview(image)));
             }
             Message::PendingScrollTo => {
-                if let Some(key) = &self.pending_scroll_to {
+                if let Some(ScrollTo { key, state, .. }) = &mut self.scroll_to
+                    && matches!(state, ScrollToState::Pending)
+                {
+                    *state = ScrollToState::Active;
+
                     let scroll_to = keyed::find(self.scrollable.clone(), *key)
                         .map(Message::ScrollTo);
-
-                    self.pending_scroll_to = None;
-                    self.is_scrolling_to = true;
 
                     return (scroll_to, None);
                 }
@@ -1407,12 +1486,21 @@ impl State {
 
                 let event = preview_changed.then_some(Event::PreviewChanged);
 
-                if let Some(key) = &self.pending_scroll_to {
+                if let Some(ScrollTo { key, state, .. }) = &mut self.scroll_to {
+                    if matches!(state, ScrollToState::Active) {
+                        // Ideally we are never collecting heights while there
+                        // is an active scroll_to, but if we are then we should
+                        // still trigger a new scroll_to here (after heights
+                        // have been collected).
+                        log::debug!(
+                            "active scroll_to while collecting heights"
+                        );
+                    }
+
+                    *state = ScrollToState::Active;
+
                     let scroll_to = keyed::find(self.scrollable.clone(), *key)
                         .map(Message::ScrollTo);
-
-                    self.pending_scroll_to = None;
-                    self.is_scrolling_to = true;
 
                     return (scroll_to, event);
                 }
@@ -1427,8 +1515,214 @@ impl State {
             Message::Unreacted { msgid, text } => {
                 send_reaction(clients, buffer, history, msgid, text, true);
             }
+            Message::NavigateFocus(direction) => {
+                let Some(history::View {
+                    old_messages,
+                    new_messages,
+                    ..
+                }) = history.get_messages(&kind.into(), None, config)
+                else {
+                    return (Task::none(), None);
+                };
+
+                let all: Vec<&data::Message> = old_messages
+                    .iter()
+                    .copied()
+                    .chain(new_messages.iter().copied())
+                    .collect();
+
+                if all.is_empty() {
+                    return (Task::none(), None);
+                }
+
+                // The focus sequence steps through each message and then its
+                // individual links before moving on to the next message
+                let message_to_focus: Option<FocusedMessage> = match direction {
+                    FocusDirection::Up => match focused_message.as_ref() {
+                        None => all
+                            .iter()
+                            .rev()
+                            .find(|message| {
+                                self.visible_messages.contains(&message.hash)
+                            })
+                            .map(|message| FocusedMessage::new(message)),
+                        Some(fm) => {
+                            let Some(focused_position) = all
+                                .iter()
+                                .position(|message| fm.is_match(message))
+                            else {
+                                return self.exit_focus(focused_message, None);
+                            };
+
+                            // Re-select the same message if already at the oldest message.
+                            if let Some(previous_message) =
+                                all.get(focused_position.saturating_sub(1))
+                            {
+                                Some(FocusedMessage::new(previous_message))
+                            } else {
+                                return self.exit_focus(focused_message, None);
+                            }
+                        }
+                    },
+                    FocusDirection::Down => match focused_message.as_ref() {
+                        None => None,
+                        Some(fm) => {
+                            let Some(focused_position) = all
+                                .iter()
+                                .position(|message| fm.is_match(message))
+                            else {
+                                return self.exit_focus(focused_message, None);
+                            };
+
+                            if let Some(next_message) =
+                                all.get(focused_position.saturating_add(1))
+                            {
+                                Some(FocusedMessage::new(next_message))
+                            } else {
+                                return self.exit_focus(focused_message, None);
+                            }
+                        }
+                    },
+                    FocusDirection::Left => {
+                        if let Some(fm) = focused_message.as_mut() {
+                            fm.focus_previous_component();
+                        }
+                        None
+                    }
+                    FocusDirection::Right => {
+                        if let Some(fm) = focused_message.as_mut() {
+                            fm.focus_next_component();
+                        }
+                        None
+                    }
+                };
+
+                let Some(message_to_focus) = message_to_focus else {
+                    return (Task::none(), None);
+                };
+
+                let scroll_to_hash = message_to_focus.hash();
+
+                *focused_message = Some(message_to_focus);
+
+                // Anchor the message to the edge we're moving toward, so a
+                // scroll reveals it at that edge rather than snapping it to the
+                // opposite side of the viewport.
+                let anchor = match direction {
+                    FocusDirection::Up => Some(ScrollAnchor::Top),
+                    FocusDirection::Down => Some(ScrollAnchor::Bottom),
+                    FocusDirection::Left | FocusDirection::Right => None,
+                };
+
+                let task = if let Some(anchor) = anchor {
+                    self.scroll_to_message(
+                        scroll_to_hash,
+                        kind,
+                        history,
+                        config,
+                        false,
+                        anchor,
+                    )
+                } else {
+                    Task::none()
+                };
+
+                return (task, None);
+            }
+            Message::ActivateFocusedMessage => {
+                let Some(focused_message) = focused_message.as_mut() else {
+                    return (Task::none(), None);
+                };
+
+                let hash = focused_message.hash();
+                let server_time = focused_message.server_time();
+
+                let Some(message) = history.find_message_by_hash(
+                    hash,
+                    &kind.into(),
+                    server_time,
+                ) else {
+                    return (Task::none(), None);
+                };
+
+                if message.expanded {
+                    return (
+                        Task::none(),
+                        Some(Event::ContractMessage(*server_time, hash)),
+                    );
+                } else if (message.redaction.is_some()
+                    && config.buffer.redaction.display.is_redacted())
+                    || message.condensed.is_some()
+                {
+                    return (
+                        Task::none(),
+                        Some(Event::ExpandMessage(*server_time, hash)),
+                    );
+                } else {
+                    let Some(server) = kind.server() else {
+                        return (Task::none(), None);
+                    };
+
+                    let open_task = focused_message
+                        .open_menu(message, server, clients, previews, config);
+
+                    return (open_task, None);
+                }
+            }
+            Message::OpenFocusMenu => {
+                let Some(focused_message) = focused_message.as_mut() else {
+                    return (Task::none(), None);
+                };
+
+                let Some(server) = kind.server() else {
+                    return (Task::none(), None);
+                };
+
+                let Some(message) = history.find_message_by_hash(
+                    focused_message.hash(),
+                    &kind.into(),
+                    focused_message.server_time(),
+                ) else {
+                    return (Task::none(), None);
+                };
+
+                let open_task = focused_message
+                    .open_menu(message, server, clients, previews, config);
+
+                return (open_task, None);
+            }
+            Message::FocusMenuSelect(index) => {
+                if let Some(focused_message) = focused_message.as_mut() {
+                    focused_message.menu_select(index);
+                }
+            }
+            Message::FocusMenuActivate(message) => {
+                return self.exit_focus(
+                    focused_message,
+                    context_menu::update(message),
+                );
+            }
+            Message::FocusMenuClose => {
+                if let Some(focused_message) = focused_message.as_mut() {
+                    focused_message.close_menu();
+                }
+            }
+            Message::ExitFocus => {
+                return self.exit_focus(focused_message, None);
+            }
         }
+
         (Task::none(), None)
+    }
+
+    fn exit_focus(
+        &mut self,
+        focused_message: &mut Option<FocusedMessage>,
+        context_menu_event: Option<context_menu::Event>,
+    ) -> (Task<Message>, Option<Event>) {
+        *focused_message = None;
+
+        (Task::none(), Some(Event::ExitFocus(context_menu_event)))
     }
 
     pub fn update_pane_size(&mut self, pane_size: Size, config: &Config) {
@@ -1508,6 +1802,8 @@ impl State {
         kind: Kind,
         history: &history::Manager,
         config: &Config,
+        animate: bool,
+        align: ScrollAnchor,
     ) -> Task<Message> {
         let Some(history::View {
             old_messages,
@@ -1517,7 +1813,12 @@ impl State {
         else {
             // We're still loading history, which will trigger scroll_to_backlog
             // after loading. If this is set, we will scroll_to_message
-            self.pending_scroll_to = Some(keyed::Key::Message(message));
+            self.scroll_to = Some(ScrollTo {
+                key: keyed::Key::Message(message),
+                animate,
+                align,
+                state: ScrollToState::Pending,
+            });
 
             return Task::none();
         };
@@ -1530,11 +1831,62 @@ impl State {
             return Task::none();
         };
 
+        // If the message is already rendered, skip the load and fire immediately.
+        if self
+            .height_cache
+            .contains_key(&keyed::Key::Message(message))
+        {
+            // cache real heights while fully rendered so the virtualized
+            // layout's doesn't drift from estimates as focus moves.
+            // without this, the error increases over time which leads to
+            // unpredictable scrolling.
+
+            // only do this when something is unmeasured — in steady state every
+            // height is already cached and re-collecting would be wasted work.
+            let needs_heights =
+                old_messages.iter().chain(&new_messages).any(|m| {
+                    !self
+                        .height_cache
+                        .contains_key(&keyed::Key::Message(m.hash))
+                });
+
+            let (task, scroll_to_state) = if needs_heights {
+                (
+                    keyed::collect_heights(self.scrollable.clone())
+                        .map(Message::HeightsCollected),
+                    ScrollToState::Pending, // ScrollTo is pending heights collection
+                )
+            } else {
+                (
+                    keyed::find(
+                        self.scrollable.clone(),
+                        keyed::Key::Message(message),
+                    )
+                    .map(Message::ScrollTo),
+                    ScrollToState::Active, // ScrollTo right away
+                )
+            };
+
+            self.scroll_to = Some(ScrollTo {
+                key: keyed::Key::Message(message),
+                animate,
+                align,
+                state: scroll_to_state,
+            });
+
+            return task;
+        }
+
         // Load a window of messages centered on the target.
         let around_count = step_messages(4.0 * self.pane_size.height, config);
         self.limit = Limit::Around(around_count, target.hash);
 
-        self.pending_scroll_to = Some(keyed::Key::Message(message));
+        self.scroll_to = Some(ScrollTo {
+            key: keyed::Key::Message(message),
+            animate,
+            align,
+            state: ScrollToState::Pending,
+        });
 
         Task::perform(time::sleep(SCROLL_TO_TIMEOUT), move |()| {
             Message::PendingScrollTo
@@ -1547,7 +1899,7 @@ impl State {
         history: &history::Manager,
         config: &Config,
     ) -> Task<Message> {
-        if self.pending_scroll_to.is_some() {
+        if self.scroll_to.is_some() {
             return Task::perform(time::sleep(SCROLL_TO_TIMEOUT), move |()| {
                 Message::PendingScrollTo
             });
@@ -1578,24 +1930,29 @@ impl State {
         let around_count = step_messages(4.0 * self.pane_size.height, config);
         self.limit = Limit::Around(around_count, target.hash);
 
-        self.pending_scroll_to = Some(keyed::Key::Divider);
+        self.scroll_to = Some(ScrollTo {
+            key: keyed::Key::Divider,
+            animate: false,
+            align: ScrollAnchor::Top,
+            state: ScrollToState::Pending,
+        });
 
         Task::perform(time::sleep(SCROLL_TO_TIMEOUT), move |()| {
             Message::PendingScrollTo
         })
     }
 
-    pub fn has_pending_scroll_to(&self) -> bool {
-        self.pending_scroll_to.is_some()
+    pub fn has_scroll_to(&self) -> bool {
+        self.scroll_to.is_some()
     }
 
-    pub fn prepare_for_pending_scroll_to(
+    pub fn prepare_for_scroll_to(
         &mut self,
         kind: Kind,
         history: &history::Manager,
         config: &Config,
     ) -> Task<Message> {
-        let Some(key) = self.pending_scroll_to else {
+        let Some(ScrollTo { key, .. }) = self.scroll_to else {
             return Task::none();
         };
 
@@ -2428,6 +2785,20 @@ fn prefixes_width(message: &data::Message, config: &Config) -> Option<f32> {
             &config.font,
         ) + 1.0
     })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ScrollTo {
+    key: keyed::Key,
+    animate: bool,
+    align: ScrollAnchor,
+    state: ScrollToState,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ScrollToState {
+    Pending,
+    Active,
 }
 
 fn timestamp_width(message: &data::Message, config: &Config) -> Option<f32> {

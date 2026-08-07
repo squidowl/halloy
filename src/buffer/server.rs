@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use data::buffer::RightAlignmentWidths;
 use data::dashboard::BufferAction;
-use data::target::{self, Target};
+use data::target::Target;
 use data::user::Nick;
 use data::{
     Config, Image, Preview, User, buffer, client, history, message, preview,
@@ -80,8 +80,7 @@ pub fn view<'a>(
     config: &'a Config,
     theme: &'a Theme,
     is_focused: bool,
-    channel_is_focused: impl Fn(&data::Server, &target::Channel) -> bool + Copy + 'a,
-    channel_is_open: impl Fn(&data::Server, &target::Channel) -> bool + Copy + 'a,
+    channels_context: &'a dyn context_menu::ChannelsContext,
 ) -> Element<'a, Message> {
     let chantypes = clients.get_server_chantypes_or_default(&state.server);
     let prefix = clients.get_server_prefix_or_default(&state.server);
@@ -94,6 +93,7 @@ pub fn view<'a>(
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
+            &None,
             scroll_view::Kind::Server(&state.server),
             history,
             None,
@@ -156,7 +156,6 @@ pub fn view<'a>(
                         Some(context_menu::message(
                             row_with_timestamp(timestamp, text_content),
                             message,
-                            vec![],
                             false,
                             false,
                             false,
@@ -225,7 +224,7 @@ pub fn view<'a>(
                         } else {
                             let mut nick_text = user_display.into_element(
                                 user, false, false, None, None, false, true,
-                                theme, config,
+                                false, theme, config,
                             );
 
                             if let Some(right_alignment_widths) =
@@ -284,7 +283,6 @@ pub fn view<'a>(
                                 timestamp, nick, content,
                             ),
                             message,
-                            vec![],
                             false,
                             false,
                             false,
@@ -296,8 +294,7 @@ pub fn view<'a>(
                 }
             },
             clients.get_registry(&state.server),
-            channel_is_focused,
-            channel_is_open,
+            channels_context,
         )
         .map(Message::ScrollView),
     )
@@ -381,6 +378,7 @@ impl Server {
             Message::ScrollView(message) => {
                 let (command, event) = self.scroll_view.update(
                     message,
+                    &mut None,
                     false,
                     scroll_view::Kind::Server(&self.server),
                     Some(&self.buffer),
@@ -424,6 +422,9 @@ impl Server {
                     scroll_view::Event::ContractMessage(server_time, hash) => {
                         Some(Event::ContractMessage(server_time, hash))
                     }
+                    scroll_view::Event::ExitFocus(_)
+                    | scroll_view::Event::FocusAction(_)
+                    | scroll_view::Event::FocusContextAction(_) => None,
                 });
 
                 (command.map(Message::ScrollView), event)
@@ -431,6 +432,7 @@ impl Server {
             Message::InputView(message) => {
                 let (command, event) = self.input_view.update(
                     message,
+                    false,
                     &self.buffer,
                     clients,
                     history,
@@ -492,12 +494,18 @@ impl Server {
                             abort_registrations,
                         }),
                     ),
-                    None => (command, None),
+                    Some(
+                        input_view::Event::NavigateFocus(_)
+                        | input_view::Event::ExitFocus
+                        | input_view::Event::FocusAction(_),
+                    )
+                    | None => (command, None),
                 }
             }
             Message::FilehostUploadDone { id, url } => {
                 let (task, _) = self.input_view.update(
                     input_view::Message::FilehostUploadDone { id, url },
+                    false,
                     &self.buffer,
                     clients,
                     history,
@@ -508,6 +516,7 @@ impl Server {
             Message::FilesDropped(paths) => {
                 let (task, event) = self.input_view.update(
                     input_view::Message::FilesSelected(paths),
+                    false,
                     &self.buffer,
                     clients,
                     history,
