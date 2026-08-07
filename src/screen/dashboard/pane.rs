@@ -832,18 +832,19 @@ fn query_title<'a>(
         clients.resolve_user_attributes(server, channel, &user)
     });
 
-    let is_user_away = config
+    let user_away_alpha = config
         .buffer
         .nickname
         .away
-        .is_away(current_user.is_some_and(User::is_away));
-    let user_offline = shared_channels.is_empty()
+        .alpha(current_user.is_some_and(User::is_away));
+    let user_is_offline = shared_channels.is_empty()
         && !clients
             .client(server)
             .is_some_and(|client| client.is_monitored_user_online(&user));
-    let is_user_offline = config.buffer.nickname.offline.style(user_offline);
+    let user_offline_style =
+        config.buffer.nickname.offline.style(user_is_offline);
 
-    let state = if user_offline {
+    let state = if user_is_offline {
         Some(
             container(
                 text("(Offline)").style(theme::text::secondary).font_maybe(
@@ -862,12 +863,12 @@ fn query_title<'a>(
                 theme,
                 &config.buffer.nickname.color,
                 Some(user.seed()),
-                is_user_away,
-                is_user_offline,
+                user_away_alpha,
+                user_offline_style,
             )
         })
         .font_maybe(
-            theme::font_style::nickname(theme, user_offline).map(font::get),
+            theme::font_style::nickname(theme, user_is_offline).map(font::get),
         )
         .shaping(text::Shaping::Advanced)
         .wrapping(Wrapping::None)
@@ -886,8 +887,8 @@ fn query_title<'a>(
                                     theme,
                                     &config.buffer.nickname.color,
                                     Some(resolved_query.as_str()),
-                                    is_user_away,
-                                    is_user_offline,
+                                    user_away_alpha,
+                                    user_offline_style,
                                 )
                             })
                             .line_height(1.0)

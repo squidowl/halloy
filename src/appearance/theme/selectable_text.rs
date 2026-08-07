@@ -138,12 +138,12 @@ pub fn nickname(
     is_away: bool,
     is_user_offline: bool,
 ) -> Style {
-    let is_offline = config.buffer.nickname.offline.style(is_user_offline);
-    let is_away = config.buffer.nickname.away.is_away(is_away);
+    let offline_style = config.buffer.nickname.offline.style(is_user_offline);
+    let away_alpha = config.buffer.nickname.away.alpha(is_away);
 
     if let Some(metadata_color) = metadata_color {
         let background = theme.styles().buffer.background;
-        let color = if let Some(style) = is_offline {
+        let color = if let Some(style) = offline_style {
             let color = match style.color {
                 buffer::nickname::OfflineColor::Theme => theme
                     .styles()
@@ -155,7 +155,7 @@ pub fn nickname(
             };
             nickname_alpha(color, Some(style.alpha), background)
         } else {
-            nickname_alpha(metadata_color, is_away, background)
+            nickname_alpha(metadata_color, away_alpha, background)
         };
 
         Style {
@@ -167,8 +167,8 @@ pub fn nickname(
             theme,
             &config.buffer.nickname.color,
             user,
-            is_away,
-            is_offline,
+            away_alpha,
+            offline_style,
         )
     }
 }
@@ -177,12 +177,17 @@ fn nickname_style(
     theme: &Theme,
     kind: &data::buffer::Color,
     user: &User,
-    is_away: Option<buffer::Alpha>,
-    is_offline: Option<buffer::nickname::OfflineStyle>,
+    away_alpha: Option<buffer::Alpha>,
+    offline_style: Option<buffer::nickname::OfflineStyle>,
 ) -> Style {
-    let color =
-        text::nickname(theme, kind, Some(user.seed()), is_away, is_offline)
-            .color;
+    let color = text::nickname(
+        theme,
+        kind,
+        Some(user.seed()),
+        away_alpha,
+        offline_style,
+    )
+    .color;
 
     Style {
         color,

@@ -1454,23 +1454,24 @@ fn user_info<'a>(
         ),
     };
 
-    let is_user_away = config
+    let user_away_alpha = config
         .buffer
         .nickname
         .away
-        .is_away(current_user.is_some_and(User::is_away));
-    let user_offline = current_user.is_none();
-    let is_user_offline = config.buffer.nickname.offline.style(user_offline);
+        .alpha(current_user.is_some_and(User::is_away));
+    let user_is_offline = current_user.is_none();
+    let user_offline_style =
+        config.buffer.nickname.offline.style(user_is_offline);
     let style = theme::text::nickname(
         theme,
         &config.buffer.nickname.color,
         Some(nickname.seed()),
-        is_user_away,
-        is_user_offline,
+        user_away_alpha,
+        user_offline_style,
     );
 
     let nickname = text(nickname.to_string()).style(move |_| style).font_maybe(
-        theme::font_style::nickname(theme, user_offline).map(font::get),
+        theme::font_style::nickname(theme, user_is_offline).map(font::get),
     );
 
     column![

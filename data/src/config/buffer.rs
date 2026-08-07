@@ -398,8 +398,8 @@ pub enum Alpha {
 }
 
 impl Alpha {
-    pub fn is_away(&self, is_user_away: bool) -> Option<Alpha> {
-        is_user_away.then_some(*self)
+    pub fn alpha(&self, active: bool) -> Option<Alpha> {
+        active.then_some(*self)
     }
 }
 
