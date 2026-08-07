@@ -3034,7 +3034,10 @@ impl Dashboard {
                             clients,
                         )
                     }
-                    FocusCommand::Activate | FocusCommand::ActivateAlt => {
+                    FocusCommand::Activate => {
+                        state.buffer.activate_focused_message_message()
+                    }
+                    FocusCommand::ActivateAlt => {
                         state.buffer.open_focus_menu_message()
                     }
                     FocusCommand::Reply => in_focus

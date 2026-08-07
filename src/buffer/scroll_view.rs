@@ -89,6 +89,8 @@ pub enum Message {
         text: Cow<'static, str>,
     },
     NavigateFocus(FocusDirection),
+    #[allow(clippy::enum_variant_names)]
+    ActivateFocusedMessage,
     OpenFocusMenu,
     FocusMenuSelect(usize),
     FocusMenuActivate(context_menu::Message),
@@ -1632,6 +1634,44 @@ impl State {
                 };
 
                 return (task, None);
+            }
+            Message::ActivateFocusedMessage => {
+                let Some(focused_message) = focused_message.as_mut() else {
+                    return (Task::none(), None);
+                };
+
+                let hash = focused_message.hash();
+                let server_time = focused_message.server_time();
+
+                let Some(message) =
+                    history.find_message(hash, &kind.into(), server_time)
+                else {
+                    return (Task::none(), None);
+                };
+
+                if message.expanded {
+                    return (
+                        Task::none(),
+                        Some(Event::ContractMessage(*server_time, hash)),
+                    );
+                } else if (message.redaction.is_some()
+                    && config.buffer.redaction.display.is_redacted())
+                    || message.condensed.is_some()
+                {
+                    return (
+                        Task::none(),
+                        Some(Event::ExpandMessage(*server_time, hash)),
+                    );
+                } else {
+                    let Some(server) = kind.server() else {
+                        return (Task::none(), None);
+                    };
+
+                    let open_task = focused_message
+                        .open_menu(message, server, clients, previews, config);
+
+                    return (open_task, None);
+                }
             }
             Message::OpenFocusMenu => {
                 let Some(focused_message) = focused_message.as_mut() else {
