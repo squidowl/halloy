@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::time::Instant;
 
-use data::{Image, Server, config};
+use data::{Config, Image, Server, config};
 use iced::Task;
 
 use crate::widget::Element;
@@ -177,32 +177,43 @@ impl Modal {
 
     pub fn view<'a>(
         &'a self,
-        font: &'a config::Font,
+        config: &'a Config,
         theme: &'a Theme,
     ) -> Element<'a, Message> {
         match self {
             Modal::ReloadConfigurationError(error) => {
-                reload_configuration_error::view(error, font, theme)
+                reload_configuration_error::view(error, &config.font, theme)
             }
             Modal::ServerConnect {
-                url: raw, config, ..
-            } => connect_to_server::view(raw, config, font, theme),
-            Modal::About(about) => about.view(font, theme),
+                url: raw,
+                config: server_config,
+                ..
+            } => {
+                connect_to_server::view(raw, server_config, &config.font, theme)
+            }
+            Modal::About(about) => about.view(&config.font, theme),
             Modal::PromptBeforeOpenUrl { url, window: _ } => {
-                prompt_before_open_url::view(url, font, theme)
+                prompt_before_open_url::view(url, &config.font, theme)
             }
             Modal::ConfirmFileUpload {
                 url,
                 has_credentials,
                 window: _,
-            } => confirm_file_upload::view(url, *has_credentials, font, theme),
+            } => confirm_file_upload::view(
+                url,
+                *has_credentials,
+                &config.font,
+                theme,
+            ),
             Modal::ImagePreview {
                 image,
                 timer,
                 window: _,
-            } => image_preview::view(image, timer, theme),
+            } => {
+                image_preview::view(&config.preview.image, image, timer, theme)
+            }
             Modal::KeyringPassword(keyring_password) => {
-                keyring_password.view(font, theme)
+                keyring_password.view(&config.font, theme)
             }
         }
     }

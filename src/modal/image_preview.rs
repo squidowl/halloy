@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use data::Image;
+use data::{Image, config};
 use iced::widget::{button, center, column, container, row, space};
 use iced::{ContentFit, Length};
 
@@ -10,6 +10,7 @@ use crate::widget::{Element, image, tooltip};
 use crate::{Theme, icon, theme};
 
 pub fn view<'a>(
+    preview_config: &'a config::preview::Image,
     data: &'a Image,
     timer: &'a Option<Instant>,
     theme: &'a Theme,
@@ -90,11 +91,16 @@ pub fn view<'a>(
                 )
             ])
             .padding(6),
-            container(image::from_data(data, false, ContentFit::Contain))
-                .padding(50)
-                .center_x(Length::Fill)
-                .center_y(Length::Fill)
-                .style(theme::container::none)
+            container(image::from_data(
+                data,
+                false,
+                ContentFit::Contain,
+                preview_config.can_animate(),
+            ))
+            .padding(50)
+            .center_x(Length::Fill)
+            .center_y(Length::Fill)
+            .style(theme::container::none)
         ],
         Message::Cancel,
     ))

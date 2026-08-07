@@ -364,6 +364,25 @@ the `exclude` setting.
 include = { users = ["BridgeBot"] }
 ```
 
+### `animation`
+
+Control when to animate gifs. Default is `"animate"`.
+
+Using `"animate-on-preview-action"` will disable animations for buffer image
+previews, but will animate the image when clicking the [preview image action](/configuration/preview.md#action).
+With this setting, avatars will remain animated as well.
+
+You can disable animated gifs totally with `"disabled"`.
+
+```toml
+# Type: string
+# Values: "animate", "animate-on-preview-action", "disabled"
+# Default: "animate"
+
+[preview.image]
+animation = "animate-on-preview-action"
+```
+
 ## `image_cache`
 
 Settings to control how the image cache is managed. The cache is stored in:

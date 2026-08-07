@@ -554,14 +554,9 @@ impl Sidebar {
         };
 
         let base = button(
-            sidebar_icon(
-                Some(Icon::Internal(icon)),
-                badge,
-                dimensions,
-                config.sidebar.position.is_horizontal(),
-            )
-            .into_iter()
-            .next(),
+            sidebar_icon(config, Some(Icon::Internal(icon)), badge, dimensions)
+                .into_iter()
+                .next(),
         )
         .padding(4)
         .width(Length::Shrink);
@@ -1663,12 +1658,7 @@ fn upstream_buffer_button<'a>(
 
     let mut content = row![].align_y(iced::Alignment::Center);
 
-    content = content.extend(sidebar_icon(
-        icon,
-        indicator,
-        dimensions,
-        config.sidebar.position.is_horizontal(),
-    ));
+    content = content.extend(sidebar_icon(config, icon, indicator, dimensions));
 
     content = content.extend(upstream_buffer_title(
         config,
@@ -2125,10 +2115,10 @@ fn internal_buffer_button<'a>(
     let mut content = row![].align_y(iced::Alignment::Center);
 
     content = content.extend(sidebar_icon(
+        config,
         icon.map(Icon::Internal),
         badge,
         dimensions,
-        config.sidebar.position.is_horizontal(),
     ));
 
     content = content.push(
@@ -2297,10 +2287,10 @@ enum Icon<'a> {
 }
 
 fn sidebar_icon<'a>(
+    config: &'a Config,
     icon: Option<Icon<'a>>,
     indicator: Option<(TextColorSvg<'a, Theme>, u32)>,
     dimensions: Dimensions,
-    sidebar_is_horizontal: bool,
 ) -> impl IntoIterator<Item = Element<'a, Message>> {
     let (icon, icon_height, icon_left_spacing): (
         Option<Element<'a, Message>>,
@@ -2308,9 +2298,12 @@ fn sidebar_icon<'a>(
         f32,
     ) = if let Some(icon) = icon {
         let icon: Element<'a, Message> = container(match icon {
-            Icon::Upstream(server_icon) => {
-                image::from_data(server_icon, true, ContentFit::Contain)
-            }
+            Icon::Upstream(server_icon) => image::from_data(
+                server_icon,
+                true,
+                ContentFit::Contain,
+                config.preview.image.can_preview_animate(),
+            ),
             Icon::Internal(icon) => icon.into(),
         })
         .width(dimensions.icon_size)
@@ -2384,7 +2377,7 @@ fn sidebar_icon<'a>(
         (None, 1, 0.0)
     };
 
-    if sidebar_is_horizontal {
+    if config.sidebar.position.is_horizontal() {
         if let Some(icon) = icon {
             Either::Left(vec![icon, Space::new().width(8).into()].into_iter())
         } else {
