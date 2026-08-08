@@ -59,10 +59,11 @@ impl ThemeEditor {
         main_window: &Window,
         config: &Config,
     ) -> (Self, Task<window::Id>) {
-        let size = iced::Size::new(555.0, 300.0)
-            * theme::scale_for_font_size(&config.font);
+        let base_size = iced::Size::new(555.0, 300.0);
+        let size = base_size * theme::scale_for_font_size(&config.font);
         let (window, task) = window::open(window::Settings {
             size,
+            min_size: Some(base_size),
             resizable: true,
             position: main_window
                 .position
