@@ -30,6 +30,7 @@ pub fn container<'a, Message: 'a>(
         iced::widget::scrollable(content).height(Length::Shrink),
     )
     .width(width(font))
+    .align_x(iced::Alignment::Center)
     .padding(BASE_PADDING * scale)
 }
 

@@ -16,10 +16,9 @@ pub fn view<'a>(
         text("Error reloading configuration file"),
         text(error.to_string())
             .style(theme::text::error)
-            .font_maybe(theme::font_style::error(theme).map(font::get))
+            .font_maybe(theme::font_style::error(theme).map(font::get_code))
             .width(Length::Fill)
-            .wrapping(Wrapping::WordOrGlyph)
-            .align_x(iced::widget::text::Alignment::Center),
+            .wrapping(Wrapping::WordOrGlyph),
         button(
             container(text("Close"))
                 .align_x(alignment::Horizontal::Center)

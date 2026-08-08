@@ -1,6 +1,6 @@
 use data::config;
 use iced::widget::text::Wrapping;
-use iced::widget::{button, checkbox, column, container, row, text};
+use iced::widget::{button, checkbox, column, container, text};
 use iced::{Length, alignment};
 
 use super::Message;
@@ -19,22 +19,17 @@ pub fn view<'a>(
             .style(theme::text::tertiary)
             .font_maybe(theme::font_style::tertiary(theme).map(font::get))
             .width(Length::Fill)
+            .align_x(iced::Alignment::Center)
             .wrapping(Wrapping::WordOrGlyph),
     ]
     .push(
-        row![
-            checkbox(config.dangerously_accept_invalid_certs,).on_toggle(
-                |toggle| {
-                    Message::ServerConnect(
-                        super::ServerConnect::DangerouslyAcceptInvalidCerts(
-                            toggle,
-                        ),
-                    )
-                }
-            ),
-            text("Accept invalid certificates")
-        ]
-        .spacing(4),
+        checkbox(config.dangerously_accept_invalid_certs)
+            .on_toggle(|toggle| {
+                Message::ServerConnect(
+                    super::ServerConnect::DangerouslyAcceptInvalidCerts(toggle),
+                )
+            })
+            .label("Accept invalid certificates"),
     )
     .push(
         column![
