@@ -326,7 +326,13 @@ impl Halloy {
             Err(error) => (
                 Screen::Help(screen::Help::new(error)),
                 server::Map::default(),
-                Config::default(),
+                // If the config file is not missing but could not be loaded,
+                // then use the loaded font config (or default, if the font
+                // config also failed to load).
+                Config {
+                    font: Config::load_font().unwrap_or_default(),
+                    ..Config::default()
+                },
                 Task::none(),
             ),
         };
@@ -1458,7 +1464,9 @@ impl Halloy {
                         &self.theme,
                     )
                     .map(Message::Dashboard),
-                Screen::Help(help) => help.view(&self.theme).map(Message::Help),
+                Screen::Help(help) => {
+                    help.view(&self.config.font, &self.theme).map(Message::Help)
+                }
                 Screen::Welcome(welcome) => {
                     welcome.view(&self.theme).map(Message::Welcome)
                 }

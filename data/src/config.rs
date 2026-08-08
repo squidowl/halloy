@@ -736,6 +736,8 @@ impl Config {
         let path = Self::path();
         let content = std::fs::read_to_string(path).ok()?;
 
+        // This will still fail if there is invalid TOML in the file
+        // outside the font table.
         let Configuration { font } = toml::from_str(content.as_ref()).ok()?;
 
         Some(font)
