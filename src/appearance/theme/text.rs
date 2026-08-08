@@ -139,23 +139,24 @@ pub fn nickname(
     theme: &Theme,
     kind: &data::buffer::Color,
     seed: Option<&str>,
-    is_away: Option<buffer::Away>,
-    is_offline: bool,
+    is_away: Option<buffer::Alpha>,
+    is_offline: Option<buffer::nickname::OfflineStyle>,
 ) -> Style {
-    let color = nickname_alpha(
-        if is_offline
-            && let Some(offline_color) =
-                theme.styles().buffer.nickname_offline.color
-        {
-            offline_color
-        } else {
-            let nickname = theme.styles().buffer.nickname;
+    let background = theme.styles().buffer.background;
+    let nickname = theme.styles().buffer.nickname;
+    let base = nickname_color(nickname.color, kind, seed);
 
-            nickname_color(nickname.color, kind, seed)
-        },
-        is_away,
-        theme.styles().buffer.background,
-    );
+    let color = if let Some(style) = is_offline {
+        let color = match style.color {
+            buffer::nickname::OfflineColor::Theme => {
+                theme.styles().buffer.nickname_offline.color.unwrap_or(base)
+            }
+            buffer::nickname::OfflineColor::Nickname => base,
+        };
+        nickname_alpha(color, Some(style.alpha), background)
+    } else {
+        nickname_alpha(base, is_away, background)
+    };
 
     Style { color: Some(color) }
 }

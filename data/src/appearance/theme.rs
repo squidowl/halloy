@@ -590,10 +590,10 @@ pub fn nickname_color(
 
 pub fn nickname_alpha(
     color: Color,
-    is_away: Option<buffer::Away>,
+    is_away: Option<buffer::Alpha>,
     background_color: Color,
 ) -> Color {
-    if let Some(buffer::Away::Dimmed(dimmed)) = is_away {
+    if let Some(buffer::Alpha::Dimmed(dimmed)) = is_away {
         dimmed.transform_color(color, background_color)
     } else {
         color
