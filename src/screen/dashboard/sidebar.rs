@@ -590,6 +590,9 @@ impl Sidebar {
         if menu.is_empty() {
             base.into()
         } else {
+            let key_bind_font_size =
+                config.font.size.map_or(theme::TEXT_SIZE, f32::from) - 2.0;
+
             context_menu(
                 context_menu::MouseButton::Left,
                 context_menu::Anchor::Widget,
@@ -616,7 +619,7 @@ impl Sidebar {
                                     ) => Some(
                                         text(format!("({kb})"))
                                             .shaping(Shaping::Advanced)
-                                            .size(theme::TEXT_SIZE - 2.0)
+                                            .size(key_bind_font_size)
                                             .style(theme::text::secondary)
                                             .font_maybe(
                                                 theme::font_style::secondary(

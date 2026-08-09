@@ -59,10 +59,12 @@ impl ThemeEditor {
         main_window: &Window,
         config: &Config,
     ) -> (Self, Task<window::Id>) {
+        let base_size = iced::Size::new(555.0, 300.0);
+        let size = base_size * theme::scale_for_font_size(&config.font);
         let (window, task) = window::open(window::Settings {
-            // Just big enough to show all components in combobox
-            size: iced::Size::new(555.0, 300.0),
-            resizable: false,
+            size,
+            min_size: Some(base_size),
+            resizable: true,
             position: main_window
                 .position
                 .map(|point| {
@@ -345,11 +347,12 @@ impl ThemeEditor {
             + u32::from(default_padding);
         let padding =
             Padding::new(default_padding.into()).top(top_padding as f32);
+        let hex_input_width = 80.0 * theme::scale_for_font_size(&config.font);
 
         let content = column![
             row![
                 container(component).width(Fill),
-                container(hex_input).width(80),
+                container(hex_input).width(hex_input_width),
                 font_style_pick_list,
                 undo,
                 copy,

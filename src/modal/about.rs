@@ -1,6 +1,7 @@
 use std::time::Duration;
 
-use data::config::Runtime;
+use data::config::{Font, Runtime};
+use iced::widget::text::Wrapping;
 use iced::widget::{
     Space, button, center, column, container, image, row, rule, text,
 };
@@ -8,7 +9,7 @@ use iced::{Length, Task, alignment, clipboard};
 use tokio::time;
 
 use super::Message as ModalMessage;
-use crate::widget::Element;
+use crate::widget::{self, Element};
 use crate::{Theme, font, icon, theme};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -91,7 +92,11 @@ impl About {
         }
     }
 
-    pub fn view<'a>(&'a self, theme: &'a Theme) -> Element<'a, ModalMessage> {
+    pub fn view<'a>(
+        &'a self,
+        font_config: &Font,
+        theme: &'a Theme,
+    ) -> Element<'a, ModalMessage> {
         let logo = image(self.logo.clone()).width(128);
 
         let gpu_backend = self
@@ -143,6 +148,7 @@ impl About {
                                     .map(font::get)
                             )
                             .width(Length::Fill)
+                            .wrapping(Wrapping::WordOrGlyph)
                             .align_x(iced::widget::text::Alignment::Right)
                     ]
                     .width(Length::Fill)
@@ -192,7 +198,7 @@ impl About {
 
         let copy_all = button(copy_all_content)
             .padding(5)
-            .width(Length::Fixed(250.0))
+            .width(widget::modal::button_width(font_config))
             .style(|theme, status| {
                 theme::button::secondary(theme, status, false)
             })
@@ -207,35 +213,33 @@ impl About {
                 .width(Length::Fill),
         )
         .padding(5)
-        .width(Length::Fixed(250.0))
+        .width(widget::modal::button_width(font_config))
         .style(|theme, status| theme::button::secondary(theme, status, false))
         .on_press(ModalMessage::Cancel);
 
-        container(
+        let content = column![
+            logo,
             column![
-                logo,
-                column![
-                    item("Version", &self.version, Field::Version),
-                    item("Commit", &self.commit, Field::Commit),
-                    item("GPU Backend", gpu_backend, Field::GpuBackend),
-                    item("GPU Adapter", gpu_adapter, Field::GpuAdapter),
-                    item("VSync", vsync, Field::Vsync),
-                    item("Antialiasing", antialiasing, Field::Antialiasing),
-                    container(rule::horizontal(1))
-                        .padding([6, 0])
-                        .width(Length::Fill),
-                    item("Contact", data::environment::EMAIL, Field::Mail),
-                ],
-                column![copy_all, close]
-                    .spacing(8)
-                    .align_x(iced::Alignment::Center),
-            ]
-            .spacing(20)
-            .align_x(iced::Alignment::Center),
-        )
-        .width(Length::Fixed(380.0))
-        .style(theme::container::tooltip)
-        .padding(25)
-        .into()
+                item("Version", &self.version, Field::Version),
+                item("Commit", &self.commit, Field::Commit),
+                item("GPU Backend", gpu_backend, Field::GpuBackend),
+                item("GPU Adapter", gpu_adapter, Field::GpuAdapter),
+                item("VSync", vsync, Field::Vsync),
+                item("Antialiasing", antialiasing, Field::Antialiasing),
+                container(rule::horizontal(1))
+                    .padding([6, 0])
+                    .width(Length::Fill),
+                item("Contact", data::environment::EMAIL, Field::Mail),
+            ],
+            column![copy_all, close]
+                .spacing(8)
+                .align_x(iced::Alignment::Center),
+        ]
+        .spacing(20)
+        .align_x(iced::Alignment::Center);
+
+        widget::modal::container(content, font_config)
+            .style(theme::container::tooltip)
+            .into()
     }
 }

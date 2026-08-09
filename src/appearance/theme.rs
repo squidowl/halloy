@@ -126,3 +126,9 @@ pub fn resolve_line_height(config: &config::Font) -> f32 {
         )
         .0
 }
+
+pub fn scale_for_font_size(font: &config::Font) -> f32 {
+    font.size
+        .map_or(1.0, |size| f32::from(size) / TEXT_SIZE)
+        .max(1.0)
+}

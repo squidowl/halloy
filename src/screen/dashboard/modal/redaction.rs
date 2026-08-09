@@ -3,9 +3,7 @@ use iced::widget::{button, column, container, operation, text_input};
 use iced::{Length, Task, alignment};
 
 use crate::theme;
-use crate::widget::{Element, text};
-
-const MODAL_WIDTH: f32 = 380.0;
+use crate::widget::{self, Element, text};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct State {
@@ -60,7 +58,7 @@ impl State {
     }
 }
 
-pub fn view<'a>(state: &'a State, _config: &'a Config) -> Element<'a, Message> {
+pub fn view<'a>(state: &'a State, config: &'a Config) -> Element<'a, Message> {
     let content = column![
         text("Reason for redaction"),
         text_input("Enter reason (optional)", &state.reason)
@@ -75,16 +73,14 @@ pub fn view<'a>(state: &'a State, _config: &'a Config) -> Element<'a, Message> {
                 .width(Length::Fill),
         )
         .padding(5)
-        .width(Length::Fixed(250.0))
+        .width(widget::modal::button_width(&config.font))
         .style(|theme, status| theme::button::secondary(theme, status, false))
         .on_press(Message::Submit),
     ]
     .spacing(20)
     .align_x(iced::Alignment::Center);
 
-    container(content)
-        .width(Length::Fixed(MODAL_WIDTH))
-        .padding(25)
+    widget::modal::container(content, &config.font)
         .style(theme::container::tooltip)
         .into()
 }

@@ -24,6 +24,7 @@ Fixed:
 - Don't show another preview from the same message after hiding one
 - Restrict commonly used (`()<>"`) chars from being used to highlight nicks
 - Receiving an invite will reveal the query with the inviter in the sidebar
+- Better support for larger font sizes in modals
 
 Changed:
 
@@ -36,7 +37,7 @@ Changed:
 Thanks:
 
 - Contributions: @rollecode, @luca020400, @rtmongold, @tranzystorekk, @englut
-- Bug reports: @sebbu2, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae
+- Bug reports: @sebbu2, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae, @SRAZKVT
 - Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo, ivocavalcante, @sebbu2, @coraxioU9, @ncfavier
 
 # 2026.8 (2026-07-24)

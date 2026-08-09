@@ -3,7 +3,7 @@ use data::{Config, config};
 use iced::widget::{button, column, container, space, text};
 use iced::{Length, alignment};
 
-use crate::widget::Element;
+use crate::widget::{self, Element};
 use crate::{Theme, font, icon, open_url, theme};
 
 #[derive(Debug, Clone)]
@@ -44,14 +44,18 @@ impl Help {
         }
     }
 
-    pub fn view<'a>(&self, theme: &Theme) -> Element<'a, Message> {
+    pub fn view<'a>(
+        &self,
+        font_config: &config::Font,
+        theme: &Theme,
+    ) -> Element<'a, Message> {
         let config_button = button(
             container(text("Open Config Directory"))
                 .align_x(alignment::Horizontal::Center)
                 .width(Length::Fill),
         )
         .padding(5)
-        .width(Length::Fixed(250.0))
+        .width(Length::Fill)
         .style(|theme, status| theme::button::secondary(theme, status, false))
         .on_press(Message::OpenConfigurationDirectory);
 
@@ -71,7 +75,7 @@ impl Help {
                 .width(Length::Fill),
         )
         .padding(5)
-        .width(Length::Fixed(250.0))
+        .width(Length::Fill)
         .style(|theme, status| theme::button::secondary(theme, status, false))
         .on_press(Message::RefreshConfiguration);
 
@@ -83,12 +87,14 @@ impl Help {
             .push(
                 text(self.error.to_string())
                     .style(theme::text::error)
-                    .font_maybe(theme::font_style::error(theme).map(font::get)),
+                    .font_maybe(
+                        theme::font_style::error(theme).map(font::get_code),
+                    ),
             )
             .push(space::vertical().height(10))
             .push(
                 column![]
-                    .width(250)
+                    .width(widget::modal::button_width(font_config))
                     .spacing(4)
                     .push(config_button)
                     .push(wiki_button)
