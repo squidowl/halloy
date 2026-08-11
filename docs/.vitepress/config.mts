@@ -191,6 +191,7 @@ export default defineConfig({
               collapsed: false,
               items: guidesItems,
             },
+            { text: "Uninstallation", link: "/uninstallation" },
             { text: "Contributing", link: "/contributing" },
             { text: "Get in Touch", link: "/get-in-touch" },
           ],
