@@ -38,7 +38,7 @@ Thanks:
 
 - Contributions: @rollecode, @luca020400, @rtmongold, @tranzystorekk, @englut
 - Bug reports: @sebbu2, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae, @SRAZKVT
-- Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo, ivocavalcante, @sebbu2, @coraxioU9, @ncfavier
+- Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo, ivocavalcante, @sebbu2, @coraxioU9, @ncfavier, @darienm
 
 # 2026.8 (2026-07-24)
 
