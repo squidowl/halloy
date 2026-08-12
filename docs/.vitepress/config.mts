@@ -150,6 +150,28 @@ export default defineConfig({
     siteTitle: `Halloy <span class="VPBadge info mobile-only">${docsChannel}</span>`,
     search: {
       provider: "local",
+      options: {
+        miniSearch: {
+          options: {
+            // workaround to provide partial word searches
+            // attribution: https://github.com/lucaong/minisearch/issues/194#issuecomment-1369229601
+            processTerm: (term) =>
+              ((term, minLength) => {
+                if (term == null) {
+                  return;
+                }
+
+                const tokens: string[] = [];
+
+                for (let i = 0; i <= term.length - minLength; i++) {
+                  tokens.push(term.slice(i));
+                }
+
+                return tokens;
+              })(term, 4),
+          },
+        },
+      },
     },
     outline: {
       level: [2, 4],
