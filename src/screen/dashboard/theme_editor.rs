@@ -595,6 +595,7 @@ pub enum Text {
     Info,
     Debug,
     Trace,
+    SpellcheckMisspelled,
 }
 
 impl Text {
@@ -609,6 +610,9 @@ impl Text {
             Text::Info => styles.text.info.color,
             Text::Debug => styles.text.debug.color,
             Text::Trace => styles.text.trace.color,
+            Text::SpellcheckMisspelled => {
+                styles.text.spellcheck_misspelled.color
+            }
         }
     }
 
@@ -623,6 +627,9 @@ impl Text {
             Text::Info => styles.text.info.font_style,
             Text::Debug => styles.text.debug.font_style,
             Text::Trace => styles.text.trace.font_style,
+            Text::SpellcheckMisspelled => {
+                styles.text.spellcheck_misspelled.font_style
+            }
         }
     }
 
@@ -678,6 +685,10 @@ impl Text {
             Text::Trace => {
                 styles.trace.color = color;
                 styles.trace.font_style = font_style;
+            }
+            Text::SpellcheckMisspelled => {
+                styles.spellcheck_misspelled.color = color;
+                styles.spellcheck_misspelled.font_style = font_style;
             }
         }
     }
