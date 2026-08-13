@@ -1,9 +1,9 @@
-use std::collections::HashMap;
 use std::num::NonZeroU16;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
+use hashbrown::HashMap;
 use indexmap::IndexMap;
 use irc::connection;
 use serde::{Deserialize, Deserializer};

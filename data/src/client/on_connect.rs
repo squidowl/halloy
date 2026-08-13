@@ -1,15 +1,15 @@
-use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 
 use futures::stream::{self, BoxStream};
 use futures::{SinkExt, StreamExt};
+use hashbrown::HashMap;
 use tokio::time;
 
 use crate::capabilities::Capabilities;
 use crate::features::Features;
-use crate::user::NickRef;
+use crate::user::Nick;
 use crate::{Command, Target, command, config, isupport, message, server};
 
 #[derive(Debug)]
@@ -40,7 +40,7 @@ impl fmt::Debug for Stream {
 pub fn on_connect(
     handle: server::Handle,
     server_config: Arc<config::Server>,
-    our_nickname: NickRef,
+    our_nickname: &Nick,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
     capabilities: &Capabilities,
     features: &Features,
