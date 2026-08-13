@@ -1,13 +1,15 @@
 use std::{convert, iter};
 
 use data::buffer::{Buffer, BufferRef};
+use data::client::{self, ClientsContext};
 use data::config::server::SidebarVisibility;
 use data::config::sidebar::{InternalBuffer, PrimaryIcon};
 use data::config::{self, Config, sidebar};
 use data::dashboard::{BufferAction, BufferFocusedAction};
+use data::history::{self, model};
 use data::{
-    Image, Version, buffer, client, file_transfer, history, isupport, server,
-    server_icon, target,
+    Image, Version, buffer, file_transfer, isupport, server, server_icon,
+    target,
 };
 use iced::Length::Shrink;
 use iced::widget::text::{Ellipsis, LineHeight, Shaping, Wrapping};
@@ -116,7 +118,7 @@ impl Sidebar {
         &self,
         servers: &server::Map,
         clients: &data::client::Map,
-        history: &history::Manager,
+        models: &model::Manager,
         panes: &Panes,
         config: &Config,
         show_muted_buffers: bool,
@@ -125,7 +127,7 @@ impl Sidebar {
         self.sidebar_buffer_groups(
             servers,
             clients,
-            history,
+            models,
             panes,
             config,
             show_muted_buffers,
@@ -151,7 +153,7 @@ impl Sidebar {
         &self,
         servers: &server::Map,
         clients: &data::client::Map,
-        history: &history::Manager,
+        models: &model::Manager,
         panes: &Panes,
         config: &Config,
         show_muted_buffers: bool,
@@ -160,7 +162,7 @@ impl Sidebar {
         self.sidebar_buffer_groups(
             servers,
             clients,
-            history,
+            models,
             panes,
             config,
             show_muted_buffers,
@@ -196,7 +198,7 @@ impl Sidebar {
         &self,
         servers: &server::Map,
         clients: &data::client::Map,
-        history: &history::Manager,
+        models: &model::Manager,
         panes: &Panes,
         config: &Config,
         show_muted_buffers: bool,
@@ -214,7 +216,7 @@ impl Sidebar {
                     muted,
                     casemapping,
                     show_muted_buffers,
-                    history,
+                    models,
                     panes,
                     config,
                 )
@@ -275,6 +277,10 @@ impl Sidebar {
                     .map(|mut buffer_data| {
                         let mut collapsible_buffers = vec![];
 
+                        // TODO: Sort buffers in model::Manager so that models
+                        // can be used for channels like how they're used for
+                        // queries.
+
                         // Channels from the connected server.
                         for (channel, muted) in connection.channels_with_muted()
                         {
@@ -295,7 +301,7 @@ impl Sidebar {
                         }
 
                         // Queries from the connected server.
-                        for query in history.get_unique_queries(server) {
+                        for query in models.visible_server_queries(server) {
                             let (resolved_query, muted) = connection
                                 .resolve_query_with_muted(
                                     query,
@@ -377,7 +383,7 @@ impl Sidebar {
                     buffer.into(),
                     muted,
                     show_muted_buffers,
-                    history,
+                    models,
                     panes,
                     config,
                 )
@@ -512,7 +518,7 @@ impl Sidebar {
     fn user_menu_button<'a>(
         &self,
         config: &'a Config,
-        history: &'a history::Manager,
+        models: &'a model::Manager,
         file_transfers: &'a file_transfer::Manager,
         version: &'a Version,
         theme: &'a Theme,
@@ -522,8 +528,7 @@ impl Sidebar {
 
         let dimensions = Dimensions::from(&config::sidebar::Sidebar::default());
 
-        let logs_has_unread = history
-            .has_unread(&history::Kind::Logs, &config.buffer.server_messages);
+        let logs_has_unread = models.has_unread(&history::Kind::Logs);
 
         // Show notification dot if theres a new version, if there're transfers,
         // or if the logs have unread messages.
@@ -804,9 +809,8 @@ impl Sidebar {
         &'a self,
         servers: &server::Map,
         clients: &data::client::Map,
-        history: &'a history::Manager,
+        models: &'a model::Manager,
         panes: &'a Panes,
-        focus: Focus,
         server_icons: &'a server_icon::Manager,
         config: &'a Config,
         file_transfers: &'a file_transfer::Manager,
@@ -823,7 +827,7 @@ impl Sidebar {
                 config.sidebar.user_menu.enabled.then(|| {
                     self.user_menu_button(
                         config,
-                        history,
+                        models,
                         file_transfers,
                         version,
                         theme,
@@ -834,7 +838,7 @@ impl Sidebar {
             let sidebar_buffer_groups = self.sidebar_buffer_groups(
                 servers,
                 clients,
-                history,
+                models,
                 panes,
                 config,
                 show_muted_buffers,
@@ -878,10 +882,8 @@ impl Sidebar {
                         server_icon_enabled,
                         server_sidebar_visibility,
                     } => {
-                        let server_has_unread = history.server_has_unread(
-                            &server,
-                            &config.buffer.server_messages,
-                        );
+                        let server_has_unread =
+                            models.server_has_unread(&server);
                         let supports_detach =
                             clients.get_server_supports_detach(&server);
 
@@ -889,7 +891,6 @@ impl Sidebar {
                             let context = UpstreamButtonContext {
                                 config,
                                 panes,
-                                focus,
                                 server_icons,
                                 buffer: buffer_data.buffer,
                                 kind: buffer_data.kind,
@@ -902,7 +903,7 @@ impl Sidebar {
                                 casemapping,
                                 server_icon_enabled,
                                 server_sidebar_visibility,
-                                history,
+                                models,
                                 width,
                                 theme,
                                 collapse: &self.collapse,
@@ -917,11 +918,10 @@ impl Sidebar {
                             buffers.push(internal_buffer_button(
                                 config,
                                 panes,
-                                focus,
                                 buffer_data.buffer,
                                 buffer_data.kind,
                                 buffer_data.indicators,
-                                history,
+                                models,
                                 width,
                                 theme,
                             ));
@@ -1084,7 +1084,7 @@ impl UpstreamBufferSidebarData {
         muted: bool,
         casemapping: isupport::CaseMap,
         show_muted_buffers: bool,
-        history: &history::Manager,
+        models: &model::Manager,
         panes: &Panes,
         config: &Config,
     ) -> Option<Self> {
@@ -1092,13 +1092,12 @@ impl UpstreamBufferSidebarData {
             .iter_visible()
             .any(|(_, _, state)| state.buffer.upstream() == Some(&buffer));
 
-        let has_unread =
-            history.has_unread(&kind, &config.buffer.server_messages);
+        let has_unread = models.has_unread(&kind);
 
         let is_unread_query =
             matches!(buffer, buffer::Upstream::Query(_, _)) && has_unread;
 
-        let has_highlight = history.has_highlight(&kind);
+        let has_highlight = models.has_highlight(&kind);
 
         let indicators = IndicatorState {
             unread: has_unread
@@ -1108,7 +1107,7 @@ impl UpstreamBufferSidebarData {
                     || !is_visible_pane)
                 && config.sidebar.unread_indicator.should_indicate(
                     buffer.target().as_ref(),
-                    buffer.server(),
+                    buffer.as_server(),
                     casemapping,
                 ),
             highlight: (has_highlight
@@ -1118,7 +1117,7 @@ impl UpstreamBufferSidebarData {
                     || !is_visible_pane)
                 && config.sidebar.highlight_indicator.should_indicate(
                     buffer.target().as_ref(),
-                    buffer.server(),
+                    buffer.as_server(),
                     casemapping,
                 ),
         };
@@ -1166,7 +1165,7 @@ impl InternalBufferSidebarData {
         buffer: buffer::Internal,
         muted: bool,
         show_muted_buffers: bool,
-        history: &history::Manager,
+        models: &model::Manager,
         panes: &Panes,
         config: &Config,
     ) -> Option<Self> {
@@ -1177,13 +1176,11 @@ impl InternalBufferSidebarData {
             state.buffer.internal().as_ref() == Some(&buffer)
         });
 
-        let has_unread = kind.as_ref().is_some_and(|kind| {
-            history.has_unread(kind, &config.buffer.server_messages)
-        });
+        let has_unread =
+            kind.as_ref().is_some_and(|kind| models.has_unread(kind));
 
-        let has_highlight = kind
-            .as_ref()
-            .is_some_and(|kind| history.has_highlight(kind));
+        let has_highlight =
+            kind.as_ref().is_some_and(|kind| models.has_highlight(kind));
 
         let indicators = IndicatorState {
             unread: has_unread
@@ -1412,7 +1409,6 @@ impl IndicatorState {
 struct UpstreamButtonContext<'a> {
     config: &'a Config,
     panes: &'a Panes,
-    focus: Focus,
     server_icons: &'a server_icon::Manager,
     buffer: buffer::Upstream,
     kind: history::Kind,
@@ -1424,7 +1420,7 @@ struct UpstreamButtonContext<'a> {
     casemapping: isupport::CaseMap,
     server_icon_enabled: bool,
     server_sidebar_visibility: SidebarVisibility,
-    history: &'a history::Manager,
+    models: &'a model::Manager,
     width: Length,
     theme: &'a Theme,
     collapse: &'a collapse::State,
@@ -1536,7 +1532,6 @@ fn upstream_buffer_button<'a>(
     let UpstreamButtonContext {
         config,
         panes,
-        focus,
         server_icons,
         buffer,
         kind,
@@ -1546,7 +1541,7 @@ fn upstream_buffer_button<'a>(
         casemapping,
         server_icon_enabled,
         server_sidebar_visibility,
-        history,
+        models,
         width,
         theme,
         collapse,
@@ -1564,13 +1559,12 @@ fn upstream_buffer_button<'a>(
             (Focus {
                 window: window_id,
                 pane,
-            } == *focus
+            } == panes.focus
                 && state.buffer.upstream() == Some(buffer))
             .then_some((window_id, pane))
         });
 
-    let can_mark_as_read =
-        history.can_mark_as_read(kind, &config.buffer.server_messages);
+    let can_mark_as_read = models.can_mark_as_read(kind);
 
     let show_unread_icon =
         indicators.unread && config.sidebar.unread_indicator.has_icon();
@@ -1783,7 +1777,7 @@ fn upstream_buffer_button<'a>(
     let base: Element<'a, Message> = if let Some(disclosure) = disclosure {
         let button_size = disclosure.size;
         let message = Message::SetServerVisibility(
-            buffer.server().clone(),
+            buffer.as_server().clone(),
             disclosure.next_visibility,
         );
         let disclosure_button = button(
@@ -1824,12 +1818,11 @@ fn upstream_buffer_context_menu<'a>(
     let UpstreamButtonContext {
         config,
         panes,
-        focus,
         buffer,
         connection_status,
         server_has_unread,
         supports_detach,
-        history,
+        models,
         theme,
         collapse,
         server_sidebar_visibility,
@@ -1840,7 +1833,7 @@ fn upstream_buffer_context_menu<'a>(
         &buffer.clone().into(),
         panes.len(),
         open_as_window_pane,
-        focus,
+        panes.focus,
         Some(connection_status),
         supports_detach,
         true,
@@ -1860,8 +1853,8 @@ fn upstream_buffer_context_menu<'a>(
         move |entry, length| {
             let (content, message) = match entry {
                 Entry::CloseAllQueries => {
-                    let queries = history
-                        .get_unique_queries(buffer.server())
+                    let queries = models
+                        .visible_server_queries(buffer.as_server())
                         .into_iter()
                         .cloned()
                         .collect::<Vec<_>>();
@@ -1872,7 +1865,7 @@ fn upstream_buffer_context_menu<'a>(
                             None
                         } else {
                             Some(Message::CloseAllQueries(
-                                buffer.server().clone(),
+                                buffer.as_server().clone(),
                                 queries,
                             ))
                         },
@@ -1890,13 +1883,13 @@ fn upstream_buffer_context_menu<'a>(
                 Entry::MarkServerAsRead => (
                     "Mark entire server as read",
                     server_has_unread.then(|| {
-                        Message::MarkServerAsRead(buffer.server().clone())
+                        Message::MarkServerAsRead(buffer.as_server().clone())
                     }),
                 ),
                 Entry::ChannelDiscovery => (
                     "Open channel discovery",
                     Some(Message::OpenChannelDiscovery(
-                        buffer.server().clone(),
+                        buffer.as_server().clone(),
                     )),
                 ),
                 Entry::NewPane => (
@@ -1932,15 +1925,17 @@ fn upstream_buffer_context_menu<'a>(
                 ),
                 Entry::Connect => (
                     "Connect to server",
-                    Some(Message::Connect(buffer.server().clone())),
+                    Some(Message::Connect(buffer.as_server().clone())),
                 ),
                 Entry::DisableAutoconnect => (
                     "Disable autoconnect",
-                    Some(Message::DisableAutoconnect(buffer.server().clone())),
+                    Some(Message::DisableAutoconnect(
+                        buffer.as_server().clone(),
+                    )),
                 ),
                 Entry::Remove => (
                     "Remove server from sidebar",
-                    Some(Message::Remove(buffer.server().clone())),
+                    Some(Message::Remove(buffer.as_server().clone())),
                 ),
                 Entry::Context => {
                     return container(
@@ -1999,7 +1994,7 @@ fn upstream_buffer_context_menu<'a>(
                     }
                 },
                 Entry::ToggleCollapse => {
-                    let server = buffer.server();
+                    let server = buffer.as_server();
                     let is_expanded =
                         collapse.is_expanded(server, server_sidebar_visibility);
                     (
@@ -2036,11 +2031,10 @@ fn upstream_buffer_context_menu<'a>(
 fn internal_buffer_button<'a>(
     config: &'a Config,
     panes: &'a Panes,
-    focus: Focus,
     buffer: buffer::Internal,
     kind: Option<history::Kind>,
     indicators: IndicatorState,
-    history: &'a history::Manager,
+    models: &'a model::Manager,
     width: Length,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
@@ -2055,14 +2049,14 @@ fn internal_buffer_button<'a>(
             (Focus {
                 window: window_id,
                 pane,
-            } == focus
+            } == panes.focus
                 && state.buffer.internal().as_ref() == Some(&buffer))
             .then_some((window_id, pane))
         });
 
-    let can_mark_as_read = kind.as_ref().is_some_and(|kind| {
-        history.can_mark_as_read(kind, &config.buffer.server_messages)
-    });
+    let can_mark_as_read = kind
+        .as_ref()
+        .is_some_and(|kind| models.can_mark_as_read(kind));
 
     let dimensions = Dimensions::from(&config.sidebar);
 
@@ -2218,7 +2212,7 @@ fn internal_buffer_button<'a>(
         &buffer.clone().into(),
         panes.len(),
         open_as_window_pane,
-        focus,
+        panes.focus,
         None,
         false,
         kind.is_some(),
