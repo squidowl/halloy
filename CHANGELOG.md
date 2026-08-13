@@ -14,6 +14,13 @@ Added:
 - Optional `font.code` setting for code-formatted text
 - Settings to control how internal and server buffers are opened from the sidebar (`actions.sidebar.internal` and `actions.sidebar.server`)
 - `buffer.nickname.offline` supports `"dimmed"` / `{ dimmed = float }`, and `{ color = "theme"|"nickname", alpha = ...}` so theme offline color and dimming can be combined
+- Spellcheck for the message input (`buffer.text_input.spellcheck`)
+  - Uses the platform spellchecker; optional `locale`
+  - Skips channel names and known nicks
+  - <kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd> cycles suggestions when
+    autocomplete does not apply (`suggestions = true`)
+- Theme style `text.spellcheck_misspelled`
+  (default: `text.error` in italic when unset)
 
 Fixed:
 
