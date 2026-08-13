@@ -2505,4 +2505,41 @@ mod tests {
 
         assert_eq!(full_messages_len(&manager, &kind), 1);
     }
+
+    #[test]
+    fn sent_message_is_not_sorted_before_received_messages() {
+        let (mut manager, kind, message) = setup();
+
+        let clients = client::Map::default();
+        let buffer_config = config::Buffer::default();
+
+        manager.update(
+            Message::LoadFull(
+                kind.clone(),
+                Ok(history::Loaded {
+                    messages: vec![message.clone()],
+                    metadata: history::Metadata::default(),
+                }),
+            ),
+            &clients,
+            &buffer_config,
+        );
+
+        // Sent with a local clock 5 seconds behind the server's
+        let mut sent = test_message(
+            message.server_time - chrono::Duration::seconds(5),
+            "our reply",
+        );
+        sent.direction = message::Direction::Sent;
+
+        drop(manager.data.add_message(kind.clone(), sent, None));
+
+        let Some(History::Full { messages, .. }) = manager.data.map.get(&kind)
+        else {
+            panic!("history should be full after loading");
+        };
+
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages.last().unwrap().text(), "our reply");
+    }
 }

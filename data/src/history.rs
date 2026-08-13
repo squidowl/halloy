@@ -638,9 +638,30 @@ impl History {
 
     fn add_message(
         &mut self,
-        message: Message,
+        mut message: Message,
         labeled_response_context: Option<LabeledResponseContext>,
     ) -> Option<ReadMarker> {
+        // Clamp new messages to the latest server time of existing messages,
+        // so that they don't get inserted in "the past", when the server time
+        // is not in perfect sync with the client time.
+        if matches!(message.direction, message::Direction::Sent) {
+            let latest = match self {
+                History::Partial {
+                    pending_messages, ..
+                } => pending_messages
+                    .iter()
+                    .map(|(message, _)| message.server_time)
+                    .max(),
+                History::Full { messages, .. } => {
+                    messages.last().map(|message| message.server_time)
+                }
+            };
+
+            if let Some(latest) = latest {
+                message.server_time = message.server_time.max(latest);
+            }
+        }
+
         if let History::Partial {
             show_in_sidebar,
             max_triggers_unread,
@@ -1712,7 +1733,6 @@ pub fn insert_message(
 
     if let Some(labeled_response_context) = &labeled_response_context {
         let start = labeled_response_context.server_time - fuzz_seconds;
-        let end = labeled_response_context.server_time + fuzz_seconds;
 
         let start_index = match messages
             .binary_search_by(|stored| stored.server_time.cmp(&start))
@@ -1720,14 +1740,11 @@ pub fn insert_message(
             Ok(match_index) => match_index,
             Err(sorted_insert_index) => sorted_insert_index,
         };
-        let end_index = match messages
-            .binary_search_by(|stored| stored.server_time.cmp(&end))
-        {
-            Ok(match_index) => match_index,
-            Err(sorted_insert_index) => sorted_insert_index,
-        };
 
-        if let Some(index) = messages[start_index..end_index]
+        // The sent message was stamped with the context's server time,
+        // but may have been clamped forward (up to the latest received
+        // message) when it was added, so search through the end
+        if let Some(index) = messages[start_index..]
             .iter()
             .enumerate()
             .find_map(|(slice_index, stored)| {
@@ -2122,5 +2139,69 @@ mod tests {
         let live = test_message(server_time, "hello");
         insert_message(&mut messages, live, None);
         assert_eq!(messages.len(), 4);
+    }
+
+    // A sent message clamped past its labeled-response context's server
+    // time (local clock behind the server's) must still be replaced when
+    // its labeled echo arrives
+    #[test]
+    fn labeled_echo_replaces_clamped_sent_message() {
+        use crate::server::ServerName;
+
+        let send_time = Utc.with_ymd_and_hms(2026, 8, 13, 12, 0, 0).unwrap();
+
+        let isupport = HashMap::<isupport::Kind, isupport::Parameter>::new();
+        let chantypes = isupport::get_chantypes_or_default(&isupport);
+        let casemapping = isupport::get_casemapping_or_default(&isupport);
+
+        let kind = Kind::Channel(
+            Server::from(ServerName::from("test-server")),
+            target::Channel::from_str("#test", chantypes, casemapping),
+        );
+
+        // The last received message is 9 seconds ahead of the local clock
+        let mut history = History::Full {
+            kind,
+            messages: vec![test_message(
+                send_time + chrono::Duration::seconds(9),
+                "their message",
+            )],
+            last_updated_at: None,
+            read_marker: None,
+            display_read_marker: None,
+            chathistory_references: None,
+            last_seen: HashMap::new(),
+            cleared: false,
+            last_flushed_at: 0,
+        };
+
+        let context = LabeledResponseContext {
+            label_as_id: ":label=1".to_string().into(),
+            server_time: send_time,
+        };
+
+        let mut sent = test_message(send_time, "our reply");
+        sent.direction = message::Direction::Sent;
+        let sent = sent.with_labeled_response_context(Some(context.clone()));
+
+        history.add_message(sent, Some(context.clone()));
+
+        let mut echo = test_message(
+            send_time + chrono::Duration::seconds(10),
+            "our reply",
+        );
+        echo.is_echo = true;
+
+        history.add_message(echo, Some(context));
+
+        let History::Full { messages, .. } = &history else {
+            unreachable!()
+        };
+
+        assert_eq!(messages.len(), 2);
+        assert!(messages.iter().all(|message| matches!(
+            message.direction,
+            message::Direction::Received
+        )));
     }
 }
