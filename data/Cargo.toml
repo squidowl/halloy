@@ -21,7 +21,7 @@ message_tests = ["iced/tokio"]
 [dependencies]
 thiserror = { workspace = true }
 futures = { workspace = true }
-tokio = { workspace = true, features = ["io-util", "fs", "rt"] }
+tokio = { workspace = true, features = ["io-util", "fs", "rt", "sync"] }
 chrono = { workspace = true }
 bytes = { workspace = true }
 strum = { workspace = true }

@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{Arc, LazyLock, Mutex as SyncMutex};
 use std::time::Duration;
 use std::{fmt, io};
 
@@ -44,6 +45,22 @@ pub(crate) fn truncate_messages(messages: &mut Vec<Message>) {
     if messages.len() > MAX_MESSAGES {
         messages.drain(0..messages.len() - (MAX_MESSAGES - TRUNC_COUNT));
     }
+}
+
+/// Per-[`Kind`] locks serializing all history file I/O.
+///
+/// Loads, appends, and overwrites for the same kind are spawned as
+/// independent tasks. Without serialization their read-modify-write
+/// cycles of the same files can interleave, silently losing, duplicating,
+/// or corrupting messages.
+static FILE_LOCKS: LazyLock<
+    SyncMutex<HashMap<Kind, Arc<tokio::sync::Mutex<()>>>>,
+> = LazyLock::new(|| SyncMutex::new(HashMap::new()));
+
+pub(crate) fn file_lock(kind: &Kind) -> Arc<tokio::sync::Mutex<()>> {
+    let mut locks = FILE_LOCKS.lock().unwrap();
+
+    Arc::clone(locks.entry(kind.clone()).or_default())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -220,6 +237,17 @@ pub enum Seed {
 }
 
 pub async fn load(kind: Kind, seed: Option<Seed>) -> Result<Loaded, Error> {
+    let lock = file_lock(&kind);
+    let _guard = lock.lock().await;
+
+    load_unlocked(kind, seed).await
+}
+
+/// Must be called with the kind's [`file_lock`] held.
+async fn load_unlocked(
+    kind: Kind,
+    seed: Option<Seed>,
+) -> Result<Loaded, Error> {
     let path = path(&kind).await?;
 
     let mut messages = read_all(&path).await.unwrap_or_default();
@@ -230,7 +258,7 @@ pub async fn load(kind: Kind, seed: Option<Seed>) -> Result<Loaded, Error> {
         renormalize_messages(messages.iter_mut(), seed);
     }
 
-    let metadata = metadata::load(kind).await.unwrap_or_default();
+    let metadata = metadata::load_unlocked(kind).await.unwrap_or_default();
 
     Ok(Loaded { messages, metadata })
 }
@@ -263,6 +291,9 @@ pub async fn overwrite(
     read_marker: Option<ReadMarker>,
     chathistory_references: Option<MessageReferences>,
 ) -> Result<(), Error> {
+    let lock = file_lock(kind);
+    let _guard = lock.lock().await;
+
     if messages.is_empty() {
         return metadata::save(
             kind,
@@ -291,7 +322,10 @@ pub async fn append(
     pending_reactions: HashMap<message::Id, reaction::Pending>,
     pending_redactions: HashMap<message::Id, redaction::Pending>,
 ) -> Result<Vec<EchoEvent>, Error> {
-    let loaded = load(kind.clone(), seed).await?;
+    let lock = file_lock(kind);
+    let _guard = lock.lock().await;
+
+    let loaded = load_unlocked(kind.clone(), seed).await?;
 
     let mut echo_events: Vec<EchoEvent> = vec![];
 
@@ -408,6 +442,9 @@ async fn write_messages<'a>(
 }
 
 pub async fn delete(kind: &Kind) -> Result<(), Error> {
+    let lock = file_lock(kind);
+    let _guard = lock.lock().await;
+
     let path = path(kind).await?;
 
     fs::remove_file(path).await?;
@@ -1051,6 +1088,9 @@ impl History {
 
                     return Some(
                         async move {
+                            let lock = file_lock(&kind);
+                            let _guard = lock.lock().await;
+
                             metadata::update(
                                 &kind,
                                 read_marker,

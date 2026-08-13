@@ -114,6 +114,14 @@ pub fn latest_can_reference(messages: &[Message]) -> Option<MessageReferences> {
 }
 
 pub async fn load(kind: Kind) -> Result<Metadata, Error> {
+    let lock = super::file_lock(&kind);
+    let _guard = lock.lock().await;
+
+    load_unlocked(kind).await
+}
+
+/// Must be called with the kind's [`super::file_lock`] held.
+pub(crate) async fn load_unlocked(kind: Kind) -> Result<Metadata, Error> {
     let path = path(&kind).await?;
 
     if let Ok(bytes) = fs::read(path).await {
@@ -123,6 +131,7 @@ pub async fn load(kind: Kind) -> Result<Metadata, Error> {
     }
 }
 
+/// Must be called with the kind's [`super::file_lock`] held.
 pub async fn save(
     kind: &Kind,
     messages: &[Message],
@@ -144,6 +153,7 @@ pub async fn save(
     Ok(())
 }
 
+/// Must be called with the kind's [`super::file_lock`] held.
 pub async fn update(
     kind: &Kind,
     read_marker: Option<ReadMarker>,
@@ -169,7 +179,10 @@ pub async fn update_chathistory_references(
     kind: &Kind,
     chathistory_references: &MessageReferences,
 ) -> Result<(), Error> {
-    let metadata = load(kind.clone()).await?;
+    let lock = super::file_lock(kind);
+    let _guard = lock.lock().await;
+
+    let metadata = load_unlocked(kind.clone()).await?;
 
     if metadata.chathistory_references.is_some_and(
         |metadata_chathistory_references| {
@@ -197,7 +210,10 @@ pub async fn update_read_marker(
     kind: &Kind,
     read_marker: &ReadMarker,
 ) -> Result<(), Error> {
-    let metadata = load(kind.clone()).await?;
+    let lock = super::file_lock(kind);
+    let _guard = lock.lock().await;
+
+    let metadata = load_unlocked(kind.clone()).await?;
 
     if metadata.read_marker.is_some_and(|metadata_read_marker| {
         metadata_read_marker >= *read_marker
@@ -220,6 +236,9 @@ pub async fn update_read_marker(
 }
 
 pub async fn delete(kind: &Kind) -> Result<(), Error> {
+    let lock = super::file_lock(kind);
+    let _guard = lock.lock().await;
+
     let path = path(kind).await?;
 
     fs::remove_file(path).await?;
