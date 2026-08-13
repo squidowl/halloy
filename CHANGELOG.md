@@ -25,6 +25,7 @@ Fixed:
 - Restrict commonly used (`()<>"`) chars from being used to highlight nicks
 - Receiving an invite will reveal the query with the inviter in the sidebar
 - Better support for larger font sizes in modals
+- "Apply Colors & Font Styles" button in Theme Editor persists modifications made via the theme editor
 
 Changed:
 

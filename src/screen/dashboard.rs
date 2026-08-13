@@ -729,10 +729,9 @@ impl Dashboard {
                         let _ = open_url::open(RELEASE_WEBSITE);
                         (Task::none(), None)
                     }
-                    sidebar::Event::ToggleThemeEditor => (
-                        self.toggle_theme_editor(theme, main_window, config),
-                        None,
-                    ),
+                    sidebar::Event::ToggleThemeEditor => {
+                        (self.toggle_theme_editor(main_window, config), None)
+                    }
                     sidebar::Event::OpenDocumentation => {
                         let _ = open_url::open(WIKI_WEBSITE);
                         (Task::none(), None)
@@ -1232,11 +1231,7 @@ impl Dashboard {
                     }
                     ThemeEditor => {
                         return (
-                            self.toggle_theme_editor(
-                                theme,
-                                main_window,
-                                config,
-                            ),
+                            self.toggle_theme_editor(main_window, config),
                             None,
                         );
                     }
@@ -1563,7 +1558,7 @@ impl Dashboard {
                 if let Some(editor_event) = editor_event {
                     match editor_event {
                         theme_editor::Event::Close => {
-                            tasks.push(self.close_theme_editor(theme));
+                            tasks.push(self.close_theme_editor());
                         }
                         theme_editor::Event::ReloadThemes => {
                             event = Some(Event::ReloadThemes);
@@ -2871,7 +2866,10 @@ impl Dashboard {
                 } else if self.theme_editor.as_ref().map(|e| e.window)
                     == Some(window)
                 {
-                    self.close_theme_editor(theme)
+                    // Remove preview to discard it
+                    *theme = theme.selected();
+
+                    self.close_theme_editor()
                 } else {
                     context_menu::close(convert::identity).map(
                         move |any_closed| {
@@ -3032,9 +3030,8 @@ impl Dashboard {
         }
     }
 
-    fn close_theme_editor(&mut self, theme: &mut Theme) -> Task<Message> {
+    fn close_theme_editor(&mut self) -> Task<Message> {
         if let Some(editor) = self.theme_editor.take() {
-            *theme = theme.selected();
             window::close(editor.window)
         } else {
             Task::none()
@@ -3043,12 +3040,11 @@ impl Dashboard {
 
     fn toggle_theme_editor(
         &mut self,
-        theme: &mut Theme,
         main_window: &Window,
         config: &Config,
     ) -> Task<Message> {
         if self.theme_editor.is_some() {
-            self.close_theme_editor(theme)
+            self.close_theme_editor()
         } else {
             let (editor, task) = ThemeEditor::open(main_window, config);
 
@@ -4926,7 +4922,10 @@ impl Dashboard {
         } else if self.theme_editor.as_ref().is_some_and(|e| e.window == id) {
             match event {
                 window::Event::CloseRequested => {
-                    return self.close_theme_editor(theme);
+                    // Remove preview to discard it
+                    *theme = theme.selected();
+
+                    return self.close_theme_editor();
                 }
                 window::Event::Moved(_)
                 | window::Event::Resized(_)
