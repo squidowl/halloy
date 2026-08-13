@@ -1026,6 +1026,8 @@ impl History {
 
                     truncate_messages(messages);
 
+                    *last_flushed_at = messages.len();
+
                     let messages = messages.clone();
 
                     return Some(
