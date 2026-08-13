@@ -1,11 +1,9 @@
-use chrono::{DateTime, Utc};
-use data::buffer::RightAlignmentWidths;
+use data::buffer::{self, BuffersContext, RightAlignmentWidths};
+use data::client::{self, ClientsContext};
 use data::dashboard::BufferAction;
+use data::history::{self, model, storage};
 use data::target::Target;
-use data::user::Nick;
-use data::{
-    Config, Image, Preview, User, buffer, client, history, message, preview,
-};
+use data::{Config, Image, Preview, User, message, preview};
 use iced::advanced::text;
 use iced::widget::{Space, column, container, row, space};
 use iced::{Color, Length, Size, Task, padding};
@@ -52,14 +50,12 @@ pub enum Event {
     OpenServer(String),
     Reconnect(data::server::Server),
     LeaveBuffers(Vec<Target>, Option<String>),
-    History(Task<history::manager::Message>),
     MarkAsRead(history::Kind),
     OpenUrl(String),
     ImagePreview(Image),
-    ExpandMessage(DateTime<Utc>, message::Hash),
-    ContractMessage(DateTime<Utc>, message::Hash),
+    ExpandMessage(message::Time, history::Id),
+    ContractMessage(message::Time, history::Id),
     InputSent {
-        history_task: Task<history::manager::Message>,
         open_buffers: Vec<(Target, BufferAction)>,
         was_join_command: bool,
     },
@@ -75,7 +71,7 @@ pub enum Event {
 pub fn view<'a>(
     state: &'a Server,
     clients: &'a data::client::Map,
-    history: &'a history::Manager,
+    models: &'a model::Manager,
     previews: &'a preview::Collection,
     config: &'a Config,
     theme: &'a Theme,
@@ -85,215 +81,202 @@ pub fn view<'a>(
     let chantypes = clients.get_server_chantypes_or_default(&state.server);
     let prefix = clients.get_server_prefix_or_default(&state.server);
     let casemapping = clients.get_server_casemapping_or_default(&state.server);
-    let our_nick: Option<data::user::NickRef<'_>> =
-        clients.nickname(&state.server);
-    let our_user = our_nick.map(|our_nick| User::from(Nick::from(our_nick)));
+    let our_nick = clients.nickname(&state.server);
+    let our_user = our_nick.cloned().map(User::from);
     let registry = clients.get_registry(&state.server);
+
+    let layout = move |message: &'a data::MessageDisplay,
+                       right_alignment_widths: Option<RightAlignmentWidths>,
+                       _,
+                       hide_nickname| {
+        let timestamp = config
+            .buffer
+            .format_timestamp(&message.inner.time.utc)
+            .map(|timestamp| {
+                context_menu::timestamp(
+                    selectable_text(timestamp)
+                        .font_maybe(
+                            theme::font_style::timestamp(theme).map(font::get),
+                        )
+                        .style(theme::selectable_text::timestamp),
+                    &message.inner.time.utc,
+                    config,
+                    theme,
+                )
+                .map(scroll_view::Message::ContextMenu)
+            });
+
+        match &message.inner.source {
+            message::Source::Server(server) => {
+                let text_content = message_content(
+                    &message.inner.content,
+                    &[],
+                    &state.server,
+                    registry,
+                    chantypes,
+                    casemapping,
+                    theme,
+                    scroll_view::Message::Link,
+                    None,
+                    move |theme| {
+                        theme::selectable_text::server(theme, server.as_ref())
+                    },
+                    move |theme| {
+                        theme::font_style::server(theme, server.as_ref())
+                    },
+                    Option::<fn(Color) -> Color>::None,
+                    None,
+                    config,
+                );
+
+                Some(context_menu::message(
+                    row_with_timestamp(timestamp, text_content),
+                    message,
+                    false,
+                    false,
+                    false,
+                    config,
+                    theme,
+                ))
+            }
+            message::Source::Internal(message::source::Internal::Status(
+                status,
+            )) => {
+                let content = message_content(
+                    &message.inner.content,
+                    &[],
+                    &state.server,
+                    registry,
+                    chantypes,
+                    casemapping,
+                    theme,
+                    scroll_view::Message::Link,
+                    None,
+                    move |theme| theme::selectable_text::status(theme, *status),
+                    move |theme| theme::font_style::status(theme, *status),
+                    Option::<fn(Color) -> Color>::None,
+                    None,
+                    config,
+                );
+
+                Some(row_with_timestamp(timestamp, content))
+            }
+            message::Source::User(user) => {
+                let user_display = UserDisplay::new(
+                    user,
+                    config.buffer.nickname.show_access_levels,
+                    config.buffer.nickname.show_bot_icon,
+                    message.inner.is_rerouted(),
+                    registry,
+                    &config.display.nickname,
+                    config.buffer.nickname.truncate,
+                    config.display.truncation_character,
+                    Some(&config.buffer.nickname.brackets),
+                    true,
+                );
+
+                let nick: Element<_> = if hide_nickname {
+                    let width = match config.buffer.nickname.alignment {
+                        data::buffer::Alignment::Left
+                        | data::buffer::Alignment::Top => {
+                            user_display.width(config)
+                        }
+                        data::buffer::Alignment::Right => {
+                            if let Some(right_alignment_widths) =
+                                right_alignment_widths
+                            {
+                                right_alignment_widths.middle
+                            } else {
+                                user_display.width(config)
+                            }
+                        }
+                    };
+
+                    Space::new().width(width).into()
+                } else {
+                    let mut nick_text = user_display.into_element(
+                        user, false, false, None, None, false, true, false,
+                        theme, config,
+                    );
+
+                    if let Some(right_alignment_widths) = right_alignment_widths
+                    {
+                        nick_text = container(nick_text)
+                            .width(right_alignment_widths.middle)
+                            .align_x(text::Alignment::Right)
+                            .into();
+                    }
+
+                    context_menu::user(
+                        nick_text,
+                        &state.server,
+                        prefix,
+                        None,
+                        registry,
+                        previews,
+                        user,
+                        None,
+                        None,
+                        message.inner.relayed_by.as_ref(),
+                        config,
+                        theme,
+                        &config.actions.buffer.click_username,
+                    )
+                    .map(scroll_view::Message::ContextMenu)
+                };
+
+                let rerouted_message = message.inner.is_rerouted();
+
+                let content = message_content(
+                    &message.inner.content,
+                    &[],
+                    &state.server,
+                    registry,
+                    chantypes,
+                    casemapping,
+                    theme,
+                    scroll_view::Message::Link,
+                    None,
+                    move |theme| {
+                        if rerouted_message {
+                            theme::selectable_text::tertiary(theme)
+                        } else {
+                            theme::selectable_text::default(theme)
+                        }
+                    },
+                    theme::font_style::primary,
+                    Option::<fn(Color) -> Color>::None,
+                    None,
+                    config,
+                );
+
+                Some(context_menu::message(
+                    row_with_timestamp_and_nick(timestamp, nick, content),
+                    message,
+                    false,
+                    false,
+                    false,
+                    config,
+                    theme,
+                ))
+            }
+            _ => None,
+        }
+    };
 
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
             &None,
             scroll_view::Kind::Server(&state.server),
-            history,
+            models,
             None,
             Option::<fn(&Preview, &message::Source) -> bool>::None,
             None,
             0.0,
             config,
             theme,
-            move |message: &'a data::Message,
-                  right_alignment_widths: Option<RightAlignmentWidths>,
-                  _,
-                  hide_nickname| {
-                let timestamp = config
-                    .buffer
-                    .format_timestamp(&message.server_time)
-                    .map(|timestamp| {
-                        context_menu::timestamp(
-                            selectable_text(timestamp)
-                                .font_maybe(
-                                    theme::font_style::timestamp(theme)
-                                        .map(font::get),
-                                )
-                                .style(theme::selectable_text::timestamp),
-                            &message.server_time,
-                            config,
-                            theme,
-                        )
-                        .map(scroll_view::Message::ContextMenu)
-                    });
-
-                match message.target.source() {
-                    message::Source::Server(server) => {
-                        let text_content = message_content(
-                            &message.content,
-                            &[],
-                            &state.server,
-                            registry,
-                            chantypes,
-                            casemapping,
-                            theme,
-                            scroll_view::Message::Link,
-                            None,
-                            move |theme| {
-                                theme::selectable_text::server(
-                                    theme,
-                                    server.as_ref(),
-                                )
-                            },
-                            move |theme| {
-                                theme::font_style::server(
-                                    theme,
-                                    server.as_ref(),
-                                )
-                            },
-                            Option::<fn(Color) -> Color>::None,
-                            None,
-                            config,
-                        );
-
-                        Some(context_menu::message(
-                            row_with_timestamp(timestamp, text_content),
-                            message,
-                            false,
-                            false,
-                            false,
-                            config,
-                            theme,
-                        ))
-                    }
-                    message::Source::Internal(
-                        message::source::Internal::Status(status),
-                    ) => {
-                        let content = message_content(
-                            &message.content,
-                            &[],
-                            &state.server,
-                            registry,
-                            chantypes,
-                            casemapping,
-                            theme,
-                            scroll_view::Message::Link,
-                            None,
-                            move |theme| {
-                                theme::selectable_text::status(theme, *status)
-                            },
-                            move |theme| {
-                                theme::font_style::status(theme, *status)
-                            },
-                            Option::<fn(Color) -> Color>::None,
-                            None,
-                            config,
-                        );
-
-                        Some(row_with_timestamp(timestamp, content))
-                    }
-                    message::Source::User(user) => {
-                        let user_display = UserDisplay::new(
-                            user,
-                            config.buffer.nickname.show_access_levels,
-                            config.buffer.nickname.show_bot_icon,
-                            message.is_rerouted(),
-                            registry,
-                            &config.display.nickname,
-                            config.buffer.nickname.truncate,
-                            config.display.truncation_character,
-                            Some(&config.buffer.nickname.brackets),
-                            true,
-                        );
-
-                        let nick: Element<_> = if hide_nickname {
-                            let width = match config.buffer.nickname.alignment {
-                                data::buffer::Alignment::Left
-                                | data::buffer::Alignment::Top => {
-                                    user_display.width(config)
-                                }
-                                data::buffer::Alignment::Right => {
-                                    if let Some(right_alignment_widths) =
-                                        right_alignment_widths
-                                    {
-                                        right_alignment_widths.middle
-                                    } else {
-                                        user_display.width(config)
-                                    }
-                                }
-                            };
-
-                            Space::new().width(width).into()
-                        } else {
-                            let mut nick_text = user_display.into_element(
-                                user, false, false, None, None, false, true,
-                                false, theme, config,
-                            );
-
-                            if let Some(right_alignment_widths) =
-                                right_alignment_widths
-                            {
-                                nick_text = container(nick_text)
-                                    .width(right_alignment_widths.middle)
-                                    .align_x(text::Alignment::Right)
-                                    .into();
-                            }
-
-                            context_menu::user(
-                                nick_text,
-                                &state.server,
-                                prefix,
-                                None,
-                                registry,
-                                previews,
-                                user,
-                                None,
-                                None,
-                                message.relayed_by.as_ref(),
-                                config,
-                                theme,
-                                &config.actions.buffer.click_username,
-                            )
-                            .map(scroll_view::Message::ContextMenu)
-                        };
-
-                        let rerouted_message = message.is_rerouted();
-
-                        let content = message_content(
-                            &message.content,
-                            &[],
-                            &state.server,
-                            registry,
-                            chantypes,
-                            casemapping,
-                            theme,
-                            scroll_view::Message::Link,
-                            None,
-                            move |theme| {
-                                if rerouted_message {
-                                    theme::selectable_text::tertiary(theme)
-                                } else {
-                                    theme::selectable_text::default(theme)
-                                }
-                            },
-                            theme::font_style::primary,
-                            Option::<fn(Color) -> Color>::None,
-                            None,
-                            config,
-                        );
-
-                        Some(context_menu::message(
-                            row_with_timestamp_and_nick(
-                                timestamp, nick, content,
-                            ),
-                            message,
-                            false,
-                            false,
-                            false,
-                            config,
-                            theme,
-                        ))
-                    }
-                    _ => None,
-                }
-            },
+            layout,
             clients.get_registry(&state.server),
             channels_context,
         )
@@ -347,23 +330,26 @@ impl Server {
     pub fn new(
         server: data::server::Server,
         clients: &client::Map,
-        history: &history::Manager,
+        storage: &mut storage::Manager,
         pane_size: Size,
         config: &Config,
     ) -> Self {
         let buffer = buffer::Upstream::Server(server.clone());
+        let kind = history::Kind::from_upstream_buffer(buffer.clone());
 
         Self {
             input_view: input_view::State::new(
-                history.input(&buffer),
+                storage.input(&buffer),
                 &buffer,
                 clients,
-                history,
+                storage,
                 config,
             ),
             buffer,
             server,
-            scroll_view: scroll_view::State::new(pane_size, config),
+            scroll_view: scroll_view::State::new(
+                pane_size, kind, clients, storage, config,
+            ),
         }
     }
 
@@ -371,7 +357,9 @@ impl Server {
         &mut self,
         message: Message,
         clients: &mut data::client::Map,
-        history: &mut history::Manager,
+        buffers_context: &dyn BuffersContext,
+        models: &model::Manager,
+        storage: &mut storage::Manager,
         previews: &preview::Collection,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
@@ -383,8 +371,10 @@ impl Server {
                     false,
                     scroll_view::Kind::Server(&self.server),
                     Some(&self.buffer),
-                    history,
                     clients,
+                    buffers_context,
+                    models,
+                    storage,
                     previews,
                     config,
                 );
@@ -402,7 +392,7 @@ impl Server {
                         vec![(target, buffer_action)],
                     )),
                     scroll_view::Event::GoToMessage(..) => None,
-                    scroll_view::Event::RequestOlderChatHistory => None,
+                    scroll_view::Event::RequestOlderChathistory => None,
                     scroll_view::Event::PreviewChanged => None,
                     scroll_view::Event::HidePreview(..) => None,
                     scroll_view::Event::MarkAsRead => {
@@ -417,11 +407,11 @@ impl Server {
                     scroll_view::Event::ImagePreview(image) => {
                         Some(Event::ImagePreview(image))
                     }
-                    scroll_view::Event::ExpandMessage(server_time, hash) => {
-                        Some(Event::ExpandMessage(server_time, hash))
+                    scroll_view::Event::ExpandMessage(time, history_id) => {
+                        Some(Event::ExpandMessage(time, history_id))
                     }
-                    scroll_view::Event::ContractMessage(server_time, hash) => {
-                        Some(Event::ContractMessage(server_time, hash))
+                    scroll_view::Event::ContractMessage(time, history_id) => {
+                        Some(Event::ContractMessage(time, history_id))
                     }
                     scroll_view::Event::ExitFocus(_)
                     | scroll_view::Event::FocusAction(_)
@@ -436,14 +426,15 @@ impl Server {
                     false,
                     &self.buffer,
                     clients,
-                    history,
+                    buffers_context,
+                    models,
+                    storage,
                     config,
                 );
                 let command = command.map(Message::InputView);
 
                 match event {
                     Some(input_view::Event::InputSent {
-                        history_task,
                         open_buffers,
                         was_join_command,
                     }) => (
@@ -454,7 +445,6 @@ impl Server {
                                 .map(Message::ScrollView),
                         ]),
                         Some(Event::InputSent {
-                            history_task,
                             open_buffers,
                             was_join_command,
                         }),
@@ -467,9 +457,6 @@ impl Server {
                         targets,
                         reason,
                     }) => (command, Some(Event::LeaveBuffers(targets, reason))),
-                    Some(input_view::Event::Cleared { history_task }) => {
-                        (command, Some(Event::History(history_task)))
-                    }
                     Some(input_view::Event::OpenInternalBuffer(buffer)) => {
                         (command, Some(Event::OpenInternalBuffer(buffer)))
                     }
@@ -509,7 +496,9 @@ impl Server {
                     false,
                     &self.buffer,
                     clients,
-                    history,
+                    buffers_context,
+                    models,
+                    storage,
                     config,
                 );
                 (task.map(Message::InputView), None)
@@ -520,7 +509,9 @@ impl Server {
                     false,
                     &self.buffer,
                     clients,
-                    history,
+                    buffers_context,
+                    models,
+                    storage,
                     config,
                 );
                 (

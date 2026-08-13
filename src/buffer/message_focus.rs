@@ -1,9 +1,10 @@
-use chrono::{DateTime, Utc};
+use data::buffer::{self, BuffersContext};
+use data::client::{self, ClientsContext};
+use data::history::{self, model, storage};
+use data::message::{self, Searchable, Temporal};
 use data::shortcut::{FocusCommand, KeyBind};
 use data::user::User;
-use data::{
-    Config, Server, buffer, client, history, message, metadata, preview, target,
-};
+use data::{Config, Server, metadata, preview, target};
 use iced::advanced::widget;
 use iced::advanced::widget::operation::focusable;
 use iced::widget::{column, container};
@@ -79,7 +80,9 @@ impl Manager {
         upstream: &buffer::Upstream,
         kind: scroll_view::Kind<'_>,
         clients: &mut client::Map,
-        history: &mut history::Manager,
+        buffers_context: &dyn BuffersContext,
+        models: &model::Manager,
+        storage: &mut storage::Manager,
         previews: &preview::Collection,
         config: &Config,
     ) -> (
@@ -97,8 +100,10 @@ impl Manager {
                     config.buffer.chathistory.infinite_scroll,
                     kind,
                     Some(upstream),
-                    history,
                     clients,
+                    buffers_context,
+                    models,
+                    storage,
                     previews,
                     config,
                 );
@@ -111,7 +116,9 @@ impl Manager {
                         false,
                         upstream,
                         clients,
-                        history,
+                        buffers_context,
+                        models,
+                        storage,
                         config,
                     );
 
@@ -146,44 +153,48 @@ impl Manager {
                     false,
                     upstream,
                     clients,
-                    history,
+                    buffers_context,
+                    models,
+                    storage,
                     config,
                 );
 
                 let message =
                     focused_message.as_ref().and_then(|focused_message| {
-                        history.find_message_by_hash(
-                            focused_message.hash(),
+                        models.find_message_by_history_id(
+                            focused_message.history_id(),
                             &kind.into(),
-                            focused_message.server_time(),
+                            focused_message.time(),
                         )
                     });
 
                 let (scroll_task, input_task, context_event) = match action {
                     input_view::FocusAction::Reply => {
                         let result = message
-                            .filter(|message| !message.is_rerouted())
+                            .filter(|message| !message.inner.is_rerouted())
                             .and_then(|message| {
-                                let user = message.target.source().user()?;
+                                let user = message.inner.user()?;
 
                                 Some((
-                                    message.id.clone()?,
-                                    message.server_time,
+                                    message.id().clone()?,
+                                    *message.time(),
                                     user.nickname().to_owned(),
                                 ))
                             });
 
-                        if let Some((msgid, server_time, to_nick)) = result {
+                        if let Some((msgid, time, to_nick)) = result {
                             let (reply_task, _) = input_view.update(
                                 input_view::Message::SetDraftReply {
                                     msgid,
-                                    server_time,
+                                    time,
                                     to_nick,
                                 },
                                 false,
                                 upstream,
                                 clients,
-                                history,
+                                buffers_context,
+                                models,
+                                storage,
                                 config,
                             );
                             (Task::none(), reply_task, None)
@@ -202,15 +213,15 @@ impl Manager {
 
                         let context_message = match action {
                             input_view::FocusAction::Redact => message
-                                .filter(|message| message.is_redactable())
-                                .and_then(|message| message.id.clone())
+                                .filter(|message| message.inner.is_redactable())
+                                .and_then(|message| message.id().clone())
                                 .map(context_menu::Message::Redact),
                             input_view::FocusAction::OpenReactionModal => message
                                 .and_then(|message| {
-                                    let id = message.id.clone()?;
+                                    let id = message.id().clone()?;
                                     Some(
                                         context_menu::Message::OpenReactionModal(
-                                            id, message.server_time,
+                                            id, *message.time(),
                                         ),
                                     )
                                 }),
@@ -281,7 +292,7 @@ impl Manager {
                                     // focused.
                                     None => message.map(|message| {
                                         context_menu::Message::CopyText(
-                                            message.text().into_owned(),
+                                            message.inner.text().into_owned(),
                                         )
                                     }),
                                 }
@@ -315,7 +326,9 @@ impl Manager {
         upstream: &buffer::Upstream,
         kind: scroll_view::Kind<'_>,
         clients: &mut client::Map,
-        history: &mut history::Manager,
+        buffers_context: &dyn BuffersContext,
+        models: &model::Manager,
+        storage: &mut storage::Manager,
         previews: &preview::Collection,
         config: &Config,
     ) -> Option<(
@@ -330,7 +343,9 @@ impl Manager {
                     false,
                     upstream,
                     clients,
-                    history,
+                    buffers_context,
+                    models,
+                    storage,
                     config,
                 );
 
@@ -344,7 +359,9 @@ impl Manager {
                     upstream,
                     kind,
                     clients,
-                    history,
+                    buffers_context,
+                    models,
+                    storage,
                     previews,
                     config,
                 ))
@@ -356,7 +373,9 @@ impl Manager {
                     false,
                     upstream,
                     clients,
-                    history,
+                    buffers_context,
+                    models,
+                    storage,
                     config,
                 );
                 Some((
@@ -372,8 +391,8 @@ impl Manager {
 
 #[derive(Debug, Clone)]
 pub struct FocusedMessage {
-    hash: message::Hash,
-    server_time: DateTime<Utc>,
+    history_id: history::Id,
+    time: message::Time,
     is_user_message: bool,
     focusable_fragment_indices: Vec<usize>,
     focused_component: Option<FocusedComponent>,
@@ -381,12 +400,12 @@ pub struct FocusedMessage {
 }
 
 impl FocusedMessage {
-    pub fn new(message: &data::Message, config: &Config) -> Self {
+    pub fn new(message: &data::MessageDisplay, config: &Config) -> Self {
         Self {
-            hash: message.hash,
-            server_time: message.server_time,
+            history_id: *message.history_id(),
+            time: *message.time(),
             is_user_message: matches!(
-                message.target.source(),
+                message.inner.source,
                 message::Source::User(_)
             ),
             focusable_fragment_indices: message_focus_target_indices(
@@ -397,16 +416,16 @@ impl FocusedMessage {
         }
     }
 
-    pub fn is_match(&self, message: &data::Message) -> bool {
-        message.hash == self.hash
+    pub fn is_match(&self, message: &data::MessageDisplay) -> bool {
+        *message.history_id() == self.history_id
     }
 
-    pub fn hash(&self) -> message::Hash {
-        self.hash
+    pub fn history_id(&self) -> &history::Id {
+        &self.history_id
     }
 
-    pub fn server_time(&self) -> &DateTime<Utc> {
-        &self.server_time
+    pub fn time(&self) -> &message::Time {
+        &self.time
     }
 
     pub fn focused_component(&self) -> Option<&FocusedComponent> {
@@ -474,7 +493,7 @@ impl FocusedMessage {
 
     pub fn open_menu(
         &mut self,
-        message: &data::Message,
+        message: &data::MessageDisplay,
         server: &Server,
         clients: &client::Map,
         previews: &preview::Collection,
@@ -583,12 +602,13 @@ pub enum FocusedComponent {
 impl FocusedComponent {
     pub(crate) fn focus_target(
         &self,
-        message: &data::Message,
+        message: &data::MessageDisplay,
     ) -> Option<FocusTarget> {
         match self {
-            FocusedComponent::User => {
-                message.user().map(|user| FocusTarget::User(user.clone()))
-            }
+            FocusedComponent::User => message
+                .inner
+                .user()
+                .map(|user| FocusTarget::User(user.clone())),
             FocusedComponent::Link { index } => {
                 message_focus_target_at(message, *index)
             }
@@ -614,22 +634,22 @@ pub(crate) enum FocusTarget {
 
 /// Indices of the message fragments that are both focusable and rendered.
 fn message_focus_target_indices(
-    message: &data::Message,
+    message: &data::MessageDisplay,
     config: &Config,
 ) -> Vec<usize> {
-    let fragments: &[message::Fragment] = match &message.content {
+    let fragments: &[message::Fragment] = match &message.inner.content {
         data::message::Content::Fragments(fragments) => fragments,
         _ => &[],
     };
 
-    if matches!(message.target.source(), message::Source::User(_))
+    if matches!(message.inner.source, message::Source::User(_))
         && message.redaction_expanded(&config.buffer.redaction) == Some(false)
     {
         return vec![];
     }
 
     let prefix_skip_until =
-        if matches!(message.target.source(), message::Source::User(_))
+        if matches!(message.inner.source, message::Source::User(_))
             && config.buffer.reply.hide_redundant_nicks
         {
             message
@@ -656,10 +676,10 @@ fn message_focus_target_indices(
 
 /// The focusable target at `index` in the message's fragment collection.
 pub(crate) fn message_focus_target_at(
-    message: &data::Message,
+    message: &data::MessageDisplay,
     index: usize,
 ) -> Option<FocusTarget> {
-    match &message.content {
+    match &message.inner.content {
         data::message::Content::Fragments(fragments) => fragments.get(index),
         _ => None,
     }

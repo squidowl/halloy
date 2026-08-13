@@ -89,7 +89,7 @@ impl Ord for FileTransfer {
             .then_with(|| {
                 self.remote_user
                     .nickname()
-                    .cmp(&other.remote_user.nickname())
+                    .cmp(other.remote_user.nickname())
             })
             .then_with(|| self.filename.cmp(&other.filename))
     }

@@ -1,5 +1,8 @@
+use data::client::{self, ClientsContext};
+use data::history::filter::FilterChain;
+use data::history::{self, model};
 use data::user::{ChannelUsers, User};
-use data::{Config, file_transfer, history, preview};
+use data::{Config, file_transfer, preview};
 use iced::widget::text::Wrapping;
 use iced::widget::{
     button, center, column, container, pane_grid, row, sensor, text,
@@ -61,11 +64,12 @@ impl Pane {
         is_focused: bool,
         maximized: bool,
         typing_animation: Option<&'a buffer::typing::Animation>,
-        clients: &'a data::client::Map,
+        clients: &'a client::Map,
         file_transfers: &'a file_transfer::Manager,
-        history: &'a history::Manager,
+        models: &'a model::Manager,
         previews: &'a preview::Collection,
         sidebar: &'a sidebar::Sidebar,
+        filter_chain: FilterChain,
         config: &'a Config,
         theme: &'a Theme,
         settings: Option<&'a buffer::Settings>,
@@ -179,7 +183,7 @@ impl Pane {
 
         let title_bar = self.title_bar.view(
             &self.buffer,
-            history,
+            models,
             title,
             id,
             panes,
@@ -200,8 +204,9 @@ impl Pane {
                 typing_animation,
                 clients,
                 file_transfers,
-                history,
+                models,
                 previews,
+                filter_chain,
                 settings,
                 config,
                 theme,
@@ -249,35 +254,6 @@ impl Pane {
         self.modal = None;
     }
 
-    pub fn resource(&self) -> Option<history::Resource> {
-        match &self.buffer {
-            Buffer::Empty => None,
-            Buffer::Channel(state) => Some(history::Resource {
-                kind: history::Kind::Channel(
-                    state.server.clone(),
-                    state.target.clone(),
-                ),
-            }),
-            Buffer::Server(state) => Some(history::Resource {
-                kind: history::Kind::Server(state.server.clone()),
-            }),
-            Buffer::Query(state) => Some(history::Resource {
-                kind: history::Kind::Query(
-                    state.server.clone(),
-                    state.target.clone(),
-                ),
-            }),
-            Buffer::Logs(_) => Some(history::Resource::logs()),
-            Buffer::Highlights(_) => Some(history::Resource::highlights()),
-            Buffer::ChannelDiscovery(_)
-            | Buffer::FileTransfers(_)
-            | Buffer::ConfigEditor(_) => None,
-            Buffer::ChannelMonitor(_) => {
-                Some(history::Resource::channel_monitor())
-            }
-        }
-    }
-
     pub fn visible_urls(&self) -> Vec<&url::Url> {
         match &self.buffer {
             Buffer::Channel(channel) => {
@@ -300,12 +276,12 @@ impl TitleBar {
     fn view<'a>(
         &'a self,
         buffer: &Buffer,
-        history: &'a history::Manager,
+        models: &'a model::Manager,
         title: Element<'a, Message>,
         id: pane_grid::Pane,
         panes: usize,
         maximized: bool,
-        clients: &'a data::client::Map,
+        clients: &'a client::Map,
         settings: Option<&'a buffer::Settings>,
         only_show_controls_on_hover: bool,
         hide_controls: bool,
@@ -317,12 +293,12 @@ impl TitleBar {
         let maybe_buffer_kind =
             buffer.data().and_then(history::Kind::from_buffer);
         let can_mark_as_read = if let Some(kind) = &maybe_buffer_kind {
-            history.can_mark_as_read(kind)
+            models.can_mark_as_read(kind)
         } else {
             false
         };
         let has_unread = if let Some(kind) = &maybe_buffer_kind {
-            history.has_unread(kind)
+            models.has_unread(kind)
         } else {
             false
         };
@@ -809,7 +785,7 @@ fn save_config_tooltip(
 fn query_title<'a>(
     server: &'a data::Server,
     query: &'a data::target::Query,
-    clients: &'a data::client::Map,
+    clients: &'a client::Map,
     config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, Message> {

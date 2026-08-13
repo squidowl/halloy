@@ -157,8 +157,7 @@ async fn combine(sources: Vec<Source>) -> history::Loaded {
                 return None;
             }
 
-            let crate::message::Target::Channel { channel, source } =
-                message.target
+            let crate::message::Target::Channel { channel } = message.target
             else {
                 return None;
             };
@@ -166,7 +165,6 @@ async fn combine(sources: Vec<Source>) -> history::Loaded {
             message.target = crate::message::Target::ChannelMonitor {
                 server: server.clone(),
                 channel,
-                source,
             };
 
             Some(message)

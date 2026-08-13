@@ -1,5 +1,7 @@
 use core::fmt;
+use std::collections::HashMap;
 use std::str::FromStr;
+use std::sync::LazyLock;
 
 use chrono::Locale;
 use iced_core::Color as IcedColor;
@@ -11,7 +13,7 @@ pub use self::timestamp::Timestamp;
 use crate::appearance::theme::hex_to_color;
 use crate::serde::deserialize_strftime_date;
 use crate::target::{self, Target};
-use crate::{Server, channel, config};
+use crate::{Server, channel, config, history};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -85,6 +87,14 @@ impl Buffer {
         }
     }
 
+    pub fn into_upstream(self) -> Option<Upstream> {
+        if let Self::Upstream(upstream) = self {
+            Some(upstream)
+        } else {
+            None
+        }
+    }
+
     pub fn internal(&self) -> Option<&Internal> {
         if let Self::Internal(internal) = self {
             Some(internal)
@@ -107,7 +117,7 @@ impl Upstream {
         }
     }
 
-    pub fn server(&self) -> &Server {
+    pub fn as_server(&self) -> &Server {
         match self {
             Self::Server(server)
             | Self::Channel(server, _)
@@ -115,10 +125,17 @@ impl Upstream {
         }
     }
 
-    pub fn channel(&self) -> Option<&target::Channel> {
+    pub fn as_channel(&self) -> Option<&target::Channel> {
         match self {
             Self::Channel(_, channel) => Some(channel),
             Self::Server(_) | Self::Query(_, _) => None,
+        }
+    }
+
+    pub fn query(&self) -> Option<Target> {
+        match self {
+            Self::Query(_, query) => Some(Target::Query(query.clone())),
+            _ => None,
         }
     }
 
@@ -130,10 +147,21 @@ impl Upstream {
         }
     }
 
-    pub fn query(&self) -> Option<Target> {
+    pub fn into_target(self) -> Option<Target> {
         match self {
-            Self::Query(_, query) => Some(Target::Query(query.clone())),
-            _ => None,
+            Self::Channel(_, channel) => Some(Target::Channel(channel)),
+            Self::Query(_, query) => Some(Target::Query(query)),
+            Self::Server(_) => None,
+        }
+    }
+
+    pub fn into_server_target(self) -> Option<(Server, Target)> {
+        match self {
+            Self::Channel(server, channel) => {
+                Some((server, Target::Channel(channel)))
+            }
+            Self::Query(server, query) => Some((server, Target::Query(query))),
+            Self::Server(_) => None,
         }
     }
 }
@@ -198,6 +226,139 @@ impl From<&Internal> for config::sidebar::InternalBuffer {
         }
     }
 }
+
+pub trait BuffersContext {
+    fn is_focused(&self, kind: &history::Kind) -> bool;
+
+    fn is_focused_and_at_bottom(&self, kind: &history::Kind) -> bool;
+
+    fn is_open_in_focused_window(&self, kind: &history::Kind) -> bool;
+
+    fn is_open_and_at_bottom_in_focused_window(
+        &self,
+        kind: &history::Kind,
+    ) -> bool;
+
+    fn is_open(&self, kind: &history::Kind) -> bool;
+
+    fn is_open_and_at_bottom(&self, kind: &history::Kind) -> bool;
+
+    fn focused_upstream_buffer(&self) -> Option<&Upstream>;
+}
+
+#[derive(Debug)]
+pub struct BuffersContextSnapshot {
+    pub buffers: HashMap<history::Kind, BufferContextSnapshot>,
+}
+
+#[derive(Debug)]
+pub enum BufferContextSnapshot {
+    Focused {
+        is_scrolled_to_bottom: bool,
+        upstream: Option<Upstream>,
+    },
+    Open {
+        in_focused_window: bool,
+        is_scrolled_to_bottom: bool,
+    },
+}
+
+impl BuffersContextSnapshot {
+    pub fn empty() -> Self {
+        Self {
+            buffers: HashMap::new(),
+        }
+    }
+}
+
+impl BuffersContext for BuffersContextSnapshot {
+    fn is_focused(&self, kind: &history::Kind) -> bool {
+        self.buffers.get(kind).is_some_and(|buffer| {
+            matches!(buffer, BufferContextSnapshot::Focused { .. })
+        })
+    }
+
+    fn is_focused_and_at_bottom(&self, kind: &history::Kind) -> bool {
+        self.buffers.get(kind).is_some_and(|buffer| {
+            matches!(
+                buffer,
+                BufferContextSnapshot::Focused {
+                    is_scrolled_to_bottom: true,
+                    ..
+                }
+            )
+        })
+    }
+
+    fn is_open_in_focused_window(&self, kind: &history::Kind) -> bool {
+        self.buffers.get(kind).is_some_and(|buffer| {
+            matches!(
+                buffer,
+                BufferContextSnapshot::Focused { .. }
+                    | BufferContextSnapshot::Open {
+                        in_focused_window: true,
+                        ..
+                    }
+            )
+        })
+    }
+
+    fn is_open_and_at_bottom_in_focused_window(
+        &self,
+        kind: &history::Kind,
+    ) -> bool {
+        self.buffers.get(kind).is_some_and(|buffer| {
+            matches!(
+                buffer,
+                BufferContextSnapshot::Focused {
+                    is_scrolled_to_bottom: true,
+                    ..
+                } | BufferContextSnapshot::Open {
+                    in_focused_window: true,
+                    is_scrolled_to_bottom: true
+                }
+            )
+        })
+    }
+
+    fn is_open(&self, kind: &history::Kind) -> bool {
+        self.buffers.contains_key(kind)
+    }
+
+    fn is_open_and_at_bottom(&self, kind: &history::Kind) -> bool {
+        self.buffers.get(kind).is_some_and(|buffer| {
+            matches!(
+                buffer,
+                BufferContextSnapshot::Focused {
+                    is_scrolled_to_bottom: true,
+                    ..
+                } | BufferContextSnapshot::Open {
+                    is_scrolled_to_bottom: true,
+                    ..
+                }
+            )
+        })
+    }
+
+    fn focused_upstream_buffer(&self) -> Option<&Upstream> {
+        self.buffers
+            .values()
+            .find(|buffer| {
+                matches!(buffer, BufferContextSnapshot::Focused { .. })
+            })
+            .and_then(|buffer| {
+                if let BufferContextSnapshot::Focused { upstream, .. } = buffer
+                {
+                    upstream.as_ref()
+                } else {
+                    None
+                }
+            })
+    }
+}
+
+pub static EMPTY_BUFFERS_CONTEXT: LazyLock<BuffersContextSnapshot> =
+    LazyLock::new(BuffersContextSnapshot::empty);
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 #[serde(default)]

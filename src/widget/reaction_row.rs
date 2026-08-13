@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
 use data::isupport::CaseMap;
-use data::user::{ChannelUsers, Nick, NickRef, User};
+use data::user::{ChannelUsers, Nick, User};
 use data::{Config, metadata};
 use iced::Length::Fit;
 use iced::widget::text::LineHeight;
@@ -25,7 +25,7 @@ pub fn has_visible_reactions(message: &data::Message) -> bool {
 
 pub fn reaction_row<'a, M, F1, F2>(
     message: &'a data::Message,
-    our_nick: Option<NickRef<'a>>,
+    our_nick: Option<&'a Nick>,
     font_size: f32,
     only_emojis_size: Option<f32>,
     max_reaction_display: u32,
@@ -244,7 +244,7 @@ fn visible_reactions(
             .entry(&reaction.sender)
             .or_default();
 
-        reactions_for_sender.insert(reaction.server_time, reaction.unreact);
+        reactions_for_sender.insert(reaction.time.utc, reaction.unreact);
     }
 
     let mut reactions =
