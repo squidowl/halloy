@@ -1,7 +1,7 @@
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::sync::Arc;
 
+use hashbrown::HashMap;
 use iced::advanced::graphics::core::touch;
 use iced::advanced::renderer::Quad;
 use iced::advanced::text::{self, Highlight, Paragraph, Span, Text};

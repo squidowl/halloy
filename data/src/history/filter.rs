@@ -1,12 +1,13 @@
 use fancy_regex::Regex;
 
 use super::Kind;
+use crate::client::{self, ClientsContext};
 use crate::config::server::Ignore;
 use crate::message::{self, Source, source};
 use crate::server::Map as ServerMap;
 use crate::target::{Channel, Query};
 use crate::user::Nick;
-use crate::{Message, Server, User, client, isupport};
+use crate::{Message, Server, User, isupport};
 
 #[derive(Debug, Clone)]
 pub struct Filter {
@@ -188,7 +189,7 @@ impl Filter {
     /// [`Message`]:crate::MessageRegex
     pub fn match_message(&self, message: &Message) -> bool {
         match &self.target {
-            FilterTarget::User(user) => match &message.target.source() {
+            FilterTarget::User(user) => match &message.source {
                 Source::Action(Some(msg_user)) | Source::User(msg_user) => {
                     msg_user.nickname() == user.nickname()
                 }
@@ -196,15 +197,18 @@ impl Filter {
                     // Match server messages from the filtered user, except for
                     // nick change messages in order to alert the Halloy user
                     // that the filtered user has a new nickname.
-                    server.nick().is_some_and(|nick| user.nickname() == *nick)
+                    server
+                        .nick
+                        .as_ref()
+                        .is_some_and(|nick| user.nickname() == nick)
                         && !matches!(
-                            server.kind(),
+                            server.kind,
                             source::server::Kind::ChangeNick
                         )
                 }
                 _ => false,
             },
-            FilterTarget::UserRegex(regex) => match &message.target.source() {
+            FilterTarget::UserRegex(regex) => match &message.source {
                 Source::Action(Some(msg_user)) | Source::User(msg_user) => {
                     regex
                         .is_match(msg_user.as_str())
@@ -214,12 +218,12 @@ impl Filter {
                     // Match server messages from the filtered user, except for
                     // nick change messages in order to alert the Halloy user
                     // that the filtered user has a new nickname.
-                    server.nick().is_some_and(|nick| {
+                    server.nick.as_ref().is_some_and(|nick| {
                         regex
                             .is_match(nick.as_str())
                             .is_ok_and(|is_match| is_match)
                     }) && !matches!(
-                        server.kind(),
+                        server.kind,
                         source::server::Kind::ChangeNick
                     )
                 }
@@ -340,6 +344,7 @@ impl Filter {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct FilterChain<'f> {
     filters: &'f [Filter],
 }
@@ -364,9 +369,14 @@ impl<'f> FilterChain<'f> {
         self.filters.iter().any(|f| f.match_query(query, server))
     }
 
-    pub fn filter_message_of_kind(&self, message: &mut Message, kind: &Kind) {
-        message.blocked = self
-            .filters
+    /// Returns `true` if the message should be filtered (hidden from view, aka
+    /// blocked).
+    pub fn filter_message_of_kind(
+        &self,
+        message: &Message,
+        kind: &Kind,
+    ) -> bool {
+        self.filters
             .iter()
             .filter(|f| {
                 if let message::Target::Highlights {
@@ -384,7 +394,7 @@ impl<'f> FilterChain<'f> {
                     f.match_kind(kind)
                 }
             })
-            .any(|f| f.match_message(message));
+            .any(|f| f.match_message(message))
     }
 
     pub fn sync_isupport(

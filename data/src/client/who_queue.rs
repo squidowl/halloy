@@ -1,9 +1,10 @@
 use std::cmp::Ordering;
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::anyhow;
+use hashbrown::HashMap;
 use irc::proto::command;
 
 use crate::capabilities::{Capabilities, Capability};
