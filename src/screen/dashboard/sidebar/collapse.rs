@@ -1,8 +1,7 @@
-use std::collections::HashMap;
-
 use data::Server;
 use data::config::Config;
 use data::config::server::SidebarVisibility;
+use hashbrown::HashMap;
 
 use crate::dashboard::sidebar::ConnectionStatus;
 use crate::widget::Text;

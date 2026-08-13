@@ -106,7 +106,7 @@ pub fn server(
 ) -> Style {
     let styles = theme.styles().buffer.server_messages;
     let color = server
-        .and_then(|server| match server.kind() {
+        .and_then(|server| match server.kind {
             Kind::Join => styles.join.color,
             Kind::Part => styles.part.color,
             Kind::Quit => styles.quit.color,

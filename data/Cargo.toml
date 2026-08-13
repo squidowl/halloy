@@ -9,16 +9,12 @@ edition.workspace = true
 name = "data"
 path = "src/lib.rs"
 
-[[bin]]
-name = "print_messages_json"
-path = "src/bin.rs"
-required-features = ["message_tests"]
-
 [features]
 tor = ["irc/tor"]
 message_tests = ["iced/tokio"]
 
 [dependencies]
+hashbrown = { workspace = true }
 thiserror = { workspace = true }
 futures = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "fs", "rt"] }
@@ -49,6 +45,7 @@ nom = { workspace = true }
 percent-encoding = { workspace = true }
 keyring-core = "1"
 
+equivalent = "1.0"
 base64 = "0.23.0"
 dirs-next = "2.0.0"
 xdg = "3.0.0"

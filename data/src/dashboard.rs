@@ -1,7 +1,7 @@
-use std::collections::HashMap;
 use std::io;
 use std::path::PathBuf;
 
+use hashbrown::HashMap;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::buffer::{self, Buffer};
