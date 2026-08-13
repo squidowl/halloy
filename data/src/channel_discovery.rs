@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
-use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
+use hashbrown::HashMap;
 use nucleo_matcher::pattern::{AtomKind, CaseMatching, Normalization, Pattern};
 use nucleo_matcher::{Config, Matcher, Utf32Str};
 

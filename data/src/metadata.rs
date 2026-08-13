@@ -1,7 +1,7 @@
-use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
 
+use hashbrown::HashMap;
 use iced::Color;
 use serde::Deserialize;
 

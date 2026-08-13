@@ -2,7 +2,7 @@ use crate::target::Channel;
 use crate::user::Nick;
 use crate::{User, isupport, reaction};
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Clone)]
 pub enum Notification {
     Connected,
     Disconnected,
@@ -35,7 +35,7 @@ pub enum Notification {
     },
     Reaction {
         casemapping: isupport::CaseMap,
-        reaction: reaction::Context,
+        reaction: reaction::ReactionWithContext,
         message_text: String,
     },
     Reply {
