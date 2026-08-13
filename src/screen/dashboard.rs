@@ -5099,6 +5099,12 @@ impl Dashboard {
         })
     }
 
+    pub fn is_theme_editor_window(&self, window_id: window::Id) -> bool {
+        self.theme_editor
+            .as_ref()
+            .is_some_and(|theme_editor| theme_editor.window == window_id)
+    }
+
     pub fn process_server_inputs_completion_and_notice(
         &mut self,
         server: &Server,

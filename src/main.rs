@@ -530,9 +530,14 @@ impl Halloy {
         let default = "Halloy".to_owned();
         let s = match &self.screen {
             Screen::Dashboard(dashboard) => {
-                match dashboard.focused_buffer_name(window_id) {
-                    Some(s) => s,
-                    None => return default,
+                if let Some(buffer_name) =
+                    dashboard.focused_buffer_name(window_id)
+                {
+                    buffer_name
+                } else if dashboard.is_theme_editor_window(window_id) {
+                    "Theme Editor".to_owned()
+                } else {
+                    return default;
                 }
             }
             Screen::Help(_) => "Help".to_owned(),
