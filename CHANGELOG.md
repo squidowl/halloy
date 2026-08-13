@@ -34,6 +34,8 @@ Fixed:
 - Better support for larger font sizes in modals
 - "Apply Colors & Font Styles" button in Theme Editor persists modifications made via the theme editor
 - Scroll-to-reply when clicking a reply preview
+- Messages no longer occasionally go missing (or get duplicated) in buffers
+- Sent messages no longer briefly appear above the latest received messages when the server clock is ahead
 
 Changed:
 
@@ -479,7 +481,7 @@ Added:
 - Settings to disable (selectively, or for the entire server) confirmation of delivery for sent messages
 - Setting to adjust inner spacing and outer padding for panes (`pane.gap.inner`, `pane.gap.outer`)
 - Setting to style unread query buffers as highlights in the sidebar (`sidebar.unread_indicator.query_as_highlight`)
-- Settings to configure card and image preview dimensions 
+- Settings to configure card and image preview dimensions
 - Support for transparent background.
 
 Fixed:
@@ -565,7 +567,7 @@ Added:
 - Ability to specify a distinct sound for each match highlight set
 - Border radius on both image previews and cards displaying images through meta tags (configurable)
 - Change-host and kick server messages messages can be condensed
-- Context menu added to text input when right clicking 
+- Context menu added to text input when right clicking
 - Context menu item added to server-wide buffers to close all queries
 - Exit application from user menu
 - Fuzzy matching when searching in command bar
