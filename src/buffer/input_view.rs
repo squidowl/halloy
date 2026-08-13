@@ -4,13 +4,12 @@ use std::convert;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use chrono::{DateTime, Utc};
-use data::buffer::{self, Upstream};
+use data::buffer::{self, BuffersContext, Upstream};
 use data::capabilities::{MultilineBatchKind, multiline_concat_lines};
 use data::config::buffer::text_input::{AutoFormat, Autocomplete, KeyBindings};
 use data::dashboard::BufferAction;
 use data::history::filter::FilterChain;
-use data::history::{self, ReadMarker};
+use data::history::{self, ReadMarker, storage};
 use data::input::{self, CodeFence, RawInput};
 use data::rate_limit::TokenPriority;
 use data::server::Server;
@@ -59,7 +58,6 @@ pub enum FocusAction {
 
 pub enum Event {
     InputSent {
-        history_task: Task<history::manager::Message>,
         open_buffers: Vec<(Target, BufferAction)>,
         was_join_command: bool,
     },
@@ -72,9 +70,6 @@ pub enum Event {
     LeaveBuffers {
         targets: Vec<Target>,
         reason: Option<String>,
-    },
-    Cleared {
-        history_task: Task<history::manager::Message>,
     },
     Reconnect(Server),
     FilehostUpload {
@@ -128,7 +123,7 @@ pub enum Message {
     SpinnerHovered(bool),
     SetDraftReply {
         msgid: message::Id,
-        server_time: DateTime<Utc>,
+        time: message::Time,
         to_nick: Nick,
     },
     ClearDraftReply,
@@ -742,7 +737,7 @@ impl State {
         cache: input::Cache<'_>,
         buffer: &buffer::Upstream,
         clients: &client::Map,
-        history: &history::Manager,
+        history: &storage::Manager,
         config: &Config,
     ) -> Self {
         let mut input_content = if cache.draft_message.is_empty() {
@@ -780,7 +775,8 @@ impl State {
         in_focus_mode: bool,
         buffer: &buffer::Upstream,
         clients: &mut client::Map,
-        history: &mut history::Manager,
+        buffers_context: &dyn BuffersContext,
+        history: &mut storage::Manager,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         let current_target = buffer.target();
@@ -819,7 +815,12 @@ impl State {
                             (Task::none(), None)
                         }
                         Ok(parsed) => self.send_input_line(
-                            parsed, &buffer, clients, history, config,
+                            parsed,
+                            &buffer,
+                            clients,
+                            buffers_context,
+                            history,
+                            config,
                         ),
                         Err(error) => {
                             self.notice =
@@ -913,7 +914,12 @@ impl State {
                     config,
                 ) {
                     self.send_input_line(
-                        parsed, buffer, clients, history, config,
+                        parsed,
+                        buffer,
+                        clients,
+                        buffers_context,
+                        history,
+                        config,
                     )
                 } else {
                     (Task::none(), None)
@@ -1021,7 +1027,12 @@ impl State {
                         .collect();
 
                     self.send_input_lines(
-                        lines, buffer, clients, history, config,
+                        lines,
+                        buffer,
+                        clients,
+                        buffers_context,
+                        history,
+                        config,
                     )
                 } else {
                     (Task::none(), None)
@@ -1214,6 +1225,7 @@ impl State {
                 lines,
                 &send_buffer,
                 clients,
+                buffers_context,
                 history,
                 config,
             ),
@@ -1377,7 +1389,7 @@ impl State {
             }
             Message::SetDraftReply {
                 msgid,
-                server_time,
+                time,
                 to_nick,
             } => {
                 let is_self_reply = clients
@@ -1550,7 +1562,7 @@ impl State {
                                 clients.nickname(buffer.server()),
                                 users,
                                 filters,
-                                &last_seen,
+                                last_seen,
                                 clients.get_channels(buffer.server()),
                                 current_target.as_ref(),
                                 buffer.server(),
@@ -1752,7 +1764,8 @@ impl State {
         mut lines: VecDeque<input::Parsed>,
         buffer: &Upstream,
         clients: &mut client::Map,
-        history: &mut history::Manager,
+        buffers_context: &dyn BuffersContext,
+        history: &mut storage::Manager,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         let (send_count, line_count) = if let Some(multiline_limits) =
@@ -1828,9 +1841,23 @@ impl State {
         let remaining_lines = lines.split_off(send_count);
 
         let (send_task, event) = if line_count > 1 {
-            self.send_input_line_batch(lines, buffer, clients, history, config)
+            self.send_input_line_batch(
+                lines,
+                buffer,
+                clients,
+                buffers_context,
+                history,
+                config,
+            )
         } else if let Some(line) = lines.pop_front() {
-            self.send_input_line(line, buffer, clients, history, config)
+            self.send_input_line(
+                line,
+                buffer,
+                clients,
+                buffers_context,
+                history,
+                config,
+            )
         } else {
             return (Task::none(), None);
         };
@@ -1859,7 +1886,8 @@ impl State {
         lines: VecDeque<input::Parsed>,
         buffer: &Upstream,
         clients: &mut client::Map,
-        history: &mut history::Manager,
+        buffers_context: &dyn BuffersContext,
+        history: &mut storage::Manager,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         let inputs = lines
@@ -1877,57 +1905,24 @@ impl State {
             .filter_map(data::Input::encoded)
             .collect::<Vec<_>>();
 
-        let labeled_response_context = if let Some(last_encoded) =
-            encoded.last()
-        {
-            let sent_time = last_encoded.server_time_or_now().0;
+        let labeled_response_context =
+            if let Some(last_encoded) = encoded.last() {
+                let sent_time = last_encoded.server_time_or_now().0;
 
-            let reply_id = self
-                .draft_reply
-                .as_ref()
-                .map(|input::DraftReply { id, .. }| id);
+                let reply_id = self
+                    .draft_reply
+                    .as_ref()
+                    .map(|input::DraftReply { id, .. }| id);
 
-            let labeled_response_context = clients.send_multiline_batch(
-                buffer,
-                encoded,
-                TokenPriority::User,
-                reply_id,
-            );
-
-            let supports_echoes =
-                clients.get_server_supports_echoes(buffer.server());
-
-            // If the server supports echoes, then send MARKREAD on echo only
-            // (not when recording the input)
-            if config.buffer.mark_as_read.on_message_sent && !supports_echoes {
-                let chantypes =
-                    clients.get_server_chantypes_or_default(buffer.server());
-                let statusmsg =
-                    clients.get_server_statusmsg_or_default(buffer.server());
-                let casemapping =
-                    clients.get_server_casemapping_or_default(buffer.server());
-
-                if let Some(input) = inputs.first()
-                    && let Some(targets) =
-                        input.targets(chantypes, statusmsg, casemapping)
-                {
-                    for target in targets {
-                        clients.send_markread(
-                            buffer.server(),
-                            target,
-                            ReadMarker::from(sent_time),
-                            TokenPriority::High,
-                        );
-                    }
-                }
-            }
-
-            labeled_response_context
-        } else {
-            None
-        };
-
-        let mut history_task = Task::none();
+                clients.send_multiline_batch(
+                    buffer,
+                    encoded,
+                    TokenPriority::User,
+                    reply_id,
+                )
+            } else {
+                None
+            };
 
         if let Some(nick) = clients.nickname(buffer.server()) {
             let mut user = nick.to_owned().into();
@@ -1953,9 +1948,7 @@ impl State {
                 }
             }
 
-            let mut history_tasks = vec![];
-
-            let messages = inputs
+            if let Some(mut message) = inputs
                 .into_iter()
                 .filter_map(|input| {
                     input.messages(
@@ -1970,10 +1963,7 @@ impl State {
                     )
                 })
                 .flatten()
-                .collect::<Vec<_>>();
-
-            if let Some(message) =
-                messages.into_iter().reduce(|mut batch_message, message| {
+                .reduce(|mut batch_message, message| {
                     match (&mut batch_message.content, message.content) {
                         (
                             message::Content::Plain(batch_text),
@@ -2034,32 +2024,36 @@ impl State {
                     batch_message
                 })
             {
-                let mut message = message;
                 if let Some(input::DraftReply { id: reply_id, .. }) =
                     &self.draft_reply
                 {
                     message.reply_to = Some(reply_id.clone());
                 }
-                history_tasks.extend(history.record_input_message(
-                    message,
+
+                let message_with_context = message::MessageWithContext {
+                    inner: message,
+                    highlight: None,
+                    historical: false,
                     labeled_response_context,
-                    buffer.server(),
-                    casemapping,
+                    notification_allowed: false,
+                };
+
+                history.write(
+                    Some(buffer.server()),
+                    vec![storage::Update::Message(message_with_context)],
+                    clients,
+                    buffers_context,
                     config,
-                ));
+                );
             }
-
-            self.reply_preview = None;
-            self.draft_reply = None;
-
-            history_task =
-                Task::batch(history_tasks.into_iter().map(Task::future));
         }
+
+        self.reply_preview = None;
+        self.draft_reply = None;
 
         (
             Task::none(),
             Some(Event::InputSent {
-                history_task,
                 open_buffers: vec![],
                 was_join_command: false,
             }),
@@ -2071,7 +2065,8 @@ impl State {
         parsed: input::Parsed,
         buffer: &buffer::Upstream,
         clients: &mut client::Map,
-        history: &mut history::Manager,
+        buffers_context: &dyn BuffersContext,
+        history: &mut storage::Manager,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         let input = match parsed {
@@ -2237,16 +2232,11 @@ impl State {
                         return (Task::none(), None);
                     }
                     command::Internal::ClearBuffer => {
-                        let kind =
-                            history::Kind::from_input_buffer(buffer.clone());
+                        let kind = history::Kind::from(buffer.clone());
 
-                        let event = history.clear_messages(kind, clients).map(
-                            |history_task| Event::Cleared {
-                                history_task: Task::future(history_task),
-                            },
-                        );
+                        history.clear(kind, clients, &config.buffer);
 
-                        return (Task::none(), event);
+                        return (Task::none(), None);
                     }
                     command::Internal::SysInfo => {
                         return (
@@ -2397,9 +2387,9 @@ impl State {
                 None
             };
 
-        let mut history_task = Task::none();
-
         if let Some(nick) = clients.nickname(buffer.server()) {
+            let mut messages_with_context = vec![];
+
             let mut user = nick.to_owned().into();
             let mut channel_users = None;
 
@@ -2441,22 +2431,33 @@ impl State {
                     {
                         message.reply_to = Some(reply_id.clone());
                     }
-                    history_tasks.extend(history.record_input_message(
-                        message,
-                        labeled_response_context.clone(),
-                        buffer.server(),
-                        casemapping,
-                        config,
-                    ));
+
+                    messages_with_context.push(message::MessageWithContext {
+                        inner: message,
+                        highlight: None,
+                        historical: false,
+                        labeled_response_context,
+                        notification_allowed: false,
+                    });
                 }
             }
 
-            self.reply_preview = None;
-            self.draft_reply = None;
-
-            history_task =
-                Task::batch(history_tasks.into_iter().map(Task::future));
+            if !messages_with_context.is_empty() {
+                history.write(
+                    Some(buffer.server()),
+                    messages_with_context
+                        .into_iter()
+                        .map(storage::Update::Message)
+                        .collect(),
+                    clients,
+                    buffers_context,
+                    config,
+                );
+            }
         }
+
+        self.reply_preview = None;
+        self.draft_reply = None;
 
         let (open_buffers, was_join_command) =
             if let Some(command::Irc::Join(targets, _)) = input.command() {
@@ -2493,7 +2494,6 @@ impl State {
         (
             Task::none(),
             Some(Event::InputSent {
-                history_task,
                 open_buffers,
                 was_join_command,
             }),
@@ -2504,7 +2504,7 @@ impl State {
         &mut self,
         buffer: &buffer::Upstream,
         clients: &client::Map,
-        history: &history::Manager,
+        history: &storage::Manager,
         config: &Config,
     ) {
         let cursor = self.input_content.cursor();
@@ -2531,7 +2531,7 @@ impl State {
                 clients.nickname(buffer.server()),
                 users,
                 filters,
-                &last_seen,
+                last_seen,
                 clients.get_channels(buffer.server()),
                 current_target.as_ref(),
                 buffer.server(),
@@ -2551,7 +2551,7 @@ impl State {
     fn on_completion(
         &mut self,
         buffer: &buffer::Upstream,
-        history: &mut history::Manager,
+        history: &mut storage::Manager,
         actions: Vec<text_editor::Action>,
         record_draft: bool,
     ) -> (Task<Message>, Option<Event>) {
@@ -2574,7 +2574,7 @@ impl State {
         &mut self,
         buffer: &buffer::Upstream,
         clients: &mut client::Map,
-        history: &mut history::Manager,
+        history: &mut storage::Manager,
         config: &Config,
         text: &str,
         record_draft: bool,
@@ -2624,7 +2624,7 @@ impl State {
         &mut self,
         nick: Nick,
         buffer: buffer::Upstream,
-        history: &mut history::Manager,
+        history: &mut storage::Manager,
         autocomplete: &Autocomplete,
     ) {
         let cursor_position = self.input_content.cursor().position;
@@ -2693,7 +2693,7 @@ impl State {
     pub fn clear_draft_reply(
         &mut self,
         buffer: &buffer::Upstream,
-        history: &mut history::Manager,
+        history: &mut storage::Manager,
         config: &Config,
     ) -> bool {
         self.reply_preview = None;

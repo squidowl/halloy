@@ -2,20 +2,24 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
+use futures::FutureExt;
+use futures::future::BoxFuture;
 use irc::proto;
 use irc::proto::format;
 use nom::character::complete::char;
 use nom::combinator::{cut, map, rest, verify};
 use nom::multi::{many_m_n, many0_count, many1_count};
 use nom::{Finish, IResult, Parser};
+use tokio::time::{Duration, Instant};
 
 use crate::capabilities::{Capabilities, MultilineBatchKind};
 use crate::config::buffer::text_input::AutoFormat;
 use crate::features::Features;
 use crate::history::reroute::RerouteRules;
+use crate::history::storage;
 use crate::message::formatting;
 use crate::target::Target;
-use crate::user::{ChannelUsers, NickRef};
+use crate::user::{ChannelUsers, Nick};
 use crate::{
     Command, Config, Message, Server, User, buffer, command, environment,
     isupport, message,
@@ -23,12 +27,15 @@ use crate::{
 
 const INPUT_HISTORY_LENGTH: usize = 100;
 
+/// Save input drafts with this period (or longer if no changes are made)
+const DRAFT_SAVE_EVERY: Duration = Duration::from_secs(10);
+
 pub fn parse(
     buffer: buffer::Upstream,
     auto_format: AutoFormat,
     input: &str,
     code_fence: Option<&CodeFence>,
-    our_nickname: Option<NickRef>,
+    our_nickname: Option<&Nick>,
     in_channel: Option<bool>,
     is_connected: bool,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
@@ -386,6 +393,8 @@ pub struct Storage {
     draft_messages: HashMap<buffer::Upstream, String>,
     draft_reply: HashMap<buffer::Upstream, DraftReply>,
     cursor_position: HashMap<buffer::Upstream, (usize, usize)>,
+    oldest_unsaved_draft_at: Option<Instant>,
+    saving: bool,
 }
 
 impl Storage {
@@ -415,6 +424,10 @@ impl Storage {
     }
 
     pub fn store_draft(&mut self, raw_input: RawInput) {
+        if self.oldest_unsaved_draft_at.is_none() {
+            self.oldest_unsaved_draft_at = Some(Instant::now());
+        }
+
         if raw_input.text.is_empty() {
             self.draft_messages.remove(&raw_input.buffer);
         } else {
@@ -431,32 +444,86 @@ impl Storage {
         }
     }
 
-    pub fn clone_drafts(&self) -> HashMap<buffer::Upstream, SavedDraft> {
-        self.draft_messages
-            .iter()
-            .map(|(buffer, text)| {
-                (
-                    buffer.clone(),
-                    SavedDraft {
-                        text: text.clone(),
-                        reply: self.draft_reply.get(buffer).cloned(),
-                    },
-                )
-            })
-            .collect()
+    pub fn tick(
+        &mut self,
+        now: Instant,
+        config: &Config,
+    ) -> Option<BoxFuture<'static, Result<usize, storage::Error>>> {
+        if let Some(oldest_unsaved_draft) = self.oldest_unsaved_draft_at
+            && now.duration_since(oldest_unsaved_draft) >= DRAFT_SAVE_EVERY
+        {
+            self.save(config)
+        } else {
+            None
+        }
     }
 
-    pub fn load_drafts_into(
+    pub fn save(
         &mut self,
-        drafts: HashMap<buffer::Upstream, SavedDraft>,
-    ) {
-        for (buffer, saved) in drafts {
-            if !saved.text.is_empty() {
-                self.draft_messages.insert(buffer.clone(), saved.text);
+        config: &Config,
+    ) -> Option<BoxFuture<'static, Result<usize, storage::Error>>> {
+        if config.buffer.text_input.persist
+            && self.oldest_unsaved_draft_at.is_some()
+            && !self.saving
+        {
+            self.saving = true;
+
+            self.oldest_unsaved_draft_at = None;
+
+            let drafts = self
+                .draft_messages
+                .iter()
+                .map(|(buffer, text)| {
+                    (
+                        buffer.clone(),
+                        SavedDraft {
+                            text: text.clone(),
+                            reply: self.draft_reply.get(buffer).cloned(),
+                        },
+                    )
+                })
+                .collect();
+
+            Some(async move { save_drafts(drafts).await }.boxed())
+        } else {
+            None
+        }
+    }
+
+    pub fn saved(&mut self) {
+        self.saving = false;
+    }
+
+    pub fn load(&mut self, config: &Config) {
+        if config.buffer.text_input.persist {
+            match load_drafts() {
+                Ok(drafts) => {
+                    log::debug!("loaded input drafts: {} drafts", drafts.len());
+
+                    for (buffer, saved) in drafts {
+                        if !saved.text.is_empty() {
+                            self.draft_messages
+                                .insert(buffer.clone(), saved.text);
+                        }
+                        if let Some(reply) = saved.reply {
+                            self.draft_reply.insert(buffer, reply);
+                        }
+                    }
+                }
+                Err(error) => {
+                    log::error!("failed to load input drafts: {error}");
+                }
             }
-            if let Some(reply) = saved.reply {
-                self.draft_reply.insert(buffer, reply);
-            }
+        }
+    }
+
+    pub fn clear() -> Result<(), storage::Error> {
+        let path = draft_path();
+
+        if path.exists() {
+            Ok(std::fs::remove_file(path)?)
+        } else {
+            Ok(())
         }
     }
 }
@@ -472,31 +539,35 @@ pub struct SavedDraft {
     pub reply: Option<DraftReply>,
 }
 
-pub async fn save_drafts(drafts: HashMap<buffer::Upstream, SavedDraft>) {
+async fn save_drafts(
+    drafts: HashMap<buffer::Upstream, SavedDraft>,
+) -> Result<usize, storage::Error> {
+    let path = draft_path();
+
     if drafts.is_empty() {
-        let _ = tokio::fs::remove_file(draft_path()).await;
-        return;
+        tokio::fs::remove_file(path).await?;
+
+        return Ok(0);
     }
+
     let pairs: Vec<(buffer::Upstream, SavedDraft)> =
         drafts.into_iter().collect();
-    match serde_json::to_vec(&pairs) {
-        Ok(bytes) => {
-            if let Err(e) = tokio::fs::write(draft_path(), bytes).await {
-                log::warn!("failed to save input drafts: {e}");
-            }
-        }
-        Err(e) => log::warn!("failed to serialize input drafts: {e}"),
-    }
+
+    let bytes = serde_json::to_vec(&pairs)?;
+
+    tokio::fs::write(path, &bytes).await?;
+
+    Ok(pairs.len())
 }
 
-pub fn load_drafts_sync() -> HashMap<buffer::Upstream, SavedDraft> {
-    let Ok(bytes) = std::fs::read(draft_path()) else {
-        return HashMap::new();
-    };
-    serde_json::from_slice::<Vec<(buffer::Upstream, SavedDraft)>>(&bytes)
-        .unwrap_or_default()
-        .into_iter()
-        .collect()
+fn load_drafts() -> Result<HashMap<buffer::Upstream, SavedDraft>, storage::Error>
+{
+    let bytes = std::fs::read(draft_path())?;
+
+    let drafts =
+        serde_json::from_slice::<Vec<(buffer::Upstream, SavedDraft)>>(&bytes)?;
+
+    Ok(drafts.into_iter().collect())
 }
 
 /// Cached values for a buffers input
@@ -729,7 +800,7 @@ mod test {
                 auto_format,
                 input,
                 code_fence,
-                Some(nick.as_nickref()),
+                Some(&nick),
                 Some(true),
                 true,
                 isupport,

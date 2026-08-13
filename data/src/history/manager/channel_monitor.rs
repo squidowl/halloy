@@ -5,7 +5,7 @@ use futures::future::BoxFuture;
 
 use super::{Data, Event, FilterChain, History, Manager, Message};
 use crate::capabilities::LabeledResponseContext;
-use crate::{client, config, history};
+use crate::{client, config, history, message};
 
 mod load;
 
@@ -129,9 +129,7 @@ impl ChannelMonitor {
             return None;
         }
 
-        let crate::message::Target::Channel {
-            channel, source, ..
-        } = &message.target
+        let crate::message::Target::Channel { channel } = &message.target
         else {
             return None;
         };
@@ -143,7 +141,6 @@ impl ChannelMonitor {
             target: crate::message::Target::ChannelMonitor {
                 server: server.clone(),
                 channel: channel.clone(),
-                source: source.clone(),
             },
             ..message.clone()
         };
@@ -259,15 +256,12 @@ fn task(
         .boxed()
 }
 
-fn is_channel_message(message: &crate::Message) -> bool {
-    matches!(
-        &message.target,
-        crate::message::Target::Channel {
-            source: crate::message::Source::User(_)
-                | crate::message::Source::Action(_),
-            ..
-        }
-    )
+fn is_channel_message(message: &Message) -> bool {
+    matches!(&message.target, message::Target::Channel { .. })
+        && matches!(
+            &message.source,
+            message::Source::User(_) | message::Source::Action(_)
+        )
 }
 
 fn apply(

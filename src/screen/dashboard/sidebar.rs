@@ -5,8 +5,9 @@ use data::config::server::SidebarVisibility;
 use data::config::sidebar::{InternalBuffer, PrimaryIcon};
 use data::config::{self, Config, sidebar};
 use data::dashboard::{BufferAction, BufferFocusedAction};
+use data::history::{self, model};
 use data::{
-    Image, Version, buffer, client, file_transfer, history, isupport, server,
+    Image, Version, buffer, client, file_transfer, isupport, server,
     server_icon, target,
 };
 use iced::Length::Shrink;
@@ -116,7 +117,7 @@ impl Sidebar {
         &self,
         servers: &server::Map,
         clients: &data::client::Map,
-        history: &history::Manager,
+        history: &model::Manager,
         panes: &Panes,
         config: &Config,
         show_muted_buffers: bool,
@@ -151,7 +152,7 @@ impl Sidebar {
         &self,
         servers: &server::Map,
         clients: &data::client::Map,
-        history: &history::Manager,
+        history: &model::Manager,
         panes: &Panes,
         config: &Config,
         show_muted_buffers: bool,
@@ -196,7 +197,7 @@ impl Sidebar {
         &self,
         servers: &server::Map,
         clients: &data::client::Map,
-        history: &history::Manager,
+        history: &model::Manager,
         panes: &Panes,
         config: &Config,
         show_muted_buffers: bool,
@@ -295,7 +296,7 @@ impl Sidebar {
                         }
 
                         // Queries from the connected server.
-                        for query in history.get_unique_queries(server) {
+                        for query in history.visible_server_queries(server) {
                             let (resolved_query, muted) = connection
                                 .resolve_query_with_muted(
                                     query,
@@ -512,7 +513,7 @@ impl Sidebar {
     fn user_menu_button<'a>(
         &self,
         config: &'a Config,
-        history: &'a history::Manager,
+        history: &'a model::Manager,
         file_transfers: &'a file_transfer::Manager,
         version: &'a Version,
         theme: &'a Theme,
@@ -805,7 +806,7 @@ impl Sidebar {
         &'a self,
         servers: &server::Map,
         clients: &data::client::Map,
-        history: &'a history::Manager,
+        history: &'a model::Manager,
         panes: &'a Panes,
         focus: Focus,
         server_icons: &'a server_icon::Manager,
@@ -1073,7 +1074,7 @@ impl UpstreamBufferSidebarData {
         muted: bool,
         casemapping: isupport::CaseMap,
         show_muted_buffers: bool,
-        history: &history::Manager,
+        history: &model::Manager,
         panes: &Panes,
         config: &Config,
     ) -> Option<Self> {
@@ -1154,7 +1155,7 @@ impl InternalBufferSidebarData {
         buffer: buffer::Internal,
         muted: bool,
         show_muted_buffers: bool,
-        history: &history::Manager,
+        history: &model::Manager,
         panes: &Panes,
         config: &Config,
     ) -> Option<Self> {
@@ -1411,7 +1412,7 @@ struct UpstreamButtonContext<'a> {
     casemapping: isupport::CaseMap,
     server_icon_enabled: bool,
     server_sidebar_visibility: SidebarVisibility,
-    history: &'a history::Manager,
+    history: &'a model::Manager,
     width: Length,
     theme: &'a Theme,
     collapse: &'a collapse::State,
@@ -2026,7 +2027,7 @@ fn internal_buffer_button<'a>(
     buffer: buffer::Internal,
     kind: Option<history::Kind>,
     indicators: IndicatorState,
-    history: &'a history::Manager,
+    history: &'a model::Manager,
     width: Length,
     theme: &'a Theme,
 ) -> Element<'a, Message> {

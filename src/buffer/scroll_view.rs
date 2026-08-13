@@ -8,14 +8,15 @@ use data::command::Irc;
 use data::config::actions::{ImageClickAction, NicknameClickAction};
 use data::config::buffer::{CondensationIcon, HideConsecutiveEnabled};
 use data::dashboard::BufferAction;
-use data::isupport::ChatHistoryState;
+use data::history::{self, model};
+use data::isupport::ChathistoryState;
 use data::message::{self, Limit};
 use data::preview::{self, Previews};
 use data::rate_limit::TokenPriority;
 use data::reaction::Reaction;
 use data::server::Server;
 use data::target::{self, Target};
-use data::{Config, Image, Preview, client, history, metadata, reaction};
+use data::{Config, Image, Preview, client, metadata, reaction};
 use iced::widget::{
     self, Scrollable, button, column, container, row, rule, scrollable, sensor,
     space, text,
@@ -65,20 +66,20 @@ pub enum Message {
     Link(message::Link),
     ImagePreview(Image),
     ScrollTo(keyed::Hit),
-    RequestOlderChatHistory,
-    EnteringViewport(message::Hash, Vec<url::Url>),
-    ExitingViewport(message::Hash),
-    ReplyPreviewHovered(message::Hash, message::Hash, Vec<url::Url>),
-    ReplyPreviewUnhovered(message::Hash),
-    EnteredViewport(message::Hash),
-    ExitedViewport(message::Hash),
-    PreviewHovered(message::Hash, usize),
-    PreviewUnhovered(message::Hash, usize),
-    HidePreview(message::Hash, url::Url),
+    RequestOlderChathistory,
+    EnteringViewport(history::Id, Vec<url::Url>),
+    ExitingViewport(history::Id),
+    ReplyPreviewHovered(history::Id, history::Id, Vec<url::Url>),
+    ReplyPreviewUnhovered(history::Id),
+    EnteredViewport(history::Id),
+    ExitedViewport(history::Id),
+    PreviewHovered(history::Id, usize),
+    PreviewUnhovered(history::Id, usize),
+    HidePreview(history::Id, url::Url),
     MarkAsRead,
     ContentResized(Size),
     PendingScrollTo,
-    FadeHighlight(message::Hash, u64),
+    FadeHighlight(history::Id, u64),
     HeightsCollected(Vec<(keyed::Key, f32)>),
     Reacted {
         msgid: message::Id,
@@ -108,20 +109,21 @@ impl From<context_menu::Message> for Message {
 pub enum Event {
     ContextMenu(context_menu::Event),
     OpenBuffer(Server, Target, BufferAction),
-    GoToMessage(Server, target::Channel, message::Hash, BufferAction),
-    RequestOlderChatHistory,
+    GoToMessage(Server, target::Channel, history::Id, BufferAction),
+    RequestOlderChathistory,
     PreviewChanged,
-    HidePreview(history::Kind, message::Hash, url::Url),
+    HidePreview(history::Kind, history::Id, url::Url),
     MarkAsRead,
     OpenUrl(String),
     ImagePreview(Image),
-    ExpandMessage(DateTime<Utc>, message::Hash),
-    ContractMessage(DateTime<Utc>, message::Hash),
+    ExpandMessage(message::Time, history::Id),
+    ContractMessage(message::Time, history::Id),
     ExitFocus(Option<context_menu::Event>),
     FocusAction(input_view::FocusAction),
     FocusContextAction(context_menu::Message),
 }
 
+// TODO: Can/should we remove this enum in favor of &history::Kind?
 #[derive(Debug, Clone, Copy)]
 pub enum Kind<'a> {
     Server(&'a Server),
@@ -163,16 +165,16 @@ impl From<Kind<'_>> for history::Kind {
 pub trait LayoutMessage<'a> {
     fn format(
         &self,
-        message: &'a data::Message,
+        message: &'a data::MessageDisplay,
         right_alignment_widths: Option<RightAlignmentWidths>,
         hide_timestamp: bool,
         hide_nickname: bool,
         visible_for_source: Option<
             &impl Fn(&Preview, &message::Source) -> bool,
         >,
-        visible_url_messages: &HashMap<message::Hash, Vec<url::Url>>,
-        hovered_preview: Option<(message::Hash, usize)>,
-        hovered_reply: Option<message::Hash>,
+        visible_url_messages: &HashMap<history::Id, Vec<url::Url>>,
+        hovered_preview: Option<(history::Id, usize)>,
+        hovered_reply: Option<history::Id>,
         channels_context: &'a dyn context_menu::ChannelsContext,
         focused_component: Option<&FocusedComponent>,
         focus_menu: Option<&'a FocusMenu>,
@@ -182,7 +184,7 @@ pub trait LayoutMessage<'a> {
 impl<'a, T> LayoutMessage<'a> for T
 where
     T: Fn(
-        &'a data::Message,
+        &'a data::MessageDisplay,
         Option<RightAlignmentWidths>,
         bool,
         bool,
@@ -190,16 +192,16 @@ where
 {
     fn format(
         &self,
-        message: &'a data::Message,
+        message: &'a data::MessageDisplay,
         right_alignment_widths: Option<RightAlignmentWidths>,
         hide_timestamp: bool,
         hide_nickname: bool,
         _visible_for_source: Option<
             &impl Fn(&Preview, &message::Source) -> bool,
         >,
-        _visible_url_messages: &HashMap<message::Hash, Vec<url::Url>>,
-        _hovered_preview: Option<(message::Hash, usize)>,
-        _hovered_reply: Option<message::Hash>,
+        _visible_url_messages: &HashMap<history::Id, Vec<url::Url>>,
+        _hovered_preview: Option<(history::Id, usize)>,
+        _hovered_reply: Option<history::Id>,
         _channels_context: &'a dyn context_menu::ChannelsContext,
         _focused_component: Option<&FocusedComponent>,
         _focus_menu: Option<&'a FocusMenu>,
@@ -213,17 +215,53 @@ where
     }
 }
 
+impl<'a, T> LayoutMessage<'a> for T
+where
+    T: Fn(
+        &'a data::Message,
+        Option<RightAlignmentWidths>,
+        bool,
+        bool,
+    ) -> Option<Element<'a, Message>>,
+{
+    fn format(
+        &self,
+        message: &'a data::MessageDisplay,
+        right_alignment_widths: Option<RightAlignmentWidths>,
+        hide_timestamp: bool,
+        hide_nickname: bool,
+        _visible_for_source: Option<
+            &impl Fn(&Preview, &message::Source) -> bool,
+        >,
+        _visible_url_messages: &HashMap<history::Id, Vec<url::Url>>,
+        _hovered_preview: Option<(history::Id, usize)>,
+        _hovered_reply: Option<history::Id>,
+        _channels_context: &'a dyn context_menu::ChannelsContext,
+        _focused_component: Option<&FocusedComponent>,
+        _focus_menu: Option<&'a FocusMenu>,
+    ) -> Option<Element<'a, Message>> {
+        self(
+            &message.inner,
+            right_alignment_widths,
+            hide_timestamp,
+            hide_nickname,
+        )
+    }
+}
+
 /// Check if a message has a visible image preview
 fn has_visible_preview(
-    message: &data::Message,
+    message: &data::MessageDisplay,
     state: &State,
     previews: Option<Previews>,
     visible_for_source: &Option<impl Fn(&Preview, &message::Source) -> bool>,
 ) -> bool {
+    let message = &message.inner;
+
     if let message::Content::Fragments(fragments) = &message.content
         && let Some(previews) = previews
         && let Some(visible_urls) =
-            state.visible_url_messages.get(&message.hash)
+            state.visible_url_messages.get(&message.history_id)
     {
         return fragments.iter().filter_map(message::Fragment::url).any(
             |url| {
@@ -242,7 +280,7 @@ fn has_visible_preview(
                 {
                     let is_visible_for_source =
                         if let Some(visible_for_source) = visible_for_source {
-                            visible_for_source(preview, message.target.source())
+                            visible_for_source(preview, &message.source)
                         } else {
                             true
                         };
@@ -258,19 +296,21 @@ fn has_visible_preview(
 }
 
 fn is_consecutive_user_message(
-    message: &data::Message,
-    prev_message: Option<&data::Message>,
+    message: &data::MessageDisplay,
+    prev_message: Option<&data::MessageDisplay>,
     duration: Option<chrono::TimeDelta>,
     config: &Config,
 ) -> bool {
-    matches!(message.target.source(), message::Source::User(_))
+    let message = &message.inner;
+    let prev_message = prev_message.map(|prev_message| &prev_message.inner);
+
+    matches!(message.source, message::Source::User(_))
         && prev_message.is_some_and(|prev_message| {
             if duration.is_none_or(|duration| {
-                message.server_time - prev_message.server_time < duration
+                message.time.utc - prev_message.time.utc < duration
             }) && message.is_rerouted() == prev_message.is_rerouted()
-                && let message::Source::User(user) = message.target.source()
-                && let message::Source::User(prev_user) =
-                    prev_message.target.source()
+                && let message::Source::User(user) = &message.source
+                && let message::Source::User(prev_user) = &prev_message.source
             {
                 user.has_matching_display(
                     prev_user,
@@ -287,10 +327,10 @@ pub fn view<'a>(
     state: &State,
     focused_message: &'a Option<FocusedMessage>,
     kind: Kind,
-    history: &'a history::Manager,
+    history: &'a model::Manager,
     previews: Option<Previews<'a>>,
     visible_for_source: Option<impl Fn(&Preview, &message::Source) -> bool>,
-    chathistory_state: Option<ChatHistoryState>,
+    chathistory_state: Option<ChathistoryState>,
     reserved_bottom_padding: f32,
     config: &'a Config,
     theme: &'a Theme,
@@ -301,30 +341,30 @@ pub fn view<'a>(
     let divider_font_size =
         config.font.size.map_or(theme::TEXT_SIZE, f32::from) - 1.0;
 
-    let Some(history::View {
-        has_more_older_messages,
-        has_more_newer_messages,
+    let Some(model::View {
         old_messages,
         new_messages,
+        has_more_older_messages,
+        has_more_newer_messages,
+        loading,
         cleared,
-        ..
-    }) = history.get_messages(&kind.into(), Some(state.limit), config)
+    }) = history.view(&kind.into(), &state.limit, config)
     else {
         return column![].into();
     };
 
     let top_row = if !cleared
-        && let (false, Some(chathistory_state)) =
-            (has_more_older_messages, chathistory_state)
+        && !has_more_older_messages
+        && let Some(chathistory_state) = chathistory_state
     {
         let (content, message) = match chathistory_state {
-            ChatHistoryState::Exhausted => {
+            ChathistoryState::Exhausted => {
                 ("No Older Chat History Messages Available", None)
             }
-            ChatHistoryState::PendingRequest => ("...", None),
-            ChatHistoryState::Ready => (
+            ChathistoryState::PendingRequest => ("...", None),
+            ChathistoryState::Ready => (
                 "Request Older Chat History Messages",
-                Some(Message::RequestOlderChatHistory),
+                Some(Message::RequestOlderChathistory),
             ),
         };
 
@@ -364,10 +404,10 @@ pub fn view<'a>(
     let buffer = visible * BUFFER_PAGES;
     let render_budget = visible + 2 * buffer;
 
-    let msg_height = |m: &&data::Message| -> f32 {
+    let msg_height = |msg: &data::MessageDisplay| -> f32 {
         state
             .height_cache
-            .get(&keyed::Key::Message(m.hash))
+            .get(&keyed::Key::Message(msg.inner.history_id))
             .copied()
             .map_or(row_height, |h| h + line_spacing as f32)
     };
@@ -456,7 +496,7 @@ pub fn view<'a>(
                 .fold(0.0, f32::max);
 
             let max_nick_width = alignment_messages()
-                .filter_map(|message| match message.target.source() {
+                .filter_map(|message| match &message.source {
                     message::Source::User(user) => {
                         let user_display = UserDisplay::new(
                             user,
@@ -492,7 +532,7 @@ pub fn view<'a>(
                                 message::source::Internal::Condensed(
                                     end_server_time,
                                 ),
-                            ) = message.target.source()
+                            ) = &message.source
                                 && message.server_time != *end_server_time
                             {
                                 config
@@ -555,31 +595,34 @@ pub fn view<'a>(
             }
         });
 
-    let message_rows = |last_date: Option<NaiveDate>,
-                        messages: &[&'a data::Message]| {
-        messages
-            .iter()
-            .scan(Option::<&data::Message>::None, |prev_message, message| {
-                let hide_timestamp =
-                    if let HideConsecutiveEnabled::Enabled(duration) =
-                        config.buffer.timestamp.hide_consecutive.enabled
-                    {
-                        message.reply_to.is_none()
-                            && is_consecutive_user_message(
-                                message,
-                                *prev_message,
-                                duration,
-                                config,
-                            )
-                    } else {
-                        false
-                    };
+    let message_rows =
+        |last_date: Option<NaiveDate>,
+         messages: &[&'a data::MessageDisplay]| {
+            messages
+                .iter()
+                .scan(
+                    Option::<&data::MessageDisplay>::None,
+                    |prev_message, message| {
+                        let hide_timestamp =
+                            if let HideConsecutiveEnabled::Enabled(duration) =
+                                config.buffer.timestamp.hide_consecutive.enabled
+                            {
+                                message.reply_to.is_none()
+                                    && is_consecutive_user_message(
+                                        message,
+                                        *prev_message,
+                                        duration,
+                                        config,
+                                    )
+                            } else {
+                                false
+                            };
 
-                let hide_nickname =
-                    if let HideConsecutiveEnabled::Enabled(duration) =
-                        config.buffer.nickname.hide_consecutive.enabled
-                    {
-                        !config.buffer.nickname.alignment.is_top()
+                        let hide_nickname =
+                            if let HideConsecutiveEnabled::Enabled(duration) =
+                                config.buffer.nickname.hide_consecutive.enabled
+                            {
+                                !config.buffer.nickname.alignment.is_top()
                         && message.reply_to.is_none()
                         && is_consecutive_user_message(
                             message,
@@ -601,56 +644,59 @@ pub fn view<'a>(
                                     &visible_for_source,
                                 )
                             }))
-                    } else {
-                        false
-                    };
+                            } else {
+                                false
+                            };
 
-                *prev_message = Some(message);
+                        *prev_message = Some(message);
 
-                let (focused_component, focus_menu) =
-                    if let Some(focused_message) = focused_message.as_ref()
-                        && focused_message.is_match(message)
-                    {
-                        (
-                            focused_message.focused_component(),
-                            focused_message.menu(),
+                        let (focused_component, focus_menu) =
+                            if let Some(focused_message) =
+                                focused_message.as_ref()
+                                && focused_message.is_match(message)
+                            {
+                                (
+                                    focused_message.focused_component(),
+                                    focused_message.menu(),
+                                )
+                            } else {
+                                (None, None)
+                            };
+
+                        Some(
+                            formatter
+                                .format(
+                                    message,
+                                    right_alignment_widths,
+                                    hide_timestamp,
+                                    hide_nickname,
+                                    visible_for_source.as_ref(),
+                                    &state.visible_url_messages,
+                                    state.hovered_preview,
+                                    state.hover_highlighted_message,
+                                    channels_context,
+                                    focused_component,
+                                    focus_menu,
+                                )
+                                .map(|element| (message, element)),
                         )
-                    } else {
-                        (None, None)
-                    };
-
-                Some(
-                    formatter
-                        .format(
-                            message,
-                            right_alignment_widths,
-                            hide_timestamp,
-                            hide_nickname,
-                            visible_for_source.as_ref(),
-                            &state.visible_url_messages,
-                            state.hovered_preview,
-                            state.hover_highlighted_message,
-                            channels_context,
-                            focused_component,
-                            focus_menu,
-                        )
-                        .map(|element| (message, element)),
+                    },
                 )
-            })
-            .flatten()
-            .scan(last_date, |last_date, (message, element)| {
-                let date =
-                    message.server_time.with_timezone(&Local).date_naive();
+                .flatten()
+                .scan(last_date, |last_date, (message, element)| {
+                    let date =
+                        message.server_time.with_timezone(&Local).date_naive();
 
-                let is_new_day = last_date.is_none_or(|prev| date > prev);
+                    let is_new_day = last_date.is_none_or(|prev| date > prev);
 
-                *last_date = Some(date);
+                    *last_date = Some(date);
 
-                let element =
-                    if focused_message.as_ref().is_some_and(|focused_message| {
-                        focused_message.is_match(message)
-                            && !focused_message.has_focused_component()
-                    }) {
+                    let element = if focused_message.as_ref().is_some_and(
+                        |focused_message| {
+                            focused_message.is_match(message)
+                                && !focused_message.has_focused_component()
+                        },
+                    ) {
                         // Only show focus on the whole message when no link/preview
                         focus_outline(
                             container(element).width(Length::Fill).into(),
@@ -683,64 +729,68 @@ pub fn view<'a>(
                         element
                     };
 
-                let element = {
-                    let is_visible =
-                        state.visible_messages.contains(&message.hash);
-                    if is_visible {
-                        notify_visibility(
-                            element,
-                            0.0,
-                            notify_visibility::When::MostlyOutside,
-                            message.hash,
-                            Message::ExitedViewport(message.hash),
-                        )
-                    } else {
-                        notify_visibility(
-                            element,
-                            0.0,
-                            notify_visibility::When::MostlyContained,
-                            message.hash,
-                            Message::EnteredViewport(message.hash),
-                        )
-                    }
-                };
-
-                let content = if is_new_day
-                    && config.buffer.date_separators.show
-                {
-                    column![
-                        row![
-                            container(
-                                rule::horizontal(1).style(theme::rule::date)
+                    let element = {
+                        let is_visible =
+                            state.visible_messages.contains(&message.hash);
+                        if is_visible {
+                            notify_visibility(
+                                element,
+                                0.0,
+                                notify_visibility::When::MostlyOutside,
+                                message.hash,
+                                Message::ExitedViewport(message.hash),
                             )
-                            .width(Length::Fill)
-                            .padding(padding::right(6)),
-                            text(config.buffer.format_date_separator(&date))
+                        } else {
+                            notify_visibility(
+                                element,
+                                0.0,
+                                notify_visibility::When::MostlyContained,
+                                message.hash,
+                                Message::EnteredViewport(message.hash),
+                            )
+                        }
+                    };
+
+                    let content = if is_new_day
+                        && config.buffer.date_separators.show
+                    {
+                        column![
+                            row![
+                                container(
+                                    rule::horizontal(1)
+                                        .style(theme::rule::date)
+                                )
+                                .width(Length::Fill)
+                                .padding(padding::right(6)),
+                                text(
+                                    config.buffer.format_date_separator(&date)
+                                )
                                 .size(divider_font_size)
                                 .style(theme::text::date_separator)
                                 .font_maybe(
                                     theme::font_style::secondary(theme)
                                         .map(font::get)
                                 ),
-                            container(
-                                rule::horizontal(1).style(theme::rule::date)
-                            )
-                            .width(Length::Fill)
-                            .padding(padding::left(6))
+                                container(
+                                    rule::horizontal(1)
+                                        .style(theme::rule::date)
+                                )
+                                .width(Length::Fill)
+                                .padding(padding::left(6))
+                            ]
+                            .padding(2)
+                            .align_y(iced::Alignment::Center),
+                            element
                         ]
-                        .padding(2)
-                        .align_y(iced::Alignment::Center),
+                        .into()
+                    } else {
                         element
-                    ]
-                    .into()
-                } else {
-                    element
-                };
+                    };
 
-                Some(keyed(keyed::Key::message(message), content))
-            })
-            .collect::<Vec<_>>()
-    };
+                    Some(keyed(keyed::Key::message(message), content))
+                })
+                .collect::<Vec<_>>()
+        };
 
     let date_of =
         |m: &data::Message| m.server_time.with_timezone(&Local).date_naive();
@@ -887,25 +937,32 @@ pub struct State {
     last_scroll_offset: f32,
     height_cache: HashMap<keyed::Key, f32>,
     scroll_to: Option<ScrollTo>,
-    highlighted_message: Option<(message::Hash, f32)>,
-    hover_highlighted_message: Option<message::Hash>,
+    highlighted_message: Option<(history::Id, f32)>,
+    hover_highlighted_message: Option<history::Id>,
     highlight_generation: u64,
-    visible_url_messages: HashMap<message::Hash, Vec<url::Url>>,
-    visible_messages: HashSet<message::Hash>,
-    pending_preview_exits: HashSet<message::Hash>,
-    reply_preview_urls: HashMap<message::Hash, Vec<url::Url>>,
-    hovered_preview: Option<(message::Hash, usize)>,
+    visible_url_messages: HashMap<history::Id, Vec<url::Url>>,
+    visible_messages: HashSet<history::Id>,
+    pending_preview_exits: HashSet<history::Id>,
+    reply_preview_urls: HashMap<history::Id, Vec<url::Url>>,
+    hovered_preview: Option<(history::Id, usize)>,
 }
 
 impl State {
     pub fn new(pane_size: Size, config: &Config) -> Self {
-        let step_messages = step_messages(2.0 * pane_size.height, config);
+        let limit = match config.buffer.scroll_position_on_open {
+            ScrollPosition::OldestUnread => {
+                Limit::Backlog(step_messages(pane_size.height, config))
+            }
+            ScrollPosition::Newest => {
+                Limit::Bottom(step_messages(2.0 * pane_size.height, config))
+            }
+        };
 
         Self {
             scrollable: widget::Id::unique(),
             pane_size,
             content_size: Size::default(), // Set initially by the content sensor.
-            limit: Limit::Bottom(step_messages),
+            limit,
             status: Status::default(),
             last_scroll_offset: 0.0,
             height_cache: HashMap::new(),
@@ -929,7 +986,7 @@ impl State {
         infinite_scroll: bool,
         kind: Kind,
         buffer: Option<&buffer::Upstream>,
-        history: &mut history::Manager,
+        history: &mut storage::Manager,
         clients: &mut client::Map,
         previews: &preview::Collection,
         config: &Config,
@@ -1017,7 +1074,7 @@ impl State {
                             self.limit = Limit::Bottom(n);
 
                             // Get new oldest message w/ new limit and use that w/ Since
-                            if let Some(history::View {
+                            if let Some(model::View {
                                 old_messages,
                                 new_messages,
                                 ..
@@ -1039,7 +1096,7 @@ impl State {
                             infinite_scroll && !has_more_older_messages
                         }) {
                             // Load more history & ensure scrollable is unlocked
-                            event = Some(Event::RequestOlderChatHistory);
+                            event = Some(Event::RequestOlderChathistory);
                             self.status = Status::Unlocked;
                             self.limit = Limit::Top(
                                 clients.get_server_chathistory_limit(server)
@@ -1317,25 +1374,25 @@ impl State {
             }
             Message::Link(message::Link::ExpandMessage(
                 server_time,
-                hash,
+                history_id,
                 _,
             )) => {
                 return (
                     Task::none(),
-                    Some(Event::ExpandMessage(server_time, hash)),
+                    Some(Event::ExpandMessage(server_time, history_id)),
                 );
             }
             Message::Link(message::Link::ContractMessage(
                 server_time,
-                hash,
+                history_id,
                 _,
             )) => {
                 return (
                     Task::none(),
-                    Some(Event::ContractMessage(server_time, hash)),
+                    Some(Event::ContractMessage(server_time, history_id)),
                 );
             }
-            Message::RequestOlderChatHistory => {
+            Message::RequestOlderChathistory => {
                 if let Some(server) = kind.server() {
                     self.status = Status::Unlocked;
                     self.limit = Limit::Top(
@@ -1345,56 +1402,61 @@ impl State {
 
                     return (
                         Task::none(),
-                        Some(Event::RequestOlderChatHistory),
+                        Some(Event::RequestOlderChathistory),
                     );
                 }
             }
-            Message::EnteringViewport(hash, urls) => {
-                self.pending_preview_exits.remove(&hash);
-                self.visible_url_messages.insert(hash, urls);
+            Message::EnteringViewport(history_id, urls) => {
+                self.pending_preview_exits.remove(&history_id);
+                self.visible_url_messages.insert(history_id, urls);
                 return (Task::none(), Some(Event::PreviewChanged));
             }
-            Message::ExitingViewport(hash) => {
-                if self.visible_url_messages.contains_key(&hash) {
-                    self.pending_preview_exits.insert(hash);
+            Message::ExitingViewport(history_id) => {
+                if self.visible_url_messages.contains_key(&history_id) {
+                    self.pending_preview_exits.insert(history_id);
                 }
                 return (Task::none(), None);
             }
-            Message::EnteredViewport(hash) => {
-                self.visible_messages.insert(hash);
+            Message::EnteredViewport(history_id) => {
+                self.visible_messages.insert(history_id);
             }
-            Message::ExitedViewport(hash) => {
-                self.visible_messages.remove(&hash);
+            Message::ExitedViewport(history_id) => {
+                self.visible_messages.remove(&history_id);
             }
-            Message::ReplyPreviewHovered(hash, reply_hash, urls) => {
+            Message::ReplyPreviewHovered(
+                history_id,
+                reply_history_id,
+                urls,
+            ) => {
                 if config.buffer.reply.highlight_hovered_message
-                    && self.visible_messages.contains(&reply_hash)
+                    && self.visible_messages.contains(&reply_history_id)
                 {
-                    self.hover_highlighted_message = Some(reply_hash);
+                    self.hover_highlighted_message = Some(reply_history_id);
                 } else {
                     self.hover_highlighted_message = None;
                     if !urls.is_empty() {
-                        let prev = self.reply_preview_urls.insert(hash, urls);
+                        let prev =
+                            self.reply_preview_urls.insert(history_id, urls);
                         if prev.is_none() {
                             return (Task::none(), Some(Event::PreviewChanged));
                         }
                     }
                 }
             }
-            Message::ReplyPreviewUnhovered(hash) => {
+            Message::ReplyPreviewUnhovered(history_id) => {
                 self.hover_highlighted_message = None;
-                if self.reply_preview_urls.remove(&hash).is_some() {
+                if self.reply_preview_urls.remove(&history_id).is_some() {
                     return (Task::none(), Some(Event::PreviewChanged));
                 }
             }
-            Message::PreviewHovered(hash, idx) => {
-                self.hovered_preview = Some((hash, idx));
+            Message::PreviewHovered(history_id, idx) => {
+                self.hovered_preview = Some((history_id, idx));
             }
-            Message::PreviewUnhovered(hash, idx) => {
+            Message::PreviewUnhovered(history_id, idx) => {
                 // Remove if its the one currently hovered
                 if self
                     .hovered_preview
-                    .is_some_and(|(a, b)| a == hash && b == idx)
+                    .is_some_and(|(a, b)| a == history_id && b == idx)
                 {
                     self.hovered_preview = None;
                 }
@@ -1426,10 +1488,10 @@ impl State {
                     return (scroll_to, None);
                 }
             }
-            Message::FadeHighlight(hash, generation) => {
-                if let Some((current_hash, alpha)) =
+            Message::FadeHighlight(history_id, generation) => {
+                if let Some((current_history_id, alpha)) =
                     &mut self.highlighted_message
-                    && *current_hash == hash
+                    && *current_history_id == history_id
                     && generation == self.highlight_generation
                 {
                     *alpha -= HIGHLIGHT_ALPHA_STEP;
@@ -1442,7 +1504,9 @@ impl State {
                                     HIGHLIGHT_ALPHA_TICK_MS,
                                 )),
                                 move |()| {
-                                    Message::FadeHighlight(hash, generation)
+                                    Message::FadeHighlight(
+                                        history_id, generation,
+                                    )
                                 },
                             ),
                             None,
@@ -1460,19 +1524,19 @@ impl State {
                 if !self.pending_preview_exits.is_empty()
                     || !self.visible_messages.is_empty()
                 {
-                    let rendered_hashes = heights
+                    let rendered_history_ids = heights
                         .iter()
                         .filter_map(|(key, _)| match key {
-                            keyed::Key::Message(hash) => Some(*hash),
+                            keyed::Key::Message(history_id) => Some(*history_id),
                             _ => None,
                         })
                         .collect::<HashSet<_>>();
 
-                    self.pending_preview_exits.retain(|hash| {
-                        if rendered_hashes.contains(hash) {
+                    self.pending_preview_exits.retain(|history_id| {
+                        if rendered_hashes.contains(history_id) {
                             true
                         } else {
-                            if self.visible_url_messages.remove(hash).is_some()
+                            if self.visible_url_messages.remove(history_id).is_some()
                             {
                                 preview_changed = true;
                             }
@@ -1480,8 +1544,9 @@ impl State {
                         }
                     });
 
-                    self.visible_messages
-                        .retain(|hash| rendered_hashes.contains(hash));
+                    self.visible_messages.retain(|history_id| {
+                        rendered_history_ids.contains(history_id)
+                    });
                 }
 
                 let event = preview_changed.then_some(Event::PreviewChanged);
@@ -1516,16 +1581,16 @@ impl State {
                 send_reaction(clients, buffer, history, msgid, text, true);
             }
             Message::NavigateFocus(direction) => {
-                let Some(history::View {
+                let Some(model::View {
                     old_messages,
                     new_messages,
                     ..
-                }) = history.get_messages(&kind.into(), None, config)
+                }) = history.view(&kind.into(), &self.limit, config)
                 else {
                     return (Task::none(), None);
                 };
 
-                let all: Vec<&data::Message> = old_messages
+                let all: Vec<&data::MessageDisplay> = old_messages
                     .iter()
                     .copied()
                     .chain(new_messages.iter().copied())
@@ -1803,35 +1868,41 @@ impl State {
 
     pub fn scroll_to_message(
         &mut self,
-        message: message::Hash,
+        history_id: history::Id,
         kind: Kind,
-        history: &history::Manager,
+        history: &model::Manager,
         config: &Config,
         animate: bool,
         align: ScrollAnchor,
     ) -> Task<Message> {
-        let Some(history::View {
-            old_messages,
-            new_messages,
-            ..
-        }) = history.get_messages(&kind.into(), None, config)
-        else {
+        let model_view = history.view(&kind.into(), &self.limit, config);
+
+        if model_view.is_none_or(|model_view| model_view.loading) {
             // We're still loading history, which will trigger scroll_to_backlog
             // after loading. If this is set, we will scroll_to_message
             self.scroll_to = Some(ScrollTo {
-                key: keyed::Key::Message(message),
+                key: keyed::Key::Message(history_id),
                 animate,
                 align,
                 state: ScrollToState::Pending,
             });
 
             return Task::none();
+        }
+
+        let Some(model::View {
+            old_messages,
+            new_messages,
+            ..
+        }) = model_view
+        else {
+            unreachable!()
         };
 
         let Some(target) = old_messages
             .iter()
             .chain(&new_messages)
-            .find(|m| m.hash == message)
+            .find(|m| m.history_id == history_id)
         else {
             return Task::none();
         };
@@ -1839,7 +1910,7 @@ impl State {
         // If the message is already rendered, skip the load and fire immediately.
         if self
             .height_cache
-            .contains_key(&keyed::Key::Message(message))
+            .contains_key(&keyed::Key::Message(history_id))
         {
             // cache real heights while fully rendered so the virtualized
             // layout's doesn't drift from estimates as focus moves.
@@ -2049,7 +2120,7 @@ fn send_reaction(
                     unreact,
                     id: labeled_response_context
                         .map(|context| context.label_as_id),
-                    server_time: Utc::now(),
+                    time: message::Time::client(Utc::now()),
                 },
                 target,
                 in_reply_to: msgid,
@@ -2147,7 +2218,7 @@ fn step_messages(height: f32, config: &Config) -> usize {
 }
 
 pub mod keyed {
-    use data::message;
+    use data::{history, message};
     use iced::advanced::widget::{self, Operation};
     use iced::widget::scrollable::{self, AbsoluteOffset};
     use iced::{Rectangle, Task, Vector, advanced};
@@ -2157,13 +2228,13 @@ pub mod keyed {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub enum Key {
         Divider,
-        Message(message::Hash),
-        Preview(message::Hash, usize),
+        Message(history::Id),
+        Preview(history::Id, usize),
     }
 
     impl Key {
         pub fn message(message: &data::Message) -> Self {
-            Self::Message(message.hash)
+            Self::Message(message.history_id)
         }
     }
 
@@ -2776,7 +2847,10 @@ mod correct_viewport {
     }
 }
 
-fn prefixes_width(message: &data::Message, config: &Config) -> Option<f32> {
+fn prefixes_width(
+    message: &data::MessageDisplay,
+    config: &Config,
+) -> Option<f32> {
     message.target.prefixes().map(|prefixes| {
         font::width_from_str(
             &format!(
@@ -2806,8 +2880,13 @@ enum ScrollToState {
     Active,
 }
 
-fn timestamp_width(message: &data::Message, config: &Config) -> Option<f32> {
-    let date_time = match message.target.source() {
+fn timestamp_width(
+    message: &data::MessageDisplay,
+    config: &Config,
+) -> Option<f32> {
+    let message = &message.inner;
+
+    let date_time = match &message.source {
         message::Source::Internal(message::source::Internal::Condensed(
             end_server_time,
         )) => config
@@ -2815,8 +2894,8 @@ fn timestamp_width(message: &data::Message, config: &Config) -> Option<f32> {
             .server_messages
             .condense
             .timestamp
-            .primary(&message.server_time, end_server_time),
-        _ => Some(&message.server_time),
+            .primary(&message.time.utc, end_server_time),
+        _ => Some(&message.time.utc),
     }?;
 
     config

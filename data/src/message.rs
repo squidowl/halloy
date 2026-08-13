@@ -1,6 +1,5 @@
 use std::borrow::Cow;
-use std::collections::{BTreeMap, HashMap, HashSet};
-use std::hash::{DefaultHasher, Hash as _, Hasher};
+use std::collections::{HashMap, HashSet};
 use std::iter;
 use std::sync::{Arc, LazyLock};
 
@@ -14,11 +13,15 @@ use itertools::{Either, Itertools};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-pub use self::broadcast::Broadcast;
+pub use self::broadcast::{Broadcast, BroadcastWithContext};
+pub use self::display::{MessageDisplay, ReplyPreview};
 pub use self::formatting::{Color, Formatting};
 pub use self::highlight::Highlight;
 pub use self::source::Source;
 pub use self::source::server::{Change, Kind, StandardReply};
+pub use self::time::Time;
+pub use self::with_context::MessageWithContext;
+use crate::buffer::BuffersContext;
 use crate::capabilities::LabeledResponseContext;
 use crate::client::Destination;
 use crate::config::buffer::{CondensationFormat, UsernameFormat};
@@ -28,12 +31,12 @@ use crate::history::reroute::RerouteRules;
 use crate::log::Level;
 use crate::reaction::Reaction;
 use crate::redaction::Redaction;
-use crate::serde::fail_as_none;
 use crate::server::Server;
 use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
 use crate::{
-    Config, User, buffer, command, ctcp, isupport, list_format, message, target,
+    Config, User, buffer, command, ctcp, history, isupport, list_format,
+    message, target,
 };
 
 // References:
@@ -105,9 +108,12 @@ static EXCLUDED_TRAILING_DELIMITER_CHARS_REGEX: LazyLock<Regex> =
     LazyLock::new(|| RegexBuilder::new(r#"(?i)(["')\]}>])$"#).build().unwrap());
 
 pub(crate) mod broadcast;
+pub mod display;
 pub mod formatting;
 pub mod highlight;
 pub mod source;
+pub mod time;
+pub mod with_context;
 
 pub fn reroute_private_message_target(
     target: &Target,
@@ -116,8 +122,11 @@ pub fn reroute_private_message_target(
     focused_buffer: Option<&buffer::Upstream>,
 ) -> Option<Target> {
     match target {
-        Target::Query { query, source } => reroute_rules
-            .target_for_direct_message(query, server, source, focused_buffer),
+        Target::Query { query } => reroute_rules.target_for_direct_message(
+            query,
+            server,
+            focused_buffer,
+        ),
         _ => None,
     }
 }
@@ -129,8 +138,11 @@ pub fn reroute_private_notice_target(
     focused_buffer: Option<&buffer::Upstream>,
 ) -> Option<Target> {
     match target {
-        Target::Query { query, source } => reroute_rules
-            .target_for_direct_notice(query, server, source, focused_buffer),
+        Target::Query { query } => reroute_rules.target_for_direct_notice(
+            query,
+            server,
+            focused_buffer,
+        ),
         _ => None,
     }
 }
@@ -177,14 +189,8 @@ impl Encoded {
             .map(|dt| dt.with_timezone(&Utc))
     }
 
-    pub fn server_time_or_now(&self) -> (DateTime<Utc>, bool) {
-        let server_time = self.server_time();
-        let received_with_server_time = server_time.is_some();
-
-        (
-            server_time.unwrap_or_else(Utc::now),
-            received_with_server_time,
-        )
+    pub fn time(&self) -> Time {
+        Time::maybe_server(self.server_time())
     }
 
     pub fn from_bot(&self) -> bool {
@@ -221,6 +227,13 @@ impl Encoded {
                 .ok()
             })
     }
+
+    pub fn references(&self) -> MessageReferences {
+        MessageReferences {
+            timestamp: self.server_time(),
+            id: self.message_id(),
+        }
+    }
 }
 
 impl std::ops::Deref for Encoded {
@@ -251,270 +264,194 @@ impl From<Encoded> for proto::Message {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Target {
-    Server {
-        source: Source,
-    },
+    Server,
     Channel {
         channel: target::Channel,
-        source: Source,
     },
     Query {
         query: target::Query,
-        source: Source,
     },
-    Logs {
-        source: Source,
-    },
+    Logs,
     Highlights {
         server: Server,
         channel: target::Channel,
-        source: Source,
     },
     ChannelMonitor {
         server: Server,
         channel: target::Channel,
-        source: Source,
     },
 }
 
 impl Target {
     pub fn prefixes(&self) -> Option<&[char]> {
         match self {
-            Target::Server { .. } => None,
-            Target::Channel { channel, .. } => {
+            Target::Channel { channel } => {
                 if channel.prefixes().is_empty() {
                     None
                 } else {
                     Some(channel.prefixes())
                 }
             }
-            Target::Query { .. } => None,
-            Target::Logs { .. } => None,
-            Target::Highlights { .. } => None,
-            Target::ChannelMonitor { .. } => None,
-        }
-    }
-
-    pub fn source(&self) -> &Source {
-        match self {
-            Target::Server { source } => source,
-            Target::Channel { source, .. } => source,
-            Target::Query { source, .. } => source,
-            Target::Logs { source } => source,
-            Target::Highlights { source, .. } => source,
-            Target::ChannelMonitor { source, .. } => source,
-        }
-    }
-
-    pub fn source_mut(&mut self) -> &mut Source {
-        match self {
-            Target::Server { source } => source,
-            Target::Channel { source, .. } => source,
-            Target::Query { source, .. } => source,
-            Target::Logs { source } => source,
-            Target::Highlights { source, .. } => source,
-            Target::ChannelMonitor { source, .. } => source,
+            Target::Server
+            | Target::Query { .. }
+            | Target::Logs
+            | Target::Highlights { .. }
+            | Target::ChannelMonitor { .. } => None,
         }
     }
 
     pub fn raw(&self) -> Option<&str> {
         match self {
-            Target::Channel { channel, .. } => Some(channel.as_str()),
-            Target::Query { query, .. } => Some(query.as_str()),
-            Target::Server { .. }
-            | Target::Logs { .. }
+            Target::Channel { channel } => Some(channel.as_str()),
+            Target::Query { query } => Some(query.as_str()),
+            Target::Server
+            | Target::Logs
             | Target::Highlights { .. }
             | Target::ChannelMonitor { .. } => None,
         }
     }
 
-    pub fn channel(&self) -> Option<&target::Channel> {
+    pub fn as_server(&self) -> Option<&Server> {
         match self {
-            Target::Channel { channel, .. } => Some(channel),
-            Target::Query { .. }
-            | Target::Server { .. }
-            | Target::Logs { .. }
+            Target::Highlights { server, .. }
+            | Target::ChannelMonitor { server, .. } => Some(server),
+            Target::Server
+            | Target::Channel { .. }
+            | Target::Query { .. }
+            | Target::Logs => None,
+        }
+    }
+
+    pub fn as_channel(&self) -> Option<&target::Channel> {
+        match self {
+            Target::Channel { channel } => Some(channel),
+            Target::Server
+            | Target::Query { .. }
+            | Target::Logs
             | Target::Highlights { .. }
             | Target::ChannelMonitor { .. } => None,
         }
     }
-}
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-pub enum Direction {
-    Sent,
-    Received,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ReplyPreview {
-    pub hash: Hash,
-    pub server_time: DateTime<Utc>,
-    pub user: Option<User>,
-    pub content: Content,
-    pub in_reply_to: Option<Box<ReplyPreview>>,
-    pub redaction: Option<Redaction>,
-    pub blocked: bool,
-    pub is_action: bool,
-}
-
-impl ReplyPreview {
-    pub fn preview_text(&self) -> String {
+    pub fn as_targetref(&self) -> Option<target::TargetRef<'_>> {
         match self {
-            Self { blocked: true, .. } => {
-                "Message blocked by Halloy configuration".to_string()
+            Target::Channel { channel }
+            | Target::Highlights { channel, .. }
+            | Target::ChannelMonitor { channel, .. } => {
+                Some(target::TargetRef::Channel(channel))
             }
-            Self {
-                redaction: Some(r), ..
-            } => r.message(),
-            Self {
-                is_action: true,
-                user: Some(user),
-                ..
-            } => action_preview_text(&self.content, user),
-            _ => self.content.preview_text(),
+            Target::Query { query } => Some(target::TargetRef::Query(query)),
+            Target::Server | Target::Logs => None,
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Direction {
+    Sent { command: Option<command::Irc> },
+    Received { is_echo: bool },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
-    pub received_at: Posix,
-    pub server_time: DateTime<Utc>,
+    pub history_id: history::Id,
+    pub time: Time,
     pub direction: Direction,
+    pub source: Source,
     pub target: Target,
     pub content: Content,
     pub id: Option<Id>,
-    pub reply_to: Option<Id>,
-    pub reply_preview: Option<ReplyPreview>,
-    pub hash: Hash,
     pub hidden_urls: HashSet<Url>,
-    pub is_echo: bool, // Only relevant if direction == Direction::Received
-    pub relayed_by: Option<Nick>,
-    pub received_with_server_time: bool, // Only relevant if direction == Direction::Received
-    pub blocked: bool,
-    pub condensed: Option<Arc<Message>>,
-    pub expanded: bool, // Only relevant if can_condense or redaction.is_some()
-    pub command: Option<command::Irc>, // Only relevant if direction == Direction::Sent
     pub reactions: Vec<Reaction>,
+    pub relayed_by: Option<Nick>,
     pub rerouted_from: Option<Target>,
-    pub deduplicate: bool,
     pub redaction: Option<Redaction>,
+    pub reply_to: Option<Id>,
 }
 
 impl Message {
+    pub fn is_echo(&self) -> bool {
+        matches!(self.direction, Direction::Received { is_echo } if is_echo)
+    }
+
     pub fn is_ours(&self) -> bool {
-        matches!(self.direction, Direction::Sent) || self.is_echo
+        self.is_sent() || self.is_echo()
     }
 
-    pub fn triggers_unread(&self) -> bool {
-        matches!(self.direction, Direction::Received)
-            && !self.is_echo
-            && match self.target.source() {
-                Source::User(_) => true,
-                Source::Action(_) => true,
-                Source::Server(Some(server)) => server.kind().is_action(),
-                Source::Internal(source::Internal::Logs(level)) => {
-                    match level {
-                        Level::Warn | Level::Error => true,
-                        Level::Info | Level::Debug | Level::Trace => false,
-                    }
-                }
-                _ => false,
-            }
-            && !self.blocked
+    pub fn is_sent(&self) -> bool {
+        matches!(self.direction, Direction::Sent { .. })
     }
 
-    pub fn triggers_highlight(&self) -> bool {
-        if matches!(self.direction, Direction::Received)
-            && !self.is_echo
-            && !self.blocked
-        {
-            if let Content::Fragments(fragments) = &self.content
-                && fragments.iter().any(|fragment| {
-                    matches!(
-                        fragment,
-                        Fragment::HighlightNick(_, _)
-                            | Fragment::HighlightMatch(_)
-                    )
-                })
-            {
-                true
-            } else {
-                matches!(
-                    self.target.source(),
-                    Source::Internal(source::Internal::Logs(Level::Error))
-                )
-            }
-        } else {
-            false
-        }
+    pub fn is_redactable(&self) -> bool {
+        self.redaction.is_none()
+            && matches!(&self.source, Source::User(_) | Source::Action(_))
     }
 
-    pub fn can_reference(&self) -> bool {
-        if matches!(self.direction, Direction::Sent)
-            || self.is_echo
-            || matches!(self.target.source(), Source::Internal(_))
-        {
-            return false;
-        } else if let Source::Server(source) = self.target.source()
-            && source.as_ref().is_none_or(|source| !source.can_reference())
-        {
-            return false;
-        }
-
-        self.received_with_server_time || self.id.is_some()
-    }
-
-    pub fn is_rerouted(&self) -> bool {
-        self.rerouted_from.is_some()
+    pub fn has_redaction(&self) -> bool {
+        self.redaction.is_some()
     }
 
     pub fn is_relayed(&self) -> bool {
         self.relayed_by.is_some()
     }
 
-    pub fn is_redactable(&self) -> bool {
-        self.redaction.is_none()
-            && matches!(
-                self.target.source(),
-                Source::User(_) | Source::Action(_)
-            )
+    pub fn is_rerouted(&self) -> bool {
+        self.rerouted_from.is_some()
+    }
+
+    pub fn server_time(&self) -> Option<DateTime<Utc>> {
+        self.time.try_into_server_time()
     }
 
     pub fn can_condense(
         &self,
-        condense: &config::buffer::Condensation,
+        condensation_config: &config::buffer::Condensation,
     ) -> bool {
-        if let Source::Server(Some(source)) = self.target.source() {
-            condense.kind(source)
+        if let Source::Server(Some(source)) = &self.source {
+            condensation_config.kind(source)
         } else {
             false
         }
     }
 
-    pub fn redaction_expanded(
+    pub fn can_reference(
         &self,
-        config: &config::buffer::Redaction,
-    ) -> Option<bool> {
-        (self.redaction.is_some() && config.display.is_redacted())
-            .then_some(self.expanded)
+        message_reference_types: &[isupport::MessageReferenceType],
+    ) -> bool {
+        if self.is_sent()
+            || self.is_echo()
+            || matches!(self.source, Source::Internal(_))
+        {
+            return false;
+        } else if let Source::Server(source) = &self.source
+            && source.as_ref().is_none_or(|source| !source.can_reference())
+        {
+            return false;
+        }
+
+        (matches!(self.time.source, time::Source::Server)
+            && message_reference_types
+                .contains(&isupport::MessageReferenceType::Timestamp))
+            || (self.id.is_some()
+                && message_reference_types
+                    .contains(&isupport::MessageReferenceType::MessageId))
     }
 
     pub fn references(&self) -> MessageReferences {
         MessageReferences {
-            timestamp: self.server_time,
+            timestamp: self.server_time(),
             id: self.id.clone(),
         }
     }
 
+    /// Create a `MessageWithContext` from an IRC message received from a
+    /// server.
     pub fn received<'a>(
         encoded: Encoded,
-        our_nick: Nick,
-        deduplicate: bool,
+        our_nick: NickRef<'_>,
         config: &'a Config,
         reroute_rules: &RerouteRules,
-        focused_buffer: Option<&buffer::Upstream>,
+        buffers_context: &dyn BuffersContext,
         resolve_attributes: impl Fn(&User, &target::Channel) -> Option<User>,
         channel_users: impl Fn(&target::Channel) -> Option<&'a ChannelUsers>,
         server: &Server,
@@ -522,106 +459,31 @@ impl Message {
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
         prefix: &[isupport::PrefixMap],
-    ) -> Option<Message> {
-        let (server_time, received_with_server_time) =
-            encoded.server_time_or_now();
+    ) -> Option<MessageWithContext> {
+        let time = encoded.time();
+        let is_echo = encoded
+            .user(casemapping)
+            .is_some_and(|user| *user.nickname() == our_nick);
         let id = encoded.message_id();
         let reply_to = encoded.in_reply_to();
         let relayed_by = encoded.relayed_by(casemapping);
-        let is_echo = encoded
-            .user(casemapping)
-            .is_some_and(|user| user.nickname() == our_nick);
-        let (target, rerouted_from) = target(
-            &encoded,
-            &our_nick,
-            reroute_rules,
-            focused_buffer,
-            &resolve_attributes,
-            server,
-            chantypes,
-            statusmsg,
-            casemapping,
-        )?;
-        let (content, _) = content(
-            encoded,
-            &target,
-            &our_nick,
-            config,
-            &resolve_attributes,
-            &channel_users,
-            server,
-            chantypes,
-            statusmsg,
-            casemapping,
-            prefix,
-        )?;
-        let received_at = Posix::now();
-        let hash = Hash::new(&server_time, &content, &received_at);
 
-        Some(Message {
-            received_at,
-            server_time,
-            direction: Direction::Received,
-            target,
-            content,
-            id,
-            reply_to,
-            reply_preview: None,
-            hash,
-            hidden_urls: HashSet::default(),
-            is_echo,
-            relayed_by,
-            received_with_server_time,
-            blocked: false,
-            condensed: None,
-            expanded: false,
-            command: None,
-            reactions: vec![],
-            rerouted_from,
-            deduplicate,
-            redaction: None,
-        })
-    }
-
-    pub fn received_with_highlight<'a>(
-        encoded: Encoded,
-        our_nick: Nick,
-        deduplicate: bool,
-        config: &'a Config,
-        reroute_rules: &RerouteRules,
-        focused_buffer: Option<&buffer::Upstream>,
-        resolve_attributes: impl Fn(&User, &target::Channel) -> Option<User>,
-        channel_users: impl Fn(&target::Channel) -> Option<&'a ChannelUsers>,
-        is_our_message: impl Fn(&Id, &crate::history::Kind, &DateTime<Utc>) -> bool,
-        server: &Server,
-        chantypes: &[char],
-        statusmsg: &[char],
-        casemapping: isupport::CaseMap,
-        prefix: &[isupport::PrefixMap],
-    ) -> Option<(Message, Option<Highlight>, bool)> {
-        let (server_time, received_with_server_time) =
-            encoded.server_time_or_now();
-        let id = encoded.message_id();
-        let reply_to = encoded.in_reply_to();
-        let relayed_by = encoded.relayed_by(casemapping);
-        let is_echo = encoded
-            .user(casemapping)
-            .is_some_and(|user| user.nickname() == our_nick);
-        let (target, rerouted_from) = target(
+        let (source, target, rerouted_from) = source_and_target(
             &encoded,
-            &our_nick,
+            our_nick,
             reroute_rules,
-            focused_buffer,
+            buffers_context,
             &resolve_attributes,
             server,
             chantypes,
             statusmsg,
             casemapping,
         )?;
+
         let (content, highlight) = content(
             encoded,
             &target,
-            &our_nick,
+            our_nick,
             config,
             &resolve_attributes,
             &channel_users,
@@ -631,114 +493,57 @@ impl Message {
             casemapping,
             prefix,
         )?;
-        let received_at = Posix::now();
-        let hash = Hash::new(&server_time, &content, &received_at);
 
         let message = Message {
-            received_at,
-            server_time,
-            direction: Direction::Received,
+            history_id: history::Id::default(),
+            time,
+            direction: Direction::Received { is_echo },
+            source,
             target,
             content,
             id,
             reply_to,
-            reply_preview: None,
-            hash,
-            hidden_urls: HashSet::default(),
-            is_echo,
             relayed_by,
-            received_with_server_time,
-            blocked: false,
-            condensed: None,
-            expanded: false,
-            command: None,
+            hidden_urls: HashSet::default(),
             reactions: vec![],
             rerouted_from,
-            deduplicate,
             redaction: None,
         };
 
-        let highlight = highlight.and_then(|kind| {
-            if !message.is_echo
-                && let Some((channel, user, source)) = match &message.target {
-                    Target::Channel {
-                        channel,
-                        source: Source::User(user),
-                        ..
-                    } => Some((channel, user, Source::User(user.clone()))),
-                    Target::Channel {
-                        channel,
-                        source: Source::Action(Some(user)),
-                        ..
-                    } => Some((
-                        channel,
-                        user,
-                        Source::Action(Some(user.clone())),
-                    )),
-                    _ => None,
-                }
-            {
-                Some(Highlight {
-                    kind,
-                    channel: channel.clone(),
-                    user: user.clone(),
-                    message: Message {
-                        target: Target::Highlights {
-                            server: server.clone(),
-                            channel: channel.clone(),
-                            source: source.clone(),
-                        },
-                        ..message.clone()
-                    },
-                })
-            } else {
-                None
-            }
-        });
+        let highlight = if message.is_echo() { None } else { highlight };
 
-        let is_reply_to_us = message.reply_to.as_ref().is_some_and(|id| {
-            crate::history::Kind::from_server_message(server, &message)
-                .is_some_and(|kind| {
-                    is_our_message(id, &kind, &message.server_time)
-                })
-        });
-
-        Some((message, highlight, is_reply_to_us))
+        Some(message::MessageWithContext {
+            inner: message,
+            highlight,
+            historical: false,
+            labeled_response_context: None,
+            notification_allowed: true,
+        })
     }
 
-    // command, if provided, should be the command::Irc that corresponds to
-    // sending only the returned Message.  If the originating command resulted
-    // in other Messages, then it needs to be reformulated.
+    /// Create a sent message to be with the provided `Content`.  `command`, if
+    /// provided, should be the `command::Irc` that corresponds to sending only
+    /// the returned `Message`.  If the originating command also produces other
+    /// `Message`s, then it needs to be reformulated.
     pub fn sent(
+        source: Source,
         target: Target,
         content: Content,
         command: Option<command::Irc>,
     ) -> Self {
-        let received_at = Posix::now();
-        let server_time = Utc::now();
-        let hash = Hash::new(&server_time, &content, &received_at);
-
         Message {
-            received_at,
-            server_time,
-            direction: Direction::Sent,
+            history_id: history::Id::default(),
+            time: Time::client(Utc::now()),
+            direction: Direction::Sent { command },
             target,
+            source,
             content,
             id: None,
             reply_to: None,
-            reply_preview: None,
-            hash,
-            hidden_urls: HashSet::default(),
-            is_echo: false,
             relayed_by: None,
-            received_with_server_time: false,
-            blocked: false,
-            condensed: None,
-            expanded: false,
-            command,
+            hidden_urls: HashSet::default(),
             reactions: vec![],
             rerouted_from: None,
-            deduplicate: false,
             redaction: None,
         }
     }
@@ -748,38 +553,26 @@ impl Message {
         query: &target::Query,
         filename: &str,
     ) -> Message {
-        let received_at = Posix::now();
-        let server_time = Utc::now();
         let content = plain(format!(
             "{} wants to send you \"{filename}\"",
             from.nickname()
         ));
-        let hash = Hash::new(&server_time, &content, &received_at);
 
         Message {
-            received_at,
-            server_time,
-            direction: Direction::Received,
+            history_id: history::Id::default(),
+            time: Time::client(Utc::now()),
+            direction: Direction::Received { is_echo: false },
+            source: Source::Action(None),
             target: Target::Query {
                 query: query.clone(),
-                source: Source::Action(None),
             },
             content,
             id: None,
             reply_to: None,
-            reply_preview: None,
-            hash,
-            hidden_urls: HashSet::default(),
-            is_echo: false,
             relayed_by: None,
-            received_with_server_time: false,
-            blocked: false,
-            condensed: None,
-            expanded: false,
-            command: None,
+            hidden_urls: HashSet::default(),
             reactions: vec![],
             rerouted_from: None,
-            deduplicate: false,
             redaction: None,
         }
     }
@@ -789,59 +582,67 @@ impl Message {
         query: &target::Query,
         filename: &str,
     ) -> Message {
-        let received_at = Posix::now();
-        let server_time = Utc::now();
         let content =
             plain(format!("Offering to send {} \"{filename}\"", to.nickname()));
-        let hash = Hash::new(&server_time, &content, &received_at);
 
         Message {
-            received_at,
-            server_time,
-            direction: Direction::Sent,
+            history_id: history::Id::default(),
+            time: Time::client(Utc::now()),
+            direction: Direction::Sent { command: None },
+            source: Source::Action(None),
             target: Target::Query {
                 query: query.clone(),
-                source: Source::Action(None),
             },
             content,
             id: None,
             reply_to: None,
-            reply_preview: None,
-            hash,
-            hidden_urls: HashSet::default(),
-            is_echo: false,
             relayed_by: None,
-            received_with_server_time: false,
-            blocked: false,
-            condensed: None,
-            expanded: false,
-            command: None,
+            hidden_urls: HashSet::default(),
             reactions: vec![],
             rerouted_from: None,
-            deduplicate: false,
             redaction: None,
         }
     }
 
-    pub fn with_target(self, target: Destination) -> Self {
-        let source = self.target.source();
+    pub fn status(
+        status: source::Status,
+        target: Target,
+        content: Content,
+    ) -> MessageWithContext {
+        let message = Message {
+            history_id: history::Id::default(),
+            time: Time::client(Utc::now()),
+            direction: Direction::Received { is_echo: false },
+            target,
+            source: Source::Internal(source::Internal::Status(status)),
+            content,
+            id: None,
+            reply_to: None,
+            relayed_by: None,
+            hidden_urls: HashSet::default(),
+            reactions: vec![],
+            rerouted_from: None,
+            redaction: None,
+        };
 
+        MessageWithContext {
+            inner: message,
+            highlight: None,
+            labeled_response_context: None,
+            historical: false,
+            notification_allowed: true,
+        }
+    }
+
+    pub fn with_target(self, destination: Destination) -> Self {
         Self {
-            target: match target {
-                Destination::Server => Target::Server {
-                    source: source.clone(),
-                },
+            target: match destination {
+                Destination::Server => Target::Server,
                 Destination::Target(target::Target::Channel(channel)) => {
-                    Target::Channel {
-                        channel,
-                        source: source.clone(),
-                    }
+                    Target::Channel { channel }
                 }
                 Destination::Target(target::Target::Query(query)) => {
-                    Target::Query {
-                        query,
-                        source: source.clone(),
-                    }
+                    Target::Query { query }
                 }
             },
             ..self
@@ -854,7 +655,7 @@ impl Message {
     ) -> Self {
         if let Some(labeled_response_context) = labeled_response_context {
             Self {
-                server_time: labeled_response_context.server_time,
+                time: labeled_response_context.time,
                 id: Some(labeled_response_context.label_as_id),
                 ..self
             }
@@ -884,41 +685,30 @@ impl Message {
     }
 
     pub fn log(record: crate::log::Record) -> Self {
-        let received_at = Posix::now();
-        let server_time = record.timestamp;
-        let target = Target::Logs {
-            source: Source::Internal(source::Internal::Logs(record.level)),
-        };
+        let time = Time::client(record.timestamp);
+        let target = Target::Logs;
+        let source = Source::Internal(source::Internal::Logs(record.level));
         let content = Content::Log(record);
-        let hash = Hash::new(&server_time, &content, &received_at);
 
         Self {
-            received_at,
-            server_time,
-            direction: Direction::Received,
+            history_id: history::Id::default(),
+            time,
+            direction: Direction::Received { is_echo: false },
             target,
+            source,
             content,
             id: None,
             reply_to: None,
-            reply_preview: None,
-            hash,
-            hidden_urls: HashSet::default(),
-            is_echo: false,
             relayed_by: None,
-            received_with_server_time: false,
-            blocked: false,
-            condensed: None,
-            expanded: false,
-            command: None,
+            hidden_urls: HashSet::default(),
             reactions: vec![],
             rerouted_from: None,
-            deduplicate: false,
             redaction: None,
         }
     }
 
     pub fn renormalize(&mut self, casemapping: isupport::CaseMap) {
-        match self.target.source_mut() {
+        match &mut self.source {
             Source::User(user) | Source::Action(Some(user)) => {
                 user.renormalize(casemapping);
             }
@@ -941,243 +731,65 @@ impl Message {
     }
 
     pub fn user(&self) -> Option<&User> {
-        match self.target.source() {
+        match &self.source {
             Source::User(user) => Some(user),
             Source::Action(user) => user.as_ref(),
             Source::Server(_) | Source::Internal(_) => None,
         }
     }
 
-    pub fn as_reply_preview(&self) -> ReplyPreview {
-        ReplyPreview {
-            hash: self.hash,
-            server_time: self.server_time,
-            user: self.user().cloned(),
-            content: self.content.clone(),
-            in_reply_to: self.reply_preview.clone().map(Box::new),
-            redaction: self.redaction.clone(),
-            blocked: self.blocked,
-            is_action: matches!(self.target.source(), Source::Action(_)),
-        }
-    }
-
-    pub fn selected_reactions(
-        &self,
-        our_nick: Option<NickRef<'_>>,
-    ) -> Vec<String> {
-        let Some(our_nick) = our_nick else {
-            return vec![];
-        };
-
-        let mut selected = BTreeMap::new();
-
-        for reaction in &self.reactions {
-            if reaction.sender.as_str() == our_nick.as_str() {
-                let count =
-                    selected.entry(reaction.text.as_str()).or_insert(0i16);
-                if reaction.unreact {
-                    *count -= 1;
-                } else {
-                    *count += 1;
+    pub fn triggers_unread(&self) -> bool {
+        !self.is_ours()
+            && match &self.source {
+                Source::User(_) => true,
+                Source::Action(_) => true,
+                Source::Server(Some(server)) => server.kind().is_action(),
+                Source::Internal(source::Internal::Logs(level)) => {
+                    match level {
+                        Level::Warn | Level::Error => true,
+                        Level::Info | Level::Debug | Level::Trace => false,
+                    }
                 }
+                _ => false,
             }
-        }
-
-        selected
-            .into_iter()
-            .filter_map(|(text, count)| {
-                (count >= 1).then_some(text.to_string())
-            })
-            .collect()
     }
-}
 
-// When changing how Message (or its constituent parts) is serialized, run
-// `data/scripts/generate-message-tests-json.sh` to produce test messages for
-// backwards compatibility tests
-impl Serialize for Message {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        #[derive(Serialize)]
-        struct Data<'a> {
-            received_at: &'a Posix,
-            server_time: &'a DateTime<Utc>,
-            direction: &'a Direction,
-            target: &'a Target,
-            content: &'a Content,
-            id: &'a Option<Id>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            reply_to: &'a Option<Id>,
-            // Old field before we had fragments,
-            // added for downgrade compatibility
-            text: Cow<'a, str>,
-            hidden_urls: &'a HashSet<url::Url>,
-            is_echo: &'a bool,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            relayed_by: &'a Option<Nick>,
-            received_with_server_time: &'a bool,
-            command: &'a Option<command::Irc>,
-            #[serde(skip_serializing_if = "<[_]>::is_empty")]
-            reactions: &'a [Reaction],
-            rerouted_from: &'a Option<Target>,
-            redaction: &'a Option<Redaction>,
-        }
-
-        Data {
-            received_at: &self.received_at,
-            server_time: &self.server_time,
-            direction: &self.direction,
-            target: &self.target,
-            content: &self.content,
-            id: &self.id,
-            reply_to: &self.reply_to,
-            text: self.content.text(),
-            hidden_urls: &self.hidden_urls,
-            is_echo: &self.is_echo,
-            relayed_by: &self.relayed_by,
-            received_with_server_time: &self.received_with_server_time,
-            command: &self.command,
-            reactions: &self.reactions,
-            rerouted_from: &self.rerouted_from,
-            redaction: &self.redaction,
-        }
-        .serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for Message {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        struct Data {
-            received_at: Posix,
-            server_time: DateTime<Utc>,
-            direction: Direction,
-            target: Target,
-            // New field, optional for upgrade compatibility
-            #[serde(default, deserialize_with = "fail_as_none")]
-            content: Option<Content>,
-            // Old field before we had fragments
-            text: Option<String>,
-            id: Option<Id>,
-            #[serde(default, deserialize_with = "fail_as_none")]
-            reply_to: Option<Id>,
-            #[serde(default)]
-            hidden_urls: HashSet<url::Url>,
-            #[serde(default)]
-            is_echo: bool,
-            #[serde(default)]
-            relayed_by: Option<Nick>,
-            #[serde(default)]
-            received_with_server_time: bool,
-            #[serde(default, deserialize_with = "fail_as_none")]
-            command: Option<command::Irc>,
-            #[serde(default)]
-            reactions: Vec<Reaction>,
-            #[serde(default, deserialize_with = "fail_as_none")]
-            rerouted_from: Option<Target>,
-            #[serde(default, deserialize_with = "fail_as_none")]
-            redaction: Option<Redaction>,
-        }
-
-        let Data {
-            received_at,
-            server_time,
-            direction,
-            target,
-            content,
-            text,
-            id,
-            reply_to,
-            hidden_urls,
-            is_echo,
-            relayed_by,
-            received_with_server_time,
-            command,
-            reactions,
-            rerouted_from,
-            redaction,
-        } = Data::deserialize(deserializer)?;
-
-        let content = if let Some(content) = content {
-            content
-        } else if let Some(text) = text {
-            // First time upgrading, convert text into content
-            parse_fragments(text)
+    pub fn triggers_highlight(&self) -> bool {
+        if !self.is_ours() {
+            if let Content::Fragments(fragments) = &self.content
+                && fragments.iter().any(|fragment| {
+                    matches!(
+                        fragment,
+                        Fragment::HighlightNick(_, _)
+                            | Fragment::HighlightMatch(_)
+                    )
+                })
+            {
+                true
+            } else {
+                matches!(
+                    self.source,
+                    Source::Internal(source::Internal::Logs(Level::Error))
+                )
+            }
         } else {
-            // Unreachable
-            Content::Plain(String::new())
-        };
-
-        let hash = Hash::new(&server_time, &content, &received_at);
-
-        Ok(Message {
-            received_at,
-            server_time,
-            direction,
-            target,
-            content,
-            id,
-            reply_to,
-            reply_preview: None,
-            hash,
-            hidden_urls,
-            is_echo,
-            relayed_by,
-            received_with_server_time,
-            blocked: false,
-            condensed: None,
-            expanded: false,
-            command,
-            reactions,
-            rerouted_from,
-            deduplicate: false,
-            redaction,
-        })
+            false
+        }
     }
 }
 
 pub fn condense(
-    messages: &[&Message],
+    messages: &[&MessageDisplay],
     condense: &config::buffer::Condensation,
-) -> Option<Arc<Message>> {
+) -> Option<Arc<MessageDisplay>> {
     if let (Some(first_message), Some(last_message)) =
         (messages.first(), messages.last())
     {
         let source = Source::Internal(source::Internal::Condensed(
-            last_message.server_time,
+            last_message.time().utc,
         ));
 
-        let target = match &first_message.target {
-            Target::Server { .. } => Target::Server { source },
-            Target::Channel { channel, .. } => Target::Channel {
-                channel: channel.clone(),
-                source,
-            },
-            Target::Query { query, .. } => Target::Query {
-                query: query.clone(),
-                source,
-            },
-            Target::Logs { .. } => Target::Logs { source },
-            Target::Highlights {
-                server, channel, ..
-            } => Target::Highlights {
-                server: server.clone(),
-                channel: channel.clone(),
-                source,
-            },
-            Target::ChannelMonitor {
-                server, channel, ..
-            } => Target::ChannelMonitor {
-                server: server.clone(),
-                channel: channel.clone(),
-                source,
-            },
-        };
+        let target = first_message.inner.target.clone();
 
         let nick_associations = find_nickname_associations(messages);
 
@@ -1187,7 +799,7 @@ pub fn condense(
         // Convert messages to condensed fragments while grouping them based on
         // nickname association
         messages.iter().for_each(|message| {
-            if let Source::Server(Some(source)) = message.target.source()
+            if let Source::Server(Some(source)) = &message.inner.source
                 && let Some(nick) = source.nick().map(NickRef::from)
                 && let Some((nick, nick_fragment)) = match source.kind() {
                     Kind::Join => Some((
@@ -1218,7 +830,7 @@ pub fn condense(
                             Some(kicked.as_nickref())
                         } else {
                             find_other_nickname_in_message_content(
-                                &message.content,
+                                &message.inner.content,
                                 nick,
                             )
                         };
@@ -1251,7 +863,7 @@ pub fn condense(
                             ))
                         } else {
                             find_other_nickname_in_message_content(
-                                &message.content,
+                                &message.inner.content,
                                 nick,
                             )
                             .map(NickRef::to_owned)
@@ -1348,28 +960,28 @@ pub fn condense(
             }
         }
 
-        Some(Arc::new(Message {
-            received_at: Posix::now(),
-            server_time: first_message.server_time,
-            direction: Direction::Received,
+        let condensed_message = Message {
+            history_id: *first_message.history_id(),
+            time: *first_message.time(),
+            direction: Direction::Received { is_echo: false },
+            source,
             target,
             content: Content::Fragments(condensed_fragments),
             id: None,
             reply_to: None,
-            reply_preview: None,
-            hash: first_message.hash,
-            hidden_urls: HashSet::default(),
-            is_echo: false,
             relayed_by: None,
-            received_with_server_time: false,
+            hidden_urls: HashSet::default(),
+            reactions: vec![],
+            rerouted_from: None,
+            redaction: None,
+        };
+
+        Some(Arc::new(MessageDisplay {
+            inner: condensed_message,
             blocked: false,
             condensed: None,
             expanded: false,
-            command: None,
-            reactions: vec![],
-            rerouted_from: None,
-            deduplicate: false,
-            redaction: None,
+            reply_preview: None,
         }))
     } else {
         None
@@ -1383,7 +995,7 @@ fn find_other_nickname_in_message_content<'a, 'b>(
     if let Content::Fragments(fragments) = content {
         fragments.iter().find_map(|fragment| {
             if let Fragment::User(user, _) = fragment {
-                (user.nickname() != except).then_some(user.nickname())
+                (*user.nickname() != except).then_some(user.nickref())
             } else {
                 None
             }
@@ -1401,13 +1013,13 @@ enum NickAssociation<'a> {
 
 // Finds associations between nicknames via nickname changes
 fn find_nickname_associations<'a>(
-    messages: &'a [&'a Message],
+    messages: &'a [&'a MessageDisplay],
 ) -> IndexMap<NickRef<'a>, NickAssociation<'a>> {
     let mut nick_associations: IndexMap<NickRef, NickAssociation> =
         IndexMap::new();
 
     messages.iter().for_each(|message| {
-        if let Source::Server(Some(source)) = message.target.source()
+        if let Source::Server(Some(source)) = &message.inner.source
             && let Some(nick) = source.nick().map(NickRef::from)
         {
             match source.kind() {
@@ -1424,7 +1036,7 @@ fn find_nickname_associations<'a>(
                             Some(kicked.as_nickref())
                         } else {
                             find_other_nickname_in_message_content(
-                                &message.content,
+                                &message.inner.content,
                                 nick,
                             )
                         };
@@ -1443,7 +1055,7 @@ fn find_nickname_associations<'a>(
                             Some(new_nick.as_nickref())
                         } else {
                             find_other_nickname_in_message_content(
-                                &message.content,
+                                &message.inner.content,
                                 nick,
                             )
                         };
@@ -1964,23 +1576,6 @@ fn condense_associated_fragments(
         .collect()
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Hash(u64);
-
-impl Hash {
-    pub fn new(
-        server_time: &DateTime<Utc>,
-        content: &Content,
-        received_at: &Posix,
-    ) -> Self {
-        let mut hasher = DefaultHasher::new();
-        server_time.hash(&mut hasher);
-        content.hash(&mut hasher);
-        received_at.hash(&mut hasher);
-        Self(hasher.finish())
-    }
-}
-
 pub fn plain(text: String) -> Content {
     Content::Plain(text)
 }
@@ -1990,7 +1585,7 @@ pub fn parse_fragments_with_highlights(
     message_user: Option<&User>,
     channel_users: Option<&ChannelUsers>,
     target: &target::Target,
-    our_nick: &Nick,
+    our_nick: NickRef<'_>,
     highlights: &Highlights,
     server: &Server,
     casemapping: isupport::CaseMap,
@@ -2003,10 +1598,10 @@ pub fn parse_fragments_with_highlights(
                 Fragment::User(user, raw)
                     if highlights.nickname.is_target_included(
                         message_user,
-                        target.as_target_ref(),
+                        target.as_targetref(),
                         server,
                         casemapping,
-                    ) && ((user.nickname() == *our_nick
+                    ) && ((*user.nickname() == our_nick
                         && highlights.nickname.case_insensitive)
                         || raw.as_str() == our_nick.as_str()) =>
                 {
@@ -2023,7 +1618,7 @@ pub fn parse_fragments_with_highlights(
     for (regex, sound) in highlights.matches.iter().filter_map(|m| {
         m.is_target_included(
             message_user,
-            target.as_target_ref(),
+            target.as_targetref(),
             server,
             casemapping,
         )
@@ -2147,9 +1742,7 @@ fn parse_fragments_with_users_inner(
                     text,
                     |text| {
                         channel_users?
-                            .get_by_nick(
-                                Nick::from_str(text, casemapping).as_nickref(),
-                            )
+                            .get_by_nick(&Nick::from_str(text, casemapping))
                             .map(|user| {
                                 Fragment::User(user.clone(), text.to_owned())
                             })
@@ -2513,15 +2106,6 @@ impl Content {
         }
     }
 
-    pub fn urls(&self) -> Vec<&url::Url> {
-        match self {
-            Content::Fragments(fragments) => {
-                fragments.iter().filter_map(Fragment::url).collect()
-            }
-            Content::Plain(_) | Content::Log(_) => Vec::new(),
-        }
-    }
-
     pub fn preview_text(&self) -> String {
         static NEWLINES: LazyLock<Regex> =
             LazyLock::new(|| Regex::new(r"\n+").unwrap());
@@ -2536,12 +2120,6 @@ impl Content {
 impl PartialEq for Content {
     fn eq(&self, other: &Self) -> bool {
         self.text() == other.text()
-    }
-}
-
-impl std::hash::Hash for Content {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.text().hash(state);
     }
 }
 
@@ -2572,13 +2150,6 @@ impl Fragment {
         }
     }
 
-    pub fn is_focus_target(&self) -> bool {
-        matches!(
-            self,
-            Fragment::Url(..) | Fragment::Channel(_) | Fragment::User(..)
-        )
-    }
-
     pub fn as_str(&self) -> &str {
         match self {
             Fragment::Text(s) => s,
@@ -2604,17 +2175,17 @@ impl From<formatting::Fragment> for Fragment {
     }
 }
 
-fn target(
+fn source_and_target(
     message: &Encoded,
-    our_nick: &Nick,
+    our_nick: NickRef<'_>,
     reroute_rules: &RerouteRules,
-    focused_buffer: Option<&buffer::Upstream>,
+    buffers_context: &dyn BuffersContext,
     resolve_attributes: &dyn Fn(&User, &target::Channel) -> Option<User>,
     server: &Server,
     chantypes: &[char],
     statusmsg: &[char],
     casemapping: isupport::CaseMap,
-) -> Option<(Target, Option<Target>)> {
+) -> Option<(Source, Target, Option<Target>)> {
     use proto::command::Numeric::*;
 
     let user = message.user(casemapping);
@@ -2629,23 +2200,16 @@ fn target(
                 casemapping,
             ) {
                 Some((
-                    Target::Channel {
-                        channel,
-                        source: Source::Server(Some(source::Server::new(
-                            Kind::ChangeMode,
-                            Some(user?.nickname().to_owned()),
-                            None,
-                        ))),
-                    },
+                    Source::Server(Some(source::Server::new(
+                        Kind::ChangeMode,
+                        Some(user?.nickname().to_owned()),
+                        None,
+                    ))),
+                    Target::Channel { channel },
                     None,
                 ))
             } else {
-                Some((
-                    Target::Server {
-                        source: Source::Server(None),
-                    },
-                    None,
-                ))
+                Some((Source::Server(None), Target::Server, None))
             }
         }
         Command::TOPIC(channel, _) => {
@@ -2658,14 +2222,12 @@ fn target(
             .ok()?;
 
             Some((
-                Target::Channel {
-                    channel,
-                    source: Source::Server(Some(source::Server::new(
-                        Kind::ChangeTopic,
-                        Some(user?.nickname().to_owned()),
-                        None,
-                    ))),
-                },
+                Source::Server(Some(source::Server::new(
+                    Kind::ChangeTopic,
+                    Some(user?.nickname().to_owned()),
+                    None,
+                ))),
+                Target::Channel { channel },
                 None,
             ))
         }
@@ -2679,17 +2241,15 @@ fn target(
             .ok()?;
 
             Some((
-                Target::Channel {
-                    channel,
-                    source: Source::Server(Some(source::Server::new(
-                        Kind::Kick,
-                        Some(user?.nickname().to_owned()),
-                        Some(Change::Nick(Nick::from_str(
-                            victim.as_str(),
-                            casemapping,
-                        ))),
+                Source::Server(Some(source::Server::new(
+                    Kind::Kick,
+                    Some(user?.nickname().to_owned()),
+                    Some(Change::Nick(Nick::from_str(
+                        victim.as_str(),
+                        casemapping,
                     ))),
-                },
+                ))),
+                Target::Channel { channel },
                 None,
             ))
         }
@@ -2703,25 +2263,22 @@ fn target(
             .ok()?;
 
             Some((
-                Target::Channel {
-                    channel,
-                    source: Source::Server(Some(source::Server::new(
-                        Kind::Part,
-                        Some(user?.nickname().to_owned()),
-                        None,
-                    ))),
-                },
+                Source::Server(Some(source::Server::new(
+                    Kind::Part,
+                    Some(user?.nickname().to_owned()),
+                    None,
+                ))),
+                Target::Channel { channel },
                 None,
             ))
         }
         Command::QUIT(_) => Some((
-            Target::Server {
-                source: source::Source::Server(Some(source::Server::new(
-                    source::server::Kind::Quit,
-                    Some(user?.nickname().to_owned()),
-                    None,
-                ))),
-            },
+            Source::Server(Some(source::Server::new(
+                source::server::Kind::Quit,
+                Some(user?.nickname().to_owned()),
+                None,
+            ))),
+            Target::Server,
             None,
         )),
         Command::JOIN(channel, _) => {
@@ -2734,14 +2291,12 @@ fn target(
             .ok()?;
 
             Some((
-                Target::Channel {
-                    channel,
-                    source: Source::Server(Some(source::Server::new(
-                        Kind::Join,
-                        Some(user?.nickname().to_owned()),
-                        None,
-                    ))),
-                },
+                Source::Server(Some(source::Server::new(
+                    Kind::Join,
+                    Some(user?.nickname().to_owned()),
+                    None,
+                ))),
+                Target::Channel { channel },
                 None,
             ))
         }
@@ -2749,13 +2304,12 @@ fn target(
             let new_nick = Nick::from_str(new_nick, casemapping);
 
             Some((
-                Target::Server {
-                    source: source::Source::Server(Some(source::Server::new(
-                        source::server::Kind::ChangeNick,
-                        Some(user?.nickname().to_owned()),
-                        Some(source::server::Change::Nick(new_nick)),
-                    ))),
-                },
+                Source::Server(Some(source::Server::new(
+                    source::server::Kind::ChangeNick,
+                    Some(user?.nickname().to_owned()),
+                    Some(source::server::Change::Nick(new_nick)),
+                ))),
+                Target::Server,
                 None,
             ))
         }
@@ -2777,12 +2331,8 @@ fn target(
             };
 
             Some((
-                Target::Channel {
-                    channel,
-                    source: Source::Server(Some(source::Server::new(
-                        kind, None, None,
-                    ))),
-                },
+                Source::Server(Some(source::Server::new(kind, None, None))),
+                Target::Channel { channel },
                 None,
             ))
         }
@@ -2794,13 +2344,7 @@ fn target(
                 casemapping,
             )
             .ok()?;
-            Some((
-                Target::Channel {
-                    channel,
-                    source: Source::Server(None),
-                },
-                None,
-            ))
+            Some((Source::Server(None), Target::Channel { channel }, None))
         }
         Command::Numeric(RPL_AWAY, params) => {
             let user = params.get(1)?;
@@ -2810,14 +2354,12 @@ fn target(
                     .ok()?;
 
             Some((
-                Target::Query {
-                    query,
-                    source: Source::Server(Some(source::Server::new(
-                        Kind::Away,
-                        Some(Nick::from_string(user.clone(), casemapping)),
-                        None,
-                    ))),
-                },
+                Source::Server(Some(source::Server::new(
+                    Kind::Away,
+                    Some(Nick::from_string(user.clone(), casemapping)),
+                    None,
+                ))),
+                Target::Query { query },
                 None,
             ))
         }
@@ -2836,14 +2378,12 @@ fn target(
             .ok()?;
 
             Some((
-                Target::Channel {
-                    channel,
-                    source: Source::Server(Some(source::Server::new(
-                        Kind::StandardReply(StandardReply::Fail),
-                        None,
-                        None,
-                    ))),
-                },
+                Source::Server(Some(source::Server::new(
+                    Kind::StandardReply(StandardReply::Fail),
+                    None,
+                    None,
+                ))),
+                Target::Channel { channel },
                 None,
             ))
         }
@@ -2854,7 +2394,7 @@ fn target(
 
             let is_action = is_action(text);
 
-            let source = |user| {
+            let source_from_user = |user| {
                 if is_action {
                     Source::Action(Some(user))
                 } else {
@@ -2869,48 +2409,45 @@ fn target(
                 };
 
             if target == "*" {
-                let source = user.map_or(Source::Server(None), source);
+                let source =
+                    user.map_or(Source::Server(None), source_from_user);
 
-                return Some((Target::Server { source }, None));
+                return Some((source, Target::Server, None));
             }
 
             // Mass message
             if target.starts_with('$') {
                 if let Some(user) = user {
                     return Some((
+                        source_from_user(user.clone()),
                         Target::Query {
-                            query: target::Query::from(user.clone()),
-                            source: source(user),
+                            query: target::Query::from(user),
                         },
                         None,
                     ));
                 } else {
-                    return Some((
-                        Target::Server {
-                            source: Source::Server(None),
-                        },
-                        None,
-                    ));
+                    return Some((Source::Server(None), Target::Server, None));
                 }
             }
 
             // CTCP Handling.
-            let (target, rerouted_from) = if ctcp::is_query(text) && !is_action
+            let (source, target, rerouted_from) = if ctcp::is_query(text)
+                && !is_action
             {
                 let user = user.as_ref()?;
                 let target = User::from(Nick::from_str(target, casemapping));
 
                 // We want to show both requests, and responses in query with the client.
-                let user = if user.nickname() == *our_nick {
+                let user = if *user.nickname() == our_nick {
                     target
                 } else {
                     user.clone()
                 };
 
                 (
+                    Source::Server(None),
                     Target::Query {
                         query: target::Query::from(user),
-                        source: Source::Server(None),
                     },
                     None,
                 )
@@ -2925,21 +2462,19 @@ fn target(
                     &user,
                 ) {
                     (target::Target::Channel(channel), Some(user)) => {
-                        let source = source(
+                        let source = source_from_user(
                             resolve_attributes_with_bot(user, &channel)
                                 .unwrap_or(user.clone()),
                         );
-                        (Target::Channel { channel, source }, None)
+                        (source, Target::Channel { channel }, None)
                     }
                     (target::Target::Channel(channel), None) => (
-                        Target::Channel {
-                            channel,
-                            source: Source::Server(None),
-                        },
+                        Source::Server(None),
+                        Target::Channel { channel },
                         None,
                     ),
                     (target::Target::Query(query), Some(user)) => {
-                        let query = if user.nickname() == *our_nick {
+                        let query = if *user.nickname() == our_nick {
                             // Message from ourself, from another client.
                             query
                         } else {
@@ -2947,10 +2482,9 @@ fn target(
                             target::Query::from(user.clone())
                         };
 
-                        let target = Target::Query {
-                            query,
-                            source: source(user.clone()),
-                        };
+                        let source = source_from_user(user.clone());
+
+                        let target = Target::Query { query };
 
                         if is_privmsg
                             && let Some(rerouted_target) =
@@ -2958,30 +2492,27 @@ fn target(
                                     &target,
                                     reroute_rules,
                                     server,
-                                    focused_buffer,
+                                    buffers_context.focused_upstream_buffer(),
                                 )
                         {
-                            (rerouted_target, Some(target))
+                            (source, rerouted_target, Some(target))
                         } else if is_notice
                             && let Some(rerouted_target) =
                                 reroute_private_notice_target(
                                     &target,
                                     reroute_rules,
                                     server,
-                                    focused_buffer,
+                                    buffers_context.focused_upstream_buffer(),
                                 )
                         {
-                            (rerouted_target, Some(target))
+                            (source, rerouted_target, Some(target))
                         } else {
-                            (target, None)
+                            (source, target, None)
                         }
                     }
-                    (target::Target::Query(_), None) => (
-                        Target::Server {
-                            source: Source::Server(None),
-                        },
-                        None,
-                    ),
+                    (target::Target::Query(_), None) => {
+                        (Source::Server(None), Target::Server, None)
+                    }
                 }
             };
 
@@ -2992,7 +2523,7 @@ fn target(
                 // Resolve attributes in the context channel
                 let source =
                     user.as_ref().map_or(Source::Server(None), |user| {
-                        source(
+                        source_from_user(
                             resolve_attributes_with_bot(user, &channel_context)
                                 .unwrap_or(user.clone()),
                         )
@@ -3000,16 +2531,15 @@ fn target(
 
                 let channel_context = Target::Channel {
                     channel: channel_context,
-                    source,
                 };
 
                 if rerouted_from.is_some() {
-                    (channel_context, rerouted_from)
+                    (source, channel_context, rerouted_from)
                 } else {
-                    (channel_context, Some(target))
+                    (source, channel_context, Some(target))
                 }
             } else if rerouted_from.is_some()
-                && let Target::Channel { channel, source } = target
+                && let Target::Channel { channel } = target
             {
                 // Resolve attributes in the target channel
                 let source = match source {
@@ -3026,69 +2556,63 @@ fn target(
                     | Source::Internal(_) => source,
                 };
 
-                (Target::Channel { channel, source }, rerouted_from)
+                (source, Target::Channel { channel }, rerouted_from)
             } else {
-                (target, rerouted_from)
+                (source, target, rerouted_from)
             })
         }
         Command::Numeric(RPL_MONONLINE, _) => Some((
-            Target::Server {
-                source: Source::Server(Some(source::Server::new(
-                    Kind::MonitoredOnline,
-                    None,
-                    None,
-                ))),
-            },
+            Source::Server(Some(source::Server::new(
+                Kind::MonitoredOnline,
+                None,
+                None,
+            ))),
+            Target::Server,
             None,
         )),
         Command::Numeric(RPL_MONOFFLINE, _) => Some((
-            Target::Server {
-                source: Source::Server(Some(source::Server::new(
-                    Kind::MonitoredOffline,
-                    None,
-                    None,
-                ))),
-            },
+            Source::Server(Some(source::Server::new(
+                Kind::MonitoredOffline,
+                None,
+                None,
+            ))),
+            Target::Server,
             None,
         )),
         Command::FAIL(_, _, _, _) => Some((
-            Target::Server {
-                source: Source::Server(Some(source::Server::new(
-                    Kind::StandardReply(StandardReply::Fail),
-                    None,
-                    None,
-                ))),
-            },
+            Source::Server(Some(source::Server::new(
+                Kind::StandardReply(StandardReply::Fail),
+                None,
+                None,
+            ))),
+            Target::Server,
             None,
         )),
         Command::WARN(_, _, _, _) => Some((
-            Target::Server {
-                source: Source::Server(Some(source::Server::new(
-                    Kind::StandardReply(StandardReply::Warn),
-                    None,
-                    None,
-                ))),
-            },
+            Source::Server(Some(source::Server::new(
+                Kind::StandardReply(StandardReply::Warn),
+                None,
+                None,
+            ))),
+            Target::Server,
             None,
         )),
         Command::NOTE(_, _, _, _) => Some((
-            Target::Server {
-                source: Source::Server(Some(source::Server::new(
-                    Kind::StandardReply(StandardReply::Note),
-                    None,
-                    None,
-                ))),
-            },
+            Source::Server(Some(source::Server::new(
+                Kind::StandardReply(StandardReply::Note),
+                None,
+                None,
+            ))),
+            Target::Server,
             None,
         )),
         Command::WALLOPS(_) => Some((
-            Target::Server {
-                source: Source::Server(Some(source::Server::new(
-                    Kind::WAllOps,
-                    None,
-                    None,
-                ))),
-            },
+            Source::Server(Some(source::Server::new(
+                Kind::WAllOps,
+                None,
+                None,
+            ))),
+            Target::Server,
             None,
         )),
         Command::Numeric(ERR_CANNOTSENDTOCHAN, params) => {
@@ -3099,19 +2623,13 @@ fn target(
                 casemapping,
             ) {
                 target::Target::Channel(channel) => Some((
-                    Target::Channel {
-                        channel,
-                        source: Source::Server(None),
-                    },
+                    Source::Server(None),
+                    Target::Channel { channel },
                     None,
                 )),
-                target::Target::Query(query) => Some((
-                    Target::Query {
-                        query,
-                        source: Source::Server(None),
-                    },
-                    None,
-                )),
+                target::Target::Query(query) => {
+                    Some((Source::Server(None), Target::Query { query }, None))
+                }
             }
         }
         Command::INVITE(invitee, channel) => {
@@ -3123,17 +2641,17 @@ fn target(
                 None,
             )));
 
-            if invitee.nickname() == *our_nick {
+            if *invitee.nickname() == our_nick {
                 if let Some(user) = user {
                     return Some((
+                        source,
                         Target::Query {
                             query: target::Query::from(user),
-                            source,
                         },
                         None,
                     ));
                 } else {
-                    return Some((Target::Server { source }, None));
+                    return Some((source, Target::Server, None));
                 }
             }
 
@@ -3145,7 +2663,7 @@ fn target(
             )
             .ok()?;
 
-            Some((Target::Channel { channel, source }, None))
+            Some((source, Target::Channel { channel }, None))
         }
         // Server
         Command::PASS(_)
@@ -3194,12 +2712,9 @@ fn target(
         | Command::BOUNCER(_, _)
         | Command::REDACT(_, _, _)
         | Command::METADATA(_, _)
-        | Command::Raw(_) => Some((
-            Target::Server {
-                source: Source::Server(None),
-            },
-            None,
-        )),
+        | Command::Raw(_) => {
+            Some((Source::Server(None), Target::Server {}, None))
+        }
     }
 }
 
@@ -3208,7 +2723,7 @@ pub type Id = Arc<str>;
 fn content<'a>(
     message: Encoded,
     message_target: &Target,
-    our_nick: &Nick,
+    our_nick: NickRef<'_>,
     config: &Config,
     resolve_attributes: &dyn Fn(&User, &target::Channel) -> Option<User>,
     channel_users: impl Fn(&target::Channel) -> Option<&'a ChannelUsers>,
@@ -3305,7 +2820,7 @@ fn content<'a>(
             .and_then(|channel| resolve_attributes(&raw_user, &channel))
             .unwrap_or(raw_user);
 
-            (user.nickname() != *our_nick).then(|| {
+            (*user.nickname() != our_nick).then(|| {
                 (
                     parse_fragments_with_user(
                         format!(
@@ -3327,13 +2842,13 @@ fn content<'a>(
         }
         Command::NICK(new_nick) => {
             let old_user = message.user(casemapping)?;
-            let ourself = old_user.nickname() == *our_nick;
+            let ourself = *old_user.nickname() == our_nick;
 
             let new_nick = Nick::from_str(new_nick.as_str(), casemapping);
 
             Some((
                 nickname_text(
-                    old_user.nickname(),
+                    old_user.nickref(),
                     new_nick.as_nickref(),
                     ourself,
                     casemapping,
@@ -3364,7 +2879,7 @@ fn content<'a>(
                 })
                 .unwrap_or(raw_victim_user);
 
-            let ourself = victim.nickname() == *our_nick;
+            let ourself = *victim.nickname() == our_nick;
 
             let raw_user = message.user(casemapping)?;
             let user = channel
@@ -3431,7 +2946,7 @@ fn content<'a>(
                     ),
                     None,
                 ))
-            } else if raw_user.nickname() == *our_nick {
+            } else if *raw_user.nickname() == our_nick {
                 if casemapping.normalize(target) == our_nick.as_normalized_str()
                 {
                     Some((
@@ -3448,7 +2963,7 @@ fn content<'a>(
                 }
             } else {
                 let channel_users =
-                    [raw_user.clone(), User::from(our_nick.clone())]
+                    [raw_user.clone(), User::from(our_nick.to_owned())]
                         .into_iter()
                         .collect::<ChannelUsers>();
 
@@ -3476,7 +2991,7 @@ fn content<'a>(
             let user = message.user(casemapping);
 
             let channel_users =
-                message_target.channel().and_then(channel_users);
+                message_target.as_channel().and_then(channel_users);
 
             // Check if a synthetic action message
 
@@ -3517,7 +3032,7 @@ fn content<'a>(
 
             if user
                 .as_ref()
-                .is_some_and(|user| user.nickname() == *our_nick)
+                .is_some_and(|user| *user.nickname() == our_nick)
             {
                 Some((
                     parse_fragments_with_users(
@@ -3947,7 +3462,7 @@ fn content<'a>(
                     .skip(1)
                     .collect::<Vec<_>>()
                     .join(" "),
-                &User::from(our_nick.clone()),
+                &User::from(our_nick.to_owned()),
                 casemapping,
             ),
             None,
@@ -3988,8 +3503,8 @@ fn content<'a>(
 pub enum Limit {
     Top(usize),
     Bottom(usize),
-    Since(DateTime<Utc>),
-    Around(usize, Hash),
+    Around(usize, history::Id),
+    Backlog(usize),
 }
 
 pub fn is_action(text: &str) -> bool {
@@ -4005,7 +3520,7 @@ fn parse_action(
     text: &str,
     channel_users: Option<&ChannelUsers>,
     target: &target::Target,
-    our_nick: &Nick,
+    our_nick: NickRef<'_>,
     highlights: &Highlights,
     server: &Server,
     casemapping: isupport::CaseMap,
@@ -4016,7 +3531,7 @@ fn parse_action(
 
     let query = ctcp::parse_query(text)?;
 
-    if user.nickname() == *our_nick {
+    if *user.nickname() == our_nick {
         Some((
             action_text(user, query.params, channel_users, casemapping),
             None,
@@ -4033,13 +3548,6 @@ fn parse_action(
             casemapping,
         ))
     }
-}
-
-/// in preview contexts the nick is added on the side as a `UserDisplay`
-pub fn action_preview_text(content: &Content, user: &User) -> String {
-    let text = content.preview_text();
-    let prefix = format!("{} ", user.nickname());
-    text.strip_prefix(&prefix).unwrap_or(&text).to_string()
 }
 
 pub fn action_text(
@@ -4062,7 +3570,7 @@ pub fn action_text_with_highlights(
     action: Option<&str>,
     channel_users: Option<&ChannelUsers>,
     target: &target::Target,
-    our_nick: &Nick,
+    our_nick: NickRef<'_>,
     highlights: &Highlights,
     server: &Server,
     casemapping: isupport::CaseMap,
@@ -4088,14 +3596,14 @@ pub fn action_text_with_highlights(
 fn invite_text(
     inviter: User,
     invitee: User,
-    our_nick: &Nick,
+    our_nick: NickRef<'_>,
     channel: target::Channel,
     casemapping: isupport::CaseMap,
 ) -> Content {
     parse_fragments_with_users(
-        if invitee.nickname() == *our_nick {
+        if *invitee.nickname() == our_nick {
             format!("{} has invited you to {channel}", inviter.as_str())
-        } else if inviter.nickname() == *our_nick {
+        } else if *inviter.nickname() == our_nick {
             format!("You have invited {} to {channel}", invitee.as_str())
         } else {
             format!(
@@ -4213,9 +3721,9 @@ pub enum Link {
     Channel(Server, target::Channel, Option<BufferAction>),
     Url(String),
     User(Server, User),
-    GoToMessage(Server, target::Channel, Hash, Option<BufferAction>),
-    ExpandMessage(DateTime<Utc>, Hash, Option<LinkContext>),
-    ContractMessage(DateTime<Utc>, Hash, Option<LinkContext>),
+    GoToMessage(Server, target::Channel, history::Id, Option<BufferAction>),
+    ExpandMessage(message::Time, history::Id, Option<LinkContext>),
+    ContractMessage(message::Time, history::Id, Option<LinkContext>),
 }
 
 #[derive(Debug, Clone)]
@@ -4250,9 +3758,35 @@ impl Link {
     }
 }
 
+pub trait Temporal {
+    fn time(&self) -> &Time;
+}
+
+impl Temporal for Message {
+    fn time(&self) -> &Time {
+        &self.time
+    }
+}
+
+pub trait Searchable: Temporal {
+    fn history_id(&self) -> &history::Id;
+
+    fn id(&self) -> &Option<Id>;
+}
+
+impl Searchable for Message {
+    fn history_id(&self) -> &history::Id {
+        &self.history_id
+    }
+
+    fn id(&self) -> &Option<Id> {
+        &self.id
+    }
+}
+
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct MessageReferences {
-    pub timestamp: DateTime<Utc>,
+    pub timestamp: Option<DateTime<Utc>>,
     pub id: Option<message::Id>,
 }
 
@@ -4271,9 +3805,11 @@ impl MessageReferences {
                     }
                 }
                 isupport::MessageReferenceType::Timestamp => {
-                    return Some(isupport::MessageReference::Timestamp(
-                        self.timestamp,
-                    ));
+                    if let Some(timestamp) = &self.timestamp {
+                        return Some(isupport::MessageReference::Timestamp(
+                            *timestamp,
+                        ));
+                    }
                 }
             }
         }
@@ -4302,35 +3838,23 @@ impl PartialOrd for MessageReferences {
     }
 }
 
-#[cfg(any(test, feature = "message_tests"))]
-pub mod tests {
-    #[allow(unused_imports)]
+#[cfg(test)]
+mod tests {
     use super::{
         parse_fragments, parse_fragments_with_highlights,
         parse_fragments_with_users,
     };
-    #[allow(unused_imports)]
-    use crate::bouncer::BouncerNetwork;
-    #[allow(unused_imports)]
     use crate::config::Highlights;
-    #[allow(unused_imports)]
     use crate::config::highlights::Nickname;
-    #[allow(unused_imports)]
     use crate::config::inclusivities::Inclusivities;
-    #[allow(unused_imports)]
     use crate::history::reroute::RerouteRules;
-    #[allow(unused_imports)]
     use crate::message::formatting::Color;
-    #[allow(unused_imports)]
     use crate::message::{
-        self, Broadcast, Content, Formatting, Fragment, Highlight, Message,
-        Source, Target, broadcast,
+        self, Content, Formatting, Fragment, Message, MessageWithContext,
+        Source, Target,
     };
-    #[allow(unused_imports)]
     use crate::server::{Server, ServerName};
-    #[allow(unused_imports)]
     use crate::user::{ChannelUsers, Nick, User};
-    #[allow(unused_imports)]
     use crate::{isupport, target};
 
     #[test]
@@ -4339,7 +3863,10 @@ pub mod tests {
 
         use irc::proto;
 
+        use crate::buffer::EmptyBuffersContext;
+
         let reroute_rules = RerouteRules::default();
+        let buffers_context = EmptyBuffersContext::default();
 
         let server = Server::from(ServerName::from("test-server"));
 
@@ -4357,24 +3884,23 @@ pub mod tests {
             (
                 ":dan!d@localhost NOTICE * :Server notice! \r\n",
                 Some((
-                    Target::Server {
-                        source: Source::User(User::from(Nick::from_str(
-                            "dan",
-                            casemapping,
-                        ))),
-                    },
+                    Source::User(User::from(Nick::from_str(
+                        "dan",
+                        casemapping,
+                    ))),
+                    Target::Server,
                     None,
                 )),
             ),
             (
                 ":dan!d@localhost PRIVMSG $$* :Mass message! \r\n",
                 Some((
+                    Source::User(User::from(Nick::from_str(
+                        "dan",
+                        casemapping,
+                    ))),
                     Target::Query {
                         query: target::Query::from(our_user),
-                        source: Source::User(User::from(Nick::from_str(
-                            "dan",
-                            casemapping,
-                        ))),
                     },
                     None,
                 )),
@@ -4384,11 +3910,11 @@ pub mod tests {
         for (irc_message, expected) in tests {
             let encoded = proto::parse::message(irc_message).unwrap();
 
-            let actual = message::target(
+            let actual = message::source_and_target(
                 &message::Encoded(encoded),
-                &our_nick,
+                our_nick.as_nickref(),
                 &reroute_rules,
-                None,
+                &buffers_context,
                 &|_: &User, _: &target::Channel| None,
                 &server,
                 chantypes,
@@ -5057,7 +4583,7 @@ pub mod tests {
                     Some(&user),
                     Some(&channel_users),
                     &target,
-                    &our_nick,
+                    our_nick.as_nickref(),
                     highlights,
                     &server,
                     casemapping,
@@ -5072,27 +4598,15 @@ pub mod tests {
         }
     }
 
-    pub const SERDE_IRC_MESSAGES: &[&str] = &[
-        "@time=2023-07-20T21:19:11.000Z :chat!test@user/test/bot/chat PRIVMSG ##chat :\\_o< quack!\r\n",
-        "@id=234AB :dan!d@localhost PRIVMSG #chan :Hey what's up! \r\n",
-        "@time=2025-02-11T20:28:47.354Z :our_nick PRIVMSG #test-chan :\u{1}ACTION wants to generate an action message for testing XD\u{1}\r\n",
-        "@id=DTSA :our_nick PRIVMSG #halloy :check out https://unstable.halloy.squidowl.org/, when you're building from source\r\n",
-        ":dan!d@localhost PRIVMSG #chan-chan \u{1f}how\u{1f} \u{11}about\u{11} \u{2}\u{1d}some\u{1d}\u{2} \u{2}markdown\u{2} \u{1d}for\u{1d} \u{1e}testing\u{1e} \u{3}4too\u{3}? \r\n",
-        ":WiZ JOIN #Twilight_zone\r\n",
-        ":`whammer`!warhammer@40k PART #test\r\n",
-        ":soju.bouncer FAIL * ACCOUNT_REQUIRED :Authentication required\r\n",
-        ":rabbit MODE #토끼세계 +o bunny\r\n",
-        ":dan!d@localhost PRIVMSG #chan :Need a highlight our_nick?\r\n",
-    ];
-
-    pub fn message_with_highlight_from_irc_message(
+    pub fn message_with_context_from_irc_message(
         irc_message: &str,
         server: &Server,
-    ) -> (Message, Option<Highlight>) {
+    ) -> MessageWithContext {
         use std::collections::HashMap;
 
         use irc::proto;
 
+        use crate::buffer::EmptyBuffersContext;
         use crate::config::Config;
         use crate::history::reroute::RerouteRules;
         use crate::message::Encoded;
@@ -5120,13 +4634,12 @@ pub mod tests {
 
         let encoded = proto::parse::message(irc_message).unwrap();
 
-        Message::received_with_highlight(
+        Message::received(
             Encoded::from(encoded.clone()),
-            our_nick.clone(),
-            false,
+            our_nick.as_nickref(),
             &Config::default(),
             &RerouteRules::default(),
-            None,
+            &EmptyBuffersContext::default(),
             |user: &User, _channel: &target::Channel| {
                 channel_users
                     .iter()
@@ -5134,17 +4647,13 @@ pub mod tests {
                     .cloned()
             },
             |_channel: &target::Channel| Some(&channel_users),
-            |_, _, _| false,
             server,
             isupport::get_chantypes_or_default(&isupport),
             isupport::get_statusmsg_or_default(&isupport),
             isupport::get_casemapping_or_default(&isupport),
             isupport::get_prefix_or_default(&isupport),
         )
-        .map_or_else(
-            || panic!("failed to create Message from {encoded:?}"),
-            |(msg, highlight, _)| (msg, highlight),
-        )
+        .expect("failed to create Message from {encoded:?}")
     }
 
     #[test]
@@ -5154,19 +4663,21 @@ pub mod tests {
             network: None,
         };
 
-        let (message, highlight) = message_with_highlight_from_irc_message(
+        let message_with_context = message_with_context_from_irc_message(
             "@time=2026-03-22T02:29:14.051Z :osmium.libera.chat NOTICE * :*** Notice -- [snip]\r\n",
             &server,
         );
 
-        assert!(highlight.is_none());
+        assert!(message_with_context.highlight.is_none());
         assert!(matches!(
-            &message.target,
-            crate::message::Target::Server {
-                source: crate::message::Source::Server(None),
-            }
+            message_with_context.inner.source,
+            Source::Server(None)
         ));
-        assert_eq!(message.text(), "*** Notice -- [snip]");
+        assert!(matches!(
+            message_with_context.inner.target,
+            crate::message::Target::Server
+        ));
+        assert_eq!(message_with_context.inner.text(), "*** Notice -- [snip]");
     }
 
     #[test]
@@ -5176,246 +4687,17 @@ pub mod tests {
             network: None,
         };
 
-        let (message, highlight) = message_with_highlight_from_irc_message(
+        let message_with_context = message_with_context_from_irc_message(
             ":dan!d@localhost NOTICE * :maintenance window\r\n",
             &server,
         );
 
-        assert!(highlight.is_none());
+        assert!(message_with_context.highlight.is_none());
         assert!(matches!(
-            &message.target,
-            Target::Server {
-                source: Source::User(user),
-            } if user.nickname().to_string() == "dan"
+            message_with_context.inner.source,
+            Source::User(ref user) if user.nickname().to_string() == "dan"
         ));
-        assert_eq!(message.text(), "maintenance window");
-    }
-
-    pub fn serde_broadcasts() -> Vec<Broadcast> {
-        use std::collections::HashMap;
-
-        use crate::{isupport, target};
-
-        let isupport = HashMap::<isupport::Kind, isupport::Parameter>::new();
-
-        let user_channels = vec![
-            target::Channel::from_str(
-                "##chat",
-                isupport::get_chantypes_or_default(&isupport),
-                isupport::get_casemapping_or_default(&isupport),
-            ),
-            target::Channel::from_str(
-                "#halloy",
-                isupport::get_chantypes_or_default(&isupport),
-                isupport::get_casemapping_or_default(&isupport),
-            ),
-        ];
-
-        vec![
-            Broadcast::Connecting,
-            Broadcast::Connected,
-            Broadcast::ConnectionFailed {
-                error: "a TLS error occurred: \
-                            io error: received fatal alert: HandshakeFailure"
-                    .to_string(),
-            },
-            Broadcast::Disconnected { error: None },
-            Broadcast::Reconnected,
-            Broadcast::Quit {
-                user: User::parse(
-                    "+nieve!snow@yeti",
-                    isupport::get_casemapping_or_default(&isupport),
-                    isupport::get_prefix(&isupport),
-                )
-                .unwrap(),
-                comment: Some("see you later our_nick".to_string()),
-                user_channels: user_channels.clone(),
-                casemapping: isupport::get_casemapping_or_default(&isupport),
-            },
-            Broadcast::Nickname {
-                old_nick: Nick::from_str(
-                    "dan",
-                    isupport::get_casemapping_or_default(&isupport),
-                ),
-                new_nick: Nick::from_str(
-                    "dandadan",
-                    isupport::get_casemapping_or_default(&isupport),
-                ),
-                ourself: false,
-                user_channels: user_channels.clone(),
-                casemapping: isupport::get_casemapping_or_default(&isupport),
-            },
-            Broadcast::Nickname {
-                old_nick: Nick::from_str(
-                    "our_old_nick",
-                    isupport::get_casemapping_or_default(&isupport),
-                ),
-                new_nick: Nick::from_str(
-                    "our_new_nick",
-                    isupport::get_casemapping_or_default(&isupport),
-                ),
-                ourself: true,
-                user_channels: user_channels.clone(),
-                casemapping: isupport::get_casemapping_or_default(&isupport),
-            },
-            Broadcast::ChangeHost {
-                old_user: User::parse(
-                    "our_nick!old_user@old_host",
-                    isupport::get_casemapping_or_default(&isupport),
-                    isupport::get_prefix(&isupport),
-                )
-                .unwrap(),
-                new_username: "new_user".to_string(),
-                new_hostname: "new_host".to_string(),
-                ourself: true,
-                logged_in: false,
-                user_channels: user_channels.clone(),
-                casemapping: isupport::get_casemapping_or_default(&isupport),
-            },
-            Broadcast::ChangeHost {
-                old_user: User::parse(
-                    "+nieve!snow@yeti",
-                    isupport::get_casemapping_or_default(&isupport),
-                    isupport::get_prefix(&isupport),
-                )
-                .unwrap(),
-                new_username: "lava".to_string(),
-                new_hostname: "troll".to_string(),
-                ourself: false,
-                logged_in: true,
-                user_channels: user_channels.clone(),
-                casemapping: isupport::get_casemapping_or_default(&isupport),
-            },
-        ]
-    }
-
-    pub fn messages_from_broadcast(broadcast: Broadcast) -> Vec<Message> {
-        use chrono::Utc;
-
-        use crate::config::Config;
-
-        let channels = vec![
-            target::Channel::from_str(
-                "##chat",
-                isupport::DEFAULT_CHANTYPES,
-                isupport::CaseMap::default(),
-            ),
-            target::Channel::from_str(
-                "#halloy",
-                isupport::DEFAULT_CHANTYPES,
-                isupport::CaseMap::default(),
-            ),
-            target::Channel::from_str(
-                "#libera",
-                isupport::DEFAULT_CHANTYPES,
-                isupport::CaseMap::default(),
-            ),
-            target::Channel::from_str(
-                "&test-chan",
-                isupport::DEFAULT_CHANTYPES,
-                isupport::CaseMap::default(),
-            ),
-        ]
-        .into_iter();
-
-        let queries = vec![
-            target::Query::from(&User::from(Nick::from_str(
-                "dan",
-                isupport::CaseMap::default(),
-            ))),
-            target::Query::from(&User::from(Nick::from_str(
-                "WiZ",
-                isupport::CaseMap::default(),
-            ))),
-        ]
-        .into_iter();
-
-        broadcast::into_messages(
-            broadcast,
-            &Config::default(),
-            Utc::now(),
-            false,
-            channels,
-            queries,
-        )
-    }
-
-    // Test consistency between current Message serialization & deserialization
-    #[test]
-    fn messages_serde() {
-        let server = Server {
-            name: "Highlight Server".into(),
-            network: None,
-        };
-
-        let mut messages = SERDE_IRC_MESSAGES
-            .iter()
-            .flat_map(|irc_message| {
-                let (message, highlight) =
-                    message_with_highlight_from_irc_message(
-                        irc_message,
-                        &server,
-                    );
-                if let Some(highlight) =
-                    highlight.map(|highlight| highlight.message)
-                {
-                    vec![message, highlight]
-                } else {
-                    vec![message]
-                }
-            })
-            .collect::<Vec<Message>>();
-
-        messages.extend(
-            serde_broadcasts()
-                .into_iter()
-                .flat_map(messages_from_broadcast),
-        );
-
-        let bouncer_server = Server {
-            name: "Bounced Highlight Server".into(),
-            network: Some(
-                BouncerNetwork {
-                    id: "BouncerNetid".to_string(),
-                    name: "Bouncer Name".to_string(),
-                }
-                .into(),
-            ),
-        };
-
-        messages.extend(SERDE_IRC_MESSAGES.iter().filter_map(|irc_message| {
-            if let (_, Some(Highlight { message, .. })) =
-                message_with_highlight_from_irc_message(
-                    irc_message,
-                    &bouncer_server,
-                )
-            {
-                Some(message)
-            } else {
-                None
-            }
-        }));
-
-        for expected in messages {
-            let bytes = serde_json::to_vec(&expected).unwrap();
-
-            let actual: Message = serde_json::from_slice(&bytes).unwrap();
-
-            assert_eq!(expected, actual);
-        }
-    }
-
-    // Test Message deserialization from samples of messages serialized by
-    // earlier versions (i.e. backward compatibility)
-    #[test]
-    fn messages_json_deserialize() {
-        use std::fs;
-
-        for file in fs::read_dir("tests/message/").unwrap() {
-            let path = file.unwrap().path();
-            let file_string = fs::read_to_string(&path).unwrap();
-            let _messages: Vec<Message> =
-                serde_json::from_str(&file_string).unwrap();
-        }
+        assert!(matches!(message_with_context.inner.target, Target::Server));
+        assert_eq!(message_with_context.inner.text(), "maintenance window");
     }
 }

@@ -1,12 +1,10 @@
-use chrono::{DateTime, Utc};
 use data::dashboard::BufferAction;
 use data::history::filter::FilterChain;
+use data::history::{self, model, storage};
 use data::preview::{self, Previews};
 use data::target::{self, Target};
 use data::user::Nick;
-use data::{
-    Config, Image, Preview, Server, User, buffer, client, history, message,
-};
+use data::{Config, Image, Preview, Server, User, buffer, client, message};
 use iced::widget::{column, container, stack};
 use iced::{Length, Size, Task, padding};
 
@@ -30,17 +28,15 @@ pub enum Event {
     OpenServer(String),
     Reconnect(Server),
     LeaveBuffers(Vec<Target>, Option<String>),
-    History(Task<history::manager::Message>),
-    RequestOlderChatHistory,
+    RequestOlderChathistory,
     PreviewChanged,
     HidePreview(history::Kind, message::Hash, url::Url),
     MarkAsRead(history::Kind),
     OpenUrl(String),
     ImagePreview(Image),
-    ExpandMessage(DateTime<Utc>, message::Hash),
-    ContractMessage(DateTime<Utc>, message::Hash),
+    ExpandMessage(message::Time, history::Id),
+    ContractMessage(message::Time, history::Id),
     InputSent {
-        history_task: Task<history::manager::Message>,
         open_buffers: Vec<(Target, BufferAction)>,
         was_join_command: bool,
     },
@@ -57,7 +53,7 @@ pub fn view<'a>(
     state: &'a Query,
     typing_animation: Option<&'a typing::Animation>,
     clients: &'a data::client::Map,
-    history: &'a history::Manager,
+    history: &'a model::Manager,
     previews: &'a preview::Collection,
     config: &'a Config,
     theme: &'a Theme,
@@ -95,7 +91,7 @@ pub fn view<'a>(
 
     let previews = Previews::new(
         previews,
-        query.as_target_ref(),
+        query.as_targetref(),
         server,
         &config.preview,
         casemapping,
@@ -212,7 +208,7 @@ impl Query {
         server: Server,
         target: target::Query,
         clients: &data::client::Map,
-        history: &history::Manager,
+        history: &storage::Manager,
         pane_size: Size,
         config: &Config,
     ) -> Self {
@@ -238,7 +234,7 @@ impl Query {
         &mut self,
         message: Message,
         clients: &mut data::client::Map,
-        history: &mut history::Manager,
+        history: &mut storage::Manager,
         previews: &preview::Collection,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
@@ -259,7 +255,7 @@ impl Query {
                 if let Some(scroll_view::Event::ContextMenu(
                     context_menu::Event::Reply {
                         msgid,
-                        server_time,
+                        time,
                         to_nick,
                     },
                 )) = event
@@ -267,7 +263,7 @@ impl Query {
                     let (reply_task, _) = self.input_view.update(
                         input_view::Message::SetDraftReply {
                             msgid: msgid.clone(),
-                            server_time,
+                            time,
                             to_nick: to_nick.clone(),
                         },
                         self.message_focus.is_focused(),
@@ -284,7 +280,7 @@ impl Query {
                         ]),
                         Some(Event::ContextMenu(context_menu::Event::Reply {
                             msgid,
-                            server_time,
+                            time,
                             to_nick,
                         })),
                     );
@@ -330,8 +326,8 @@ impl Query {
                         vec![(target, buffer_action)],
                     )),
                     scroll_view::Event::GoToMessage(..) => None,
-                    scroll_view::Event::RequestOlderChatHistory => {
-                        Some(Event::RequestOlderChatHistory)
+                    scroll_view::Event::RequestOlderChathistory => {
+                        Some(Event::RequestOlderChathistory)
                     }
                     scroll_view::Event::PreviewChanged => {
                         Some(Event::PreviewChanged)
@@ -351,11 +347,11 @@ impl Query {
                     scroll_view::Event::ImagePreview(image) => {
                         Some(Event::ImagePreview(image))
                     }
-                    scroll_view::Event::ExpandMessage(server_time, hash) => {
-                        Some(Event::ExpandMessage(server_time, hash))
+                    scroll_view::Event::ExpandMessage(time, history_id) => {
+                        Some(Event::ExpandMessage(time, history_id))
                     }
-                    scroll_view::Event::ContractMessage(server_time, hash) => {
-                        Some(Event::ContractMessage(server_time, hash))
+                    scroll_view::Event::ContractMessage(time, history_id) => {
+                        Some(Event::ContractMessage(time, history_id))
                     }
                     scroll_view::Event::ExitFocus(_)
                     | scroll_view::Event::FocusAction(_)
@@ -378,7 +374,6 @@ impl Query {
 
                 match event {
                     Some(input_view::Event::InputSent {
-                        history_task,
                         open_buffers,
                         was_join_command,
                     }) => {
@@ -392,7 +387,6 @@ impl Query {
                         (
                             command,
                             Some(Event::InputSent {
-                                history_task,
                                 open_buffers,
                                 was_join_command,
                             }),
@@ -406,9 +400,6 @@ impl Query {
                         targets,
                         reason,
                     }) => (command, Some(Event::LeaveBuffers(targets, reason))),
-                    Some(input_view::Event::Cleared { history_task }) => {
-                        (command, Some(Event::History(history_task)))
-                    }
                     Some(input_view::Event::OpenInternalBuffer(buffer)) => {
                         (command, Some(Event::OpenInternalBuffer(buffer)))
                     }
@@ -526,7 +517,7 @@ impl Query {
     fn typing_text(
         &self,
         clients: &data::client::Map,
-        history: &history::Manager,
+        history: &model::Manager,
     ) -> Option<String> {
         let server = &self.server;
         let query = &self.target;
@@ -535,10 +526,7 @@ impl Query {
         typing::typing_text(
             clients.get_server_show_typing(server),
             clients.get_server_supports_typing(server),
-            clients
-                .nickname(server)
-                .as_ref()
-                .map(data::user::NickRef::as_str),
+            clients.nickname(server).map(Nick::as_str),
             &typing::visible_nicks(
                 &clients.get_query_typing_users(server, query),
                 None,

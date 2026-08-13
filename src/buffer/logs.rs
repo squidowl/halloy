@@ -1,7 +1,6 @@
 use chrono::{DateTime, Utc};
-use data::{
-    Config, Image, Preview, client, history, message, metadata, preview,
-};
+use data::history::{self, model};
+use data::{Config, Image, Preview, client, message, metadata, preview};
 use iced::widget::{container, row};
 use iced::{Length, Size, Task};
 
@@ -20,13 +19,13 @@ pub enum Event {
     MarkAsRead,
     OpenUrl(String),
     ImagePreview(Image),
-    ExpandMessage(DateTime<Utc>, message::Hash),
-    ContractMessage(DateTime<Utc>, message::Hash),
+    ExpandMessage(message::Time, history::Id),
+    ContractMessage(message::Time, history::Id),
 }
 
 pub fn view<'a>(
     state: &'a Logs,
-    history: &'a history::Manager,
+    history: &'a model::Manager,
     config: &'a Config,
     theme: &'a Theme,
     channels_context: &'a dyn context_menu::ChannelsContext,
@@ -43,16 +42,13 @@ pub fn view<'a>(
             0.0,
             config,
             theme,
-            move |message: &'a data::Message, _, _, _| match message
-                .target
-                .source()
-            {
+            move |message: &'a data::Message, _, _, _| match &message.source {
                 message::Source::Internal(message::source::Internal::Logs(
                     level,
                 )) => {
                     let timestamp = config
                         .buffer
-                        .format_timestamp(&message.server_time)
+                        .format_timestamp(&message.time.utc)
                         .map(|timestamp| {
                             context_menu::timestamp(
                                 selectable_text(timestamp)
@@ -61,7 +57,7 @@ pub fn view<'a>(
                                         theme::font_style::timestamp(theme)
                                             .map(font::get),
                                     ),
-                                &message.server_time,
+                                &message.time.utc,
                                 config,
                                 theme,
                             )
@@ -134,7 +130,7 @@ impl Logs {
     pub fn update(
         &mut self,
         message: Message,
-        history: &mut history::Manager,
+        history: &mut storage::Manager,
         clients: &mut client::Map,
         previews: &preview::Collection,
         config: &Config,
@@ -159,7 +155,7 @@ impl Logs {
                     }
                     scroll_view::Event::OpenBuffer(_, _, _) => None,
                     scroll_view::Event::GoToMessage(..) => None,
-                    scroll_view::Event::RequestOlderChatHistory => None,
+                    scroll_view::Event::RequestOlderChathistory => None,
                     scroll_view::Event::PreviewChanged => None,
                     scroll_view::Event::HidePreview(..) => None,
                     scroll_view::Event::MarkAsRead => Some(Event::MarkAsRead),
@@ -169,11 +165,11 @@ impl Logs {
                     scroll_view::Event::ImagePreview(image) => {
                         Some(Event::ImagePreview(image))
                     }
-                    scroll_view::Event::ExpandMessage(server_time, hash) => {
-                        Some(Event::ExpandMessage(server_time, hash))
+                    scroll_view::Event::ExpandMessage(time, history_id) => {
+                        Some(Event::ExpandMessage(time, history_id))
                     }
-                    scroll_view::Event::ContractMessage(server_time, hash) => {
-                        Some(Event::ContractMessage(server_time, hash))
+                    scroll_view::Event::ContractMessage(time, history_id) => {
+                        Some(Event::ContractMessage(time, history_id))
                     }
                     scroll_view::Event::ExitFocus(_)
                     | scroll_view::Event::FocusAction(_)

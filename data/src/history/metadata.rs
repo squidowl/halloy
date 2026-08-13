@@ -1,21 +1,21 @@
+use std::cmp::Ordering;
 use std::fmt;
-use std::path::PathBuf;
 use std::str::FromStr;
 
 use chrono::format::SecondsFormat;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use tokio::fs;
 
-use crate::Message;
-use crate::history::{Error, Kind, dir_path};
-use crate::message::{MessageReferences, source};
+use crate::message::{
+    Message, MessageReferences, MessageWithContext, Temporal, Time,
+};
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Metadata {
     pub read_marker: Option<ReadMarker>,
-    pub last_triggers_unread: Option<DateTime<Utc>>,
-    pub last_triggers_highlight: Option<DateTime<Utc>>,
+    pub latest: Option<DateTime<Utc>>,
+    pub latest_triggers_unread: Option<DateTime<Utc>>,
+    pub latest_triggers_highlight: Option<DateTime<Utc>>,
     pub chathistory_references: Option<MessageReferences>,
 }
 
@@ -39,35 +39,51 @@ impl From<DateTime<Utc>> for ReadMarker {
     }
 }
 
+impl From<&Time> for ReadMarker {
+    fn from(time: &Time) -> Self {
+        Self::from(time.utc)
+    }
+}
+
+impl PartialEq<ReadMarker> for Time {
+    fn eq(&self, other: &ReadMarker) -> bool {
+        self.utc.eq(&other.0)
+    }
+}
+
+impl PartialEq<Time> for ReadMarker {
+    fn eq(&self, other: &Time) -> bool {
+        self.0.eq(&other.utc)
+    }
+}
+
+impl PartialOrd<ReadMarker> for Time {
+    fn partial_cmp(&self, other: &ReadMarker) -> Option<Ordering> {
+        Some(self.utc.cmp(&other.0))
+    }
+}
+
+impl PartialOrd<Time> for ReadMarker {
+    fn partial_cmp(&self, other: &Time) -> Option<Ordering> {
+        Some(self.0.cmp(&other.utc))
+    }
+}
+
 impl From<&Message> for ReadMarker {
     fn from(message: &Message) -> Self {
-        Self::from(message.server_time)
+        Self::from(&message.time)
+    }
+}
+
+impl From<&MessageWithContext> for ReadMarker {
+    fn from(message_with_context: &MessageWithContext) -> Self {
+        Self::from(message_with_context.time())
     }
 }
 
 impl ReadMarker {
-    pub fn latest(messages: &[Message]) -> Option<Self> {
-        messages
-            .iter()
-            .rev()
-            .find(|message| {
-                !message.blocked
-                    && match message.target.source() {
-                        source::Source::Internal(source) => match source {
-                            source::Internal::Status(_)
-                            | source::Internal::Condensed(_) => false,
-                            // Logs are in their own buffer and this gives us backlog support there
-                            source::Internal::Logs(_) => true,
-                        },
-                        _ => true,
-                    }
-            })
-            .map(|message| message.server_time)
-            .map(Self)
-    }
-
-    pub fn date_time(self) -> DateTime<Utc> {
-        self.0
+    pub fn as_date_time(&self) -> &DateTime<Utc> {
+        &self.0
     }
 }
 
@@ -87,163 +103,26 @@ impl fmt::Display for ReadMarker {
     }
 }
 
-pub fn latest_triggers_unread(messages: &[Message]) -> Option<DateTime<Utc>> {
-    messages
-        .iter()
-        .rev()
-        .find(|message| message.triggers_unread())
-        .map(|message| message.server_time)
-}
-
-pub fn latest_triggers_highlight(
-    messages: &[Message],
-) -> Option<DateTime<Utc>> {
-    messages
-        .iter()
-        .rev()
-        .find(|message| message.triggers_highlight())
-        .map(|message| message.server_time)
-}
-
-pub fn latest_can_reference(messages: &[Message]) -> Option<MessageReferences> {
-    messages
-        .iter()
-        .rev()
-        .find(|message| message.can_reference() && !message.is_rerouted())
-        .map(Message::references)
-}
-
-pub async fn load(kind: Kind) -> Result<Metadata, Error> {
-    let path = path(&kind).await?;
-
-    if let Ok(bytes) = fs::read(path).await {
-        Ok(serde_json::from_slice(&bytes).unwrap_or_default())
-    } else {
-        Ok(Metadata::default())
+impl PartialEq<DateTime<Utc>> for ReadMarker {
+    fn eq(&self, other: &DateTime<Utc>) -> bool {
+        self.0.eq(other)
     }
 }
 
-pub async fn save(
-    kind: &Kind,
-    messages: &[Message],
-    read_marker: Option<ReadMarker>,
-    chathistory_references: Option<MessageReferences>,
-) -> Result<(), Error> {
-    let bytes = serde_json::to_vec(&Metadata {
-        read_marker,
-        last_triggers_unread: latest_triggers_unread(messages),
-        last_triggers_highlight: latest_triggers_highlight(messages),
-        chathistory_references: latest_can_reference(messages)
-            .max(chathistory_references),
-    })?;
-
-    let path = path(kind).await?;
-
-    fs::write(path, &bytes).await?;
-
-    Ok(())
-}
-
-pub async fn update(
-    kind: &Kind,
-    read_marker: Option<ReadMarker>,
-    max_triggers_unread: Option<DateTime<Utc>>,
-    max_triggers_highlight: Option<DateTime<Utc>>,
-    chathistory_references: Option<MessageReferences>,
-) -> Result<(), Error> {
-    let bytes = serde_json::to_vec(&Metadata {
-        read_marker,
-        last_triggers_unread: max_triggers_unread,
-        last_triggers_highlight: max_triggers_highlight,
-        chathistory_references,
-    })?;
-
-    let path = path(kind).await?;
-
-    fs::write(path, &bytes).await?;
-
-    Ok(())
-}
-
-pub async fn update_chathistory_references(
-    kind: &Kind,
-    chathistory_references: &MessageReferences,
-) -> Result<(), Error> {
-    let metadata = load(kind.clone()).await?;
-
-    if metadata.chathistory_references.is_some_and(
-        |metadata_chathistory_references| {
-            metadata_chathistory_references >= *chathistory_references
-        },
-    ) {
-        return Ok(());
+impl PartialEq<ReadMarker> for DateTime<Utc> {
+    fn eq(&self, other: &ReadMarker) -> bool {
+        self.eq(&other.0)
     }
-
-    let bytes = serde_json::to_vec(&Metadata {
-        read_marker: metadata.read_marker,
-        last_triggers_unread: metadata.last_triggers_unread,
-        last_triggers_highlight: metadata.last_triggers_highlight,
-        chathistory_references: Some(chathistory_references.clone()),
-    })?;
-
-    let path = path(kind).await?;
-
-    fs::write(path, &bytes).await?;
-
-    Ok(())
 }
 
-pub async fn update_read_marker(
-    kind: &Kind,
-    read_marker: &ReadMarker,
-) -> Result<(), Error> {
-    let metadata = load(kind.clone()).await?;
-
-    if metadata.read_marker.is_some_and(|metadata_read_marker| {
-        metadata_read_marker >= *read_marker
-    }) {
-        return Ok(());
+impl PartialOrd<DateTime<Utc>> for ReadMarker {
+    fn partial_cmp(&self, other: &DateTime<Utc>) -> Option<Ordering> {
+        Some(self.0.cmp(other))
     }
-
-    let bytes = serde_json::to_vec(&Metadata {
-        read_marker: Some(*read_marker),
-        last_triggers_unread: metadata.last_triggers_unread,
-        last_triggers_highlight: metadata.last_triggers_highlight,
-        chathistory_references: metadata.chathistory_references,
-    })?;
-
-    let path = path(kind).await?;
-
-    fs::write(path, &bytes).await?;
-
-    Ok(())
 }
 
-pub async fn delete(kind: &Kind) -> Result<(), Error> {
-    let path = path(kind).await?;
-
-    fs::remove_file(path).await?;
-
-    Ok(())
-}
-
-async fn path(kind: &Kind) -> Result<PathBuf, Error> {
-    let dir = dir_path().await?;
-
-    let name = match kind {
-        Kind::Server(server) => format!("{server}-metadata"),
-        Kind::Channel(server, channel) => {
-            format!("{server}channel{}-metadata", channel.as_normalized_str())
-        }
-        Kind::Query(server, query) => {
-            format!("{server}nickname{}-metadata", query.as_normalized_str())
-        }
-        Kind::Logs => "logs-metadata".to_string(),
-        Kind::Highlights => "highlights-metadata".to_string(),
-        Kind::ChannelMonitor => "channel-monitor-metadata".to_string(),
-    };
-
-    let hashed_name = seahash::hash(name.as_bytes());
-
-    Ok(dir.join(format!("{hashed_name}.json")))
+impl PartialOrd<ReadMarker> for DateTime<Utc> {
+    fn partial_cmp(&self, other: &ReadMarker) -> Option<Ordering> {
+        Some(self.cmp(&other.0))
+    }
 }

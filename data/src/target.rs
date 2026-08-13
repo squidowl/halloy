@@ -85,6 +85,13 @@ impl<'a> TargetRef<'a> {
             TargetRef::Query(_) => None,
         }
     }
+
+    pub fn to_owned(self) -> Target {
+        match self {
+            TargetRef::Channel(channel) => Target::Channel(channel.clone()),
+            TargetRef::Query(query) => Target::Query(query.clone()),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -136,10 +143,10 @@ impl Target {
         }
     }
 
-    pub fn as_target_ref<'a>(&'a self) -> TargetRef<'a> {
+    pub fn as_targetref<'a>(&'a self) -> TargetRef<'a> {
         match self {
-            Target::Channel(channel) => channel.as_target_ref(),
-            Target::Query(query) => query.as_target_ref(),
+            Target::Channel(channel) => channel.as_targetref(),
+            Target::Query(query) => query.as_targetref(),
         }
     }
 
@@ -239,6 +246,12 @@ impl From<Nick> for Target {
     }
 }
 
+impl From<&Nick> for Target {
+    fn from(nick: &Nick) -> Self {
+        Target::Query(Query::from(nick))
+    }
+}
+
 impl From<NickRef<'_>> for Target {
     fn from(nickref: NickRef) -> Self {
         Target::Query(Query::from(nickref))
@@ -250,10 +263,8 @@ impl TryFrom<message::Target> for Target {
 
     fn try_from(target: message::Target) -> Result<Self, Self::Error> {
         Ok(match target {
-            message::Target::Channel { channel, source: _ } => {
-                Target::Channel(channel)
-            }
-            message::Target::Query { query, source: _ } => Target::Query(query),
+            message::Target::Channel { channel } => Target::Channel(channel),
+            message::Target::Query { query } => Target::Query(query),
             _ => return Err(()),
         })
     }
@@ -345,7 +356,7 @@ impl Channel {
         Target::Channel(self.clone())
     }
 
-    pub fn as_target_ref<'a>(&'a self) -> TargetRef<'a> {
+    pub fn as_targetref<'a>(&'a self) -> TargetRef<'a> {
         TargetRef::Channel(self)
     }
 }
@@ -417,6 +428,15 @@ impl From<Nick> for Query {
     }
 }
 
+impl From<&Nick> for Query {
+    fn from(nick: &Nick) -> Self {
+        Query::from(QueryData {
+            raw: nick.as_str().to_string(),
+            normalized: nick.as_normalized_str().to_string(),
+        })
+    }
+}
+
 impl From<NickRef<'_>> for Query {
     fn from(nickref: NickRef) -> Self {
         Query::from(QueryData {
@@ -466,7 +486,7 @@ impl Query {
         Target::Query(self.clone())
     }
 
-    pub fn as_target_ref<'a>(&'a self) -> TargetRef<'a> {
+    pub fn as_targetref<'a>(&'a self) -> TargetRef<'a> {
         TargetRef::Query(self)
     }
 }

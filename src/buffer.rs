@@ -5,11 +5,10 @@ use chrono::{DateTime, Utc};
 pub use data::buffer::{Internal, Settings, Upstream};
 use data::config::buffer::text_input::Autocomplete;
 use data::dashboard::BufferAction;
+use data::history::{self, model, storage};
 use data::target::{self, Target, TargetRef};
 use data::user::Nick;
-use data::{
-    Config, Image, buffer, file_transfer, history, input, message, preview,
-};
+use data::{Config, Image, buffer, file_transfer, input, message, preview};
 use iced::advanced::widget;
 use iced::advanced::widget::operation::focusable;
 use iced::{Size, Task};
@@ -82,18 +81,17 @@ pub enum Event {
     Reconnect(data::Server),
     LeaveBuffers(Vec<Target>, Option<String>),
     SelectedServer(data::Server),
-    GoToMessage(data::Server, target::Channel, message::Hash, BufferAction),
+    GoToMessage(data::Server, target::Channel, history::Id, BufferAction),
     History(Task<history::manager::Message>),
-    RequestOlderChatHistory,
+    RequestOlderChathistory,
     PreviewChanged,
-    HidePreview(history::Kind, message::Hash, url::Url),
+    HidePreview(history::Kind, history::Id, url::Url),
     MarkAsRead(history::Kind),
     OpenUrl(String),
     ImagePreview(Image),
-    ExpandMessage(DateTime<Utc>, message::Hash),
-    ContractMessage(DateTime<Utc>, message::Hash),
+    ExpandMessage(message::Time, history::Id),
+    ContractMessage(message::Time, history::Id),
     InputSent {
-        history_task: Task<history::manager::Message>,
         open_buffers: Vec<(Target, BufferAction)>,
         was_join_command: bool,
     },
@@ -112,7 +110,7 @@ impl Buffer {
     pub fn from_data(
         buffer: data::Buffer,
         clients: &data::client::Map,
-        history: &history::Manager,
+        history: &storage::Manager,
         pane_size: Size,
         config: &Config,
     ) -> Self {
@@ -314,7 +312,7 @@ impl Buffer {
         &mut self,
         message: Message,
         clients: &mut data::client::Map,
-        history: &mut history::Manager,
+        history: &mut storage::Manager,
         previews: &preview::Collection,
         file_transfers: &mut file_transfer::Manager,
         config: &Config,
@@ -344,8 +342,8 @@ impl Buffer {
                         Event::LeaveBuffers(targets, reason)
                     }
                     channel::Event::History(task) => Event::History(task),
-                    channel::Event::RequestOlderChatHistory => {
-                        Event::RequestOlderChatHistory
+                    channel::Event::RequestOlderChathistory => {
+                        Event::RequestOlderChathistory
                     }
                     channel::Event::PreviewChanged => Event::PreviewChanged,
                     channel::Event::HidePreview(kind, hash, url) => {
@@ -356,11 +354,11 @@ impl Buffer {
                     channel::Event::ImagePreview(image) => {
                         Event::ImagePreview(image)
                     }
-                    channel::Event::ExpandMessage(server_time, hash) => {
-                        Event::ExpandMessage(server_time, hash)
+                    channel::Event::ExpandMessage(time, history_id) => {
+                        Event::ExpandMessage(time, history_id)
                     }
-                    channel::Event::ContractMessage(server_time, hash) => {
-                        Event::ContractMessage(server_time, hash)
+                    channel::Event::ContractMessage(time, history_id) => {
+                        Event::ContractMessage(time, history_id)
                     }
                     channel::Event::GoToMessage(
                         server,
@@ -371,11 +369,9 @@ impl Buffer {
                         Event::GoToMessage(server, channel, hash, buffer_action)
                     }
                     channel::Event::InputSent {
-                        history_task,
                         open_buffers,
                         was_join_command,
                     } => Event::InputSent {
-                        history_task,
                         open_buffers,
                         was_join_command,
                     },
@@ -425,18 +421,16 @@ impl Buffer {
                     server::Event::ImagePreview(image) => {
                         Event::ImagePreview(image)
                     }
-                    server::Event::ExpandMessage(server_time, hash) => {
-                        Event::ExpandMessage(server_time, hash)
+                    server::Event::ExpandMessage(time, history_id) => {
+                        Event::ExpandMessage(time, history_id)
                     }
-                    server::Event::ContractMessage(server_time, hash) => {
-                        Event::ContractMessage(server_time, hash)
+                    server::Event::ContractMessage(time, history_id) => {
+                        Event::ContractMessage(time, history_id)
                     }
                     server::Event::InputSent {
-                        history_task,
                         open_buffers,
                         was_join_command,
                     } => Event::InputSent {
-                        history_task,
                         open_buffers,
                         was_join_command,
                     },
@@ -479,8 +473,8 @@ impl Buffer {
                         Event::LeaveBuffers(targets, reason)
                     }
                     query::Event::History(task) => Event::History(task),
-                    query::Event::RequestOlderChatHistory => {
-                        Event::RequestOlderChatHistory
+                    query::Event::RequestOlderChathistory => {
+                        Event::RequestOlderChathistory
                     }
                     query::Event::PreviewChanged => Event::PreviewChanged,
                     query::Event::HidePreview(kind, hash, url) => {
@@ -491,18 +485,16 @@ impl Buffer {
                     query::Event::ImagePreview(image) => {
                         Event::ImagePreview(image)
                     }
-                    query::Event::ExpandMessage(server_time, hash) => {
-                        Event::ExpandMessage(server_time, hash)
+                    query::Event::ExpandMessage(time, history_id) => {
+                        Event::ExpandMessage(time, history_id)
                     }
-                    query::Event::ContractMessage(server_time, hash) => {
-                        Event::ContractMessage(server_time, hash)
+                    query::Event::ContractMessage(time, history_id) => {
+                        Event::ContractMessage(time, history_id)
                     }
                     query::Event::InputSent {
-                        history_task,
                         open_buffers,
                         was_join_command,
                     } => Event::InputSent {
-                        history_task,
                         open_buffers,
                         was_join_command,
                     },
@@ -584,11 +576,11 @@ impl Buffer {
                     logs::Event::ImagePreview(image) => {
                         Event::ImagePreview(image)
                     }
-                    logs::Event::ExpandMessage(server_time, hash) => {
-                        Event::ExpandMessage(server_time, hash)
+                    logs::Event::ExpandMessage(time, history_id) => {
+                        Event::ExpandMessage(time, history_id)
                     }
-                    logs::Event::ContractMessage(server_time, hash) => {
-                        Event::ContractMessage(server_time, hash)
+                    logs::Event::ContractMessage(time, history_id) => {
+                        Event::ContractMessage(time, history_id)
                     }
                 });
 
@@ -1030,8 +1022,8 @@ impl Buffer {
 
     pub fn scroll_to_message(
         &mut self,
-        message: message::Hash,
-        history: &history::Manager,
+        history_id: history::Id,
+        history: &model::Manager,
         config: &Config,
     ) -> Task<Message> {
         match self {
@@ -1042,7 +1034,7 @@ impl Buffer {
             Buffer::Channel(state) => state
                 .scroll_view
                 .scroll_to_message(
-                    message,
+                    history_id,
                     scroll_view::Kind::Channel(&state.server, &state.target),
                     history,
                     config,
@@ -1055,7 +1047,7 @@ impl Buffer {
             Buffer::Server(state) => state
                 .scroll_view
                 .scroll_to_message(
-                    message,
+                    history_id,
                     scroll_view::Kind::Server(&state.server),
                     history,
                     config,
@@ -1068,7 +1060,7 @@ impl Buffer {
             Buffer::Query(state) => state
                 .scroll_view
                 .scroll_to_message(
-                    message,
+                    history_id,
                     scroll_view::Kind::Query(&state.server, &state.target),
                     history,
                     config,
@@ -1081,7 +1073,7 @@ impl Buffer {
             Buffer::Logs(state) => state
                 .scroll_view
                 .scroll_to_message(
-                    message,
+                    history_id,
                     scroll_view::Kind::Logs,
                     history,
                     config,
@@ -1097,7 +1089,7 @@ impl Buffer {
                 state
                     .scroll_view
                     .scroll_to_message(
-                        message,
+                        history_id,
                         kind.scroll_view(),
                         history,
                         config,
@@ -1116,7 +1108,7 @@ impl Buffer {
 
     pub fn scroll_to_backlog(
         &mut self,
-        history: &history::Manager,
+        history: &model::Manager,
         config: &Config,
     ) -> Task<Message> {
         match self {
@@ -1194,7 +1186,7 @@ impl Buffer {
 
     pub fn prepare_for_scroll_to(
         &mut self,
-        history: &history::Manager,
+        history: &model::Manager,
         config: &Config,
     ) -> Task<Message> {
         match self {
@@ -1293,7 +1285,7 @@ impl Buffer {
 
     pub fn clear_draft_reply(
         &mut self,
-        history: &mut history::Manager,
+        history: &mut storage::Manager,
         config: &Config,
     ) -> bool {
         match self {
@@ -1568,11 +1560,11 @@ fn map_message_feed_event(
         message_feed::Event::MarkAsRead => Event::MarkAsRead(kind),
         message_feed::Event::OpenUrl(url) => Event::OpenUrl(url),
         message_feed::Event::ImagePreview(image) => Event::ImagePreview(image),
-        message_feed::Event::ExpandMessage(server_time, hash) => {
-            Event::ExpandMessage(server_time, hash)
+        message_feed::Event::ExpandMessage(time, history_id) => {
+            Event::ExpandMessage(time, history_id)
         }
-        message_feed::Event::ContractMessage(server_time, hash) => {
-            Event::ContractMessage(server_time, hash)
+        message_feed::Event::ContractMessage(time, history_id) => {
+            Event::ContractMessage(time, history_id)
         }
     }
 }

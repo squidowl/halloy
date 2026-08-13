@@ -904,26 +904,26 @@ impl fmt::Display for ModeKind {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum ChatHistorySubcommand {
+pub enum ChathistorySubcommand {
     Latest(Target, Option<MessageReference>, u16),
     Before(Target, MessageReference, u16),
     Between(Target, MessageReference, MessageReference, u16),
     Targets(DateTime<Utc>, DateTime<Utc>, u16),
 }
 
-impl ChatHistorySubcommand {
+impl ChathistorySubcommand {
     pub fn target(&self) -> Option<&Target> {
         match self {
-            ChatHistorySubcommand::Latest(target, _, _)
-            | ChatHistorySubcommand::Before(target, _, _)
-            | ChatHistorySubcommand::Between(target, _, _, _) => Some(target),
-            ChatHistorySubcommand::Targets(_, _, _) => None,
+            ChathistorySubcommand::Latest(target, _, _)
+            | ChathistorySubcommand::Before(target, _, _)
+            | ChathistorySubcommand::Between(target, _, _, _) => Some(target),
+            ChathistorySubcommand::Targets(_, _, _) => None,
         }
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum ChatHistoryState {
+pub enum ChathistoryState {
     Exhausted,
     PendingRequest,
     Ready,
@@ -965,7 +965,7 @@ impl PartialEq<Message> for MessageReference {
     fn eq(&self, other: &Message) -> bool {
         match self {
             MessageReference::Timestamp(server_time) => {
-                other.server_time == *server_time
+                other.server_time() == Some(*server_time)
             }
             MessageReference::MessageId(id) => other.id.as_deref() == Some(id),
         }

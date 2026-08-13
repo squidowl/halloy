@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use super::Error;
 use crate::Config;
 use crate::buffer::Upstream;
-use crate::user::NickRef;
+use crate::user::Nick;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Alias {
@@ -20,11 +20,8 @@ pub struct Context<'a> {
 }
 
 impl<'a> Context<'a> {
-    pub fn new(
-        buffer: Option<&'a Upstream>,
-        nick: Option<NickRef<'a>>,
-    ) -> Self {
-        let nick = nick.map(|nick| Cow::Owned(nick.as_str().to_string()));
+    pub fn new(buffer: Option<&'a Upstream>, nick: Option<&'a Nick>) -> Self {
+        let nick = nick.map(|nick| Cow::Owned(nick.to_string()));
         let channel = buffer
             .and_then(Upstream::channel)
             .map(|channel| Cow::Borrowed(channel.as_str()));
@@ -578,7 +575,7 @@ mod tests {
         );
         let server = crate::Server::from(std::sync::Arc::<str>::from("libera"));
         let buffer = Upstream::Server(server);
-        let context = Context::new(Some(&buffer), Some(nick.as_nickref()));
+        let context = Context::new(Some(&buffer), Some(&nick));
 
         assert_eq!(context.nick.as_deref(), Some("casperstorm"));
         assert_eq!(context.channel.as_deref(), None);

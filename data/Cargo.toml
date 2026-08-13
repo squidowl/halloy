@@ -9,11 +9,6 @@ edition.workspace = true
 name = "data"
 path = "src/lib.rs"
 
-[[bin]]
-name = "print_messages_json"
-path = "src/bin.rs"
-required-features = ["message_tests"]
-
 [features]
 tor = ["irc/tor"]
 message_tests = ["iced/tokio"]

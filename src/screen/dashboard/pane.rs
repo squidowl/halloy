@@ -1,3 +1,4 @@
+use data::client::{self, ClientsContext};
 use data::user::{ChannelUsers, User};
 use data::{Config, file_transfer, history, preview};
 use iced::widget::text::Wrapping;
@@ -61,9 +62,9 @@ impl Pane {
         is_focused: bool,
         maximized: bool,
         typing_animation: Option<&'a buffer::typing::Animation>,
-        clients: &'a data::client::Map,
+        clients: &'a client::Map,
         file_transfers: &'a file_transfer::Manager,
-        history: &'a history::Manager,
+        history: &'a model::Manager,
         previews: &'a preview::Collection,
         sidebar: &'a sidebar::Sidebar,
         config: &'a Config,
@@ -305,7 +306,7 @@ impl TitleBar {
         id: pane_grid::Pane,
         panes: usize,
         maximized: bool,
-        clients: &'a data::client::Map,
+        clients: &'a client::Map,
         settings: Option<&'a buffer::Settings>,
         only_show_controls_on_hover: bool,
         hide_controls: bool,
@@ -809,7 +810,7 @@ fn save_config_tooltip(
 fn query_title<'a>(
     server: &'a data::Server,
     query: &'a data::target::Query,
-    clients: &'a data::client::Map,
+    clients: &'a client::Map,
     config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, Message> {

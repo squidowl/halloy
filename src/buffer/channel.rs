@@ -1,11 +1,11 @@
-use chrono::{DateTime, Utc};
 use data::dashboard::BufferAction;
 use data::history::filter::FilterChain;
+use data::history::{self, model, storage};
 use data::preview::{self, Previews};
 use data::server::Server;
 use data::target::{self, Target};
 use data::user::{ChannelUsers, Nick};
-use data::{Config, Image, Preview, User, buffer, client, history, message};
+use data::{Config, Image, Preview, User, buffer, client, message};
 use iced::widget::{column, container, row, stack};
 use iced::{Length, Size, Task, padding};
 
@@ -33,18 +33,16 @@ pub enum Event {
     OpenServer(String),
     Reconnect(Server),
     LeaveBuffers(Vec<Target>, Option<String>),
-    History(Task<history::manager::Message>),
-    RequestOlderChatHistory,
+    RequestOlderChathistory,
     PreviewChanged,
-    HidePreview(history::Kind, message::Hash, url::Url),
+    HidePreview(history::Kind, history::Id, url::Url),
     MarkAsRead(history::Kind),
     OpenUrl(String),
     ImagePreview(Image),
-    ExpandMessage(DateTime<Utc>, message::Hash),
-    ContractMessage(DateTime<Utc>, message::Hash),
-    GoToMessage(Server, target::Channel, message::Hash, BufferAction),
+    ExpandMessage(message::Time, history::Id),
+    ContractMessage(message::Time, history::Id),
+    GoToMessage(Server, target::Channel, history::Id, BufferAction),
     InputSent {
-        history_task: Task<history::manager::Message>,
         open_buffers: Vec<(Target, BufferAction)>,
         was_join_command: bool,
     },
@@ -61,7 +59,7 @@ pub fn view<'a>(
     state: &'a Channel,
     typing_animation: Option<&'a typing::Animation>,
     clients: &'a data::client::Map,
-    history: &'a history::Manager,
+    history: &'a model::Manager,
     previews: &'a preview::Collection,
     settings: Option<&'a buffer::Settings>,
     config: &'a Config,
@@ -88,14 +86,11 @@ pub fn view<'a>(
                     .confirm_message_delivery
                     .is_target_channel_included(channel, server, casemapping)
             });
-    let our_nick: Option<data::user::NickRef<'_>> =
-        clients.nickname(&state.server);
+    let our_nick = clients.nickname(&state.server);
 
-    let our_user = our_nick
-        .map(|our_nick| User::from(Nick::from(our_nick)))
-        .and_then(|user| {
-            clients.resolve_user_attributes(&state.server, channel, &user)
-        });
+    let our_user = our_nick.map(User::from).and_then(|user| {
+        clients.resolve_user_attributes(&state.server, channel, &user)
+    });
     let show_typing = clients.get_server_show_typing(server);
     let typing_style = config.buffer.typing.style;
     let typing_text = state.typing_text(clients, history);
@@ -108,7 +103,7 @@ pub fn view<'a>(
 
     let previews = Previews::new(
         previews,
-        channel.as_target_ref(),
+        channel.as_targetref(),
         server,
         &config.preview,
         casemapping,
@@ -282,7 +277,7 @@ impl Channel {
         server: Server,
         target: target::Channel,
         clients: &data::client::Map,
-        history: &history::Manager,
+        history: &storage::Manager,
         pane_size: Size,
         config: &Config,
     ) -> Self {
@@ -308,7 +303,7 @@ impl Channel {
         &mut self,
         message: Message,
         clients: &mut data::client::Map,
-        history: &mut history::Manager,
+        history: &mut storage::Manager,
         previews: &preview::Collection,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
@@ -329,7 +324,7 @@ impl Channel {
                 if let Some(scroll_view::Event::ContextMenu(
                     context_menu::Event::Reply {
                         msgid,
-                        server_time,
+                        time,
                         to_nick,
                     },
                 )) = event
@@ -337,7 +332,7 @@ impl Channel {
                     let (reply_task, _) = self.input_view.update(
                         input_view::Message::SetDraftReply {
                             msgid: msgid.clone(),
-                            server_time,
+                            time,
                             to_nick: to_nick.clone(),
                         },
                         self.message_focus.is_focused(),
@@ -354,7 +349,7 @@ impl Channel {
                         ]),
                         Some(Event::ContextMenu(context_menu::Event::Reply {
                             msgid,
-                            server_time,
+                            time,
                             to_nick,
                         })),
                     );
@@ -410,8 +405,8 @@ impl Channel {
                         hash,
                         buffer_action,
                     )),
-                    scroll_view::Event::RequestOlderChatHistory => {
-                        Some(Event::RequestOlderChatHistory)
+                    scroll_view::Event::RequestOlderChathistory => {
+                        Some(Event::RequestOlderChathistory)
                     }
                     scroll_view::Event::PreviewChanged => {
                         Some(Event::PreviewChanged)
@@ -458,7 +453,6 @@ impl Channel {
 
                 match event {
                     Some(input_view::Event::InputSent {
-                        history_task,
                         open_buffers,
                         was_join_command,
                     }) => {
@@ -472,7 +466,6 @@ impl Channel {
                         (
                             command,
                             Some(Event::InputSent {
-                                history_task,
                                 open_buffers,
                                 was_join_command,
                             }),
@@ -486,9 +479,6 @@ impl Channel {
                         targets,
                         reason,
                     }) => (command, Some(Event::LeaveBuffers(targets, reason))),
-                    Some(input_view::Event::Cleared { history_task }) => {
-                        (command, Some(Event::History(history_task)))
-                    }
                     Some(input_view::Event::OpenInternalBuffer(buffer)) => {
                         (command, Some(Event::OpenInternalBuffer(buffer)))
                     }
@@ -627,7 +617,7 @@ impl Channel {
     fn typing_text(
         &self,
         clients: &data::client::Map,
-        history: &history::Manager,
+        history: &model::Manager,
     ) -> Option<String> {
         let server = &self.server;
         let channel = &self.target;
@@ -636,10 +626,7 @@ impl Channel {
         typing::typing_text(
             clients.get_server_show_typing(server),
             clients.get_server_supports_typing(server),
-            clients
-                .nickname(server)
-                .as_ref()
-                .map(data::user::NickRef::as_str),
+            clients.nickname(server).map(Nick::as_str),
             &typing::visible_nicks(
                 &clients.get_channel_typing_users(server, channel),
                 Some(channel),

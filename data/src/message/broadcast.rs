@@ -1,338 +1,16 @@
 //! Generate messages that can be broadcast into every buffer
 use std::collections::HashSet;
 
-use chrono::{DateTime, Utc};
-
 use super::{
-    Content, Direction, Message, Source, Target, kick_text, nickname_text,
+    Content, Direction, Message, Source, kick_text, nickname_text,
     parse_fragments_with_user, plain, quit_text, source,
 };
 use crate::config::buffer::UsernameFormat;
-use crate::time::Posix;
 use crate::user::Nick;
-use crate::{Config, User, isupport, message, target};
-
-enum Cause {
-    Server(Option<source::Server>),
-    Status(source::Status),
-}
-
-fn expand(
-    channels: impl IntoIterator<Item = target::Channel>,
-    queries: impl IntoIterator<Item = target::Query>,
-    include_server: bool,
-    cause: Cause,
-    content: Content,
-    server_time: DateTime<Utc>,
-    received_with_server_time: bool,
-) -> Vec<Message> {
-    let message = |target, content| -> Message {
-        let received_at = Posix::now();
-        let hash = message::Hash::new(&server_time, &content, &received_at);
-
-        Message {
-            received_at,
-            server_time,
-            direction: Direction::Received,
-            target,
-            content,
-            id: None,
-            reply_to: None,
-            reply_preview: None,
-            hash,
-            hidden_urls: HashSet::default(),
-            is_echo: false,
-            relayed_by: None,
-            received_with_server_time,
-            blocked: false,
-            condensed: None,
-            expanded: false,
-            command: None,
-            reactions: vec![],
-            rerouted_from: None,
-            deduplicate: false,
-            redaction: None,
-        }
-    };
-
-    let source = match cause {
-        Cause::Server(server) => Source::Server(server),
-        Cause::Status(status) => {
-            Source::Internal(source::Internal::Status(status))
-        }
-    };
-
-    channels
-        .into_iter()
-        .map(|channel| {
-            message(
-                Target::Channel {
-                    channel: channel.clone(),
-                    source: source.clone(),
-                },
-                content.clone(),
-            )
-        })
-        .chain(queries.into_iter().map(|query| {
-            message(
-                Target::Query {
-                    query: query.clone(),
-                    source: source.clone(),
-                },
-                content.clone(),
-            )
-        }))
-        .chain(include_server.then(|| {
-            message(
-                Target::Server {
-                    source: source.clone(),
-                },
-                content.clone(),
-            )
-        }))
-        .collect()
-}
-
-pub fn connecting(sent_time: DateTime<Utc>) -> Vec<Message> {
-    let content = plain("Connecting to server...".into());
-    expand(
-        [],
-        [],
-        true,
-        Cause::Status(source::Status::Success),
-        content,
-        sent_time,
-        false,
-    )
-}
-
-pub fn connected(sent_time: DateTime<Utc>) -> Vec<Message> {
-    let content = plain("Connected".into());
-    expand(
-        [],
-        [],
-        true,
-        Cause::Status(source::Status::Success),
-        content,
-        sent_time,
-        false,
-    )
-}
-
-pub fn connection_failed(
-    error: String,
-    sent_time: DateTime<Utc>,
-) -> Vec<Message> {
-    let content = plain(format!("Connection to server failed ({error})"));
-    expand(
-        [],
-        [],
-        true,
-        Cause::Status(source::Status::Error),
-        content,
-        sent_time,
-        false,
-    )
-}
-
-pub fn disconnected(
-    channels: impl IntoIterator<Item = target::Channel>,
-    queries: impl IntoIterator<Item = target::Query>,
-    error: Option<String>,
-    sent_time: DateTime<Utc>,
-) -> Vec<Message> {
-    let error = error.map(|error| format!(" ({error})")).unwrap_or_default();
-    let content = plain(format!("Connection to server lost{error}"));
-    expand(
-        channels,
-        queries,
-        true,
-        Cause::Status(source::Status::Error),
-        content,
-        sent_time,
-        false,
-    )
-}
-
-pub fn reconnected(
-    channels: impl IntoIterator<Item = target::Channel>,
-    queries: impl IntoIterator<Item = target::Query>,
-    sent_time: DateTime<Utc>,
-) -> Vec<Message> {
-    let content = plain("Connection to server restored".into());
-    expand(
-        channels,
-        queries,
-        true,
-        Cause::Status(source::Status::Success),
-        content,
-        sent_time,
-        false,
-    )
-}
-
-pub fn quit(
-    channels: impl IntoIterator<Item = target::Channel>,
-    queries: impl IntoIterator<Item = target::Query>,
-    user: &User,
-    comment: &Option<String>,
-    config: &Config,
-    casemapping: isupport::CaseMap,
-    server_time: DateTime<Utc>,
-    received_with_server_time: bool,
-) -> Vec<Message> {
-    let content = quit_text(user, comment, config, casemapping);
-
-    expand(
-        channels,
-        queries,
-        false,
-        Cause::Server(Some(source::Server::new(
-            source::server::Kind::Quit,
-            Some(user.nickname().to_owned()),
-            None,
-        ))),
-        content,
-        server_time,
-        received_with_server_time,
-    )
-}
-
-pub fn nickname(
-    channels: impl IntoIterator<Item = target::Channel>,
-    queries: impl IntoIterator<Item = target::Query>,
-    old_nick: &Nick,
-    new_nick: &Nick,
-    ourself: bool,
-    casemapping: isupport::CaseMap,
-    server_time: DateTime<Utc>,
-    received_with_server_time: bool,
-) -> Vec<Message> {
-    let content =
-        nickname_text(old_nick.into(), new_nick.into(), ourself, casemapping);
-
-    let cause = Cause::Server(Some(source::Server::new(
-        source::server::Kind::ChangeNick,
-        Some(old_nick.clone()),
-        Some(source::server::Change::Nick(new_nick.clone())),
-    )));
-
-    expand(
-        channels,
-        queries,
-        false,
-        cause,
-        content,
-        server_time,
-        received_with_server_time,
-    )
-}
-
-pub fn change_host(
-    channels: impl IntoIterator<Item = target::Channel>,
-    queries: impl IntoIterator<Item = target::Query>,
-    old_user: &User,
-    new_username: &str,
-    new_hostname: &str,
-    ourself: bool,
-    logged_in: bool,
-    casemapping: isupport::CaseMap,
-    server_time: DateTime<Utc>,
-    received_with_server_time: bool,
-) -> Vec<Message> {
-    let cause = Cause::Server(Some(source::Server::new(
-        source::server::Kind::ChangeHost,
-        Some(old_user.nickname().to_owned()),
-        old_user.hostname().map(|old_hostname| {
-            source::server::Change::Host(
-                old_hostname.to_string(),
-                new_hostname.to_string(),
-            )
-        }),
-    )));
-
-    let content = if ourself {
-        plain(format!(
-            "You've changed host to {new_username}@{new_hostname}",
-        ))
-    } else {
-        parse_fragments_with_user(
-            format!(
-                "{} changed host to {new_username}@{new_hostname}",
-                old_user.formatted(UsernameFormat::Full)
-            ),
-            old_user,
-            casemapping,
-        )
-    };
-
-    if ourself && !logged_in {
-        expand(
-            [],
-            [],
-            true,
-            cause,
-            content,
-            server_time,
-            received_with_server_time,
-        )
-    } else {
-        expand(
-            channels,
-            queries,
-            false,
-            cause,
-            content,
-            server_time,
-            received_with_server_time,
-        )
-    }
-}
-
-pub fn kick(
-    kicker: User,
-    victim: User,
-    reason: Option<String>,
-    channel: target::Channel,
-    config: &Config,
-    casemapping: isupport::CaseMap,
-    server_time: DateTime<Utc>,
-    received_with_server_time: bool,
-) -> Vec<Message> {
-    let cause = Cause::Server(Some(source::Server::new(
-        source::server::Kind::Kick,
-        Some(kicker.nickname().to_owned()),
-        None,
-    )));
-
-    let content = kick_text(
-        kicker,
-        victim,
-        true, // Broadcast of KICK is always ourself
-        &reason,
-        Some(channel),
-        &config.display.direction_arrows,
-        casemapping,
-    );
-
-    expand(
-        [],
-        [],
-        true,
-        cause,
-        content,
-        server_time,
-        received_with_server_time,
-    )
-}
+use crate::{Config, User, history, isupport, message, target};
 
 #[derive(Debug, Clone)]
 pub enum Broadcast {
-    Connecting,
-    Connected,
-    ConnectionFailed {
-        error: String,
-    },
     Disconnected {
         error: Option<String>,
     },
@@ -340,15 +18,11 @@ pub enum Broadcast {
     Quit {
         user: User,
         comment: Option<String>,
-        user_channels: Vec<target::Channel>,
-        casemapping: isupport::CaseMap,
     },
-    Nickname {
+    ChangeNickname {
         old_nick: Nick,
         new_nick: Nick,
         ourself: bool,
-        user_channels: Vec<target::Channel>,
-        casemapping: isupport::CaseMap,
     },
     ChangeHost {
         old_user: User,
@@ -356,195 +30,178 @@ pub enum Broadcast {
         new_hostname: String,
         ourself: bool,
         logged_in: bool,
-        user_channels: Vec<target::Channel>,
-        casemapping: isupport::CaseMap,
     },
     Kick {
         kicker: User,
         victim: User,
         reason: Option<String>,
-        channel: target::Channel,
+    },
+}
+
+impl Broadcast {
+    fn source(&self) -> message::Source {
+        match self {
+            Broadcast::Disconnected { .. } => Source::Internal(
+                source::Internal::Status(source::Status::Error),
+            ),
+            Broadcast::Reconnected => Source::Internal(
+                source::Internal::Status(source::Status::Success),
+            ),
+            Broadcast::Quit { user, .. } => {
+                Source::Server(Some(source::Server::new(
+                    source::server::Kind::Quit,
+                    Some(user.nickname().clone()),
+                    None,
+                )))
+            }
+            Broadcast::ChangeNickname {
+                old_nick, new_nick, ..
+            } => Source::Server(Some(source::Server::new(
+                source::server::Kind::ChangeNick,
+                Some(old_nick.clone()),
+                Some(source::server::Change::Nick(new_nick.clone())),
+            ))),
+            Broadcast::ChangeHost {
+                old_user,
+                new_hostname,
+                ..
+            } => Source::Server(Some(source::Server::new(
+                source::server::Kind::ChangeHost,
+                Some(old_user.nickname().clone()),
+                old_user.hostname().map(|old_hostname| {
+                    source::server::Change::Host(
+                        old_hostname.to_string(),
+                        new_hostname.to_string(),
+                    )
+                }),
+            ))),
+            Broadcast::Kick { kicker, .. } => {
+                Source::Server(Some(source::Server::new(
+                    source::server::Kind::Kick,
+                    Some(kicker.nickname().clone()),
+                    None,
+                )))
+            }
+        }
+    }
+
+    fn content(
+        &self,
+        target: &message::Target,
         casemapping: isupport::CaseMap,
-    },
-    FilehostUploadFailed {
-        error: String,
-        target: Option<target::Target>,
-    },
-}
+        config: &Config,
+    ) -> Content {
+        match self {
+            Broadcast::Disconnected { error } => {
+                let error = error
+                    .as_ref()
+                    .map(|error| format!(" ({error})"))
+                    .unwrap_or_default();
 
-pub fn into_messages(
-    broadcast: Broadcast,
-    config: &Config,
-    server_time: DateTime<Utc>,
-    received_with_server_time: bool,
-    channels: impl IntoIterator<Item = target::Channel>,
-    mut queries: impl IntoIterator<Item = target::Query>
-    + std::iter::Iterator<Item = target::Query>,
-) -> Vec<Message> {
-    match broadcast {
-        Broadcast::Connecting => connecting(server_time),
-        Broadcast::Connected => connected(server_time),
-        Broadcast::ConnectionFailed { error } => {
-            connection_failed(error, server_time)
-        }
-        Broadcast::Disconnected { error } => {
-            disconnected(channels, queries, error, server_time)
-        }
-        Broadcast::Reconnected => reconnected(channels, queries, server_time),
-        Broadcast::Quit {
-            user,
-            comment,
-            user_channels,
-            casemapping,
-        } => {
-            let user_query = queries.find(|query| {
-                user.as_normalized_str() == query.as_normalized_str()
-            });
-
-            quit(
-                user_channels,
-                user_query,
-                &user,
-                &comment,
-                config,
+                plain(format!("Connection to server lost{error}"))
+            }
+            Broadcast::Reconnected => {
+                plain("Connection to server restored".into())
+            }
+            Broadcast::Quit { user, comment } => {
+                quit_text(user, comment, config, casemapping)
+            }
+            Broadcast::ChangeNickname {
+                old_nick,
+                new_nick,
+                ourself,
+            } => nickname_text(
+                old_nick.into(),
+                new_nick.into(),
+                *ourself,
                 casemapping,
-                server_time,
-                received_with_server_time,
-            )
-        }
-        Broadcast::Nickname {
-            old_nick,
-            new_nick,
-            ourself,
-            user_channels,
-            casemapping,
-        } => {
-            if ourself {
-                // If ourself, broadcast to all query channels (since we are in all of them)
-                nickname(
-                    user_channels,
-                    queries,
-                    &old_nick,
-                    &new_nick,
-                    ourself,
+            ),
+            Broadcast::ChangeHost {
+                old_user,
+                new_username,
+                new_hostname,
+                ourself,
+                ..
+            } => {
+                if *ourself {
+                    plain(format!(
+                        "You've changed host to {new_username}@{new_hostname}",
+                    ))
+                } else {
+                    parse_fragments_with_user(
+                        format!(
+                            "{} changed host to {new_username}@{new_hostname}",
+                            old_user.formatted(UsernameFormat::Full)
+                        ),
+                        old_user,
+                        casemapping,
+                    )
+                }
+            }
+            Broadcast::Kick {
+                kicker,
+                victim,
+                reason,
+            } => {
+                kick_text(
+                    kicker.clone(),
+                    victim.clone(),
+                    true, // Broadcast of KICK is always ourself
+                    reason,
+                    target.as_channel().cloned(),
+                    &config.display.direction_arrows,
                     casemapping,
-                    server_time,
-                    received_with_server_time,
-                )
-            } else {
-                // Otherwise just the query channel of the user w/ nick change
-                let user_query = queries.find(|query| {
-                    old_nick.as_normalized_str() == query.as_normalized_str()
-                });
-                nickname(
-                    user_channels,
-                    user_query,
-                    &old_nick,
-                    &new_nick,
-                    ourself,
-                    casemapping,
-                    server_time,
-                    received_with_server_time,
                 )
             }
-        }
-        Broadcast::ChangeHost {
-            old_user,
-            new_username,
-            new_hostname,
-            ourself,
-            logged_in,
-            user_channels,
-            casemapping,
-        } => {
-            if ourself {
-                // If ourself, broadcast to all query channels (since we are in all of them)
-                change_host(
-                    user_channels,
-                    queries,
-                    &old_user,
-                    &new_username,
-                    &new_hostname,
-                    ourself,
-                    logged_in,
-                    casemapping,
-                    server_time,
-                    received_with_server_time,
-                )
-            } else {
-                // Otherwise just the query channel of the user w/ host change
-                let user_query = queries.find(|query| {
-                    old_user.as_normalized_str() == query.as_normalized_str()
-                });
-                change_host(
-                    user_channels,
-                    user_query,
-                    &old_user,
-                    &new_username,
-                    &new_hostname,
-                    ourself,
-                    logged_in,
-                    casemapping,
-                    server_time,
-                    received_with_server_time,
-                )
-            }
-        }
-        Broadcast::Kick {
-            kicker,
-            victim,
-            reason,
-            channel,
-            casemapping,
-        } => message::broadcast::kick(
-            kicker,
-            victim,
-            reason,
-            channel,
-            config,
-            casemapping,
-            server_time,
-            received_with_server_time,
-        ),
-        Broadcast::FilehostUploadFailed { error, target } => {
-            upload_failed(error, target, server_time)
         }
     }
 }
 
-pub fn upload_failed(
-    error: String,
-    target: Option<target::Target>,
-    sent_time: DateTime<Utc>,
-) -> Vec<Message> {
-    let content = plain(format!("Upload failed: {error}"));
-    match target {
-        Some(target::Target::Channel(channel)) => expand(
-            [channel],
-            [],
-            false,
-            Cause::Status(source::Status::Error),
-            content,
-            sent_time,
-            false,
-        ),
-        Some(target::Target::Query(query)) => expand(
-            [],
-            [query],
-            false,
-            Cause::Status(source::Status::Error),
-            content,
-            sent_time,
-            false,
-        ),
-        None => expand(
-            [],
-            [],
-            true,
-            Cause::Status(source::Status::Error),
-            content,
-            sent_time,
-            false,
-        ),
+#[derive(Debug)]
+pub struct BroadcastWithContext {
+    pub inner: Broadcast,
+    pub in_channels: Vec<target::Channel>,
+    pub in_queries: Queries,
+    pub in_server: bool,
+    pub time: message::Time,
+}
+
+impl BroadcastWithContext {
+    pub fn into_messages(
+        self,
+        targets: Vec<message::Target>,
+        casemapping: isupport::CaseMap,
+        config: &Config,
+    ) -> Vec<message::Message> {
+        targets
+            .into_iter()
+            .map(|target| {
+                let content = self.inner.content(&target, casemapping, config);
+
+                Message {
+                    history_id: history::Id::default(),
+                    time: self.time,
+                    direction: Direction::Received { is_echo: false },
+                    source: self.inner.source(),
+                    target,
+                    content,
+                    id: None,
+                    reply_to: None,
+                    relayed_by: None,
+                    hidden_urls: HashSet::default(),
+                    reactions: vec![],
+                    rerouted_from: None,
+                    redaction: None,
+                }
+            })
+            .collect()
     }
+}
+
+#[derive(Debug, Default)]
+pub enum Queries {
+    All,
+    WithNick(Nick),
+    #[default]
+    None,
 }

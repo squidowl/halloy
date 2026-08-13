@@ -1,9 +1,9 @@
 use chrono::{DateTime, Utc};
+use data::history::{self, storage};
+use data::message::{self, Searchable, Temporal};
 use data::shortcut::{FocusCommand, KeyBind};
 use data::user::User;
-use data::{
-    Config, Server, buffer, client, history, message, metadata, preview, target,
-};
+use data::{Config, Server, buffer, client, metadata, preview, target};
 use iced::advanced::widget;
 use iced::advanced::widget::operation::focusable;
 use iced::widget::{column, container};
@@ -79,7 +79,7 @@ impl Manager {
         upstream: &buffer::Upstream,
         kind: scroll_view::Kind<'_>,
         clients: &mut client::Map,
-        history: &mut history::Manager,
+        history: &mut storage::Manager,
         previews: &preview::Collection,
         config: &Config,
     ) -> (
@@ -152,10 +152,10 @@ impl Manager {
 
                 let message =
                     focused_message.as_ref().and_then(|focused_message| {
-                        history.find_message_by_hash(
-                            focused_message.hash(),
+                        history.find_message_by_history_id(
+                            focused_message.history_id(),
                             &kind.into(),
-                            focused_message.server_time(),
+                            focused_message.time(),
                         )
                     });
 
@@ -168,16 +168,16 @@ impl Manager {
 
                                 Some((
                                     message.id.clone()?,
-                                    message.server_time,
+                                    message.time,
                                     user.nickname().to_owned(),
                                 ))
                             });
 
-                        if let Some((msgid, server_time, to_nick)) = result {
+                        if let Some((msgid, time, to_nick)) = result {
                             let (reply_task, _) = input_view.update(
                                 input_view::Message::SetDraftReply {
                                     msgid,
-                                    server_time,
+                                    time,
                                     to_nick,
                                 },
                                 false,
@@ -210,7 +210,7 @@ impl Manager {
                                     let id = message.id.clone()?;
                                     Some(
                                         context_menu::Message::OpenReactionModal(
-                                            id, message.server_time,
+                                            id, message.time,
                                         ),
                                     )
                                 }),
@@ -315,7 +315,7 @@ impl Manager {
         upstream: &buffer::Upstream,
         kind: scroll_view::Kind<'_>,
         clients: &mut client::Map,
-        history: &mut history::Manager,
+        history: &mut storage::Manager,
         previews: &preview::Collection,
         config: &Config,
     ) -> Option<(
@@ -372,8 +372,8 @@ impl Manager {
 
 #[derive(Debug, Clone)]
 pub struct FocusedMessage {
-    hash: message::Hash,
-    server_time: DateTime<Utc>,
+    history_id: history::Id,
+    time: message::Time,
     is_user_message: bool,
     focusable_fragment_indices: Vec<usize>,
     focused_component: Option<FocusedComponent>,
@@ -381,14 +381,11 @@ pub struct FocusedMessage {
 }
 
 impl FocusedMessage {
-    pub fn new(message: &data::Message, config: &Config) -> Self {
+    pub fn new(message: &data::MessageDisplay, config: &Config) -> Self {
         Self {
-            hash: message.hash,
-            server_time: message.server_time,
-            is_user_message: matches!(
-                message.target.source(),
-                message::Source::User(_)
-            ),
+            history_id: *message.history_id(),
+            time: *message.time(),
+            is_user_message: matches!(message.source, message::Source::User(_)),
             focusable_fragment_indices: message_focus_target_indices(
                 message, config,
             ),
@@ -397,16 +394,16 @@ impl FocusedMessage {
         }
     }
 
-    pub fn is_match(&self, message: &data::Message) -> bool {
-        message.hash == self.hash
+    pub fn is_match(&self, message: &data::MessageDisplay) -> bool {
+        message.history_id() == self.history_id
     }
 
-    pub fn hash(&self) -> message::Hash {
-        self.hash
+    pub fn history_id(&self) -> &history::Id {
+        &self.history_id
     }
 
-    pub fn server_time(&self) -> &DateTime<Utc> {
-        &self.server_time
+    pub fn time(&self) -> &message::Time {
+        &self.time
     }
 
     pub fn focused_component(&self) -> Option<&FocusedComponent> {
@@ -614,22 +611,22 @@ pub(crate) enum FocusTarget {
 
 /// Indices of the message fragments that are both focusable and rendered.
 fn message_focus_target_indices(
-    message: &data::Message,
+    message: &data::MessageDisplay,
     config: &Config,
 ) -> Vec<usize> {
-    let fragments: &[message::Fragment] = match &message.content {
+    let fragments: &[message::Fragment] = match &message.inner.content {
         data::message::Content::Fragments(fragments) => fragments,
         _ => &[],
     };
 
-    if matches!(message.target.source(), message::Source::User(_))
+    if matches!(message.source, message::Source::User(_))
         && message.redaction_expanded(&config.buffer.redaction) == Some(false)
     {
         return vec![];
     }
 
     let prefix_skip_until =
-        if matches!(message.target.source(), message::Source::User(_))
+        if matches!(message.source, message::Source::User(_))
             && config.buffer.reply.hide_redundant_nicks
         {
             message

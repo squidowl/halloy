@@ -7,7 +7,8 @@ use data::dashboard::BufferAction;
 use data::target::Target;
 use data::user::Nick;
 use data::{
-    Config, Server, User, ctcp, isupport, message, metadata, preview, target,
+    Config, Server, User, ctcp, history, isupport, message, metadata, preview,
+    target,
 };
 use iced::widget::{Space, button, center, column, container, row, rule, span};
 use iced::{
@@ -67,13 +68,13 @@ pub trait ChannelsContext {
         &'a self,
         server: &'a Server,
         channel: &'a target::Channel,
-        message: Option<&'a message::Message>,
+        message: Option<&'a message::MessageDisplay>,
     ) -> ChannelContext<'a> {
         ChannelContext {
             server,
             channel,
             is_open: self.is_open(server, channel),
-            message,
+            message: message.map(|message| &message.inner),
         }
     }
 }
@@ -84,7 +85,7 @@ pub enum Context<'a> {
     Url(UrlContext<'a>),
     Channel(ChannelContext<'a>),
     Timestamp(&'a DateTime<Utc>),
-    NotSentMessage(&'a DateTime<Utc>, &'a message::Hash),
+    NotSentMessage(&'a DateTime<Utc>, &'a history::Id),
     Message { message: &'a message::Message },
 }
 
@@ -637,7 +638,7 @@ impl Entry {
             ) => Some((
                 "Hide Preview".to_string(),
                 message.map(|message| {
-                    Message::HidePreview(message.hash, url.to_string())
+                    Message::HidePreview(message.history_id, url.to_string())
                 }),
             )),
             (
@@ -646,7 +647,7 @@ impl Entry {
             ) => Some((
                 "Show Preview".to_string(),
                 message.map(|message| {
-                    Message::ShowPreview(message.hash, url.to_string())
+                    Message::ShowPreview(message.history_id, url.to_string())
                 }),
             )),
             (
@@ -708,17 +709,17 @@ impl Entry {
             )),
             (
                 Entry::DeleteMessage,
-                Context::NotSentMessage(server_time, hash),
+                Context::NotSentMessage(time, history_id),
             ) => Some((
                 "Delete Message".to_string(),
-                Some(Message::DeleteMessage(**server_time, **hash)),
+                Some(Message::DeleteMessage(**time, **history_id)),
             )),
             (
                 Entry::ResendMessage,
-                Context::NotSentMessage(server_time, hash),
+                Context::NotSentMessage(time, history_id),
             ) => Some((
                 "Re-send Message".to_string(),
-                Some(Message::ResendMessage(**server_time, **hash)),
+                Some(Message::ResendMessage(**time, **history_id)),
             )),
             (
                 Entry::CopyMessage,
@@ -775,18 +776,22 @@ impl Entry {
                     message: Some(message),
                     ..
                 }),
-            ) => message.id.as_ref().zip(message.target.source().user()).map(
-                |(msgid, user)| {
-                    (
-                        "Reply".to_string(),
-                        Some(Message::Reply {
-                            msgid: msgid.clone(),
-                            server_time: message.server_time,
-                            to_nick: user.nickname().to_owned(),
-                        }),
-                    )
-                },
-            ),
+            ) => {
+                message
+                    .id
+                    .as_ref()
+                    .zip(message.user())
+                    .map(|(msgid, user)| {
+                        (
+                            "Reply".to_string(),
+                            Some(Message::Reply {
+                                msgid: msgid.clone(),
+                                time: message.time,
+                                to_nick: user.nickname().to_owned(),
+                            }),
+                        )
+                    })
+            }
             (
                 Entry::AddReaction,
                 Context::Message { message }
@@ -807,7 +812,7 @@ impl Entry {
                     "Add reaction".to_string(),
                     Some(Message::OpenReactionModal(
                         msgid.clone(),
-                        message.server_time,
+                        message.time,
                     )),
                 )
             }),
@@ -850,16 +855,16 @@ impl Entry {
             ) => Some((
                 "Hide with redaction".to_string(),
                 Some(Message::ContractMessage(
-                    message.server_time,
-                    message.hash,
+                    message.time,
+                    message.history_id,
                 )),
             )),
             (Entry::ShowRedactedMessage, Context::Message { message, .. }) => {
                 Some((
                     "Show redacted message".to_string(),
                     Some(Message::ExpandMessage(
-                        message.server_time,
-                        message.hash,
+                        message.time,
+                        message.history_id,
                     )),
                 ))
             }
@@ -879,26 +884,26 @@ pub enum Message {
     CtcpRequest(ctcp::Command, Server, Nick, Option<String>),
     CopyText(String),
     OpenUrl(String),
-    HidePreview(message::Hash, String),
-    ShowPreview(message::Hash, String),
+    HidePreview(history::Id, String),
+    ShowPreview(history::Id, String),
     CopyTimestamp(DateTime<Utc>),
     #[allow(clippy::enum_variant_names)]
-    DeleteMessage(DateTime<Utc>, message::Hash),
+    DeleteMessage(message::Time, history::Id),
     #[allow(clippy::enum_variant_names)]
-    ResendMessage(DateTime<Utc>, message::Hash),
-    OpenReactionModal(message::Id, DateTime<Utc>),
+    ResendMessage(message::Time, history::Id),
+    OpenReactionModal(message::Id, message::Time),
     Redact(message::Id),
     Reply {
         msgid: message::Id,
-        server_time: DateTime<Utc>,
+        time: message::Time,
         to_nick: Nick,
     },
     LoadUserAvatar(Server, url::Url),
     Link(message::Link),
     #[allow(clippy::enum_variant_names)]
-    ExpandMessage(DateTime<Utc>, message::Hash),
+    ExpandMessage(message::Time, history::Id),
     #[allow(clippy::enum_variant_names)]
-    ContractMessage(DateTime<Utc>, message::Hash),
+    ContractMessage(message::Time, history::Id),
 }
 
 #[derive(Debug, Clone)]
@@ -912,21 +917,21 @@ pub enum Event {
     CtcpRequest(ctcp::Command, Server, Nick, Option<String>),
     CopyText(String),
     OpenUrl(String),
-    HidePreview(message::Hash, String),
-    ShowPreview(message::Hash, String),
+    HidePreview(history::Id, String),
+    ShowPreview(history::Id, String),
     CopyTimestamp(DateTime<Utc>),
-    DeleteMessage(DateTime<Utc>, message::Hash),
-    ResendMessage(DateTime<Utc>, message::Hash),
-    OpenReactionModal(message::Id, DateTime<Utc>),
+    DeleteMessage(message::Time, history::Id),
+    ResendMessage(message::Time, history::Id),
+    OpenReactionModal(message::Id, message::Time),
     RedactMessage(message::Id),
     Reply {
         msgid: message::Id,
-        server_time: DateTime<Utc>,
+        time: message::Time,
         to_nick: Nick,
     },
     LoadUserAvatar(Server, url::Url),
-    ExpandMessage(DateTime<Utc>, message::Hash),
-    ContractMessage(DateTime<Utc>, message::Hash),
+    ExpandMessage(message::Time, history::Id),
+    ContractMessage(message::Time, history::Id),
 }
 
 pub fn update(message: Message) -> Option<Event> {
@@ -955,11 +960,11 @@ pub fn update(message: Message) -> Option<Event> {
         Message::CopyTimestamp(date_time) => {
             Some(Event::CopyTimestamp(date_time))
         }
-        Message::DeleteMessage(server_time, hash) => {
-            Some(Event::DeleteMessage(server_time, hash))
+        Message::DeleteMessage(time, history_id) => {
+            Some(Event::DeleteMessage(time, history_id))
         }
-        Message::ResendMessage(server_time, hash) => {
-            Some(Event::ResendMessage(server_time, hash))
+        Message::ResendMessage(time, history_id) => {
+            Some(Event::ResendMessage(time, history_id))
         }
         Message::OpenReactionModal(msgid, server_time) => {
             Some(Event::OpenReactionModal(msgid, server_time))
@@ -967,11 +972,11 @@ pub fn update(message: Message) -> Option<Event> {
         Message::Redact(msgid) => Some(Event::RedactMessage(msgid)),
         Message::Reply {
             msgid,
-            server_time,
+            time,
             to_nick,
         } => Some(Event::Reply {
             msgid,
-            server_time,
+            time,
             to_nick,
         }),
         Message::LoadUserAvatar(server, url) => {
@@ -979,18 +984,18 @@ pub fn update(message: Message) -> Option<Event> {
         }
         Message::Link(message::Link::Url(url)) => Some(Event::OpenUrl(url)),
         Message::Link(_) => None,
-        Message::ExpandMessage(server_time, hash) => {
-            Some(Event::ExpandMessage(server_time, hash))
+        Message::ExpandMessage(time, history_id) => {
+            Some(Event::ExpandMessage(time, history_id))
         }
-        Message::ContractMessage(server_time, hash) => {
-            Some(Event::ContractMessage(server_time, hash))
+        Message::ContractMessage(time, history_id) => {
+            Some(Event::ContractMessage(time, history_id))
         }
     }
 }
 
 pub fn message<'a, M>(
     content: impl Into<Element<'a, M>>,
-    message: &'a message::Message,
+    message: &'a message::MessageDisplay,
     can_send_replies: bool,
     can_send_reactions: bool,
     can_redact: bool,
@@ -1000,7 +1005,7 @@ pub fn message<'a, M>(
 where
     M: From<Message> + 'a,
 {
-    if matches!(message.target.source(), message::Source::Internal(_)) {
+    if matches!(message.source, message::Source::Internal(_)) {
         return content.into();
     }
 
@@ -1024,7 +1029,9 @@ where
         move |entry, length| {
             entry
                 .view(
-                    Some(Context::Message { message }),
+                    Some(Context::Message {
+                        message: message.into(),
+                    }),
                     length,
                     config,
                     theme,
@@ -1039,7 +1046,7 @@ where
 pub fn preview<'a, M>(
     content: impl Into<Element<'a, M>>,
     url: &'a str,
-    message: &'a message::Message,
+    message: &'a message::MessageDisplay,
     append_entries: Vec<Entry>,
     config: &'a Config,
     theme: &'a Theme,
@@ -1067,7 +1074,7 @@ where
                 .view(
                     Some(Context::Url(UrlContext {
                         url,
-                        message: Some(message),
+                        message: Some(message.into()),
                     })),
                     length,
                     config,
@@ -1262,7 +1269,7 @@ pub fn timestamp<'a>(
 pub fn not_sent_message<'a>(
     content: impl Into<Element<'a, Message>>,
     server_time: &'a DateTime<Utc>,
-    hash: &'a message::Hash,
+    history_id: &'a history::Id,
     can_resend: bool,
     config: &'a Config,
     theme: &'a Theme,
@@ -1278,7 +1285,7 @@ pub fn not_sent_message<'a>(
         entries,
         move |entry, length| {
             entry.view(
-                Some(Context::NotSentMessage(server_time, hash)),
+                Some(Context::NotSentMessage(time, history_id)),
                 length,
                 config,
                 theme,

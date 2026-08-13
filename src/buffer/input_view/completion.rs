@@ -14,7 +14,7 @@ use data::history::filter::FilterChain;
 use data::isupport::{self, find_target_limit};
 use data::server::Server;
 use data::target::{self, Target};
-use data::user::{ChannelUsers, Nick, NickRef};
+use data::user::{ChannelUsers, Nick};
 use data::{Config, command, mode};
 use iced::Length;
 use iced::widget::text::Shaping;
@@ -51,10 +51,10 @@ impl Completion {
         input: &str,
         cursor_position: usize,
         cursor_is_selection: bool,
-        our_nickname: Option<NickRef>,
+        our_nickname: Option<&Nick>,
         users: Option<&ChannelUsers>,
         filters: FilterChain,
-        last_seen: &HashMap<Nick, DateTime<Utc>>,
+        last_seen: Option<&HashMap<Nick, DateTime<Utc>>>,
         channels: impl IntoIterator<Item = &'a target::Channel>,
         current_target: Option<&Target>,
         server: &Server,
@@ -361,7 +361,7 @@ impl Commands {
         input: &str,
         cursor_position: usize,
         cursor_is_selection: bool,
-        our_nickname: Option<NickRef>,
+        our_nickname: Option<&Nick>,
         channels: impl IntoIterator<Item = &'a target::Channel>,
         current_target: Option<&Target>,
         server: &Server,
@@ -827,7 +827,7 @@ impl Commands {
 }
 
 fn connected_command_list<'a>(
-    our_nickname: Option<NickRef>,
+    our_nickname: Option<&Nick>,
     channels: impl IntoIterator<Item = &'a target::Channel>,
     current_target: Option<&Target>,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
@@ -1981,7 +1981,7 @@ impl Words {
         casemapping: isupport::CaseMap,
         users: Option<&ChannelUsers>,
         filters: FilterChain,
-        last_seen: &HashMap<Nick, DateTime<Utc>>,
+        last_seen: Option<&HashMap<Nick, DateTime<Utc>>>,
         channels: impl IntoIterator<Item = &'a target::Channel>,
         current_target: Option<&Target>,
         server: &Server,
@@ -2019,7 +2019,7 @@ impl Words {
         filters: FilterChain,
         current_channel: Option<&target::Channel>,
         server: &Server,
-        last_seen: &HashMap<Nick, DateTime<Utc>>,
+        last_seen: Option<&HashMap<Nick, DateTime<Utc>>>,
         config: &Config,
     ) {
         let autocomplete = &config.buffer.text_input.autocomplete;
@@ -2041,33 +2041,35 @@ impl Words {
             })
             .sorted_by(|a, b| {
                 if matches!(autocomplete.order_by, OrderBy::Recent) {
-                    if let Some(a_last_seen) =
-                        last_seen.get(&a.nickname().to_owned())
+                    if let Some(a_last_seen) = last_seen
+                        .and_then(|last_seen| last_seen.get(a.nickname()))
                     {
-                        if let Some(b_last_seen) =
-                            last_seen.get(&b.nickname().to_owned())
+                        if let Some(b_last_seen) = last_seen
+                            .and_then(|last_seen| last_seen.get(b.nickname()))
                         {
                             b_last_seen.cmp(a_last_seen)
                         } else {
                             Ordering::Less
                         }
-                    } else if last_seen.get(&b.nickname().to_owned()).is_some()
+                    } else if last_seen
+                        .and_then(|last_seen| last_seen.get(b.nickname()))
+                        .is_some()
                     {
                         Ordering::Greater
                     } else {
                         match autocomplete.sort_direction {
                             SortDirection::Asc => {
-                                a.nickname().cmp(&b.nickname())
+                                a.nickname().cmp(b.nickname())
                             }
                             SortDirection::Desc => {
-                                b.nickname().cmp(&a.nickname())
+                                b.nickname().cmp(a.nickname())
                             }
                         }
                     }
                 } else {
                     match autocomplete.sort_direction {
-                        SortDirection::Asc => a.nickname().cmp(&b.nickname()),
-                        SortDirection::Desc => b.nickname().cmp(&a.nickname()),
+                        SortDirection::Asc => a.nickname().cmp(b.nickname()),
+                        SortDirection::Desc => b.nickname().cmp(a.nickname()),
                     }
                 }
             })

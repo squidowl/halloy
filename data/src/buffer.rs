@@ -11,7 +11,7 @@ pub use self::timestamp::Timestamp;
 use crate::appearance::theme::hex_to_color;
 use crate::serde::deserialize_strftime_date;
 use crate::target::{self, Target};
-use crate::{Server, channel, config};
+use crate::{Server, channel, config, history};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -130,6 +130,14 @@ impl Upstream {
         }
     }
 
+    pub fn into_target(self) -> Option<Target> {
+        match self {
+            Self::Channel(_, channel) => Some(Target::Channel(channel)),
+            Self::Query(_, query) => Some(Target::Query(query)),
+            Self::Server(_) => None,
+        }
+    }
+
     pub fn query(&self) -> Option<Target> {
         match self {
             Self::Query(_, query) => Some(Target::Query(query.clone())),
@@ -196,6 +204,63 @@ impl From<&Internal> for config::sidebar::InternalBuffer {
             Internal::ChannelDiscovery(_) => Self::ChannelDiscovery,
             Internal::ChannelMonitor => Self::ChannelMonitor,
         }
+    }
+}
+
+pub trait BuffersContext {
+    fn is_focused(&self, kind: &history::Kind) -> bool;
+
+    fn is_focused_and_at_bottom(&self, kind: &history::Kind) -> bool;
+
+    fn is_open_in_focused_window(&self, kind: &history::Kind) -> bool;
+
+    fn is_open_and_at_bottom_in_focused_window(
+        &self,
+        kind: &history::Kind,
+    ) -> bool;
+
+    fn is_open(&self, kind: &history::Kind) -> bool;
+
+    fn is_open_and_at_bottom(&self, kind: &history::Kind) -> bool;
+
+    fn focused_upstream_buffer(&self) -> Option<&Upstream>;
+}
+
+/// For use in testing when there is no expected buffers context specific
+/// behavior being tested.
+#[derive(Debug, Default)]
+pub struct EmptyBuffersContext();
+
+impl BuffersContext for EmptyBuffersContext {
+    fn is_focused(&self, _kind: &history::Kind) -> bool {
+        false
+    }
+
+    fn is_focused_and_at_bottom(&self, _kind: &history::Kind) -> bool {
+        false
+    }
+
+    fn is_open_in_focused_window(&self, _kind: &history::Kind) -> bool {
+        false
+    }
+
+    fn is_open_and_at_bottom_in_focused_window(
+        &self,
+        _kind: &history::Kind,
+    ) -> bool {
+        false
+    }
+
+    fn is_open(&self, _kind: &history::Kind) -> bool {
+        false
+    }
+
+    fn is_open_and_at_bottom(&self, _kind: &history::Kind) -> bool {
+        false
+    }
+
+    fn focused_upstream_buffer(&self) -> Option<&Upstream> {
+        None
     }
 }
 

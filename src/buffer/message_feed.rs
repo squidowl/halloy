@@ -24,13 +24,13 @@ pub enum Message {
 pub enum Event {
     ContextMenu(context_menu::Event),
     OpenBuffer(Server, Target, BufferAction),
-    GoToMessage(Server, target::Channel, message::Hash, BufferAction),
+    GoToMessage(Server, target::Channel, history::Id, BufferAction),
     History(Task<history::manager::Message>),
     OpenUrl(String),
     MarkAsRead,
     ImagePreview(Image),
-    ExpandMessage(DateTime<Utc>, message::Hash),
-    ContractMessage(DateTime<Utc>, message::Hash),
+    ExpandMessage(message::Time, history::Id),
+    ContractMessage(message::Time, history::Id),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -58,39 +58,27 @@ impl Kind {
 pub fn view<'a>(
     state: &'a MessageFeed,
     clients: &'a data::client::Map,
-    history: &'a history::Manager,
+    history: &'a model::Manager,
     previews: &'a preview::Collection,
     config: &'a Config,
     theme: &'a Theme,
     channels_context: &'a dyn context_menu::ChannelsContext,
 ) -> Element<'a, Message> {
-    let messages = scroll_view::view(
-        &state.scroll_view,
-        &None,
-        state.kind.scroll_view(),
-        history,
-        None,
-        Option::<fn(&Preview, &message::Source) -> bool>::None,
-        None,
-        0.0,
-        config,
-        theme,
-        move |message: &'a data::Message, _, _, _| match &message.target {
-            message::Target::Highlights {
-                server,
-                channel,
-                source: message::Source::User(user),
-            }
-            | message::Target::ChannelMonitor {
-                server,
-                channel,
-                source: message::Source::User(user),
-            } => {
+    let layout = move |message: &'a data::MessageDisplay, _, _, _| {
+        let (message::Target::Highlights { server, channel }
+        | message::Target::ChannelMonitor { server, channel }) =
+            &message.target
+        else {
+            return None;
+        };
+
+        match &message.source {
+            message::Source::User(user) => {
                 let users = clients.get_channel_users(server, channel);
 
                 let timestamp = config
                     .buffer
-                    .format_timestamp(&message.server_time)
+                    .format_timestamp(message.time().utc)
                     .map(|timestamp| {
                         context_menu::timestamp(
                             selectable_text(timestamp)
@@ -99,7 +87,7 @@ pub fn view<'a>(
                                         .map(font::get),
                                 )
                                 .style(theme::selectable_text::timestamp),
-                            &message.server_time,
+                            message.time().utc,
                             config,
                             theme,
                         )
@@ -319,16 +307,7 @@ pub fn view<'a>(
                     .into(),
                 )
             }
-            message::Target::Highlights {
-                server,
-                channel,
-                source: message::Source::Action(_),
-            }
-            | message::Target::ChannelMonitor {
-                server,
-                channel,
-                source: message::Source::Action(_),
-            } => {
+            message::Source::Action(_) => {
                 let timestamp = config
                     .buffer
                     .format_timestamp(&message.server_time)
@@ -391,7 +370,21 @@ pub fn view<'a>(
                 )
             }
             _ => None,
-        },
+        }
+    };
+
+    let messages = scroll_view::view(
+        &state.scroll_view,
+        &None,
+        state.kind.scroll_view(),
+        history,
+        None,
+        Option::<fn(&Preview, &message::Source) -> bool>::None,
+        None,
+        0.0,
+        config,
+        theme,
+        layout,
         metadata::EMPTY,
         channels_context,
     )
@@ -421,7 +414,7 @@ impl MessageFeed {
     pub fn update(
         &mut self,
         message: Message,
-        history: &mut history::Manager,
+        history: &mut storage::Manager,
         clients: &mut data::client::Map,
         previews: &preview::Collection,
         config: &Config,
@@ -457,7 +450,7 @@ impl MessageFeed {
                     ) => Some(Event::GoToMessage(
                         server, channel, message, action,
                     )),
-                    scroll_view::Event::RequestOlderChatHistory => None,
+                    scroll_view::Event::RequestOlderChathistory => None,
                     scroll_view::Event::PreviewChanged => None,
                     scroll_view::Event::HidePreview(..) => None,
                     scroll_view::Event::MarkAsRead => Some(Event::MarkAsRead),

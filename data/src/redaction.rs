@@ -3,13 +3,14 @@ use irc::proto::Command;
 use serde::{Deserialize, Serialize};
 
 use crate::isupport;
-use crate::message::{Encoded, Id};
+use crate::message::{Encoded, Id, Time};
 use crate::target::Target;
-use crate::user::Nick;
+use crate::user::{Nick, NickRef};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Redaction {
     pub from: Nick,
+    #[serde(default)]
     pub reason: Option<String>,
 }
 
@@ -22,26 +23,17 @@ impl Redaction {
             _ => format!("Message redacted by {}", self.from),
         }
     }
-}
 
-#[derive(Debug)]
-pub struct Context {
-    pub inner: Redaction,
-    pub target: Target,
-    pub id: Id,
-    pub server_time: DateTime<Utc>,
-}
-
-impl Redaction {
     pub fn received(
         message: Encoded,
-        our_nick: Nick,
+        our_nick: NickRef<'_>,
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
-    ) -> Option<Context> {
+    ) -> Option<RedactionWithContext> {
         let user = message.user(casemapping)?;
-        let server_time = message.server_time_or_now().0;
+        let id = message.message_id();
+        let time = message.time();
 
         let Command::REDACT(target, msgid, reason) = message.0.command else {
             return None;
@@ -54,31 +46,38 @@ impl Redaction {
                 Target::parse(&target, chantypes, statusmsg, casemapping)
             };
 
-        let id = Id::from(msgid.as_str());
+        let redacts = Id::from(msgid.as_str());
 
-        Some(Context {
+        Some(RedactionWithContext {
             inner: Redaction {
                 from: Nick::from(user),
                 reason,
             },
             target,
+            redacts,
             id,
-            server_time,
+            time,
         })
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Pending {
-    pub redaction: Redaction,
-    pub server_time: DateTime<Utc>,
+#[derive(Debug)]
+pub struct RedactionWithContext {
+    pub inner: Redaction,
+    pub target: Target,
+    pub redacts: Id,
+    pub id: Option<Id>,
+    pub time: Time,
 }
 
-impl Pending {
-    pub fn new(redaction: Redaction, server_time: DateTime<Utc>) -> Self {
-        Self {
-            redaction,
-            server_time,
-        }
+impl From<RedactionWithContext> for Redaction {
+    fn from(redaction_with_context: RedactionWithContext) -> Self {
+        redaction_with_context.inner
+    }
+}
+
+impl RedactionWithContext {
+    pub fn server_time(&self) -> Option<DateTime<Utc>> {
+        self.time.try_into_server_time()
     }
 }

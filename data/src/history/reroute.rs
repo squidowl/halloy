@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 
+use crate::client::{self, ClientsContext};
 use crate::user::Nick;
-use crate::{
-    Server, buffer, client, config, isupport, message, server, target,
-};
+use crate::{Server, buffer, config, isupport, message, server, target};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct RerouteRules {
@@ -197,16 +196,9 @@ impl RerouteRules {
         &self,
         query: &target::Query,
         server: &Server,
-        source: &message::Source,
         focused_buffer: Option<&buffer::Upstream>,
     ) -> Option<message::Target> {
-        target_for_query(
-            &self.direct_messages,
-            query,
-            server,
-            source,
-            focused_buffer,
-        )
+        target_for_query(&self.direct_messages, query, server, focused_buffer)
     }
 
     pub fn has_reroute_rule_for_direct_notice(
@@ -221,16 +213,9 @@ impl RerouteRules {
         &self,
         query: &target::Query,
         server: &Server,
-        source: &message::Source,
         focused_buffer: Option<&buffer::Upstream>,
     ) -> Option<message::Target> {
-        target_for_query(
-            &self.direct_notices,
-            query,
-            server,
-            source,
-            focused_buffer,
-        )
+        target_for_query(&self.direct_notices, query, server, focused_buffer)
     }
 }
 
@@ -250,7 +235,6 @@ fn target_for_query(
     reroute_rules: &HashMap<Server, Vec<RerouteRule>>,
     query: &target::Query,
     server: &Server,
-    source: &message::Source,
     focused_buffer: Option<&buffer::Upstream>,
 ) -> Option<message::Target> {
     let reroute_rule =
@@ -266,15 +250,12 @@ fn target_for_query(
             {
                 return Some(message::Target::Channel {
                     channel: channel.clone(),
-                    source: source.clone(),
                 });
             }
             Some(buffer::Upstream::Server(focused_server))
                 if focused_server == server =>
             {
-                return Some(message::Target::Server {
-                    source: source.clone(),
-                });
+                return Some(message::Target::Server);
             }
             Some(buffer::Upstream::Query(focused_server, focused_query))
                 if focused_server == server
@@ -290,10 +271,7 @@ fn target_for_query(
     Some(match &reroute_rule.to {
         RerouteTarget::Channel(channel) => message::Target::Channel {
             channel: channel.clone(),
-            source: source.clone(),
         },
-        RerouteTarget::Server => message::Target::Server {
-            source: source.clone(),
-        },
+        RerouteTarget::Server => message::Target::Server,
     })
 }
