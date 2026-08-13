@@ -507,6 +507,9 @@ pub enum History {
         flushing_messages: Vec<(Message, Option<LabeledResponseContext>)>,
         flushing_reactions: HashMap<message::Id, reaction::Pending>,
         flushing_redactions: HashMap<message::Id, redaction::Pending>,
+        flushed_messages: Vec<(Message, Option<LabeledResponseContext>)>,
+        flushed_reactions: HashMap<message::Id, reaction::Pending>,
+        flushed_redactions: HashMap<message::Id, redaction::Pending>,
     },
     Full {
         kind: Kind,
@@ -538,6 +541,9 @@ impl History {
             flushing_messages: vec![],
             flushing_reactions: HashMap::new(),
             flushing_redactions: HashMap::new(),
+            flushed_messages: vec![],
+            flushed_reactions: HashMap::new(),
+            flushed_redactions: HashMap::new(),
         }
     }
 
@@ -1086,6 +1092,9 @@ impl History {
                         flushing_messages: vec![],
                         flushing_reactions: HashMap::new(),
                         flushing_redactions: HashMap::new(),
+                        flushed_messages: vec![],
+                        flushed_reactions: HashMap::new(),
+                        flushed_redactions: HashMap::new(),
                     };
 
                     return Some(
@@ -1128,6 +1137,9 @@ impl History {
                         flushing_messages: vec![],
                         flushing_reactions: HashMap::new(),
                         flushing_redactions: HashMap::new(),
+                        flushed_messages: vec![],
+                        flushed_reactions: HashMap::new(),
+                        flushed_redactions: HashMap::new(),
                     },
                 );
 
@@ -1159,22 +1171,64 @@ impl History {
                 max_triggers_unread,
                 max_triggers_highlight,
                 chathistory_references,
-                pending_reactions,
-                pending_redactions,
+                mut pending_reactions,
+                mut pending_redactions,
+                flushing_messages,
+                flushing_reactions,
+                flushing_redactions,
+                flushed_messages,
+                flushed_reactions,
+                flushed_redactions,
                 ..
-            } => append(
-                &kind,
-                seed,
-                pending_messages,
-                read_marker,
-                max_triggers_unread,
-                max_triggers_highlight,
-                chathistory_references,
-                pending_reactions,
-                pending_redactions,
-            )
-            .await
-            .map(|_| ()),
+            } => {
+                // Data handed to an in-flight flush may not have reached
+                // disk yet (or the flush may still fail). Data from a
+                // completed flush is on disk already. Append both with
+                // forced deduplication so they are persisted exactly once.
+                let pending_messages = flushed_messages
+                    .into_iter()
+                    .chain(flushing_messages)
+                    .map(|(mut message, labeled_response_context)| {
+                        message.deduplicate = true;
+                        (message, labeled_response_context)
+                    })
+                    .chain(pending_messages)
+                    .collect();
+
+                for (id, mut flushing) in
+                    flushing_reactions.into_iter().chain(flushed_reactions)
+                {
+                    for pending_reaction in &mut flushing.reactions {
+                        pending_reaction.deduplicate = true;
+                    }
+
+                    let pending = pending_reactions.entry(id).or_default();
+                    flushing
+                        .reactions
+                        .extend(std::mem::take(&mut pending.reactions));
+                    pending.reactions = flushing.reactions;
+                }
+
+                for (id, flushing) in
+                    flushed_redactions.into_iter().chain(flushing_redactions)
+                {
+                    pending_redactions.entry(id).or_insert(flushing);
+                }
+
+                append(
+                    &kind,
+                    seed,
+                    pending_messages,
+                    read_marker,
+                    max_triggers_unread,
+                    max_triggers_highlight,
+                    chathistory_references,
+                    pending_reactions,
+                    pending_redactions,
+                )
+                .await
+                .map(|_| ())
+            }
             History::Full {
                 kind,
                 messages,
@@ -1606,9 +1660,16 @@ impl History {
                 renormalize_messages(messages.iter_mut(), seed);
             }
             History::Partial {
-                pending_messages, ..
+                pending_messages,
+                flushing_messages,
+                flushed_messages,
+                ..
             } => renormalize_messages(
-                pending_messages.iter_mut().map(|(message, _)| message),
+                pending_messages
+                    .iter_mut()
+                    .chain(flushing_messages.iter_mut())
+                    .chain(flushed_messages.iter_mut())
+                    .map(|(message, _)| message),
                 seed,
             ),
         }
@@ -1978,4 +2039,88 @@ pub enum Error {
     Io(#[from] io::Error),
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
+}
+
+#[cfg(test)]
+pub(crate) fn test_message(
+    server_time: DateTime<Utc>,
+    text: &str,
+) -> Message {
+    let isupport = HashMap::<isupport::Kind, isupport::Parameter>::new();
+    let chantypes = isupport::get_chantypes_or_default(&isupport);
+    let casemapping = isupport::get_casemapping_or_default(&isupport);
+
+    let channel = target::Channel::from_str("#test", chantypes, casemapping);
+    let user = crate::user::User::from(Nick::from_str("nick", casemapping));
+
+    let content = message::plain(text.to_string());
+    let received_at = crate::time::Posix::now();
+    let hash = message::Hash::new(&server_time, &content, &received_at);
+
+    Message {
+        received_at,
+        server_time,
+        direction: message::Direction::Received,
+        target: message::Target::Channel {
+            channel,
+            source: message::Source::User(user),
+        },
+        content,
+        id: None,
+        reply_to: None,
+        reply_preview: None,
+        hash,
+        hidden_urls: std::collections::HashSet::default(),
+        is_echo: false,
+        received_with_server_time: true,
+        blocked: false,
+        condensed: None,
+        expanded: false,
+        command: None,
+        reactions: vec![],
+        rerouted_from: None,
+        deduplicate: false,
+        redaction: None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::TimeZone;
+
+    use super::*;
+
+    #[test]
+    fn insert_message_deduplicates_flushed_data() {
+        let server_time = Utc.with_ymd_and_hms(2026, 8, 13, 12, 0, 0).unwrap();
+
+        let mut messages = vec![
+            test_message(server_time, "hello"),
+            test_message(server_time + chrono::Duration::seconds(2), "world"),
+        ];
+
+        // Flushed data already present in history merges with the stored
+        // copy instead of duplicating it
+        let mut flushed = test_message(server_time, "hello");
+        flushed.deduplicate = true;
+        insert_message(&mut messages, flushed, None);
+        assert_eq!(messages.len(), 2);
+
+        // Flushed data absent from history is inserted, sorted on server
+        // time
+        let mut missed = test_message(
+            server_time + chrono::Duration::seconds(1),
+            "missed",
+        );
+        missed.deduplicate = true;
+        insert_message(&mut messages, missed, None);
+        assert_eq!(messages.len(), 3);
+        assert_eq!(messages[1].text(), "missed");
+
+        // A live message with identical content in the same second is a
+        // genuinely new message and must not be deduplicated
+        let live = test_message(server_time, "hello");
+        insert_message(&mut messages, live, None);
+        assert_eq!(messages.len(), 4);
+    }
 }

@@ -85,12 +85,25 @@ fn source(
                 Some(History::Partial {
                     pending_messages,
                     flushing_messages,
+                    flushed_messages,
                     ..
-                }) => pending_messages
+                }) => flushing_messages
                     .iter()
-                    .chain(flushing_messages)
+                    .chain(flushed_messages)
                     .filter(|(message, _)| is_channel_message(message))
-                    .map(|(message, _)| message.clone())
+                    .map(|(message, _)| {
+                        // Mark flushing and flushed messages as deduplicated so
+                        // they don't duplicate the loaded copy.
+                        let mut message = message.clone();
+                        message.deduplicate = true;
+                        message
+                    })
+                    .chain(
+                        pending_messages
+                            .iter()
+                            .filter(|(message, _)| is_channel_message(message))
+                            .map(|(message, _)| message.clone()),
+                    )
                     .collect(),
                 _ => vec![],
             };
