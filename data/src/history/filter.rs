@@ -188,7 +188,7 @@ impl Filter {
     /// [`Message`]:crate::MessageRegex
     pub fn match_message(&self, message: &Message) -> bool {
         match &self.target {
-            FilterTarget::User(user) => match &message.target.source() {
+            FilterTarget::User(user) => match &message.source {
                 Source::Action(Some(msg_user)) | Source::User(msg_user) => {
                     msg_user.nickname() == user.nickname()
                 }
@@ -204,7 +204,7 @@ impl Filter {
                 }
                 _ => false,
             },
-            FilterTarget::UserRegex(regex) => match &message.target.source() {
+            FilterTarget::UserRegex(regex) => match &message.source {
                 Source::Action(Some(msg_user)) | Source::User(msg_user) => {
                     regex
                         .is_match(msg_user.as_str())
@@ -340,6 +340,7 @@ impl Filter {
     }
 }
 
+#[derive(Copy)]
 pub struct FilterChain<'f> {
     filters: &'f [Filter],
 }
@@ -364,17 +365,17 @@ impl<'f> FilterChain<'f> {
         self.filters.iter().any(|f| f.match_query(query, server))
     }
 
-    pub fn filter_message_of_kind(&self, message: &mut Message, kind: &Kind) {
-        message.blocked = self
-            .filters
+    pub fn filter_message_of_kind(
+        &self,
+        message: &Message,
+        kind: &Kind,
+    ) -> bool {
+        self.filters
             .iter()
             .filter(|f| {
-                if let message::Target::Highlights {
-                    server, channel, ..
-                }
-                | message::Target::ChannelMonitor {
-                    server, channel, ..
-                } = &message.target
+                if let message::Target::Highlights { server, channel }
+                | message::Target::ChannelMonitor { server, channel } =
+                    &message.target
                 {
                     f.match_kind(&Kind::Channel(
                         server.clone(),
@@ -384,7 +385,7 @@ impl<'f> FilterChain<'f> {
                     f.match_kind(kind)
                 }
             })
-            .any(|f| f.match_message(message));
+            .any(|f| f.match_message(message))
     }
 
     pub fn sync_isupport(

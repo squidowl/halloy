@@ -1,34 +1,38 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::io;
 use std::time::Duration;
-use std::{fmt, io};
 
 use chrono::{DateTime, Utc};
 use futures::FutureExt;
 use futures::future::BoxFuture;
-use tokio::fs;
+use serde::{Deserialize, Serialize};
 use tokio::time::Instant;
 
+pub use self::kind::Kind;
 pub use self::manager::{
     EchoEvent, Manager, ReactionToEcho, ReplyToEcho, Resource,
 };
 pub use self::metadata::{Metadata, ReadMarker};
+pub use self::model::Model;
+pub use self::storage::Storage;
 use crate::capabilities::LabeledResponseContext;
-use crate::message::{self, Direction, MessageReferences, Source};
+use crate::message::{self, Direction, MessageReferences};
 use crate::reaction::Reaction;
 use crate::redaction::Redaction;
-use crate::target::{self, Target};
+use crate::target::Target;
 use crate::user::Nick;
 use crate::{
-    Buffer, Message, Server, buffer, compression, config, environment,
-    isupport, reaction, redaction,
+    Message, Server, compression, config, isupport, reaction, redaction,
 };
 
 pub mod filter;
+mod kind;
 pub mod manager;
 pub mod metadata;
+pub mod model;
 pub mod reroute;
+pub mod storage;
 
 // TODO: Make this configurable?
 /// Max # messages to persist
@@ -40,171 +44,16 @@ const FLUSH_AFTER_LAST_RECEIVED: Duration = Duration::from_secs(5);
 /// # new messages to trigger flush even if FLUSH_AFTER_LAST_RECEIVED has not passed
 const FLUSH_COUNT: usize = 1000;
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum Id {
+    #[default]
+    Undetermined,
+    Determined(u64),
+}
+
 pub(crate) fn truncate_messages(messages: &mut Vec<Message>) {
     if messages.len() > MAX_MESSAGES {
         messages.drain(0..messages.len() - (MAX_MESSAGES - TRUNC_COUNT));
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Kind {
-    Server(Server),
-    Channel(Server, target::Channel),
-    Query(Server, target::Query),
-    Logs,
-    Highlights,
-    ChannelMonitor,
-}
-
-impl Kind {
-    pub fn from_target(server: Server, target: Target) -> Self {
-        match target {
-            Target::Channel(channel) => Self::Channel(server, channel),
-            Target::Query(query) => Self::Query(server, query),
-        }
-    }
-
-    pub fn from_str(
-        server: Server,
-        chantypes: &[char],
-        statusmsg: &[char],
-        casemapping: isupport::CaseMap,
-        target: &str,
-    ) -> Self {
-        Self::from_target(
-            server,
-            Target::parse(target, chantypes, statusmsg, casemapping),
-        )
-    }
-
-    pub fn from_input_buffer(buffer: buffer::Upstream) -> Self {
-        match buffer {
-            buffer::Upstream::Server(server) => Self::Server(server),
-            buffer::Upstream::Channel(server, channel) => {
-                Self::Channel(server, channel)
-            }
-            buffer::Upstream::Query(server, nick) => Self::Query(server, nick),
-        }
-    }
-
-    pub fn from_server_message(
-        server: &Server,
-        message: &Message,
-    ) -> Option<Self> {
-        Self::from_server_message_target(server, &message.target)
-    }
-
-    pub fn from_server_message_rerouted_from(
-        server: &Server,
-        message: &Message,
-    ) -> Option<Self> {
-        message.rerouted_from.as_ref().and_then(|rerouted_from| {
-            Self::from_server_message_target(server, rerouted_from)
-        })
-    }
-
-    fn from_server_message_target(
-        server: &Server,
-        target: &message::Target,
-    ) -> Option<Self> {
-        match target {
-            message::Target::Server { .. } => {
-                Some(Self::Server(server.clone()))
-            }
-            message::Target::Channel { channel, .. } => {
-                Some(Self::Channel(server.clone(), channel.clone()))
-            }
-            message::Target::Query { query, .. } => {
-                Some(Self::Query(server.clone(), query.clone()))
-            }
-            message::Target::Logs { .. } => None,
-            message::Target::Highlights { .. } => None,
-            message::Target::ChannelMonitor { .. } => None,
-        }
-    }
-
-    pub fn from_buffer(buffer: Buffer) -> Option<Self> {
-        match buffer {
-            Buffer::Upstream(buffer::Upstream::Server(server)) => {
-                Some(Kind::Server(server))
-            }
-            Buffer::Upstream(buffer::Upstream::Channel(server, channel)) => {
-                Some(Kind::Channel(server, channel))
-            }
-            Buffer::Upstream(buffer::Upstream::Query(server, nick)) => {
-                Some(Kind::Query(server, nick))
-            }
-            Buffer::Internal(buffer::Internal::Logs) => Some(Kind::Logs),
-            Buffer::Internal(buffer::Internal::Highlights) => {
-                Some(Kind::Highlights)
-            }
-            Buffer::Internal(buffer::Internal::FileTransfers) => None,
-            Buffer::Internal(buffer::Internal::ChannelMonitor) => {
-                Some(Kind::ChannelMonitor)
-            }
-            Buffer::Internal(buffer::Internal::ChannelDiscovery(_)) => None,
-            Buffer::Internal(buffer::Internal::ConfigEditor) => None,
-        }
-    }
-}
-
-impl Kind {
-    pub fn server(&self) -> Option<&Server> {
-        match self {
-            Kind::Server(server) => Some(server),
-            Kind::Channel(server, _) => Some(server),
-            Kind::Query(server, _) => Some(server),
-            Kind::Logs => None,
-            Kind::Highlights => None,
-            Kind::ChannelMonitor => None,
-        }
-    }
-
-    pub fn target(&self) -> Option<Target> {
-        match self {
-            Kind::Server(_) => None,
-            Kind::Channel(_, channel) => Some(Target::Channel(channel.clone())),
-            Kind::Query(_, nick) => Some(Target::Query(nick.clone())),
-            Kind::Logs => None,
-            Kind::Highlights => None,
-            Kind::ChannelMonitor => None,
-        }
-    }
-}
-
-impl fmt::Display for Kind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Kind::Server(server) => write!(f, "server on {server}"),
-            Kind::Channel(server, channel) => {
-                write!(f, "channel {channel} on {server}")
-            }
-            Kind::Query(server, nick) => write!(f, "user {nick} on {server}"),
-            Kind::Logs => write!(f, "logs"),
-            Kind::Highlights => write!(f, "highlights"),
-            Kind::ChannelMonitor => write!(f, "channel monitor"),
-        }
-    }
-}
-
-impl From<Kind> for Buffer {
-    fn from(kind: Kind) -> Self {
-        match kind {
-            Kind::Server(server) => {
-                Buffer::Upstream(buffer::Upstream::Server(server))
-            }
-            Kind::Channel(server, channel) => {
-                Buffer::Upstream(buffer::Upstream::Channel(server, channel))
-            }
-            Kind::Query(server, nick) => {
-                Buffer::Upstream(buffer::Upstream::Query(server, nick))
-            }
-            Kind::Logs => Buffer::Internal(buffer::Internal::Logs),
-            Kind::Highlights => Buffer::Internal(buffer::Internal::Highlights),
-            Kind::ChannelMonitor => {
-                Buffer::Internal(buffer::Internal::ChannelMonitor)
-            }
-        }
     }
 }
 
@@ -217,22 +66,6 @@ pub struct Loaded {
 pub enum Seed {
     Single(isupport::CaseMap),
     Multiple(HashMap<Server, isupport::CaseMap>),
-}
-
-pub async fn load(kind: Kind, seed: Option<Seed>) -> Result<Loaded, Error> {
-    let path = path(&kind).await?;
-
-    let mut messages = read_all(&path).await.unwrap_or_default();
-
-    if let Some(seed) = seed {
-        // TODO: Utilize DeserializeSeed (or equivalent) so proper normalization
-        // happens inside read_all, rather than having to renormalize afterward
-        renormalize_messages(messages.iter_mut(), seed);
-    }
-
-    let metadata = metadata::load(kind).await.unwrap_or_default();
-
-    Ok(Loaded { messages, metadata })
 }
 
 fn renormalize_messages<'a>(
@@ -390,67 +223,6 @@ pub async fn append(
     .await?;
 
     Ok(echo_events)
-}
-
-async fn write_messages<'a>(
-    kind: &Kind,
-    messages: &'a [Message],
-) -> Result<&'a [Message], Error> {
-    let latest_messages =
-        &messages[messages.len().saturating_sub(MAX_MESSAGES)..];
-
-    let path = path(kind).await?;
-    let compressed = compression::compress(&latest_messages)?;
-
-    fs::write(path, &compressed).await?;
-
-    Ok(latest_messages)
-}
-
-pub async fn delete(kind: &Kind) -> Result<(), Error> {
-    let path = path(kind).await?;
-
-    fs::remove_file(path).await?;
-
-    Ok(())
-}
-
-async fn read_all(path: &PathBuf) -> Result<Vec<Message>, Error> {
-    let bytes = fs::read(path).await?;
-    Ok(compression::decompress(&bytes)?)
-}
-
-pub async fn dir_path() -> Result<PathBuf, Error> {
-    let data_dir = environment::data_dir();
-
-    let history_dir = data_dir.join("history");
-
-    if !history_dir.exists() {
-        fs::create_dir_all(&history_dir).await?;
-    }
-
-    Ok(history_dir)
-}
-
-async fn path(kind: &Kind) -> Result<PathBuf, Error> {
-    let dir = dir_path().await?;
-
-    let name = match kind {
-        Kind::Server(server) => format!("{server:b}"),
-        Kind::Channel(server, channel) => {
-            format!("{server:b}channel{}", channel.as_normalized_str())
-        }
-        Kind::Query(server, query) => {
-            format!("{server:b}nickname{}", query.as_normalized_str())
-        }
-        Kind::Logs => "logs".to_string(),
-        Kind::Highlights => "highlights".to_string(),
-        Kind::ChannelMonitor => "channel_monitor".to_string(),
-    };
-
-    let hashed_name = seahash::hash(name.as_bytes());
-
-    Ok(dir.join(format!("{hashed_name}.json.gz")))
 }
 
 #[derive(Debug)]
@@ -740,14 +512,14 @@ impl History {
     fn remove_message(
         &mut self,
         server_time: DateTime<Utc>,
-        hash: message::Hash,
+        history_id: Id,
     ) -> Option<Message> {
         match self {
             History::Partial {
                 pending_messages, ..
             } => pending_messages
                 .iter()
-                .position(|(message, _)| message.hash == hash)
+                .position(|(message, _)| message.history_id == history_id)
                 .map(|index| {
                     let (message, _) = pending_messages.remove(index);
                     message
@@ -777,7 +549,7 @@ impl History {
 
                 messages[start_index..end_index]
                     .iter()
-                    .position(|message| message.hash == hash)
+                    .position(|message| message.history_id == history_id)
                     .map(|slice_index| {
                         messages.remove(start_index + slice_index)
                     })
@@ -790,7 +562,7 @@ impl History {
     fn get_expansion_messages(
         &mut self,
         server_time: DateTime<Utc>,
-        hash: message::Hash,
+        history_id: Id,
         config: &config::buffer::Condensation,
     ) -> Vec<&mut Message> {
         match self {
@@ -822,7 +594,7 @@ impl History {
                     .iter()
                     .enumerate()
                     .find_map(|(slice_index, message)| {
-                        (message.hash == hash)
+                        (message.history_id == history_id)
                             .then_some(start_index + slice_index)
                     })
                 {
@@ -1376,14 +1148,14 @@ impl History {
         }
     }
 
-    pub fn hide_preview(&mut self, message: message::Hash, url: url::Url) {
+    pub fn hide_preview(&mut self, history_id: Id, url: url::Url) {
         if let Self::Full {
             messages,
             last_updated_at,
             ..
         } = self
             && let Some(message) =
-                messages.iter_mut().find(|m| m.hash == message)
+                messages.iter_mut().find(|m| m.history_id == history_id)
         {
             message.hidden_urls.insert(url);
 
@@ -1391,14 +1163,14 @@ impl History {
         }
     }
 
-    pub fn show_preview(&mut self, message: message::Hash, url: &url::Url) {
+    pub fn show_preview(&mut self, history_id: Id, url: &url::Url) {
         if let Self::Full {
             messages,
             last_updated_at,
             ..
         } = self
             && let Some(message) =
-                messages.iter_mut().find(|m| m.hash == message)
+                messages.iter_mut().find(|m| m.history_id == history_id)
         {
             message.hidden_urls.remove(url);
 
@@ -1573,16 +1345,25 @@ impl History {
     }
 }
 
-/// Insert the incoming message into the provided vector, sorted
-/// on server time
+/// Insert the incoming message into the provided vector, sorted on server
+/// time.
 ///
-/// Deduplication is only checked +/- 1 second around the server time
-/// of the incoming message. Either message IDs match, or server times
-/// have an exact match + target & content.
+/// Deduplication is peformed for:
+///  - Messages that the server has marked as historical (e.g. chathistory or
+///    ZNC-playback)
+///  - Messages with an exact ID match
+///  - Echoes (labeled via labeled-response, or unlabeled)
+/// For non-echoes a search window of +/- 1 second around the server time of the
+/// incoming message is used.  For labeled echoes the exact time should be
+/// either be stored locally, or the message was sent from another client.  For
+/// unlabled echoes a search window of +/- 300s is used to account for transit
+/// time and potential clock skew. For matching methods that do not have an
+/// identifier (i.e. when matching historical messages without an ID or unlabled
+/// echoes) the messages must have an exact match + target & / content.
 ///
-/// A non-None return value indicates whether a message sent from / this client
-/// was replaced by an echo (and the replacement's server_time corresponds to
-/// the ReadMarker)
+/// A non-None return value indicates a message sent from this client was was
+/// replaced by an echo (and the replacement's server_time corresponds to the
+/// ReadMarker).
 pub fn insert_message(
     messages: &mut Vec<Message>,
     message: Message,
@@ -1740,7 +1521,7 @@ fn has_matching_content(
     use_echo_cmp: bool,
 ) -> bool {
     if message.target == other.target {
-        if let message::Source::Server(Some(source)) = message.target.source() {
+        if let message::Source::Server(Some(source)) = &message.source {
             match source.kind() {
                 message::source::server::Kind::Join
                 | message::source::server::Kind::Part
@@ -1809,33 +1590,6 @@ pub fn insert_reaction(
     } else {
         reactions.push(reaction);
     }
-}
-
-pub fn update_last_seen(
-    last_seen: &mut HashMap<Nick, DateTime<Utc>>,
-    message: &Message,
-) {
-    if let Source::User(user) = message.target.source() {
-        let nickname = user.nickname().to_owned();
-
-        if let Some(date_time) = last_seen.get_mut(&nickname) {
-            if message.server_time > *date_time {
-                *date_time = message.server_time;
-            }
-        } else {
-            last_seen.insert(nickname, message.server_time);
-        }
-    }
-}
-
-pub fn get_last_seen(messages: &[Message]) -> HashMap<Nick, DateTime<Utc>> {
-    let mut last_seen = HashMap::new();
-
-    messages.iter().for_each(|message| {
-        update_last_seen(&mut last_seen, message);
-    });
-
-    last_seen
 }
 
 pub fn find_message_by_hash<'a>(
@@ -1936,4 +1690,50 @@ pub enum Error {
     Io(#[from] io::Error),
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
+}
+
+pub fn smart_filter_message(
+    message: &crate::Message,
+    seconds: &i64,
+    last_seen_server_time: Option<&DateTime<Utc>>,
+) -> bool {
+    let Some(server_time) = last_seen_server_time else {
+        return true;
+    };
+
+    let duration_seconds = message
+        .server_time
+        .signed_duration_since(*server_time)
+        .num_seconds();
+
+    duration_seconds > *seconds
+}
+
+pub fn smart_filter_repeat(
+    message: &crate::Message,
+    seconds: &i64,
+    last_seen_server_time: Option<&DateTime<Utc>>,
+) -> bool {
+    let Some(server_time) = last_seen_server_time else {
+        return false;
+    };
+
+    let duration_seconds = message
+        .server_time
+        .signed_duration_since(*server_time)
+        .num_seconds();
+
+    duration_seconds <= *seconds
+}
+
+pub fn smart_filter_internal_message(
+    message: &message::Message,
+    seconds: &i64,
+    current_time: &DateTime<Utc>,
+) -> bool {
+    let duration_seconds = current_time
+        .signed_duration_since(message.server_time)
+        .num_seconds();
+
+    duration_seconds > *seconds
 }

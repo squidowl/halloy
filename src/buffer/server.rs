@@ -124,7 +124,7 @@ pub fn view<'a>(
                         .map(scroll_view::Message::ContextMenu)
                     });
 
-                match message.target.source() {
+                match &message.source {
                     message::Source::Server(server) => {
                         let text_content = message_content(
                             &message.content,

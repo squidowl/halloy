@@ -31,13 +31,13 @@ pub struct UserContext<'a> {
     pub user: &'a User,
     pub current_user: Option<&'a User>,
     pub relayed_by: Option<&'a Nick>,
-    pub message: Option<&'a message::Message>,
+    pub message: Option<&'a message::MessageDisplay>,
 }
 
 #[derive(Clone)]
 pub struct UrlContext<'a> {
     pub url: &'a str,
-    pub message: Option<&'a message::Message>,
+    pub message: Option<&'a message::MessageDisplay>,
 }
 
 #[derive(Clone)]
@@ -45,7 +45,7 @@ pub struct ChannelContext<'a> {
     pub server: &'a Server,
     pub channel: &'a target::Channel,
     pub is_open: bool,
-    pub message: Option<&'a message::Message>,
+    pub message: Option<&'a message::MessageDisplay>,
 }
 
 pub trait ChannelsContext {
@@ -67,7 +67,7 @@ pub trait ChannelsContext {
         &'a self,
         server: &'a Server,
         channel: &'a target::Channel,
-        message: Option<&'a message::Message>,
+        message: Option<&'a message::MessageDisplay>,
     ) -> ChannelContext<'a> {
         ChannelContext {
             server,
@@ -85,7 +85,9 @@ pub enum Context<'a> {
     Channel(ChannelContext<'a>),
     Timestamp(&'a DateTime<Utc>),
     NotSentMessage(&'a DateTime<Utc>, &'a message::Hash),
-    Message { message: &'a message::Message },
+    Message {
+        message: &'a message::MessageDisplay,
+    },
 }
 
 impl<'a> Context<'a> {
@@ -990,7 +992,7 @@ pub fn update(message: Message) -> Option<Event> {
 
 pub fn message<'a, M>(
     content: impl Into<Element<'a, M>>,
-    message: &'a message::Message,
+    message: &'a message::MessageDisplay,
     can_send_replies: bool,
     can_send_reactions: bool,
     can_redact: bool,
@@ -1000,7 +1002,7 @@ pub fn message<'a, M>(
 where
     M: From<Message> + 'a,
 {
-    if matches!(message.target.source(), message::Source::Internal(_)) {
+    if matches!(message.source, message::Source::Internal(_)) {
         return content.into();
     }
 
@@ -1039,7 +1041,7 @@ where
 pub fn preview<'a, M>(
     content: impl Into<Element<'a, M>>,
     url: &'a str,
-    message: &'a message::Message,
+    message: &'a message::MessageDisplay,
     append_entries: Vec<Entry>,
     config: &'a Config,
     theme: &'a Theme,

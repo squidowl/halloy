@@ -123,15 +123,14 @@ impl Irc {
         reroute_rules: &RerouteRules,
         focused_buffer: Option<&buffer::Upstream>,
     ) -> Option<Vec<Message>> {
-        let to_message_target = |target: &str, source| {
+        let to_message_target = |target: &str| {
             if target == "*" {
-                return message::Target::Server { source };
+                return message::Target::Server;
             }
 
             if target.starts_with('$') {
                 message::Target::Query {
                     query: target::Query::from(user.clone()),
-                    source,
                 }
             } else {
                 let target =
@@ -140,12 +139,10 @@ impl Irc {
                 match &target {
                     Target::Channel(channel) => message::Target::Channel {
                         channel: channel.clone(),
-                        source,
                     },
 
                     Target::Query(query) => message::Target::Query {
                         query: query.clone(),
-                        source,
                     },
                 }
             }
@@ -156,10 +153,7 @@ impl Irc {
                 targets
                     .split(',')
                     .map(|target| {
-                        let message_target = to_message_target(
-                            target,
-                            message::Source::User(user.clone()),
-                        );
+                        let message_target = to_message_target(target);
 
                         let message_target =
                             message::reroute_private_message_target(
@@ -171,6 +165,7 @@ impl Irc {
                             .unwrap_or(message_target);
 
                         Message::sent(
+                            message::Source::User(user.clone()),
                             message_target,
                             message::parse_fragments_with_users(
                                 text.clone(),
@@ -189,10 +184,7 @@ impl Irc {
                 targets
                     .split(',')
                     .map(|target| {
-                        let message_target = to_message_target(
-                            target,
-                            message::Source::User(user.clone()),
-                        );
+                        let message_target = to_message_target(target);
 
                         let message_target =
                             message::reroute_private_notice_target(
@@ -204,6 +196,7 @@ impl Irc {
                             .unwrap_or(message_target);
 
                         Message::sent(
+                            message::Source::User(user.clone()),
                             message_target,
                             message::parse_fragments_with_users(
                                 text.clone(),
@@ -219,10 +212,7 @@ impl Irc {
                     .collect(),
             ),
             Irc::Me(target, action) => {
-                let message_target = to_message_target(
-                    target,
-                    message::Source::Action(Some(user.clone())),
-                );
+                let message_target = to_message_target(target);
 
                 let message_target = message::reroute_private_message_target(
                     &message_target,
@@ -233,6 +223,7 @@ impl Irc {
                 .unwrap_or(message_target);
 
                 Some(vec![Message::sent(
+                    message::Source::Action(Some(user.clone())),
                     message_target,
                     message::action_text(
                         &user,

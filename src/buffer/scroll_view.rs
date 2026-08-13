@@ -242,7 +242,7 @@ fn has_visible_preview(
                 {
                     let is_visible_for_source =
                         if let Some(visible_for_source) = visible_for_source {
-                            visible_for_source(preview, message.target.source())
+                            visible_for_source(preview, &message.source)
                         } else {
                             true
                         };
@@ -263,14 +263,13 @@ fn is_consecutive_user_message(
     duration: Option<chrono::TimeDelta>,
     config: &Config,
 ) -> bool {
-    matches!(message.target.source(), message::Source::User(_))
+    matches!(message.source, message::Source::User(_))
         && prev_message.is_some_and(|prev_message| {
             if duration.is_none_or(|duration| {
                 message.server_time - prev_message.server_time < duration
             }) && message.is_rerouted() == prev_message.is_rerouted()
-                && let message::Source::User(user) = message.target.source()
-                && let message::Source::User(prev_user) =
-                    prev_message.target.source()
+                && let message::Source::User(user) = &message.source
+                && let message::Source::User(prev_user) = &prev_message.source
             {
                 user.has_matching_display(
                     prev_user,
@@ -456,7 +455,7 @@ pub fn view<'a>(
                 .fold(0.0, f32::max);
 
             let max_nick_width = alignment_messages()
-                .filter_map(|message| match message.target.source() {
+                .filter_map(|message| match &message.source {
                     message::Source::User(user) => {
                         let user_display = UserDisplay::new(
                             user,
@@ -492,7 +491,7 @@ pub fn view<'a>(
                                 message::source::Internal::Condensed(
                                     end_server_time,
                                 ),
-                            ) = message.target.source()
+                            ) = &message.source
                                 && message.server_time != *end_server_time
                             {
                                 config
@@ -1810,7 +1809,7 @@ impl State {
 
     pub fn scroll_to_message(
         &mut self,
-        message: message::Hash,
+        history_id: history::Id,
         kind: Kind,
         history: &history::Manager,
         config: &Config,

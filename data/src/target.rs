@@ -250,10 +250,8 @@ impl TryFrom<message::Target> for Target {
 
     fn try_from(target: message::Target) -> Result<Self, Self::Error> {
         Ok(match target {
-            message::Target::Channel { channel, source: _ } => {
-                Target::Channel(channel)
-            }
-            message::Target::Query { query, source: _ } => Target::Query(query),
+            message::Target::Channel { channel } => Target::Channel(channel),
+            message::Target::Query { query } => Target::Query(query),
             _ => return Err(()),
         })
     }

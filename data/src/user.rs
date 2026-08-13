@@ -736,6 +736,12 @@ impl PartialEq<Nick> for NickRef<'_> {
     }
 }
 
+impl PartialEq<NickRef<'_>> for Nick {
+    fn eq(&self, other: &NickRef<'_>) -> bool {
+        self.normalized.eq(other.normalized)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AccessLevel {
     Member,

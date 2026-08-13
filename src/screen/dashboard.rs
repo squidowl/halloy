@@ -6,16 +6,17 @@ use std::time::{Duration, Instant};
 use std::{convert, slice};
 
 use chrono::{DateTime, Utc};
+use data::buffer::BuffersContext;
 use data::capabilities::{
     LabeledResponseContext, MultilineBatchKind, multiline_concat_lines,
 };
 use data::config::buffer::{ScrollPosition, UsernameFormat};
 use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
-use data::history::ReadMarker;
 use data::history::filter::Filter;
 use data::history::manager::EchoEvent;
 use data::history::reroute::RerouteRules;
+use data::history::{self, ReadMarker, model};
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::message::{self, Broadcast};
 use data::rate_limit::TokenPriority;
@@ -23,8 +24,8 @@ use data::target::{self, Target};
 use data::user::Nick;
 use data::{
     Config, Image, Notification, Server, User, Version, cache, client, command,
-    config, environment, file_transfer, history, preview, reaction, redaction,
-    server, server_icon, stream,
+    config, environment, file_transfer, preview, reaction, redaction, server,
+    server_icon, stream,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{Space, center, column, container, row, stack, text};
@@ -62,7 +63,7 @@ pub struct Dashboard {
     focus: Focus,
     focus_history: VecDeque<pane_grid::Pane>,
     side_menu: Sidebar,
-    history: history::Manager,
+    history: model::Manager,
     last_changed: Option<Instant>,
     command_bar: Option<CommandBar>,
     command_bar_window: Option<window::Id>,
@@ -82,7 +83,7 @@ pub enum Message {
     Pane(window::Id, pane::Message),
     Sidebar(sidebar::Message),
     SelectedText(Vec<(RangeInclusive<f32>, String)>, clipboard::ClipboardKind),
-    History(history::manager::Message),
+    History(model::Message),
     DashboardSaved(Result<(), data::dashboard::Error>),
     Task(command_bar::Message),
     Shortcut(shortcut::Command),
@@ -148,7 +149,7 @@ impl Dashboard {
             },
             focus_history: VecDeque::new(),
             side_menu: sidebar,
-            history: history::Manager::default(),
+            history: model::Manager::default(),
             last_changed: None,
             command_bar: None,
             command_bar_window: None,
@@ -2318,10 +2319,10 @@ impl Dashboard {
                         server_time,
                         hash,
                     ) => {
-                        if let Some(kind) =
-                            pane.buffer.upstream().map(|buffer| {
-                                history::Kind::from_input_buffer(buffer.clone())
-                            })
+                        if let Some(kind) = pane
+                            .buffer
+                            .upstream()
+                            .map(|buffer| history::Kind::from(buffer.clone()))
                             && let Some(future) = self.history.remove_message(
                                 kind,
                                 server_time,
@@ -2340,10 +2341,10 @@ impl Dashboard {
                         server_time,
                         hash,
                     ) => {
-                        if let Some(kind) =
-                            pane.buffer.upstream().map(|buffer| {
-                                history::Kind::from_input_buffer(buffer.clone())
-                            })
+                        if let Some(kind) = pane
+                            .buffer
+                            .upstream()
+                            .map(|buffer| history::Kind::from(buffer.clone()))
                             && let Some(future) = self.history.remove_message(
                                 kind,
                                 server_time,
@@ -2416,10 +2417,10 @@ impl Dashboard {
                         server_time,
                         hash,
                     ) => {
-                        if let Some(kind) =
-                            pane.buffer.upstream().map(|buffer| {
-                                history::Kind::from_input_buffer(buffer.clone())
-                            })
+                        if let Some(kind) = pane
+                            .buffer
+                            .upstream()
+                            .map(|buffer| history::Kind::from(buffer.clone()))
                         {
                             self.history.expand_message(
                                 kind,
@@ -2435,10 +2436,10 @@ impl Dashboard {
                         server_time,
                         hash,
                     ) => {
-                        if let Some(kind) =
-                            pane.buffer.upstream().map(|buffer| {
-                                history::Kind::from_input_buffer(buffer.clone())
-                            })
+                        if let Some(kind) = pane
+                            .buffer
+                            .upstream()
+                            .map(|buffer| history::Kind::from(buffer.clone()))
                         {
                             self.history.contract_message(
                                 kind,
@@ -3628,29 +3629,6 @@ impl Dashboard {
         }
     }
 
-    pub fn record_message(
-        &mut self,
-        server: &Server,
-        casemapping: isupport::CaseMap,
-        message: data::Message,
-        labeled_response_context: Option<LabeledResponseContext>,
-        config: &Config,
-    ) -> Task<Message> {
-        let tasks = self.history.record_message(
-            server,
-            casemapping,
-            message,
-            labeled_response_context,
-            config,
-        );
-
-        Task::batch(
-            tasks
-                .into_iter()
-                .map(|task| Task::perform(task, Message::History)),
-        )
-    }
-
     pub fn resend_message(
         &mut self,
         clients: &mut client::Map,
@@ -3796,26 +3774,6 @@ impl Dashboard {
             })
     }
 
-    pub fn record_reaction(
-        &mut self,
-        server: &Server,
-        reaction: reaction::Context,
-        notification_enabled: bool,
-        labeled_response_context: Option<LabeledResponseContext>,
-    ) -> Task<Message> {
-        let future = self.history.record_reaction(
-            server,
-            reaction,
-            notification_enabled,
-            labeled_response_context,
-        );
-        if let Some(f) = future {
-            Task::perform(f, Message::History)
-        } else {
-            Task::none()
-        }
-    }
-
     pub fn redact_message(
         &mut self,
         server: &Server,
@@ -3824,68 +3782,6 @@ impl Dashboard {
     ) {
         self.history
             .redact_message(server, redaction, display_redacted);
-    }
-
-    pub fn is_focused_and_at_bottom(&self, kind: &history::Kind) -> bool {
-        let Some((kind_window, kind_pane)) =
-            self.panes.iter().find_map(|(window, _, state)| {
-                state
-                    .buffer
-                    .data()
-                    .and_then(history::Kind::from_buffer)
-                    .is_some_and(|pane_kind| pane_kind == *kind)
-                    .then_some((window, state))
-            })
-        else {
-            return false;
-        };
-
-        if kind_pane
-            .buffer
-            .is_scrolled_to_bottom()
-            .is_none_or(|is_scrolled_to_bottom| !is_scrolled_to_bottom)
-        {
-            return false;
-        }
-
-        self.get_focused()
-            .is_some_and(|(focused_window, _, focused_pane)| {
-                let is_focused_window = kind_window == focused_window;
-
-                let focused_kind = focused_pane
-                    .buffer
-                    .data()
-                    .and_then(history::Kind::from_buffer);
-                let is_focused_pane = focused_kind.as_ref() == Some(kind);
-
-                is_focused_window && is_focused_pane
-            })
-    }
-
-    pub fn is_open_and_at_bottom(&self, kind: &history::Kind) -> bool {
-        let Some((kind_window, kind_pane)) =
-            self.panes.iter_visible().find_map(|(window, _, state)| {
-                state
-                    .buffer
-                    .data()
-                    .and_then(history::Kind::from_buffer)
-                    .is_some_and(|pane_kind| pane_kind == *kind)
-                    .then_some((window, state))
-            })
-        else {
-            return false;
-        };
-
-        if kind_pane
-            .buffer
-            .is_scrolled_to_bottom()
-            .is_none_or(|is_scrolled_to_bottom| !is_scrolled_to_bottom)
-        {
-            return false;
-        }
-
-        self.get_focused()
-            .is_some_and(|(focused_window, _, _)| kind_window == focused_window)
     }
 
     pub fn block_and_record_message(
@@ -4192,11 +4088,6 @@ impl Dashboard {
         self.panes
             .get(window, pane)
             .map(|state| (window, pane, state))
-    }
-
-    pub fn focused_upstream_buffer(&self) -> Option<&data::buffer::Upstream> {
-        self.get_focused()
-            .and_then(|(_, _, pane)| pane.buffer.upstream())
     }
 
     fn get_focused_mut(
@@ -4579,14 +4470,6 @@ impl Dashboard {
         if !self.has_typing_activity(clients) {
             self.typing_animation = None;
         }
-
-        let history_ticks = Task::batch(
-            self.history
-                .tick(now.into(), clients)
-                .into_iter()
-                .map(|task| Task::perform(task, Message::History))
-                .collect::<Vec<_>>(),
-        );
 
         let draft_save = config
             .buffer
@@ -5853,4 +5736,117 @@ fn preview_cache(config: &config::Preview) -> cache::FileCache {
         config.request.image_cache.max_size_bytes(),
         config.request.image_cache.trim_interval,
     )
+}
+
+impl BuffersContext for Dashboard {
+    fn is_focused(&self, kind: &history::Kind) -> bool {
+        let Some((kind_window, kind_pane)) =
+            self.panes.iter().find_map(|(window, _, state)| {
+                state
+                    .buffer
+                    .data()
+                    .and_then(history::Kind::from_buffer)
+                    .is_some_and(|pane_kind| pane_kind == *kind)
+                    .then_some((window, state))
+            })
+        else {
+            return false;
+        };
+
+        self.panes.iter().any(|(window, _, state)| {
+            state
+                .buffer
+                .data()
+                .and_then(history::Kind::from_buffer)
+                .is_some_and(|pane_kind| pane_kind == *kind)
+        })
+    }
+
+    fn is_focused_and_at_bottom(&self, kind: &history::Kind) -> bool {
+        let Some((kind_window, kind_pane)) =
+            self.panes.iter().find_map(|(window, _, state)| {
+                state
+                    .buffer
+                    .data()
+                    .and_then(history::Kind::from_buffer)
+                    .is_some_and(|pane_kind| pane_kind == *kind)
+                    .then_some((window, state))
+            })
+        else {
+            return false;
+        };
+
+        if kind_pane
+            .buffer
+            .is_scrolled_to_bottom()
+            .is_none_or(|is_scrolled_to_bottom| !is_scrolled_to_bottom)
+        {
+            return false;
+        }
+
+        self.get_focused()
+            .is_some_and(|(focused_window, _, focused_pane)| {
+                let is_focused_window = kind_window == focused_window;
+
+                let focused_kind = focused_pane
+                    .buffer
+                    .data()
+                    .and_then(history::Kind::from_buffer);
+                let is_focused_pane = focused_kind.as_ref() == Some(kind);
+
+                is_focused_window && is_focused_pane
+            })
+    }
+
+    fn is_open_in_focused_window(&self, kind: &history::Kind) -> bool {
+        let Some(kind_window) =
+            self.panes.iter_visible().find_map(|(window, _, state)| {
+                state
+                    .buffer
+                    .data()
+                    .and_then(history::Kind::from_buffer)
+                    .is_some_and(|pane_kind| pane_kind == *kind)
+                    .then_some(window)
+            })
+        else {
+            return false;
+        };
+
+        self.get_focused()
+            .is_some_and(|(focused_window, _, _)| kind_window == focused_window)
+    }
+
+    fn is_open_and_at_bottom_in_focused_window(
+        &self,
+        kind: &history::Kind,
+    ) -> bool {
+        let Some((kind_window, kind_pane)) =
+            self.panes.iter_visible().find_map(|(window, _, state)| {
+                state
+                    .buffer
+                    .data()
+                    .and_then(history::Kind::from_buffer)
+                    .is_some_and(|pane_kind| pane_kind == *kind)
+                    .then_some((window, state))
+            })
+        else {
+            return false;
+        };
+
+        if kind_pane
+            .buffer
+            .is_scrolled_to_bottom()
+            .is_none_or(|is_scrolled_to_bottom| !is_scrolled_to_bottom)
+        {
+            return false;
+        }
+
+        self.get_focused()
+            .is_some_and(|(focused_window, _, _)| kind_window == focused_window)
+    }
+
+    fn focused_upstream_buffer(&self) -> Option<&data::buffer::Upstream> {
+        self.get_focused()
+            .and_then(|(_, _, pane)| pane.buffer.upstream())
+    }
 }

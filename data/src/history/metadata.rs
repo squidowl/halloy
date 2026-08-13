@@ -41,7 +41,7 @@ impl From<DateTime<Utc>> for ReadMarker {
 
 impl From<&Message> for ReadMarker {
     fn from(message: &Message) -> Self {
-        Self::from(message.server_time)
+        Self::from(message.time.utc)
     }
 }
 
@@ -52,7 +52,7 @@ impl ReadMarker {
             .rev()
             .find(|message| {
                 !message.blocked
-                    && match message.target.source() {
+                    && match &message.source {
                         source::Source::Internal(source) => match source {
                             source::Internal::Status(_)
                             | source::Internal::Condensed(_) => false,
@@ -66,8 +66,8 @@ impl ReadMarker {
             .map(Self)
     }
 
-    pub fn date_time(self) -> DateTime<Utc> {
-        self.0
+    pub fn date_time(&self) -> &DateTime<Utc> {
+        &self.0
     }
 }
 
@@ -92,7 +92,7 @@ pub fn latest_triggers_unread(messages: &[Message]) -> Option<DateTime<Utc>> {
         .iter()
         .rev()
         .find(|message| message.triggers_unread())
-        .map(|message| message.server_time)
+        .map(|message| message.time.utc)
 }
 
 pub fn latest_triggers_highlight(
@@ -102,7 +102,7 @@ pub fn latest_triggers_highlight(
         .iter()
         .rev()
         .find(|message| message.triggers_highlight())
-        .map(|message| message.server_time)
+        .map(|message| message.time.utc)
 }
 
 pub fn latest_can_reference(messages: &[Message]) -> Option<MessageReferences> {
@@ -113,8 +113,8 @@ pub fn latest_can_reference(messages: &[Message]) -> Option<MessageReferences> {
         .map(Message::references)
 }
 
-pub async fn load(kind: Kind) -> Result<Metadata, Error> {
-    let path = path(&kind).await?;
+pub async fn load(kind: &Kind) -> Result<Metadata, Error> {
+    let path = path(kind).await?;
 
     if let Ok(bytes) = fs::read(path).await {
         Ok(serde_json::from_slice(&bytes).unwrap_or_default())

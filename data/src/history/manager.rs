@@ -2,7 +2,7 @@ use std::cmp::Ord;
 use std::collections::{HashMap, HashSet, hash_map};
 use std::time::Duration;
 
-use chrono::{DateTime, Local, NaiveDate, Utc};
+use chrono::{DateTime, Local, Utc};
 use futures::future::BoxFuture;
 use futures::{Future, FutureExt, future};
 use itertools::Itertools;
@@ -11,7 +11,10 @@ use tokio::time::Instant;
 use super::filter::{Filter, FilterChain};
 use super::reroute::RerouteRules;
 use crate::capabilities::LabeledResponseContext;
-use crate::history::{self, History, MessageReferences, ReadMarker, metadata};
+use crate::history::{
+    self, History, MessageReferences, ReadMarker, metadata,
+    smart_filter_internal_message, smart_filter_message, smart_filter_repeat,
+};
 use crate::message::broadcast::{self, Broadcast};
 use crate::message::{self, Limit, ReplyPreview};
 use crate::redaction::Redaction;
@@ -699,36 +702,39 @@ impl Manager {
         &mut self,
         kind: history::Kind,
         server_time: DateTime<Utc>,
-        hash: message::Hash,
+        history_id: history::Id,
         resend: bool,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        self.data.remove_message(kind, server_time, hash, resend)
+        self.data
+            .remove_message(kind, server_time, history_id, resend)
     }
 
     pub fn expand_message(
         &mut self,
         kind: history::Kind,
         server_time: DateTime<Utc>,
-        hash: message::Hash,
+        history_id: history::Id,
         config: &config::buffer::Condensation,
     ) {
-        self.data.expand_message(kind, server_time, hash, config);
+        self.data
+            .expand_message(kind, server_time, history_id, config);
     }
 
     pub fn contract_message(
         &mut self,
         kind: history::Kind,
         server_time: DateTime<Utc>,
-        hash: message::Hash,
+        history_id: history::Id,
         config: &config::buffer::Condensation,
     ) {
-        self.data.contract_message(kind, server_time, hash, config);
+        self.data
+            .contract_message(kind, server_time, history_id, config);
     }
 
     pub fn get_reply_preview(
         &self,
         kind: history::Kind,
-        id: &message::Id,
+        id: &history::Id,
         server_time: &DateTime<Utc>,
     ) -> Option<&message::ReplyPreview> {
         self.data.get_reply_preview(kind, id, server_time)
@@ -737,7 +743,7 @@ impl Manager {
     pub fn generate_reply_preview(
         &mut self,
         kind: history::Kind,
-        id: &message::Id,
+        id: &history::Id,
         server_time: &DateTime<Utc>,
     ) -> Option<ReplyPreview> {
         self.data.generate_reply_preview(kind, id, server_time)
@@ -811,7 +817,7 @@ impl Manager {
 
     pub fn is_our_message(
         &self,
-        id: &message::Id,
+        id: &history::Id,
         kind: &history::Kind,
         server_time: &DateTime<Utc>,
     ) -> bool {
@@ -858,7 +864,7 @@ impl Manager {
         &self,
         buffer: &buffer::Upstream,
     ) -> HashMap<Nick, DateTime<Utc>> {
-        let kind = history::Kind::from_input_buffer(buffer.clone());
+        let kind = history::Kind::from(buffer.clone());
 
         self.data
             .map
@@ -1000,29 +1006,30 @@ impl Manager {
     pub fn is_preview_hidden(
         &self,
         kind: &history::Kind,
-        hash: message::Hash,
+        history_id: history::Id,
         server_time: chrono::DateTime<chrono::Utc>,
         url: &url::Url,
     ) -> bool {
-        self.data.is_preview_hidden(kind, hash, server_time, url)
+        self.data
+            .is_preview_hidden(kind, history_id, server_time, url)
     }
 
     pub fn hide_preview(
         &mut self,
         kind: impl Into<history::Kind>,
-        message: message::Hash,
+        history_id: history::Id,
         url: url::Url,
     ) {
-        self.data.hide_preview(&kind.into(), message, url);
+        self.data.hide_preview(&kind.into(), history_id, url);
     }
 
     pub fn show_preview(
         &mut self,
         kind: impl Into<history::Kind>,
-        message: message::Hash,
+        history_id: history::Id,
         url: &url::Url,
     ) {
-        self.data.show_preview(&kind.into(), message, url);
+        self.data.show_preview(&kind.into(), history_id, url);
     }
 
     pub fn block_message(
@@ -1035,7 +1042,7 @@ impl Manager {
     ) {
         message.blocked = false;
 
-        if let message::Source::Server(source) = message.target.source() {
+        if let message::Source::Server(source) = &message.source {
             // Check if target is included/excluded.
             let target_ref = match &message.target {
                 message::Target::Channel { channel, .. }
@@ -1091,7 +1098,7 @@ impl Manager {
                         .find_map(|historical_message| {
                             if let crate::message::Source::Server(
                                 historical_source,
-                            ) = historical_message.target.source()
+                            ) = &historical_message.source
                                 && let Some(historical_source_kind) = source
                                     .as_ref()
                                     .map(message::source::server::Server::kind)
@@ -1131,7 +1138,7 @@ impl Manager {
                         .find_map(|historical_message| {
                             if let crate::message::Source::User(
                                 historical_message_user,
-                            ) = historical_message.target.source()
+                            ) = &historical_message.source
                                 && historical_message_user.nickname() == nick
                             {
                                 return Some(smart_filter_message(
@@ -1195,7 +1202,7 @@ impl Manager {
 
             if let Some(insert_position) = messages[start_index..end_index]
                 .iter()
-                .position(|stored| stored.hash == message.hash)
+                .position(|stored| stored.history_id == message.history_id)
                 .map(|position| position + start_index)
             {
                 let insert_date =
@@ -1256,226 +1263,6 @@ impl Manager {
         }
     }
 
-    // Block, condense, and populate reply-previews for history's messages
-    pub fn process_history(
-        &mut self,
-        kind: history::Kind,
-        clients: &client::Map,
-        buffer_config: &config::Buffer,
-    ) {
-        if let Some(History::Full { messages, .. }) =
-            self.data.map.get_mut(&kind)
-        {
-            Manager::process_messages(
-                &kind,
-                messages,
-                FilterChain::borrow(&self.filters),
-                clients,
-                buffer_config,
-            );
-        }
-
-        log::debug!("processed messages in {kind}");
-    }
-
-    // Block, condense, and populate reply-previews for history's messages
-    fn process_messages(
-        kind: &history::Kind,
-        messages: &mut [message::Message],
-        filter_chain: FilterChain,
-        clients: &client::Map,
-        buffer_config: &config::Buffer,
-    ) {
-        #[derive(PartialEq)]
-        enum CondensationKey {
-            Condensable(NaiveDate),
-            Singular,
-        }
-        let mut last_seen = HashMap::<Nick, DateTime<Utc>>::new();
-        let mut last_away = HashMap::<Nick, DateTime<Utc>>::new();
-
-        messages.iter_mut().for_each(|message| {
-            message.blocked = false;
-
-            if message.redaction.is_some()
-                && !buffer_config.redaction.display.is_visible()
-            {
-                message.blocked = true;
-            } else {
-                match message.target.source() {
-                    message::Source::Server(source) => {
-                        let server = if let Some(server) = kind.server() {
-                            Some(server)
-                        } else if let message::Target::Highlights {
-                            server,
-                            ..
-                        }
-                        | message::Target::ChannelMonitor {
-                            server,
-                            ..
-                        } = &message.target
-                        {
-                            Some(server)
-                        } else {
-                            None
-                        };
-
-                        let casemapping = clients
-                            .get_maybe_server_casemapping_or_default(server);
-
-                        // Check if target is included/excluded.
-                        let target_ref = match &message.target {
-                            message::Target::Channel { channel, .. }
-                            | message::Target::ChannelMonitor {
-                                channel, ..
-                            }
-                            | message::Target::Highlights { channel, .. } => {
-                                Some(channel.as_target_ref())
-                            }
-
-                            message::Target::Query { query, .. } => {
-                                Some(query.as_target_ref())
-                            }
-                            message::Target::Server { .. }
-                            | message::Target::Logs { .. } => None,
-                        };
-
-                        let source_kind = source
-                            .as_ref()
-                            .map(message::source::server::Server::kind);
-
-                        if let Some(target_ref) = target_ref
-                            && let Some(server) = server
-                            && !buffer_config
-                                .server_messages
-                                .should_send_message(
-                                    source.as_ref(),
-                                    target_ref,
-                                    server,
-                                    casemapping,
-                                )
-                        {
-                            message.blocked = true;
-                        } else if let Some(seconds) =
-                            buffer_config.server_messages.smart(source_kind)
-                        {
-                            let nick = match source
-                                .as_ref()
-                                .and_then(|source| source.nick())
-                            {
-                                Some(nick) => Some(nick.clone()),
-                                None => message.plain().and_then(|s| {
-                                    s.split(' ').nth(1).map(|nick| {
-                                        Nick::from_str(nick, casemapping)
-                                    })
-                                }),
-                            };
-
-                            if let Some(nick) = nick {
-                                match source_kind {
-                                    Some(message::Kind::Away) => {
-                                        message.blocked = smart_filter_repeat(
-                                            message,
-                                            &seconds,
-                                            last_away.get(&nick),
-                                        );
-
-                                        if !message.blocked {
-                                            last_away.insert(
-                                                nick.clone(),
-                                                message.server_time,
-                                            );
-                                        }
-                                    }
-                                    _ => {
-                                        message.blocked = smart_filter_message(
-                                            message,
-                                            &seconds,
-                                            last_seen.get(&nick),
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    crate::message::Source::User(message_user) => {
-                        last_seen.insert(
-                            message_user.nickname().to_owned(),
-                            message.server_time,
-                        );
-                    }
-                    message::Source::Internal(
-                        message::source::Internal::Status(status),
-                    ) => {
-                        if !buffer_config.internal_messages.enabled(status) {
-                            message.blocked = true;
-                        } else if let Some(seconds) =
-                            buffer_config.internal_messages.smart(status)
-                        {
-                            message.blocked = smart_filter_internal_message(
-                                message, &seconds,
-                            );
-                        }
-                    }
-                    _ => (),
-                }
-            }
-        });
-
-        messages.iter_mut().for_each(|message| {
-            if message.blocked {
-                return;
-            }
-
-            filter_chain.filter_message_of_kind(message, kind);
-        });
-
-        messages
-            .iter_mut()
-            .filter(|message| !message.blocked)
-            .chunk_by(|message| {
-                if message.can_condense(&buffer_config.server_messages.condense)
-                {
-                    CondensationKey::Condensable(
-                        message.server_time.with_timezone(&Local).date_naive(),
-                    )
-                } else {
-                    CondensationKey::Singular
-                }
-            })
-            .into_iter()
-            .for_each(|(key, chunk)| match key {
-                CondensationKey::Condensable(_) => {
-                    let mut condensable_messages =
-                        chunk.collect::<Vec<&mut message::Message>>();
-
-                    let condensed_message = message::condense(
-                        &condensable_messages
-                            .iter()
-                            .map(|message| &**message)
-                            .collect::<Vec<&message::Message>>(),
-                        &buffer_config.server_messages.condense,
-                    );
-
-                    condensable_messages
-                        .iter_mut()
-                        .for_each(|message| message.condensed = None);
-
-                    if let Some(first_message) =
-                        condensable_messages.first_mut()
-                    {
-                        first_message.condensed = condensed_message;
-                    }
-                }
-                CondensationKey::Singular => chunk
-                    .collect::<Vec<&mut message::Message>>()
-                    .iter_mut()
-                    .for_each(|message| message.condensed = None),
-            });
-
-        populate_reply_previews(messages);
-    }
-
     pub fn renormalize_messages(
         &mut self,
         kind: &history::Kind,
@@ -1495,20 +1282,29 @@ fn with_limit<'a>(
 ) -> Vec<&'a crate::Message> {
     match limit {
         Some(Limit::Top(n)) => messages.take(n).collect(),
-        Some(Limit::Bottom(n)) => {
+        Some(Limit::Bottom(n, after)) => {
             let collected = messages.collect::<Vec<_>>();
             let length = collected.len();
-            collected[length.saturating_sub(n)..length].to_vec()
+            let collected =
+                collected[length.saturating_sub(n)..length].to_vec();
+            if let Some(after) = after {
+                collected
+                    .into_iter()
+                    .filter(|message| message.server_time > after)
+                    .collect()
+            } else {
+                collected
+            }
         }
         Some(Limit::Since(timestamp)) => messages
             .skip_while(|message| message.server_time < timestamp)
             .collect(),
-        Some(Limit::Around(n, hash)) => {
+        Some(Limit::Around(n, history_id)) => {
             let collected = messages.collect::<Vec<_>>();
             let length = collected.len();
             let center = collected
                 .iter()
-                .position(|m| m.hash == hash)
+                .position(|m| m.history_id == history_id)
                 .unwrap_or(length.saturating_sub(1));
             let start =
                 center.saturating_sub(n / 2).min(length.saturating_sub(n));
@@ -1728,7 +1524,7 @@ impl Data {
                         )
                     }
                 } else {
-                    match message.target.source() {
+                    match &message.source {
                         message::Source::Internal(
                             message::source::Internal::Status(status),
                         ) => {
@@ -1780,12 +1576,12 @@ impl Data {
         let has_more_older_messages = first_without_limit
             .zip(first_with_limit)
             .is_some_and(|(without_limit, with_limit)| {
-                without_limit.hash != with_limit.hash
+                without_limit.history_id != with_limit.history_id
             });
         let has_more_newer_messages = last_without_limit
             .zip(last_with_limit)
             .is_some_and(|(without_limit, with_limit)| {
-                without_limit.hash != with_limit.hash
+                without_limit.history_id != with_limit.history_id
             });
 
         Some(history::View {
@@ -1858,18 +1654,18 @@ impl Data {
         &mut self,
         kind: history::Kind,
         server_time: DateTime<Utc>,
-        hash: message::Hash,
+        history_id: history::Id,
         resend: bool,
     ) -> Option<impl Future<Output = Message> + use<>> {
         self.map.get_mut(&kind).and_then(|history| {
-            history
-                .remove_message(server_time, hash)
-                .and_then(|message| {
+            history.remove_message(server_time, history_id).and_then(
+                |message| {
                     resend.then_some(
                         async move { Message::ResendMessage(kind, message) }
                             .boxed(),
                     )
-                })
+                },
+            )
         })
     }
 
@@ -1877,12 +1673,12 @@ impl Data {
         &mut self,
         kind: history::Kind,
         server_time: DateTime<Utc>,
-        hash: message::Hash,
+        history_id: history::Id,
         config: &config::buffer::Condensation,
     ) {
         if let Some(history) = self.map.get_mut(&kind) {
             history
-                .get_expansion_messages(server_time, hash, config)
+                .get_expansion_messages(server_time, history_id, config)
                 .iter_mut()
                 .for_each(|message| {
                     message.expanded = true;
@@ -1894,12 +1690,12 @@ impl Data {
         &mut self,
         kind: history::Kind,
         server_time: DateTime<Utc>,
-        hash: message::Hash,
+        history_id: history::Id,
         config: &config::buffer::Condensation,
     ) {
         if let Some(history) = self.map.get_mut(&kind) {
             history
-                .get_expansion_messages(server_time, hash, config)
+                .get_expansion_messages(server_time, history_id, config)
                 .iter_mut()
                 .for_each(|message| {
                     message.expanded = false;
@@ -1910,7 +1706,7 @@ impl Data {
     fn get_reply_preview(
         &self,
         kind: history::Kind,
-        id: &message::Id,
+        id: &history::Id,
         server_time: &DateTime<Utc>,
     ) -> Option<&message::ReplyPreview> {
         self.map
@@ -1922,7 +1718,7 @@ impl Data {
     fn generate_reply_preview(
         &mut self,
         kind: history::Kind,
-        id: &message::Id,
+        id: &history::Id,
         server_time: &DateTime<Utc>,
     ) -> Option<ReplyPreview> {
         self.map
@@ -2144,7 +1940,7 @@ impl Data {
     fn is_preview_hidden(
         &self,
         kind: &history::Kind,
-        hash: message::Hash,
+        history_id: history::Id,
         server_time: chrono::DateTime<chrono::Utc>,
         url: &url::Url,
     ) -> bool {
@@ -2152,34 +1948,34 @@ impl Data {
             return false;
         };
         // messages is sorted by server_time, so binary search to the right
-        // timestamp then scan the same-second slice by hash
+        // timestamp then scan the same-second slice by history_id
         let start = messages.partition_point(|m| m.server_time < server_time);
         messages[start..]
             .iter()
             .take_while(|m| m.server_time == server_time)
-            .find(|m| m.hash == hash)
+            .find(|m| m.history_id == history_id)
             .is_some_and(|m| m.hidden_urls.contains(url))
     }
 
     fn hide_preview(
         &mut self,
         kind: &history::Kind,
-        message: message::Hash,
+        history_id: history::Id,
         url: url::Url,
     ) {
         if let Some(history) = self.map.get_mut(kind) {
-            history.hide_preview(message, url);
+            history.hide_preview(history_id, url);
         }
     }
 
     fn show_preview(
         &mut self,
         kind: &history::Kind,
-        message: message::Hash,
+        history_id: history::Id,
         url: &url::Url,
     ) {
         if let Some(history) = self.map.get_mut(kind) {
-            history.show_preview(message, url);
+            history.show_preview(history_id, url);
         }
     }
 
@@ -2236,7 +2032,7 @@ impl Data {
     fn redact_message(
         &mut self,
         kind: history::Kind,
-        id: message::Id,
+        id: history::Id,
         redaction: Redaction,
         server_time: DateTime<Utc>,
         display_redacted: bool,
@@ -2271,81 +2067,4 @@ impl Data {
             }
         }
     }
-}
-
-/// Backfill previews for replies for messages in a history batch
-fn populate_reply_previews(messages: &mut [crate::Message]) {
-    let position_pairs: Vec<(usize, usize)> = messages
-        .iter()
-        .enumerate()
-        .filter_map(|(message_position, message)| {
-            message.reply_to.as_ref().and_then(|reply_id| {
-                history::position_message_by_id(
-                    messages,
-                    reply_id,
-                    &message.server_time,
-                )
-                .map(|reply_target_position| {
-                    (message_position, reply_target_position)
-                })
-            })
-        })
-        .collect();
-
-    for (message_position, reply_target_position) in position_pairs {
-        if let Some(reply_preview) = messages
-            .get(reply_target_position)
-            .map(crate::Message::as_reply_preview)
-            && let Some(message) = messages.get_mut(message_position)
-        {
-            message.reply_preview = Some(reply_preview);
-        }
-    }
-}
-
-fn smart_filter_message(
-    message: &crate::Message,
-    seconds: &i64,
-    last_seen_server_time: Option<&DateTime<Utc>>,
-) -> bool {
-    let Some(server_time) = last_seen_server_time else {
-        return true;
-    };
-
-    let duration_seconds = message
-        .server_time
-        .signed_duration_since(*server_time)
-        .num_seconds();
-
-    duration_seconds > *seconds
-}
-
-fn smart_filter_repeat(
-    message: &crate::Message,
-    seconds: &i64,
-    last_seen_server_time: Option<&DateTime<Utc>>,
-) -> bool {
-    let Some(server_time) = last_seen_server_time else {
-        return false;
-    };
-
-    let duration_seconds = message
-        .server_time
-        .signed_duration_since(*server_time)
-        .num_seconds();
-
-    duration_seconds <= *seconds
-}
-
-fn smart_filter_internal_message(
-    message: &crate::Message,
-    seconds: &i64,
-) -> bool {
-    let current_time = Utc::now();
-
-    let duration_seconds = current_time
-        .signed_duration_since(message.server_time)
-        .num_seconds();
-
-    duration_seconds > *seconds
 }

@@ -36,15 +36,14 @@ use data::config::{self, Config, Runtime, runtime};
 use data::history::filter::FilterChain;
 use data::history::manager::{EchoEvent, ReactionToEcho, ReplyToEcho};
 use data::history::reroute::RerouteRules;
+use data::history::{self, storage};
 use data::message::{self, Broadcast};
 use data::reaction::Reaction;
 use data::redaction::Redaction;
 use data::target::{self, Target};
 use data::user::Nick;
 use data::version::Version;
-use data::{
-    Notification, Server, Url, User, environment, history, server, version,
-};
+use data::{Notification, Server, Url, User, environment, server, version};
 use iced::widget::{column, container};
 use iced::{Length, Subscription, Task, padding};
 use screen::{dashboard, help, welcome};
@@ -241,6 +240,7 @@ struct Halloy {
     current_mode: appearance::Mode,
     theme: Theme,
     config: Config,
+    history: storage::Manager,
     clients: data::client::Map,
     servers: server::Map,
     controllers: stream::Map,
@@ -397,6 +397,7 @@ pub enum Message {
     SystemInformation(iced::system::Information),
     Notification(notification::Event),
     System(system::Event),
+    Storage(Vec<storage::Event>),
 }
 
 impl Halloy {
@@ -1068,13 +1069,17 @@ impl Halloy {
                     handle_irc_error(e);
                 }
 
-                if let Screen::Dashboard(dashboard) = &mut self.screen {
+                let storage_tasks = self.storage.tick(now).map(Message::Storage);
+
+                let dashboard_tasks = if let Screen::Dashboard(dashboard) = &mut self.screen {
                     dashboard
                         .tick(now, &self.clients, &self.config)
                         .map(Message::Dashboard)
                 } else {
                     Task::none()
-                }
+                };
+
+                Task::batch(vec![storage_tasks, dashboard_tasks])
             }
             Message::AnimationTick(now) => {
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
@@ -1768,10 +1773,6 @@ impl Halloy {
             }
         }
 
-        let Screen::Dashboard(dashboard) = &mut self.screen else {
-            return Task::none();
-        };
-
         handle_client_events(
             &server,
             all_events,
@@ -1846,67 +1847,12 @@ fn handle_client_events(
     let casemapping = clients.get_server_casemapping_or_default(server);
 
     let mut commands = vec![];
-    let mut reactions = vec![];
+    let mut storage_updates = vec![];
 
     for event in events {
         match event {
-            Event::Single {
-                message: encoded,
-                our_nick,
-                deduplicate,
-            } => {
-                handle_single_event(
-                    server,
-                    encoded,
-                    our_nick,
-                    deduplicate,
-                    dashboard,
-                    &mut commands,
-                    clients,
-                    config,
-                    main_window,
-                );
-            }
-            Event::PrivOrNotice {
-                message: encoded,
-                our_nick,
-                notification_enabled,
-                deduplicate,
-                labeled_response_context,
-            } => {
-                handle_priv_or_notice(
-                    server,
-                    encoded,
-                    our_nick,
-                    deduplicate,
-                    labeled_response_context,
-                    notification_enabled,
-                    dashboard,
-                    &mut commands,
-                    clients,
-                    config,
-                    notifications,
-                    main_window,
-                );
-            }
-            Event::WithTarget {
-                message: encoded,
-                our_nick,
-                target,
-                deduplicate,
-            } => {
-                handle_with_target_event(
-                    server,
-                    encoded,
-                    our_nick,
-                    target,
-                    deduplicate,
-                    dashboard,
-                    &mut commands,
-                    clients,
-                    config,
-                    main_window,
-                );
+            Event::Message(message) => {
+                messages.push(storage::Update::Message(message));
             }
             Event::Broadcast(broadcast) => {
                 handle_broadcast(
@@ -2009,19 +1955,6 @@ fn handle_client_events(
                     commands.push(command);
                 }
             }
-            Event::DirectMessage(encoded, our_nick, user) => {
-                handle_direct_message(
-                    server,
-                    encoded,
-                    our_nick,
-                    user,
-                    dashboard,
-                    clients,
-                    config,
-                    notifications,
-                    main_window,
-                );
-            }
             Event::MonitoredOnline(users) => {
                 let kind = history::Kind::Server(server.clone());
                 let message_window = dashboard.find_window_with_history(&kind);
@@ -2092,48 +2025,11 @@ fn handle_client_events(
 
                 controllers.authentication_failed(server, error);
             }
-            Event::Reaction {
-                message,
-                our_nick,
-                notification_enabled,
-                deduplicate,
-                labeled_response_context,
-            } => {
-                if let Some(reaction) = Reaction::received(
-                    message,
-                    our_nick,
-                    deduplicate,
-                    clients.get_server_chantypes_or_default(server),
-                    clients.get_server_statusmsg_or_default(server),
-                    clients.get_server_casemapping_or_default(server),
-                    config.buffer.channel.message.max_reaction_chars,
-                ) {
-                    reactions.push(
-                        dashboard
-                            .record_reaction(
-                                server,
-                                reaction,
-                                notification_enabled,
-                                labeled_response_context,
-                            )
-                            .map(Message::Dashboard),
-                    );
-                }
+            Event::Reaction(reaction) => {
+                reactions.push(storage::Update::Reaction(reaction));
             }
-            Event::Redaction(encoded, our_nick) => {
-                if let Some(redaction) = Redaction::received(
-                    encoded,
-                    our_nick,
-                    clients.get_server_chantypes_or_default(server),
-                    clients.get_server_statusmsg_or_default(server),
-                    clients.get_server_casemapping_or_default(server),
-                ) {
-                    dashboard.redact_message(
-                        server,
-                        redaction,
-                        config.buffer.redaction.display.is_visible(),
-                    );
-                }
+            Event::Redaction(redaction) => {
+                redactions.push(storage::Update::Redaction(redaction));
             }
             Event::UpdateIcon => commands.push(
                 dashboard
@@ -2143,393 +2039,9 @@ fn handle_client_events(
         }
     }
 
-    Task::batch(commands).chain(Task::batch(reactions))
-}
+    self.history.write_updates(Some(server), storage_updates);
 
-fn create_message(
-    server: &Server,
-    encoded: message::Encoded,
-    our_nick: data::user::Nick,
-    deduplicate: bool,
-    config: &Config,
-    clients: &data::client::Map,
-    reroute_rules: &RerouteRules,
-    focused_buffer: Option<&data::buffer::Upstream>,
-) -> Option<data::Message> {
-    data::Message::received(
-        encoded,
-        our_nick,
-        deduplicate,
-        config,
-        reroute_rules,
-        focused_buffer,
-        |user, channel| {
-            clients
-                .resolve_user_attributes(server, channel, user)
-                .cloned()
-        },
-        |channel| clients.get_channel_users(server, channel),
-        server,
-        clients.get_server_chantypes_or_default(server),
-        clients.get_server_statusmsg_or_default(server),
-        clients.get_server_casemapping_or_default(server),
-        clients.get_server_prefix_or_default(server),
-    )
-}
-
-fn create_message_with_highlight(
-    server: &Server,
-    encoded: message::Encoded,
-    our_nick: data::user::Nick,
-    deduplicate: bool,
-    config: &Config,
-    clients: &data::client::Map,
-    reroute_rules: &RerouteRules,
-    focused_buffer: Option<&data::buffer::Upstream>,
-    is_our_message: impl Fn(
-        &message::Id,
-        &data::history::Kind,
-        &chrono::DateTime<chrono::Utc>,
-    ) -> bool,
-) -> Option<(data::Message, Option<message::Highlight>, bool)> {
-    data::Message::received_with_highlight(
-        encoded,
-        our_nick,
-        deduplicate,
-        config,
-        reroute_rules,
-        focused_buffer,
-        |user, channel| {
-            clients
-                .resolve_user_attributes(server, channel, user)
-                .cloned()
-        },
-        |channel| clients.get_channel_users(server, channel),
-        is_our_message,
-        server,
-        clients.get_server_chantypes_or_default(server),
-        clients.get_server_statusmsg_or_default(server),
-        clients.get_server_casemapping_or_default(server),
-        clients.get_server_prefix_or_default(server),
-    )
-}
-
-fn handle_single_event(
-    server: &Server,
-    encoded: message::Encoded,
-    our_nick: data::user::Nick,
-    deduplicate: bool,
-    dashboard: &mut screen::Dashboard,
-    commands: &mut Vec<Task<Message>>,
-    clients: &data::client::Map,
-    config: &Config,
-    main_window: &Window,
-) {
-    let Some(message) = create_message(
-        server,
-        encoded,
-        our_nick,
-        deduplicate,
-        config,
-        clients,
-        dashboard.get_reroute_rules(),
-        dashboard.focused_upstream_buffer(),
-    ) else {
-        return;
-    };
-
-    handle_on_message_display_mark_as_read(
-        server,
-        &message,
-        dashboard,
-        config,
-        main_window,
-    );
-
-    commands.push(
-        dashboard
-            .block_and_record_message(
-                server,
-                clients.get_server_casemapping_or_default(server),
-                message,
-                None,
-                config,
-            )
-            .map(Message::Dashboard),
-    );
-}
-
-fn handle_with_target_event(
-    server: &Server,
-    encoded: message::Encoded,
-    our_nick: data::user::Nick,
-    target: Destination,
-    deduplicate: bool,
-    dashboard: &mut screen::Dashboard,
-    commands: &mut Vec<Task<Message>>,
-    clients: &data::client::Map,
-    config: &Config,
-    main_window: &Window,
-) {
-    let Some(message) = create_message(
-        server,
-        encoded,
-        our_nick,
-        deduplicate,
-        config,
-        clients,
-        dashboard.get_reroute_rules(),
-        dashboard.focused_upstream_buffer(),
-    ) else {
-        return;
-    };
-
-    handle_on_message_display_mark_as_read(
-        server,
-        &message,
-        dashboard,
-        config,
-        main_window,
-    );
-
-    commands.push(
-        dashboard
-            .block_and_record_message(
-                server,
-                clients.get_server_casemapping_or_default(server),
-                message.with_target(target),
-                None,
-                config,
-            )
-            .map(Message::Dashboard),
-    );
-}
-
-fn handle_priv_or_notice(
-    server: &Server,
-    encoded: message::Encoded,
-    our_nick: data::user::Nick,
-    deduplicate: bool,
-    labeled_response_context: Option<LabeledResponseContext>,
-    notification_enabled: bool,
-    dashboard: &mut screen::Dashboard,
-    commands: &mut Vec<Task<Message>>,
-    clients: &mut data::client::Map,
-    config: &Config,
-    notifications: &mut Notifications,
-    main_window: &Window,
-) {
-    let Some((mut msg, highlight, is_reply_to_us)) =
-        create_message_with_highlight(
-            server,
-            encoded,
-            our_nick,
-            deduplicate,
-            config,
-            clients,
-            dashboard.get_reroute_rules(),
-            dashboard.focused_upstream_buffer(),
-            |id, kind, server_time| {
-                dashboard.history().is_our_message(id, kind, server_time)
-            },
-        )
-    else {
-        return;
-    };
-
-    let casemapping = clients.get_server_casemapping_or_default(server);
-    let kind = history::Kind::from_server_message(server, &msg);
-
-    if let Some(kind) = &kind {
-        dashboard.block_message(
-            &mut msg,
-            kind,
-            server,
-            casemapping,
-            &config.buffer,
-        );
-    }
-
-    let should_display_mark_as_read = handle_on_message_display_mark_as_read(
-        server,
-        &msg,
-        dashboard,
-        config,
-        main_window,
-    );
-
-    let should_mark_as_read =
-        should_display_mark_as_read && msg.triggers_unread();
-
-    let window = kind
-        .as_ref()
-        .and_then(|kind| dashboard.find_window_with_history(kind));
-
-    if let Some(highlight) = highlight {
-        handle_highlight(
-            server,
-            highlight,
-            &msg,
-            notification_enabled && !is_reply_to_us,
-            window,
-            casemapping,
-            dashboard,
-            commands,
-            config,
-            notifications,
-            main_window,
-        );
-    } else if !is_reply_to_us {
-        maybe_notify_channel_message(
-            server,
-            &msg,
-            notification_enabled,
-            window,
-            casemapping,
-            config,
-            notifications,
-            main_window,
-        );
-    }
-
-    if is_reply_to_us
-        && !msg.blocked
-        && notification_enabled
-        && (window.is_none() || !main_window.focused)
-        && let data::message::Target::Channel {
-            channel,
-            source:
-                data::message::Source::User(user)
-                | data::message::Source::Action(Some(user)),
-            ..
-        } = &msg.target
-    {
-        notifications.notify(
-            config,
-            &Notification::Reply {
-                user: user.clone(),
-                channel: channel.clone(),
-                casemapping,
-                message: msg.text().to_string(),
-            },
-            server,
-        );
-    }
-
-    commands.push(
-        dashboard
-            .record_message(
-                server,
-                casemapping,
-                msg,
-                labeled_response_context,
-                config,
-            )
-            .map(Message::Dashboard),
-    );
-
-    if should_mark_as_read && let Some(kind) = kind {
-        dashboard.mark_as_read(kind, clients);
-    }
-}
-
-fn handle_highlight(
-    server: &Server,
-    highlight: message::Highlight,
-    msg: &data::Message,
-    notification_enabled: bool,
-    message_window: Option<window::Id>,
-    casemapping: data::isupport::CaseMap,
-    dashboard: &mut screen::Dashboard,
-    commands: &mut Vec<Task<Message>>,
-    config: &Config,
-    notifications: &mut Notifications,
-    main_window: &Window,
-) {
-    let message::Highlight {
-        kind: highlight_kind,
-        channel: highlight_channel,
-        user: highlight_user,
-        message: mut highlight_message,
-    } = highlight;
-
-    highlight_message.blocked = msg.blocked;
-
-    if !highlight_message.blocked
-        && notification_enabled
-        && (message_window.is_none() || !main_window.focused)
-    {
-        let (description, sound) = match highlight_kind {
-            message::highlight::Kind::Nick => {
-                ("highlighted you".to_string(), None)
-            }
-            message::highlight::Kind::Match { matching, sound } => {
-                (format!("matched highlight {matching}"), sound)
-            }
-        };
-
-        notifications.notify(
-            config,
-            &Notification::Highlight {
-                user: highlight_user,
-                channel: highlight_channel,
-                casemapping,
-                message: highlight_message.text().to_string(),
-                description,
-                sound,
-            },
-            server,
-        );
-    }
-
-    commands.push(
-        dashboard
-            .record_highlight(highlight_message)
-            .map(Message::Dashboard),
-    );
-}
-
-fn maybe_notify_channel_message(
-    server: &Server,
-    msg: &data::Message,
-    notification_enabled: bool,
-    message_window: Option<window::Id>,
-    casemapping: data::isupport::CaseMap,
-    config: &Config,
-    notifications: &mut Notifications,
-    main_window: &Window,
-) {
-    if msg.blocked
-        || !notification_enabled
-        || (message_window.is_some() && main_window.focused)
-    {
-        return;
-    }
-
-    let (channel, user) = match &msg.target {
-        message::Target::Channel {
-            channel,
-            source: message::Source::User(user),
-            ..
-        } => (channel.clone(), user.clone()),
-        message::Target::Channel {
-            channel,
-            source: message::Source::Action(Some(user)),
-            ..
-        } => (channel.clone(), user.clone()),
-        _ => return,
-    };
-
-    notifications.notify(
-        config,
-        &Notification::Channel {
-            user,
-            channel,
-            casemapping,
-            message: msg.text().to_string(),
-        },
-        server,
-    );
+    Task::batch(commands)
 }
 
 fn handle_broadcast(
@@ -2547,8 +2059,7 @@ fn handle_broadcast(
             user,
             comment,
             channels,
-            server_time,
-            received_with_server_time,
+            time,
         } => dashboard.broadcast(
             server,
             casemapping,
@@ -2567,8 +2078,7 @@ fn handle_broadcast(
             new_nick,
             ourself,
             channels,
-            server_time,
-            received_with_server_time,
+            time,
         } => {
             let old_nick = old_user.nickname().to_owned();
             dashboard.broadcast(
@@ -2593,8 +2103,7 @@ fn handle_broadcast(
             ourself,
             logged_in,
             channels,
-            server_time,
-            received_with_server_time,
+            time,
         } => dashboard.broadcast(
             server,
             casemapping,
@@ -2616,8 +2125,7 @@ fn handle_broadcast(
             victim,
             reason,
             channel,
-            server_time,
-            received_with_server_time,
+            time,
         } => dashboard.broadcast(
             server,
             casemapping,
@@ -2712,14 +2220,14 @@ fn handle_reply_to_echo(
 ) {
     let data::message::Target::Channel {
         channel,
-        source:
-            data::message::Source::User(user)
-            | data::message::Source::Action(Some(user)),
         ..
     } = &reply_to_echo.message.target
     else {
         return;
     };
+
+    let data::message::Source::User(user)
+            | data::message::Source::Action(Some(user)) = &reply_to_echo.message.source else { return; };
 
     let kind = history::Kind::Channel(server.to_owned(), channel.to_owned());
     let message_window = dashboard.find_window_with_history(&kind);
@@ -2876,7 +2384,9 @@ fn handle_on_message_display_mark_as_read(
     let should_display_mark_as_read =
         match config.buffer.mark_as_read.on_message {
             OnMessage::Focused => dashboard.is_focused_and_at_bottom(&kind),
-            OnMessage::Open => dashboard.is_open_and_at_bottom(&kind),
+            OnMessage::Open => {
+                dashboard.is_open_and_at_bottom_in_focused_window(&kind)
+            }
             OnMessage::None => false,
         };
 

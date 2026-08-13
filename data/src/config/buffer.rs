@@ -581,7 +581,7 @@ impl ServerMessages {
             .or(self.default.include.as_ref())
     }
 
-    pub fn should_send_message(
+    pub fn should_show_message(
         &self,
         source: Option<&source::Server>,
         target_ref: TargetRef,

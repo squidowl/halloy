@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::binary_heap::PeekMut;
-use std::collections::{BTreeMap, BinaryHeap, HashMap, HashSet};
+use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::mem::take;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -17,20 +17,21 @@ use irc::proto::{self, Command, Tags, command, tags};
 use itertools::{Either, Itertools};
 use tokio::fs;
 
+pub use self::map::{Map, Status};
 pub use self::on_connect::on_connect;
 use crate::bouncer::{self, BouncerNetwork};
+use crate::buffer::BuffersContext;
 use crate::capabilities::{
-    self, Capabilities, Capability, LabeledResponseContext, MultilineBatchKind,
+    Capabilities, Capability, LabeledResponseContext, MultilineBatchKind,
     MultilineLimits, chathistory_entry_server_time, multiline_concat_lines,
     multiline_encoded,
 };
-use crate::config::server::filehost;
 use crate::environment::{SOURCE_WEBSITE, VERSION};
-use crate::features::{self, Features, VersionRequest};
-use crate::history::ReadMarker;
+use crate::features::{Features, VersionRequest};
+use crate::history::{ReadMarker, storage};
 use crate::isupport::{
-    ChatHistoryState, ChatHistorySubcommand, MessageReference, WhoToken,
-    find_target_limit, format_optional_message_reference,
+    ChatHistorySubcommand, MessageReference, WhoToken, find_target_limit,
+    format_optional_message_reference,
 };
 use crate::message::source;
 use crate::rate_limit::{TokenBucket, TokenPriority};
@@ -39,10 +40,11 @@ use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
 use crate::{
     Server, User, buffer, channel_discovery, compression, config, ctcp, dcc,
-    environment, file_transfer, fileupload, history, isupport, message,
-    metadata, mode, server,
+    environment, file_transfer, isupport, message, metadata, mode, reaction,
+    redaction, server,
 };
 
+pub mod map;
 pub mod on_connect;
 pub mod who_queue;
 
@@ -53,41 +55,20 @@ const MODE_REQUEST_DELAY: Duration = Duration::from_millis(600);
 const MODE_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 const TYPING_TIMEOUT: Duration = Duration::from_secs(6);
 
-#[derive(Debug, Clone, Copy)]
-pub enum Status {
-    Unavailable,
-    Connected,
-    Disconnected,
-}
-
-impl Status {
-    pub fn connected(&self) -> bool {
-        matches!(self, Status::Connected)
-    }
-}
-
-#[derive(Debug)]
-pub enum State {
-    Disconnected { autoconnect: bool, connecting: bool },
-    Ready(Client),
-}
-
 #[derive(Debug)]
 pub enum Broadcast {
     Quit {
         user: User,
         comment: Option<String>,
         channels: Vec<target::Channel>,
-        server_time: DateTime<Utc>,
-        received_with_server_time: bool,
+        time: message::Time,
     },
     Nickname {
         old_user: User,
         new_nick: Nick,
         ourself: bool,
         channels: Vec<target::Channel>,
-        server_time: DateTime<Utc>,
-        received_with_server_time: bool,
+        time: message::Time,
     },
     ChangeHost {
         old_user: User,
@@ -96,20 +77,18 @@ pub enum Broadcast {
         ourself: bool,
         logged_in: bool,
         channels: Vec<target::Channel>,
-        server_time: DateTime<Utc>,
-        received_with_server_time: bool,
+        time: message::Time,
     },
     Kick {
         kicker: User,
         victim: User,
         reason: Option<String>,
         channel: target::Channel,
-        server_time: DateTime<Utc>,
-        received_with_server_time: bool,
+        time: message::Time,
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Destination {
     Server,
     Target(Target),
@@ -118,6 +97,15 @@ pub enum Destination {
 impl From<&buffer::Upstream> for Destination {
     fn from(buffer: &buffer::Upstream) -> Self {
         match buffer.target() {
+            Some(target) => Self::Target(target),
+            None => Self::Server,
+        }
+    }
+}
+
+impl From<buffer::Upstream> for Destination {
+    fn from(buffer: buffer::Upstream) -> Self {
+        match buffer.into_target() {
             Some(target) => Self::Target(target),
             None => Self::Server,
         }
@@ -143,32 +131,9 @@ pub enum Message {
 
 #[derive(Debug)]
 pub enum Event {
-    Single {
-        message: message::Encoded,
-        our_nick: Nick,
-        deduplicate: bool,
-    },
-    PrivOrNotice {
-        message: message::Encoded,
-        our_nick: Nick,
-        notification_enabled: bool,
-        deduplicate: bool,
-        labeled_response_context: Option<LabeledResponseContext>,
-    },
-    Reaction {
-        message: message::Encoded,
-        our_nick: Nick,
-        notification_enabled: bool,
-        deduplicate: bool,
-        labeled_response_context: Option<LabeledResponseContext>,
-    },
-    Redaction(message::Encoded, Nick),
-    WithTarget {
-        message: message::Encoded,
-        our_nick: Nick,
-        target: Destination,
-        deduplicate: bool,
-    },
+    Message(message::MessageWithContext),
+    Reaction(reaction::ReactionWithContext),
+    Redaction(redaction::RedactionWithContext),
     Broadcast(Broadcast),
     FileTransferRequest(file_transfer::ReceiveRequest),
     UpdateReadMarker(Target, ReadMarker),
@@ -177,7 +142,6 @@ pub enum Event {
     AddedIsupportParam(isupport::Parameter),
     ChatHistoryTargetReceived(Target, DateTime<Utc>),
     ChatHistoryTargetsReceived(DateTime<Utc>),
-    DirectMessage(message::Encoded, Nick, User),
     MonitoredOnline(Vec<User>),
     MonitoredOffline(Vec<Nick>),
     OnConnect(on_connect::Stream),
@@ -979,13 +943,16 @@ impl Client {
     fn receive(
         &mut self,
         message: message::Encoded,
+        history: &storage::Manager,
+        buffers_context: &dyn BuffersContext,
         config: &config::Config,
     ) -> Result<Vec<Event>> {
         log::trace!("[{}] Message received => {:?}", self.server, *message);
 
         let stop_reroute = self.stop_reroute(&message);
 
-        let events = self.handle(message, None, config)?;
+        let events =
+            self.handle(message, None, history, buffers_context, config)?;
 
         if stop_reroute {
             self.reroute_responses_to = None;
@@ -998,6 +965,8 @@ impl Client {
         &mut self,
         mut message: message::Encoded,
         parent_context: Option<Context>,
+        history: &storage::Manager,
+        buffers_context: &dyn BuffersContext,
         config: &config::Config,
     ) -> Result<Vec<Event>> {
         use irc::proto::command::Numeric::*;
@@ -1142,6 +1111,8 @@ impl Client {
                                 finished.events.extend(self.handle(
                                     encoded,
                                     finished.context.clone(),
+                                    history,
+                                    buffers_context,
                                     config,
                                 )?);
                             }
@@ -1261,21 +1232,33 @@ impl Client {
                         .get(batch_tag)
                         .and_then(|batch| batch.kind.as_ref())
                     {
-                        Some(BatchKind::ChathistoryTarget(batch_target)) => {
-                            self.handle_chathistory(
+                        Some(BatchKind::ChathistoryTarget(_)) => self
+                            .handle_chathistory(
                                 message,
-                                batch_target.clone(),
-                            )
-                        }
+                                history,
+                                buffers_context,
+                                config,
+                            ),
                         Some(BatchKind::Multiline(_, _, _, _, _)) => {
                             self.handle_multiline(message, batch_tag);
                             vec![]
                         }
                         Some(BatchKind::ChathistoryTargets)
                         | Some(BatchKind::LabeledResponse)
-                        | None => self.handle(message, context, config)?,
-                        Some(BatchKind::ZncPlayback(batch_target)) => self
-                            .handle_znc_playback(message, batch_target.clone()),
+                        | None => self.handle(
+                            message,
+                            context,
+                            history,
+                            buffers_context,
+                            config,
+                        )?,
+                        Some(BatchKind::ZncPlayback(_)) => self
+                            .handle_znc_playback(
+                                message,
+                                history,
+                                buffers_context,
+                                config,
+                            ),
                     };
 
                     if let Some(batch) = self.batches.get_mut(batch_tag) {
@@ -1292,19 +1275,23 @@ impl Client {
                 }
             }
             _ if is_reaction(&message) => {
-                return Ok(vec![Event::Reaction {
-                    message,
-                    our_nick: self.nickname().to_owned(),
-                    deduplicate: false,
-                    notification_enabled: self.notification_blackout.allowed(),
-                    labeled_response_context: context.and_then(Into::into),
-                }]);
+                return Ok(self
+                    .process_reaction(message, config)
+                    .map(|reaction_with_context| {
+                        reaction_with_context.with_labeled_response_context(
+                            context.and_then(Into::into),
+                        )
+                    })
+                    .into_iter()
+                    .map(Event::Reaction)
+                    .collect());
             }
             _ if matches!(message.command, Command::REDACT(_, _, _)) => {
-                return Ok(vec![Event::Redaction(
-                    message,
-                    self.nickname().to_owned(),
-                )]);
+                return Ok(self
+                    .process_redaction(message)
+                    .into_iter()
+                    .map(Event::Redaction)
+                    .collect());
             }
             // Reroute whois, whowas, mode, and invite responses
             Command::Numeric(
@@ -1323,12 +1310,19 @@ impl Client {
                 if let Some(target) =
                     self.reroute_responses_to.as_ref().map(Destination::from)
                 {
-                    return Ok(vec![Event::WithTarget {
-                        message,
-                        our_nick: self.nickname().to_owned(),
-                        target,
-                        deduplicate: false,
-                    }]);
+                    return Ok(self
+                        .process_message(
+                            message,
+                            history,
+                            buffers_context,
+                            config,
+                        )
+                        .map(|message_with_context| {
+                            message_with_context.with_target(target)
+                        })
+                        .into_iter()
+                        .map(Event::Message)
+                        .collect());
                 }
             }
             Command::BOUNCER(subcommand, params) if subcommand == "NETWORK" => {
@@ -1625,17 +1619,16 @@ impl Client {
                             // Response to us sending a CTCP request to another client
                             if matches!(&message.command, Command::NOTICE(_, _))
                             {
-                                let event = Event::PrivOrNotice {
-                                    message,
-                                    our_nick: self.nickname().to_owned(),
-                                    notification_enabled: self
-                                        .notification_blackout
-                                        .allowed(),
-                                    deduplicate: false,
-                                    labeled_response_context: None,
-                                };
-
-                                return Ok(vec![event]);
+                                return Ok(self
+                                    .process_message(
+                                        message,
+                                        history,
+                                        buffers_context,
+                                        config,
+                                    )
+                                    .into_iter()
+                                    .map(Event::Message)
+                                    .collect());
                             }
 
                             // Response to a client sending us a CTCP request
@@ -1786,31 +1779,21 @@ impl Client {
                         self.record_query(&user_query);
                     }
 
-                    let event = Event::PrivOrNotice {
-                        message: message.clone(),
-                        our_nick: self.nickname().to_owned(),
-                        notification_enabled: self
-                            .notification_blackout
-                            .allowed(),
-                        deduplicate: false,
-                        labeled_response_context: context.and_then(Into::into),
-                    };
-
-                    // Event::DirectMessage is currently only used to send a
-                    // notification, so only return the event it notifications
-                    // are allowed.
-                    if direct_message && self.notification_blackout.allowed() {
-                        return Ok(vec![
-                            event,
-                            Event::DirectMessage(
-                                message,
-                                self.nickname().to_owned(),
-                                user,
-                            ),
-                        ]);
-                    } else {
-                        return Ok(vec![event]);
-                    }
+                    return Ok(self
+                        .process_message(
+                            message,
+                            history,
+                            buffers_context,
+                            config,
+                        )
+                        .map(|message_with_context| {
+                            message_with_context.with_labeled_response_context(
+                                context.and_then(Into::into),
+                            )
+                        })
+                        .into_iter()
+                        .map(Event::Message)
+                        .collect());
                 }
             }
             Command::INVITE(invitee, _) => {
@@ -1822,26 +1805,15 @@ impl Client {
                     return Ok(vec![]);
                 }
 
-                let invitee = Nick::from_str(invitee, self.casemapping());
+                // TODO: Create an invite notification that allows joining the
+                // channel as an action
+                let _invitee = Nick::from_str(invitee, self.casemapping());
 
-                let event = Event::Single {
-                    message: message.clone(),
-                    our_nick: self.nickname().to_owned(),
-                    deduplicate: false,
-                };
-
-                if invitee.as_nickref() == self.nickname() {
-                    return Ok(vec![
-                        event,
-                        Event::DirectMessage(
-                            message,
-                            self.nickname().to_owned(),
-                            inviter,
-                        ),
-                    ]);
-                } else {
-                    return Ok(vec![event]);
-                }
+                return Ok(self
+                    .process_message(message, history, buffers_context, config)
+                    .into_iter()
+                    .map(Event::Message)
+                    .collect());
             }
             Command::NICK(nick) => {
                 let old_user = ok!(message.user(self.casemapping()));
@@ -1867,16 +1839,12 @@ impl Client {
                     }
                 });
 
-                let (server_time, received_with_server_time) =
-                    message.server_time_or_now();
-
                 return Ok(vec![Event::Broadcast(Broadcast::Nickname {
                     old_user,
                     new_nick,
                     ourself,
                     channels,
-                    server_time,
-                    received_with_server_time,
+                    time: message.time(),
                 })]);
             }
             Command::Numeric(ERR_NICKNAMEINUSE | ERR_ERRONEUSNICKNAME, _)
@@ -1926,15 +1894,11 @@ impl Client {
                     channel.users.remove(&user);
                 });
 
-                let (server_time, received_with_server_time) =
-                    message.server_time_or_now();
-
                 return Ok(vec![Event::Broadcast(Broadcast::Quit {
                     user,
                     comment: comment.clone(),
                     channels,
-                    server_time,
-                    received_with_server_time,
+                    time: message.time(),
                 })]);
             }
             Command::PART(channel, _) => {
@@ -2048,24 +2012,27 @@ impl Client {
                     {
                         self.chanmap.shift_remove(&channel);
 
-                        let (server_time, received_with_server_time) =
-                            message.server_time_or_now();
-
-                        return Ok(vec![
-                            Event::Broadcast(Broadcast::Kick {
+                        let mut events =
+                            vec![Event::Broadcast(Broadcast::Kick {
                                 kicker: ok!(message.user(casemapping)),
                                 victim: User::from(self.nickname().to_owned()),
                                 reason: reason.clone(),
                                 channel,
-                                server_time,
-                                received_with_server_time,
-                            }),
-                            Event::Single {
+                                time: message.time(),
+                            })];
+
+                        if let Some(message_with_context) = self
+                            .process_message(
                                 message,
-                                our_nick: self.nickname().to_owned(),
-                                deduplicate: false,
-                            },
-                        ]);
+                                history,
+                                buffers_context,
+                                config,
+                            )
+                        {
+                            events.push(Event::Message(message_with_context));
+                        }
+
+                        return Ok(events);
                     } else if let Some(channel) = self.chanmap.get_mut(&channel)
                     {
                         channel.users.remove(&User::from(Nick::from_str(
@@ -2107,12 +2074,19 @@ impl Client {
                         .as_ref()
                         .map(Destination::from)
                     {
-                        return Ok(vec![Event::WithTarget {
-                            message,
-                            our_nick: self.nickname().to_owned(),
-                            target,
-                            deduplicate: false,
-                        }]);
+                        return Ok(self
+                            .process_message(
+                                message,
+                                history,
+                                buffers_context,
+                                config,
+                            )
+                            .map(|message_with_context| {
+                                message_with_context.with_target(target)
+                            })
+                            .into_iter()
+                            .map(Event::Message)
+                            .collect());
                     }
                 }
             }
@@ -2148,12 +2122,19 @@ impl Client {
                         .as_ref()
                         .map(Destination::from)
                     {
-                        return Ok(vec![Event::WithTarget {
-                            message,
-                            our_nick: self.nickname().to_owned(),
-                            target,
-                            deduplicate: false,
-                        }]);
+                        return Ok(self
+                            .process_message(
+                                message,
+                                history,
+                                buffers_context,
+                                config,
+                            )
+                            .map(|message_with_context| {
+                                message_with_context.with_target(target)
+                            })
+                            .into_iter()
+                            .map(Event::Message)
+                            .collect());
                     }
                 }
             }
@@ -2189,12 +2170,19 @@ impl Client {
                         .as_ref()
                         .map(Destination::from)
                     {
-                        return Ok(vec![Event::WithTarget {
-                            message,
-                            our_nick: self.nickname().to_owned(),
-                            target,
-                            deduplicate: false,
-                        }]);
+                        return Ok(self
+                            .process_message(
+                                message,
+                                history,
+                                buffers_context,
+                                config,
+                            )
+                            .map(|message_with_context| {
+                                message_with_context.with_target(target)
+                            })
+                            .into_iter()
+                            .map(Event::Message)
+                            .collect());
                     }
                 } else if mask == "*" {
                     // Some servers respond with the mask * instead of the
@@ -2444,8 +2432,7 @@ impl Client {
                         channel.topic.content =
                             Some(message::parse_fragments(text.clone()));
                         channel.topic.who = message.user(casemapping);
-                        channel.topic.time =
-                            Some(message.server_time_or_now().0);
+                        channel.topic.time = Some(message.time().utc);
                     } else {
                         channel.topic.content = None;
                         channel.topic.who = None;
@@ -2856,9 +2843,6 @@ impl Client {
 
                 let channels = self.user_channels(old_user.nickname());
 
-                let (server_time, received_with_server_time) =
-                    message.server_time_or_now();
-
                 return Ok(vec![Event::Broadcast(Broadcast::ChangeHost {
                     old_user,
                     new_username: new_username.clone(),
@@ -2866,8 +2850,7 @@ impl Client {
                     ourself,
                     logged_in: self.logged_in,
                     channels,
-                    server_time,
-                    received_with_server_time,
+                    time: message.time(),
                 })]);
             }
             Command::Numeric(RPL_VISIBLEHOST, args) => {
@@ -2922,18 +2905,21 @@ impl Client {
                     })
                     .collect::<Vec<_>>();
 
-                let events = if !targets.is_empty() {
-                    vec![
-                        Event::Single {
-                            message: message.clone(),
-                            our_nick: self.nickname().to_owned(),
-                            deduplicate: false,
-                        },
-                        Event::MonitoredOnline(targets),
-                    ]
-                } else {
-                    vec![]
-                };
+                let mut events = vec![];
+
+                if !targets.is_empty() {
+                    events.push(Event::MonitoredOnline(targets));
+                }
+
+                if let Some(message_with_context) = self.process_message(
+                    message,
+                    history,
+                    buffers_context,
+                    config,
+                ) {
+                    events.push(Event::Message(message_with_context));
+                }
+
                 return Ok(events);
             }
             Command::Numeric(RPL_MONOFFLINE, args) => {
@@ -2962,18 +2948,21 @@ impl Client {
                     })
                     .collect::<Vec<_>>();
 
-                let events = if !targets.is_empty() {
-                    vec![
-                        Event::Single {
-                            message: message.clone(),
-                            our_nick: self.nickname().to_owned(),
-                            deduplicate: false,
-                        },
-                        Event::MonitoredOffline(targets),
-                    ]
-                } else {
-                    vec![]
-                };
+                let mut events = vec![];
+
+                if !targets.is_empty() {
+                    events.push(Event::MonitoredOffline(targets));
+                }
+
+                if let Some(message_with_context) = self.process_message(
+                    message,
+                    history,
+                    buffers_context,
+                    config,
+                ) {
+                    events.push(Event::Message(message_with_context));
+                }
+
                 return Ok(events);
             }
             Command::MARKREAD(target, Some(timestamp)) => {
@@ -3015,13 +3004,17 @@ impl Client {
                         ));
                     }
 
-                    if self.chathistory_targets_request.is_none() {
+                    if self.chathistory_targets_request.is_none()
+                        && let Some(message_with_context) = self
+                            .process_message(
+                                message,
+                                history,
+                                buffers_context,
+                                config,
+                            )
+                    {
                         // User requested, save to history
-                        events.push(Event::Single {
-                            message: message.clone(),
-                            our_nick: self.nickname().to_owned(),
-                            deduplicate: false,
-                        });
+                        events.push(Event::Message(message_with_context));
                     }
                 }
 
@@ -3069,9 +3062,9 @@ impl Client {
             Command::Numeric(RPL_ENDOFMOTD | ERR_NOMOTD, _)
                 if self.registration_step != RegistrationStep::Complete =>
             {
-                // MOTD (or ERR_NOMOTD) is the last required message in the numerics
-                // sent on successfully completing the registration process (after
-                // RPL_ISUPPORT message(s) are sent).
+                // RPL_ENDOFMOTD (or ERR_NOMOTD) is the last required message in
+                // the numerics sent on successfully completing the registration
+                // process (after RPL_ISUPPORT message(s) are sent).
                 // https://modern.ircdocs.horse/#connection-registration
                 if self.registration_step != RegistrationStep::End {
                     log::warn!(
@@ -3448,28 +3441,28 @@ impl Client {
             _ => {}
         }
 
-        if let Some(target) =
-            context.map(Context::buffer).as_ref().map(Destination::from)
-        {
-            Ok(vec![Event::WithTarget {
-                message,
-                our_nick: self.nickname().to_owned(),
-                target,
-                deduplicate: false,
-            }])
-        } else {
-            Ok(vec![Event::Single {
-                message,
-                our_nick: self.nickname().to_owned(),
-                deduplicate: false,
-            }])
-        }
+        Ok(self
+            .process_message(message, history, buffers_context, config)
+            .map(|message_with_context| {
+                if let Some(target) =
+                    context.map(Context::into_buffer).map(Destination::from)
+                {
+                    message_with_context.with_target(target)
+                } else {
+                    message_with_context
+                }
+            })
+            .into_iter()
+            .map(Event::Message)
+            .collect())
     }
 
     fn handle_chathistory(
         &mut self,
         message: message::Encoded,
-        batch_target: Target,
+        history: &storage::Manager,
+        buffers_context: &dyn BuffersContext,
+        config: &config::Config,
     ) -> Vec<Event> {
         if Some(User::from(Nick::from_str("HistServ", self.casemapping())))
             == message.user(self.casemapping())
@@ -3478,75 +3471,63 @@ impl Client {
             // would require client-side parsing to map appropriately. Avoid
             // that complexity by only providing that functionality via
             // event-playback.
-            vec![]
-        } else {
-            match &message.command {
-                _ if is_reaction(&message) => {
-                    vec![Event::Reaction {
-                        message,
-                        our_nick: self.nickname().to_owned(),
-                        notification_enabled: false,
-                        deduplicate: true,
-                        labeled_response_context: None,
-                    }]
-                }
-                Command::REDACT(_, _, _) => {
-                    vec![Event::Redaction(message, self.nickname().to_owned())]
-                }
-                Command::NICK(_) => vec![Event::WithTarget {
-                    message,
-                    our_nick: self.nickname().to_owned(),
-                    target: batch_target.into(),
-                    deduplicate: true,
-                }],
-                Command::JOIN(_, _) => vec![Event::WithTarget {
-                    message,
-                    our_nick: self.nickname().to_owned(),
-                    target: batch_target.into(),
-                    deduplicate: true,
-                }],
-                Command::PART(_, _) => vec![Event::WithTarget {
-                    message,
-                    our_nick: self.nickname().to_owned(),
-                    target: batch_target.into(),
-                    deduplicate: true,
-                }],
-                Command::QUIT(_) => vec![Event::WithTarget {
-                    message,
-                    our_nick: self.nickname().to_owned(),
-                    target: batch_target.into(),
-                    deduplicate: true,
-                }],
-                Command::PRIVMSG(target, text)
-                | Command::NOTICE(target, text) => {
-                    if ctcp::is_query(text) && !message::is_action(text) {
-                        // Ignore historical CTCP queries/responses except for
-                        // ACTIONs
-                        vec![]
-                    } else {
-                        if let Some(user) = message.user(self.casemapping()) {
-                            // If direct message, update query map with user
-                            if target == &self.nickname().to_string() {
-                                self.record_query(&target::Query::from(user));
-                            }
-                        }
+            return vec![];
+        }
 
-                        vec![Event::PrivOrNotice {
-                            message,
-                            our_nick: self.nickname().to_owned(),
-                            // Don't allow notifications from history
-                            notification_enabled: false,
-                            deduplicate: true,
-                            labeled_response_context: None,
-                        }]
+        match &message.command {
+            _ if is_reaction(&message) => self
+                .process_reaction(message, config)
+                .map(reaction::ReactionWithContext::into_historical)
+                .into_iter()
+                .map(Event::Reaction)
+                .collect(),
+            Command::REDACT(_, _, _) => self
+                .process_redaction(message)
+                .into_iter()
+                .map(Event::Redaction)
+                .collect(),
+            Command::NICK(_)
+            | Command::JOIN(_, _)
+            | Command::PART(_, _)
+            | Command::QUIT(_) => self
+                .process_message(message, history, buffers_context, config)
+                .map(message::MessageWithContext::into_historical)
+                .into_iter()
+                .map(Event::Message)
+                .collect(),
+            Command::PRIVMSG(target, text) | Command::NOTICE(target, text) => {
+                if ctcp::is_query(text) && !message::is_action(text) {
+                    // Ignore historical CTCP queries/responses except for
+                    // ACTIONs
+                    vec![]
+                } else {
+                    if let Some(user) = message.user(self.casemapping()) {
+                        // If direct message, update query map with user
+                        if self.casemapping().normalize(target).as_str()
+                            == self.nickname().as_normalized_str()
+                        {
+                            self.record_query(&target::Query::from(user));
+                        }
                     }
+
+                    self.process_message(
+                        message,
+                        history,
+                        buffers_context,
+                        config,
+                    )
+                    .map(message::MessageWithContext::into_historical)
+                    .into_iter()
+                    .map(Event::Message)
+                    .collect()
                 }
-                _ => vec![Event::Single {
-                    message,
-                    our_nick: self.nickname().to_owned(),
-                    deduplicate: true,
-                }],
             }
+            _ => self
+                .process_message(message, history, buffers_context, config)
+                .map(message::MessageWithContext::into_historical)
+                .into_iter()
+                .map(Event::Message)
+                .collect(),
         }
     }
 
@@ -3614,45 +3595,31 @@ impl Client {
     fn handle_znc_playback(
         &mut self,
         message: message::Encoded,
-        batch_target: Target,
+        history: &storage::Manager,
+        buffers_context: &dyn BuffersContext,
+        config: &config::Config,
     ) -> Vec<Event> {
         match &message.command {
-            _ if is_reaction(&message) => {
-                vec![Event::Reaction {
-                    message,
-                    our_nick: self.nickname().to_owned(),
-                    notification_enabled: false,
-                    deduplicate: true,
-                    labeled_response_context: None,
-                }]
-            }
-            Command::REDACT(_, _, _) => {
-                vec![Event::Redaction(message, self.nickname().to_owned())]
-            }
-            Command::NICK(_) => vec![Event::WithTarget {
-                message,
-                our_nick: self.nickname().to_owned(),
-                target: batch_target.into(),
-                deduplicate: true,
-            }],
-            Command::JOIN(_, _) => vec![Event::WithTarget {
-                message,
-                our_nick: self.nickname().to_owned(),
-                target: batch_target.into(),
-                deduplicate: true,
-            }],
-            Command::PART(_, _) => vec![Event::WithTarget {
-                message,
-                our_nick: self.nickname().to_owned(),
-                target: batch_target.into(),
-                deduplicate: true,
-            }],
-            Command::QUIT(_) => vec![Event::WithTarget {
-                message,
-                our_nick: self.nickname().to_owned(),
-                target: batch_target.into(),
-                deduplicate: true,
-            }],
+            _ if is_reaction(&message) => self
+                .process_reaction(message, config)
+                .map(reaction::ReactionWithContext::into_historical)
+                .into_iter()
+                .map(Event::Reaction)
+                .collect(),
+            Command::REDACT(_, _, _) => self
+                .process_redaction(message)
+                .into_iter()
+                .map(Event::Redaction)
+                .collect(),
+            Command::NICK(_)
+            | Command::JOIN(_, _)
+            | Command::PART(_, _)
+            | Command::QUIT(_) => self
+                .process_message(message, history, buffers_context, config)
+                .map(message::MessageWithContext::into_historical)
+                .into_iter()
+                .map(Event::Message)
+                .collect(),
             Command::PRIVMSG(target, text) | Command::NOTICE(target, text) => {
                 if ctcp::is_query(text) && !message::is_action(text) {
                     // Ignore historical CTCP queries/responses except for
@@ -3661,27 +3628,100 @@ impl Client {
                 } else {
                     if let Some(user) = message.user(self.casemapping()) {
                         // If direct message, update query map with user
-                        if target == &self.nickname().to_string() {
+                        if self.casemapping().normalize(target).as_str()
+                            == self.nickname().as_normalized_str()
+                        {
                             self.record_query(&target::Query::from(user));
                         }
                     }
 
-                    vec![Event::PrivOrNotice {
+                    self.process_message(
                         message,
-                        our_nick: self.nickname().to_owned(),
-                        // Don't allow notifications from history
-                        notification_enabled: false,
-                        deduplicate: true,
-                        labeled_response_context: None,
-                    }]
+                        history,
+                        buffers_context,
+                        config,
+                    )
+                    .map(message::MessageWithContext::into_historical)
+                    .into_iter()
+                    .map(Event::Message)
+                    .collect()
                 }
             }
-            _ => vec![Event::Single {
-                message,
-                our_nick: self.nickname().to_owned(),
-                deduplicate: true,
-            }],
+            _ => self
+                .process_message(message, history, buffers_context, config)
+                .map(message::MessageWithContext::into_historical)
+                .into_iter()
+                .map(Event::Message)
+                .collect(),
         }
+    }
+
+    fn process_message(
+        &self,
+        message: message::Encoded,
+        history: &storage::Manager,
+        buffers_context: &dyn BuffersContext,
+        config: &config::Config,
+    ) -> Option<message::MessageWithContext> {
+        let message_with_context = message::Message::received(
+            message,
+            self.nickname(),
+            config,
+            history.get_reroute_rules(),
+            buffers_context,
+            |user, channel| {
+                self.resolve_user_attributes(channel, user).cloned()
+            },
+            |channel| self.users(channel),
+            &self.server,
+            self.chantypes(),
+            self.statusmsg(),
+            self.casemapping(),
+            self.prefix(),
+        );
+
+        if self.notification_blackout.allowed() {
+            message_with_context
+        } else {
+            message_with_context
+                .map(message::MessageWithContext::with_notification_prohibited)
+        }
+    }
+
+    fn process_reaction(
+        &self,
+        message: message::Encoded,
+        config: &config::Config,
+    ) -> Option<reaction::ReactionWithContext> {
+        let reaction_with_context = reaction::Reaction::received(
+            message,
+            self.nickname(),
+            self.chantypes(),
+            self.statusmsg(),
+            self.casemapping(),
+            config.buffer.channel.message.max_reaction_chars,
+        );
+
+        if self.notification_blackout.allowed() {
+            reaction_with_context
+        } else {
+            reaction_with_context.map(
+                reaction::ReactionWithContext::with_notification_prohibited,
+            )
+        }
+    }
+
+    fn process_redaction(
+        &self,
+        message: message::Encoded,
+    ) -> Option<redaction::RedactionWithContext> {
+        redaction::Redaction::received(
+            message,
+            self.nickname(),
+            self.chantypes(),
+            self.statusmsg(),
+            self.casemapping(),
+        )
     }
 
     fn send_markread(
@@ -4735,18 +4775,54 @@ fn continue_chathistory_between(
     limit: u16,
 ) -> Option<ChatHistorySubcommand> {
     let start_message_reference =
-        events.first().and_then(|first_event| match first_event {
-            Event::Single { message, .. }
-            | Event::PrivOrNotice { message, .. }
-            | Event::WithTarget { message, .. }
-            | Event::DirectMessage(message, _, _)
-            | Event::Reaction { message, .. }
-            | Event::Redaction(message, _) => match end_message_reference {
+        events
+            .first()
+            .and_then(|first_event| match end_message_reference {
                 MessageReference::MessageId(_) => {
-                    message.message_id().map(MessageReference::MessageId)
+                    let message_id = match first_event {
+                        Event::Message(message) => message.id().clone(),
+                        Event::Reaction(message) => message.id().clone(),
+                        Event::Redaction(message) => message.id.clone(),
+                        Event::Broadcast(_)
+                        | Event::FileTransferRequest(_)
+                        | Event::UpdateReadMarker(_, _)
+                        | Event::JoinedChannel(_, _)
+                        | Event::LoggedIn(_)
+                        | Event::AddedIsupportParam(_)
+                        | Event::ChatHistoryTargetReceived(_, _)
+                        | Event::ChatHistoryTargetsReceived(_)
+                        | Event::MonitoredOnline(_)
+                        | Event::MonitoredOffline(_)
+                        | Event::OnConnect(_)
+                        | Event::BouncerNetwork(_, _)
+                        | Event::AddToSidebar(_)
+                        | Event::AuthenticationFailed(_)
+                        | Event::UpdateIcon => None,
+                    };
+
+                    message_id.map(MessageReference::MessageId)
                 }
                 MessageReference::Timestamp(end_server_time) => {
-                    let server_time = message.server_time();
+                    let server_time = match first_event {
+                        Event::Message(message) => message.server_time(),
+                        Event::Reaction(message) => message.server_time(),
+                        Event::Redaction(message) => message.server_time(),
+                        Event::Broadcast(_)
+                        | Event::FileTransferRequest(_)
+                        | Event::UpdateReadMarker(_, _)
+                        | Event::JoinedChannel(_, _)
+                        | Event::LoggedIn(_)
+                        | Event::AddedIsupportParam(_)
+                        | Event::ChatHistoryTargetReceived(_, _)
+                        | Event::ChatHistoryTargetsReceived(_)
+                        | Event::MonitoredOnline(_)
+                        | Event::MonitoredOffline(_)
+                        | Event::OnConnect(_)
+                        | Event::BouncerNetwork(_, _)
+                        | Event::AddToSidebar(_)
+                        | Event::AuthenticationFailed(_)
+                        | Event::UpdateIcon => None,
+                    };
 
                     let previous_server_time = if let Some(
                         MessageReference::Timestamp(previous_start_timestamp),
@@ -4771,23 +4847,7 @@ fn continue_chathistory_between(
                         None
                     }
                 }
-            },
-            Event::Broadcast(_)
-            | Event::FileTransferRequest(_)
-            | Event::UpdateReadMarker(_, _)
-            | Event::JoinedChannel(_, _)
-            | Event::LoggedIn(_)
-            | Event::AddedIsupportParam(_)
-            | Event::ChatHistoryTargetReceived(_, _)
-            | Event::ChatHistoryTargetsReceived(_)
-            | Event::MonitoredOnline(_)
-            | Event::MonitoredOffline(_)
-            | Event::OnConnect(_)
-            | Event::BouncerNetwork(_, _)
-            | Event::AddToSidebar(_)
-            | Event::AuthenticationFailed(_)
-            | Event::UpdateIcon => None,
-        });
+            });
 
     start_message_reference.map(|start_message_reference| {
         ChatHistorySubcommand::Between(
@@ -4816,12 +4876,9 @@ fn continue_chathistory_targets(
                     None
                 }
             }
-            Event::Single { .. }
-            | Event::PrivOrNotice { .. }
-            | Event::WithTarget { .. }
-            | Event::DirectMessage(_, _, _)
-            | Event::Reaction { .. }
-            | Event::Redaction(_, _)
+            Event::Message(_)
+            | Event::Reaction(_)
+            | Event::Redaction(_)
             | Event::Broadcast(_)
             | Event::FileTransferRequest(_)
             | Event::UpdateReadMarker(_, _)
@@ -4896,781 +4953,10 @@ impl NotificationBlackout {
         }
     }
 }
-
-#[derive(Debug, Default)]
-pub struct Map(BTreeMap<Server, State>);
-
-impl Map {
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    pub fn disconnected(&mut self, server: Server, autoconnect: bool) {
-        self.0.insert(
-            server,
-            State::Disconnected {
-                autoconnect,
-                connecting: false,
-            },
-        );
-    }
-
-    pub fn connection_failed(&mut self, server: &Server, autoconnect: bool) {
-        if let Some(State::Disconnected {
-            autoconnect: server_autoconnect,
-            connecting,
-        }) = self.0.get_mut(server)
-        {
-            *server_autoconnect = autoconnect;
-            *connecting = false;
-        } else {
-            self.disconnected(server.clone(), autoconnect);
-        }
-    }
-
-    pub fn autoconnect_disabled(&mut self, server: &Server) {
-        if let Some(State::Disconnected { autoconnect, .. }) =
-            self.0.get_mut(server)
-        {
-            *autoconnect = false;
-        }
-    }
-
-    pub fn connecting(&mut self, server: &Server) {
-        if let Some(State::Disconnected { connecting, .. }) =
-            self.0.get_mut(server)
-        {
-            *connecting = true;
-        }
-    }
-
-    pub fn ready(&mut self, server: Server, client: Client) {
-        self.0.insert(server, State::Ready(client));
-    }
-
-    pub fn update_config(
-        &mut self,
-        server: &Server,
-        config: Arc<config::Server>,
-        from_modal: bool,
-    ) -> Vec<Event> {
-        if let Some(State::Ready(client)) = self.0.get_mut(server) {
-            client.update_config(config, from_modal)
-        } else {
-            vec![]
-        }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    pub fn remove(&mut self, server: &Server) -> Option<Client> {
-        self.0.remove(server).and_then(|state| match state {
-            State::Disconnected { .. } => None,
-            State::Ready(client) => Some(client),
-        })
-    }
-
-    pub fn client(&self, server: &Server) -> Option<&Client> {
-        if let Some(State::Ready(client)) = self.0.get(server) {
-            Some(client)
-        } else {
-            None
-        }
-    }
-
-    pub fn client_mut(&mut self, server: &Server) -> Option<&mut Client> {
-        if let Some(State::Ready(client)) = self.0.get_mut(server) {
-            Some(client)
-        } else {
-            None
-        }
-    }
-
-    pub fn nickname<'a>(&'a self, server: &Server) -> Option<NickRef<'a>> {
-        self.client(server).map(Client::nickname)
-    }
-
-    pub fn receive(
-        &mut self,
-        server: &Server,
-        message: message::Encoded,
-        config: &config::Config,
-    ) -> Result<Vec<Event>> {
-        if let Some(client) = self.client_mut(server) {
-            client.receive(message, config)
-        } else {
-            Ok(Vec::default())
-        }
-    }
-
-    pub fn send(
-        &mut self,
-        buffer: &buffer::Upstream,
-        message: message::Encoded,
-        priority: TokenPriority,
-    ) -> Option<LabeledResponseContext> {
-        self.client_mut(buffer.server())
-            .and_then(|client| client.send(Some(buffer), message, priority))
-    }
-
-    pub fn send_multiline_batch(
-        &mut self,
-        buffer: &buffer::Upstream,
-        messages: Vec<message::Encoded>,
-        priority: TokenPriority,
-        reply_id: Option<&message::Id>,
-    ) -> Option<LabeledResponseContext> {
-        self.client_mut(buffer.server()).and_then(|client| {
-            client.send_multiline_batch(buffer, messages, priority, reply_id)
-        })
-    }
-
-    pub fn send_markread(
-        &mut self,
-        server: &Server,
-        target: Target,
-        read_marker: ReadMarker,
-        priority: TokenPriority,
-    ) {
-        if let Some(client) = self.client_mut(server) {
-            client.send_markread(target, read_marker, priority);
-        }
-    }
-
-    pub fn join(&mut self, server: &Server, channels: &[target::Channel]) {
-        if let Some(client) = self.client_mut(server) {
-            client.join(channels);
-        }
-    }
-
-    pub fn quit(&mut self, server: &Server, reason: Option<String>) {
-        if let Some(client) = self.client_mut(server) {
-            client.quit(reason);
-        }
-    }
-
-    pub fn prioritize_who_poll(
-        &mut self,
-        server: &Server,
-        channel: &target::Channel,
-    ) {
-        if let Some(client) = self.client_mut(server) {
-            client.prioritize_who_poll(channel);
-        }
-    }
-
-    pub fn deprioritize_who_poll(
-        &mut self,
-        server: &Server,
-        channel: &target::Channel,
-    ) {
-        if let Some(client) = self.client_mut(server) {
-            client.deprioritize_who_poll(channel);
-        }
-    }
-
-    pub fn add_monitored_user_automated(
-        &mut self,
-        server: &Server,
-        user: &User,
-    ) {
-        if let Some(client) = self.client_mut(server) {
-            client.add_monitored_user_automated(user);
-        }
-    }
-
-    pub fn resolve_user_attributes<'a>(
-        &'a self,
-        server: &Server,
-        channel: &target::Channel,
-        user: &User,
-    ) -> Option<&'a User> {
-        self.client(server)
-            .and_then(|client| client.resolve_user_attributes(channel, user))
-    }
-
-    pub fn get_channel_discovery_manager(
-        &self,
-        server: &Server,
-    ) -> Option<&channel_discovery::Manager> {
-        self.client(server)
-            .map(|client| &client.channel_discovery_manager)
-    }
-
-    pub fn get_channel_discovery_manager_mut(
-        &mut self,
-        server: &Server,
-    ) -> Option<&mut channel_discovery::Manager> {
-        self.client_mut(server)
-            .map(|client| &mut client.channel_discovery_manager)
-    }
-
-    pub fn get_channel_users(
-        &self,
-        server: &Server,
-        channel: &target::Channel,
-    ) -> Option<&ChannelUsers> {
-        self.client(server).and_then(|client| client.users(channel))
-    }
-
-    pub fn get_user_channels(
-        &self,
-        server: &Server,
-        nick: NickRef,
-    ) -> Vec<target::Channel> {
-        self.client(server)
-            .map(|client| client.user_channels(nick))
-            .unwrap_or_default()
-    }
-
-    pub fn get_channel_topic<'a>(
-        &'a self,
-        server: &Server,
-        channel: &target::Channel,
-    ) -> Option<&'a Topic> {
-        self.client(server)
-            .map(|client| client.topic(channel))
-            .unwrap_or_default()
-    }
-
-    pub fn get_channel_mode<'a>(
-        &'a self,
-        server: &Server,
-        channel: &target::Channel,
-    ) -> Option<&'a String> {
-        self.client(server)
-            .map(|client| client.mode(channel))
-            .unwrap_or_default()
-    }
-
-    pub fn get_channels<'a>(
-        &'a self,
-        server: &Server,
-    ) -> impl Iterator<Item = &'a target::Channel> {
-        self.client(server)
-            .map(Client::channels)
-            .into_iter()
-            .flatten()
-    }
-
-    pub fn contains_channel(
-        &self,
-        server: &Server,
-        chan: &target::Channel,
-    ) -> bool {
-        self.client(server)
-            .is_some_and(|c| c.chanmap.contains_key(chan))
-    }
-
-    pub fn resolve_query<'a>(
-        &'a self,
-        server: &Server,
-        query: &target::Query,
-    ) -> Option<&'a target::Query> {
-        self.client(server)
-            .and_then(|client| client.resolve_query(query))
-    }
-
-    pub fn get_isupport_ref(
-        &self,
-        server: &Server,
-    ) -> &HashMap<isupport::Kind, isupport::Parameter> {
-        self.client(server)
-            .map_or(&isupport::DEFAULT, |client| &client.isupport)
-    }
-
-    pub fn get_capabilities_ref(&self, server: &Server) -> &Capabilities {
-        self.client(server)
-            .map_or(&capabilities::DEFAULT, |client| &client.capabilities)
-    }
-
-    pub fn get_filehost<'a>(&'a self, server: &Server) -> Option<&'a str> {
-        let client = self.client(server)?;
-
-        if !client.config.filehost.enabled {
-            return None;
-        }
-
-        client.config.filehost.override_url.as_deref().or(
-            if server.is_bouncer_network() {
-                server.parent().as_ref().and_then(|p| self.get_filehost(p))
-            } else {
-                isupport::get_filehost(&client.isupport)
-            },
-        )
-    }
-
-    pub fn get_icon_url<'a>(&'a self, server: &Server) -> Option<&'a str> {
-        self.client(server).and_then(|client| {
-            if client.config.icon.enabled {
-                client
-                    .config
-                    .icon
-                    .override_url
-                    .as_deref()
-                    .or(isupport::get_icon_url(&client.isupport))
-            } else {
-                None
-            }
-        })
-    }
-
-    pub fn get_filehost_auth(
-        &self,
-        server: &Server,
-    ) -> Option<fileupload::Auth> {
-        let client = self.client(server)?;
-
-        if !client.config.filehost.enabled {
-            return None;
-        }
-
-        match &client.config.filehost.credentials {
-            filehost::Credentials::Server => {
-                if server.is_bouncer_network() {
-                    return server
-                        .parent()
-                        .as_ref()
-                        .and_then(|parent| self.get_filehost_auth(parent));
-                }
-
-                fileupload::Auth::from_sasl(
-                    client.config.sasl.as_ref()?,
-                    &client.config.nickname,
-                )
-                .ok()
-            }
-            filehost::Credentials::Sasl(credentials) => {
-                fileupload::Auth::from_sasl(
-                    credentials,
-                    &client.config.nickname,
-                )
-                .ok()
-            }
-            filehost::Credentials::None => None,
-        }
-    }
-
-    pub fn get_use_tls(&self, server: &Server) -> bool {
-        self.client(server).is_none_or(|c| c.config.use_tls)
-    }
-
-    pub fn get_filehost_is_override(&self, server: &Server) -> bool {
-        let Some(client) = self.client(server) else {
-            return false;
-        };
-
-        if !client.config.filehost.enabled {
-            return false;
-        }
-
-        if client.config.filehost.override_url.is_some() {
-            return true;
-        }
-
-        if server.is_bouncer_network() {
-            server
-                .parent()
-                .as_ref()
-                .is_some_and(|p| self.get_filehost_is_override(p))
-        } else {
-            false
-        }
-    }
-
-    pub fn get_features_ref(&self, server: &Server) -> &Features {
-        self.client(server)
-            .map_or(&features::DEFAULT, |client| &client.features)
-    }
-
-    pub fn get_server_casemapping_or_default(
-        &self,
-        server: &Server,
-    ) -> isupport::CaseMap {
-        self.get_maybe_server_casemapping_or_default(Some(server))
-    }
-
-    pub fn get_maybe_server_casemapping_or_default(
-        &self,
-        server: Option<&Server>,
-    ) -> isupport::CaseMap {
-        server
-            .and_then(|server| self.client(server).map(Client::casemapping))
-            .unwrap_or_default()
-    }
-
-    pub fn get_server_chanmodes_or_default<'a>(
-        &'a self,
-        server: &Server,
-    ) -> &'a [isupport::ModeKind] {
-        self.client(server)
-            .map(Client::chanmodes)
-            .unwrap_or_default()
-    }
-
-    pub fn get_server_chantypes_or_default<'a>(
-        &'a self,
-        server: &Server,
-    ) -> &'a [char] {
-        self.get_maybe_server_chantypes_or_default(Some(server))
-    }
-
-    pub fn get_maybe_server_chantypes_or_default<'a>(
-        &'a self,
-        server: Option<&Server>,
-    ) -> &'a [char] {
-        server
-            .and_then(|server| self.client(server).map(Client::chantypes))
-            .unwrap_or(isupport::DEFAULT_CHANTYPES)
-    }
-
-    pub fn get_server_prefix_or_default<'a>(
-        &'a self,
-        server: &Server,
-    ) -> &'a [isupport::PrefixMap] {
-        self.client(server).map(Client::prefix).unwrap_or_default()
-    }
-
-    pub fn get_server_statusmsg_or_default<'a>(
-        &'a self,
-        server: &Server,
-    ) -> &'a [char] {
-        self.get_maybe_server_statusmsg_or_default(Some(server))
-    }
-
-    pub fn get_maybe_server_statusmsg_or_default<'a>(
-        &'a self,
-        server: Option<&Server>,
-    ) -> &'a [char] {
-        server
-            .and_then(|server| self.client(server).map(Client::statusmsg))
-            .unwrap_or(isupport::DEFAULT_STATUSMSG)
-    }
-
-    // The default value is chosen to be a reasonable, conservative
-    // estimate when no client is available
-    pub fn get_relay_bytes(&self, server: &Server) -> usize {
-        self.client(server).map_or(144, Client::relay_bytes)
-    }
-
-    pub fn get_multiline_limits(
-        &self,
-        server: &Server,
-    ) -> Option<MultilineLimits> {
-        self.client(server).and_then(Client::multiline_limits)
-    }
-
-    pub fn get_server_supports_multiline(&self, server: &Server) -> bool {
-        self.client(server).is_some_and(|client| {
-            client.capabilities.acknowledged(Capability::Multiline)
-        })
-    }
-
-    pub fn get_server_supports_echoes(&self, server: &Server) -> bool {
-        self.client(server).is_some_and(|client| {
-            client.capabilities.acknowledged(Capability::EchoMessage)
-        })
-    }
-
-    /// The config used by this server connection.
-    ///
-    /// Unlike `config.servers`, this distinguishes networks on the same bouncer.
-    pub fn get_server_config(
-        &self,
-        server: &Server,
-    ) -> Option<&config::Server> {
-        self.client(server).map(|client| client.config.as_ref())
-    }
-
-    pub fn get_server_supports_typing(&self, server: &Server) -> bool {
-        self.client(server).is_some_and(Client::supports_typing)
-    }
-
-    pub fn get_server_can_send_reactions(&self, server: &Server) -> bool {
-        self.client(server).is_some_and(Client::can_send_reactions)
-    }
-
-    pub fn get_server_can_send_unreactions(&self, server: &Server) -> bool {
-        self.client(server)
-            .is_some_and(Client::can_send_unreactions)
-    }
-
-    pub fn get_server_can_redact(&self, server: &Server) -> bool {
-        self.client(server).is_some_and(Client::can_redact)
-    }
-
-    pub fn get_server_can_send_replies(&self, server: &Server) -> bool {
-        self.client(server).is_some_and(Client::can_send_replies)
-    }
-
-    pub fn get_server_can_send_typing(&self, server: &Server) -> bool {
-        self.client(server).is_some_and(Client::can_send_typing)
-    }
-
-    pub fn get_server_show_typing(&self, server: &Server) -> bool {
-        self.client(server).is_some_and(Client::show_typing)
-    }
-
-    pub fn get_server_share_typing(&self, server: &Server) -> bool {
-        self.client(server).is_some_and(Client::share_typing)
-    }
-
-    pub fn get_channel_typing_users(
-        &self,
-        server: &Server,
-        channel: &target::Channel,
-    ) -> Vec<String> {
-        self.client(server)
-            .map(|client| client.channel_typing_users(channel))
-            .unwrap_or_default()
-    }
-
-    pub fn get_query_typing_users(
-        &self,
-        server: &Server,
-        query: &target::Query,
-    ) -> Vec<String> {
-        self.client(server)
-            .map(|client| client.query_typing_users(query))
-            .unwrap_or_default()
-    }
-
-    pub fn has_channel_typing_users(
-        &self,
-        server: &Server,
-        channel: &target::Channel,
-    ) -> bool {
-        self.client(server)
-            .is_some_and(|client| client.has_channel_typing_users(channel))
-    }
-
-    pub fn has_query_typing_users(
-        &self,
-        server: &Server,
-        query: &target::Query,
-    ) -> bool {
-        self.client(server)
-            .is_some_and(|client| client.has_query_typing_users(query))
-    }
-
-    pub fn get_server_chathistory_message_reference_types(
-        &self,
-        server: &Server,
-    ) -> Vec<isupport::MessageReferenceType> {
-        self.client(server)
-            .map(Client::chathistory_message_reference_types)
-            .unwrap_or_default()
-    }
-
-    pub fn get_server_chathistory_limit(&self, server: &Server) -> u16 {
-        self.client(server)
-            .map_or(CLIENT_CHATHISTORY_LIMIT, |client| {
-                client.chathistory_limit()
-            })
-    }
-
-    pub fn get_server_supports_chathistory(&self, server: &Server) -> bool {
-        self.client(server).is_some_and(|client| {
-            client.capabilities.acknowledged(Capability::Chathistory)
-        })
-    }
-
-    pub fn get_chathistory_request(
-        &self,
-        server: &Server,
-        target: &Target,
-    ) -> Option<ChatHistorySubcommand> {
-        self.client(server)
-            .and_then(|client| client.chathistory_request(target))
-    }
-
-    pub fn send_chathistory_request(
-        &mut self,
-        server: &Server,
-        subcommand: ChatHistorySubcommand,
-        priority: TokenPriority,
-    ) {
-        if let Some(client) = self.client_mut(server) {
-            client.send_chathistory_request(subcommand, priority);
-        }
-    }
-
-    pub fn clear_chathistory_request(
-        &mut self,
-        server: &Server,
-        target: Option<&Target>,
-    ) {
-        if let Some(client) = self.client_mut(server) {
-            client.clear_chathistory_request(target);
-        }
-    }
-
-    pub fn get_chathistory_exhausted(
-        &self,
-        server: &Server,
-        target: &Target,
-    ) -> bool {
-        self.client(server)
-            .is_some_and(|client| client.chathistory_exhausted(target))
-    }
-
-    pub fn get_chathistory_state(
-        &self,
-        server: &Server,
-        target: &Target,
-    ) -> Option<ChatHistoryState> {
-        self.client(server).and_then(|client| {
-            if client.capabilities.acknowledged(Capability::Chathistory) {
-                if client.chathistory_request(target).is_some() {
-                    Some(ChatHistoryState::PendingRequest)
-                } else if client.chathistory_exhausted(target) {
-                    Some(ChatHistoryState::Exhausted)
-                } else {
-                    Some(ChatHistoryState::Ready)
-                }
-            } else {
-                None
-            }
-        })
-    }
-
-    pub fn load_chathistory_targets_timestamp(
-        &self,
-        server: &Server,
-        server_time: DateTime<Utc>,
-    ) -> Option<impl Future<Output = Message> + use<>> {
-        self.client(server).map(|client| {
-            client.load_chathistory_targets_timestamp(server_time)
-        })
-    }
-
-    pub fn overwrite_chathistory_targets_timestamp(
-        &self,
-        server: &Server,
-        server_time: DateTime<Utc>,
-    ) -> Option<impl Future<Output = Message> + use<>> {
-        self.client(server).map(|client| {
-            client.overwrite_chathistory_targets_timestamp(server_time)
-        })
-    }
-
-    pub fn get_server_supports_detach(&self, server: &Server) -> bool {
-        self.client(server)
-            .is_some_and(|client| client.features.detach)
-    }
-
-    pub fn get_server_supports_list(&self, server: &Server) -> bool {
-        self.client(server).is_some_and(Client::safelist)
-    }
-
-    pub fn get_server_is_connected(&self, server: &Server) -> bool {
-        self.client(server).is_some()
-    }
-
-    pub fn get_server_http_client(
-        &self,
-        server: &Server,
-    ) -> Option<Arc<reqwest::Client>> {
-        self.client(server)
-            .and_then(|client| client.http_client.clone())
-    }
-
-    pub fn get_server_proxy_config(
-        &self,
-        server: &Server,
-    ) -> Option<&config::Proxy> {
-        self.client(server)
-            .as_ref()
-            .and_then(|client| client.config.proxy.as_ref())
-    }
-
-    pub fn get_seed(&self, kind: &history::Kind) -> Option<history::Seed> {
-        match kind {
-            history::Kind::Highlights | history::Kind::ChannelMonitor => {
-                let casemappings: HashMap<Server, isupport::CaseMap> = self
-                    .servers()
-                    .filter_map(|server| {
-                        self.client(server)
-                            .map(Client::casemapping)
-                            .map(|casemapping| (server.clone(), casemapping))
-                    })
-                    .collect();
-
-                (!casemappings.is_empty())
-                    .then_some(history::Seed::Multiple(casemappings))
-            }
-            _ => kind.server().and_then(|server| {
-                self.client(server)
-                    .map(Client::casemapping)
-                    .map(history::Seed::Single)
-            }),
-        }
-    }
-
-    pub fn get_server_handle(
-        &self,
-        server: &Server,
-    ) -> Option<&server::Handle> {
-        self.client(server).map(|client| &client.handle)
-    }
-
-    pub fn connected_servers(&self) -> impl Iterator<Item = &Server> {
-        self.0.iter().filter_map(|(server, state)| {
-            if let State::Ready(_) = state {
-                Some(server)
-            } else {
-                None
-            }
-        })
-    }
-
-    pub fn servers(&self) -> impl Iterator<Item = &Server> {
-        self.0.keys()
-    }
-
-    pub fn iter(&self) -> std::collections::btree_map::Iter<'_, Server, State> {
-        self.0.iter()
-    }
-
-    pub fn status(&self, server: &Server) -> Status {
-        self.0.get(server).map_or(Status::Unavailable, |s| match s {
-            State::Disconnected { .. } => Status::Disconnected,
-            State::Ready(_) => Status::Connected,
-        })
-    }
-
-    pub fn state(&self, server: &Server) -> Option<&State> {
-        self.0.get(server)
-    }
-
-    pub fn tick(&mut self, now: Instant) -> Result<()> {
-        for client in self.0.values_mut() {
-            if let State::Ready(client) = client {
-                client.tick(now).with_context(|| {
-                    anyhow!("[{}] tick failed", client.server)
-                })?;
-            }
-        }
-        Ok(())
-    }
-
-    pub fn get_registry(&self, server: &Server) -> &dyn metadata::Registry {
-        self.0
-            .get(server)
-            .and_then::<&dyn metadata::Registry, _>(|state| match state {
-                State::Disconnected { .. } => None,
-                State::Ready(client) => Some(&client.registry),
-            })
-            .unwrap_or(metadata::EMPTY)
-    }
-}
-
 #[derive(Debug, Clone)]
 pub enum Context {
     Buffer(buffer::Upstream),
-    PrivOrNotice(buffer::Upstream, Option<LabeledResponseContext>),
+    PrivmsgOrNotice(buffer::Upstream, Option<LabeledResponseContext>),
 }
 
 impl Context {
@@ -5681,7 +4967,7 @@ impl Context {
     ) -> Self {
         match &message.command {
             Command::PRIVMSG(_, _) | Command::NOTICE(_, _) => {
-                Self::PrivOrNotice(
+                Self::PrivmsgOrNotice(
                     buffer,
                     label.map(|label| {
                         LabeledResponseContext::new(message, label)
@@ -5693,7 +4979,7 @@ impl Context {
                     param == "draft/multiline" || param == "labeled-response"
                 }) =>
             {
-                Self::PrivOrNotice(
+                Self::PrivmsgOrNotice(
                     buffer,
                     label.map(|label| {
                         LabeledResponseContext::new(message, label)
@@ -5704,16 +4990,16 @@ impl Context {
         }
     }
 
-    fn buffer(self) -> buffer::Upstream {
+    fn into_buffer(self) -> buffer::Upstream {
         match self {
             Context::Buffer(buffer) => buffer,
-            Context::PrivOrNotice(buffer, _) => buffer,
+            Context::PrivmsgOrNotice(buffer, _) => buffer,
         }
     }
 
     fn labeled_response_context(&self) -> Option<&LabeledResponseContext> {
         match self {
-            Context::PrivOrNotice(_, labeled_response_context) => {
+            Context::PrivmsgOrNotice(_, labeled_response_context) => {
                 labeled_response_context.as_ref()
             }
             Context::Buffer(_) => None,
@@ -5724,7 +5010,7 @@ impl Context {
 impl From<Context> for Option<LabeledResponseContext> {
     fn from(context: Context) -> Option<LabeledResponseContext> {
         match context {
-            Context::PrivOrNotice(_, labeled_response_context) => {
+            Context::PrivmsgOrNotice(_, labeled_response_context) => {
                 labeled_response_context
             }
             Context::Buffer(_) => None,
@@ -6085,12 +5371,14 @@ pub enum Error {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
     use std::sync::Arc;
 
     use futures::channel::mpsc;
     use irc::proto;
 
     use super::*;
+    use crate::buffer::EmptyBuffersContext;
 
     fn test_client(nickname: &str) -> Client {
         let (sender, _) = mpsc::channel(1);
@@ -6128,6 +5416,8 @@ mod tests {
     #[test]
     fn chathistory_multiline_batch_assembles_into_single_message() {
         let mut client = test_client("tester");
+        let history = storage::Manager::default();
+        let buffers_context = EmptyBuffersContext::default();
         let config = config::Config::default();
 
         let alice = proto::Source::User(proto::User {
@@ -6149,6 +5439,8 @@ mod tests {
                     ),
                 }),
                 None,
+                &history,
+                &buffers_context,
                 &config,
             )
             .unwrap();
@@ -6171,6 +5463,8 @@ mod tests {
                     ),
                 }),
                 None,
+                &history,
+                &buffers_context,
                 &config,
             )
             .unwrap();
@@ -6190,6 +5484,8 @@ mod tests {
                     ),
                 }),
                 None,
+                &history,
+                &buffers_context,
                 &config,
             )
             .unwrap();
@@ -6209,6 +5505,8 @@ mod tests {
                     ),
                 }),
                 None,
+                &history,
+                &buffers_context,
                 &config,
             )
             .unwrap();
@@ -6225,6 +5523,8 @@ mod tests {
                     command: Command::BATCH("-2".to_string(), vec![]),
                 }),
                 None,
+                &history,
+                &buffers_context,
                 &config,
             )
             .unwrap();
@@ -6238,44 +5538,46 @@ mod tests {
                     command: Command::BATCH("-1".to_string(), vec![]),
                 }),
                 None,
+                &history,
+                &buffers_context,
                 &config,
             )
             .unwrap();
 
-        // The multiline message should appear as a single PrivOrNotice
+        // The multiline message should appear as a single Message event
         // with combined text "line one\nline two"
-        let priv_events: Vec<_> = events
+        let storage_events: Vec<_> = events
             .iter()
-            .filter(|e| matches!(e, Event::PrivOrNotice { .. }))
+            .filter(|e| matches!(e, Event::Message(_)))
             .collect();
 
         assert_eq!(
-            priv_events.len(),
+            storage_events.len(),
             1,
             "expected 1 assembled multiline message, got {}",
-            priv_events.len()
+            storage_events.len()
         );
 
-        if let Event::PrivOrNotice { message, .. } = &priv_events[0] {
-            match &message.0.command {
-                Command::PRIVMSG(_, text) => {
-                    assert_eq!(
-                        text, "line one\nline two",
-                        "multiline text should be joined with newline"
-                    );
-                }
-                other => panic!("expected PRIVMSG, got {other:?}"),
-            }
+        if let Event::Message(message_with_context) = &storage_events[0] {
+            assert_eq!(
+                message_with_context.text(),
+                "line one\nline two",
+                "multiline text should be joined with newline"
+            );
         } else {
-            panic!("expected PrivOrNotice event");
+            panic!("expected Message event");
         }
     }
 
     #[test]
     fn chathistory_end_tag_marks_history_exhausted() {
         let mut client = test_client("tester");
+        let history = storage::Manager::default();
+        let buffers_context = EmptyBuffersContext::default();
         let config = config::Config::default();
+
         let server = proto::Source::Server("irc.test".to_string());
+
         let alice = proto::Source::User(proto::User {
             nickname: "alice".to_string(),
             username: Some("alice".to_string()),
@@ -6321,6 +5623,8 @@ mod tests {
                     ),
                 }),
                 None,
+                &history,
+                &buffers_context,
                 &config,
             )
             .unwrap();
@@ -6341,6 +5645,8 @@ mod tests {
                         ),
                     }),
                     None,
+                    &history,
+                    &buffers_context,
                     &config,
                 )
                 .unwrap();
@@ -6355,6 +5661,8 @@ mod tests {
                     command: Command::BATCH("-1".to_string(), vec![]),
                 }),
                 None,
+                &history,
+                &buffers_context,
                 &config,
             )
             .unwrap();
@@ -6368,6 +5676,10 @@ mod tests {
     #[test]
     fn chathistory_direct_messages_record_query_in_querymap() {
         let mut client = test_client("tester");
+        let history = storage::Manager::default();
+        let buffers_context = EmptyBuffersContext::default();
+        let config = config::Config::default();
+
         let canonical = query("FooBar");
 
         let message = message::Encoded(proto::Message {
@@ -6383,7 +5695,7 @@ mod tests {
             ),
         });
 
-        client.handle_chathistory(message, Target::Query(canonical.clone()));
+        client.handle_chathistory(message, &history, &buffers_context, &config);
 
         assert!(client.querymap.contains_key(&query("foobar")));
         assert_eq!(client.resolve_query(&query("foobar")), Some(&canonical));
@@ -6435,9 +5747,11 @@ mod tests {
 
     fn deliver(
         client: &mut Client,
-        config: &config::Config,
         source: proto::Source,
         command: Command,
+        history: &storage::Manager,
+        buffers_context: &dyn BuffersContext,
+        config: &config::Config,
     ) {
         client
             .handle(
@@ -6447,6 +5761,8 @@ mod tests {
                     command,
                 }),
                 None,
+                history,
+                buffers_context,
                 config,
             )
             .unwrap();
@@ -6469,6 +5785,8 @@ mod tests {
         use irc::proto::command::Numeric::*;
 
         let mut client = test_client("tester");
+        let history = storage::Manager::default();
+        let buffers_context = EmptyBuffersContext::default();
         let config = config::Config::default();
 
         let self_source = proto::Source::User(proto::User {
@@ -6488,23 +5806,29 @@ mod tests {
         // Initial join + names list.
         deliver(
             &mut client,
-            &config,
             self_source.clone(),
             Command::JOIN("#test".to_string(), None),
+            &history,
+            &buffers_context,
+            &config,
         );
         deliver(
             &mut client,
-            &config,
             server_source.clone(),
             Command::Numeric(RPL_NAMREPLY, names.clone()),
+            &history,
+            &buffers_context,
+            &config,
         );
 
         // Mark ourselves away (reply to /AWAY <msg>).
         deliver(
             &mut client,
-            &config,
             server_source.clone(),
             Command::Numeric(RPL_NOWAWAY, vec!["tester".to_string()]),
+            &history,
+            &buffers_context,
+            &config,
         );
         assert_eq!(channel_user_is_away(&client, "tester"), Some(true));
 
@@ -6512,15 +5836,19 @@ mod tests {
         // resent. Our own away state must be re-applied to the self user.
         deliver(
             &mut client,
-            &config,
             self_source.clone(),
             Command::JOIN("#test".to_string(), None),
+            &history,
+            &buffers_context,
+            &config,
         );
         deliver(
             &mut client,
-            &config,
             server_source,
             Command::Numeric(RPL_NAMREPLY, names),
+            &history,
+            &buffers_context,
+            &config,
         );
 
         assert_eq!(channel_user_is_away(&client, "tester"), Some(true));
@@ -6533,6 +5861,8 @@ mod tests {
         use irc::proto::command::Numeric::*;
 
         let mut client = test_client("tester");
+        let history = storage::Manager::default();
+        let buffers_context = EmptyBuffersContext::default();
         let config = config::Config::default();
 
         let self_source = proto::Source::User(proto::User {
@@ -6551,42 +5881,54 @@ mod tests {
 
         deliver(
             &mut client,
-            &config,
             self_source.clone(),
             Command::JOIN("#test".to_string(), None),
+            &history,
+            &buffers_context,
+            &config,
         );
         deliver(
             &mut client,
-            &config,
             server_source.clone(),
             Command::Numeric(RPL_NAMREPLY, names.clone()),
+            &history,
+            &buffers_context,
+            &config,
         );
 
         // Away, then back (reply to /AWAY with no message).
         deliver(
             &mut client,
-            &config,
             server_source.clone(),
             Command::Numeric(RPL_NOWAWAY, vec!["tester".to_string()]),
+            &history,
+            &buffers_context,
+            &config,
         );
         deliver(
             &mut client,
-            &config,
             server_source.clone(),
             Command::Numeric(RPL_UNAWAY, vec!["tester".to_string()]),
+            &history,
+            &buffers_context,
+            &config,
         );
 
         deliver(
             &mut client,
-            &config,
             self_source,
             Command::JOIN("#test".to_string(), None),
+            &history,
+            &buffers_context,
+            &config,
         );
         deliver(
             &mut client,
-            &config,
             server_source,
             Command::Numeric(RPL_NAMREPLY, names),
+            &history,
+            &buffers_context,
+            &config,
         );
 
         assert_eq!(channel_user_is_away(&client, "tester"), Some(false));

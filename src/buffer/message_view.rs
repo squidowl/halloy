@@ -109,7 +109,7 @@ impl<'a> ChannelQueryLayout<'a> {
         &self,
         base: Element<'a, Message>,
         focus_menu: &'a FocusMenu,
-        message: &'a data::Message,
+        message: &'a message::MessageDisplay,
         channels_context: &'a dyn context_menu::ChannelsContext,
     ) -> Element<'a, Message> {
         let (entries, context) = match focus_menu.link() {
@@ -144,7 +144,7 @@ impl<'a> ChannelQueryLayout<'a> {
 
     fn reply_nick_to_strip<'m>(
         &self,
-        message: &'m data::Message,
+        message: &'m message::MessageDisplay,
     ) -> Option<&'m str> {
         if self.config.buffer.reply.hide_redundant_nicks {
             message
@@ -157,13 +157,13 @@ impl<'a> ChannelQueryLayout<'a> {
         }
     }
 
-    fn previews_enabled(&self, message: &data::Message) -> bool {
+    fn previews_enabled(&self, message: &message::MessageDisplay) -> bool {
         !self.not_sent(message) && message.redaction.is_none()
     }
 
     fn preview_hidden_for_url(
         &self,
-        message: &data::Message,
+        message: &message::MessageDisplay,
         url: &str,
     ) -> Option<bool> {
         if self.not_sent(message) {
@@ -175,7 +175,7 @@ impl<'a> ChannelQueryLayout<'a> {
             .is_hidden_for_url(message, &parsed, &self.config.preview)
     }
 
-    fn can_redact_message(&self, message: &data::Message) -> bool {
+    fn can_redact_message(&self, message: &message::MessageDisplay) -> bool {
         self.can_redact && message.is_redactable()
     }
 
@@ -209,20 +209,20 @@ impl<'a> ChannelQueryLayout<'a> {
 
     fn format_timestamp(
         &self,
-        message: &'a data::Message,
+        message: &'a message::MessageDisplay,
         hide_timestamp: bool,
     ) -> Option<Element<'a, Message>> {
-        let date_time = match message.target.source() {
+        let date_time = match message.source() {
             message::Source::Internal(
-                message::source::Internal::Condensed(end_server_time),
+                message::source::Internal::Condensed(end_time_utc),
             ) => self
                 .config
                 .buffer
                 .server_messages
                 .condense
                 .timestamp
-                .primary(&message.server_time, end_server_time),
-            _ => Some(&message.server_time),
+                .primary(&message.time.utc, end_time_utc),
+            _ => Some(&message.time.utc),
         }?;
 
         self.config
@@ -253,13 +253,11 @@ impl<'a> ChannelQueryLayout<'a> {
 
     fn format_range_end_timestamp(
         &self,
-        end_server_time: &'a DateTime<Utc>,
+        end_time: &'a DateTime<Utc>,
         hide_timestamp: bool,
     ) -> Option<Element<'a, Message>> {
-        self.config
-            .buffer
-            .format_range_end_timestamp(end_server_time)
-            .map(|(dash, end_timestamp)| {
+        self.config.buffer.format_range_end_timestamp(end_time).map(
+            |(dash, end_timestamp)| {
                 if hide_timestamp {
                     let width = font::width_from_str(
                         &format!("{dash}{end_timestamp}"),
@@ -283,19 +281,20 @@ impl<'a> ChannelQueryLayout<'a> {
                                 theme::font_style::timestamp(self.theme)
                                     .map(font::get),
                             ),
-                        end_server_time,
+                        end_time,
                         self.config,
                         self.theme,
                     )
                     .map(Message::ContextMenu),
                 ]
                 .into()
-            })
+            },
+        )
     }
 
     fn format_prefixes(
         &self,
-        message: &'a data::Message,
+        message: &'a message::MessageDisplay,
     ) -> Option<Element<'a, Message>> {
         message.target.prefixes().map(|prefixes| {
             selectable_text(format!(
@@ -312,17 +311,17 @@ impl<'a> ChannelQueryLayout<'a> {
         })
     }
 
-    fn not_sent(&self, message: &data::Message) -> bool {
+    fn not_sent(&self, message: &message::Message) -> bool {
         self.confirm_message_delivery
-            && message.command.is_some()
-            && matches!(message.direction, message::Direction::Sent)
-            && Utc::now().signed_duration_since(message.server_time)
+            && let message::Direction::Sent { command } = &message.direction
+            && command.is_some() // Prevent messages migrated from older history format from appearing as not sent
+            && Utc::now().signed_duration_since(message.time.utc)
                 > TimeDelta::seconds(10)
     }
 
     fn not_sent_row(
         &self,
-        message: &'a data::Message,
+        message: &'a message::Message,
     ) -> Option<Element<'a, Message>> {
         if !self.not_sent(message) {
             return None;
@@ -352,7 +351,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 )
                 .style(theme::button::bare)
                 .padding(padding::top(self.config.buffer.line_spacing)),
-                &message.server_time,
+                &message.time.utc,
                 &message.hash,
                 message.command.is_some() && self.connected,
                 self.config,
@@ -364,7 +363,7 @@ impl<'a> ChannelQueryLayout<'a> {
 
     fn reaction_row(
         &self,
-        message: &'a data::Message,
+        message: &'a message::Message,
     ) -> Option<Element<'a, Message>> {
         if !(self.config.buffer.channel.message.show_emoji_reacts
             && has_visible_reactions(message))
@@ -386,7 +385,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 on_open_picker = Some(Message::ContextMenu(
                     context_menu::Message::OpenReactionModal(
                         msgid.clone(),
-                        message.server_time,
+                        message.time.utc,
                     ),
                 ));
             }
@@ -418,7 +417,7 @@ impl<'a> ChannelQueryLayout<'a> {
 
     fn preview_row(
         &self,
-        message: &'a data::Message,
+        message: &'a message::MessageDisplay,
         preview: &'a Preview,
         url: &'a url::Url,
         index: usize,
@@ -547,7 +546,7 @@ impl<'a> ChannelQueryLayout<'a> {
 
     fn format_user_message(
         &self,
-        message: &'a data::Message,
+        message: &'a message::MessageDisplay,
         hidden_fragments: &[usize],
         right_alignment_middle_width: Option<f32>,
         user: &'a User,
@@ -560,7 +559,7 @@ impl<'a> ChannelQueryLayout<'a> {
         Element<'a, Message>,
         Vec<Element<'a, Message>>,
     ) {
-        let not_sent_row = self.not_sent_row(message);
+        let not_sent_row = self.not_sent_row(&message.inner);
 
         let dimmed = (not_sent_row.is_some() || message.redaction.is_some())
             .then_some(Dimmed::new(None));
@@ -722,7 +721,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     .style(theme::button::bare)
                     .padding(0)
                     .on_press(Message::Link(message::Link::ExpandMessage(
-                        message.server_time,
+                        message.time.utc,
                         message.hash,
                         None,
                     )))
@@ -777,7 +776,7 @@ impl<'a> ChannelQueryLayout<'a> {
                         tooltip::Position::Top,
                         self.theme,
                     ),
-                    self.reaction_row(message)
+                    self.reaction_row(&message.inner)
                         .into_iter()
                         .chain(not_sent_row)
                         .collect(),
@@ -789,7 +788,7 @@ impl<'a> ChannelQueryLayout<'a> {
 
     fn format_server_message(
         &self,
-        message: &'a data::Message,
+        message: &'a message::MessageDisplay,
         hidden_fragments: &[usize],
         right_alignment_middle_width: Option<f32>,
         server: Option<&'a message::source::Server>,
@@ -821,7 +820,7 @@ impl<'a> ChannelQueryLayout<'a> {
         };
 
         let link = message.expanded.then_some(message::Link::ContractMessage(
-            message.server_time,
+            message.time.utc,
             message.hash,
             None,
         ));
@@ -894,13 +893,13 @@ impl<'a> ChannelQueryLayout<'a> {
         (
             Some(marker),
             message_content,
-            formatter.reaction_row(message).into_iter().collect(),
+            formatter.reaction_row(&message.inner).into_iter().collect(),
         )
     }
 
     fn format_condensed_message(
         &self,
-        message: &'a data::Message,
+        message: &'a message::MessageDisplay,
         right_alignment_middle_width: Option<f32>,
         hide_timestamp: bool,
         focused_component: Option<&FocusedComponent>,
@@ -927,11 +926,8 @@ impl<'a> ChannelQueryLayout<'a> {
             theme::font_style::server(message_theme, None)
         };
 
-        let link = message::Link::ExpandMessage(
-            message.server_time,
-            message.hash,
-            None,
-        );
+        let link =
+            message::Link::ExpandMessage(message.time.utc, message.hash, None);
         let moved_link = link.clone();
 
         let range_end_timestamp = if formatter
@@ -942,12 +938,11 @@ impl<'a> ChannelQueryLayout<'a> {
             .timestamp
             .show_range()
             && let message::Source::Internal(
-                message::source::Internal::Condensed(end_server_time),
-            ) = message.target.source()
-            && message.server_time != *end_server_time
+                message::source::Internal::Condensed(end_time_utc),
+            ) = &message.source
+            && message.time.utc != *end_time_utc
         {
-            formatter
-                .format_range_end_timestamp(end_server_time, hide_timestamp)
+            formatter.format_range_end_timestamp(end_time_utc, hide_timestamp)
         } else {
             None
         };
@@ -1041,21 +1036,18 @@ impl<'a> ChannelQueryLayout<'a> {
         (middle, container(message_content).into(), vec![])
     }
 
-    fn content_on_new_line(&self, message: &data::Message) -> bool {
+    fn content_on_new_line(&self, message: &message::MessageDisplay) -> bool {
         use data::buffer::Alignment;
         use message::Source;
         matches!(
-            (
-                message.target.source(),
-                self.config.buffer.nickname.alignment,
-            ),
+            (message.source, self.config.buffer.nickname.alignment,),
             (Source::User(_), Alignment::Top)
         )
     }
 
     fn link_entries<'b>(
         &'b self,
-        message: &'b data::Message,
+        message: &'b message::MessageDisplay,
         link: &'b message::Link,
         channels_context: &'b dyn context_menu::ChannelsContext,
         include_message_entries: bool,
@@ -1101,7 +1093,7 @@ impl<'a> ChannelQueryLayout<'a> {
 
     fn link_context<'b>(
         &'b self,
-        message: &'b data::Message,
+        message: &'b message::MessageDisplay,
         link: &'b message::Link,
         channels_context: &'b dyn context_menu::ChannelsContext,
     ) -> Option<Context<'b>> {
@@ -1140,7 +1132,7 @@ impl<'a> ChannelQueryLayout<'a> {
 
     fn message_entries<'b>(
         &'b self,
-        message: &'b data::Message,
+        message: &'b message::MessageDisplay,
     ) -> Vec<context_menu::Entry> {
         context_menu::Entry::message_list(
             message.redaction.is_some(),
@@ -1157,7 +1149,7 @@ impl<'a> ChannelQueryLayout<'a> {
 impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
     fn format(
         &self,
-        message: &'a data::Message,
+        message: &'a message::MessageDisplay,
         right_alignment_widths: Option<RightAlignmentWidths>,
         hide_timestamp: bool,
         hide_nickname: bool,
@@ -1229,10 +1221,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                             self.previews.get(url)
                             && visible_for_source.is_none_or(
                                 |visible_for_source| {
-                                    visible_for_source(
-                                        preview,
-                                        message.target.source(),
-                                    )
+                                    visible_for_source(preview, &message.source)
                                 },
                             )
                         {
@@ -1280,7 +1269,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             Option<Element<'a, Message>>,
             Element<'a, Message>,
             Vec<Element<'a, Message>>,
-        ) = match message.target.source() {
+        ) = match &message.source {
             message::Source::User(user) => Some(self.format_user_message(
                 message,
                 &hidden_fragments,
@@ -1378,8 +1367,10 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                         .and_then(FocusedComponent::fragment_index),
                 );
 
-                let after_content =
-                    self.reaction_row(message).into_iter().chain(not_sent_row);
+                let after_content = self
+                    .reaction_row(&message.inner)
+                    .into_iter()
+                    .chain(not_sent_row);
 
                 Some((Some(marker), message_content, after_content.collect()))
             }
@@ -1609,7 +1600,10 @@ impl<'a> ChannelQueryLayout<'a> {
         }
     }
 
-    fn reply_preview_urls(&self, message: &data::Message) -> Vec<url::Url> {
+    fn reply_preview_urls(
+        &self,
+        message: &message::MessageDisplay,
+    ) -> Vec<url::Url> {
         if !self.config.buffer.reply.tooltip.enabled {
             return vec![];
         }
@@ -1633,7 +1627,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 !self.history.is_preview_hidden(
                     &kind,
                     reply_preview.hash,
-                    reply_preview.server_time,
+                    reply_preview.time.utc,
                     url,
                 )
             })
@@ -1644,7 +1638,7 @@ impl<'a> ChannelQueryLayout<'a> {
     /// Generates the reply line element to be used in buffers: `┌── ↩ alice: hi bob`
     fn reply_line(
         &self,
-        message: &'a data::Message,
+        message: &'a message::MessageDisplay,
         right_aligned_width: Option<f32>,
         hovered_reply: Option<message::Hash>,
     ) -> Option<Element<'a, Message>> {
@@ -1738,7 +1732,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     .flatten();
                 self.reply_hover_tooltip(
                     reply_preview.hash,
-                    reply_preview.server_time,
+                    reply_preview.time,
                     tooltip_nick,
                     reply_content,
                     in_reply_to.as_deref(),
@@ -1775,7 +1769,7 @@ impl<'a> ChannelQueryLayout<'a> {
         let timestamp_width = self
             .config
             .buffer
-            .format_timestamp(&message.server_time)
+            .format_timestamp(&message.time.utc)
             .map_or(0.0, |timestamp| {
                 font::width_from_str(&timestamp, &self.config.font)
             });
@@ -1890,7 +1884,7 @@ impl<'a> ChannelQueryLayout<'a> {
     fn reply_hover_tooltip(
         &self,
         reply_hash: message::Hash,
-        server_time: chrono::DateTime<chrono::Utc>,
+        time: message::Time,
         nick: Option<Element<'a, Message>>,
         reply: &'a message::Content,
         in_reply_to: Option<&'a message::ReplyPreview>,
@@ -1930,12 +1924,9 @@ impl<'a> ChannelQueryLayout<'a> {
                     })
                     .take(self.config.preview.max_per_message)
                     .filter(|(_, url)| {
-                        !self.history.is_preview_hidden(
-                            &kind,
-                            reply_hash,
-                            server_time,
-                            url,
-                        )
+                        !self
+                            .history
+                            .is_preview_hidden(&kind, reply_hash, time, url)
                     })
                     .filter_map(|(fragment_idx, url)| {
                         match self.previews.get(url) {
@@ -2097,7 +2088,7 @@ impl<'a> ChannelQueryLayout<'a> {
 
         let body: Element<_> = row![]
             .spacing(font::width_from_str(" ", &self.config.font))
-            .extend(self.config.buffer.format_timestamp(&server_time).map(
+            .extend(self.config.buffer.format_timestamp(&time.utc).map(
                 |timestamp| -> Element<_> {
                     text(timestamp).style(theme::text::timestamp).into()
                 },

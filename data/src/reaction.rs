@@ -5,41 +5,29 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::capabilities::LabeledResponseContext;
 use crate::isupport;
-use crate::message::{Encoded, Id};
-use crate::serde::{deserialize_date_time_utc_or_epoch, fail_as_none};
+use crate::message::{Direction, Encoded, Id, Time};
 use crate::target::Target;
-use crate::user::Nick;
+use crate::user::{Nick, NickRef};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Reaction {
     pub sender: Nick,
     pub text: String,
     pub unreact: bool,
-    #[serde(default, deserialize_with = "fail_as_none")]
+    #[serde(default)]
     pub id: Option<Id>,
-    #[serde(default, deserialize_with = "deserialize_date_time_utc_or_epoch")]
-    pub server_time: DateTime<Utc>,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Context {
-    pub inner: Reaction,
-    pub target: Target,
-    pub in_reply_to: Id,
-    pub is_echo: bool,
-    pub deduplicate: bool,
+    pub time: Time,
 }
 
 impl Reaction {
     pub fn received(
         message: Encoded,
-        our_nick: Nick,
-        deduplicate: bool,
+        our_nick: NickRef<'_>,
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
         max_reaction_chars: u32,
-    ) -> Option<Context> {
+    ) -> Option<ReactionWithContext> {
         let user = message.user(casemapping)?;
         let (text, unreact) = match (
             message.tags.get("+draft/react"),
@@ -59,7 +47,8 @@ impl Reaction {
         }
         let in_reply_to = message.in_reply_to()?;
         let id = message.message_id();
-        let server_time = message.server_time_or_now().0;
+        let time = message.time();
+        let is_echo = our_nick == user.nickname();
 
         let (Command::PRIVMSG(target, _) | Command::TAGMSG(target)) =
             message.0.command
@@ -76,48 +65,66 @@ impl Reaction {
 
         let sender = Nick::from(user);
 
-        let is_echo = sender == our_nick;
-
-        Some(Context {
+        Some(ReactionWithContext {
             inner: Reaction {
                 sender,
                 text,
                 unreact,
                 id,
-                server_time,
+                time,
             },
             in_reply_to,
             target,
-            is_echo,
-            deduplicate,
+            direction: Direction::Received { is_echo },
+            labeled_response_context: None,
+            historical: false,
+            notification_allowed: true,
         })
     }
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct Pending {
-    pub reactions: Vec<PendingReaction>,
-}
-
-impl Pending {
-    pub fn server_time(&self) -> Option<DateTime<Utc>> {
-        self.reactions
-            .iter()
-            .fold(None, |server_time, pending_reaction| {
-                Some(if let Some(server_time) = server_time {
-                    server_time.min(pending_reaction.reaction.server_time)
-                } else {
-                    pending_reaction.reaction.server_time
-                })
-            })
-    }
-}
-
 #[derive(Debug, Clone)]
-pub struct PendingReaction {
-    pub reaction: Reaction,
-    pub is_echo: bool,
-    pub deduplicate: bool,
+pub struct ReactionWithContext {
+    pub inner: Reaction,
+    pub target: Target,
+    pub in_reply_to: Id,
+    pub direction: Direction,
     pub labeled_response_context: Option<LabeledResponseContext>,
-    pub notification_enabled: bool,
+    pub historical: bool,
+    pub notification_allowed: bool,
+}
+
+impl ReactionWithContext {
+    pub fn id(&self) -> &Option<Id> {
+        &self.inner.id
+    }
+
+    pub fn server_time(&self) -> Option<DateTime<Utc>> {
+        self.inner.time.try_into_server_time()
+    }
+
+    pub fn with_labeled_response_context(
+        self,
+        labeled_response_context: Option<LabeledResponseContext>,
+    ) -> Self {
+        Self {
+            labeled_response_context,
+            ..self
+        }
+    }
+
+    pub fn into_historical(self) -> Self {
+        Self {
+            historical: true,
+            notification_allowed: false,
+            ..self
+        }
+    }
+
+    pub fn with_notification_prohibited(self) -> Self {
+        Self {
+            notification_allowed: false,
+            ..self
+        }
+    }
 }
