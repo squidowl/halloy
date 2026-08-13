@@ -1,5 +1,4 @@
-use std::collections::HashSet;
-
+use hashbrown::HashSet;
 use strsim::jaro_winkler;
 
 struct SearchMatch {

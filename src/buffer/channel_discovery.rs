@@ -1,3 +1,4 @@
+use data::client::{self, ClientsContext};
 use data::dashboard::BufferAction;
 use data::{
     Config, Server, User, channel_discovery, message, metadata, target,
@@ -110,7 +111,7 @@ impl ChannelDiscovery {
 
 pub fn view<'a>(
     state: &'a ChannelDiscovery,
-    clients: &'a data::client::Map,
+    clients: &'a client::Map,
     config: &'a Config,
     theme: &'a Theme,
     channels_context: &'a dyn context_menu::ChannelsContext,
@@ -232,7 +233,7 @@ pub fn view<'a>(
 fn channel_list_view<'a>(
     items: Vec<(&'a String, &'a message::Content, &'a usize)>,
     server: &'a Server,
-    clients: &'a data::client::Map,
+    clients: &'a client::Map,
     config: &'a Config,
     theme: &'a Theme,
     channels_context: &'a dyn context_menu::ChannelsContext,

@@ -5,7 +5,7 @@ use crate::isupport;
 use crate::message::Source;
 use crate::server::Server;
 use crate::target::{Channel, Query, TargetRef};
-use crate::user::NickRef;
+use crate::user::Nick;
 
 pub fn is_server_included(
     include: Option<&Inclusivities>,
@@ -69,7 +69,7 @@ pub fn is_source_included(
 pub fn is_target_channel_included(
     include: Option<&Inclusivities>,
     exclude: Option<&Inclusivities>,
-    user: Option<NickRef>,
+    user: Option<&Nick>,
     channel: &Channel,
     server: &Server,
     casemapping: isupport::CaseMap,
@@ -131,7 +131,7 @@ pub fn is_target_query_included(
 pub fn is_target_included(
     include: Option<&Inclusivities>,
     exclude: Option<&Inclusivities>,
-    user: Option<NickRef>,
+    user: Option<&Nick>,
     target: TargetRef,
     server: &Server,
     casemapping: isupport::CaseMap,
@@ -158,7 +158,7 @@ pub fn is_target_included(
 pub fn is_target_ref_included(
     include: Option<&Inclusivities>,
     exclude: Option<&Inclusivities>,
-    user: Option<NickRef>,
+    user: Option<&Nick>,
     target_ref: TargetRef,
     server: &Server,
     casemapping: isupport::CaseMap,
@@ -185,13 +185,13 @@ pub fn is_target_ref_included(
 pub fn is_user_channel_server_included(
     include: Option<&Inclusivities>,
     exclude: Option<&Inclusivities>,
-    user: NickRef,
+    user: &Nick,
     channel: Option<&Channel>,
     server: &Server,
     casemapping: isupport::CaseMap,
 ) -> bool {
     let is_inclusive = |inclusivities: Option<&Inclusivities>,
-                        user: NickRef,
+                        user: &Nick,
                         channel: Option<&Channel>,
                         server: &Server|
      -> bool {
@@ -434,7 +434,7 @@ impl Inclusivities {
 
     pub fn is_user_inclusive(
         &self,
-        user: NickRef,
+        user: &Nick,
         casemapping: isupport::CaseMap,
     ) -> bool {
         self.users
@@ -578,7 +578,7 @@ impl Criterion {
 
     pub fn is_user_channel_server_inclusive(
         &self,
-        user: Option<NickRef>,
+        user: Option<&Nick>,
         channel: Option<&Channel>,
         server: Option<&Server>,
         casemapping: isupport::CaseMap,

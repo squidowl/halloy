@@ -1,7 +1,6 @@
-use std::collections::{HashMap, HashSet};
-
 use chrono::format::SecondsFormat;
 use chrono::{DateTime, Local, NaiveDate, Utc};
+use hashbrown::{HashMap, HashSet};
 use iced::Color;
 use serde::{Deserialize, Deserializer};
 
@@ -21,7 +20,6 @@ use crate::config::inclusivities::{
 };
 use crate::message::source;
 use crate::target::TargetRef;
-use crate::user::Nick;
 use crate::{Server, isupport};
 
 pub mod channel;
@@ -41,7 +39,7 @@ pub struct Buffer {
     pub server_messages: ServerMessages,
     pub internal_messages: InternalMessages,
     pub status_message_prefix: StatusMessagePrefix,
-    pub chathistory: ChatHistory,
+    pub chathistory: Chathistory,
     pub backlog_separator: BacklogSeparator,
     pub date_separators: DateSeparators,
     pub commands: Commands,
@@ -192,12 +190,10 @@ impl Default for OnBufferClose {
 }
 
 impl OnBufferClose {
-    pub fn mark_as_read(&self, is_scrolled_to_bottom: Option<bool>) -> bool {
+    pub fn mark_as_read(&self, is_scrolled_to_bottom: bool) -> bool {
         match self {
             OnBufferClose::Bool(mark) => *mark,
-            OnBufferClose::Condition(_) => {
-                is_scrolled_to_bottom.unwrap_or(false)
-            }
+            OnBufferClose::Condition(_) => is_scrolled_to_bottom,
         }
     }
 }
@@ -581,7 +577,7 @@ impl ServerMessages {
             .or(self.default.include.as_ref())
     }
 
-    pub fn should_send_message(
+    pub fn should_show_message(
         &self,
         source: Option<&source::Server>,
         target_ref: TargetRef,
@@ -599,7 +595,7 @@ impl ServerMessages {
             TargetRef::Channel(channel) => is_target_channel_included(
                 self.include(kind),
                 self.exclude(kind),
-                source.and_then(|source| source.nick().map(Nick::as_nickref)),
+                source.and_then(|source| source.nick()),
                 channel,
                 server,
                 casemapping,
@@ -915,11 +911,11 @@ pub enum LevelFilter {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
-pub struct ChatHistory {
+pub struct Chathistory {
     pub infinite_scroll: bool,
 }
 
-impl Default for ChatHistory {
+impl Default for Chathistory {
     fn default() -> Self {
         Self {
             infinite_scroll: true,

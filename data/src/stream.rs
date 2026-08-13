@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -7,6 +7,7 @@ use chrono::{DateTime, Local, NaiveDate, Utc};
 use futures::channel::mpsc;
 use futures::never::Never;
 use futures::{FutureExt, SinkExt, StreamExt, future, stream};
+use hashbrown::HashSet;
 use irc::proto::{self, Command, command};
 use irc::{CodecLog, Connection, codec, connection};
 use tokio::fs::{self, File};
@@ -967,11 +968,13 @@ impl Map {
         self.0.remove(server);
     }
 
-    pub fn exit(&mut self, reason: &Option<String>) -> HashSet<Server> {
+    pub fn connected(&self) -> HashSet<Server> {
+        self.0.keys().cloned().collect()
+    }
+
+    pub fn exit(&mut self, reason: &Option<String>) {
         for controller in self.0.values_mut() {
             let _ = controller.try_send(Control::End(reason.clone()));
         }
-
-        self.0.keys().cloned().collect()
     }
 }

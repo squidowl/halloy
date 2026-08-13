@@ -210,8 +210,7 @@ fn set_platform_default_store() -> keyring_core::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
+    use hashbrown::HashMap;
     use serde::Deserialize;
 
     use super::*;
