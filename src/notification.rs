@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::thread;
 
 use chrono::{DateTime, TimeDelta, Utc};
@@ -8,6 +7,7 @@ use data::config::actions::NotificationAction;
 use data::config::notification;
 use data::user::Nick;
 use data::{Config, Notification, Server, User, list_format};
+use hashbrown::HashMap;
 use iced::Task;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
