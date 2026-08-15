@@ -161,17 +161,17 @@ impl Manager {
 
                 let (scroll_task, input_task, context_event) = match action {
                     input_view::FocusAction::Reply => {
-                        let result = message.and_then(|message| {
-                            Some((
-                                message.id.clone()?,
-                                message.server_time,
-                                message
-                                    .target
-                                    .source()
-                                    .user()
-                                    .map(|u| u.nickname().to_owned())?,
-                            ))
-                        });
+                        let result = message
+                            .filter(|message| !message.is_rerouted())
+                            .and_then(|message| {
+                                let user = message.target.source().user()?;
+
+                                Some((
+                                    message.id.clone()?,
+                                    message.server_time,
+                                    user.nickname().to_owned(),
+                                ))
+                            });
 
                         if let Some((msgid, server_time, to_nick)) = result {
                             let (reply_task, _) = input_view.update(
