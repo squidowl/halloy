@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{alpha1, char, crlf, none_of, one_of, satisfy};
@@ -13,25 +11,6 @@ use nom::sequence::{preceded, terminated};
 use nom::{Finish, IResult, Parser};
 
 use crate::{Command, Message, Source, Tags, User};
-
-pub fn message_bytes(bytes: &[u8]) -> Result<Message, Error> {
-    let input = decode(bytes);
-    message(&input)
-}
-
-/// Decodes a raw line, falling back to ISO-8859-1 when it is not valid UTF-8.
-///
-/// Legacy clients (older mIRC and friends) still send ISO-8859-1, where `ä` is
-/// a single byte that is invalid UTF-8. Decoding those lossily replaces each
-/// such byte with U+FFFD and the text is unrecoverable, so decode them as
-/// ISO-8859-1 instead, whose bytes map one-to-one onto the first 256
-/// codepoints. Outgoing messages are always UTF-8.
-fn decode(bytes: &[u8]) -> Cow<'_, str> {
-    match str::from_utf8(bytes) {
-        Ok(utf8) => Cow::Borrowed(utf8),
-        Err(_) => Cow::Owned(bytes.iter().map(|&byte| byte as char).collect()),
-    }
-}
 
 /// Parses a single IRC message terminated by '\r\n`
 pub fn message(input: &str) -> Result<Message, Error> {
@@ -223,33 +202,6 @@ mod test {
 
     use crate::command::Numeric::*;
     use crate::{Command, Message, Source, User};
-
-    #[test]
-    fn iso_8859_1_fallback() {
-        // "moi ää" with ä as a single 0xE4 byte, as a legacy client sends it.
-        let mut bytes = b"PRIVMSG #chan :moi ".to_vec();
-        bytes.extend_from_slice(&[0xE4, 0xE4]);
-        bytes.extend_from_slice(b"\r\n");
-
-        let message = super::message_bytes(&bytes).unwrap();
-
-        assert_eq!(
-            message.command,
-            Command::PRIVMSG("#chan".into(), "moi ää".into())
-        );
-    }
-
-    #[test]
-    fn utf8_is_preferred() {
-        let message =
-            super::message_bytes("PRIVMSG #chan :moi ää\r\n".as_bytes())
-                .unwrap();
-
-        assert_eq!(
-            message.command,
-            Command::PRIVMSG("#chan".into(), "moi ää".into())
-        );
-    }
 
     #[test]
     fn user() {
@@ -506,40 +458,11 @@ mod test {
                     ),
                 },
             ),
-            (
-                Vec::from(b"@id=invalid\x80utf8 :dan!d@localhost PRIVMSG #chan :Hello \xF0\x90\x80World\r\n"),
-                Message {
-                    tags: tags!["id" => "invalid\u{80}utf8"],
-                    source: Some(Source::User(User {
-                        nickname: "dan".into(),
-                        username: Some("d".into()),
-                        hostname: Some("localhost".into()),
-                    })),
-                    command: Command::PRIVMSG(
-                        "#chan".to_string(),
-                        "Hello ð\u{90}\u{80}World".to_string(),
-                    ),
-                },
-            ),
-            (
-                Vec::from(b":dan!d@localhost PART #halloy :My utf8 is br\xF4\x91\x87ken\r\n"),
-                Message {
-                    tags: tags![],
-                    source: Some(Source::User(User {
-                        nickname: "dan".into(),
-                        username: Some("d".into()),
-                        hostname: Some("localhost".into()),
-                    })),
-                    command: Command::PART(
-                        "#halloy".to_string(),
-                        Some("My utf8 is brô\u{91}\u{87}ken".to_string()),
-                    ),
-                },
-            ),
         ];
 
         for (test, expected) in tests {
-            let message = super::message_bytes(&test).unwrap();
+            let input = std::str::from_utf8(&test).unwrap();
+            let message = super::message(input).unwrap();
             assert_eq!(message, expected);
         }
     }
