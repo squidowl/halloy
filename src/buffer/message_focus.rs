@@ -202,6 +202,7 @@ impl Manager {
 
                         let context_message = match action {
                             input_view::FocusAction::Redact => message
+                                .filter(|message| message.is_redactable())
                                 .and_then(|message| message.id.clone())
                                 .map(context_menu::Message::Redact),
                             input_view::FocusAction::OpenReactionModal => message

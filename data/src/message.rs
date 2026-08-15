@@ -458,6 +458,14 @@ impl Message {
         self.rerouted_from.is_some()
     }
 
+    pub fn is_redactable(&self) -> bool {
+        self.redaction.is_none()
+            && matches!(
+                self.target.source(),
+                Source::User(_) | Source::Action(_)
+            )
+    }
+
     pub fn can_condense(
         &self,
         condense: &config::buffer::Condensation,

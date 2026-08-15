@@ -175,21 +175,7 @@ impl<'a> ChannelQueryLayout<'a> {
     }
 
     fn can_redact_message(&self, message: &data::Message) -> bool {
-        // Gate on message-redaction capability first.
-        if !self.can_redact {
-            return false;
-        }
-
-        // A message can only be redacted once.
-        if message.redaction.is_some() {
-            return false;
-        }
-
-        // Message MUST be PRIVMSG, NOTICE, or TAGMSG
-        match message.target.source() {
-            message::Source::User(_) | message::Source::Action(_) => true,
-            message::Source::Server(_) | message::Source::Internal(_) => false,
-        }
+        self.can_redact && message.is_redactable()
     }
 
     fn condensation_marker(
@@ -1124,7 +1110,7 @@ impl<'a> ChannelQueryLayout<'a> {
             message.redaction.is_some(),
             message.redaction_expanded(&self.config.buffer.redaction),
             self.can_send_reactions && message.id.is_some(),
-            self.can_redact && message.id.is_some(),
+            self.can_redact_message(message) && message.id.is_some(),
             self.can_send_replies
                 && message.id.is_some()
                 && message.rerouted_from.is_none(),
