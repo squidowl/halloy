@@ -27,6 +27,20 @@ pub fn default(theme: &Theme) -> Style {
     }
 }
 
+pub fn self_message(theme: &Theme) -> Style {
+    Style {
+        color: Some(
+            theme
+                .styles()
+                .buffer
+                .self_message
+                .color
+                .unwrap_or(theme.styles().text.primary.color),
+        ),
+        selection_color: theme.styles().buffer.selection,
+    }
+}
+
 pub fn secondary(theme: &Theme) -> Style {
     Style {
         color: Some(theme.styles().text.secondary.color),

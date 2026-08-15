@@ -73,6 +73,7 @@ focus_background = "<color string>"
 highlight = "<color string>"
 nickname = <text style>
 nickname_offline = <text style>
+self_message = <text style>
 selection = "<color string>"
 timestamp = <text style>
 topic = <text style>

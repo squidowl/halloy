@@ -14,6 +14,7 @@ Added:
   (`buffer.text_input.autocomplete.include_ignored`)
 - Optional `font.code` setting for code-formatted text
 - `buffer.nickname.color_override` rules for assigning colors to specific nicknames
+- Optional `buffer.self_message` theme style for messages sent by yourself
 - Settings to control how internal and server buffers are opened from the sidebar (`actions.sidebar.internal` and `actions.sidebar.server`)
 - `buffer.nickname.offline` supports `"dimmed"` / `{ dimmed = float }`, and `{ color = "theme"|"nickname", alpha = ...}` so theme offline color and dimming can be combined
 - Keyboard-driven message focus: navigate and act on messages without mouse

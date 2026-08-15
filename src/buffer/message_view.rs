@@ -666,17 +666,28 @@ impl<'a> ChannelQueryLayout<'a> {
             };
 
         let formatter = *self;
+        let is_ours = message.is_ours();
 
         let message_style = move |message_theme: &Theme| {
             theme::selectable_text::dimmed(
                 if rerouted_message {
                     theme::selectable_text::tertiary(message_theme)
+                } else if is_ours {
+                    theme::selectable_text::self_message(message_theme)
                 } else {
                     theme::selectable_text::default(message_theme)
                 },
                 message_theme,
                 dimmed_background_tuple,
             )
+        };
+
+        let message_font_style = move |message_theme: &Theme| {
+            if is_ours {
+                theme::font_style::self_message(message_theme)
+            } else {
+                theme::font_style::primary(message_theme)
+            }
         };
 
         let color_transformation = dimmed.map(|dimmed| {
@@ -700,8 +711,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     button(
                         selectable_text(redaction_message)
                             .font_maybe(
-                                theme::font_style::primary(self.theme)
-                                    .map(font::get),
+                                message_font_style(self.theme).map(font::get),
                             )
                             .style(message_style),
                     )
@@ -729,7 +739,7 @@ impl<'a> ChannelQueryLayout<'a> {
                             Message::Link,
                             None,
                             message_style,
-                            theme::font_style::primary,
+                            message_font_style,
                             color_transformation,
                             move |link| {
                                 formatter.link_entries(

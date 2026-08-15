@@ -395,6 +395,10 @@ pub struct Message {
 }
 
 impl Message {
+    pub fn is_ours(&self) -> bool {
+        matches!(self.direction, Direction::Sent) || self.is_echo
+    }
+
     pub fn triggers_unread(&self) -> bool {
         matches!(self.direction, Direction::Received)
             && !self.is_echo

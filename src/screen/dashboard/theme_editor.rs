@@ -271,6 +271,10 @@ impl ThemeEditor {
         let color = self
             .component
             .color(theme.styles())
+            .or_else(|| {
+                matches!(self.component, Component::Buffer(Buffer::SelfMessage))
+                    .then_some(theme.styles().text.primary.color)
+            })
             .unwrap_or(Color::TRANSPARENT);
 
         let font_style = self.component.font_style(theme.styles());
@@ -696,6 +700,7 @@ pub enum Buffer {
     Highlight,
     Nickname,
     NicknameOffline,
+    SelfMessage,
     Selection,
     #[strum(to_string = "server-message-{0}")]
     ServerMessages(ServerMessages),
@@ -731,6 +736,7 @@ impl Buffer {
             Buffer::Highlight => Some(styles.buffer.highlight),
             Buffer::Nickname => Some(styles.buffer.nickname.color),
             Buffer::NicknameOffline => styles.buffer.nickname_offline.color,
+            Buffer::SelfMessage => styles.buffer.self_message.color,
             Buffer::Selection => Some(styles.buffer.selection),
             Buffer::ServerMessages(server_messages) => {
                 server_messages.color(&styles.buffer.server_messages)
@@ -763,6 +769,7 @@ impl Buffer {
             Buffer::NicknameOffline => {
                 Some(styles.buffer.nickname_offline.font_style)
             }
+            Buffer::SelfMessage => Some(styles.buffer.self_message.font_style),
             Buffer::Selection => None,
             Buffer::ServerMessages(server_messages) => {
                 Some(server_messages.font_style(&styles.buffer.server_messages))
@@ -845,6 +852,10 @@ impl Buffer {
             Buffer::NicknameOffline => {
                 styles.nickname_offline.color = color;
                 styles.nickname_offline.font_style = font_style;
+            }
+            Buffer::SelfMessage => {
+                styles.self_message.color = color;
+                styles.self_message.font_style = font_style;
             }
             Buffer::Selection => {
                 if let Some(color) = color {
