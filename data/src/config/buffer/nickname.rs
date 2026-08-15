@@ -1,3 +1,4 @@
+use fancy_regex::{Regex, RegexBuilder};
 use iced::Color as IcedColor;
 use serde::{Deserialize, Deserializer};
 
@@ -53,21 +54,37 @@ impl Nickname {
 
 #[derive(Debug, Clone)]
 pub struct ColorOverride {
-    nicknames: Vec<String>,
-    case_insensitive: bool,
+    matcher: Matcher,
     color: IcedColor,
 }
 
 impl ColorOverride {
     fn is_match(&self, nickname: &str) -> bool {
-        self.nicknames.iter().any(|configured| {
-            if self.case_insensitive {
-                configured.eq_ignore_ascii_case(nickname)
-            } else {
-                configured == nickname
+        match &self.matcher {
+            Matcher::Nicknames {
+                nicknames,
+                case_insensitive,
+            } => nicknames.iter().any(|configured| {
+                if *case_insensitive {
+                    configured.eq_ignore_ascii_case(nickname)
+                } else {
+                    configured == nickname
+                }
+            }),
+            Matcher::Regex(regex) => {
+                regex.is_match(nickname).is_ok_and(|is_match| is_match)
             }
-        })
+        }
     }
+}
+
+#[derive(Debug, Clone)]
+enum Matcher {
+    Nicknames {
+        nicknames: Vec<String>,
+        case_insensitive: bool,
+    },
+    Regex(Regex),
 }
 
 impl<'de> Deserialize<'de> for ColorOverride {
@@ -75,26 +92,52 @@ impl<'de> Deserialize<'de> for ColorOverride {
     where
         D: Deserializer<'de>,
     {
-        #[derive(Deserialize)]
-        #[serde(deny_unknown_fields)]
-        struct Repr {
-            nicknames: Vec<String>,
-            #[serde(default = "default_true")]
-            case_insensitive: bool,
-            color: String,
+        #[derive(Debug, Clone, Deserialize)]
+        #[serde(untagged)]
+        enum Repr {
+            Nicknames {
+                nicknames: Vec<String>,
+                #[serde(default = "default_true")]
+                case_insensitive: bool,
+                color: String,
+            },
+            Regex {
+                regex: String,
+                color: String,
+            },
         }
 
-        let Repr {
-            nicknames,
-            case_insensitive,
-            color,
-        } = Repr::deserialize(deserializer)?;
+        let (matcher, color) = match Repr::deserialize(deserializer)? {
+            Repr::Nicknames {
+                nicknames,
+                case_insensitive,
+                color,
+            } => {
+                if nicknames.is_empty() {
+                    return Err(serde::de::Error::custom(
+                        "nickname color override must contain at least one nickname",
+                    ));
+                }
 
-        if nicknames.is_empty() {
-            return Err(serde::de::Error::custom(
-                "nickname color override must contain at least one nickname",
-            ));
-        }
+                (
+                    Matcher::Nicknames {
+                        nicknames,
+                        case_insensitive,
+                    },
+                    color,
+                )
+            }
+            Repr::Regex { regex, color } => {
+                let compiled =
+                    RegexBuilder::new(&regex).build().map_err(|err| {
+                        serde::de::Error::custom(format!(
+                            "invalid nickname color regex '{regex}': {err}"
+                        ))
+                    })?;
+
+                (Matcher::Regex(compiled), color)
+            }
+        };
 
         let color = hex_to_color(&color).ok_or_else(|| {
             serde::de::Error::custom(format!(
@@ -102,11 +145,7 @@ impl<'de> Deserialize<'de> for ColorOverride {
             ))
         })?;
 
-        Ok(Self {
-            nicknames,
-            case_insensitive,
-            color,
-        })
+        Ok(Self { matcher, color })
     }
 }
 

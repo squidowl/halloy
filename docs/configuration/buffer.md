@@ -814,9 +814,9 @@ color = { palette = ["#B11E3A", "#2A7FFF", "#1E9E5A"] }
 
 ### `color_override`
 
-Set colors for specific nicknames. If a nickname appears in more than one rule,
-the first rule is used. Matching ignores uppercase and lowercase by default.
-Set `case_insensitive = false` to match the exact spelling.
+Set colors for specific nicknames or nickname patterns. If more than one rule
+matches, the first rule is used. Nickname lists ignore uppercase and lowercase
+by default. Set `case_insensitive = false` to match the exact spelling.
 
 These colors replace nickname metadata colors and the default [`color`](#color).
 Away and offline styles still apply.
@@ -831,6 +831,11 @@ color = "#61AFEF"
 nicknames = ["CaseSensitiveNick"]
 case_insensitive = false
 color = "#C678DD"
+
+# Match nicknames with a regular expression.
+[[buffer.nickname.color_override]]
+regex = '''^\[.*\]$'''
+color = "#98C379"
 ```
 
 ### `offline`
