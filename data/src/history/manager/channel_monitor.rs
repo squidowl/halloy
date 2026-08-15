@@ -207,7 +207,7 @@ impl ChannelMonitor {
             )
         };
         let position =
-            history::position_reply_target(messages, id, &server_time)
+            history::position_message_by_id(messages, id, &server_time)
                 .filter(|position| matches_origin(&messages[*position]))
                 .or_else(|| {
                     messages.iter().rposition(|message| {

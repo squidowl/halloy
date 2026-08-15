@@ -99,6 +99,7 @@ pub fn reply_preview_content<'a, Message: 'a + std::clone::Clone>(
                 Some(text_size),
                 highlight,
                 false,
+                false,
                 theme,
                 config,
             ));

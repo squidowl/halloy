@@ -124,7 +124,8 @@ where
                     false,
                 )
                 .into_element(
-                    user, false, false, None, None, false, false, theme, config,
+                    user, false, false, None, None, false, false, false, theme,
+                    config,
                 );
 
                 // trailing separator attached to nicks so it never starts a new line alone

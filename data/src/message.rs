@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::{DefaultHasher, Hash as _, Hasher};
 use std::iter;
 use std::sync::{Arc, LazyLock};
@@ -30,10 +30,11 @@ use crate::reaction::Reaction;
 use crate::redaction::Redaction;
 use crate::serde::fail_as_none;
 use crate::server::Server;
-use crate::target::join_targets;
 use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
-use crate::{Config, User, buffer, command, ctcp, isupport, message, target};
+use crate::{
+    Config, User, buffer, command, ctcp, isupport, list_format, message, target,
+};
 
 // References:
 // - https://datatracker.ietf.org/doc/html/rfc1738#section-5
@@ -455,6 +456,14 @@ impl Message {
 
     pub fn is_rerouted(&self) -> bool {
         self.rerouted_from.is_some()
+    }
+
+    pub fn is_redactable(&self) -> bool {
+        self.redaction.is_none()
+            && matches!(
+                self.target.source(),
+                Source::User(_) | Source::Action(_)
+            )
     }
 
     pub fn can_condense(
@@ -922,6 +931,36 @@ impl Message {
             blocked: self.blocked,
             is_action: matches!(self.target.source(), Source::Action(_)),
         }
+    }
+
+    pub fn selected_reactions(
+        &self,
+        our_nick: Option<NickRef<'_>>,
+    ) -> Vec<String> {
+        let Some(our_nick) = our_nick else {
+            return vec![];
+        };
+
+        let mut selected = BTreeMap::new();
+
+        for reaction in &self.reactions {
+            if reaction.sender.as_str() == our_nick.as_str() {
+                let count =
+                    selected.entry(reaction.text.as_str()).or_insert(0i16);
+                if reaction.unreact {
+                    *count -= 1;
+                } else {
+                    *count += 1;
+                }
+            }
+        }
+
+        selected
+            .into_iter()
+            .filter_map(|(text, count)| {
+                (count >= 1).then_some(text.to_string())
+            })
+            .collect()
     }
 }
 
@@ -2438,6 +2477,15 @@ impl Content {
         }
     }
 
+    pub fn urls(&self) -> Vec<&url::Url> {
+        match self {
+            Content::Fragments(fragments) => {
+                fragments.iter().filter_map(Fragment::url).collect()
+            }
+            Content::Plain(_) | Content::Log(_) => Vec::new(),
+        }
+    }
+
     pub fn preview_text(&self) -> String {
         static NEWLINES: LazyLock<Regex> =
             LazyLock::new(|| Regex::new(r"\n+").unwrap());
@@ -2486,6 +2534,13 @@ impl Fragment {
         } else {
             None
         }
+    }
+
+    pub fn is_focus_target(&self) -> bool {
+        matches!(
+            self,
+            Fragment::Url(..) | Fragment::Channel(_) | Fragment::User(..)
+        )
     }
 
     pub fn as_str(&self) -> &str {
@@ -4086,10 +4141,7 @@ fn monitored_targets_text(targets: Vec<String>) -> Option<String> {
     } else if targets.len() == 1 {
         Some(format!("User {} is", targets.first()?))
     } else {
-        Some(format!(
-            "Users {} are",
-            join_targets(targets.iter().map(String::as_ref).collect())
-        ))
+        Some(format!("Users {} are", list_format::join(&targets)))
     }
 }
 

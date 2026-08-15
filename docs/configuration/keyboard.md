@@ -38,10 +38,10 @@ Below is a list of all actions which can be mapped.
 
 | Key                            | Description                         | Default MacOS                                       | Default Other                                       |
 | ------------------------------ | ----------------------------------- | --------------------------------------------------- | --------------------------------------------------- |
-| `move_up`                      | Moves focus up                      | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>↑</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>↑</kbd>     |
-| `move_down`                    | Moves focus down                    | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>↓</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>↓</kbd>     |
-| `move_left`                    | Moves focus left                    | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>←</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>←</kbd>     |
-| `move_right`                   | Moves focus right                   | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>→</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>→</kbd>     |
+| `move_up`                      | Moves pane focus up                 | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>↑</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>↑</kbd>     |
+| `move_down`                    | Moves pane focus down               | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>↓</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>↓</kbd>     |
+| `move_left`                    | Moves pane focus left               | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>←</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>←</kbd>     |
+| `move_right`                   | Moves pane focus right              | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>→</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>→</kbd>     |
 | `new_horizontal_buffer`        | New horizontal buffer               | None                                                | None                                                |
 | `new_vertical_buffer`          | New vertical buffer                 | None                                                | None                                                |
 | `close_buffer`                 | Close focused buffer                | <kbd>⌘</kbd> + <kbd>w</kbd>                         | <kbd>ctrl</kbd> + <kbd>w</kbd>                      |
@@ -73,3 +73,12 @@ Below is a list of all actions which can be mapped.
 | `open_config_file`             | Open settings file in system editor | None                                                | None                                                |
 | `show_muted_buffers`           | Show muted buffers                  | None                                                | None                                                |
 | `hide_muted_buffers`           | Hide muted buffers                  | None                                                | None                                                |
+| `focus_up`                     | Move focus up                           | <kbd>⌥</kbd> + <kbd>↑</kbd>                                              | <kbd>alt</kbd> + <kbd>↑</kbd>                                            |
+| `focus_down`                   | Move focus down                         | <kbd>⌥</kbd> + <kbd>↓</kbd>                                              | <kbd>alt</kbd> + <kbd>↓</kbd>                                            |
+| `focus_left`                   | Move focus left                         | <kbd>⌥</kbd> + <kbd>←</kbd>                                              | <kbd>alt</kbd> + <kbd>←</kbd>                                            |
+| `focus_right`                  | Move focus right                        | <kbd>⌥</kbd> + <kbd>→</kbd>                                              | <kbd>alt</kbd> + <kbd>→</kbd>                                            |
+| `focus_activate`               | Activate selected element               | <kbd>enter</kbd>. <kbd>space</kbd>                                       | <kbd>space</kbd>, <kbd>enter</kbd>                                       |
+| `focus_activate_alt`           | Alternative action for selected element | <kbd>shift</kbd> + <kbd>enter</kbd>, <kbd>shift</kbd> + <kbd>space</kbd> | <kbd>shift</kbd> + <kbd>enter</kbd>, <kbd>shift</kbd> + <kbd>space</kbd> |
+| `focus_reply`                  | Reply to focused message                | <kbd>r</kbd>                                                             | <kbd>r</kbd>                                                             |
+| `focus_react`                  | Add reaction to focused message         | <kbd>=</kbd>                                                             | <kbd>=</kbd>                                                             |
+| `focus_redact`                 | Redact focused message                  | <kbd>backspace</kbd>                                                     | <kbd>backspace</kbd>                                                     |

@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
 use serde::Deserialize;
+use strum::IntoEnumIterator;
 
 use crate::config::Error;
 use crate::shortcut::{
-    Command, Commands, KeyBind, KeyBinds, Shortcut, shortcut,
+    Command, Commands, FocusCommand, FocusCommands, KeyBind, KeyBinds,
+    Shortcut, shortcut,
 };
-
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Keyboard {
@@ -47,6 +48,15 @@ pub struct Keyboard {
     pub open_config_file: KeyBinds,
     pub show_muted_buffers: KeyBinds,
     pub hide_muted_buffers: KeyBinds,
+    pub focus_up: KeyBinds,
+    pub focus_down: KeyBinds,
+    pub focus_left: KeyBinds,
+    pub focus_right: KeyBinds,
+    pub focus_activate: KeyBinds,
+    pub focus_activate_alt: KeyBinds,
+    pub focus_reply: KeyBinds,
+    pub focus_react: KeyBinds,
+    pub focus_redact: KeyBinds,
 }
 
 impl Default for Keyboard {
@@ -89,6 +99,15 @@ impl Default for Keyboard {
             open_config_file: KeyBind::open_config_file().into(),
             show_muted_buffers: KeyBind::show_muted_buffers().into(),
             hide_muted_buffers: KeyBind::hide_muted_buffers().into(),
+            focus_up: KeyBind::focus_up().into(),
+            focus_down: KeyBind::focus_down().into(),
+            focus_left: KeyBind::focus_left().into(),
+            focus_right: KeyBind::focus_right().into(),
+            focus_activate: KeyBind::focus_activate().into(),
+            focus_activate_alt: KeyBind::focus_activate_alt().into(),
+            focus_reply: KeyBind::focus_reply().into(),
+            focus_react: KeyBind::focus_react().into(),
+            focus_redact: KeyBind::focus_redact().into(),
         }
     }
 }
@@ -96,46 +115,78 @@ impl Default for Keyboard {
 impl Keyboard {
     fn keybind_pairs(&self) -> Vec<(&KeyBinds, Command)> {
         use Command::*;
-        vec![
-            (&self.move_up, MoveUp),
-            (&self.move_down, MoveDown),
-            (&self.move_left, MoveLeft),
-            (&self.move_right, MoveRight),
-            (&self.new_horizontal_buffer, NewHorizontalBuffer),
-            (&self.new_vertical_buffer, NewVerticalBuffer),
-            (&self.close_buffer, CloseBuffer),
-            (&self.maximize_buffer, MaximizeBuffer),
-            (&self.restore_buffer, RestoreBuffer),
-            (&self.cycle_next_buffer, CycleNextBuffer),
-            (&self.cycle_previous_buffer, CyclePreviousBuffer),
-            (&self.leave_buffer, LeaveBuffer),
-            (&self.toggle_nick_list, ToggleNicklist),
-            (&self.toggle_topic, ToggleTopic),
-            (&self.toggle_sidebar, ToggleSidebar),
-            (&self.toggle_fullscreen, ToggleFullscreen),
-            (&self.command_bar, CommandBar),
-            (&self.reload_configuration, ReloadConfiguration),
-            (&self.file_transfers, FileTransfers),
-            (&self.logs, Logs),
-            (&self.theme_editor, ThemeEditor),
-            (&self.scroll_up_page, ScrollUpPage),
-            (&self.scroll_down_page, ScrollDownPage),
-            (&self.scroll_to_top, ScrollToTop),
-            (&self.scroll_to_bottom, ScrollToBottom),
-            (&self.highlights, Highlights),
-            (&self.cycle_next_unread_buffer, CycleNextUnreadBuffer),
-            (
-                &self.cycle_previous_unread_buffer,
-                CyclePreviousUnreadBuffer,
-            ),
-            (&self.mark_as_read, MarkAsRead),
-            (&self.config_editor_save, ConfigEditorSave),
-            (&self.quit_application, QuitApplication),
-            (&self.open_config_editor, OpenConfigEditor),
-            (&self.open_config_file, OpenConfigFile),
-            (&self.show_muted_buffers, ShowMutedBuffers),
-            (&self.hide_muted_buffers, HideMutedBuffers),
-        ]
+
+        Command::iter()
+            .map(|command| {
+                let field = match command {
+                    MoveUp => &self.move_up,
+                    MoveDown => &self.move_down,
+                    MoveLeft => &self.move_left,
+                    MoveRight => &self.move_right,
+                    NewHorizontalBuffer => &self.new_horizontal_buffer,
+                    NewVerticalBuffer => &self.new_vertical_buffer,
+                    CloseBuffer => &self.close_buffer,
+                    MaximizeBuffer => &self.maximize_buffer,
+                    RestoreBuffer => &self.restore_buffer,
+                    CycleNextBuffer => &self.cycle_next_buffer,
+                    CyclePreviousBuffer => &self.cycle_previous_buffer,
+                    LeaveBuffer => &self.leave_buffer,
+                    ToggleNicklist => &self.toggle_nick_list,
+                    ToggleTopic => &self.toggle_topic,
+                    ToggleSidebar => &self.toggle_sidebar,
+                    ToggleFullscreen => &self.toggle_fullscreen,
+                    CommandBar => &self.command_bar,
+                    ReloadConfiguration => &self.reload_configuration,
+                    FileTransfers => &self.file_transfers,
+                    Logs => &self.logs,
+                    ThemeEditor => &self.theme_editor,
+                    ScrollUpPage => &self.scroll_up_page,
+                    ScrollDownPage => &self.scroll_down_page,
+                    ScrollToTop => &self.scroll_to_top,
+                    ScrollToBottom => &self.scroll_to_bottom,
+                    Highlights => &self.highlights,
+                    CycleNextUnreadBuffer => &self.cycle_next_unread_buffer,
+                    CyclePreviousUnreadBuffer => {
+                        &self.cycle_previous_unread_buffer
+                    }
+                    MarkAsRead => &self.mark_as_read,
+                    ConfigEditorSave => &self.config_editor_save,
+                    QuitApplication => &self.quit_application,
+                    OpenConfigEditor => &self.open_config_editor,
+                    OpenConfigFile => &self.open_config_file,
+                    ShowMutedBuffers => &self.show_muted_buffers,
+                    HideMutedBuffers => &self.hide_muted_buffers,
+                    FocusUp => &self.focus_up,
+                    FocusDown => &self.focus_down,
+                    FocusLeft => &self.focus_left,
+                    FocusRight => &self.focus_right,
+                };
+
+                (field, command)
+            })
+            .collect()
+    }
+
+    fn focus_keybind_pairs(&self) -> Vec<(&KeyBinds, FocusCommand)> {
+        use FocusCommand::*;
+
+        FocusCommand::iter()
+            .map(|command| {
+                let field = match command {
+                    Up => &self.focus_up,
+                    Down => &self.focus_down,
+                    Left => &self.focus_left,
+                    Right => &self.focus_right,
+                    Activate => &self.focus_activate,
+                    ActivateAlt => &self.focus_activate_alt,
+                    Reply => &self.focus_reply,
+                    React => &self.focus_react,
+                    Redact => &self.focus_redact,
+                };
+
+                (field, command)
+            })
+            .collect()
     }
 
     pub fn validate(&self) -> Result<(), Error> {
@@ -156,6 +207,23 @@ impl Keyboard {
             }
         }
 
+        let mut map: HashMap<KeyBind, Vec<FocusCommand>> = HashMap::new();
+
+        for (focus_keybinds, focus_command) in self.focus_keybind_pairs() {
+            for key in focus_keybinds.iter() {
+                map.entry(key.clone()).or_default().push(focus_command);
+            }
+        }
+
+        for (key, focus_commands) in map {
+            if focus_commands.len() > 1 {
+                return Err(Error::FocusKeyBindConflict {
+                    keybind: key,
+                    actions: FocusCommands::from(focus_commands),
+                });
+            }
+        }
+
         Ok(())
     }
 
@@ -169,5 +237,44 @@ impl Keyboard {
                     .map(move |key_bind| shortcut(key_bind, command))
             })
             .collect()
+    }
+
+    pub fn focus_command(
+        &self,
+        key_bind: &KeyBind,
+        in_focus: bool,
+    ) -> Option<FocusCommand> {
+        let matches = |binds: &KeyBinds| {
+            binds.iter().any(|bind| {
+                bind == key_bind
+                    || (in_focus
+                        && !key_bind.has_modifiers()
+                        && key_bind.key_code() == bind.key_code())
+            })
+        };
+
+        if matches(&self.focus_up) {
+            Some(FocusCommand::Up)
+        } else if matches(&self.focus_down) {
+            Some(FocusCommand::Down)
+        } else if matches(&self.focus_left) {
+            Some(FocusCommand::Left)
+        } else if matches(&self.focus_right) {
+            Some(FocusCommand::Right)
+        } else if matches(&self.focus_activate) {
+            Some(FocusCommand::Activate)
+        } else if matches(&self.focus_activate_alt) {
+            Some(FocusCommand::ActivateAlt)
+        } else if matches(&self.focus_reply) {
+            Some(FocusCommand::Reply)
+        } else if matches(&self.focus_react) {
+            Some(FocusCommand::React)
+        } else if matches(&self.focus_redact) {
+            Some(FocusCommand::Redact)
+        } else if in_focus {
+            key_bind.builtin_focus_command()
+        } else {
+            None
+        }
     }
 }

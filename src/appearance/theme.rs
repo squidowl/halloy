@@ -3,6 +3,7 @@ pub use data::appearance::theme::{
     color_to_hex, hex_to_color,
 };
 use data::config;
+use iced::Border;
 use iced::widget::text::LineHeight;
 
 use crate::widget::combo_box;
@@ -131,4 +132,12 @@ pub fn scale_for_font_size(font: &config::Font) -> f32 {
     font.size
         .map_or(1.0, |size| f32::from(size) / TEXT_SIZE)
         .max(1.0)
+}
+
+pub fn focus_border(theme: &Theme) -> Border {
+    Border {
+        width: 1.0,
+        color: theme.styles().buffer.focus_border_or_fallback(),
+        radius: 3.0.into(),
+    }
 }

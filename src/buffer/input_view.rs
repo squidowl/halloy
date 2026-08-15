@@ -33,6 +33,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use self::completion::Completion;
 use self::exec::run as execute_shell_command;
+use super::message_focus::FocusDirection;
 use crate::widget::key_press::is_numpad;
 use crate::widget::user_display::UserDisplay;
 use crate::widget::{
@@ -46,6 +47,15 @@ mod completion;
 mod exec;
 
 const TYPING_REFRESH_INTERVAL: Duration = Duration::from_secs(4);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FocusAction {
+    Redact,
+    Reply,
+    CopyText,
+    OpenReactionModal,
+    OpenLink,
+}
 
 pub enum Event {
     InputSent {
@@ -74,6 +84,9 @@ pub enum Event {
         upload_ids: Vec<u32>,
         abort_registrations: Vec<futures::future::AbortRegistration>,
     },
+    NavigateFocus(FocusDirection),
+    ExitFocus,
+    FocusAction(FocusAction),
 }
 
 #[derive(Debug, Clone)]
@@ -119,6 +132,9 @@ pub enum Message {
         to_nick: Nick,
     },
     ClearDraftReply,
+    NavigateFocus(FocusDirection),
+    ExitFocus,
+    FocusAction(FocusAction),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -557,6 +573,7 @@ pub fn view<'a>(
             overlay,
             anchored_overlay::Anchor::AboveTop,
             4.0,
+            None,
         )
     } else {
         // Wrap in column so iced can track content properly
@@ -593,6 +610,7 @@ fn maybe_our_user<'a>(
                         false,
                         None,
                         None,
+                        false,
                         false,
                         false,
                         theme,
@@ -762,6 +780,7 @@ impl State {
     pub fn update(
         &mut self,
         message: Message,
+        in_focus_mode: bool,
         buffer: &buffer::Upstream,
         clients: &mut client::Map,
         history: &mut history::Manager,
@@ -1167,8 +1186,19 @@ impl State {
                 }
             }
             // Capture escape so that closing context menu or commands/emojis picker
-            // does not defocus input
-            Message::Escape => (Task::none(), None),
+            // does not defocus input. Also exits message selection mode if active.
+            Message::Escape => {
+                if in_focus_mode {
+                    return (Task::none(), Some(Event::ExitFocus));
+                }
+                if self.close_picker() {
+                    return (Task::none(), None);
+                }
+                if self.clear_draft_reply(buffer, history, config) {
+                    return (self.focus(), None);
+                }
+                (Task::none(), None)
+            }
             Message::SendCommand { buffer, command } => {
                 let input = data::Input::from_command(buffer.clone(), command)
                     .encoded();
@@ -1341,6 +1371,13 @@ impl State {
                 self.spinner_hovered = hovered;
                 (Task::none(), None)
             }
+            Message::NavigateFocus(direction) => {
+                (Task::none(), Some(Event::NavigateFocus(direction)))
+            }
+            Message::ExitFocus => (self.focus(), Some(Event::ExitFocus)),
+            Message::FocusAction(action) => {
+                (Task::none(), Some(Event::FocusAction(action)))
+            }
             Message::SetDraftReply {
                 msgid,
                 server_time,
@@ -1407,6 +1444,15 @@ impl State {
                     }
                 }
 
+                if let Some(draft_reply) = &self.draft_reply {
+                    let kind = history::Kind::from_input_buffer(buffer.clone());
+                    self.reply_preview = history.generate_reply_preview(
+                        kind,
+                        &draft_reply.id,
+                        &draft_reply.server_time,
+                    );
+                }
+
                 (self.focus(), None)
             }
             Message::ClearDraftReply => {
@@ -1443,6 +1489,12 @@ impl State {
                 (task, None)
             }
             Message::Action(action) => {
+                if in_focus_mode
+                    && matches!(action, text_editor::Action::Click(_))
+                {
+                    return (Task::none(), Some(Event::ExitFocus));
+                }
+
                 if let text_editor::Action::Edit(text_editor::Edit::Paste(
                     clipboard,
                 )) = &action

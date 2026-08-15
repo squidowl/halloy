@@ -95,37 +95,19 @@ pub fn unread_indicator(theme: &Theme) -> Style {
 
 pub fn highlight_indicator(theme: &Theme) -> Style {
     Style {
-        color: theme
-            .styles()
-            .general
-            .highlight_indicator
-            .or(Some(theme.styles().general.unread_indicator)),
+        color: Some(theme.styles().general.highlight_indicator_or_fallback()),
     }
 }
 
 pub fn backlog(theme: &Theme) -> Style {
     Style {
-        color: Some(
-            theme
-                .styles()
-                .buffer
-                .backlog_rule_text
-                .or(theme.styles().general.horizontal_rule_text)
-                .unwrap_or(theme.styles().text.secondary.color),
-        ),
+        color: Some(theme.styles().backlog_rule_text_or_fallback()),
     }
 }
 
 pub fn date_separator(theme: &Theme) -> Style {
     Style {
-        color: Some(
-            theme
-                .styles()
-                .buffer
-                .date_rule_text
-                .or(theme.styles().general.horizontal_rule_text)
-                .unwrap_or(theme.styles().text.secondary.color),
-        ),
+        color: Some(theme.styles().date_rule_text_or_fallback()),
     }
 }
 

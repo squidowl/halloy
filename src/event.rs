@@ -1,11 +1,15 @@
+use data::shortcut::KeyBind;
 use iced::{Subscription, event, keyboard, mouse, window};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Event {
     Copy,
     Escape,
     LeftClick,
+    ResetFocus,
     UpdatePrimaryClipboard,
+    /// An ignored key press for the dashboard to match on
+    Key(KeyBind),
 }
 
 pub fn events() -> Subscription<(window::Id, Event)> {
@@ -19,7 +23,7 @@ fn filtered_events(
 ) -> Option<(window::Id, Event)> {
     let ignored = |status| matches!(status, iced::event::Status::Ignored);
 
-    let event = match &event {
+    let recognized = match &event {
         iced::Event::Keyboard(keyboard::Event::KeyPressed {
             key: keyboard::Key::Named(keyboard::key::Named::Escape),
             ..
@@ -38,8 +42,22 @@ fn filtered_events(
         )) if cfg!(target_os = "linux") && ignored(status) => {
             Some(Event::UpdatePrimaryClipboard)
         }
+        // Any other mouse press (a captured left click, or a right click)
+        // exits message focus
+        iced::Event::Mouse(mouse::Event::ButtonPressed {
+            button: mouse::Button::Left | mouse::Button::Right,
+            ..
+        }) => Some(Event::ResetFocus),
+        // Forward ignored key presses so the dashboard can match them
+        iced::Event::Keyboard(keyboard::Event::KeyPressed {
+            key,
+            modifiers,
+            ..
+        }) if ignored(status) => {
+            Some(Event::Key(KeyBind::from((key.clone(), *modifiers))))
+        }
         _ => None,
     };
 
-    event.map(|event| (window, event))
+    recognized.map(|event| (window, event))
 }
