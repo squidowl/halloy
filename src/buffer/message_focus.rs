@@ -10,7 +10,7 @@ use iced::widget::{column, container};
 use iced::{Length, Task};
 
 use super::{context_menu, input_view, scroll_view};
-use crate::widget::{Element, double_pass, on_key};
+use crate::widget::{Element, double_pass, message_content, on_key};
 use crate::{Theme, theme};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -374,13 +374,13 @@ pub struct FocusedMessage {
     hash: message::Hash,
     server_time: DateTime<Utc>,
     is_user_message: bool,
-    link_count: usize,
+    focusable_fragment_indices: Vec<usize>,
     focused_component: Option<FocusedComponent>,
     menu: Option<FocusMenu>,
 }
 
 impl FocusedMessage {
-    pub fn new(message: &data::Message) -> Self {
+    pub fn new(message: &data::Message, config: &Config) -> Self {
         Self {
             hash: message.hash,
             server_time: message.server_time,
@@ -388,7 +388,9 @@ impl FocusedMessage {
                 message.target.source(),
                 message::Source::User(_)
             ),
-            link_count: message_focus_target_count(message),
+            focusable_fragment_indices: message_focus_target_indices(
+                message, config,
+            ),
             focused_component: None,
             menu: None,
         }
@@ -418,28 +420,30 @@ impl FocusedMessage {
         // Moving the focus dismisses any open action menu
         self.menu = None;
 
+        let first_link = self
+            .focusable_fragment_indices
+            .first()
+            .copied()
+            .map(|index| FocusedComponent::Link { index });
+
         let next_component = match self.focused_component {
             None => {
                 if self.is_user_message {
                     Some(FocusedComponent::User)
-                } else if self.link_count > 0 {
-                    Some(FocusedComponent::Link { index: 0 })
                 } else {
-                    None
+                    first_link
                 }
             }
             Some(FocusedComponent::User) => {
-                if self.link_count > 0 {
-                    Some(FocusedComponent::Link { index: 0 })
-                } else {
-                    Some(FocusedComponent::User)
-                }
+                first_link.or(Some(FocusedComponent::User))
             }
-            Some(FocusedComponent::Link { index }) => {
-                Some(FocusedComponent::Link {
-                    index: (index + 1).min(self.link_count - 1),
-                })
-            }
+            Some(FocusedComponent::Link { index }) => self
+                .focusable_fragment_indices
+                .iter()
+                .copied()
+                .find(|candidate| *candidate > index)
+                .map(|index| FocusedComponent::Link { index })
+                .or(self.focused_component),
         };
 
         self.focused_component = next_component;
@@ -452,13 +456,16 @@ impl FocusedMessage {
         let previous_component = match self.focused_component {
             None => None,
             Some(FocusedComponent::User) => None,
-            Some(FocusedComponent::Link { index }) => {
-                if index > 0 {
-                    Some(FocusedComponent::Link { index: index - 1 })
-                } else {
+            Some(FocusedComponent::Link { index }) => self
+                .focusable_fragment_indices
+                .iter()
+                .copied()
+                .rev()
+                .find(|candidate| *candidate < index)
+                .map(|index| FocusedComponent::Link { index })
+                .or_else(|| {
                     self.is_user_message.then_some(FocusedComponent::User)
-                }
-            }
+                }),
         };
 
         self.focused_component = previous_component;
@@ -587,7 +594,7 @@ impl FocusedComponent {
         }
     }
 
-    pub fn link_index(&self) -> Option<usize> {
+    pub fn fragment_index(&self) -> Option<usize> {
         match self {
             Self::Link { index } => Some(*index),
             Self::User => None,
@@ -604,42 +611,67 @@ pub(crate) enum FocusTarget {
     User(User),
 }
 
-/// Iterator over a message's focusable link fragments, in display order.
-fn message_focus_target_fragments(
+/// Indices of the message fragments that are both focusable and rendered.
+fn message_focus_target_indices(
     message: &data::Message,
-) -> impl Iterator<Item = &message::Fragment> {
+    config: &Config,
+) -> Vec<usize> {
     let fragments: &[message::Fragment] = match &message.content {
         data::message::Content::Fragments(fragments) => fragments,
         _ => &[],
     };
 
-    fragments.iter().filter(|f| f.is_focus_target())
+    if matches!(message.target.source(), message::Source::User(_))
+        && message.redaction_expanded(&config.buffer.redaction) == Some(false)
+    {
+        return vec![];
+    }
+
+    let prefix_skip_until =
+        if matches!(message.target.source(), message::Source::User(_))
+            && config.buffer.reply.hide_redundant_nicks
+        {
+            message
+                .reply_preview
+                .as_ref()
+                .and_then(|reply_preview| reply_preview.user.as_ref())
+                .map(|user| {
+                    message_content::leading_nick_skip(fragments, user.as_str())
+                })
+                .unwrap_or_default()
+        } else {
+            0
+        };
+
+    fragments
+        .iter()
+        .enumerate()
+        .skip(prefix_skip_until)
+        .filter_map(|(index, fragment)| {
+            fragment.is_focus_target().then_some(index)
+        })
+        .collect()
 }
 
-/// Number of separately-navigable link targets in a message, in display order.
-fn message_focus_target_count(message: &data::Message) -> usize {
-    message_focus_target_fragments(message).count()
-}
-
-/// The `index`-th focusable link target of a message, in display order.
+/// The focusable target at `index` in the message's fragment collection.
 pub(crate) fn message_focus_target_at(
     message: &data::Message,
     index: usize,
 ) -> Option<FocusTarget> {
-    message_focus_target_fragments(message)
-        .nth(index)
-        .and_then(|fragment| match fragment {
-            message::Fragment::Url(url, _) => {
-                Some(FocusTarget::Url(url.clone()))
-            }
-            message::Fragment::Channel(channel) => {
-                Some(FocusTarget::Channel(channel.clone()))
-            }
-            message::Fragment::User(user, _) => {
-                Some(FocusTarget::User(user.clone()))
-            }
-            _ => None,
-        })
+    match &message.content {
+        data::message::Content::Fragments(fragments) => fragments.get(index),
+        _ => None,
+    }
+    .and_then(|fragment| match fragment {
+        message::Fragment::Url(url, _) => Some(FocusTarget::Url(url.clone())),
+        message::Fragment::Channel(channel) => {
+            Some(FocusTarget::Channel(channel.clone()))
+        }
+        message::Fragment::User(user, _) => {
+            Some(FocusTarget::User(user.clone()))
+        }
+        _ => None,
+    })
 }
 
 /// A keyboard-navigable menu of focus actions, anchored to a focused message.

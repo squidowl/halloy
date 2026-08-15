@@ -63,7 +63,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
     entry: impl Fn(&message::Link, T, Length) -> Element<'a, M> + 'a,
     nick_prefix_to_strip: Option<&str>,
     config: &Config,
-    focused_link_index: Option<usize>,
+    focused_fragment_index: Option<usize>,
 ) -> Element<'a, M> {
     message_content_impl(
         content,
@@ -81,7 +81,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
         Some((link_entries, entry)),
         nick_prefix_to_strip,
         config,
-        focused_link_index,
+        focused_fragment_index,
     )
 }
 
@@ -105,7 +105,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
     )>,
     nick_prefix_to_strip: Option<&str>,
     config: &Config,
-    focused_link_index: Option<usize>,
+    focused_fragment_index: Option<usize>,
 ) -> Element<'a, M> {
     let color_from_user = |user: &User| -> Color {
         config
@@ -167,16 +167,6 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                 nick_prefix_to_strip.map_or((0, None), |nick| {
                     leading_nick_offsets(fragments, nick)
                 });
-
-            // Translate the focused link ordinal into the underlying fragment index
-            let focused_fragment_index = focused_link_index.and_then(|n| {
-                fragments
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, fragment)| fragment.is_focus_target())
-                    .nth(n)
-                    .map(|(index, _)| index)
-            });
 
             let mut text = selectable_rich_text::<
                 M,
@@ -472,6 +462,13 @@ fn is_nick_fragment(fragment: &data::message::Fragment, nick: &str) -> bool {
         }
         _ => false,
     }
+}
+
+pub(crate) fn leading_nick_skip(
+    fragments: &[data::message::Fragment],
+    nick: &str,
+) -> usize {
+    leading_nick_offsets(fragments, nick).0
 }
 
 fn leading_nick_offsets<'a>(

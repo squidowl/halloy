@@ -1545,7 +1545,9 @@ impl State {
                             .find(|message| {
                                 self.visible_messages.contains(&message.hash)
                             })
-                            .map(|message| FocusedMessage::new(message)),
+                            .map(|message| {
+                                FocusedMessage::new(message, config)
+                            }),
                         Some(fm) => {
                             let Some(focused_position) = all
                                 .iter()
@@ -1558,7 +1560,10 @@ impl State {
                             if let Some(previous_message) =
                                 all.get(focused_position.saturating_sub(1))
                             {
-                                Some(FocusedMessage::new(previous_message))
+                                Some(FocusedMessage::new(
+                                    previous_message,
+                                    config,
+                                ))
                             } else {
                                 return self.exit_focus(focused_message, None);
                             }
@@ -1577,7 +1582,7 @@ impl State {
                             if let Some(next_message) =
                                 all.get(focused_position.saturating_add(1))
                             {
-                                Some(FocusedMessage::new(next_message))
+                                Some(FocusedMessage::new(next_message, config))
                             } else {
                                 return self.exit_focus(focused_message, None);
                             }

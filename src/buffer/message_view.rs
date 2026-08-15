@@ -758,7 +758,7 @@ impl<'a> ChannelQueryLayout<'a> {
                             nick_prefix_to_strip,
                             self.config,
                             focused_component
-                                .and_then(FocusedComponent::link_index),
+                                .and_then(FocusedComponent::fragment_index),
                         ),
                         redaction_message,
                         tooltip::Position::Top,
@@ -1015,7 +1015,7 @@ impl<'a> ChannelQueryLayout<'a> {
             },
             None,
             self.config,
-            focused_component.and_then(FocusedComponent::link_index),
+            focused_component.and_then(FocusedComponent::fragment_index),
         );
 
         (middle, container(message_content).into(), vec![])
@@ -1352,7 +1352,8 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     },
                     None,
                     formatter.config,
-                    focused_component.and_then(FocusedComponent::link_index),
+                    focused_component
+                        .and_then(FocusedComponent::fragment_index),
                 );
 
                 let after_content =
@@ -1477,17 +1478,8 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
 
             // If the URL is hidden, we show focus on the preview widget, o
             // otherwise we focus the fragment.
-            let focused_fragment_index = focused_component
-                .and_then(FocusedComponent::link_index)
-                .and_then(|n| match &message.content {
-                    message::Content::Fragments(fragments) => fragments
-                        .iter()
-                        .enumerate()
-                        .filter(|(_, fragment)| fragment.is_focus_target())
-                        .nth(n)
-                        .map(|(index, _)| index),
-                    _ => None,
-                });
+            let focused_fragment_index =
+                focused_component.and_then(FocusedComponent::fragment_index);
 
             let focused_preview_url = focused_fragment_index
                 .filter(|index| hidden_fragments.contains(index))
