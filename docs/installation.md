@@ -16,7 +16,7 @@ The following third party repositories are available for macOS
 
 #### Homebrew
 
-```
+```sh
 brew install --cask halloy 
 ```
 
