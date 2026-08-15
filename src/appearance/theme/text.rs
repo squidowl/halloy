@@ -139,12 +139,14 @@ pub fn nickname(
     theme: &Theme,
     kind: &data::buffer::Color,
     seed: Option<&str>,
+    color_override: Option<iced::Color>,
     is_away: Option<buffer::Alpha>,
     is_offline: Option<buffer::nickname::OfflineStyle>,
 ) -> Style {
     let background = theme.styles().buffer.background;
     let nickname = theme.styles().buffer.nickname;
-    let base = nickname_color(nickname.color, kind, seed);
+    let base = color_override
+        .unwrap_or_else(|| nickname_color(nickname.color, kind, seed));
 
     let color = if let Some(style) = is_offline {
         let color = match style.color {

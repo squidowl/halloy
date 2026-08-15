@@ -12,6 +12,7 @@ Added:
 - Config option to include ignored nicknames in autocomplete
   (`buffer.text_input.autocomplete.include_ignored`)
 - Optional `font.code` setting for code-formatted text
+- `buffer.nickname.color_override` rules for assigning colors to specific nicknames
 - Settings to control how internal and server buffers are opened from the sidebar (`actions.sidebar.internal` and `actions.sidebar.server`)
 - `buffer.nickname.offline` supports `"dimmed"` / `{ dimmed = float }`, and `{ color = "theme"|"nickname", alpha = ...}` so theme offline color and dimming can be combined
 

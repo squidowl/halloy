@@ -1466,6 +1466,7 @@ fn user_info<'a>(
         theme,
         &config.buffer.nickname.color,
         Some(nickname.seed()),
+        config.buffer.nickname.color_override(nickname.as_str()),
         user_away_alpha,
         user_offline_style,
     );

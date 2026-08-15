@@ -1,5 +1,7 @@
+use iced::Color as IcedColor;
 use serde::{Deserialize, Deserializer};
 
+use crate::appearance::theme::hex_to_color;
 use crate::buffer::{Alignment, Brackets, Color};
 use crate::config::buffer::{
     AccessLevelFormat, Alpha, Dimmed, HideConsecutive,
@@ -11,6 +13,8 @@ pub struct Nickname {
     pub away: Alpha,
     pub offline: Offline,
     pub color: Color,
+    #[serde(rename = "color_override")]
+    pub color_overrides: Vec<ColorOverride>,
     pub brackets: Brackets,
     pub alignment: Alignment,
     pub show_access_levels: AccessLevelFormat,
@@ -26,6 +30,7 @@ impl Default for Nickname {
             away: Alpha::default(),
             offline: Offline::default(),
             color: Color::default(),
+            color_overrides: vec![],
             brackets: Brackets::default(),
             alignment: Alignment::default(),
             show_access_levels: AccessLevelFormat::default(),
@@ -35,6 +40,78 @@ impl Default for Nickname {
             hide_consecutive: HideConsecutive::default(),
         }
     }
+}
+
+impl Nickname {
+    pub fn color_override(&self, nickname: &str) -> Option<IcedColor> {
+        self.color_overrides
+            .iter()
+            .find(|rule| rule.is_match(nickname))
+            .map(|rule| rule.color)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ColorOverride {
+    nicknames: Vec<String>,
+    case_insensitive: bool,
+    color: IcedColor,
+}
+
+impl ColorOverride {
+    fn is_match(&self, nickname: &str) -> bool {
+        self.nicknames.iter().any(|configured| {
+            if self.case_insensitive {
+                configured.eq_ignore_ascii_case(nickname)
+            } else {
+                configured == nickname
+            }
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for ColorOverride {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Repr {
+            nicknames: Vec<String>,
+            #[serde(default = "default_true")]
+            case_insensitive: bool,
+            color: String,
+        }
+
+        let Repr {
+            nicknames,
+            case_insensitive,
+            color,
+        } = Repr::deserialize(deserializer)?;
+
+        if nicknames.is_empty() {
+            return Err(serde::de::Error::custom(
+                "nickname color override must contain at least one nickname",
+            ));
+        }
+
+        let color = hex_to_color(&color).ok_or_else(|| {
+            serde::de::Error::custom(format!(
+                "invalid nickname override color: {color}"
+            ))
+        })?;
+
+        Ok(Self {
+            nicknames,
+            case_insensitive,
+            color,
+        })
+    }
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Copy)]

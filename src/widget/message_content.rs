@@ -104,6 +104,14 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
     config: &Config,
 ) -> Element<'a, M> {
     let color_from_user = |user: &User| -> Color {
+        if let Some(color) = config
+            .buffer
+            .nickname
+            .color_override(user.nickname().as_str())
+        {
+            return color;
+        }
+
         config
             .display
             .nickname

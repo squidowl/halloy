@@ -1,5 +1,4 @@
-use data::appearance::theme::nickname_alpha;
-use data::config::buffer::{self, Dimmed};
+use data::config::buffer::Dimmed;
 use data::message::source::server::{Kind, StandardReply};
 use data::{Config, User, log, message};
 use iced::Color;
@@ -140,50 +139,16 @@ pub fn nickname(
 ) -> Style {
     let offline_style = config.buffer.nickname.offline.style(is_user_offline);
     let away_alpha = config.buffer.nickname.away.alpha(is_away);
-
-    if let Some(metadata_color) = metadata_color {
-        let background = theme.styles().buffer.background;
-        let color = if let Some(style) = offline_style {
-            let color = match style.color {
-                buffer::nickname::OfflineColor::Theme => theme
-                    .styles()
-                    .buffer
-                    .nickname_offline
-                    .color
-                    .unwrap_or(metadata_color),
-                buffer::nickname::OfflineColor::Nickname => metadata_color,
-            };
-            nickname_alpha(color, Some(style.alpha), background)
-        } else {
-            nickname_alpha(metadata_color, away_alpha, background)
-        };
-
-        Style {
-            color: Some(color),
-            selection_color: theme.styles().buffer.selection,
-        }
-    } else {
-        nickname_style(
-            theme,
-            &config.buffer.nickname.color,
-            user,
-            away_alpha,
-            offline_style,
-        )
-    }
-}
-
-fn nickname_style(
-    theme: &Theme,
-    kind: &data::buffer::Color,
-    user: &User,
-    away_alpha: Option<buffer::Alpha>,
-    offline_style: Option<buffer::nickname::OfflineStyle>,
-) -> Style {
+    let color_override = config
+        .buffer
+        .nickname
+        .color_override(user.nickname().as_str())
+        .or(metadata_color);
     let color = text::nickname(
         theme,
-        kind,
+        &config.buffer.nickname.color,
         Some(user.seed()),
+        color_override,
         away_alpha,
         offline_style,
     )
