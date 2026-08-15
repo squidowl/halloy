@@ -12,11 +12,6 @@ use nom::{Finish, IResult, Parser};
 
 use crate::{Command, Message, Source, Tags, User};
 
-pub fn message_bytes(bytes: &[u8]) -> Result<Message, Error> {
-    let input = String::from_utf8_lossy(bytes);
-    message(&input)
-}
-
 /// Parses a single IRC message terminated by '\r\n`
 pub fn message(input: &str) -> Result<Message, Error> {
     let mut parser = cut(terminated(
@@ -463,40 +458,11 @@ mod test {
                     ),
                 },
             ),
-            (
-                Vec::from(b"@id=invalid\x80utf8 :dan!d@localhost PRIVMSG #chan :Hello \xF0\x90\x80World\r\n"),
-                Message {
-                    tags: tags!["id" => "invalid�utf8"],
-                    source: Some(Source::User(User {
-                        nickname: "dan".into(),
-                        username: Some("d".into()),
-                        hostname: Some("localhost".into()),
-                    })),
-                    command: Command::PRIVMSG(
-                        "#chan".to_string(),
-                        "Hello �World".to_string(),
-                    ),
-                },
-            ),
-            (
-                Vec::from(b":dan!d@localhost PART #halloy :My utf8 is br\xF4\x91\x87ken\r\n"),
-                Message {
-                    tags: tags![],
-                    source: Some(Source::User(User {
-                        nickname: "dan".into(),
-                        username: Some("d".into()),
-                        hostname: Some("localhost".into()),
-                    })),
-                    command: Command::PART(
-                        "#halloy".to_string(),
-                        Some("My utf8 is br���ken".to_string()),
-                    ),
-                },
-            ),
         ];
 
         for (test, expected) in tests {
-            let message = super::message_bytes(&test).unwrap();
+            let input = std::str::from_utf8(&test).unwrap();
+            let message = super::message(input).unwrap();
             assert_eq!(message, expected);
         }
     }

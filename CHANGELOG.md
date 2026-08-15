@@ -20,6 +20,7 @@ Added:
 
 Fixed:
 
+- Display messages from legacy ISO-8859-1 clients instead of replacing invalid UTF-8 bytes
 - Remove blank space above the input after marking a buffer as read
 - User avatars are only shown when `avatar` is included in `metadata.preferred_keys`
 - Text in input box being scrolled/clipped 2px on the left on pane load or when navigating history
