@@ -198,9 +198,22 @@ impl<'a> ChannelQueryLayout<'a> {
         message: &'a data::Message,
         hide_timestamp: bool,
     ) -> Option<Element<'a, Message>> {
+        let date_time = match message.target.source() {
+            message::Source::Internal(
+                message::source::Internal::Condensed(end_server_time),
+            ) => self
+                .config
+                .buffer
+                .server_messages
+                .condense
+                .timestamp
+                .primary(&message.server_time, end_server_time),
+            _ => Some(&message.server_time),
+        }?;
+
         self.config
             .buffer
-            .format_timestamp(&message.server_time)
+            .format_timestamp(date_time)
             .map(|timestamp| {
                 if hide_timestamp {
                     let width =
@@ -216,7 +229,7 @@ impl<'a> ChannelQueryLayout<'a> {
                             theme::font_style::timestamp(self.theme)
                                 .map(font::get),
                         ),
-                    &message.server_time,
+                    date_time,
                     self.config,
                     self.theme,
                 )
@@ -886,9 +899,16 @@ impl<'a> ChannelQueryLayout<'a> {
         );
         let moved_link = link.clone();
 
-        let range_end_timestamp = if let message::Source::Internal(
-            message::source::Internal::Condensed(end_server_time),
-        ) = message.target.source()
+        let range_end_timestamp = if formatter
+            .config
+            .buffer
+            .server_messages
+            .condense
+            .timestamp
+            .show_range()
+            && let message::Source::Internal(
+                message::source::Internal::Condensed(end_server_time),
+            ) = message.target.source()
             && message.server_time != *end_server_time
         {
             formatter

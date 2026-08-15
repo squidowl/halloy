@@ -2,6 +2,7 @@
 
 Added:
 
+- `buffer.server_messages.condense.timestamp` setting to control whether a condensed message shows a time range, its start timestamp, its end timestamp, or no timestamp
 - Ability to configure individual bouncer networks with `servers.<name>.networks.<network>`
 - CTCP actions to private message context menus
 - Remember sidebar visibility

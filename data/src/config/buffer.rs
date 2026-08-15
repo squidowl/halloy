@@ -634,6 +634,7 @@ pub struct Condensation {
     pub messages: HashSet<CondensationMessage>,
     pub format: CondensationFormat,
     pub icon: CondensationIcon,
+    pub timestamp: CondensationTimestamp,
     #[serde(deserialize_with = "deserialize_dimmed_maybe")]
     pub dimmed: Option<Dimmed>,
     pub max: Option<u16>,
@@ -651,6 +652,7 @@ impl Default for Condensation {
             ]),
             format: CondensationFormat::default(),
             icon: CondensationIcon::default(),
+            timestamp: CondensationTimestamp::default(),
             dimmed: Some(Dimmed::default()),
             max: None,
         }
@@ -725,6 +727,36 @@ pub enum CondensationIcon {
     None,
     Chevron,
     Dot,
+}
+
+#[derive(Debug, Default, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum CondensationTimestamp {
+    #[default]
+    Range,
+    Start,
+    End,
+    None,
+}
+
+impl CondensationTimestamp {
+    pub fn primary<'a>(
+        self,
+        start: &'a DateTime<Utc>,
+        end: &'a DateTime<Utc>,
+    ) -> Option<&'a DateTime<Utc>> {
+        match self {
+            CondensationTimestamp::Range | CondensationTimestamp::Start => {
+                Some(start)
+            }
+            CondensationTimestamp::End => Some(end),
+            CondensationTimestamp::None => None,
+        }
+    }
+
+    pub fn show_range(self) -> bool {
+        matches!(self, CondensationTimestamp::Range)
+    }
 }
 
 #[derive(Debug, Default, Clone, Deserialize)]

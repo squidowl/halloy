@@ -1180,6 +1180,24 @@ Maximum number of user entries to show in a condensed group.
 max = 20
 ```
 
+#### `timestamp`
+
+Controls which timestamp is shown for a condensed group:
+
+- `"range"`: Show the start and end timestamps as a range.
+- `"start"`: Show the timestamp of the first condensed message.
+- `"end"`: Show the timestamp of the last condensed message.
+- `"none"`: Do not show a timestamp.
+
+```toml
+# Type: string
+# Values: "range", "start", "end", "none"
+# Default: "range"
+
+[buffer.server_messages.condense]
+timestamp = "end"
+```
+
 ## `status_message_prefix`
 
 Status message prefix settings.
