@@ -2280,7 +2280,7 @@ fn populate_reply_previews(messages: &mut [crate::Message]) {
         .enumerate()
         .filter_map(|(message_position, message)| {
             message.reply_to.as_ref().and_then(|reply_id| {
-                history::position_reply_target(
+                history::position_message_by_id(
                     messages,
                     reply_id,
                     &message.server_time,

@@ -1528,7 +1528,7 @@ impl History {
                 ..
             } => {
                 let Some(position) =
-                    position_reply_target(messages, &id, &server_time)
+                    position_message_by_id(messages, &id, &server_time)
                 else {
                     return;
                 };
@@ -1852,7 +1852,7 @@ pub fn find_message_by_id<'a>(
     id: &message::Id,
     server_time: &DateTime<Utc>,
 ) -> Option<&'a Message> {
-    position_reply_target(messages, id, server_time)
+    position_message_by_id(messages, id, server_time)
         .and_then(|position| messages.get(position))
 }
 
@@ -1861,11 +1861,11 @@ pub fn find_message_mut_by_id<'a>(
     id: &message::Id,
     server_time: &DateTime<Utc>,
 ) -> Option<&'a mut Message> {
-    position_reply_target(messages, id, server_time)
+    position_message_by_id(messages, id, server_time)
         .and_then(|position| messages.get_mut(position))
 }
 
-pub fn position_reply_target(
+pub fn position_message_by_id(
     messages: &[Message],
     id: &message::Id,
     server_time: &DateTime<Utc>,
@@ -1886,6 +1886,11 @@ pub fn position_message(
         return None;
     }
 
+    // We're either looking for the message at server_time or one that is
+    // expected to before (e.g. the message that is reacted or replied to at
+    // server_time).  Fuzz ahead one second to ensure all messages at
+    // server_time are checked.
+
     let start = *server_time + chrono::Duration::seconds(1);
 
     let start_index = match messages
@@ -1895,9 +1900,10 @@ pub fn position_message(
         Err(sorted_insert_index) => sorted_insert_index,
     };
 
-    // Look for the message at/before the earliest server_time for a react, then
-    // check for the unlikely scenario where the message where the message's
-    // server_time is after a react
+    // Check messages at server_time, then before server_time, then check for
+    // the unlikely scenario where the message we're looking for is after the
+    // provided server_time.
+
     messages
         .iter()
         .take(start_index)
