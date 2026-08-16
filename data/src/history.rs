@@ -262,6 +262,7 @@ pub async fn overwrite(
     messages: &[Message],
     read_marker: Option<ReadMarker>,
     chathistory_references: Option<MessageReferences>,
+    server_messages_config: &config::buffer::ServerMessages,
 ) -> Result<(), Error> {
     if messages.is_empty() {
         return metadata::save(
@@ -269,13 +270,21 @@ pub async fn overwrite(
             messages,
             read_marker,
             chathistory_references,
+            server_messages_config,
         )
         .await;
     }
 
     let messages = write_messages(kind, messages).await?;
 
-    metadata::save(kind, messages, read_marker, chathistory_references).await?;
+    metadata::save(
+        kind,
+        messages,
+        read_marker,
+        chathistory_references,
+        server_messages_config,
+    )
+    .await?;
 
     Ok(())
 }
@@ -524,7 +533,10 @@ impl History {
         }
     }
 
-    fn has_unread(&self) -> bool {
+    fn has_unread(
+        &self,
+        server_messages_config: &config::buffer::ServerMessages,
+    ) -> bool {
         match self {
             History::Partial {
                 max_triggers_unread,
@@ -546,7 +558,10 @@ impl History {
                 display_read_marker,
                 ..
             } => {
-                let latest = metadata::latest_triggers_unread(messages);
+                let latest = metadata::latest_triggers_unread(
+                    messages,
+                    server_messages_config,
+                );
 
                 if let Some(display_read_marker) = display_read_marker {
                     latest.is_some_and(|latest| {
@@ -597,6 +612,7 @@ impl History {
         &mut self,
         message: Message,
         labeled_response_context: Option<LabeledResponseContext>,
+        server_messages_config: &config::buffer::ServerMessages,
     ) -> Option<ReadMarker> {
         if let History::Partial {
             show_in_sidebar,
@@ -604,14 +620,14 @@ impl History {
             ..
         } = self
             && (matches!(message.direction, message::Direction::Sent)
-                || ((message.triggers_unread()
+                || ((message.triggers_unread(server_messages_config)
                     || (message.is_echo && !message.deduplicate))
                     && Some(message.server_time) > *max_triggers_unread))
         {
             *show_in_sidebar = true;
         }
 
-        if message.triggers_unread()
+        if message.triggers_unread(server_messages_config)
             && let History::Partial {
                 max_triggers_unread,
                 ..
@@ -862,6 +878,7 @@ impl History {
         &mut self,
         now: Option<Instant>,
         seed: Option<Seed>,
+        server_messages_config: &config::buffer::ServerMessages,
     ) -> Option<BoxFuture<'static, Result<Vec<EchoEvent>, Error>>> {
         match self {
             History::Partial {
@@ -965,7 +982,10 @@ impl History {
 
                     if matches!(kind, Kind::ChannelMonitor) {
                         let max_triggers_unread =
-                            metadata::latest_triggers_unread(messages);
+                            metadata::latest_triggers_unread(
+                                messages,
+                                server_messages_config,
+                            );
                         let max_triggers_highlight =
                             metadata::latest_triggers_highlight(messages);
 
@@ -987,6 +1007,8 @@ impl History {
 
                     let chathistory_references = chathistory_references.clone();
 
+                    let server_messages_config = server_messages_config.clone();
+
                     truncate_messages(messages);
 
                     let messages = messages.clone();
@@ -998,6 +1020,7 @@ impl History {
                                 &messages,
                                 read_marker,
                                 chathistory_references,
+                                &server_messages_config,
                             )
                             .await
                             .map(|()| vec![])
@@ -1013,6 +1036,7 @@ impl History {
 
     fn make_partial(
         &mut self,
+        server_messages_config: &config::buffer::ServerMessages,
     ) -> Option<BoxFuture<'static, Result<(), Error>>> {
         match self {
             History::Partial { .. } => None,
@@ -1026,8 +1050,10 @@ impl History {
             } => {
                 let kind = kind.clone();
                 let read_marker = *read_marker;
-                let max_triggers_unread =
-                    metadata::latest_triggers_unread(messages);
+                let max_triggers_unread = metadata::latest_triggers_unread(
+                    messages,
+                    server_messages_config,
+                );
                 let max_triggers_highlight =
                     metadata::latest_triggers_highlight(messages);
 
@@ -1091,24 +1117,34 @@ impl History {
 
                 match full_history {
                     History::Partial { .. } => None,
-                    History::Full { kind, messages, .. } => Some(
-                        async move {
-                            overwrite(
-                                &kind,
-                                &messages,
-                                read_marker,
-                                chathistory_references,
-                            )
-                            .await
-                        }
-                        .boxed(),
-                    ),
+                    History::Full { kind, messages, .. } => {
+                        let server_messages_config =
+                            server_messages_config.clone();
+
+                        Some(
+                            async move {
+                                overwrite(
+                                    &kind,
+                                    &messages,
+                                    read_marker,
+                                    chathistory_references,
+                                    &server_messages_config,
+                                )
+                                .await
+                            }
+                            .boxed(),
+                        )
+                    }
                 }
             }
         }
     }
 
-    async fn close(self, seed: Option<Seed>) -> Result<(), Error> {
+    async fn close(
+        self,
+        seed: Option<Seed>,
+        server_messages_config: &config::buffer::ServerMessages,
+    ) -> Result<(), Error> {
         match self {
             History::Partial {
                 kind,
@@ -1140,8 +1176,14 @@ impl History {
                 chathistory_references,
                 ..
             } => {
-                overwrite(&kind, &messages, read_marker, chathistory_references)
-                    .await
+                overwrite(
+                    &kind,
+                    &messages,
+                    read_marker,
+                    chathistory_references,
+                    server_messages_config,
+                )
+                .await
             }
         }
     }
@@ -1178,9 +1220,12 @@ impl History {
         }
     }
 
-    pub fn can_mark_as_read(&self) -> bool {
+    pub fn can_mark_as_read(
+        &self,
+        server_messages_config: &config::buffer::ServerMessages,
+    ) -> bool {
         match self {
-            History::Partial { .. } => self.has_unread(),
+            History::Partial { .. } => self.has_unread(server_messages_config),
             History::Full {
                 messages,
                 read_marker,

@@ -34,11 +34,12 @@ impl ChannelMonitor {
     pub(super) fn close(
         &mut self,
         data: &mut Data,
+        server_messages_config: &config::buffer::ServerMessages,
     ) -> Option<BoxFuture<'static, Result<(), history::Error>>> {
         self.active = false;
         data.map
             .get_mut(&history::Kind::ChannelMonitor)
-            .and_then(History::make_partial)
+            .and_then(|history| history.make_partial(server_messages_config))
     }
 
     pub(super) fn reload(
@@ -124,6 +125,7 @@ impl ChannelMonitor {
         message: &crate::Message,
         labeled_response_context: Option<&LabeledResponseContext>,
         config: &config::ChannelMonitor,
+        server_messages_config: &config::buffer::ServerMessages,
     ) -> Option<BoxFuture<'static, Message>> {
         if !is_channel_message(message) {
             return None;
@@ -156,6 +158,7 @@ impl ChannelMonitor {
             history::Kind::ChannelMonitor,
             message,
             labeled_response_context.cloned(),
+            server_messages_config,
         );
         truncate(data);
 

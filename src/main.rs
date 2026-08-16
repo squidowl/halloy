@@ -1389,7 +1389,12 @@ impl Halloy {
                         .filter(|record| {
                             record.level <= self.config.logs.pane_level
                         })
-                        .map(|record| dashboard.record_log(record)),
+                        .map(|record| {
+                            dashboard.record_log(
+                                record,
+                                &self.config.buffer.server_messages,
+                            )
+                        }),
                 )
                 .map(Message::Dashboard)
             }
@@ -2392,8 +2397,8 @@ fn handle_priv_or_notice(
         main_window,
     );
 
-    let should_mark_as_read =
-        should_display_mark_as_read && msg.triggers_unread();
+    let should_mark_as_read = should_display_mark_as_read
+        && msg.triggers_unread(&config.buffer.server_messages);
 
     let window = kind
         .as_ref()
@@ -2518,7 +2523,7 @@ fn handle_highlight(
 
     commands.push(
         dashboard
-            .record_highlight(highlight_message)
+            .record_highlight(highlight_message, &config.buffer.server_messages)
             .map(Message::Dashboard),
     );
 }

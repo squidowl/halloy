@@ -317,12 +317,12 @@ impl TitleBar {
         let maybe_buffer_kind =
             buffer.data().and_then(history::Kind::from_buffer);
         let can_mark_as_read = if let Some(kind) = &maybe_buffer_kind {
-            history.can_mark_as_read(kind)
+            history.can_mark_as_read(kind, &config.buffer.server_messages)
         } else {
             false
         };
         let has_unread = if let Some(kind) = &maybe_buffer_kind {
-            history.has_unread(kind)
+            history.has_unread(kind, &config.buffer.server_messages)
         } else {
             false
         };
