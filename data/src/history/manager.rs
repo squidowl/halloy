@@ -115,6 +115,7 @@ impl Manager {
         &mut self,
         kind: history::Kind,
         clients: &client::Map,
+        server_messages_config: &config::buffer::ServerMessages,
     ) -> Option<BoxFuture<'static, Message>> {
         if matches!(kind, history::Kind::ChannelMonitor) {
             self.channel_monitor.clear(&mut self.data);
@@ -122,7 +123,11 @@ impl Manager {
         }
 
         if let Some(history) = self.data.map.get_mut(&kind) {
-            let task = history.flush(None, clients.get_seed(&kind));
+            let task = history.flush(
+                None,
+                clients.get_seed(&kind),
+                server_messages_config,
+            );
 
             if let History::Full {
                 messages, cleared, ..
@@ -149,7 +154,8 @@ impl Manager {
         &mut self,
         mut new_resources: HashSet<Resource>,
         clients: Option<&client::Map>,
-        config: &config::ChannelMonitor,
+        channel_monitor_config: &config::ChannelMonitor,
+        server_messages_config: &config::buffer::ServerMessages,
     ) -> Vec<BoxFuture<'static, Message>> {
         let channel_monitor = Resource::channel_monitor();
 
@@ -174,9 +180,11 @@ impl Manager {
                 let Some(clients) = clients else {
                     continue;
                 };
-                tasks.push(
-                    self.channel_monitor.open(&self.data, clients, config),
-                );
+                tasks.push(self.channel_monitor.open(
+                    &self.data,
+                    clients,
+                    channel_monitor_config,
+                ));
             } else {
                 let seed = clients
                     .and_then(|clients| clients.get_seed(&resource.kind));
@@ -196,9 +204,10 @@ impl Manager {
 
         for resource in removed {
             let task = if resource == channel_monitor {
-                self.channel_monitor.close(&mut self.data)
+                self.channel_monitor
+                    .close(&mut self.data, server_messages_config)
             } else {
-                self.data.untrack(&resource.kind)
+                self.data.untrack(&resource.kind, server_messages_config)
             };
 
             if let Some(task) = task {
@@ -393,22 +402,27 @@ impl Manager {
         &mut self,
         now: Instant,
         clients: &client::Map,
+        server_messages_config: &config::buffer::ServerMessages,
     ) -> Vec<BoxFuture<'static, Message>> {
-        self.data.flush_all(now, clients)
+        self.data.flush_all(now, clients, server_messages_config)
     }
 
     pub fn close(
         &mut self,
         kind: history::Kind,
         clients: &client::Map,
+        server_messages_config: &config::buffer::ServerMessages,
     ) -> Option<impl Future<Output = Message> + use<>> {
         let history = self.data.map.remove(&kind)?;
+        let seed = clients.get_seed(&kind);
+        let server_messages_config = server_messages_config.clone();
 
-        Some(
+        Some(async move {
             history
-                .close(clients.get_seed(&kind))
-                .map(|result| Message::Closed(kind, result)),
-        )
+                .close(seed, &server_messages_config)
+                .map(|result| Message::Closed(kind, result))
+                .await
+        })
     }
 
     pub fn open(&mut self, kind: history::Kind) {
@@ -431,6 +445,7 @@ impl Manager {
     pub fn exit(
         &mut self,
         clients: &client::Map,
+        server_messages_config: config::buffer::ServerMessages,
     ) -> impl Future<Output = Message> + use<> {
         let data = std::mem::take(&mut self.data);
         let drafts = data.input.clone_drafts();
@@ -445,7 +460,9 @@ impl Manager {
 
         async move {
             let tasks = seeded_map.into_iter().map(|(seed, kind, state)| {
-                state.close(seed).map(move |result| (kind, result))
+                state
+                    .close(seed, &server_messages_config)
+                    .map(move |result| (kind, result))
             });
 
             let results = future::join_all(tasks).await;
@@ -553,6 +570,7 @@ impl Manager {
             &message,
             labeled_response_context.as_ref(),
             &config.channel_monitor,
+            &config.buffer.server_messages,
         );
         let mut tasks =
             history::Kind::from_server_message_rerouted_from(server, &message)
@@ -581,6 +599,7 @@ impl Manager {
                                 kind,
                                 message,
                                 labeled_response_context,
+                                &config.buffer.server_messages,
                             );
 
                             if let Some((kind, message)) = condensers {
@@ -676,11 +695,13 @@ impl Manager {
     pub fn record_log(
         &mut self,
         record: crate::log::Record,
+        server_messages_config: &config::buffer::ServerMessages,
     ) -> Option<impl Future<Output = Message> + use<>> {
         self.data.add_message(
             history::Kind::Logs,
             crate::Message::log(record),
             None,
+            server_messages_config,
         )
     }
 
@@ -690,9 +711,14 @@ impl Manager {
     pub fn record_highlight(
         &mut self,
         message: crate::Message,
+        server_messages_config: &config::buffer::ServerMessages,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        self.data
-            .add_message(history::Kind::Highlights, message, None)
+        self.data.add_message(
+            history::Kind::Highlights,
+            message,
+            None,
+            server_messages_config,
+        )
     }
 
     pub fn remove_message(
@@ -805,8 +831,12 @@ impl Manager {
         self.data.mark_as_read(kind)
     }
 
-    pub fn can_mark_as_read(&self, kind: &history::Kind) -> bool {
-        self.data.can_mark_as_read(kind)
+    pub fn can_mark_as_read(
+        &self,
+        kind: &history::Kind,
+        server_messages_config: &config::buffer::ServerMessages,
+    ) -> bool {
+        self.data.can_mark_as_read(kind, server_messages_config)
     }
 
     pub fn is_our_message(
@@ -903,7 +933,11 @@ impl Manager {
         self.data.map.keys().cloned().collect()
     }
 
-    pub fn server_has_unread(&self, server: &Server) -> bool {
+    pub fn server_has_unread(
+        &self,
+        server: &Server,
+        server_messages_config: &config::buffer::ServerMessages,
+    ) -> bool {
         self.data
             .map
             .iter()
@@ -914,11 +948,18 @@ impl Manager {
                     None
                 }
             })
-            .any(History::has_unread)
+            .any(|history| history.has_unread(server_messages_config))
     }
 
-    pub fn has_unread(&self, kind: &history::Kind) -> bool {
-        self.data.map.get(kind).is_some_and(History::has_unread)
+    pub fn has_unread(
+        &self,
+        kind: &history::Kind,
+        server_messages_config: &config::buffer::ServerMessages,
+    ) -> bool {
+        self.data
+            .map
+            .get(kind)
+            .is_some_and(|history| history.has_unread(server_messages_config))
     }
 
     pub fn has_highlight(&self, kind: &history::Kind) -> bool {
@@ -1803,6 +1844,7 @@ impl Data {
         kind: history::Kind,
         mut message: crate::Message,
         labeled_response_context: Option<LabeledResponseContext>,
+        server_messages_config: &config::buffer::ServerMessages,
     ) -> Option<impl Future<Output = Message> + use<>> {
         // Cache the replied-to author and preview text on the message so the
         // reply is in view context without a lookup at render time.
@@ -1816,9 +1858,11 @@ impl Data {
 
         match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
-                let read_marker = entry
-                    .get_mut()
-                    .add_message(message, labeled_response_context);
+                let read_marker = entry.get_mut().add_message(
+                    message,
+                    labeled_response_context,
+                    server_messages_config,
+                );
 
                 // Update the read marker immediately so the split is correct
                 if let Some(read_marker) = read_marker
@@ -1838,9 +1882,12 @@ impl Data {
                 }
             }
             hash_map::Entry::Vacant(entry) => {
-                let _ = entry
-                    .insert(History::partial(kind.clone()))
-                    .add_message(message, labeled_response_context);
+                let _ =
+                    entry.insert(History::partial(kind.clone())).add_message(
+                        message,
+                        labeled_response_context,
+                        server_messages_config,
+                    );
 
                 Some(
                     async move {
@@ -2077,33 +2124,47 @@ impl Data {
         self.map.get_mut(kind).and_then(History::mark_as_read)
     }
 
-    fn can_mark_as_read(&self, kind: &history::Kind) -> bool {
-        self.map.get(kind).is_some_and(History::can_mark_as_read)
+    fn can_mark_as_read(
+        &self,
+        kind: &history::Kind,
+        server_messages_config: &config::buffer::ServerMessages,
+    ) -> bool {
+        self.map.get(kind).is_some_and(|history| {
+            history.can_mark_as_read(server_messages_config)
+        })
     }
 
     fn untrack(
         &mut self,
         kind: &history::Kind,
+        server_messages_config: &config::buffer::ServerMessages,
     ) -> Option<BoxFuture<'static, Result<(), history::Error>>> {
-        self.map.get_mut(kind).and_then(History::make_partial)
+        self.map
+            .get_mut(kind)
+            .and_then(|history| history.make_partial(server_messages_config))
     }
 
     fn flush_all(
         &mut self,
         now: Instant,
         clients: &client::Map,
+        server_messages_config: &config::buffer::ServerMessages,
     ) -> Vec<BoxFuture<'static, Message>> {
         self.map
             .iter_mut()
             .filter_map(|(kind, state)| {
                 let kind = kind.clone();
 
-                state.flush(Some(now), clients.get_seed(&kind)).map(
-                    move |task| {
+                state
+                    .flush(
+                        Some(now),
+                        clients.get_seed(&kind),
+                        server_messages_config,
+                    )
+                    .map(move |task| {
                         task.map(move |result| Message::Flushed(kind, result))
                             .boxed()
-                    },
-                )
+                    })
             })
             .collect()
     }
