@@ -303,6 +303,22 @@ impl KeyBind {
             KeyBind::Unbind => String::new(),
         }
     }
+
+    pub fn eq_ignore_modifiers(&self, other: &KeyBind) -> bool {
+        if let KeyBind::Bind {
+            key_code: self_key_code,
+            ..
+        } = self
+            && let KeyBind::Bind {
+                key_code: other_key_code,
+                ..
+            } = other
+        {
+            self_key_code == other_key_code
+        } else {
+            false
+        }
+    }
 }
 
 impl PartialEq for KeyBind {

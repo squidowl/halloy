@@ -247,13 +247,24 @@ impl Keyboard {
         let matches =
             |binds: &KeyBinds| binds.iter().any(|bind| bind == key_bind);
 
-        if matches(&self.focus_up) {
+        // Focus navigation keys need to exist in both focus and non-focus
+        // modes. When not in focus mode modifiers are expected and in focus
+        // mode modifiers are not expected, so allow them to match without
+        // modifiers when in focus mode.
+        let matches_ignore_modifiers = |binds: &KeyBinds| {
+            binds.iter().any(|bind| {
+                bind == key_bind
+                    || (in_focus && bind.eq_ignore_modifiers(key_bind))
+            })
+        };
+
+        if matches_ignore_modifiers(&self.focus_up) {
             Some(FocusCommand::Up)
-        } else if matches(&self.focus_down) {
+        } else if matches_ignore_modifiers(&self.focus_down) {
             Some(FocusCommand::Down)
-        } else if matches(&self.focus_left) {
+        } else if matches_ignore_modifiers(&self.focus_left) {
             Some(FocusCommand::Left)
-        } else if matches(&self.focus_right) {
+        } else if matches_ignore_modifiers(&self.focus_right) {
             Some(FocusCommand::Right)
         } else if matches(&self.focus_activate) {
             Some(FocusCommand::Activate)
