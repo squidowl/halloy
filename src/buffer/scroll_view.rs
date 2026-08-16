@@ -478,7 +478,14 @@ pub fn view<'a>(
                 .fold(0.0, f32::max);
 
             let range_end_timestamp_width =
-                if config.buffer.server_messages.condense.any() {
+                if config.buffer.server_messages.condense.any()
+                    && config
+                        .buffer
+                        .server_messages
+                        .condense
+                        .timestamp
+                        .show_range()
+                {
                     alignment_messages()
                         .filter_map(|message| {
                             if let message::Source::Internal(
@@ -2807,8 +2814,20 @@ enum ScrollToState {
 }
 
 fn timestamp_width(message: &data::Message, config: &Config) -> Option<f32> {
+    let date_time = match message.target.source() {
+        message::Source::Internal(message::source::Internal::Condensed(
+            end_server_time,
+        )) => config
+            .buffer
+            .server_messages
+            .condense
+            .timestamp
+            .primary(&message.server_time, end_server_time),
+        _ => Some(&message.server_time),
+    }?;
+
     config
         .buffer
-        .format_timestamp(&message.server_time)
+        .format_timestamp(date_time)
         .map(|timestamp| font::width_from_str(&timestamp, &config.font) + 1.0)
 }
