@@ -244,14 +244,8 @@ impl Keyboard {
         key_bind: &KeyBind,
         in_focus: bool,
     ) -> Option<FocusCommand> {
-        let matches = |binds: &KeyBinds| {
-            binds.iter().any(|bind| {
-                bind == key_bind
-                    || (in_focus
-                        && !key_bind.has_modifiers()
-                        && key_bind.key_code() == bind.key_code())
-            })
-        };
+        let matches =
+            |binds: &KeyBinds| binds.iter().any(|bind| bind == key_bind);
 
         if matches(&self.focus_up) {
             Some(FocusCommand::Up)
@@ -276,5 +270,36 @@ impl Keyboard {
         } else {
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use iced_core::keyboard;
+
+    use super::*;
+
+    #[test]
+    fn focus_command_requires_configured_modifiers() {
+        let config: Keyboard = toml::from_str(
+            r#"
+            focus_redact = "ctrl+x"
+            "#,
+        )
+        .unwrap();
+        let ctrl_x = KeyBind::from((
+            keyboard::Key::Character("x".into()),
+            keyboard::Modifiers::CTRL,
+        ));
+        let x = KeyBind::from((
+            keyboard::Key::Character("x".into()),
+            keyboard::Modifiers::default(),
+        ));
+
+        assert_eq!(
+            config.focus_command(&ctrl_x, true),
+            Some(FocusCommand::Redact)
+        );
+        assert_eq!(config.focus_command(&x, true), None);
     }
 }

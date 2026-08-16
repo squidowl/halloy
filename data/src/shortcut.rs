@@ -24,20 +24,6 @@ impl Shortcut {
 }
 
 impl KeyBind {
-    pub fn has_modifiers(&self) -> bool {
-        matches!(
-            self,
-            KeyBind::Bind { modifiers, .. } if !modifiers.0.is_empty()
-        )
-    }
-
-    pub fn key_code(&self) -> Option<&KeyCode> {
-        match self {
-            KeyBind::Bind { key_code, .. } => Some(key_code),
-            KeyBind::Unbind => None,
-        }
-    }
-
     /// Built-in (non-configurable) gestures while a message selection is active
     pub fn builtin_focus_command(&self) -> Option<FocusCommand> {
         let KeyBind::Bind {
