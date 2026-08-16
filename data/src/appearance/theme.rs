@@ -232,6 +232,7 @@ pub struct Buffer {
     pub topic: TextStyle,
     pub url: TextStyle,
     pub nickname_offline: OptionalTextStyle,
+    pub self_message: OptionalTextStyle,
     #[serde(with = "color_serde_maybe")]
     pub backlog_rule: Option<Color>,
     #[serde(with = "color_serde_maybe")]
@@ -264,6 +265,7 @@ impl Default for Buffer {
             topic: TextStyle::default(),
             url: TextStyle::default(),
             nickname_offline: OptionalTextStyle::default(),
+            self_message: OptionalTextStyle::default(),
             backlog_rule: None,
             backlog_rule_text: None,
             date_rule: None,
@@ -905,6 +907,7 @@ mod binary {
         ButtonsSecondaryBorderActive = 59,
         BufferFocusBorder = 60,
         BufferFocusBackground = 61,
+        BufferSelfMessage = 62,
     }
 
     impl Tag {
@@ -942,6 +945,7 @@ mod binary {
                 Tag::BufferNicknameOffline => {
                     styles.buffer.nickname_offline.color?
                 }
+                Tag::BufferSelfMessage => styles.buffer.self_message.color?,
                 Tag::BufferSelection => styles.buffer.selection,
                 Tag::BufferTimestamp => styles.buffer.timestamp.color,
                 Tag::BufferTopic => styles.buffer.topic.color,
@@ -1080,6 +1084,9 @@ mod binary {
                 Tag::BufferNickname => styles.buffer.nickname.color = color,
                 Tag::BufferNicknameOffline => {
                     styles.buffer.nickname_offline.color = Some(color);
+                }
+                Tag::BufferSelfMessage => {
+                    styles.buffer.self_message.color = Some(color);
                 }
                 Tag::BufferSelection => styles.buffer.selection = color,
                 Tag::BufferTimestamp => styles.buffer.timestamp.color = color,

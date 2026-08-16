@@ -8,6 +8,14 @@ pub fn primary(theme: &Theme) -> Option<FontStyle> {
     theme.styles().text.primary.font_style
 }
 
+pub fn self_message(theme: &Theme) -> Option<FontStyle> {
+    theme.styles().buffer.self_message.font_style.or(theme
+        .styles()
+        .text
+        .primary
+        .font_style)
+}
+
 pub fn secondary(theme: &Theme) -> Option<FontStyle> {
     theme.styles().text.secondary.font_style
 }
