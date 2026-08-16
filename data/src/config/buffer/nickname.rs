@@ -1,5 +1,8 @@
+use fancy_regex::{Regex, RegexBuilder};
+use iced::Color as IcedColor;
 use serde::{Deserialize, Deserializer};
 
+use crate::appearance::theme::hex_to_color;
 use crate::buffer::{Alignment, Brackets, Color};
 use crate::config::buffer::{
     AccessLevelFormat, Alpha, Dimmed, HideConsecutive,
@@ -11,6 +14,8 @@ pub struct Nickname {
     pub away: Alpha,
     pub offline: Offline,
     pub color: Color,
+    #[serde(rename = "color_override")]
+    pub color_overrides: Vec<ColorOverride>,
     pub brackets: Brackets,
     pub alignment: Alignment,
     pub show_access_levels: AccessLevelFormat,
@@ -26,6 +31,7 @@ impl Default for Nickname {
             away: Alpha::default(),
             offline: Offline::default(),
             color: Color::default(),
+            color_overrides: vec![],
             brackets: Brackets::default(),
             alignment: Alignment::default(),
             show_access_levels: AccessLevelFormat::default(),
@@ -35,6 +41,116 @@ impl Default for Nickname {
             hide_consecutive: HideConsecutive::default(),
         }
     }
+}
+
+impl Nickname {
+    pub fn color_override(&self, nickname: &str) -> Option<IcedColor> {
+        self.color_overrides
+            .iter()
+            .find(|rule| rule.is_match(nickname))
+            .map(|rule| rule.color)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ColorOverride {
+    matcher: Matcher,
+    color: IcedColor,
+}
+
+impl ColorOverride {
+    fn is_match(&self, nickname: &str) -> bool {
+        match &self.matcher {
+            Matcher::Nicknames {
+                nicknames,
+                case_insensitive,
+            } => nicknames.iter().any(|configured| {
+                if *case_insensitive {
+                    configured.eq_ignore_ascii_case(nickname)
+                } else {
+                    configured == nickname
+                }
+            }),
+            Matcher::Regex(regex) => {
+                regex.is_match(nickname).is_ok_and(|is_match| is_match)
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+enum Matcher {
+    Nicknames {
+        nicknames: Vec<String>,
+        case_insensitive: bool,
+    },
+    Regex(Regex),
+}
+
+impl<'de> Deserialize<'de> for ColorOverride {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Debug, Clone, Deserialize)]
+        #[serde(untagged)]
+        enum Repr {
+            Nicknames {
+                nicknames: Vec<String>,
+                #[serde(default = "default_true")]
+                case_insensitive: bool,
+                color: String,
+            },
+            Regex {
+                regex: String,
+                color: String,
+            },
+        }
+
+        let (matcher, color) = match Repr::deserialize(deserializer)? {
+            Repr::Nicknames {
+                nicknames,
+                case_insensitive,
+                color,
+            } => {
+                if nicknames.is_empty() {
+                    return Err(serde::de::Error::custom(
+                        "nickname color override must contain at least one nickname",
+                    ));
+                }
+
+                (
+                    Matcher::Nicknames {
+                        nicknames,
+                        case_insensitive,
+                    },
+                    color,
+                )
+            }
+            Repr::Regex { regex, color } => {
+                let compiled =
+                    RegexBuilder::new(&regex).build().map_err(|err| {
+                        serde::de::Error::custom(format!(
+                            "invalid nickname color regex '{regex}': {err}"
+                        ))
+                    })?;
+
+                (Matcher::Regex(compiled), color)
+            }
+        };
+
+        let color = hex_to_color(&color).ok_or_else(|| {
+            serde::de::Error::custom(format!(
+                "invalid nickname override color: {color}"
+            ))
+        })?;
+
+        Ok(Self { matcher, color })
+    }
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Copy)]

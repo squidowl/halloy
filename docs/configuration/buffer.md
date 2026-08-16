@@ -812,6 +812,32 @@ color = "unique"
 color = { palette = ["#B11E3A", "#2A7FFF", "#1E9E5A"] }
 ```
 
+### `color_override`
+
+Set colors for specific nicknames or nickname patterns. If more than one rule
+matches, the first rule is used. Nickname lists ignore uppercase and lowercase
+by default. Set `case_insensitive = false` to match the exact spelling.
+
+These colors replace nickname metadata colors and the default [`color`](#color).
+Away and offline styles still apply.
+
+```toml
+# Match one or more exact nicknames.
+[[buffer.nickname.color_override]]
+nicknames = ["alice", "bob"]
+color = "#61AFEF"
+
+[[buffer.nickname.color_override]]
+nicknames = ["CaseSensitiveNick"]
+case_insensitive = false
+color = "#C678DD"
+
+# Match nicknames with a regular expression.
+[[buffer.nickname.color_override]]
+regex = '''^\[.*\]$'''
+color = "#98C379"
+```
+
 ### `offline`
 
 Controls the color of offline nicknames. Can combine a color source with dimming (same alpha options as [`away`](#away)). The "(Offline)" label is independent of this setting.

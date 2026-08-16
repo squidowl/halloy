@@ -842,6 +842,10 @@ fn query_title<'a>(
             .is_some_and(|client| client.is_monitored_user_online(&user));
     let user_offline_style =
         config.buffer.nickname.offline.style(user_is_offline);
+    let nickname_color_override = config
+        .buffer
+        .nickname
+        .color_override(resolved_query.as_str());
 
     let state = if user_is_offline {
         Some(
@@ -862,6 +866,7 @@ fn query_title<'a>(
                 theme,
                 &config.buffer.nickname.color,
                 Some(user.seed()),
+                nickname_color_override,
                 user_away_alpha,
                 user_offline_style,
             )
@@ -886,6 +891,7 @@ fn query_title<'a>(
                                     theme,
                                     &config.buffer.nickname.color,
                                     Some(resolved_query.as_str()),
+                                    nickname_color_override,
                                     user_away_alpha,
                                     user_offline_style,
                                 )
