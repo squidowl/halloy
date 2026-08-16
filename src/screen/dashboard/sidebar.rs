@@ -522,7 +522,8 @@ impl Sidebar {
 
         let dimensions = Dimensions::from(&config::sidebar::Sidebar::default());
 
-        let logs_has_unread = history.has_unread(&history::Kind::Logs);
+        let logs_has_unread = history
+            .has_unread(&history::Kind::Logs, &config.buffer.server_messages);
 
         // Show notification dot if theres a new version, if there're transfers,
         // or if the logs have unread messages.
@@ -879,8 +880,10 @@ impl Sidebar {
                         server_icon_enabled,
                         server_sidebar_visibility,
                     } => {
-                        let server_has_unread =
-                            history.server_has_unread(&server);
+                        let server_has_unread = history.server_has_unread(
+                            &server,
+                            &config.buffer.server_messages,
+                        );
                         let supports_detach =
                             clients.get_server_supports_detach(&server);
 
@@ -1081,7 +1084,8 @@ impl UpstreamBufferSidebarData {
             .iter_visible()
             .any(|(_, _, state)| state.buffer.upstream() == Some(&buffer));
 
-        let has_unread = history.has_unread(&kind);
+        let has_unread =
+            history.has_unread(&kind, &config.buffer.server_messages);
 
         let is_unread_query =
             matches!(buffer, buffer::Upstream::Query(_, _)) && has_unread;
@@ -1165,8 +1169,9 @@ impl InternalBufferSidebarData {
             state.buffer.internal().as_ref() == Some(&buffer)
         });
 
-        let has_unread =
-            kind.as_ref().is_some_and(|kind| history.has_unread(kind));
+        let has_unread = kind.as_ref().is_some_and(|kind| {
+            history.has_unread(kind, &config.buffer.server_messages)
+        });
 
         let has_highlight = kind
             .as_ref()
@@ -1556,7 +1561,8 @@ fn upstream_buffer_button<'a>(
             .then_some((window_id, pane))
         });
 
-    let can_mark_as_read = history.can_mark_as_read(kind);
+    let can_mark_as_read =
+        history.can_mark_as_read(kind, &config.buffer.server_messages);
 
     let show_unread_icon =
         indicators.unread && config.sidebar.unread_indicator.has_icon();
@@ -2046,9 +2052,9 @@ fn internal_buffer_button<'a>(
             .then_some((window_id, pane))
         });
 
-    let can_mark_as_read = kind
-        .as_ref()
-        .is_some_and(|kind| history.can_mark_as_read(kind));
+    let can_mark_as_read = kind.as_ref().is_some_and(|kind| {
+        history.can_mark_as_read(kind, &config.buffer.server_messages)
+    });
 
     let dimensions = Dimensions::from(&config.sidebar);
 

@@ -2243,11 +2243,15 @@ impl State {
                         let kind =
                             history::Kind::from_input_buffer(buffer.clone());
 
-                        let event = history.clear_messages(kind, clients).map(
-                            |history_task| Event::Cleared {
+                        let event = history
+                            .clear_messages(
+                                kind,
+                                clients,
+                                &config.buffer.server_messages,
+                            )
+                            .map(|history_task| Event::Cleared {
                                 history_task: Task::future(history_task),
-                            },
-                        );
+                            });
 
                         return (Task::none(), event);
                     }
