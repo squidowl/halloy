@@ -244,22 +244,27 @@ impl Keyboard {
         key_bind: &KeyBind,
         in_focus: bool,
     ) -> Option<FocusCommand> {
-        let matches = |binds: &KeyBinds| {
+        let matches =
+            |binds: &KeyBinds| binds.iter().any(|bind| bind == key_bind);
+
+        // Focus navigation keys need to exist in both focus and non-focus
+        // modes. When not in focus mode modifiers are expected and in focus
+        // mode modifiers are not expected, so allow them to match without
+        // modifiers when in focus mode.
+        let matches_ignore_modifiers = |binds: &KeyBinds| {
             binds.iter().any(|bind| {
                 bind == key_bind
-                    || (in_focus
-                        && !key_bind.has_modifiers()
-                        && key_bind.key_code() == bind.key_code())
+                    || (in_focus && bind.eq_ignore_modifiers(key_bind))
             })
         };
 
-        if matches(&self.focus_up) {
+        if matches_ignore_modifiers(&self.focus_up) {
             Some(FocusCommand::Up)
-        } else if matches(&self.focus_down) {
+        } else if matches_ignore_modifiers(&self.focus_down) {
             Some(FocusCommand::Down)
-        } else if matches(&self.focus_left) {
+        } else if matches_ignore_modifiers(&self.focus_left) {
             Some(FocusCommand::Left)
-        } else if matches(&self.focus_right) {
+        } else if matches_ignore_modifiers(&self.focus_right) {
             Some(FocusCommand::Right)
         } else if matches(&self.focus_activate) {
             Some(FocusCommand::Activate)
@@ -276,5 +281,36 @@ impl Keyboard {
         } else {
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use iced_core::keyboard;
+
+    use super::*;
+
+    #[test]
+    fn focus_command_requires_configured_modifiers() {
+        let config: Keyboard = toml::from_str(
+            r#"
+            focus_redact = "ctrl+x"
+            "#,
+        )
+        .unwrap();
+        let ctrl_x = KeyBind::from((
+            keyboard::Key::Character("x".into()),
+            keyboard::Modifiers::CTRL,
+        ));
+        let x = KeyBind::from((
+            keyboard::Key::Character("x".into()),
+            keyboard::Modifiers::default(),
+        ));
+
+        assert_eq!(
+            config.focus_command(&ctrl_x, true),
+            Some(FocusCommand::Redact)
+        );
+        assert_eq!(config.focus_command(&x, true), None);
     }
 }
