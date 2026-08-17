@@ -23,6 +23,9 @@
 /assets/flatpak/generated-sources.json
 .flatpak-builder
 
+# MacOS generated files
+/assets/macos/Halloy.app/Contents/Info.plist
+
 # VitePress / Node
 /docs/node_modules/
 /docs/.vitepress/cache/
