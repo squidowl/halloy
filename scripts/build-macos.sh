@@ -2,10 +2,10 @@
 
 TARGET="halloy"
 PROFILE="packaging"
-ASSETS_DIR="assets"
+ASSETS_DIR="assets/macos"
 RELEASE_DIR="target/$PROFILE"
 APP_NAME="Halloy.app"
-APP_TEMPLATE="$ASSETS_DIR/macos/$APP_NAME"
+APP_TEMPLATE="$ASSETS_DIR/$APP_NAME"
 APP_TEMPLATE_PLIST="$APP_TEMPLATE/Contents/Info.plist"
 APP_DIR="$RELEASE_DIR/macos"
 APP_BINARY="$RELEASE_DIR/$TARGET"
@@ -17,6 +17,7 @@ NIGHTLY=$(cat NIGHTLY)
 BUILD=$(git describe --always --dirty --exclude='*')
 
 # update version and build
+cp "$ASSETS_DIR/Info.plist.in" "$APP_TEMPLATE_PLIST"
 sed -i '' -e "s/{{ VERSION }}/$VERSION/g" "$APP_TEMPLATE_PLIST"
 sed -i '' -e "s/{{ BUILD }}/$BUILD/g" "$APP_TEMPLATE_PLIST"
 
