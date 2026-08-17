@@ -151,8 +151,7 @@ fn user(input: &str) -> IResult<&str, User> {
         satisfy(|c| c.is_ascii_alphanumeric() || !c.is_ascii()),
         special,
     ))));
-    // A `!` separates the nickname from the user. Bridge nicknames may use
-    // characters outside the regular nickname set.
+    // Accept bridge nicknames with non-standard characters in `nick!user@host`.
     let prefixed_nick = recognize(terminated(
         many1_count(none_of("\0\r\n !")),
         peek(char('!')),
