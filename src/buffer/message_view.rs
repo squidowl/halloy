@@ -572,7 +572,7 @@ impl<'a> ChannelQueryLayout<'a> {
             ShownStatus::Historical => user,
         }
         .is_away();
-        let is_user_offline = if rerouted_message {
+        let is_user_offline = if rerouted_message || message.is_relayed() {
             false
         } else {
             match self.config.buffer.nickname.shown_status {
@@ -657,6 +657,7 @@ impl<'a> ChannelQueryLayout<'a> {
                         user,
                         user_in_channel,
                         self.target.our_user(),
+                        message.is_relayed(),
                         self.config,
                         self.theme,
                         &self.config.actions.buffer.click_username,
@@ -1072,6 +1073,7 @@ impl<'a> ChannelQueryLayout<'a> {
                         self.registry,
                         self.config,
                     ),
+                    false,
                     message.is_rerouted(),
                 )
             }),
@@ -1119,6 +1121,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     ),
                     user,
                     current_user,
+                    is_relayed: false,
                     message: Some(message),
                 }
             }),

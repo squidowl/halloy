@@ -30,6 +30,7 @@ pub struct UserContext<'a> {
     pub avatar: Option<UserAvatar<'a>>,
     pub user: &'a User,
     pub current_user: Option<&'a User>,
+    pub is_relayed: bool,
     pub message: Option<&'a message::Message>,
 }
 
@@ -335,9 +336,14 @@ impl Entry {
         our_user: Option<&User>,
         file_transfer_enabled: bool,
         has_metadata: bool,
+        is_relayed: bool,
         message_is_rerouted: bool,
     ) -> Vec<Self> {
         let mut user_info_entries = vec![Entry::UserInfo];
+
+        if is_relayed {
+            return user_info_entries;
+        }
 
         if has_metadata {
             user_info_entries.push(Entry::HorizontalRule);
@@ -432,10 +438,14 @@ impl Entry {
             (
                 Entry::UserInfo,
                 Context::User(UserContext {
-                    user, current_user, ..
+                    user,
+                    current_user,
+                    is_relayed,
+                    ..
                 }),
             ) => user_info(
                 current_user,
+                is_relayed,
                 user.nickname().to_owned(),
                 length,
                 config,
@@ -1080,6 +1090,7 @@ pub fn user<'a>(
     user: &'a User,
     current_user: Option<&'a User>,
     our_user: Option<&'a User>,
+    is_relayed: bool,
     config: &'a Config,
     theme: &'a Theme,
     click: &'a NicknameClickAction,
@@ -1090,6 +1101,7 @@ pub fn user<'a>(
         our_user,
         config.file_transfer.enabled,
         has_user_metadata(user, registry, config),
+        is_relayed,
         false,
     );
 
@@ -1102,6 +1114,7 @@ pub fn user<'a>(
         previews,
         user,
         current_user,
+        is_relayed,
         config,
         theme,
         click,
@@ -1129,6 +1142,7 @@ pub fn rerouted_message_user<'a>(
         previews,
         user,
         None,
+        false,
         config,
         theme,
         click,
@@ -1145,6 +1159,7 @@ fn user_with_entries<'a>(
     previews: &'a preview::Collection,
     user: &'a User,
     current_user: Option<&'a User>,
+    is_relayed: bool,
     config: &'a Config,
     theme: &'a Theme,
     click: &'a NicknameClickAction,
@@ -1198,6 +1213,7 @@ fn user_with_entries<'a>(
                     avatar: avatar.clone(),
                     user,
                     current_user,
+                    is_relayed,
                     message: None,
                 })),
                 length,
@@ -1307,40 +1323,34 @@ fn right_justified_padding(config: &Config) -> Padding {
 
 fn user_info<'a>(
     current_user: Option<&User>,
+    is_relayed: bool,
     nickname: Nick,
     length: Length,
     config: &Config,
     theme: &Theme,
 ) -> Element<'a, Message> {
-    let state = match current_user {
-        Some(user) => {
-            if user.is_away() {
-                Some(
-                    text("(Away)")
-                        .style(theme::text::secondary)
-                        .font_maybe(
-                            theme::font_style::secondary(theme).map(font::get),
-                        )
-                        .width(length),
-                )
-            } else {
-                None
-            }
-        }
-        None => Some(
-            text("(Offline)")
-                .style(theme::text::secondary)
-                .font_maybe(theme::font_style::secondary(theme).map(font::get))
-                .width(length),
-        ),
+    let state = if is_relayed {
+        Some("Relayed user")
+    } else if current_user.is_some_and(User::is_away) {
+        Some("Away")
+    } else if current_user.is_none() {
+        Some("Offline")
+    } else {
+        None
     };
+    let state = state.map(|state| {
+        text(format!("({state})"))
+            .style(theme::text::secondary)
+            .font_maybe(theme::font_style::secondary(theme).map(font::get))
+            .width(length)
+    });
 
     let user_away_alpha = config
         .buffer
         .nickname
         .away
         .alpha(current_user.is_some_and(User::is_away));
-    let user_is_offline = current_user.is_none();
+    let user_is_offline = current_user.is_none() && !is_relayed;
     let user_offline_style =
         config.buffer.nickname.offline.style(user_is_offline);
     let style = theme::text::nickname(

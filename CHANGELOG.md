@@ -23,7 +23,7 @@ Added:
 
 Fixed:
 
-- Support extended nicknames in user prefixes
+- Display RELAYMSG senders correctly
 - Display messages from legacy ISO-8859-1 clients instead of replacing invalid UTF-8 bytes
 - Remove blank space above the input after marking a buffer as read
 - User avatars are only shown when `avatar` is included in `metadata.preferred_keys`

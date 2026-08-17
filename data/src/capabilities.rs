@@ -40,6 +40,7 @@ pub enum Capability {
     Metadata,
     NoImplicitNames,
     ReadMarker,
+    Relaymsg,
     Sasl,
     ServerTime,
     Setname,
@@ -60,6 +61,7 @@ impl FromStr for Capability {
             "draft/event-playback" => Ok(Self::EventPlayback),
             "draft/multiline" => Ok(Self::Multiline),
             "draft/read-marker" => Ok(Self::ReadMarker),
+            "draft/relaymsg" => Ok(Self::Relaymsg),
             "draft/whoami" => Ok(Self::Whoami),
             "echo-message" => Ok(Self::EchoMessage),
             "extended-join" => Ok(Self::ExtendedJoin),
@@ -344,6 +346,7 @@ impl Capabilities {
                 | Capability::Metadata
                 | Capability::NoImplicitNames
                 | Capability::ReadMarker
+                | Capability::Relaymsg
                 | Capability::Sasl
                 | Capability::ServerTime
                 | Capability::Setname
@@ -392,6 +395,12 @@ impl Capabilities {
 
         if let Some(request) =
             self.create_request("message-tags", &[], available, config)
+        {
+            requested.push(request);
+        }
+
+        if let Some(request) =
+            self.create_request("draft/relaymsg", &[], available, config)
         {
             requested.push(request);
         }

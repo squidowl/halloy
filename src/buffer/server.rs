@@ -246,6 +246,7 @@ pub fn view<'a>(
                                 user,
                                 None,
                                 None,
+                                message.is_relayed(),
                                 config,
                                 theme,
                                 &config.actions.buffer.click_username,

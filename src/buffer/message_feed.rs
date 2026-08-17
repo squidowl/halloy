@@ -175,10 +175,13 @@ pub fn view<'a>(
                     ShownStatus::Historical => user,
                 }
                 .is_away();
-                let is_user_offline = match config.buffer.nickname.shown_status
-                {
-                    ShownStatus::Current => current_user.is_none(),
-                    ShownStatus::Historical => false,
+                let is_user_offline = if message.is_relayed() {
+                    false
+                } else {
+                    match config.buffer.nickname.shown_status {
+                        ShownStatus::Current => current_user.is_none(),
+                        ShownStatus::Historical => false,
+                    }
                 };
 
                 let registry = clients.get_registry(server);
@@ -224,6 +227,7 @@ pub fn view<'a>(
                     user,
                     current_user,
                     None,
+                    message.is_relayed(),
                     config,
                     theme,
                     &config.actions.buffer.click_username,
@@ -257,6 +261,7 @@ pub fn view<'a>(
                                         clients.get_registry(server),
                                         config,
                                     ),
+                                    false,
                                     true,
                                 )
                             }),
@@ -283,6 +288,7 @@ pub fn view<'a>(
                                 ),
                                 user,
                                 current_user,
+                                is_relayed: false,
                                 message: None,
                             }),
                             Some(|url| UrlContext { url, message: None }),

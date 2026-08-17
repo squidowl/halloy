@@ -191,6 +191,10 @@ impl Encoded {
         self.tags.contains_key("bot")
     }
 
+    pub fn is_relayed(&self) -> bool {
+        self.tags.contains_key("draft/relaymsg")
+    }
+
     pub fn is_join_topic(&self) -> bool {
         self.tags.contains_key(":join_topic")
     }
@@ -383,6 +387,7 @@ pub struct Message {
     pub hash: Hash,
     pub hidden_urls: HashSet<Url>,
     pub is_echo: bool, // Only relevant if direction == Direction::Received
+    pub relayed: bool,
     pub received_with_server_time: bool, // Only relevant if direction == Direction::Received
     pub blocked: bool,
     pub condensed: Option<Arc<Message>>,
@@ -462,6 +467,10 @@ impl Message {
         self.rerouted_from.is_some()
     }
 
+    pub fn is_relayed(&self) -> bool {
+        self.relayed
+    }
+
     pub fn is_redactable(&self) -> bool {
         self.redaction.is_none()
             && matches!(
@@ -515,6 +524,7 @@ impl Message {
             encoded.server_time_or_now();
         let id = encoded.message_id();
         let reply_to = encoded.in_reply_to();
+        let relayed = encoded.is_relayed();
         let is_echo = encoded
             .user(casemapping)
             .is_some_and(|user| user.nickname() == our_nick);
@@ -557,6 +567,7 @@ impl Message {
             hash,
             hidden_urls: HashSet::default(),
             is_echo,
+            relayed,
             received_with_server_time,
             blocked: false,
             condensed: None,
@@ -589,6 +600,7 @@ impl Message {
             encoded.server_time_or_now();
         let id = encoded.message_id();
         let reply_to = encoded.in_reply_to();
+        let relayed = encoded.is_relayed();
         let is_echo = encoded
             .user(casemapping)
             .is_some_and(|user| user.nickname() == our_nick);
@@ -631,6 +643,7 @@ impl Message {
             hash,
             hidden_urls: HashSet::default(),
             is_echo,
+            relayed,
             received_with_server_time,
             blocked: false,
             condensed: None,
@@ -714,6 +727,7 @@ impl Message {
             hash,
             hidden_urls: HashSet::default(),
             is_echo: false,
+            relayed: false,
             received_with_server_time: false,
             blocked: false,
             condensed: None,
@@ -754,6 +768,7 @@ impl Message {
             hash,
             hidden_urls: HashSet::default(),
             is_echo: false,
+            relayed: false,
             received_with_server_time: false,
             blocked: false,
             condensed: None,
@@ -792,6 +807,7 @@ impl Message {
             hash,
             hidden_urls: HashSet::default(),
             is_echo: false,
+            relayed: false,
             received_with_server_time: false,
             blocked: false,
             condensed: None,
@@ -885,6 +901,7 @@ impl Message {
             hash,
             hidden_urls: HashSet::default(),
             is_echo: false,
+            relayed: false,
             received_with_server_time: false,
             blocked: false,
             condensed: None,
@@ -991,6 +1008,7 @@ impl Serialize for Message {
             text: Cow<'a, str>,
             hidden_urls: &'a HashSet<url::Url>,
             is_echo: &'a bool,
+            relayed: &'a bool,
             received_with_server_time: &'a bool,
             command: &'a Option<command::Irc>,
             #[serde(skip_serializing_if = "<[_]>::is_empty")]
@@ -1010,6 +1028,7 @@ impl Serialize for Message {
             text: self.content.text(),
             hidden_urls: &self.hidden_urls,
             is_echo: &self.is_echo,
+            relayed: &self.relayed,
             received_with_server_time: &self.received_with_server_time,
             command: &self.command,
             reactions: &self.reactions,
@@ -1044,6 +1063,8 @@ impl<'de> Deserialize<'de> for Message {
             #[serde(default)]
             is_echo: bool,
             #[serde(default)]
+            relayed: bool,
+            #[serde(default)]
             received_with_server_time: bool,
             #[serde(default, deserialize_with = "fail_as_none")]
             command: Option<command::Irc>,
@@ -1066,6 +1087,7 @@ impl<'de> Deserialize<'de> for Message {
             reply_to,
             hidden_urls,
             is_echo,
+            relayed,
             received_with_server_time,
             command,
             reactions,
@@ -1097,6 +1119,7 @@ impl<'de> Deserialize<'de> for Message {
             hash,
             hidden_urls,
             is_echo,
+            relayed,
             received_with_server_time,
             blocked: false,
             condensed: None,
@@ -1329,6 +1352,7 @@ pub fn condense(
             hash: first_message.hash,
             hidden_urls: HashSet::default(),
             is_echo: false,
+            relayed: false,
             received_with_server_time: false,
             blocked: false,
             condensed: None,

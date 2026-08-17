@@ -1,7 +1,9 @@
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{alpha1, char, crlf, none_of, one_of, satisfy};
-use nom::combinator::{complete, cut, map, opt, peek, recognize, value};
+use nom::combinator::{
+    complete, cut, map, opt, peek, recognize, value, verify,
+};
 use nom::multi::{
     many_m_n, many0, many0_count, many1, many1_count, separated_list1,
 };
@@ -144,19 +146,29 @@ fn space(input: &str) -> IResult<&str, ()> {
 fn user(input: &str) -> IResult<&str, User> {
     // <sequence of any characters except NUL, CR, LF, and SPACE> and @
     let username = recognize(many1_count(none_of("\0\r\n @")));
-    // "-", "[", "]", "\", "`", "_", "^", "{", "|", "}", "*", "/", "@"
-    let special = |input| one_of("-[]\\`_^{|}*/@").parse(input);
+    // "-", "(", ")", "[", "]", "\", "`", "_", "^", "{", "|", "}", "*", "/", "@"
+    let special = |input| one_of("-()[]\\`_^{|}*/@").parse(input);
     // *( <letter> | <number> | <special> )
     let strict_nick = recognize(many1_count(alt((
         satisfy(|c| c.is_ascii_alphanumeric() || !c.is_ascii()),
         special,
     ))));
-    // Accept bridge nicknames with non-standard characters in `nick!user@host`.
-    let prefixed_nick = recognize(terminated(
-        many1_count(none_of("\0\r\n !")),
-        peek(char('!')),
-    ));
-    let nickname = alt((prefixed_nick, strict_nick));
+    // Used by things like matrix bridge
+    // Also includes `.` if `:` exists and terminated by `!`
+    // this enables us to use `:` and `.` without falsely matching
+    // and server IP or hostname
+    let expanded_nick = verify(
+        recognize(terminated(
+            many1_count(alt((
+                satisfy(|c| c.is_ascii_alphanumeric() || !c.is_ascii()),
+                special,
+                one_of(":."),
+            ))),
+            peek(char('!')),
+        )),
+        |s: &str| s.contains(':') && s.contains('.'),
+    );
+    let nickname = alt((expanded_nick, strict_nick));
     // Parse remainder after @ as hostname
     let hostname = recognize(many1_count(none_of(" ")));
     //( <nickname> [ "!" <user> ] [ "@" <host> ] )
@@ -263,6 +275,14 @@ mod test {
                     hostname: Some("bridge.example".into()),
                 }),
             ),
+            (
+                ":remote-user_(chat)/bridge ",
+                Source::User(User {
+                    nickname: "remote-user_(chat)/bridge".into(),
+                    username: None,
+                    hostname: None,
+                }),
+            ),
             (":1.1.1.1 ", Source::Server("1.1.1.1".to_string())),
             (":1111:FFFF::1 ", Source::Server("1111:FFFF::1".to_string())),
         ];
@@ -314,6 +334,23 @@ mod test {
                         nickname: "remote-user_(chat)/bridge".into(),
                         username: Some("relay".into()),
                         hostname: Some("bridge.example".into()),
+                    })),
+                    command: Command::PRIVMSG(
+                        "#channel".to_string(),
+                        "hello".to_string(),
+                    ),
+                },
+            ),
+            (
+                Vec::from(
+                    b":remote-user_(chat)/bridge PRIVMSG #channel :hello\r\n",
+                ),
+                Message {
+                    tags: tags![],
+                    source: Some(Source::User(User {
+                        nickname: "remote-user_(chat)/bridge".into(),
+                        username: None,
+                        hostname: None,
                     })),
                     command: Command::PRIVMSG(
                         "#channel".to_string(),

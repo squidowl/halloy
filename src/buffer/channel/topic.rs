@@ -94,6 +94,7 @@ pub fn view<'a>(
             user,
             user_in_channel,
             our_user,
+            false,
             config,
             theme,
             &config.actions.buffer.click_username,
@@ -146,6 +147,7 @@ pub fn view<'a>(
                                 user, registry, config,
                             ),
                             false,
+                            false,
                         )
                     }),
                     Some(|_| context_menu::Entry::url_list(None)),
@@ -174,6 +176,7 @@ pub fn view<'a>(
                             ),
                             user,
                             current_user,
+                            is_relayed: false,
                             message: None,
                         }
                     }),
