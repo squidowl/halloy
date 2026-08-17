@@ -1,9 +1,7 @@
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{alpha1, char, crlf, none_of, one_of, satisfy};
-use nom::combinator::{
-    complete, cut, map, opt, peek, recognize, value, verify,
-};
+use nom::combinator::{complete, cut, map, opt, peek, recognize, value};
 use nom::multi::{
     many_m_n, many0, many0_count, many1, many1_count, separated_list1,
 };
@@ -153,22 +151,13 @@ fn user(input: &str) -> IResult<&str, User> {
         satisfy(|c| c.is_ascii_alphanumeric() || !c.is_ascii()),
         special,
     ))));
-    // Used by things like matrix bridge
-    // Also includes `.` if `:` exists and terminated by `!`
-    // this enables us to use `:` and `.` without falsely matching
-    // and server IP or hostname
-    let expanded_nick = verify(
-        recognize(terminated(
-            many1_count(alt((
-                satisfy(|c| c.is_ascii_alphanumeric() || !c.is_ascii()),
-                special,
-                one_of(":."),
-            ))),
-            peek(char('!')),
-        )),
-        |s: &str| s.contains(':') && s.contains('.'),
-    );
-    let nickname = alt((expanded_nick, strict_nick));
+    // A `!` separates the nickname from the user. Bridge nicknames may use
+    // characters outside the regular nickname set.
+    let prefixed_nick = recognize(terminated(
+        many1_count(none_of("\0\r\n !")),
+        peek(char('!')),
+    ));
+    let nickname = alt((prefixed_nick, strict_nick));
     // Parse remainder after @ as hostname
     let hostname = recognize(many1_count(none_of(" ")));
     //( <nickname> [ "!" <user> ] [ "@" <host> ] )
@@ -267,6 +256,14 @@ mod test {
                     hostname: Some("matrix.org".into()),
                 }),
             ),
+            (
+                ":remote-user_(chat)/bridge!relay@bridge.example ",
+                Source::User(User {
+                    nickname: "remote-user_(chat)/bridge".into(),
+                    username: Some("relay".into()),
+                    hostname: Some("bridge.example".into()),
+                }),
+            ),
             (":1.1.1.1 ", Source::Server("1.1.1.1".to_string())),
             (":1111:FFFF::1 ", Source::Server("1111:FFFF::1".to_string())),
         ];
@@ -305,6 +302,23 @@ mod test {
                     command: Command::PRIVMSG(
                         "#chan".to_string(),
                         "Hey what's up! ".to_string(),
+                    ),
+                },
+            ),
+            (
+                Vec::from(
+                    b"@draft/relaymsg=bridgebot :remote-user_(chat)/bridge!relay@bridge.example PRIVMSG #channel :hello\r\n",
+                ),
+                Message {
+                    tags: tags!["draft/relaymsg" => "bridgebot"],
+                    source: Some(Source::User(User {
+                        nickname: "remote-user_(chat)/bridge".into(),
+                        username: Some("relay".into()),
+                        hostname: Some("bridge.example".into()),
+                    })),
+                    command: Command::PRIVMSG(
+                        "#channel".to_string(),
+                        "hello".to_string(),
                     ),
                 },
             ),
