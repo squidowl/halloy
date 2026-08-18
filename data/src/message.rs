@@ -2792,7 +2792,7 @@ fn target(
         Command::Numeric(
             ERR_NOSUCHCHANNEL | ERR_TOOMANYCHANNELS | ERR_CHANNELISFULL
             | ERR_INVITEONLYCHAN | ERR_BANNEDFROMCHAN | ERR_BADCHANNELKEY
-            | ERR_BADCHANMASK,
+            | ERR_BADCHANMASK | ERR_NOCHANMODES,
             params,
         ) => {
             let channel = target::Channel::parse(
