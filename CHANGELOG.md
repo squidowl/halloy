@@ -34,6 +34,7 @@ Fixed:
 - Better support for larger font sizes in modals
 - "Apply Colors & Font Styles" button in Theme Editor persists modifications made via the theme editor
 - Scroll-to-reply when clicking a reply preview
+- Show registration-required join errors in the channel buffer instead of the server buffer
 
 Changed:
 
