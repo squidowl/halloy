@@ -178,6 +178,8 @@ impl Manager {
                     self.channel_monitor.open(&self.data, clients, config),
                 );
             } else {
+                self.data.loading.insert(resource.kind.clone());
+
                 let seed = clients
                     .and_then(|clients| clients.get_seed(&resource.kind));
 
@@ -195,6 +197,9 @@ impl Manager {
         }
 
         for resource in removed {
+            // Any in-flight load result is no longer expected
+            self.data.loading.remove(&resource.kind);
+
             let task = if resource == channel_monitor {
                 self.channel_monitor.close(&mut self.data)
             } else {
@@ -233,10 +238,6 @@ impl Manager {
         self.channel_monitor.reload(&mut self.data, clients, config)
     }
 
-    fn is_tracked(&self, kind: &history::Kind) -> bool {
-        self.resources.contains(&Resource { kind: kind.clone() })
-    }
-
     pub fn update(
         &mut self,
         message: Message,
@@ -245,25 +246,30 @@ impl Manager {
     ) -> Option<Event> {
         match message {
             Message::LoadFull(kind, Ok(loaded)) => {
-                if !self.is_tracked(&kind) {
-                    return None;
+                if self.data.loading.remove(&kind) {
+                    let len = loaded.messages.len();
+
+                    self.data.load_full(
+                        kind.clone(),
+                        loaded,
+                        FilterChain::borrow(&self.filters),
+                        clients,
+                        buffer_config,
+                    );
+
+                    log::debug!("loaded history for {kind}: {len} messages");
+
+                    return Some(Event::Loaded(kind));
+                } else {
+                    self.data.clear_flushed(&kind);
+
+                    log::debug!("discarded stale history load for {kind}");
                 }
-
-                let len = loaded.messages.len();
-
-                self.data.load_full(
-                    kind.clone(),
-                    loaded,
-                    FilterChain::borrow(&self.filters),
-                    clients,
-                    buffer_config,
-                );
-
-                log::debug!("loaded history for {kind}: {len} messages");
-
-                return Some(Event::Loaded(kind));
             }
             Message::LoadFull(kind, Err(error)) => {
+                self.data.loading.remove(&kind);
+                self.data.clear_flushed(&kind);
+
                 log::warn!("failed to load history for {kind}: {error}");
             }
             Message::LoadChannelMonitor(generation, result) => {
@@ -402,6 +408,9 @@ impl Manager {
         kind: history::Kind,
         clients: &client::Map,
     ) -> Option<impl Future<Output = Message> + use<>> {
+        // Any in-flight load result is no longer expected
+        self.data.loading.remove(&kind);
+
         let history = self.data.map.remove(&kind)?;
 
         Some(
@@ -1523,6 +1532,7 @@ fn with_limit<'a>(
 struct Data {
     map: HashMap<history::Kind, History>,
     input: input::Storage,
+    loading: HashSet<history::Kind>,
 }
 
 impl Data {
@@ -1562,6 +1572,9 @@ impl Data {
                     flushing_messages,
                     flushing_reactions,
                     flushing_redactions,
+                    flushed_messages,
+                    flushed_reactions,
+                    flushed_redactions,
                     ..
                 } => {
                     let read_marker =
@@ -1576,9 +1589,21 @@ impl Data {
 
                     let mut last_seen = last_seen.clone();
 
-                    for (id, pending) in std::mem::take(pending_reactions)
+                    // Flushed and flushing data may already be in the
+                    // loaded messages (depending on how the flush's file
+                    // write ordered with this load's file read), so it is
+                    // merged with forced deduplication.
+                    for (id, pending) in std::mem::take(flushed_reactions)
                         .into_iter()
                         .chain(std::mem::take(flushing_reactions))
+                        .map(|(id, mut pending)| {
+                            for pending_reaction in &mut pending.reactions {
+                                pending_reaction.deduplicate = true;
+                            }
+
+                            (id, pending)
+                        })
+                        .chain(std::mem::take(pending_reactions))
                     {
                         if let Some(server_time) = pending.server_time()
                             && let Some(message) =
@@ -1605,6 +1630,7 @@ impl Data {
                     for (id, pending) in std::mem::take(pending_redactions)
                         .into_iter()
                         .chain(std::mem::take(flushing_redactions))
+                        .chain(std::mem::take(flushed_redactions))
                     {
                         if let Some(message) = history::find_message_mut_by_id(
                             &mut messages,
@@ -1616,9 +1642,14 @@ impl Data {
                     }
 
                     for (message, labeled_response_context) in
-                        std::mem::take(pending_messages)
+                        std::mem::take(flushed_messages)
                             .into_iter()
                             .chain(std::mem::take(flushing_messages))
+                            .map(|(mut message, labeled_response_context)| {
+                                message.deduplicate = true;
+                                (message, labeled_response_context)
+                            })
+                            .chain(std::mem::take(pending_messages))
                     {
                         history::update_last_seen(&mut last_seen, &message);
 
@@ -1643,25 +1674,12 @@ impl Data {
                         last_flushed_at,
                     });
                 }
-                _ => {
-                    let chathistory_references = metadata
-                        .chathistory_references
-                        .max(metadata::latest_can_reference(&messages));
-
-                    let last_seen = history::get_last_seen(&messages);
-                    let last_flushed_at = messages.len();
-
-                    entry.insert(History::Full {
-                        kind,
-                        messages,
-                        last_updated_at: None,
-                        read_marker: metadata.read_marker,
-                        display_read_marker: metadata.read_marker,
-                        chathistory_references,
-                        last_seen,
-                        cleared: false,
-                        last_flushed_at,
-                    });
+                History::Full { .. } => {
+                    // The in-memory state is authoritative, a load result
+                    // can only be equal or older.
+                    log::debug!(
+                        "ignoring history load for already-loaded {kind}"
+                    );
                 }
             },
             hash_map::Entry::Vacant(entry) => {
@@ -2109,6 +2127,8 @@ impl Data {
     }
 
     fn flushed(&mut self, kind: &history::Kind, flush_ok: bool) {
+        let loading = self.loading.contains(kind);
+
         if let Some(History::Partial {
             pending_messages,
             pending_reactions,
@@ -2116,15 +2136,33 @@ impl Data {
             flushing_messages,
             flushing_reactions,
             flushing_redactions,
+            flushed_messages,
+            flushed_reactions,
+            flushed_redactions,
             ..
         }) = self.map.get_mut(kind)
         {
             if flush_ok {
-                flushing_messages.clear();
+                if loading {
+                    // An in-flight load may have read the file before
+                    // this flush wrote it. Hold onto the flushed data so
+                    // it can be merged when the load completes.
+                    flushed_messages.extend(std::mem::take(flushing_messages));
 
-                flushing_reactions.clear();
+                    for (id, flushing) in std::mem::take(flushing_reactions) {
+                        let flushed = flushed_reactions.entry(id).or_default();
 
-                flushing_redactions.clear();
+                        flushed.reactions.extend(flushing.reactions);
+                    }
+
+                    for (id, flushing) in std::mem::take(flushing_redactions) {
+                        flushed_redactions.entry(id).or_insert(flushing);
+                    }
+                } else {
+                    flushing_messages.clear();
+                    flushing_reactions.clear();
+                    flushing_redactions.clear();
+                }
             } else {
                 pending_messages.extend(std::mem::take(flushing_messages));
 
@@ -2138,6 +2176,20 @@ impl Data {
                     pending_redactions.entry(id).or_insert(flushing);
                 }
             }
+        }
+    }
+
+    fn clear_flushed(&mut self, kind: &history::Kind) {
+        if let Some(History::Partial {
+            flushed_messages,
+            flushed_reactions,
+            flushed_redactions,
+            ..
+        }) = self.map.get_mut(kind)
+        {
+            flushed_messages.clear();
+            flushed_reactions.clear();
+            flushed_redactions.clear();
         }
     }
 
@@ -2348,4 +2400,146 @@ fn smart_filter_internal_message(
         .num_seconds();
 
     duration_seconds > *seconds
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::TimeZone;
+
+    use super::*;
+    use crate::history::test_message;
+    use crate::server::ServerName;
+
+    fn setup() -> (Manager, history::Kind, crate::Message) {
+        let isupport = HashMap::<isupport::Kind, isupport::Parameter>::new();
+        let chantypes = isupport::get_chantypes_or_default(&isupport);
+        let casemapping = isupport::get_casemapping_or_default(&isupport);
+
+        let kind = history::Kind::Channel(
+            Server::from(ServerName::from("test-server")),
+            target::Channel::from_str("#test", chantypes, casemapping),
+        );
+
+        let server_time = Utc.with_ymd_and_hms(2026, 8, 13, 12, 0, 0).unwrap();
+        let message = test_message(server_time, "hello");
+
+        let mut manager = Manager::default();
+
+        // A message arrives while the buffer is closed, then a flush
+        // moves it to flushing_messages and spawns an append task (the
+        // returned tasks are dropped so no file I/O takes place)
+        drop(manager.data.add_message(kind.clone(), message.clone(), None));
+        drop(manager.data.map.get_mut(&kind).unwrap().flush(None, None));
+
+        // The buffer is opened, spawning a full load
+        drop(manager.track(
+            HashSet::from([Resource { kind: kind.clone() }]),
+            None,
+            &config::ChannelMonitor::default(),
+        ));
+
+        (manager, kind, message)
+    }
+
+    fn full_messages_len(manager: &Manager, kind: &history::Kind) -> usize {
+        let Some(History::Full { messages, .. }) = manager.data.map.get(kind)
+        else {
+            panic!("history should be full after loading");
+        };
+
+        messages.len()
+    }
+
+    #[test]
+    fn flush_completing_during_load_is_not_lost() {
+        let (mut manager, kind, _) = setup();
+
+        let clients = client::Map::default();
+        let buffer_config = config::Buffer::default();
+
+        manager.update(
+            Message::Flushed(kind.clone(), Ok(vec![])),
+            &clients,
+            &buffer_config,
+        );
+
+        manager.update(
+            Message::LoadFull(
+                kind.clone(),
+                Ok(history::Loaded {
+                    messages: vec![],
+                    metadata: history::Metadata::default(),
+                }),
+            ),
+            &clients,
+            &buffer_config,
+        );
+
+        assert_eq!(full_messages_len(&manager, &kind), 1);
+    }
+
+    #[test]
+    fn flush_completing_after_load_is_not_duplicated() {
+        let (mut manager, kind, message) = setup();
+
+        let clients = client::Map::default();
+        let buffer_config = config::Buffer::default();
+
+        manager.update(
+            Message::LoadFull(
+                kind.clone(),
+                Ok(history::Loaded {
+                    messages: vec![message],
+                    metadata: history::Metadata::default(),
+                }),
+            ),
+            &clients,
+            &buffer_config,
+        );
+
+        manager.update(
+            Message::Flushed(kind.clone(), Ok(vec![])),
+            &clients,
+            &buffer_config,
+        );
+
+        assert_eq!(full_messages_len(&manager, &kind), 1);
+    }
+
+    #[test]
+    fn sent_message_is_not_sorted_before_received_messages() {
+        let (mut manager, kind, message) = setup();
+
+        let clients = client::Map::default();
+        let buffer_config = config::Buffer::default();
+
+        manager.update(
+            Message::LoadFull(
+                kind.clone(),
+                Ok(history::Loaded {
+                    messages: vec![message.clone()],
+                    metadata: history::Metadata::default(),
+                }),
+            ),
+            &clients,
+            &buffer_config,
+        );
+
+        // Sent with a local clock 5 seconds behind the server's
+        let mut sent = test_message(
+            message.server_time - chrono::Duration::seconds(5),
+            "our reply",
+        );
+        sent.direction = message::Direction::Sent;
+
+        drop(manager.data.add_message(kind.clone(), sent, None));
+
+        let Some(History::Full { messages, .. }) = manager.data.map.get(&kind)
+        else {
+            panic!("history should be full after loading");
+        };
+
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages.last().unwrap().text(), "our reply");
+    }
 }
