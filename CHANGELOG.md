@@ -35,6 +35,7 @@ Fixed:
 - "Apply Colors & Font Styles" button in Theme Editor persists modifications made via the theme editor
 - Scroll-to-reply when clicking a reply preview
 - Show registration-required join errors in the channel buffer instead of the server buffer
+- Include/exclude conditions are properly accounted for when highlighting nicknames
 
 Changed:
 
@@ -48,7 +49,7 @@ Changed:
 Thanks:
 
 - Contributions: @rollecode, @luca020400, @rtmongold, @tranzystorekk, @englut, @furudean
-- Bug reports: @sebbu2, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae, @SRAZKVT, @WinnerWind
+- Bug reports: @sebbu2, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae, @SRAZKVT, @WinnerWind, liquidity
 - Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo, ivocavalcante, @sebbu2, @coraxioU9, @ncfavier, @darienm
 
 # 2026.8 (2026-07-24)
