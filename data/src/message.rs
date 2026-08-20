@@ -1974,9 +1974,9 @@ pub fn parse_fragments_with_highlights(
                         target.as_target_ref(),
                         server,
                         casemapping,
-                    ) && (user.nickname() == *our_nick
+                    ) && ((user.nickname() == *our_nick
                         && highlights.nickname.case_insensitive)
-                        || raw.as_str() == our_nick.as_str() =>
+                        || raw.as_str() == our_nick.as_str()) =>
                 {
                     if highlight_kind.is_none() {
                         highlight_kind = Some(highlight::Kind::Nick);
