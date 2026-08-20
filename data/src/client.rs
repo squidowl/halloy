@@ -4539,6 +4539,10 @@ impl Client {
     fn can_send_reactions(&self) -> bool {
         self.can_send_replies()
             && isupport::is_client_tag_allowed(&self.isupport, "draft/react")
+    }
+
+    fn can_send_unreactions(&self) -> bool {
+        self.can_send_replies()
             && isupport::is_client_tag_allowed(&self.isupport, "draft/unreact")
     }
 
@@ -5386,6 +5390,11 @@ impl Map {
 
     pub fn get_server_can_send_reactions(&self, server: &Server) -> bool {
         self.client(server).is_some_and(Client::can_send_reactions)
+    }
+
+    pub fn get_server_can_send_unreactions(&self, server: &Server) -> bool {
+        self.client(server)
+            .is_some_and(Client::can_send_unreactions)
     }
 
     pub fn get_server_can_redact(&self, server: &Server) -> bool {

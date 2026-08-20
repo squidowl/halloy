@@ -93,6 +93,7 @@ pub struct ChannelQueryLayout<'a> {
     pub confirm_message_delivery: bool,
     pub can_send_replies: bool,
     pub can_send_reactions: bool,
+    pub can_send_unreactions: bool,
     pub can_redact: bool,
     pub our_nick: Option<NickRef<'a>>,
     pub connected: bool,
@@ -376,22 +377,24 @@ impl<'a> ChannelQueryLayout<'a> {
         let mut on_open_picker = None;
 
         if let Some(msgid) = message.id.as_ref() {
-            on_react = Some(|text: &'a str| Message::Reacted {
-                msgid: msgid.clone(),
-                text: text.to_owned().into(),
-            });
-            on_unreact = Some(|text: &'a str| Message::Unreacted {
-                msgid: msgid.clone(),
-                text: text.to_owned().into(),
-            });
-
             if self.can_send_reactions {
+                on_react = Some(|text: &'a str| Message::Reacted {
+                    msgid: msgid.clone(),
+                    text: text.to_owned().into(),
+                });
+
                 on_open_picker = Some(Message::ContextMenu(
                     context_menu::Message::OpenReactionModal(
                         msgid.clone(),
                         message.server_time,
                     ),
                 ));
+            }
+            if self.can_send_unreactions {
+                on_unreact = Some(|text: &'a str| Message::Unreacted {
+                    msgid: msgid.clone(),
+                    text: text.to_owned().into(),
+                });
             }
         }
 
