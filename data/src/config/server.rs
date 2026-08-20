@@ -155,6 +155,8 @@ pub struct Server {
     /// Flood protection settings, to help the user avoid sending too many messages too quickly.
     #[serde(deserialize_with = "deserialize_anti_flood")]
     pub anti_flood: Duration,
+    #[serde(deserialize_with = "deserialize_who_poll_interval")]
+    pub sasl_retry_interval: Duration,
     #[serde(skip)]
     pub order: u16,
     pub proxy: Option<config::Proxy>,
@@ -350,6 +352,7 @@ impl Default for Server {
             dangerously_accept_invalid_certs: Default::default(),
             root_cert_path: Option::default(),
             sasl: Option::default(),
+            sasl_retry_interval: Duration::from_secs(10),
             on_connect: Vec::default(),
             who_poll_enabled: true,
             who_poll_interval: Duration::from_secs(2),
