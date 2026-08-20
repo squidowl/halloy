@@ -44,11 +44,12 @@ Changed:
 - The XDG data directory `~/.local/share/halloy` can be used for storing history/logs/etc macOS, instead of `~/Library/Application Support/halloy/` (move entire directory to migrate)
 - Offline nicknames are styled only by `buffer.nickname.offline`; `buffer.nickname.away` no longer applies to them
 - `esc` in the input box now scrolls the buffer to the bottom
+- Decouple `+draft/unreact` from `+draft/react`
 
 Thanks:
 
 - Contributions: @rollecode, @luca020400, @rtmongold, @tranzystorekk, @englut, @furudean
-- Bug reports: @sebbu2, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae, @SRAZKVT, @WinnerWind
+- Bug reports: @sebbu2, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae, @SRAZKVT, @WinnerWind, @edwardloveall
 - Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo, ivocavalcante, @sebbu2, @coraxioU9, @ncfavier, @darienm
 
 # 2026.8 (2026-07-24)

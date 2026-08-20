@@ -72,6 +72,7 @@ pub fn view<'a>(
     let server = &state.server;
     let connected = matches!(clients.status(server), client::Status::Connected);
     let can_send_reactions = clients.get_server_can_send_reactions(server);
+    let can_send_unreactions = clients.get_server_can_send_unreactions(server);
     let can_redact = clients.get_server_can_redact(server);
     let can_send_replies = clients.get_server_can_send_replies(server);
     let chantypes = clients.get_server_chantypes_or_default(server);
@@ -121,6 +122,7 @@ pub fn view<'a>(
         registry,
         confirm_message_delivery,
         can_send_reactions,
+        can_send_unreactions,
         can_redact,
         can_send_replies,
         our_nick,
