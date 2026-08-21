@@ -7,9 +7,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
-use crate::Message;
 use crate::history::{Error, Kind, dir_path};
 use crate::message::{MessageReferences, source};
+use crate::{Message, config};
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Metadata {
@@ -87,11 +87,14 @@ impl fmt::Display for ReadMarker {
     }
 }
 
-pub fn latest_triggers_unread(messages: &[Message]) -> Option<DateTime<Utc>> {
+pub fn latest_triggers_unread(
+    messages: &[Message],
+    server_messages_config: &config::buffer::ServerMessages,
+) -> Option<DateTime<Utc>> {
     messages
         .iter()
         .rev()
-        .find(|message| message.triggers_unread())
+        .find(|message| message.triggers_unread(server_messages_config))
         .map(|message| message.server_time)
 }
 
@@ -128,10 +131,14 @@ pub async fn save(
     messages: &[Message],
     read_marker: Option<ReadMarker>,
     chathistory_references: Option<MessageReferences>,
+    server_messages_config: &config::buffer::ServerMessages,
 ) -> Result<(), Error> {
     let bytes = serde_json::to_vec(&Metadata {
         read_marker,
-        last_triggers_unread: latest_triggers_unread(messages),
+        last_triggers_unread: latest_triggers_unread(
+            messages,
+            server_messages_config,
+        ),
         last_triggers_highlight: latest_triggers_highlight(messages),
         chathistory_references: latest_can_reference(messages)
             .max(chathistory_references),

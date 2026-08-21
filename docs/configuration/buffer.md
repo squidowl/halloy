@@ -991,10 +991,10 @@ enabled = false
 | `change_mode`         | Message is sent when a mode is set                                                                                        |
 | `change_nick`         | Message is sent when a user changes nick                                                                                  |
 | `change_topic`        | Message is sent when a channel topic is changed (or the topic is requested via /topic)                                    |
+| `invite`              | Message is sent when a user is invited to a channel                                                                       |
 | `join`                | Message is sent when a user joins a channel                                                                               |
 | `join_topic`          | Message is sent when the client joins a channel (does not include message sent when topic changes)                        |
 | `kick`                | Message is sent when a user is kicked from a channel                                                                      |
-| `invite`              | Message is sent when a user is invited to a channel                                                                       |
 | `monitored_offline`   | Message is sent when a monitored user goes offline                                                                        |
 | `monitored_online`    | Message is sent when a monitored user goes online                                                                         |
 | `part`                | Message is sent when a user leaves a channel                                                                              |
@@ -1073,30 +1073,69 @@ Dim server message.  Either automatically, based on text/background colors (by s
 ```toml
 # Type: bool or float
 # Values: true, false, or float
-# Default: true
+# Default: by type, see table
 
 [buffer.server_messages.<server_message>]
 dimmed = true
 ```
 
 ::: info
-The default server message type (`buffer.server_messages.default`) splits this setting into two categories.  Passive server messages and action server messages, which are designated as follows:
+| **Event Type**         | **Default** |
+| ---------------------- | ----------- |
+| `away`                 | `true`      |
+| `change_host`          | `true`      |
+| `change_mode`          | `false`     |
+| `change_nick`          | `true`      |
+| `change_topic`         | `false`     |
+| `invite`               | `false`     |
+| `join`                 | `true`      |
+| `join_topic`           | `true`      |
+| `kick`                 | `false`     |
+| `monitored_offline`    | `false`     |
+| `monitored_online`     | `false`     |
+| `part`                 | `true`      |
+| `quit`                 | `true`      |
+| `request_topic`        | `false`     |
+| `standard_reply_fail`  | `false`     |
+| `standard_reply_note`  | `false`     |
+| `standard_reply_warn`  | `false`     |
+| `wallops`              | `false`     |
+:::
 
-| **Categories**         | Passive                      | Actions               |
-| ---------------------- | ---------------------------- | --------------------- |
-| **Setting**            | `passive_dimmed` or `dimmed` | `actions_dimmed`      |
-| **Default**            | `true`                       | `false`               |
-| **Event Types**        | `away`                       | `change_mode`         |
-|                        | `change_host`                | `change_topic`        |
-|                        | `change_nick`                | `invite`              |
-|                        | `join`                       | `kick`                |
-|                        | `join_topic`                 | `monitored_offline`   |
-|                        | `part`                       | `monitored_online`    |
-|                        | `quit`                       | `request_topic`       |
-|                        |                              | `standard_reply_fail` |
-|                        |                              | `standard_reply_note` |
-|                        |                              | `standard_reply_warn` |
-|                        |                              | `wallops`             |
+#### `triggers_unread`
+
+Where a message of this type will trigger an unread tstate for the buffer.
+
+```toml
+# Type: bool
+# Values: true, false
+# Default: by type, see table
+
+[buffer.server_messages.<server_message>]
+triggers_unread = true
+```
+
+::: info
+| **Event Type**         | **Default** |
+| ---------------------- | ----------- |
+| `away`                 | `false`     |
+| `change_host`          | `false`     |
+| `change_mode`          | `false`     |
+| `change_nick`          | `false`     |
+| `change_topic`         | `true`      |
+| `invite`               | `true`      |
+| `join`                 | `false`     |
+| `join_topic`           | `false`     |
+| `kick`                 | `true`      |
+| `monitored_offline`    | `true`      |
+| `monitored_online`     | `true`      |
+| `part`                 | `false`     |
+| `quit`                 | `false`     |
+| `request_topic`        | `true`      |
+| `standard_reply_fail`  | `true`      |
+| `standard_reply_note`  | `true`      |
+| `standard_reply_warn`  | `true`      |
+| `wallops`              | `true`      |
 :::
 
 #### `username_format`

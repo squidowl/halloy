@@ -536,13 +536,90 @@ impl ServerMessages {
         &self,
         kind: Option<source::server::Kind>,
     ) -> Option<&Dimmed> {
-        kind.and_then(|kind| self.get(kind).dimmed.as_ref()).or(
-            if kind.is_none_or(|kind| kind.is_action()) {
-                self.default.actions_dimmed.as_ref()
+        kind.and_then(|kind| self.get(kind).dimmed.as_ref())
+            .or(self.default.dimmed.as_ref())
+            .or(if kind.is_none_or(|kind| self.dimmed_by_default(kind)) {
+                Some(&DIMMED_DEFAULT)
             } else {
-                self.default.passive_dimmed.as_ref()
-            },
-        )
+                None
+            })
+    }
+
+    pub fn dimmed_by_default(&self, kind: source::server::Kind) -> bool {
+        match kind {
+            source::server::Kind::Away => true,
+            source::server::Kind::ChangeHost => true,
+            source::server::Kind::ChangeMode => false,
+            source::server::Kind::ChangeNick => true,
+            source::server::Kind::ChangeTopic => false,
+            source::server::Kind::Invite => false,
+            source::server::Kind::Join => true,
+            source::server::Kind::JoinTopic => true,
+            source::server::Kind::Kick => false,
+            source::server::Kind::MonitoredOnline => false,
+            source::server::Kind::MonitoredOffline => false,
+            source::server::Kind::Part => true,
+            source::server::Kind::Quit => true,
+            source::server::Kind::RequestTopic => false,
+            source::server::Kind::StandardReply(
+                source::server::StandardReply::Fail,
+            ) => false,
+            source::server::Kind::StandardReply(
+                source::server::StandardReply::Note,
+            ) => false,
+            source::server::Kind::StandardReply(
+                source::server::StandardReply::Warn,
+            ) => false,
+            source::server::Kind::WAllOps => false,
+        }
+    }
+
+    pub fn triggers_unread(&self, kind: Option<source::server::Kind>) -> bool {
+        if let Some(kind) = kind {
+            if let Some(triggers_unread) = self
+                .get(kind)
+                .triggers_unread
+                .or(self.default.triggers_unread)
+            {
+                triggers_unread
+            } else {
+                self.triggers_unread_by_default(kind)
+            }
+        } else {
+            self.default.triggers_unread.unwrap_or_default()
+        }
+    }
+
+    pub fn triggers_unread_by_default(
+        &self,
+        kind: source::server::Kind,
+    ) -> bool {
+        match kind {
+            source::server::Kind::Away => false,
+            source::server::Kind::ChangeHost => false,
+            source::server::Kind::ChangeMode => false,
+            source::server::Kind::ChangeNick => false,
+            source::server::Kind::ChangeTopic => true,
+            source::server::Kind::Invite => true,
+            source::server::Kind::Join => false,
+            source::server::Kind::JoinTopic => false,
+            source::server::Kind::Kick => true,
+            source::server::Kind::MonitoredOnline => true,
+            source::server::Kind::MonitoredOffline => true,
+            source::server::Kind::Part => false,
+            source::server::Kind::Quit => false,
+            source::server::Kind::RequestTopic => true,
+            source::server::Kind::StandardReply(
+                source::server::StandardReply::Fail,
+            ) => true,
+            source::server::Kind::StandardReply(
+                source::server::StandardReply::Note,
+            ) => true,
+            source::server::Kind::StandardReply(
+                source::server::StandardReply::Warn,
+            ) => true,
+            source::server::Kind::WAllOps => true,
+        }
     }
 
     pub fn enabled(&self, kind: Option<source::server::Kind>) -> bool {
@@ -769,6 +846,7 @@ pub struct ServerMessage {
     pub include: Option<Inclusivities>,
     #[serde(deserialize_with = "deserialize_dimmed_maybe")]
     pub dimmed: Option<Dimmed>,
+    pub triggers_unread: Option<bool>,
 }
 
 impl ServerMessage {
@@ -829,10 +907,9 @@ pub struct ServerMessageDefault {
     pub username_format: UsernameFormat,
     pub exclude: Option<Inclusivities>,
     pub include: Option<Inclusivities>,
-    #[serde(alias = "dimmed", deserialize_with = "deserialize_dimmed_maybe")]
-    pub passive_dimmed: Option<Dimmed>,
     #[serde(deserialize_with = "deserialize_dimmed_maybe")]
-    pub actions_dimmed: Option<Dimmed>,
+    pub dimmed: Option<Dimmed>,
+    pub triggers_unread: Option<bool>,
 }
 
 impl Default for ServerMessageDefault {
@@ -843,8 +920,8 @@ impl Default for ServerMessageDefault {
             username_format: UsernameFormat::default(),
             exclude: None,
             include: None,
-            passive_dimmed: Some(Dimmed::default()),
-            actions_dimmed: None,
+            dimmed: None,
+            triggers_unread: None,
         }
     }
 }
@@ -1084,11 +1161,23 @@ impl Default for Dimmed {
     }
 }
 
+const DIMMED_DEFAULT: Dimmed = Dimmed {
+    enabled: true,
+    alpha: None,
+};
+
 impl Dimmed {
     pub fn new(alpha: Option<f32>) -> Self {
         Dimmed {
             enabled: true,
             alpha,
+        }
+    }
+
+    pub fn disabled() -> Self {
+        Dimmed {
+            enabled: false,
+            alpha: None,
         }
     }
 

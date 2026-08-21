@@ -20,6 +20,7 @@ Added:
 - Keyboard-driven message focus: navigate and act on messages without mouse
   - Links and channel mentions within a message can be focused and opened
   - New `buffer.focus` theme color for the focused message border
+- Server messages can be configured to trigger unread in a buffer or not (`buffer.server_messages.<server_message>.triggers_unread`)
 
 Fixed:
 
@@ -47,12 +48,13 @@ Changed:
 - Offline nicknames are styled only by `buffer.nickname.offline`; `buffer.nickname.away` no longer applies to them
 - `esc` in the input box now scrolls the buffer to the bottom
 - Decouple `+draft/unreact` from `+draft/react`
+- Changed mode messages reverted to not triggering unread (but not reverted to be dimmed by default)
 
 Thanks:
 
 - Contributions: @rollecode, @luca020400, @rtmongold, @tranzystorekk, @englut, @furudean
 - Bug reports: @sebbu2, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae, @SRAZKVT, @WinnerWind, @lojinks, @edwardloveall
-- Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo, ivocavalcante, @sebbu2, @coraxioU9, @ncfavier, @darienm
+- Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo, ivocavalcante, @sebbu2, @coraxioU9, @ncfavier, @darienm, @classabbyamp
 
 # 2026.8 (2026-07-24)
 
