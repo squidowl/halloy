@@ -21,7 +21,7 @@ use iced::Length::Fit;
 use iced::advanced::widget::Tree;
 use iced::advanced::{Layout, Shell, mouse};
 use iced::keyboard::{Key, key};
-use iced::widget::text::{Shaping, Wrapping};
+use iced::widget::text::{self, Shaping, Wrapping};
 use iced::widget::{
     self, Space, button, center, column, container, mouse_area, operation, row,
     rule, text_editor,
@@ -242,10 +242,7 @@ pub fn view<'a>(
         .style(style)
         .on_action(Message::Action)
         .key_binding(move |key_press| {
-            if !matches!(
-                key_press.status,
-                iced::widget::text_editor::Status::Focused { .. }
-            ) {
+            if !key_press.is_focused {
                 return None;
             }
 
@@ -543,7 +540,7 @@ pub fn view<'a>(
             column![
                 state.completion.view(
                     state.input_content.text().as_str(),
-                    cursor.position.column,
+                    cursor.position.index,
                     cursor.selection.is_some(),
                     server,
                     config,
@@ -940,7 +937,7 @@ impl State {
                         .get_server_chantypes_or_default(buffer.server());
                     let actions = entry.complete_input(
                         &line,
-                        cursor_position.column,
+                        cursor_position.index,
                         chantypes,
                         config,
                     );
@@ -1043,7 +1040,7 @@ impl State {
                         .get_server_chantypes_or_default(buffer.server());
                     let actions = entry.complete_input(
                         &line,
-                        cursor_position.column,
+                        cursor_position.index,
                         chantypes,
                         config,
                     );
@@ -1069,7 +1066,7 @@ impl State {
             Message::SelectCompletion(index) => {
                 let input = self.input_content.text();
                 let cursor_position =
-                    self.input_content.cursor().position.column;
+                    self.input_content.cursor().position.index;
 
                 if let Some(entry) = self.completion.select_at(index, config) {
                     let chantypes = clients
@@ -1490,7 +1487,7 @@ impl State {
             }
             Message::Action(action) => {
                 if in_focus_mode
-                    && matches!(action, text_editor::Action::Click(_))
+                    && matches!(action, text_editor::Action::Click(_, _))
                 {
                     return (Task::none(), Some(Event::ExitFocus));
                 }
@@ -1548,7 +1545,7 @@ impl State {
 
                             self.completion.process(
                                 &line,
-                                cursor.position.column,
+                                cursor.position.index,
                                 cursor.selection.is_some(),
                                 clients.nickname(buffer.server()),
                                 users,
@@ -1565,7 +1562,7 @@ impl State {
 
                             let actions = self
                                 .completion
-                                .complete_emoji(&line, cursor.position.column);
+                                .complete_emoji(&line, cursor.position.index);
 
                             self.set_notice(cursor.position.line);
 
@@ -1587,7 +1584,7 @@ impl State {
                         (Task::none(), None)
                     }
                     text_editor::Action::Move(_)
-                    | text_editor::Action::Click(_)
+                    | text_editor::Action::Click(_, _)
                     | text_editor::Action::Drag(_)
                     | text_editor::Action::Select(_)
                     | text_editor::Action::SelectWord
@@ -1696,7 +1693,7 @@ impl State {
         let cursor_char = line_col_to_char(
             &self.input_content,
             self.input_content.cursor().position.line,
-            self.input_content.cursor().position.column,
+            self.input_content.cursor().position.index,
         );
 
         // if the ghost would be inserted directly adjacent to a word,
@@ -2529,7 +2526,7 @@ impl State {
 
             self.completion.process(
                 &line,
-                cursor.position.column,
+                cursor.position.index,
                 cursor.selection.is_some(),
                 clients.nickname(buffer.server()),
                 users,
@@ -2637,9 +2634,9 @@ impl State {
             .line(cursor_position.line)
             .map(|line| line.text)
         {
-            if cursor_position.column == 0 {
-                let suffix_range = cursor_position.column
-                    ..cursor_position.column
+            if cursor_position.index == 0 {
+                let suffix_range = cursor_position.index
+                    ..cursor_position.index
                         + autocomplete.completion_suffixes[0].len();
 
                 if line.get(suffix_range).is_some_and(|text| {
@@ -2650,13 +2647,13 @@ impl State {
                     format!("{nick}{}", autocomplete.completion_suffixes[0])
                 }
             } else {
-                let suffix_range = cursor_position.column
-                    ..cursor_position.column
+                let suffix_range = cursor_position.index
+                    ..cursor_position.index
                         + autocomplete.completion_suffixes[1].len();
 
                 if line
                     .chars()
-                    .nth(cursor_position.column - 1)
+                    .nth(cursor_position.index - 1)
                     .is_some_and(|c| c == ' ')
                 {
                     if line.get(suffix_range).is_some_and(|text| {
@@ -3007,9 +3004,9 @@ fn line_col_to_char(
 ///
 /// Inverse of [`line_col_to_char`]. Used after offset arithmetic to produce a
 /// position suitable for `move_to`.
-fn char_to_line_col(text: &str, start_pos: usize) -> text_editor::Position {
+fn char_to_line_col(text: &str, start_pos: usize) -> text::Position {
     let mut remaining = start_pos;
-    let mut fallback = text_editor::Position { line: 0, column: 0 };
+    let mut fallback = text::Position { line: 0, index: 0 };
     for (i, line) in text.lines().enumerate() {
         let mut count = 0;
         let mut byte_col = 0;
@@ -3021,17 +3018,17 @@ fn char_to_line_col(text: &str, start_pos: usize) -> text_editor::Position {
             count += 1;
         }
         if count == remaining {
-            return text_editor::Position {
+            return text::Position {
                 line: i,
-                column: byte_col,
+                index: byte_col,
             };
         }
         remaining -= count + 1;
         // track the end of the last seen line so that an out-of-bounds
         // start_pos clamps to the end of the text
-        fallback = text_editor::Position {
+        fallback = text::Position {
             line: i,
-            column: line.len(),
+            index: line.len(),
         };
     }
     fallback
@@ -3079,7 +3076,7 @@ fn adjust_cursor(
                 line_col_to_char(
                     content,
                     cursor.position.line,
-                    cursor.position.column,
+                    cursor.position.index,
                 ),
                 replace_start,
                 replace_len,
@@ -3090,7 +3087,7 @@ fn adjust_cursor(
             char_to_line_col(
                 replaced,
                 adjust_char_pos(
-                    line_col_to_char(content, sel.line, sel.column),
+                    line_col_to_char(content, sel.line, sel.index),
                     replace_start,
                     replace_len,
                     delta,
@@ -3249,21 +3246,21 @@ mod tests {
     fn char_to_line_col_start_of_second_line() {
         let pos = char_to_line_col("hello\nworld", 6);
         assert_eq!(pos.line, 1);
-        assert_eq!(pos.column, 0);
+        assert_eq!(pos.index, 0);
     }
 
     #[test]
     fn char_to_line_col_past_end_clamps() {
         let pos = char_to_line_col("hello", 100);
         assert_eq!(pos.line, 0);
-        assert_eq!(pos.column, 5);
+        assert_eq!(pos.index, 5);
     }
 
     #[test]
     fn char_to_line_col_empty_string() {
         let pos = char_to_line_col("", 0);
         assert_eq!(pos.line, 0);
-        assert_eq!(pos.column, 0);
+        assert_eq!(pos.index, 0);
     }
 
     #[test]

@@ -2456,7 +2456,7 @@ mod correct_viewport {
 
     use iced::advanced::widget::operation::{Scrollable, scrollable};
     use iced::advanced::widget::{Id, Operation};
-    use iced::advanced::{self, widget};
+    use iced::advanced::{self, shell, widget};
     use iced::widget::scrollable::{AbsoluteOffset, Anchor};
     use iced::{Rectangle, Task, Vector};
 
@@ -2545,7 +2545,7 @@ mod correct_viewport {
                         }
                     }
 
-                    let mut messages = vec![];
+                    let mut messages = shell::Bus::new();
                     let mut local_shell = shell.local(&mut messages);
 
                     inner.as_widget_mut().update(

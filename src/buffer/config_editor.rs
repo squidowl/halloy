@@ -273,7 +273,7 @@ pub fn view<'a>(
     let position = text(format!(
         "{}:{}",
         cursor.position.line + 1,
-        cursor.position.column + 1
+        cursor.position.index + 1
     ))
     .style(theme::text::secondary)
     .font_maybe(theme::font_style::secondary(theme).map(font::get));
@@ -350,7 +350,7 @@ pub fn view<'a>(
         .style(theme::text_editor::primary)
         .on_action(Message::Action)
         .key_binding(move |key_press| {
-            if !matches!(key_press.status, text_editor::Status::Focused { .. })
+            if !key_press.is_focused
             {
                 return None;
             }
