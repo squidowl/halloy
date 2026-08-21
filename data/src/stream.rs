@@ -365,6 +365,8 @@ async fn _run(
                             connection_attempt = 0;
 
                             if quit_requested.is_some() {
+                                let _ = stream.connection.shutdown().await;
+
                                 let _ = sender.unbounded_send(
                                     Update::Disconnected {
                                         server: server.clone(),
@@ -557,6 +559,8 @@ async fn _run(
                             error,
                             disable_autoconnect,
                         } => {
+                            let _ = stream.connection.shutdown().await;
+
                             let autoconnect = if disable_autoconnect {
                                 false
                             } else {
@@ -585,6 +589,8 @@ async fn _run(
                                 .connection
                                 .send(Command::QUIT(reason).into())
                                 .await;
+
+                            let _ = stream.connection.shutdown().await;
 
                             state = State::End;
                         }

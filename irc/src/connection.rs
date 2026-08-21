@@ -137,13 +137,13 @@ impl<Codec> Connection<Codec> {
         }
     }
 
-    pub async fn shutdown(self) -> Result<(), Error> {
+    pub async fn shutdown(&mut self) -> Result<(), Error> {
         match self {
             Connection::Tls(framed) => {
-                framed.into_inner().shutdown().await?;
+                framed.get_mut().shutdown().await?;
             }
             Connection::Unsecured(framed) => {
-                framed.into_inner().shutdown().await?;
+                framed.get_mut().shutdown().await?;
             }
             Connection::WebSocket(websocket) => {
                 websocket.shutdown().await?;

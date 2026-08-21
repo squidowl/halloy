@@ -8,7 +8,8 @@ use futures::{Sink, SinkExt, Stream, StreamExt};
 use tokio::time::Interval;
 use tokio_rustls::client::TlsStream;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
-use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
+use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
+use tokio_tungstenite::tungstenite::protocol::{CloseFrame, WebSocketConfig};
 use tokio_tungstenite::tungstenite::{self, Message, Utf8Bytes, http};
 use tokio_tungstenite::{WebSocketStream, client_async_with_config};
 use tokio_util::codec::{Decoder, Encoder};
@@ -35,6 +36,7 @@ pub struct WebSocketConnection<Codec> {
     mode: Mode,
     ping_interval: Interval,
     ping: PingState,
+    close_received: bool,
 }
 
 type WebSocketTransport = Either<IrcStream, TlsStream<IrcStream>>;
@@ -98,11 +100,22 @@ impl<Codec> WebSocketConnection<Codec> {
             mode: mode_from_response(&response)?,
             ping_interval: tokio::time::interval(ping_interval),
             ping: PingState::Idle,
+            close_received: false,
         })
     }
 
-    pub async fn shutdown(mut self) -> Result<(), Error> {
-        self.stream.close(None).await?;
+    pub async fn shutdown(&mut self) -> Result<(), Error> {
+        if self.close_received {
+            self.stream.flush().await?;
+        } else {
+            self.stream
+                .close(Some(CloseFrame {
+                    code: CloseCode::Normal,
+                    reason: Utf8Bytes::default(),
+                }))
+                .await?;
+        }
+
         Ok(())
     }
 
@@ -127,6 +140,16 @@ where
         cx: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
+
+        if this.close_received {
+            return match this.stream.poll_flush_unpin(cx) {
+                Poll::Ready(Ok(())) => Poll::Ready(None),
+                Poll::Ready(Err(error)) => {
+                    Poll::Ready(Some(Err(websocket_error(error))))
+                }
+                Poll::Pending => Poll::Pending,
+            };
+        }
 
         if this.ping_interval.poll_tick(cx).is_ready()
             && matches!(this.ping, PingState::Idle)
@@ -187,7 +210,15 @@ where
                     this.push_crlf_line(&bytes);
                 }
                 Poll::Ready(Some(Ok(Message::Close(_)))) => {
-                    return Poll::Ready(None);
+                    this.close_received = true;
+
+                    return match this.stream.poll_flush_unpin(cx) {
+                        Poll::Ready(Ok(())) => Poll::Ready(None),
+                        Poll::Ready(Err(error)) => {
+                            Poll::Ready(Some(Err(websocket_error(error))))
+                        }
+                        Poll::Pending => Poll::Pending,
+                    };
                 }
                 Poll::Ready(Some(Ok(_))) => {}
                 Poll::Ready(Some(Err(error))) => {
