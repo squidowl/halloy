@@ -307,6 +307,15 @@ impl Card {
     }
 }
 
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum ImageAnimation {
+    #[default]
+    Animate,
+    AnimateOnPreviewAction,
+    Disabled,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Image {
@@ -319,6 +328,7 @@ pub struct Image {
     pub max_width: f32,
     /// Maximum height of the image in pixels
     pub max_height: f32,
+    pub animation: ImageAnimation,
 }
 
 impl Default for Image {
@@ -331,6 +341,7 @@ impl Default for Image {
             round_corners: true,
             max_width: 550.0,
             max_height: 350.0,
+            animation: ImageAnimation::default(),
         }
     }
 }
@@ -374,6 +385,14 @@ impl Image {
             server,
             casemapping,
         )
+    }
+
+    pub fn can_animate(&self) -> bool {
+        !matches!(self.animation, ImageAnimation::Disabled)
+    }
+
+    pub fn can_preview_animate(&self) -> bool {
+        matches!(self.animation, ImageAnimation::Animate)
     }
 }
 
