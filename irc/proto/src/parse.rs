@@ -7,7 +7,7 @@ use nom::combinator::{
 use nom::multi::{
     many_m_n, many0, many0_count, many1, many1_count, separated_list1,
 };
-use nom::sequence::{preceded, terminated};
+use nom::sequence::{pair, preceded, terminated};
 use nom::{Finish, IResult, Parser};
 
 use crate::{Command, Message, Source, Tags, User};
@@ -146,27 +146,24 @@ fn space(input: &str) -> IResult<&str, ()> {
 fn user(input: &str) -> IResult<&str, User> {
     // <sequence of any characters except NUL, CR, LF, and SPACE> and @
     let username = recognize(many1_count(none_of("\0\r\n @")));
-    // "-", "[", "]", "\", "`", "_", "^", "{", "|", "}", "*", "/", "@"
-    let special = |input| one_of("-[]\\`_^{|}*/@").parse(input);
-    // *( <letter> | <number> | <special> )
-    let strict_nick = recognize(many1_count(alt((
-        satisfy(|c| c.is_ascii_alphanumeric() || !c.is_ascii()),
-        special,
-    ))));
-    // Used by things like matrix bridge
-    // Also includes `.` if `:` exists and terminated by `!`
-    // this enables us to use `:` and `.` without falsely matching
-    // and server IP or hostname
+    // Forbid all characters that HorseDocs states nicknames MUST NOT contain or
+    // start with. Increases strictness by changing '.' to MUST NOT contain
+    // (from SHOULD NOT contain), and ':' to MUST NOT contain (from MUST NOT
+    // start with).
+    // https://modern.ircdocs.horse/#clients
+    let strict_nick =
+        recognize(pair(none_of("$:. ,*?!@"), many0_count(none_of(":. ,*?!@"))));
+    // Expand allowed nicknames by allowing '.' (anywhere) and ':' (anywhere
+    // except the start), as prescribed by HorseDocs.  Expand only when the
+    // nickname is terminated by '!' and contains both '.' and ':' or neither,
+    // so the expansion does not falsely matching server IPs or hostnames).
+    // Typically needed by bridges.
     let expanded_nick = verify(
         recognize(terminated(
-            many1_count(alt((
-                satisfy(|c| c.is_ascii_alphanumeric() || !c.is_ascii()),
-                special,
-                one_of(":."),
-            ))),
+            pair(none_of("$: ,*?!"), many0_count(none_of(" ,*?!"))),
             peek(char('!')),
         )),
-        |s: &str| s.contains(':') && s.contains('.'),
+        |s: &str| s.contains(':') == s.contains('.'),
     );
     let nickname = alt((expanded_nick, strict_nick));
     // Parse remainder after @ as hostname
@@ -267,6 +264,38 @@ mod test {
                     hostname: Some("matrix.org".into()),
                 }),
             ),
+            (
+                ":remote-user_(chat)/bridge!relay@bridge.example ",
+                Source::User(User {
+                    nickname: "remote-user_(chat)/bridge".into(),
+                    username: Some("relay".into()),
+                    hostname: Some("bridge.example".into()),
+                }),
+            ),
+            (
+                ":remote-user_(chat)/bridge ",
+                Source::User(User {
+                    nickname: "remote-user_(chat)/bridge".into(),
+                    username: None,
+                    hostname: None,
+                }),
+            ),
+            (
+                ":Ashtrid-In-Paperboat-<3/QSENC ",
+                Source::User(User {
+                    nickname: "Ashtrid-In-Paperboat-<3/QSENC".into(),
+                    username: None,
+                    hostname: None,
+                }),
+            ),
+            (
+                ":[ ",
+                Source::User(User {
+                    nickname: "[".into(),
+                    username: None,
+                    hostname: None,
+                }),
+            ),
             (":1.1.1.1 ", Source::Server("1.1.1.1".to_string())),
             (":1111:FFFF::1 ", Source::Server("1111:FFFF::1".to_string())),
         ];
@@ -305,6 +334,40 @@ mod test {
                     command: Command::PRIVMSG(
                         "#chan".to_string(),
                         "Hey what's up! ".to_string(),
+                    ),
+                },
+            ),
+            (
+                Vec::from(
+                    b"@draft/relaymsg=bridgebot :remote-user_(chat)/bridge!relay@bridge.example PRIVMSG #channel :hello\r\n",
+                ),
+                Message {
+                    tags: tags!["draft/relaymsg" => "bridgebot"],
+                    source: Some(Source::User(User {
+                        nickname: "remote-user_(chat)/bridge".into(),
+                        username: Some("relay".into()),
+                        hostname: Some("bridge.example".into()),
+                    })),
+                    command: Command::PRIVMSG(
+                        "#channel".to_string(),
+                        "hello".to_string(),
+                    ),
+                },
+            ),
+            (
+                Vec::from(
+                    b":remote-user_(chat)/bridge PRIVMSG #channel :hello\r\n",
+                ),
+                Message {
+                    tags: tags![],
+                    source: Some(Source::User(User {
+                        nickname: "remote-user_(chat)/bridge".into(),
+                        username: None,
+                        hostname: None,
+                    })),
+                    command: Command::PRIVMSG(
+                        "#channel".to_string(),
+                        "hello".to_string(),
                     ),
                 },
             ),

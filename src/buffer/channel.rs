@@ -784,6 +784,7 @@ mod nick_list {
                 user,
                 Some(user),
                 our_user,
+                None,
                 config,
                 theme,
                 config

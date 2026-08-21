@@ -94,6 +94,7 @@ pub fn view<'a>(
             user,
             user_in_channel,
             our_user,
+            None,
             config,
             theme,
             &config.actions.buffer.click_username,
@@ -145,6 +146,7 @@ pub fn view<'a>(
                             context_menu::has_user_metadata(
                                 user, registry, config,
                             ),
+                            None,
                             false,
                         )
                     }),
@@ -174,6 +176,7 @@ pub fn view<'a>(
                             ),
                             user,
                             current_user,
+                            relayed_by: None,
                             message: None,
                         }
                     }),
