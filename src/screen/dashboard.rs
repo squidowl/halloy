@@ -75,6 +75,7 @@ pub struct Dashboard {
     http_client: Option<Arc<reqwest::Client>>,
     buffer_settings: dashboard::BufferSettings,
     pub filehost: filehost::Manager,
+    reloading_config: bool,
 }
 
 #[derive(Debug)]
@@ -99,6 +100,7 @@ pub enum Message {
     Filehost(filehost::Message),
     ProceedWithFilehostUpload,
     CancelFilehostUpload,
+    ConfigReloadComplete,
 }
 
 #[derive(Debug)]
@@ -161,6 +163,7 @@ impl Dashboard {
             http_client: http_client_from_config(config).map(Arc::new),
             buffer_settings: dashboard::BufferSettings::default(),
             filehost: filehost::Manager::new(),
+            reloading_config: false,
         };
 
         if config.buffer.text_input.persist {
@@ -723,8 +726,8 @@ impl Dashboard {
                         ),
                         None,
                     ),
-                    sidebar::Event::ConfigReloaded(conf) => {
-                        (Task::none(), Some(Event::ConfigReloaded(conf)))
+                    sidebar::Event::ReloadConfigFile => {
+                        (self.save_config_editor_or_reload_config(), None)
                     }
                     sidebar::Event::OpenReleaseWebsite => {
                         let _ = open_url::open(RELEASE_WEBSITE);
@@ -1201,10 +1204,7 @@ impl Dashboard {
                     }
                     ReloadConfiguration => {
                         return (
-                            Task::perform(
-                                Config::load(),
-                                Message::ConfigReloaded,
-                            ),
+                            self.save_config_editor_or_reload_config(),
                             None,
                         );
                     }
@@ -1444,27 +1444,8 @@ impl Dashboard {
                         }
                     }
                     ConfigEditorSave => {
-                        let Focus { window, pane } = self.focus;
-
-                        if self.panes.get(window, pane).is_some_and(|state| {
-                            matches!(
-                                &state.buffer,
-                                Buffer::ConfigEditor(editor)
-                                    if editor.has_unsaved_changes()
-                            )
-                        }) {
-                            return (
-                                Task::done(Message::Pane(
-                                    window,
-                                    pane::Message::Buffer(
-                                        pane,
-                                        buffer::Message::ConfigEditor(
-                                            buffer::config_editor::Message::Save,
-                                        ),
-                                    ),
-                                )),
-                                None,
-                            );
+                        if let Some(task) = self.save_config_editor(true) {
+                            return (task, None);
                         }
                     }
                     OpenConfigEditor => {
@@ -1618,11 +1599,14 @@ impl Dashboard {
 
                 // Errors are surfaced within the config editor instead of
                 // the reload error modal.
-                let event = config_result
-                    .is_ok()
-                    .then_some(Event::ConfigReloaded(config_result));
-
-                return (Task::none(), event);
+                if config_result.is_ok() {
+                    return (
+                        Task::none(),
+                        Some(Event::ConfigReloaded(config_result)),
+                    );
+                } else {
+                    self.reloading_config = false;
+                }
             }
             Message::Client(message) => match message {
                 client::Message::ChatHistoryRequest(server, subcommand) => {
@@ -1726,6 +1710,9 @@ impl Dashboard {
             Message::CancelFilehostUpload => {
                 let task = self.filehost.cancel().map(Message::Filehost);
                 return (task, None);
+            }
+            Message::ConfigReloadComplete => {
+                self.reloading_config = false;
             }
         }
 
@@ -2677,13 +2664,7 @@ impl Dashboard {
                 return (Task::none(), None);
             }
             buffer::Event::ConfigSaved => {
-                return (
-                    Task::perform(
-                        Config::load(),
-                        Message::ConfigEditorReloaded,
-                    ),
-                    None,
-                );
+                return (self.reload_config(), None);
             }
             buffer::Event::OpenServer(server) => {
                 return (Task::none(), Some(Event::OpenServer(server)));
@@ -3117,10 +3098,9 @@ impl Dashboard {
                     let _ = open_url::open(environment::WIKI_WEBSITE);
                     (Task::none(), None)
                 }
-                command_bar::Configuration::Reload => (
-                    Task::perform(Config::load(), Message::ConfigReloaded),
-                    None,
-                ),
+                command_bar::Configuration::Reload => {
+                    (self.save_config_editor_or_reload_config(), None)
+                }
                 command_bar::Configuration::OpenConfigFile => {
                     let _ = open_url::open(Config::path());
                     (Task::none(), None)
@@ -4914,6 +4894,7 @@ impl Dashboard {
             http_client: http_client_from_config(config).map(Arc::new),
             buffer_settings: data.buffer_settings.clone(),
             filehost: filehost::Manager::new(),
+            reloading_config: false,
         };
 
         let mut tasks = vec![sidebar_task.map(Message::Sidebar)];
@@ -5445,6 +5426,60 @@ impl Dashboard {
             })
             .collect()
     }
+
+    fn save_config_editor(
+        &self,
+        only_if_focused: bool,
+    ) -> Option<Task<Message>> {
+        let config_editor = if only_if_focused {
+            let Focus { window, pane } = self.focus;
+
+            self.panes
+                .get(window, pane)
+                .map(|state| (window, pane, state))
+        } else {
+            self.panes.get_by_buffer(&data::Buffer::Internal(
+                data::buffer::Internal::ConfigEditor,
+            ))
+        };
+
+        if let Some((window, pane, state)) = config_editor
+            && matches!(
+                &state.buffer,
+                Buffer::ConfigEditor(editor)
+                    if editor.has_unsaved_changes())
+        {
+            return Some(Task::done(Message::Pane(
+                window,
+                pane::Message::Buffer(
+                    pane,
+                    buffer::Message::ConfigEditor(
+                        buffer::config_editor::Message::Save,
+                    ),
+                ),
+            )));
+        }
+
+        None
+    }
+
+    fn save_config_editor_or_reload_config(&mut self) -> Task<Message> {
+        if let Some(task) = self.save_config_editor(false) {
+            task
+        } else {
+            self.reload_config()
+        }
+    }
+
+    pub fn reload_config(&mut self) -> Task<Message> {
+        if !self.reloading_config {
+            self.reloading_config = true;
+
+            Task::perform(Config::load(), Message::ConfigReloaded)
+        } else {
+            Task::none()
+        }
+    }
 }
 
 impl ChannelsContext for Dashboard {
@@ -5603,7 +5638,7 @@ impl Panes {
     }
 
     fn get_by_buffer(
-        &mut self,
+        &self,
         buffer: &data::Buffer,
     ) -> Option<(window::Id, pane_grid::Pane, &Pane)> {
         self.iter().find(|(_, _, state)| {
