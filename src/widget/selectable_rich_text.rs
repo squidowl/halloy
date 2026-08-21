@@ -9,8 +9,7 @@ use iced::advanced::widget::Operation;
 use iced::advanced::widget::tree::{self, Tree};
 use iced::advanced::{Layout, Shell, Widget, layout, renderer};
 use iced::widget::container;
-use iced::widget::text::{LineHeight, Shaping};
-use iced::widget::text_input::Value;
+use iced::widget::text::{IntoFragment as _, LineHeight, Shaping};
 use iced::{
     self, Background, Border, Color, Element, Event, Length, Pixels, Point,
     Rectangle, Shadow, Size, Vector, alignment, mouse, widget,
@@ -820,15 +819,18 @@ where
             .downcast_mut::<State<Link, Renderer::Paragraph>>();
 
         let bounds = layout.bounds();
-        let value =
-            Value::new(&self.spans.iter().map(|s| s.text.as_ref()).join(""));
+        let value = &self
+            .spans
+            .iter()
+            .map(|s| s.text.as_ref())
+            .join("")
+            .into_fragment();
         if let Some(selection) = state
             .interaction
             .selection()
             .and_then(|raw| selection(raw, bounds, &state.paragraph, &value))
         {
-            let mut content =
-                value.select(selection.start, selection.end).to_string();
+            let mut content = value[selection.start..selection.end].to_string();
             operation.custom(None, bounds, &mut content);
         }
 
