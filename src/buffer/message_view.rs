@@ -331,7 +331,7 @@ impl<'a> ChannelQueryLayout<'a> {
         let font_size =
             0.85 * self.config.font.size.map_or(theme::TEXT_SIZE, f32::from);
         let icon_size = theme::line_height(&self.config.font)
-            .to_absolute(font_size.into())
+            .to_absolute(font_size)
             .0;
 
         Some(

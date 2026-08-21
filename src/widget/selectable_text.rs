@@ -5,7 +5,6 @@ use iced::advanced::text::{Paragraph, paragraph};
 use iced::advanced::widget::{Operation, Tree, operation, tree};
 use iced::advanced::{Layout, Widget, layout, mouse, renderer, text, widget};
 use iced::widget::text::{Format, Fragment, IntoFragment, Wrapping};
-use iced::widget::text_input::Value;
 use iced::{
     Border, Color, Element, Length, Pixels, Point, Rectangle, Shadow, Size,
     Task, alignment, touch,
@@ -415,12 +414,11 @@ where
         let state = tree.state.downcast_ref::<State<Renderer::Paragraph>>();
 
         let bounds = layout.bounds();
-        let value = Value::new(&self.fragment);
+        let value = &self.fragment;
         if let Some(selection) = state.interaction.selection().and_then(|raw| {
             selection(raw, bounds, state.paragraph.raw(), &value)
         }) {
-            let mut content =
-                value.select(selection.start, selection.end).to_string();
+            let mut content = value[selection.start..selection.end].to_string();
             operation.custom(None, bounds, &mut content);
         }
     }

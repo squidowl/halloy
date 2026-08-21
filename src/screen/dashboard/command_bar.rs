@@ -1,9 +1,9 @@
 use data::{Config, buffer, client, server};
 use iced::Length;
-use iced::widget::{column, container, text};
+use iced::widget::{column, combo_box, container, text};
 
 use super::Focus;
-use crate::widget::{Element, combo_box, double_pass, key_press};
+use crate::widget::{Element, double_pass, key_press};
 use crate::{theme, window};
 
 #[derive(Debug, Clone)]
@@ -42,7 +42,6 @@ impl CommandBar {
             main_window,
             show_muted_buffers,
         ));
-        state.focus();
 
         Self { state }
     }

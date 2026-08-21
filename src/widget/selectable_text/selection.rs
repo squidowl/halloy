@@ -1,7 +1,6 @@
 use iced::advanced::text;
+use iced::widget::text::Fragment;
 use iced::{Point, Rectangle, Vector};
-
-use super::Value;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Raw {
@@ -65,7 +64,7 @@ pub fn selection<P: text::Paragraph>(
     raw: Raw,
     bounds: Rectangle,
     paragraph: &P,
-    value: &Value,
+    value: &Fragment,
 ) -> Option<Selection> {
     let resolved = raw.resolve(bounds)?;
 
@@ -83,7 +82,7 @@ pub fn selection<P: text::Paragraph>(
 
 pub fn find_cursor_position<P: text::Paragraph>(
     paragraph: &P,
-    value: &Value,
+    value: &Fragment,
     cursor_position: Point,
 ) -> Option<usize> {
     let value = value.to_string();
