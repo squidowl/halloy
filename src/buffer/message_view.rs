@@ -657,7 +657,7 @@ impl<'a> ChannelQueryLayout<'a> {
                         user,
                         user_in_channel,
                         self.target.our_user(),
-                        message.is_relayed(),
+                        message.relayed_by.as_ref(),
                         self.config,
                         self.theme,
                         &self.config.actions.buffer.click_username,
@@ -1073,7 +1073,7 @@ impl<'a> ChannelQueryLayout<'a> {
                         self.registry,
                         self.config,
                     ),
-                    false,
+                    None,
                     message.is_rerouted(),
                 )
             }),
@@ -1121,7 +1121,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     ),
                     user,
                     current_user,
-                    is_relayed: false,
+                    relayed_by: None,
                     message: Some(message),
                 }
             }),

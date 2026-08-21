@@ -42,7 +42,7 @@ fn expand(
             hash,
             hidden_urls: HashSet::default(),
             is_echo: false,
-            relayed: false,
+            relayed_by: None,
             received_with_server_time,
             blocked: false,
             condensed: None,
