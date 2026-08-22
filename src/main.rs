@@ -1125,14 +1125,12 @@ impl Halloy {
                         modal::Event::KeyringPasswordStored => {
                             self.modal = None;
 
-                            let reload = if matches!(
-                                self.screen,
-                                Screen::Dashboard(_)
-                            ) {
-                                Task::perform(
-                                    Config::load(),
-                                    Message::ConfigReloaded,
-                                )
+                            let reload = if let Screen::Dashboard(dashboard) =
+                                &mut self.screen
+                            {
+                                dashboard
+                                    .reload_config()
+                                    .map(Message::Dashboard)
                             } else {
                                 Task::perform(
                                     Config::load(),
@@ -1598,6 +1596,10 @@ impl Halloy {
         &mut self,
         config: Result<Config, config::Error>,
     ) -> Task<Message> {
+        let reload_complete = Task::done(Message::Dashboard(
+            dashboard::Message::ConfigReloadComplete,
+        ));
+
         match config {
             Ok(updated) => {
                 let reload_channel_monitor =
@@ -1740,10 +1742,12 @@ impl Halloy {
                             .map(Message::Dashboard),
                     );
 
-                    return Task::batch(tasks);
+                    return Task::batch(tasks).chain(reload_complete);
                 }
 
-                return runtime_task.unwrap_or_else(Task::none);
+                return runtime_task
+                    .unwrap_or_else(Task::none)
+                    .chain(reload_complete);
             }
             Err(error) => {
                 let modal = Self::modal_for_missing_keyring_password(&error)
@@ -1752,7 +1756,7 @@ impl Halloy {
             }
         }
 
-        Task::none()
+        reload_complete
     }
 
     fn handle_messages_received(
