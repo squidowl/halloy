@@ -40,6 +40,7 @@ Fixed:
 
 Changed:
 
+- Link preview requests now use `Halloy/<version>` as their default User-Agent
 - User avatars are configurable with `metadata.avatar.size`
 - Ensure Theme Editor appends a `.toml` extension when saving a theme without one
 - Right-aligned nickname columns now size to nearby messages instead of the entire loaded history

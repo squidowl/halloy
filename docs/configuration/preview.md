@@ -404,15 +404,15 @@ Request settings for previews.
 
 ### `user_agent`
 
-Some servers will only send opengraph metadata to browser-like user agents. We default to `WhatsApp/2` for wide compatibility.
+The User-Agent sent when fetching link previews. Defaults to `Halloy/<version>` and can be overridden for sites that require a browser-like User-Agent.
 
 ```toml
 # Type: string
 # Values: any string
-# Default: "WhatsApp/2"
+# Default: "Halloy/<version>"
 
 [preview.request]
-user_agent = "WhatsApp/2"
+user_agent = "Halloy/2026.8"
 ```
 
 ### `timeout_ms`

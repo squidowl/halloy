@@ -7,7 +7,7 @@ use crate::config::inclusivities::{
 use crate::message::Source;
 use crate::serde::deserialize_u64_positive_integer_limit;
 use crate::target::{self, TargetRef};
-use crate::{Server, isupport};
+use crate::{Server, environment, isupport};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
@@ -147,9 +147,8 @@ impl<'de> Deserialize<'de> for Enabled {
 pub struct Request {
     /// Request user agent
     ///
-    /// Some servers will only send opengraph metadata to
-    /// browser-like user agents. We default to `WhatsApp/2`
-    /// for wide compatibility
+    /// Defaults to Halloy's name and version so website administrators can
+    /// identify and allowlist preview requests.
     pub user_agent: String,
     /// Request timeout in millisceonds
     pub timeout_ms: u64,
@@ -176,7 +175,7 @@ pub struct Request {
 impl Default for Request {
     fn default() -> Self {
         Self {
-            user_agent: "WhatsApp/2".to_string(),
+            user_agent: format!("Halloy/{}", environment::VERSION),
             timeout_ms: 10 * 1_000,
             max_image_size: 10 * 1024 * 1024,
             max_scrape_size: 500 * 1024,
