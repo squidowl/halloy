@@ -48,12 +48,13 @@ Changed:
 - Offline nicknames are styled only by `buffer.nickname.offline`; `buffer.nickname.away` no longer applies to them
 - `esc` in the input box now scrolls the buffer to the bottom
 - Decouple `+draft/unreact` from `+draft/react`
+- When reloading the config file, if the config file editor pane is opened with unsaved changes then those changes will be saved before reloading
 
 Thanks:
 
 - Contributions: @rollecode, @luca020400, @rtmongold, @tranzystorekk, @englut, @furudean
 - Bug reports: @sebbu2, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae, @SRAZKVT, @WinnerWind, @lojinks, @edwardloveall
-- Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo, ivocavalcante, @sebbu2, @coraxioU9, @ncfavier, @darienm
+- Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo, ivocavalcante, @sebbu2, @coraxioU9, @ncfavier, @darienm, gkoebel
 
 # 2026.8 (2026-07-24)
 
