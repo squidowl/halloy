@@ -58,6 +58,7 @@ pub enum Message {
     ReloadComplete,
     MarkAsRead(data::Buffer),
     MarkServerAsRead(Server),
+    OpenChannelDiscovery(Server),
     QuitApplication,
     Connect(Server),
     DisableAutoconnect(Server),
@@ -90,6 +91,7 @@ pub enum Event {
     ConfigReloaded(Result<Config, config::Error>),
     MarkAsRead(data::Buffer),
     MarkServerAsRead(Server),
+    OpenChannelDiscovery(Server),
     QuitApplication,
     Connect(Server),
     DisableAutoconnect(Server),
@@ -490,6 +492,9 @@ impl Sidebar {
             }
             Message::MarkServerAsRead(server) => {
                 (Task::none(), Some(Event::MarkServerAsRead(server)))
+            }
+            Message::OpenChannelDiscovery(server) => {
+                (Task::none(), Some(Event::OpenChannelDiscovery(server)))
             }
             Message::Connect(server) => {
                 (Task::none(), Some(Event::Connect(server)))
@@ -1295,6 +1300,7 @@ impl Menu {
 enum Entry {
     Context,
     HorizontalRule,
+    ChannelDiscovery,
     Connect,
     DisableAutoconnect,
     MarkAsRead,
@@ -1325,24 +1331,26 @@ impl Entry {
 
         let mut entries = vec![Context, HorizontalRule];
 
-        if let buffer::Buffer::Upstream(buffer::Upstream::Server(_)) = buffer
-            && let Some(connection_status) = &connection_status
-        {
-            match connection_status {
-                ConnectionStatus::Connected { .. } => {
-                    entries.extend([CloseAllQueries, MarkServerAsRead]);
-                }
-                ConnectionStatus::Disconnected {
-                    autoconnect,
-                    connecting,
-                } => {
-                    if !*connecting {
-                        entries.push(Connect);
+        if let buffer::Buffer::Upstream(buffer::Upstream::Server(_)) = buffer {
+            entries.push(ChannelDiscovery);
+
+            if let Some(connection_status) = &connection_status {
+                match connection_status {
+                    ConnectionStatus::Connected { .. } => {
+                        entries.extend([CloseAllQueries, MarkServerAsRead]);
                     }
-                    if *autoconnect {
-                        entries.push(DisableAutoconnect);
+                    ConnectionStatus::Disconnected {
+                        autoconnect,
+                        connecting,
+                    } => {
+                        if !*connecting {
+                            entries.push(Connect);
+                        }
+                        if *autoconnect {
+                            entries.push(DisableAutoconnect);
+                        }
+                        entries.push(Remove);
                     }
-                    entries.push(Remove);
                 }
             }
         }
@@ -1889,6 +1897,12 @@ fn upstream_buffer_context_menu<'a>(
                     server_has_unread.then(|| {
                         Message::MarkServerAsRead(buffer.server().clone())
                     }),
+                ),
+                Entry::ChannelDiscovery => (
+                    "Open channel discovery",
+                    Some(Message::OpenChannelDiscovery(
+                        buffer.server().clone(),
+                    )),
                 ),
                 Entry::NewPane => (
                     "Open in new pane",
