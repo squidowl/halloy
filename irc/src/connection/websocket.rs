@@ -91,12 +91,16 @@ impl<Codec> WebSocketConnection<Codec> {
         let (stream, response) =
             client_async_with_config(request, transport, Some(config)).await?;
 
+        let mut ping_interval = tokio::time::interval(ping_interval);
+        ping_interval
+            .set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
         Ok(Self {
             stream,
             codec,
             read: BytesMut::new(),
             mode: mode_from_response(&response)?,
-            ping_interval: tokio::time::interval(ping_interval),
+            ping_interval,
             ping: PingState::Idle,
         })
     }
