@@ -42,6 +42,7 @@ Fixed:
   buffer size, matching the existing link-preview guard
 - Cap the number of concurrently open IRCv3 batches a server can hold open, so a
   single connection cannot grow memory without bound
+- Config editor now properly out-scrolls the cursor
 
 Changed:
 
