@@ -116,13 +116,11 @@ pub fn line_height(config: &config::Font) -> LineHeight {
 
 pub fn resolve_line_height(config: &config::Font) -> f32 {
     line_height(config)
-        .to_absolute(
-            if let Some(size) = config.size {
-                f32::from(size)
-            } else {
-                TEXT_SIZE
-            },
-        )
+        .to_absolute(if let Some(size) = config.size {
+            f32::from(size)
+        } else {
+            TEXT_SIZE
+        })
         .0
 }
 

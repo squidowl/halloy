@@ -350,8 +350,7 @@ pub fn view<'a>(
         .style(theme::text_editor::primary)
         .on_action(Message::Action)
         .key_binding(move |key_press| {
-            if !key_press.is_focused
-            {
+            if !key_press.is_focused {
                 return None;
             }
 
