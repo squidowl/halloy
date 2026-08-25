@@ -15,7 +15,7 @@ use data::isupport::{self, find_target_limit};
 use data::server::Server;
 use data::target::{self, Target};
 use data::user::{ChannelUsers, Nick, NickRef};
-use data::{Config, command, mode};
+use data::{Config, command, emoji, mode};
 use iced::Length;
 use iced::widget::text::Shaping;
 use iced::widget::{button, column, container, row, text_editor, tooltip};
@@ -23,9 +23,9 @@ use irc::proto;
 use itertools::{Either, Itertools};
 use unicode_segmentation::UnicodeSegmentation;
 
+use crate::font;
 use crate::theme::{self, Theme};
 use crate::widget::{Element, double_pass, text};
-use crate::{emoji, font};
 
 const MAX_SHOWN_COMMAND_ENTRIES: usize = 5;
 const MAX_SHOWN_EMOJI_ENTRIES: usize = 8;

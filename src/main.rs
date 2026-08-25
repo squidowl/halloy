@@ -4,7 +4,6 @@
 mod appearance;
 mod audio;
 mod buffer;
-mod emoji;
 mod event;
 mod filehost;
 mod font;
