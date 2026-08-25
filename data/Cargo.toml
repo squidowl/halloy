@@ -78,6 +78,7 @@ idna = "1.1.0"
 unicode-security = "0.1.2"
 version-compare = "0.2"
 sanitize-filename = "0.6.0"
+strsim = "0.11.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 apple-native-keyring-store = { version = "1", default-features = false, features = [

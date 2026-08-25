@@ -1,14 +1,14 @@
 use std::borrow::Cow;
 use std::collections::HashSet;
 
-use data::{Config, message};
+use data::{Config, emoji, message};
 use iced::widget::{
     Scrollable, button, column, container, operation, scrollable, text_input,
 };
 use iced::{Length, Task};
 
 use crate::widget::{Element, Row, key_press, text};
-use crate::{emoji, theme, widget};
+use crate::{theme, widget};
 
 const MODAL_HEIGHT: f32 = 250.0;
 const EMOJI_BUTTON_WIDTH: f32 = 32.0;
