@@ -129,6 +129,7 @@ pub struct Emojis {
     pub skin_tone: SkinTone,
     pub auto_replace: bool,
     pub characters_to_trigger_picker: usize,
+    pub aliases: HashMap<String, String>,
 }
 
 impl Default for Emojis {
@@ -138,6 +139,7 @@ impl Default for Emojis {
             skin_tone: SkinTone::default(),
             auto_replace: true,
             characters_to_trigger_picker: 2,
+            aliases: HashMap::new(),
         }
     }
 }

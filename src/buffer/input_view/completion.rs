@@ -102,13 +102,16 @@ impl Completion {
             return;
         }
 
-        if let Some(shortcode) = (config.buffer.emojis.show_picker
+        if (config.buffer.emojis.show_picker
             || config.buffer.emojis.auto_replace)
-            .then(|| {
-                get_word(input, cursor_position)
-                    .filter(|word| word.starts_with(':'))
-            })
-            .flatten()
+            && let Some(word) = get_word(input, cursor_position)
+            && let Some(shortcode) = config
+                .buffer
+                .emojis
+                .aliases
+                .get(word)
+                .map(String::as_str)
+                .or_else(|| word.starts_with(':').then_some(word))
         {
             self.emojis.process(shortcode, config);
 
