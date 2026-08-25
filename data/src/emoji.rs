@@ -41,7 +41,7 @@ pub fn get_by_shortcode(shortcode: &str) -> Option<&'static emojis::Emoji> {
 
 /// Newer emoji have no shortcodes in the upstream crate. They get a
 /// synthetic shortcode derived from their Unicode name.
-fn synthetic_shortcode(emoji: &emojis::Emoji) -> String {
+pub fn synthetic_shortcode(emoji: &emojis::Emoji) -> String {
     emoji.name().to_lowercase().replace(' ', "_")
 }
 
