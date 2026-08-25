@@ -15,7 +15,7 @@ use data::isupport::{self, find_target_limit};
 use data::server::Server;
 use data::target::{self, Target};
 use data::user::{ChannelUsers, Nick, NickRef};
-use data::{Config, command, mode};
+use data::{Config, command, emoji, mode};
 use iced::Length;
 use iced::widget::text::Shaping;
 use iced::widget::{button, column, container, row, text_editor, tooltip};
@@ -23,9 +23,9 @@ use irc::proto;
 use itertools::{Either, Itertools};
 use unicode_segmentation::UnicodeSegmentation;
 
+use crate::font;
 use crate::theme::{self, Theme};
 use crate::widget::{Element, double_pass, text};
-use crate::{emoji, font};
 
 const MAX_SHOWN_COMMAND_ENTRIES: usize = 5;
 const MAX_SHOWN_EMOJI_ENTRIES: usize = 8;
@@ -102,13 +102,16 @@ impl Completion {
             return;
         }
 
-        if let Some(shortcode) = (config.buffer.emojis.show_picker
+        if (config.buffer.emojis.show_picker
             || config.buffer.emojis.auto_replace)
-            .then(|| {
-                get_word(input, cursor_position)
-                    .filter(|word| word.starts_with(':'))
-            })
-            .flatten()
+            && let Some(word) = get_word(input, cursor_position)
+            && let Some(shortcode) = config
+                .buffer
+                .emojis
+                .aliases
+                .get(word)
+                .map(String::as_str)
+                .or_else(|| word.starts_with(':').then_some(word))
         {
             self.emojis.process(shortcode, config);
 
