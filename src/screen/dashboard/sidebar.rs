@@ -1,4 +1,3 @@
-use std::time::Duration;
 use std::{convert, iter};
 
 use data::buffer::{Buffer, BufferRef};
@@ -20,7 +19,6 @@ use iced::{
     Alignment, Border, ContentFit, Length, Padding, Task, mouse, padding,
 };
 use itertools::Either;
-use tokio::time;
 
 use super::{Focus, Panes, Server};
 use crate::widget::text_color_svg::TextColorSvg;
@@ -30,8 +28,6 @@ use crate::widget::{
 use crate::{Theme, font, icon, platform_specific, theme, window};
 
 mod collapse;
-
-const CONFIG_RELOAD_DELAY: Duration = Duration::from_secs(1);
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -47,7 +43,6 @@ pub enum Message {
     ToggleCommandBar,
     ToggleThemeEditor,
     ReloadConfigFile,
-    ConfigReloaded(Result<Config, config::Error>),
     OpenReleaseWebsite,
     OpenAbout {
         version: String,
@@ -55,7 +50,6 @@ pub enum Message {
         system_information: Option<iced::system::Information>,
     },
     OpenDocumentation,
-    ReloadComplete,
     MarkAsRead(data::Buffer),
     MarkServerAsRead(Server),
     OpenChannelDiscovery(Server),
@@ -88,7 +82,6 @@ pub enum Event {
         system_information: Option<iced::system::Information>,
     },
     OpenDocumentation,
-    ConfigReloaded(Result<Config, config::Error>),
     MarkAsRead(data::Buffer),
     MarkServerAsRead(Server),
     OpenChannelDiscovery(Server),
@@ -97,13 +90,13 @@ pub enum Event {
     DisableAutoconnect(Server),
     Remove(Server),
     ShowMutedBuffers(bool),
+    ReloadConfigFile,
 }
 
 #[derive(Clone)]
 pub struct Sidebar {
     pub hidden: bool,
     collapse: collapse::State,
-    reloading_config: bool,
     system_information: Option<iced::system::Information>,
 }
 
@@ -113,7 +106,6 @@ impl Sidebar {
             Self {
                 hidden,
                 collapse: collapse::State::default(),
-                reloading_config: false,
                 system_information: None,
             },
             iced::system::information().map(Message::SystemInformation),
@@ -468,21 +460,10 @@ impl Sidebar {
                 (Task::none(), Some(Event::ToggleThemeEditor))
             }
             Message::ReloadConfigFile => {
-                self.reloading_config = true;
-                (Task::perform(Config::load(), Message::ConfigReloaded), None)
+                (Task::none(), Some(Event::ReloadConfigFile))
             }
-            Message::ConfigReloaded(config) => (
-                Task::perform(time::sleep(CONFIG_RELOAD_DELAY), |()| {
-                    Message::ReloadComplete
-                }),
-                Some(Event::ConfigReloaded(config)),
-            ),
             Message::OpenReleaseWebsite => {
                 (Task::none(), Some(Event::OpenReleaseWebsite))
-            }
-            Message::ReloadComplete => {
-                self.reloading_config = false;
-                (Task::none(), None)
             }
             Message::OpenDocumentation => {
                 (Task::none(), Some(Event::OpenDocumentation))
