@@ -173,7 +173,12 @@ fn channel_logger() -> (Box<dyn Log>, ReceiverStream<Vec<Record>>) {
 
         loop {
             match log_receiver.recv_timeout(BATCH_TIMEOUT) {
-                Ok(log) => batch.push(log),
+                Ok(log) => {
+                    if batch.is_empty() {
+                        timeout = Instant::now();
+                    }
+                    batch.push(log);
+                }
                 Err(mpsc::RecvTimeoutError::Timeout) => {}
                 Err(mpsc::RecvTimeoutError::Disconnected) => {
                     if !batch.is_empty() {
@@ -184,20 +189,16 @@ fn channel_logger() -> (Box<dyn Log>, ReceiverStream<Vec<Record>>) {
                 }
             }
 
-            if batch.len() >= BATCH_SIZE
-                || (!batch.is_empty() && timeout.elapsed() >= BATCH_TIMEOUT)
-            {
-                timeout = Instant::now();
-
-                if async_sender
+            if (batch.len() >= BATCH_SIZE
+                || (!batch.is_empty() && timeout.elapsed() >= BATCH_TIMEOUT))
+                && async_sender
                     .blocking_send(mem::replace(
                         &mut batch,
                         Vec::with_capacity(BATCH_SIZE),
                     ))
                     .is_err()
-                {
-                    break;
-                }
+            {
+                break;
             }
         }
     });
