@@ -513,7 +513,7 @@ skin_tone = "default"
 auto_replace = true
 aliases = {
     ":)" = ":slightly_smiling_face:",
-    ":(" = ":frowning:",
+    ":3" = "😺",
 }
 ```
 
@@ -572,9 +572,7 @@ characters_to_trigger_picker = 2
 
 ### `aliases`
 
-A set of custom emoji aliases. The key is the alias, and the value is the corresponding emoji shortcode.
-
-Shortcodes follow the [GitHub Emoji](https://emojipedia.org/github) standard. For example, `:slightly_smiling_face:` is the shortcode for 🙂.
+A set of custom emoji aliases. The key is the alias, and the value can be either a [GitHub shortcode](https://emojipedia.org/github) (e.g. `:slightly_smiling_face:`) or a Unicode emoji character (e.g. 🙂).  Aliases can be used in text input, and will be replaced with the corresponding emoji when `auto_replace` is enabled.
 
 ```toml
 # Type: map
@@ -585,6 +583,8 @@ Shortcodes follow the [GitHub Emoji](https://emojipedia.org/github) standard. Fo
 aliases = {
     ":)" = ":slightly_smiling_face:",
     ":(" = ":frowning:",
+    ":D" = "😃",
+    ":3" = "😺",
 }
 ```
 
