@@ -511,6 +511,10 @@ Emojis settings.
 show_picker = true
 skin_tone = "default"
 auto_replace = true
+aliases = {
+    ":)" = ":slightly_smiling_face:",
+    ":(" = ":frowning:",
+}
 ```
 
 ### `show_picker`
@@ -564,6 +568,24 @@ E.g. `:D` will not show the emoji picker unless `characters_to_trigger_picker` i
 
 [buffer.emojis]
 characters_to_trigger_picker = 2
+```
+
+### `aliases`
+
+A set of custom emoji aliases. The key is the alias, and the value is the corresponding emoji shortcode.
+
+Shortcodes follow the [GitHub Emoji](https://emojipedia.org/github) standard. For example, `:slightly_smiling_face:` is the shortcode for 🙂.
+
+```toml
+# Type: map
+# Values: map with string key/value pairs
+# Default: {}
+
+[buffer.emojis]
+aliases = {
+    ":)" = ":slightly_smiling_face:",
+    ":(" = ":frowning:",
+}
 ```
 
 ## `internal_messages`
