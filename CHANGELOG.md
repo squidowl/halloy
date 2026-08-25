@@ -27,6 +27,7 @@ Added:
 - Additional setting for controlling anti-flood burst parameter (`servers.<name>.anti_flood.burst`); default value has been reduced from `10` to `8`
 - Server messages can be configured to trigger unread in a buffer or not (`buffer.server_messages.<server_message>.triggers_unread`)
 - Smooth scrolling
+- Emoji aliases via `buffer.emojis.aliases`
 
 Fixed:
 
