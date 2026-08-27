@@ -1225,23 +1225,64 @@ impl State {
                     clients.get_filehost(buffer.server()).is_some()
                         && config.filehost.paste();
 
+                let max_lines = config.buffer.text_input.max_lines;
+
+                let current = (
+                    self.input_content.text().len(),
+                    self.input_content.line_count(),
+                );
+
+                let limits = (config.buffer.text_input.upload_on_limit
+                    && has_filehost)
+                    .then(|| {
+                        let multiline_limits =
+                            clients.get_multiline_limits(buffer.server());
+
+                        let max_bytes = multiline_limits
+                            .as_ref()
+                            .map_or(usize::MAX, |limits| limits.max_bytes);
+
+                        let max_lines = multiline_limits
+                            .as_ref()
+                            .and_then(|limits| limits.max_lines)
+                            .map_or(max_lines, |limit| max_lines.min(limit));
+
+                        Some(TextInputLimits {
+                            max_bytes,
+                            max_lines,
+                        })
+                    })
+                    .flatten();
+
                 let task = if has_filehost {
                     Task::batch(vec![
-                        clipboard::read(clipboard::Kind::Image)
-                            .map(handle_clipboard_content),
-                        clipboard::read(clipboard::Kind::Files)
-                            .map(handle_clipboard_content),
+                        clipboard::read(clipboard::Kind::Image).map(
+                            move |content| {
+                                handle_clipboard_content(
+                                    max_lines, current, limits, content,
+                                )
+                            },
+                        ),
+                        clipboard::read(clipboard::Kind::Files).map(
+                            move |content| {
+                                handle_clipboard_content(
+                                    max_lines, current, limits, content,
+                                )
+                            },
+                        ),
                     ])
                     .collect()
-                    .then(|maybe_tasks| {
+                    .then(move |maybe_tasks| {
                         let tasks: Vec<_> =
                             maybe_tasks.into_iter().flatten().collect();
 
                         if tasks.is_empty() {
                             clipboard::read(clipboard::Kind::Text).then(
-                                |content| {
-                                    handle_clipboard_content(content)
-                                        .unwrap_or(Task::none())
+                                move |content| {
+                                    handle_clipboard_content(
+                                        max_lines, current, limits, content,
+                                    )
+                                    .unwrap_or(Task::none())
                                 },
                             )
                         } else {
@@ -1249,10 +1290,14 @@ impl State {
                         }
                     })
                 } else {
-                    clipboard::read(clipboard::Kind::Text).then(|content| {
-                        handle_clipboard_content(content)
+                    clipboard::read(clipboard::Kind::Text).then(
+                        move |content| {
+                            handle_clipboard_content(
+                                max_lines, current, limits, content,
+                            )
                             .unwrap_or(Task::none())
-                    })
+                        },
+                    )
                 };
 
                 Self::close_context_menu(vec![task])
@@ -1495,26 +1540,7 @@ impl State {
                     return (Task::none(), Some(Event::ExitFocus));
                 }
 
-                if let text_editor::Action::Edit(text_editor::Edit::Paste(
-                    clipboard,
-                )) = &action
-                {
-                    let truncated_clipboard = clipboard
-                        .lines()
-                        .take(
-                            config.buffer.text_input.max_lines.saturating_sub(
-                                self.input_content.line_count(),
-                            ) + 1,
-                        )
-                        .join("\n");
-                    let action =
-                        text_editor::Action::Edit(text_editor::Edit::Paste(
-                            std::sync::Arc::new(truncated_clipboard),
-                        ));
-                    self.input_content.perform(action);
-                } else {
-                    self.input_content.perform(action.clone());
-                }
+                self.input_content.perform(action.clone());
 
                 match &action {
                     text_editor::Action::Edit(_) => {
@@ -2931,14 +2957,41 @@ fn clean_path(path: std::path::PathBuf) -> std::path::PathBuf {
     std::path::PathBuf::from(cleaned)
 }
 
+#[derive(Debug, Clone, Copy)]
+struct TextInputLimits {
+    max_bytes: usize,
+    max_lines: usize,
+}
+
 fn handle_clipboard_content(
+    max_lines: usize,
+    (current_bytes, current_lines): (usize, usize),
+    limits: Option<TextInputLimits>,
     content: Result<Arc<clipboard::Content>, clipboard::Error>,
 ) -> Option<Task<Message>> {
     match Arc::unwrap_or_clone(content.ok()?) {
         clipboard::Content::Text(text) | clipboard::Content::Html(text) => {
-            Some(Task::done(Message::Action(text_editor::Action::Edit(
-                text_editor::Edit::Paste(text.into()),
-            ))))
+            if let Some(limits) = limits
+                && (text.len() > limits.max_bytes.saturating_sub(current_bytes)
+                    || text.lines().count()
+                        > limits.max_lines.saturating_sub(current_lines) + 1)
+            {
+                let path = std::env::temp_dir()
+                    .join(format!("halloy-paste-{}.txt", uuid::Uuid::now_v7()));
+
+                std::fs::write(&path, text.as_bytes()).ok()?;
+
+                Some(Task::done(Message::FilesSelected(vec![path])))
+            } else {
+                let truncated_text = text
+                    .lines()
+                    .take(max_lines.saturating_sub(current_lines) + 1)
+                    .join("\n");
+
+                Some(Task::done(Message::Action(text_editor::Action::Edit(
+                    text_editor::Edit::Paste(truncated_text.into()),
+                ))))
+            }
         }
         clipboard::Content::Image(clipboard_image) => {
             let rgba_image: image::RgbaImage = image::ImageBuffer::from_raw(
