@@ -20,6 +20,7 @@ Added:
 - Keyboard-driven message focus: navigate and act on messages without mouse
   - Links and channel mentions within a message can be focused and opened
   - New `buffer.focus` theme color for the focused message border
+- Server context menu action to open Channel Discovery with that server selected
 
 Fixed:
 
@@ -54,7 +55,7 @@ Thanks:
 
 - Contributions: @rollecode, @luca020400, @rtmongold, @tranzystorekk, @englut, @furudean
 - Bug reports: @sebbu2, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae, @SRAZKVT, @WinnerWind, @lojinks, @edwardloveall
-- Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo, ivocavalcante, @sebbu2, @coraxioU9, @ncfavier, @darienm, gkoebel
+- Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo, ivocavalcante, @sebbu2, @coraxioU9, @ncfavier, @darienm, @Anonymous1157, gkoebel
 
 # 2026.8 (2026-07-24)
 

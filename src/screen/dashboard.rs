@@ -757,6 +757,28 @@ impl Dashboard {
 
                         (Task::none(), None)
                     }
+                    sidebar::Event::OpenChannelDiscovery(server) => {
+                        if let Some(pane) =
+                            self.panes.get(self.focus.window, self.focus.pane)
+                        {
+                            Self::send_list_command_if_needed(
+                                &server, pane, clients,
+                            );
+                        }
+
+                        (
+                            self.open_buffer(
+                                buffer::Internal::ChannelDiscovery(Some(
+                                    server,
+                                ))
+                                .into(),
+                                config.actions.buffer.open_internal,
+                                clients,
+                                config,
+                            ),
+                            None,
+                        )
+                    }
                     sidebar::Event::MarkAsRead(buffer) => {
                         if let Some(kind) = history::Kind::from_buffer(buffer) {
                             mark_as_read(
