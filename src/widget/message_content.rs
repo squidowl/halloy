@@ -3,12 +3,15 @@ use data::config::display::nickname::Metadata;
 use data::target::Query;
 use data::{Config, Server, User, isupport, message, metadata, target};
 use iced::widget::text::Span;
-use iced::widget::{button, span};
+use iced::widget::tooltip::Position;
+use iced::widget::{button, row, span};
 use iced::{Color, Length, border};
+use itertools::Itertools;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{Element, Renderer, selectable_rich_text, selectable_text};
-use crate::{Theme, font, theme};
+use crate::widget::tooltip;
+use crate::{Theme, emoji, font, theme};
 
 pub fn message_content<'a, M: 'a + std::clone::Clone>(
     content: &'a message::Content,
@@ -145,19 +148,72 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                 .filter(|s| !s.is_empty())
                 .unwrap_or(text.as_str());
 
-            let selectable_text = if let Some(only_emojis_size) =
-                config.font.only_emojis_size
-                && UnicodeSegmentation::graphemes(display_text, true)
-                    .all(|grapheme| emojis::get(grapheme).is_some())
-            {
-                selectable_text(display_text)
-                    .font_maybe(font_style(theme).map(font::get))
-                    .size(f32::from(only_emojis_size))
-                    .style(style)
-            } else {
-                selectable_text(display_text)
-                    .font_maybe(font_style(theme).map(font::get))
-                    .style(style)
+            let style = style(theme);
+
+            let selectable_text: Element<'a, _> = {
+                let styled = |text: &'a str, size: Option<u8>| {
+                    let el = selectable_text(text)
+                        .font_maybe(font_style(theme).map(font::get))
+                        .style(move |_| style);
+                    match size {
+                        Some(size) => el.size(f32::from(size)),
+                        None => el,
+                    }
+                };
+
+                let grapheme_indices: Vec<(usize, &'a str)> =
+                    UnicodeSegmentation::grapheme_indices(display_text, true)
+                        .collect();
+
+                let has_emoji = grapheme_indices
+                    .iter()
+                    .any(|(_, g)| emojis::get(g).is_some());
+
+                if !has_emoji {
+                    styled(display_text, None).into()
+                } else {
+                    let only_emojis_size =
+                        config.font.only_emojis_size.filter(|_| {
+                            grapheme_indices
+                                .iter()
+                                .all(|(_, g)| emojis::get(g).is_some())
+                        });
+
+                    let mut content = Vec::new();
+
+                    for (is_emoji, group) in &grapheme_indices
+                        .into_iter()
+                        .chunk_by(|(_, g)| emojis::get(g).is_some())
+                    {
+                        if is_emoji {
+                            for (_, grapheme) in group {
+                                // Safe since we know it's an emoji.
+                                let emoji = emojis::get(grapheme).unwrap();
+                                let text = styled(grapheme, only_emojis_size);
+                                content.push(tooltip(
+                                    text,
+                                    Some(format!(
+                                        ":{}:",
+                                        emoji::shortcodes_for(emoji)[0]
+                                    )),
+                                    Position::Top,
+                                    theme,
+                                ));
+                            }
+                        } else {
+                            let text_run: Vec<_> = group.collect();
+                            let start = text_run.first().unwrap().0;
+                            let last = text_run.last().unwrap();
+                            let end = last.0 + last.1.len();
+
+                            content.push(
+                                styled(&display_text[start..end], None).into(),
+                            );
+                        }
+                    }
+
+                    row(content).into()
+                }
             };
 
             if let Some((default_link, _)) = default_link {
@@ -167,7 +223,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                     .on_press(on_link(default_link))
                     .into()
             } else {
-                selectable_text.into()
+                selectable_text
             }
         }
         data::message::Content::Fragments(fragments) => {
