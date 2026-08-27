@@ -16,6 +16,7 @@ pub struct TextInput {
     pub max_lines: usize,
     pub send_line_delay: u64,
     pub persist: bool,
+    pub upload_on_limit: bool,
 }
 
 impl Default for TextInput {
@@ -30,6 +31,7 @@ impl Default for TextInput {
             max_lines: 5,
             send_line_delay: 100,
             persist: true,
+            upload_on_limit: false,
         }
     }
 }
