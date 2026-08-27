@@ -243,7 +243,7 @@ impl Server {
     ) -> Option<Arc<Self>> {
         let mut config = self.bouncer_network_defaults();
 
-        if let Some(overrides) = self.networks.get(&network.name) {
+        if let Some(overrides) = self.bouncer_network_overrides(&network.name) {
             if !overrides.enabled() {
                 return None;
             }
@@ -257,8 +257,27 @@ impl Server {
     pub(crate) fn reenables_bouncer_network(&self, old: &Self) -> bool {
         old.networks.iter().any(|(name, old)| {
             !old.enabled()
-                && self.networks.get(name).is_none_or(Overrides::enabled)
+                && self
+                    .bouncer_network_overrides(name)
+                    .is_none_or(Overrides::enabled)
         })
+    }
+
+    fn bouncer_network_overrides(&self, name: &str) -> Option<&Overrides> {
+        if let Some(overrides) = self.networks.get(name) {
+            return Some(overrides);
+        }
+
+        let mut matches = self
+            .networks
+            .iter()
+            .filter(|(configured_name, _)| {
+                configured_name.eq_ignore_ascii_case(name)
+            })
+            .map(|(_, overrides)| overrides);
+
+        let overrides = matches.next()?;
+        matches.next().is_none().then_some(overrides)
     }
 
     fn bouncer_network_defaults(&self) -> Self {
@@ -966,14 +985,14 @@ mod tests {
             channel_keys = { "#halloy" = "secret" }
             should_ghost = true
 
-            [networks.Libera]
+            [networks.libera]
             enabled = true
             channels = ["#rust"]
 
-            [networks.Libera.filters]
+            [networks.libera.filters]
             ignore = ["Guest9702"]
 
-            [networks.QuakeNet]
+            [networks.quakenet]
             enabled = false
             "##,
         )
@@ -1001,5 +1020,51 @@ mod tests {
                 })
                 .is_none()
         );
+    }
+
+    #[test]
+    fn bouncer_network_config_prefers_exact_match() {
+        let config: Server = toml::from_str(
+            r##"
+            [networks.Libera]
+            channels = ["#exact"]
+
+            [networks.libera]
+            channels = ["#case-insensitive"]
+            "##,
+        )
+        .unwrap();
+
+        let network_config = config
+            .bouncer_network_config(&BouncerNetwork {
+                id: "1".into(),
+                name: "Libera".into(),
+            })
+            .unwrap();
+
+        assert_eq!(network_config.channels[0].name, "#exact");
+    }
+
+    #[test]
+    fn bouncer_network_config_ignores_ambiguous_case_insensitive_match() {
+        let config: Server = toml::from_str(
+            r##"
+            [networks.Libera]
+            channels = ["#one"]
+
+            [networks.libera]
+            channels = ["#two"]
+            "##,
+        )
+        .unwrap();
+
+        let network_config = config
+            .bouncer_network_config(&BouncerNetwork {
+                id: "1".into(),
+                name: "LIBERA".into(),
+            })
+            .unwrap();
+
+        assert!(network_config.channels.is_empty());
     }
 }
