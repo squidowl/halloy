@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- Added `buffer.text_input.upload_on_limit` to automatically use filehost in case pasted text is too long
+
 Fixed:
 
 - Closing Halloy hangs while a toast notification is pending on Windows
@@ -9,6 +13,7 @@ Thanks:
 
 - Contributions: @httpsterio
 - Bug reports: @0xS3raph, @httpsterio
+- Feature requests: @ainola
 
 # 2026.9 (2026-09-29)
 
