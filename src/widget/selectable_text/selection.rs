@@ -1,5 +1,4 @@
 use iced::advanced::text;
-use iced::widget::text::Fragment;
 use iced::{Point, Rectangle, Vector};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -64,39 +63,19 @@ pub fn selection<P: text::Paragraph>(
     raw: Raw,
     bounds: Rectangle,
     paragraph: &P,
-    value: &Fragment,
 ) -> Option<Selection> {
     let resolved = raw.resolve(bounds)?;
 
     let start_pos = relative(resolved.start, bounds);
     let end_pos = relative(resolved.end, bounds);
 
-    let start = find_cursor_position(paragraph, value, start_pos)?;
-    let end = find_cursor_position(paragraph, value, end_pos)?;
+    let start = paragraph.hit_test(start_pos).map(text::Hit::cursor)?;
+    let end = paragraph.hit_test(end_pos).map(text::Hit::cursor)?;
 
     (start != end).then(|| Selection {
         start: start.min(end),
         end: start.max(end),
     })
-}
-
-pub fn find_cursor_position<P: text::Paragraph>(
-    paragraph: &P,
-    value: &Fragment,
-    cursor_position: Point,
-) -> Option<usize> {
-    let value = value.to_string();
-
-    let char_offset =
-        paragraph.hit_test(cursor_position).map(text::Hit::cursor)?;
-
-    Some(
-        unicode_segmentation::UnicodeSegmentation::graphemes(
-            &value[..char_offset],
-            true,
-        )
-        .count(),
-    )
 }
 
 fn relative(point: Point, bounds: Rectangle) -> Point {

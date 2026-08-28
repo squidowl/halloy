@@ -270,13 +270,22 @@ pub fn view<'a>(
         .font_maybe(theme::font_style::secondary(theme).map(font::get));
 
     let cursor = state.content.cursor();
-    let position = text(format!(
-        "{}:{}",
-        cursor.position.line + 1,
-        cursor.position.index + 1
-    ))
-    .style(theme::text::secondary)
-    .font_maybe(theme::font_style::secondary(theme).map(font::get));
+    let line = cursor.position.line + 1;
+    let column = state
+        .content
+        .line(cursor.position.line)
+        .map(|line| {
+            unicode_segmentation::UnicodeSegmentation::graphemes(
+                &line.text[..cursor.position.index],
+                true,
+            )
+            .count()
+        })
+        .unwrap_or_default()
+        + 1;
+    let position = text(format!("{line}:{column}"))
+        .style(theme::text::secondary)
+        .font_maybe(theme::font_style::secondary(theme).map(font::get));
 
     let error_or_section = if let Some(error) = &state.error {
         tooltip(
