@@ -2235,20 +2235,13 @@ impl Dashboard {
                         target,
                         buffer_action,
                     ) => {
-                        let buffer = match target {
-                            Target::Channel(channel) => {
-                                buffer::Upstream::Channel(server, channel)
-                            }
-                            Target::Query(query) => {
-                                buffer::Upstream::Query(server, query)
-                            }
-                        };
-
-                        tasks.push(self.open_buffer(
-                            data::Buffer::Upstream(buffer),
-                            buffer_action,
+                        tasks.push(self.open_target(
+                            server,
+                            target,
                             clients,
+                            buffer_action,
                             config,
+                            true,
                         ));
 
                         None
