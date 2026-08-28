@@ -71,6 +71,7 @@ Changed:
 - IRC protocol logs for bouncer networks have their logs directory nested under the bouncer name
 - Anti-flood rate parameter has been moved `servers.<name>.anti_flood` to `servers.<name>.anti_flood.rate`
 - Changed mode messages reverted to not triggering unread (but not reverted to be dimmed by default)
+- Removed active and passive categories for server message types; control of dimming and triggering unread can be controlled specifically for each server message type instead
 
 Thanks:
 
