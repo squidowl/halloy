@@ -168,9 +168,9 @@ embed-resource = "3.0.2"
 windows_exe_info = "0.4"
 
 [patch.crates-io]
-iced = { git = "https://github.com/squidowl/iced", rev = "f9ee41d497699bf26b10eccdc5b76cbc3cfce72e" }
-iced_core = { git = "https://github.com/squidowl/iced", rev = "f9ee41d497699bf26b10eccdc5b76cbc3cfce72e" }
-iced_wgpu = { git = "https://github.com/squidowl/iced", rev = "f9ee41d497699bf26b10eccdc5b76cbc3cfce72e" }
+iced = { git = "https://github.com/squidowl/iced", rev = "de8164b9aed4f4bfa88c0458e4076a37be6496cc" }
+iced_core = { git = "https://github.com/squidowl/iced", rev = "de8164b9aed4f4bfa88c0458e4076a37be6496cc" }
+iced_wgpu = { git = "https://github.com/squidowl/iced", rev = "de8164b9aed4f4bfa88c0458e4076a37be6496cc" }
 
 [profile.packaging]
 inherits = "release"
