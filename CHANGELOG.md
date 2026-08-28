@@ -43,6 +43,7 @@ Fixed:
 - Cap the number of concurrently open IRCv3 batches a server can hold open, so a
   single connection cannot grow memory without bound
 - Config editor now properly out-scrolls the cursor
+- User-specified log levels are applied to all log sources (including non-Halloy log sources, which were previously exempt)
 
 Changed:
 
@@ -59,7 +60,7 @@ Changed:
 Thanks:
 
 - Contributions: @rollecode, @luca020400, @rtmongold, @tranzystorekk, @englut, @furudean
-- Bug reports: @sebbu2, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae, @SRAZKVT, @WinnerWind, @lojinks, @edwardloveall
+- Bug reports: @sebbu2, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae, @SRAZKVT, @WinnerWind, @lojinks, @edwardloveall, @TheDcoder
 - Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo, ivocavalcante, @sebbu2, @coraxioU9, @ncfavier, @darienm, @Anonymous1157, gkoebel
 
 # 2026.8 (2026-07-24)
