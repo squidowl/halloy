@@ -108,8 +108,11 @@ fn file_dispatch(
             })
             .chain(log_file)
             .level(log::LevelFilter::Off)
-            .level_for("panic", log::LevelFilter::Error)
-            .level_for("iced_wgpu", log::LevelFilter::Info)
+            .level_for("panic", log::LevelFilter::Error.min(file_level_filter))
+            .level_for(
+                "iced_wgpu",
+                log::LevelFilter::Info.min(file_level_filter),
+            )
             .level_for("data", file_level_filter)
             .level_for("ipc", file_level_filter)
             .level_for("halloy", file_level_filter)
@@ -131,8 +134,14 @@ fn pane_dispatch(
         fern::Dispatch::new()
             .chain(channel_sink)
             .level(log::LevelFilter::Off)
-            .level_for("panic", log::LevelFilter::Error)
-            .level_for("iced_wgpu", log::LevelFilter::Info)
+            .level_for(
+                "panic",
+                log::LevelFilter::Error.min(channel_level_filter),
+            )
+            .level_for(
+                "iced_wgpu",
+                log::LevelFilter::Info.min(channel_level_filter),
+            )
             .level_for("data", channel_level_filter)
             .level_for("ipc", channel_level_filter)
             .level_for("halloy", channel_level_filter),
