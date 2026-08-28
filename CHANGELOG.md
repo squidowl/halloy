@@ -54,6 +54,7 @@ Changed:
 - Decouple `+draft/unreact` from `+draft/react`
 - When reloading the config file, if the config file editor pane is opened with unsaved changes then those changes will be saved before reloading
 - Changed mode messages reverted to not triggering unread (but not reverted to be dimmed by default)
+- Removed active and passive categories for server message types; control of dimming and triggering unread can be controlled specifically for each server message type instead
 
 Thanks:
 
