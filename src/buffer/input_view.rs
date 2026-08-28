@@ -1690,7 +1690,7 @@ impl State {
         // TODO (casper): Can we do better here? What does other programs do?
         let ghost = upload_ghost(id);
         let content = self.input_content.text();
-        let cursor_char = line_col_to_char(
+        let cursor_char = line_index_to_char(
             &self.input_content,
             self.input_content.cursor().position.line,
             self.input_content.cursor().position.index,
@@ -2972,7 +2972,7 @@ fn upload_ghost(id: u32) -> String {
 ///
 /// `text_editor::Content` uses 2D positions, but offset arithmetic requires a
 /// flat char index.
-fn line_col_to_char(
+fn line_index_to_char(
     content: &text_editor::Content,
     line: usize,
     col: usize,
@@ -2996,15 +2996,15 @@ fn line_col_to_char(
     pos
 }
 
-/// Converts a flat grapheme-cluster offset back to a `(line, col)` position.
+/// Converts a flat grapheme-cluster offset back to a `(line, index)` position.
 ///
 /// `start_pos` is the number of grapheme clusters from the start of `text`.
-/// The returned `column` is a byte offset within the line, matching how
-/// `text_editor::Position` encodes column.
+/// The returned `index` is a byte offset within the line, matching how
+/// `text_editor::Position` encodes index.
 ///
-/// Inverse of [`line_col_to_char`]. Used after offset arithmetic to produce a
+/// Inverse of [`line_index_to_char`]. Used after offset arithmetic to produce a
 /// position suitable for `move_to`.
-fn char_to_line_col(text: &str, start_pos: usize) -> text::Position {
+fn char_to_line_index(text: &str, start_pos: usize) -> text::Position {
     let mut remaining = start_pos;
     let mut fallback = text::Position { line: 0, index: 0 };
     for (i, line) in text.lines().enumerate() {
@@ -3070,10 +3070,10 @@ fn adjust_cursor(
 ) -> text_editor::Cursor {
     let cursor = content.cursor();
     text_editor::Cursor {
-        position: char_to_line_col(
+        position: char_to_line_index(
             replaced,
             adjust_char_pos(
-                line_col_to_char(
+                line_index_to_char(
                     content,
                     cursor.position.line,
                     cursor.position.index,
@@ -3084,10 +3084,10 @@ fn adjust_cursor(
             ),
         ),
         selection: cursor.selection.map(|sel| {
-            char_to_line_col(
+            char_to_line_index(
                 replaced,
                 adjust_char_pos(
-                    line_col_to_char(content, sel.line, sel.index),
+                    line_index_to_char(content, sel.line, sel.index),
                     replace_start,
                     replace_len,
                     delta,
@@ -3189,7 +3189,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn char_to_line_col_single_line() {
+    fn char_to_line_index_single_line() {
         let tests = [("hello", 3), ("안녕하세요", 3), ("👩🏾‍🚒 💬👋🏾🗺️", 3)];
 
         for (text, chars_to_the_right) in tests {
@@ -3204,7 +3204,7 @@ mod tests {
 
             let content_pos = content.cursor().position;
 
-            let pos = char_to_line_col(text, chars_to_the_right);
+            let pos = char_to_line_index(text, chars_to_the_right);
 
             assert_eq!(
                 pos, content_pos,
@@ -3214,7 +3214,7 @@ mod tests {
     }
 
     #[test]
-    fn char_to_line_col_second_line() {
+    fn char_to_line_index_second_line() {
         let tests = [
             ("hello\nworld", 7),
             ("안녕하세요\n여러분", 7),
@@ -3233,7 +3233,7 @@ mod tests {
 
             let content_pos = content.cursor().position;
 
-            let pos = char_to_line_col(text, chars_to_the_right);
+            let pos = char_to_line_index(text, chars_to_the_right);
 
             assert_eq!(
                 pos, content_pos,
@@ -3243,22 +3243,22 @@ mod tests {
     }
 
     #[test]
-    fn char_to_line_col_start_of_second_line() {
-        let pos = char_to_line_col("hello\nworld", 6);
+    fn char_to_line_index_start_of_second_line() {
+        let pos = char_to_line_index("hello\nworld", 6);
         assert_eq!(pos.line, 1);
         assert_eq!(pos.index, 0);
     }
 
     #[test]
-    fn char_to_line_col_past_end_clamps() {
-        let pos = char_to_line_col("hello", 100);
+    fn char_to_line_index_past_end_clamps() {
+        let pos = char_to_line_index("hello", 100);
         assert_eq!(pos.line, 0);
         assert_eq!(pos.index, 5);
     }
 
     #[test]
-    fn char_to_line_col_empty_string() {
-        let pos = char_to_line_col("", 0);
+    fn char_to_line_index_empty_string() {
+        let pos = char_to_line_index("", 0);
         assert_eq!(pos.line, 0);
         assert_eq!(pos.index, 0);
     }
