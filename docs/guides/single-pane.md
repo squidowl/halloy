@@ -8,7 +8,7 @@ click_channel_name = "replace-pane"
 click_highlight = "replace-pane"
 click_nickname = "replace-pane"
 join_channel = "replace-pane"
-local = "replace-pane"
+open_internal = "replace-pane"
 message_channel = "replace-pane"
 message_user = "replace-pane"
 
