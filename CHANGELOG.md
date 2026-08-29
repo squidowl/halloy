@@ -38,6 +38,8 @@ Fixed:
 - Scroll-to-reply when clicking a reply preview
 - Show registration-required join errors in the channel buffer instead of the server buffer
 - Include/exclude conditions are properly accounted for when highlighting nicknames
+- Reject server icons whose decoded dimensions would exceed the maximum GPU
+  buffer size, matching the existing link-preview guard
 
 Changed:
 
