@@ -2445,7 +2445,7 @@ pub mod keyed {
         widget::operate(CollectHeights {
             active: false,
             scrollable_id: scrollable,
-            heights: vec![],
+            heights: Vec::with_capacity(256),
         })
     }
 }
