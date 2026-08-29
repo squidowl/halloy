@@ -12,6 +12,16 @@ pub mod task;
 
 const FALLBACK_FILENAME: &str = "dcc_transfer";
 
+// Reserved DOS device names on Windows. A file named after any of these
+// (with or without an extension) cannot be created normally and can be
+// redirected to a real device, so a peer must not be able to force one
+// through a DCC filename.
+const WINDOWS_RESERVED_NAMES: &[&str] = &[
+    "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6",
+    "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6",
+    "LPT7", "LPT8", "LPT9",
+];
+
 pub fn sanitize_filename(raw: &str) -> String {
     let trimmed = raw.trim().trim_matches('"');
 
@@ -20,15 +30,47 @@ pub fn sanitize_filename(raw: &str) -> String {
         .and_then(|n| n.to_str())
         .unwrap_or(FALLBACK_FILENAME);
 
-    replace_control_chars(name)
+    let sanitized = sanitize_component(name);
+
+    if sanitized.is_empty() {
+        FALLBACK_FILENAME.to_string()
+    } else {
+        sanitized
+    }
 }
 
-// Replace control characters to avoid problematic filenames.
-fn replace_control_chars(input: &str) -> String {
-    input
+// Characters that are illegal in a filename on Windows (and best avoided
+// elsewhere). Path separators are already stripped by `Path::file_name`.
+fn is_forbidden_char(c: char) -> bool {
+    c.is_control()
+        || matches!(c, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*')
+}
+
+// Neutralize control/illegal characters and Windows reserved device names so
+// an untrusted DCC filename can never resolve to a device or an unwritable
+// path.
+fn sanitize_component(input: &str) -> String {
+    let replaced: String = input
         .chars()
-        .map(|c| if c.is_control() { '_' } else { c })
-        .collect()
+        .map(|c| if is_forbidden_char(c) { '_' } else { c })
+        .collect();
+
+    // Windows silently strips trailing dots and spaces, which would otherwise
+    // let `evil.` bypass the extension/reserved-name checks; strip them here.
+    let replaced = replaced.trim_end_matches([' ', '.']).to_string();
+
+    let stem = replaced
+        .split_once('.')
+        .map_or(replaced.as_str(), |(stem, _)| stem);
+
+    if WINDOWS_RESERVED_NAMES
+        .iter()
+        .any(|reserved| stem.eq_ignore_ascii_case(reserved))
+    {
+        format!("_{replaced}")
+    } else {
+        replaced
+    }
 }
 
 pub fn receive_save_path(save_directory: &Path, filename: &str) -> PathBuf {
@@ -159,6 +201,24 @@ mod tests {
             sanitize_filename("name\u{0}with\u{1f}controls"),
             "name_with_controls"
         );
+    }
+
+    #[test]
+    fn sanitize_filename_neutralizes_windows_reserved_names() {
+        assert_eq!(sanitize_filename("CON"), "_CON");
+        assert_eq!(sanitize_filename("nul.txt"), "_nul.txt");
+        assert_eq!(sanitize_filename("Lpt1.log"), "_Lpt1.log");
+        // Trailing dot/space would be stripped by Windows, so it must not let
+        // a reserved name slip through.
+        assert_eq!(sanitize_filename("con. "), "_con");
+        // A name that merely contains a reserved word is fine.
+        assert_eq!(sanitize_filename("console.txt"), "console.txt");
+    }
+
+    #[test]
+    fn sanitize_filename_replaces_windows_illegal_characters() {
+        assert_eq!(sanitize_filename("a<b>c:d|e?f*g"), "a_b_c_d_e_f_g");
+        assert_eq!(sanitize_filename("quote\"name.txt"), "quote_name.txt");
     }
 
     #[test]
