@@ -1462,30 +1462,23 @@ impl State {
                 {
                     let rendered_hashes = heights
                         .iter()
-                        .filter_map(|(key, _)| {
-                            if let keyed::Key::Message(hash) = key {
-                                Some(*hash)
-                            } else {
-                                None
-                            }
+                        .filter_map(|(key, _)| match key {
+                            keyed::Key::Message(hash) => Some(*hash),
+                            _ => None,
                         })
                         .collect::<HashSet<_>>();
 
-                    let mut still_pending = HashSet::new();
-
-                    for hash in self.pending_preview_exits.drain() {
-                        if rendered_hashes.contains(&hash) {
-                            still_pending.insert(hash);
-                        } else if self
-                            .visible_url_messages
-                            .remove(&hash)
-                            .is_some()
-                        {
-                            preview_changed = true;
+                    self.pending_preview_exits.retain(|hash| {
+                        if rendered_hashes.contains(hash) {
+                            true
+                        } else {
+                            if self.visible_url_messages.remove(hash).is_some()
+                            {
+                                preview_changed = true;
+                            }
+                            false
                         }
-                    }
-
-                    self.pending_preview_exits = still_pending;
+                    });
 
                     self.visible_messages
                         .retain(|hash| rendered_hashes.contains(hash));
