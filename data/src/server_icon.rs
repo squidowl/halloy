@@ -3,7 +3,6 @@ use std::io;
 use std::sync::Arc;
 
 use iced::Task;
-use iced_wgpu::wgpu;
 use reqwest::header;
 use sha2::{Digest, Sha256};
 use tokio::fs;
@@ -259,10 +258,9 @@ async fn fetch(
 
     // Guard against decompression bombs: a small compressed payload can still
     // decode to enormous pixel dimensions, so the byte cap above does not bound
-    // the memory needed to decode/upload the icon. Mirror the link-preview
-    // pipeline's check (see preview.rs) and reject icons whose padded
-    // dimensions would exceed the maximum GPU buffer size. SVG has no raster
-    // dimensions, so it is exempt. Done before the blob is written to cache.
+    // the memory needed to decode/upload the icon. Reuse the shared link-preview
+    // buffer-size guard and reject icons that would overflow it. SVG has no
+    // raster dimensions, so it is exempt. Done before the blob is cached.
     if !matches!(format, image::Format::Svg) {
         let dimensions = ::image::ImageReader::new(io::Cursor::new(&bytes))
             .with_guessed_format()
@@ -273,14 +271,7 @@ async fn fetch(
             return Err(LoadError::ParseImage);
         };
 
-        let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
-        let padding = (align - (4 * width) % align) % align;
-        let padded_width = u64::from(4 * width + padding);
-        let padded_image_data_size = padded_width * u64::from(height);
-        let max_buffer_size =
-            wgpu::Limits::downlevel_defaults().max_buffer_size;
-
-        if padded_image_data_size > max_buffer_size {
+        if image::gpu_buffer_overflow(width, height).is_some() {
             return Err(LoadError::TooLarge);
         }
     }

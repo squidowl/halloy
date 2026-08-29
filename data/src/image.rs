@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use iced_wgpu::wgpu;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -66,6 +67,24 @@ impl Image {
             path,
         }
     }
+}
+
+/// Whether an image of these pixel dimensions would exceed the maximum GPU
+/// buffer size once its rows are padded for upload. Shared decompression-bomb
+/// guard for the link-preview and server-icon fetchers; returns the computed
+/// `(padded_size, max_buffer_size)` when it overflows so callers can surface the
+/// sizes.
+pub fn gpu_buffer_overflow(width: u32, height: u32) -> Option<(u64, u64)> {
+    // As per iced, webgpu requires
+    //   BufferCopyView.layout.bytes_per_row % COPY_BYTES_PER_ROW_ALIGNMENT == 0
+    // so round the row width up to the next multiple first.
+    let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
+    let padding = (align - (4 * width) % align) % align;
+    let padded_width = u64::from(4 * width + padding);
+    let padded_size = padded_width * u64::from(height);
+    let max_buffer_size = wgpu::Limits::downlevel_defaults().max_buffer_size;
+
+    (padded_size > max_buffer_size).then_some((padded_size, max_buffer_size))
 }
 
 mod serde_image_format {
