@@ -35,6 +35,112 @@ fn decode_line(bytes: &[u8]) -> Cow<'_, str> {
     }
 }
 
+const REDACTED: &str = "<redacted>";
+
+/// Redact credential material from a raw IRC line before it is written to the
+/// on-disk protocol log. Operates on the wire representation so it is
+/// independent of message parsing and applies equally to sent and received
+/// lines. Never alters the bytes actually sent on the wire.
+fn redact_log_line(line: &str) -> Cow<'_, str> {
+    let (body, eol) = split_eol(line);
+
+    // Skip any leading IRCv3 message tags (@...) and source prefix (:...) --
+    // neither is secret -- to reach the command that decides redaction.
+    let mut rest = body.trim_start();
+    let mut prefix = String::new();
+    while rest.starts_with('@') || rest.starts_with(':') {
+        let Some((head, tail)) = rest.split_once(' ') else {
+            return Cow::Borrowed(line); // tags/prefix with no command
+        };
+        prefix.push_str(head);
+        prefix.push(' ');
+        rest = tail.trim_start();
+    }
+
+    let Some((command, args)) = rest.split_once(' ') else {
+        return Cow::Borrowed(line); // command with no arguments
+    };
+
+    let redacted_args = match command.to_ascii_uppercase().as_str() {
+        "PASS" => Some(REDACTED.to_string()),
+        "OPER" => Some(redact_after_first(args)),
+        "AUTHENTICATE" => redact_authenticate(args),
+        "PRIVMSG" => redact_services_message(args),
+        _ => None,
+    };
+
+    match redacted_args {
+        Some(redacted) => {
+            Cow::Owned(format!("{prefix}{command} {redacted}{eol}"))
+        }
+        None => Cow::Borrowed(line),
+    }
+}
+
+fn split_eol(line: &str) -> (&str, &str) {
+    if let Some(rest) = line.strip_suffix("\r\n") {
+        (rest, "\r\n")
+    } else if let Some(rest) = line.strip_suffix('\n') {
+        (rest, "\n")
+    } else {
+        (line, "")
+    }
+}
+
+// Keep the first argument (e.g. an OPER name), redact everything after it.
+fn redact_after_first(args: &str) -> String {
+    match args.split_once(' ') {
+        Some((first, _)) => format!("{first} {REDACTED}"),
+        None => REDACTED.to_string(),
+    }
+}
+
+// AUTHENTICATE carries either a SASL control token / mechanism name (not
+// secret) or a base64 credential payload (secret). Redact anything that is not
+// a control token or an uppercase mechanism identifier.
+fn redact_authenticate(args: &str) -> Option<String> {
+    let payload = args.trim();
+    if payload == "+" || payload == "*" {
+        return None;
+    }
+    let is_mechanism = !payload.is_empty()
+        && payload
+            .bytes()
+            .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'-');
+    if is_mechanism {
+        None
+    } else {
+        Some(REDACTED.to_string())
+    }
+}
+
+// NickServ-style authentication sent as a PRIVMSG, e.g.
+// `PRIVMSG NickServ :IDENTIFY hunter2`. Redact the credential following a known
+// services auth keyword, keeping the target and keyword for context. Services
+// auth always targets a nick (never a channel), which keeps ordinary channel
+// messages that merely start with one of these words out of scope.
+fn redact_services_message(args: &str) -> Option<String> {
+    const SERVICE_KEYWORDS: &[&str] =
+        &["IDENTIFY", "REGISTER", "SETPASS", "GHOST", "RELEASE"];
+
+    let (target, message) = args.split_once(' ')?;
+    if target.starts_with(['#', '&', '+', '!']) {
+        return None;
+    }
+
+    let body = message.strip_prefix(':').unwrap_or(message);
+    let (keyword, _rest) = body.split_once(' ')?;
+
+    if SERVICE_KEYWORDS
+        .iter()
+        .any(|k| keyword.eq_ignore_ascii_case(k))
+    {
+        Some(format!("{target} :{keyword} {REDACTED}"))
+    } else {
+        None
+    }
+}
+
 impl Decoder for Codec {
     type Item = ParseResult;
     type Error = Error;
@@ -49,7 +155,7 @@ impl Decoder for Codec {
             if src.len() > MAX_LINE_LENGTH {
                 if let Some(logger) = &self.logger {
                     let _ = logger.send(CodecLog::Received(
-                        decode_line(src).into_owned(),
+                        redact_log_line(&decode_line(src)).into_owned(),
                     ));
                 }
 
@@ -62,7 +168,8 @@ impl Decoder for Codec {
         let line = decode_line(&bytes);
 
         if let Some(logger) = &self.logger {
-            let _ = logger.send(CodecLog::Received(line.to_string()));
+            let _ = logger
+                .send(CodecLog::Received(redact_log_line(&line).into_owned()));
         }
 
         Ok(Some(parse::message(&line)))
@@ -83,7 +190,7 @@ impl Encoder<Message> for Codec {
 
         if let Some(logger) = &self.logger {
             let _ = logger.send(CodecLog::Sent(
-                String::from_utf8_lossy(&bytes).to_string(),
+                redact_log_line(&String::from_utf8_lossy(&bytes)).into_owned(),
             ));
         }
 
@@ -174,5 +281,57 @@ mod test {
                 Some("My utf8 is brô\u{91}\u{87}ken".into())
             )
         );
+    }
+
+    #[test]
+    fn redacts_credentials_in_protocol_log() {
+        use super::redact_log_line;
+
+        assert_eq!(redact_log_line("PASS hunter2\r\n"), "PASS <redacted>\r\n");
+        assert_eq!(redact_log_line("PASS :hunter2\r\n"), "PASS <redacted>\r\n");
+        assert_eq!(
+            redact_log_line("OPER admin s3cret\r\n"),
+            "OPER admin <redacted>\r\n"
+        );
+        // SASL: mechanism selection and control tokens are not secret.
+        assert_eq!(
+            redact_log_line("AUTHENTICATE PLAIN\r\n"),
+            "AUTHENTICATE PLAIN\r\n"
+        );
+        assert_eq!(redact_log_line("AUTHENTICATE +\r\n"), "AUTHENTICATE +\r\n");
+        // ...but a credential payload (contains lowercase / is not a bare
+        // mechanism name) is.
+        assert_eq!(
+            redact_log_line("AUTHENTICATE placeholder-credential\r\n"),
+            "AUTHENTICATE <redacted>\r\n"
+        );
+        // NickServ-style services authentication.
+        assert_eq!(
+            redact_log_line("PRIVMSG NickServ :IDENTIFY hunter2\r\n"),
+            "PRIVMSG NickServ :IDENTIFY <redacted>\r\n"
+        );
+        assert_eq!(
+            redact_log_line("PRIVMSG NickServ :identify acct hunter2\r\n"),
+            "PRIVMSG NickServ :identify <redacted>\r\n"
+        );
+        // Tags/source before the command are skipped, not treated as command.
+        assert_eq!(
+            redact_log_line("@time=x :srv PASS hunter2\r\n"),
+            "@time=x :srv PASS <redacted>\r\n"
+        );
+    }
+
+    #[test]
+    fn preserves_non_sensitive_lines() {
+        use super::redact_log_line;
+
+        for line in [
+            "PRIVMSG #chan :hello world\r\n",
+            "JOIN #halloy\r\n",
+            "NOTICE #chan :login page is down\r\n",
+            "PING :12345\r\n",
+        ] {
+            assert_eq!(redact_log_line(line), line);
+        }
     }
 }

@@ -38,6 +38,8 @@ Fixed:
 - Scroll-to-reply when clicking a reply preview
 - Show registration-required join errors in the channel buffer instead of the server buffer
 - Include/exclude conditions are properly accounted for when highlighting nicknames
+- Redact credentials (`PASS`, `OPER`, SASL `AUTHENTICATE`, NickServ `IDENTIFY`)
+  from the on-disk IRC protocol log
 
 Changed:
 
