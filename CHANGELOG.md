@@ -38,6 +38,8 @@ Fixed:
 - Scroll-to-reply when clicking a reply preview
 - Show registration-required join errors in the channel buffer instead of the server buffer
 - Include/exclude conditions are properly accounted for when highlighting nicknames
+- Cap the number of concurrently open IRCv3 batches a server can hold open, so a
+  single connection cannot grow memory without bound
 
 Changed:
 

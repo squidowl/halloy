@@ -52,6 +52,12 @@ const CHATHISTORY_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 const MODE_REQUEST_DELAY: Duration = Duration::from_millis(600);
 const MODE_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 const TYPING_TIMEOUT: Duration = Duration::from_secs(6);
+// Upper bound on concurrently open IRCv3 batches. A server opens a batch with
+// `BATCH +<ref>` and must close it with `BATCH -<ref>`; without a ceiling a
+// malicious or buggy server could open batches without ever closing them and
+// grow the `batches` map without bound. Far above any legitimate use (including
+// nested multiline/chathistory batches).
+const MAX_OPEN_BATCHES: usize = 1024;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Status {
@@ -1113,7 +1119,20 @@ impl Client {
                             _ => None,
                         };
 
-                        self.batches.insert(reference, batch);
+                        // Cap concurrently open batches so a server cannot grow
+                        // this map without bound by opening batches it never
+                        // closes. Beyond the cap the open is dropped; messages
+                        // tagged with it are handled without batch context, so
+                        // no existing batch state is disturbed.
+                        if self.batches.len() >= MAX_OPEN_BATCHES {
+                            log::warn!(
+                                "[{}] ignoring BATCH open (reference {reference}): \
+                                 {MAX_OPEN_BATCHES} batches already open",
+                                self.server
+                            );
+                        } else {
+                            self.batches.insert(reference, batch);
+                        }
                     }
                     '-' => {
                         if let Some(mut finished) =
