@@ -39,7 +39,8 @@
             "sources": [
                 {
                     "type": "dir",
-                    "path": "../.."
+                    "path": "../..",
+                    "skip": ["target", ".git"]
                 },
                 "generated-sources.json"
             ]

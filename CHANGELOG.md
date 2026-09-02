@@ -40,6 +40,8 @@ Fixed:
 - Include/exclude conditions are properly accounted for when highlighting nicknames
 - Reject server icons whose decoded dimensions would exceed the maximum GPU
   buffer size, matching the existing link-preview guard
+- Cap the number of concurrently open IRCv3 batches a server can hold open, so a
+  single connection cannot grow memory without bound
 
 Changed:
 
