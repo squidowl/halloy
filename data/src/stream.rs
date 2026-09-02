@@ -11,7 +11,7 @@ use irc::proto::{self, Command, command};
 use irc::{CodecLog, Connection, codec, connection};
 use tokio::fs::{self, File};
 use tokio::io::{AsyncWriteExt, BufWriter};
-use tokio::time::{self, Instant, Interval};
+use tokio::time::{self, Instant, Interval, MissedTickBehavior};
 
 use crate::client::Client;
 use crate::config::server::IrcProtocolLogFormat;
@@ -865,10 +865,14 @@ impl futures::Stream for Batch {
 }
 
 fn ping_time_interval(secs: u64) -> Interval {
-    time::interval_at(
+    let mut interval = time::interval_at(
         Instant::now() + Duration::from_secs(secs),
         Duration::from_secs(secs),
-    )
+    );
+
+    interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+
+    interval
 }
 
 fn ping_timeout_interval(secs: u64) -> Interval {
