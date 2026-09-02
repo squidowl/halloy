@@ -7,15 +7,15 @@ use futures::TryFutureExt;
 use iced::Length::*;
 use iced::alignment::Vertical;
 use iced::widget::text::LineHeight;
-use iced::widget::{button, center, column, container, row, text_input};
+use iced::widget::{
+    button, center, column, combo_box, container, row, text_input,
+};
 use iced::{Color, Length, Padding, Task, Vector, alignment, clipboard};
 use strum::IntoEnumIterator;
 use tokio::time;
 
 use crate::theme::{self, Styles, Theme};
-use crate::widget::{
-    Element, color_picker, combo_box, font_style_pick_list, tooltip,
-};
+use crate::widget::{Element, color_picker, font_style_pick_list, tooltip};
 use crate::window::{self, Window};
 use crate::{icon, open_url, platform_specific, widget};
 
@@ -281,7 +281,7 @@ impl ThemeEditor {
 
         let component = combo_box(
             &self.combo_box,
-            &self.component.to_string(),
+            self.component.to_string(),
             None,
             Message::Component,
         );
@@ -292,11 +292,12 @@ impl ThemeEditor {
                 .as_deref()
                 .and_then(theme::hex_to_color)
                 .is_some();
+
         let hex_input = text_input(
             "",
             self.hex_input
-                .as_deref()
-                .unwrap_or(theme::color_to_hex(color).as_str()),
+                .clone()
+                .unwrap_or(theme::color_to_hex(color).to_string()),
         )
         .on_input(Message::HexInput)
         .style(move |theme, status| {
@@ -429,7 +430,7 @@ fn status_button<'a>(is_success: bool) -> Element<'a, Message> {
         .align_x(alignment::Horizontal::Center)
         .align_y(alignment::Vertical::Center)
         .width(Fill)
-        .height(LineHeight::default().to_absolute(theme::TEXT_SIZE.into())),
+        .height(LineHeight::default().to_absolute(theme::TEXT_SIZE)),
     )
     .padding(5)
     .width(Fill)

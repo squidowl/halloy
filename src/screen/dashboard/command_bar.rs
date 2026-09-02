@@ -1,13 +1,14 @@
 use data::{Config, buffer, client, server};
-use iced::Length;
-use iced::widget::{column, container, text};
+use iced::widget::{column, combo_box, container, operation, text};
+use iced::{Length, Task, widget};
 
 use super::Focus;
-use crate::widget::{Element, combo_box, double_pass, key_press};
+use crate::widget::{Element, double_pass, key_press};
 use crate::{theme, window};
 
 #[derive(Debug, Clone)]
 pub struct CommandBar {
+    id: widget::Id,
     state: combo_box::State<Command>,
 }
 
@@ -42,9 +43,22 @@ impl CommandBar {
             main_window,
             show_muted_buffers,
         ));
-        state.focus();
 
-        Self { state }
+        let id = widget::Id::unique();
+
+        Self { id, state }
+    }
+
+    pub fn focus(&self) -> Task<Message> {
+        let id = self.id.clone();
+
+        operation::is_focused(id.clone()).then(move |is_focused| {
+            if is_focused {
+                Task::none()
+            } else {
+                operation::focus(id.clone())
+            }
+        })
     }
 
     pub fn update(&mut self, message: Message) -> Option<Event> {
@@ -78,6 +92,7 @@ impl CommandBar {
 
         let combo_box =
             combo_box(&self.state, "Type a command...", None, Message::Command)
+                .id(self.id.clone())
                 .on_close(Message::Unfocused)
                 .on_option_hovered(Message::Hovered)
                 .size(font_size)

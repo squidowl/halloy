@@ -4,9 +4,8 @@ pub use data::appearance::theme::{
 };
 use data::config;
 use iced::Border;
+use iced::widget::combo_box;
 use iced::widget::text::LineHeight;
-
-use crate::widget::combo_box;
 
 pub mod button;
 pub mod checkbox;
@@ -117,14 +116,11 @@ pub fn line_height(config: &config::Font) -> LineHeight {
 
 pub fn resolve_line_height(config: &config::Font) -> f32 {
     line_height(config)
-        .to_absolute(
-            if let Some(size) = config.size {
-                f32::from(size)
-            } else {
-                TEXT_SIZE
-            }
-            .into(),
-        )
+        .to_absolute(if let Some(size) = config.size {
+            f32::from(size)
+        } else {
+            TEXT_SIZE
+        })
         .0
 }
 

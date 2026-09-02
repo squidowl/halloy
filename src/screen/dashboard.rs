@@ -2235,20 +2235,13 @@ impl Dashboard {
                         target,
                         buffer_action,
                     ) => {
-                        let buffer = match target {
-                            Target::Channel(channel) => {
-                                buffer::Upstream::Channel(server, channel)
-                            }
-                            Target::Query(query) => {
-                                buffer::Upstream::Query(server, query)
-                            }
-                        };
-
-                        tasks.push(self.open_buffer(
-                            data::Buffer::Upstream(buffer),
-                            buffer_action,
+                        tasks.push(self.open_target(
+                            server,
+                            target,
                             clients,
+                            buffer_action,
                             config,
+                            true,
                         ));
 
                         None
@@ -4666,16 +4659,10 @@ impl Dashboard {
                 self.close_command_bar();
                 self.open_command_bar(
                     servers, clients, buffers, version, config,
-                );
-
-                Task::none()
+                )
             }
-            None => {
-                self.open_command_bar(
-                    servers, clients, buffers, version, config,
-                );
-                Task::none()
-            }
+            None => self
+                .open_command_bar(servers, clients, buffers, version, config),
         }
     }
 
@@ -4691,9 +4678,10 @@ impl Dashboard {
         buffers: &[buffer::Upstream],
         version: &Version,
         config: &Config,
-    ) {
+    ) -> Task<Message> {
         self.command_bar_window = Some(self.focus.window);
-        self.command_bar = Some(CommandBar::new(
+
+        let command_bar = CommandBar::new(
             servers,
             clients,
             buffers,
@@ -4703,7 +4691,13 @@ impl Dashboard {
             self.buffer_resize_action(),
             self.main_window(),
             self.buffer_settings.show_muted,
-        ));
+        );
+
+        let focus_task = command_bar.focus();
+
+        self.command_bar = Some(command_bar);
+
+        focus_task.map(Message::Task)
     }
 
     fn close_command_bar(&mut self) {

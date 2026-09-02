@@ -54,7 +54,7 @@ pub fn typing_font_size(config: &Config) -> f32 {
 
 pub fn typing_line_height(config: &Config) -> f32 {
     theme::line_height(&config.font)
-        .to_absolute(typing_font_size(config).into())
+        .to_absolute(typing_font_size(config))
         .0
 }
 
