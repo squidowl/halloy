@@ -323,6 +323,7 @@ pub struct Text {
     pub info: OptionalTextStyle,
     pub debug: OptionalTextStyle,
     pub trace: OptionalTextStyle,
+    pub spellcheck_misspelled: OptionalTextStyle,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
@@ -908,6 +909,7 @@ mod binary {
         BufferFocusBorder = 60,
         BufferFocusBackground = 61,
         BufferSelfMessage = 62,
+        TextSpellcheckMisspelled = 63,
     }
 
     impl Tag {
@@ -927,6 +929,9 @@ mod binary {
                 Tag::TextError => styles.text.error.color,
                 Tag::TextWarning => styles.text.warning.color?,
                 Tag::TextInfo => styles.text.info.color?,
+                Tag::TextSpellcheckMisspelled => {
+                    styles.text.spellcheck_misspelled.color?
+                }
                 Tag::TextDebug => styles.text.debug.color?,
                 Tag::TextTrace => styles.text.trace.color?,
                 Tag::BufferAction => styles.buffer.action.color,
@@ -1065,6 +1070,9 @@ mod binary {
                 Tag::TextError => styles.text.error.color = color,
                 Tag::TextWarning => styles.text.warning.color = Some(color),
                 Tag::TextInfo => styles.text.info.color = Some(color),
+                Tag::TextSpellcheckMisspelled => {
+                    styles.text.spellcheck_misspelled.color = Some(color);
+                }
                 Tag::TextDebug => styles.text.debug.color = Some(color),
                 Tag::TextTrace => styles.text.trace.color = Some(color),
                 Tag::BufferAction => styles.buffer.action.color = color,

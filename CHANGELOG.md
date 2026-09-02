@@ -21,6 +21,13 @@ Added:
   - Links and channel mentions within a message can be focused and opened
   - New `buffer.focus` theme color for the focused message border
 - Server context menu action to open Channel Discovery with that server selected
+- Spellcheck for the message input (`buffer.text_input.spellcheck`)
+  - Uses the platform spellchecker; optional `locale`
+  - Skips channel names and known nicks
+  - <kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd> cycles suggestions when
+    autocomplete does not apply (`suggestions = true`)
+- Theme style `text.spellcheck_misspelled`
+  (default: `text.error` in italic when unset)
 
 Fixed:
 
