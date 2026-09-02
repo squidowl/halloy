@@ -5,7 +5,6 @@ use std::time::Duration;
 
 use ::image::image_dimensions;
 use fancy_regex::Regex;
-use iced_wgpu::wgpu;
 use log;
 use reqwest::header::{self, HeaderValue};
 use serde::{Deserialize, Serialize};
@@ -338,20 +337,9 @@ async fn load_inner(
         } else if let Ok((image_width, image_height)) =
             image_dimensions(&image.path)
         {
-            // As per iced, it is a webgpu requirement that:
-            //   BufferCopyView.layout.bytes_per_row % wgpu::COPY_BYTES_PER_ROW_ALIGNMENT == 0
-            // So we calculate padded_width by rounding width up to the next
-            // multiple of wgpu::COPY_BYTES_PER_ROW_ALIGNMENT.
-            let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
-            let padding = (align - (4 * image_width) % align) % align;
-            let padded_image_width = u64::from(4 * image_width + padding);
-            let padded_image_data_size =
-                padded_image_width * u64::from(image_height);
-
-            let max_buffer_size =
-                wgpu::Limits::downlevel_defaults().max_buffer_size;
-
-            if padded_image_data_size > max_buffer_size {
+            if let Some((padded_image_data_size, max_buffer_size)) =
+                image::gpu_buffer_overflow(image_width, image_height)
+            {
                 Err(LoadError::ImageDimensionsTooLarge {
                     padded_image_data_size,
                     max_buffer_size,

@@ -256,6 +256,26 @@ async fn fetch(
         bytes.extend_from_slice(&chunk);
     }
 
+    // Guard against decompression bombs: a small compressed payload can still
+    // decode to enormous pixel dimensions, so the byte cap above does not bound
+    // the memory needed to decode/upload the icon. Reuse the shared link-preview
+    // buffer-size guard and reject icons that would overflow it. SVG has no
+    // raster dimensions, so it is exempt. Done before the blob is cached.
+    if !matches!(format, image::Format::Svg) {
+        let dimensions = ::image::ImageReader::new(io::Cursor::new(&bytes))
+            .with_guessed_format()
+            .ok()
+            .and_then(|reader| reader.into_dimensions().ok());
+
+        let Some((width, height)) = dimensions else {
+            return Err(LoadError::ParseImage);
+        };
+
+        if image::gpu_buffer_overflow(width, height).is_some() {
+            return Err(LoadError::TooLarge);
+        }
+    }
+
     let mut hasher = Sha256::default();
     hasher.update(&bytes);
 
