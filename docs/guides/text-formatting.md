@@ -20,7 +20,7 @@ Markdown formatting characters can be escaped with `\`, but backslashes alone do
 
 Example
 
-```json
+```
 /format __this is bold__ $iand this is italic$i and \*this is escaped\*
 ```
 
@@ -71,6 +71,18 @@ Will both render the following:
 <span style="display: inline-block; background-color: #00fc00; color: #ff0000;">
   foobar
 </span>
+
+## Reset
+
+When using token-based formatting, the token `$r` will reset formatting back to plain text (i.e. remove all active formatting from where it is to the end of the message).  For example,
+
+```
+/format testing $i$bbold-italic$r then not
+```
+
+will render as
+
+> testing **_bold-italic_** then not
 
 ## Configuration
 
