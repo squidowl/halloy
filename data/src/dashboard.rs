@@ -110,20 +110,19 @@ impl Dashboard {
         Ok(std::fs::exists(path)?)
     }
 
-    pub fn load() -> Result<Self, Error> {
+    pub async fn load() -> Result<Self, Error> {
         let path = path()?;
+        let file = tokio::fs::File::open(&path).await?;
+        let reader = tokio::io::BufReader::new(file);
 
-        let bytes = std::fs::read(path)?;
-
-        Ok(compression::decompress(&bytes)?)
+        Ok(compression::decompress_and_deserialize(reader).await?)
     }
 
     pub async fn save(self) -> Result<(), Error> {
         let path = path()?;
+        let mut file = tokio::fs::File::create(&path).await?;
 
-        let bytes = compression::compress(&self)?;
-
-        tokio::fs::write(path, &bytes).await?;
+        compression::serialize_and_compress(&self, &mut file).await?;
 
         Ok(())
     }
