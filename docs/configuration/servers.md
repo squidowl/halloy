@@ -1323,3 +1323,16 @@ timestamp = "utc"
 [^1]: Windows path strings should usually be specified as literal strings (e.g. `'C:\Users\Default\'`), otherwise directory separators will need to be escaped (e.g. `"C:\\Users\\Default\\"`).
 
 [^2]: Relative paths are prefixed with the config directory (i.e. if you have your config.toml in `/home/me/.config/halloy/config.toml`, path `.passwd/libera` will be converted to `/home/me/.config/halloy/.passwd/libera`).
+
+### `file_format`
+
+The format used for the log files.
+
+```toml
+# Type: string
+# Values: "plain", "gzip"
+# Default: "plain"
+
+[servers.<name>.irc_protocol_log]
+file_format = "gzip"
+```
