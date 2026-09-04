@@ -33,13 +33,13 @@ The port to connect on. If you want to use a plain text port like 6667 you MUST 
 ```toml
 # Type: integer
 # Values: any non-negative integer
-# Default: 6697
+# Default: based on connection parameters, see table
 
 [servers.<name>]
 port = 6697
 ```
 
-::: tip
+::: info
 If you leave `port` unset, default ports will be chosen based on `use_tls` and
 `use_websocket` values:
 
