@@ -3706,7 +3706,6 @@ dependencies = [
  "tokio-rustls",
  "tokio-tungstenite",
  "tokio-util",
- "xz2",
 ]
 
 [[package]]
