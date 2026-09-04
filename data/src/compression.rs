@@ -1,30 +1,63 @@
 use std::io;
-use std::io::prelude::*;
 
-use flate2::Compression;
-use flate2::read::GzDecoder;
-use flate2::write::GzEncoder;
-use serde::Serialize;
-use serde::de::DeserializeOwned;
+use async_compression::tokio::bufread::GzipDecoder;
+use async_compression::tokio::write::GzipEncoder;
+use serde::{Deserialize, Serialize};
+use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt as _};
 
-pub fn compress<T: Serialize>(value: &T) -> Result<Vec<u8>, Error> {
-    let bytes = serde_json::to_vec(&value).map_err(Error::Encode)?;
-    let mut encoder = GzEncoder::new(Vec::new(), Compression::fast());
-    encoder.write_all(&bytes).map_err(Error::Compression)?;
-    encoder.finish().map_err(Error::Compression)
+pub async fn compress<R, W>(mut reader: R, writer: W) -> Result<(), Error>
+where
+    R: AsyncRead + Unpin,
+    W: AsyncWrite + Unpin,
+{
+    let mut encoder = GzipEncoder::new(writer);
+    tokio::io::copy(&mut reader, &mut encoder)
+        .await
+        .map_err(Error::Io)?;
+    encoder.shutdown().await.map_err(Error::Compression)?;
+    Ok(())
 }
 
-pub fn decompress<T: DeserializeOwned>(data: &[u8]) -> Result<T, Error> {
-    let mut bytes = vec![];
-    let mut encoder = GzDecoder::new(data);
-    encoder
-        .read_to_end(&mut bytes)
-        .map_err(Error::Decompression)?;
-    serde_json::from_slice(&bytes).map_err(Error::Decode)
+pub async fn decompress<R, W>(reader: R, mut writer: W) -> Result<(), Error>
+where
+    R: AsyncBufRead + Unpin,
+    W: AsyncWrite + Unpin,
+{
+    let mut decoder = GzipDecoder::new(reader);
+    tokio::io::copy(&mut decoder, &mut writer)
+        .await
+        .map_err(Error::Io)?;
+    Ok(())
+}
+
+pub async fn serialize_and_compress<T, W>(
+    value: &T,
+    writer: W,
+) -> Result<(), Error>
+where
+    T: ?Sized + Serialize,
+    W: AsyncWrite + Unpin,
+{
+    let serialized = serde_json::to_vec(value).map_err(Error::Encode)?;
+    compress(&serialized[..], writer).await?;
+    Ok(())
+}
+
+pub async fn decompress_and_deserialize<T, R>(reader: R) -> Result<T, Error>
+where
+    T: for<'de> Deserialize<'de>,
+    R: AsyncBufRead + Unpin,
+{
+    let mut decompressed = Vec::new();
+    decompress(reader, &mut decompressed).await?;
+    let value = serde_json::from_slice(&decompressed).map_err(Error::Decode)?;
+    Ok(value)
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("I/O failed")]
+    Io(io::Error),
     #[error("compression failed")]
     Compression(io::Error),
     #[error("decompression failed")]

@@ -52,7 +52,7 @@ keyring-core = "1"
 base64 = "0.23.0"
 dirs-next = "2.0.0"
 xdg = "3.0.0"
-flate2 = "1.0"
+async-compression = { version = "0.4.44", features = ["tokio", "gzip"] }
 hex = "0.4.3"
 iced_core = "0.15.0-dev"
 iced_wgpu = "0.15.0-dev"

@@ -861,6 +861,7 @@ pub struct IrcProtocolLog {
     pub enabled: bool,
     pub format: IrcProtocolLogFormat,
     pub timestamp: Timestamp,
+    pub file_format: FileFormat,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
@@ -870,6 +871,14 @@ pub enum IrcProtocolLogFormat {
     Halloy,
     Goguma,
     // TODO: ZNC format
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FileFormat {
+    #[default]
+    Plain,
+    Gzip,
 }
 
 #[cfg(test)]
