@@ -45,7 +45,7 @@ fn synthetic_shortcode(emoji: &emojis::Emoji) -> String {
     emoji.name().to_lowercase().replace(' ', "_")
 }
 
-fn shortcodes_for(emoji: &emojis::Emoji) -> Vec<String> {
+pub fn shortcodes_for(emoji: &emojis::Emoji) -> Vec<String> {
     let real: Vec<_> = emoji.shortcodes().map(str::to_string).collect();
     if real.is_empty() {
         vec![synthetic_shortcode(emoji)]
