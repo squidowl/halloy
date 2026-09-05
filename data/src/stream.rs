@@ -11,7 +11,7 @@ use irc::proto::{self, Command, command};
 use irc::{CodecLog, Connection, codec, connection};
 use tokio::fs::{self, File};
 use tokio::io::{AsyncWriteExt, BufWriter};
-use tokio::time::{self, Instant, Interval};
+use tokio::time::{self, Instant, Interval, MissedTickBehavior};
 
 use crate::client::Client;
 use crate::config::server::IrcProtocolLogFormat;
@@ -78,6 +78,7 @@ enum State {
         batch: Batch,
         ping_time: Interval,
         ping_timeout: Option<Interval>,
+        websocket_ping_time: Option<Interval>,
         quit_requested: Option<Instant>,
     },
     End,
@@ -89,6 +90,7 @@ enum Input {
     Send(proto::Message),
     Ping,
     PingTimeout,
+    WebSocketPing,
     Control(Control),
 }
 
@@ -253,6 +255,13 @@ async fn _run(
                                     ping_time: ping_time_interval(
                                         config.ping_time,
                                     ),
+                                    websocket_ping_time: config
+                                        .use_websocket
+                                        .then(|| {
+                                            ping_time_interval(
+                                                config.websocket_ping_time,
+                                            )
+                                        }),
                                     quit_requested: None,
                                 };
                             }
@@ -301,6 +310,7 @@ async fn _run(
                 batch,
                 ping_time,
                 ping_timeout,
+                websocket_ping_time,
                 quit_requested,
             } => {
                 let input = {
@@ -315,6 +325,16 @@ async fn _run(
                         batch.map(Input::Batch).boxed(),
                         (&mut control).map(Input::Control).boxed(),
                     ]);
+
+                    if let Some(ws_ping) = websocket_ping_time.as_mut() {
+                        select.push(
+                            ws_ping
+                                .tick()
+                                .into_stream()
+                                .map(|_| Input::WebSocketPing)
+                                .boxed(),
+                        );
+                    }
 
                     if let Some(timeout) = ping_timeout.as_mut() {
                         select.push(
@@ -487,6 +507,19 @@ async fn _run(
                                 config.reconnect_delay,
                             ),
                         };
+                    }
+                    Input::WebSocketPing => {
+                        let now = Posix::now().as_nanos().to_string();
+                        log::trace!("[{server}] websocket ping sent: {now}");
+
+                        match stream.connection.send_ws_ping().await {
+                            Ok(()) => {}
+                            Err(e) => {
+                                log::error!(
+                                    "[{server}] failed to send websocket ping: {e}"
+                                );
+                            }
+                        }
                     }
                     Input::Control(control) => match control {
                         Control::UpdateConfiguration(
@@ -832,10 +865,14 @@ impl futures::Stream for Batch {
 }
 
 fn ping_time_interval(secs: u64) -> Interval {
-    time::interval_at(
+    let mut interval = time::interval_at(
         Instant::now() + Duration::from_secs(secs),
         Duration::from_secs(secs),
-    )
+    );
+
+    interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+
+    interval
 }
 
 fn ping_timeout_interval(secs: u64) -> Interval {
