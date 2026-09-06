@@ -373,7 +373,6 @@ async fn load_uncached(
         Fetched::Image(image) => Ok(Preview::Image(image)),
         Fetched::Other(bytes) => {
             let MetaTagProperties {
-                canonical_url,
                 image_url,
                 title,
                 description,
@@ -406,8 +405,6 @@ async fn load_uncached(
 
             Ok(Preview::Card(Card {
                 url: url.clone(),
-                canonical_url: canonical_url
-                    .ok_or(LoadError::MissingProperty("url"))?,
                 image,
                 title: title.ok_or(LoadError::MissingProperty("title"))?,
                 description,
@@ -592,7 +589,6 @@ fn decode_html_string(s: &str) -> String {
 
 #[derive(Debug, Default)]
 struct MetaTagProperties {
-    canonical_url: Option<Url>,
     image_url: Option<Url>,
     title: Option<String>,
     description: Option<String>,
@@ -647,9 +643,6 @@ fn parse_meta_tag_properties(
         };
 
         match property.trim().to_ascii_lowercase().as_str() {
-            "og:url" if meta.canonical_url.is_none() => {
-                meta.canonical_url = Some(content.parse()?);
-            }
             "og:image" | "og:image:url" | "og:image:secure_url"
                 if meta.image_url.is_none() =>
             {
@@ -742,7 +735,6 @@ mod tests {
     fn parses_mixed_attribute_order_and_quotes() {
         let html = br#"
             <html><head>
-                <meta content="https://example.com/page" property="og:url">
                 <meta property='og:image' content='https://cdn.example.com/a.png'>
                 <meta content="Title" property="og:title">
                 <meta property="og:description" content="  Hello &amp; goodbye  ">
@@ -751,10 +743,6 @@ mod tests {
 
         let meta = parse_meta_tag_properties(html).expect("should parse");
 
-        assert_eq!(
-            meta.canonical_url.as_ref().map(url::Url::as_str),
-            Some("https://example.com/page")
-        );
         assert_eq!(
             meta.image_url.as_ref().map(url::Url::as_str),
             Some("https://cdn.example.com/a.png")
@@ -778,10 +766,6 @@ mod tests {
             Some("https://img.example.com/secure.jpg")
         );
         assert_eq!(meta.title.as_deref(), Some("From name attr"));
-        assert_eq!(
-            meta.canonical_url.as_ref().map(url::Url::as_str),
-            Some("https://example.com/post")
-        );
     }
 
     #[test]
@@ -798,10 +782,6 @@ mod tests {
         let meta = parse_meta_tag_properties(html).expect("should parse");
 
         assert_eq!(meta.title.as_deref(), Some("First"));
-        assert_eq!(
-            meta.canonical_url.as_ref().map(url::Url::as_str),
-            Some("https://example.com/one")
-        );
         assert_eq!(
             meta.image_url.as_ref().map(url::Url::as_str),
             Some("https://example.com/img1.png")
