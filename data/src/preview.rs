@@ -376,7 +376,7 @@ async fn load_uncached(
                 image_url,
                 title,
                 description,
-            } = parse_meta_tag_properties(&bytes)?;
+            } = parse_meta_tag_properties(&url, &bytes)?;
 
             let image_url =
                 image_url.ok_or(LoadError::MissingProperty("image"))?;
@@ -595,6 +595,7 @@ struct MetaTagProperties {
 }
 
 fn parse_meta_tag_properties(
+    url: &Url,
     bytes: &[u8],
 ) -> Result<MetaTagProperties, LoadError> {
     let mut meta = MetaTagProperties::default();
@@ -646,7 +647,7 @@ fn parse_meta_tag_properties(
             "og:image" | "og:image:url" | "og:image:secure_url"
                 if meta.image_url.is_none() =>
             {
-                meta.image_url = Some(content.parse()?);
+                meta.image_url = Some(url.join(&content)?);
             }
             "og:title" if meta.title.is_none() => {
                 meta.title = Some(content);
@@ -733,6 +734,8 @@ mod tests {
 
     #[test]
     fn parses_mixed_attribute_order_and_quotes() {
+        let url = "https://example.com/page".parse().expect("valid URL");
+
         let html = br#"
             <html><head>
                 <meta property='og:image' content='https://cdn.example.com/a.png'>
@@ -741,7 +744,7 @@ mod tests {
             </head></html>
         "#;
 
-        let meta = parse_meta_tag_properties(html).expect("should parse");
+        let meta = parse_meta_tag_properties(&url, html).expect("should parse");
 
         assert_eq!(
             meta.image_url.as_ref().map(url::Url::as_str),
@@ -753,13 +756,14 @@ mod tests {
 
     #[test]
     fn parses_name_attr_and_secure_image_variant() {
+        let url = "https://example.com/post".parse().expect("valid URL");
         let html = br#"
             <meta name="og:image:secure_url" content="https://img.example.com/secure.jpg">
             <meta name="og:title" content="From name attr">
             <meta name="og:url" content="https://example.com/post">
         "#;
 
-        let meta = parse_meta_tag_properties(html).expect("should parse");
+        let meta = parse_meta_tag_properties(&url, html).expect("should parse");
 
         assert_eq!(
             meta.image_url.as_ref().map(url::Url::as_str),
@@ -770,6 +774,7 @@ mod tests {
 
     #[test]
     fn first_value_wins_for_duplicates() {
+        let url = "https://example.com/page".parse().expect("valid URL");
         let html = br#"
             <meta property="og:title" content="First">
             <meta property="og:title" content="Second">
@@ -779,7 +784,7 @@ mod tests {
             <meta property="og:image" content="https://example.com/img2.png">
         "#;
 
-        let meta = parse_meta_tag_properties(html).expect("should parse");
+        let meta = parse_meta_tag_properties(&url, html).expect("should parse");
 
         assert_eq!(meta.title.as_deref(), Some("First"));
         assert_eq!(
@@ -790,15 +795,33 @@ mod tests {
 
     #[test]
     fn property_attribute_takes_precedence_over_name_on_same_meta_tag() {
+        let url = "https://example.com/page".parse().expect("valid URL");
         let html = br#"
             <meta property="og:image" name="twitter:image" content="https://example.com/og.png">
         "#;
 
-        let meta = parse_meta_tag_properties(html).expect("should parse");
+        let meta = parse_meta_tag_properties(&url, html).expect("should parse");
 
         assert_eq!(
             meta.image_url.as_ref().map(url::Url::as_str),
             Some("https://example.com/og.png")
+        );
+    }
+
+    #[test]
+    fn parses_relative_image_url() {
+        let url = "https://cultofthepartyparrot.com/"
+            .parse()
+            .expect("valid URL");
+        let html = br#"
+            <meta property="og:image" content="/assets/og.png" />
+        "#;
+
+        let meta = parse_meta_tag_properties(&url, html).expect("should parse");
+
+        assert_eq!(
+            meta.image_url.as_ref().map(url::Url::as_str),
+            Some("https://cultofthepartyparrot.com/assets/og.png")
         );
     }
 }
