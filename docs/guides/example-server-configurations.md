@@ -32,6 +32,18 @@ sasl.plain.password_file = "/path/to/super-secret-password-file" # file containi
 ```
 
 ## [IRCCloud](https://www.irccloud.com/)
+
+```toml
+[servers.Something] # use the name of the network you're connecting to through IRCCloud, like OFTC or Libera
+server = "bnc.irccloud.com"
+use_tls = true
+port = 6697
+
+nickname = "registered-user" # your name on the server
+realname = "registered-user" # must be set, may match your nickname or your real name or something else
+password = "bnc@clientid:random-string" # password from "Connect with another IRC client" dialogue
+
+channels = ["#halloy"] # channel(s) joined on launch
 ```
 
 ## [OFTC](https://oftc.net/)
