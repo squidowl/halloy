@@ -1938,7 +1938,7 @@ fn validated_mode_string(
         let chanmodes = isupport::get_chanmodes_or_default(isupport);
         let prefix = isupport::get_prefix_or_default(isupport);
 
-        let mut channel_modes_regex = String::from(r"^((\+|\-)[");
+        let mut channel_modes_regex = String::from(r"^((^|\+|\-)[");
         for chanmode in chanmodes {
             channel_modes_regex += chanmode.modes.as_ref();
         }
@@ -1973,12 +1973,12 @@ fn validated_mode_string(
         channel_modes_regex += r")+$";
 
         Regex::new(&channel_modes_regex)
-            .unwrap_or(Regex::new(r"^((\+|\-)[A-Za-z]+)+$").unwrap())
+            .unwrap_or(Regex::new(r"^((\+|\-)?[A-Za-z]+)+$").unwrap())
     } else {
         // User modes from RPL_MYINFO is unreliable, so use the most permissive
         // regex instead of crafting a regex for the server
 
-        let mut user_modes_regex = String::from(r"^((\+|\-)[A-Za-z]");
+        let mut user_modes_regex = String::from(r"^((^|\+|\-)[A-Za-z]");
         if let Some(mode_limit) = mode_limit {
             user_modes_regex += r"{1,";
             user_modes_regex += &format!("{mode_limit}");
@@ -1988,7 +1988,7 @@ fn validated_mode_string(
         }
         user_modes_regex += r")+$";
         Regex::new(&user_modes_regex)
-            .unwrap_or(Regex::new(r"^((\+|\-)[A-Za-z]+)+$").unwrap())
+            .unwrap_or(Regex::new(r"^((\+|\-)?[A-Za-z]+)+$").unwrap())
     };
 
     Ok(mode_string_regex.is_match(mode_string).unwrap_or_default())
@@ -2265,6 +2265,34 @@ mod tests {
                 )
                 .is_ok()
             );
+        }
+    }
+
+    #[test]
+    fn mode_limit_with_optional_initial_sign() {
+        for target in ["#channel", "nickname"] {
+            for (modes, expected) in [
+                ("b", true),
+                ("bbb", true),
+                ("+bbb", true),
+                ("-bbb", true),
+                ("b+bb", true),
+                ("+bb-b", true),
+                ("bbbb", false),
+                ("+bbbb", false),
+                ("-bbbb", false),
+            ] {
+                assert_eq!(
+                    super::validated_mode_string(
+                        target,
+                        modes,
+                        &isupport::DEFAULT,
+                        false,
+                    ),
+                    Ok(expected),
+                    "{target} {modes} (default mode limit is three)",
+                );
+            }
         }
     }
 
