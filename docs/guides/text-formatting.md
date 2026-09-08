@@ -15,7 +15,7 @@ Below is a table with the supported text attributes.
 | Underline             | -                       | `$uunderline$u`           |
 | Code                  | `` `code` ``            | `$mcode$m`                |
 | Spoiler               | `\|\|spoiler\|\|`       | -                         |
-| Link                  | `<url>`                 | -                         |
+| Link[^1]              | `<url>`                 | -                         |
 
 Markdown formatting characters can be escaped with `\`, but backslashes alone do not need escaping.
 
@@ -97,3 +97,5 @@ auto_format = "disabled" | "markdown" | "all"
 Token-based formatting is included in `"all"`, in addition to Markdown formatting, which provides underline and color formatting that `"markdown"` does not.
 
 When `auto_format` is enabled, it can be disabled for an individual message by using the `/plain` command.
+
+[^1]: The text inside link brackets `<` and `>` will not be formatted by Halloy (e.g. `_`'s will not start/stop italics).  However, whether the interior text is parsed as a URL or not is up to the rendering client.
