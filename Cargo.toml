@@ -83,7 +83,6 @@ iced = { workspace = true, features = [
     "tiny-skia",
     "fira-sans",
     "tokio",
-    "lazy",
     "advanced",
     "image",
     "svg",
@@ -125,7 +124,6 @@ iced = { workspace = true, features = [
     "tiny-skia",
     "fira-sans",
     "tokio",
-    "lazy",
     "advanced",
     "image",
     "svg",
@@ -168,9 +166,9 @@ embed-resource = "3.0.2"
 windows_exe_info = "0.4"
 
 [patch.crates-io]
-iced = { git = "https://github.com/squidowl/iced", rev = "de8164b9aed4f4bfa88c0458e4076a37be6496cc" }
-iced_core = { git = "https://github.com/squidowl/iced", rev = "de8164b9aed4f4bfa88c0458e4076a37be6496cc" }
-iced_wgpu = { git = "https://github.com/squidowl/iced", rev = "de8164b9aed4f4bfa88c0458e4076a37be6496cc" }
+iced = { git = "https://github.com/squidowl/iced", rev = "e2334f93989db93ad43806591a80a234520c282f" }
+iced_core = { git = "https://github.com/squidowl/iced", rev = "e2334f93989db93ad43806591a80a234520c282f" }
+iced_wgpu = { git = "https://github.com/squidowl/iced", rev = "e2334f93989db93ad43806591a80a234520c282f" }
 
 [profile.packaging]
 inherits = "release"

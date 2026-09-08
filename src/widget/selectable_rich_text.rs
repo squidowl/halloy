@@ -11,8 +11,8 @@ use iced::advanced::{Layout, Shell, Widget, layout, renderer};
 use iced::widget::container;
 use iced::widget::text::{IntoFragment as _, LineHeight, Shaping};
 use iced::{
-    self, Background, Border, Color, Element, Event, Length, Pixels, Point,
-    Rectangle, Shadow, Size, Vector, alignment, mouse, widget,
+    self, Background, Border, Color, Element, Event, Font, Length, Pixels,
+    Point, Rectangle, Shadow, Size, Vector, alignment, mouse, widget,
 };
 use itertools::Itertools;
 
@@ -21,7 +21,7 @@ use super::selectable_text::{Catalog, Interaction, Style, StyleFn, selection};
 
 /// Creates a new [`Rich`] text widget with the provided spans.
 pub fn selectable_rich_text<'a, Message, Link, Entry, Theme, Renderer>(
-    spans: impl Into<Cow<'a, [Span<'a, Link, Renderer::Font>]>>,
+    spans: impl Into<Cow<'a, [Span<'a, Link>]>>,
 ) -> Rich<'a, Message, Link, Entry, Theme, Renderer>
 where
     Link: self::Link + 'static,
@@ -45,12 +45,12 @@ pub struct Rich<
     Theme: Catalog,
     Renderer: text::Renderer,
 {
-    spans: Cow<'a, [Span<'a, Link, Renderer::Font>]>,
+    spans: Cow<'a, [Span<'a, Link>]>,
     size: Option<Pixels>,
-    line_height: LineHeight,
+    line_height: Option<LineHeight>,
     width: Length,
     height: Length,
-    font: Option<Renderer::Font>,
+    font: Option<Font>,
     align_x: text::Alignment,
     align_y: alignment::Vertical,
     class: Theme::Class<'a>,
@@ -84,7 +84,7 @@ where
         Self {
             spans: Cow::default(),
             size: None,
-            line_height: crate::font::line_height(),
+            line_height: None,
             width: Length::Shrink,
             height: Length::Shrink,
             font: None,
@@ -100,9 +100,7 @@ where
     }
 
     /// Creates a new [`Rich`] text with the given text spans.
-    pub fn with_spans(
-        spans: impl Into<Cow<'a, [Span<'a, Link, Renderer::Font>]>>,
-    ) -> Self {
+    pub fn with_spans(spans: impl Into<Cow<'a, [Span<'a, Link>]>>) -> Self {
         Self {
             spans: spans.into(),
             ..Self::new()
@@ -117,21 +115,18 @@ where
 
     /// Sets the default [`LineHeight`] of the [`Rich`] text.
     pub fn line_height(mut self, line_height: impl Into<LineHeight>) -> Self {
-        self.line_height = line_height.into();
+        self.line_height = Some(line_height.into());
         self
     }
 
     /// Sets the default font of the [`Rich`] text.
-    pub fn font(mut self, font: impl Into<Renderer::Font>) -> Self {
+    pub fn font(mut self, font: impl Into<Font>) -> Self {
         self.font = Some(font.into());
         self
     }
 
     /// Sets the default font of the [`Rich`] text, if `Some`.
-    pub fn font_maybe(
-        mut self,
-        font: Option<impl Into<Renderer::Font>>,
-    ) -> Self {
+    pub fn font_maybe(mut self, font: Option<impl Into<Font>>) -> Self {
         self.font = font.map(Into::into);
         self
     }
@@ -240,7 +235,7 @@ pub trait Link: Clone {
 impl Link for () {}
 
 struct State<Link, P: Paragraph> {
-    spans: Vec<Span<'static, Link, P::Font>>,
+    spans: Vec<Span<'static, Link>>,
     span_pressed: Option<usize>,
     paragraph: P,
     hovered: bool,
@@ -464,16 +459,18 @@ where
 
                 // Toggle spoiler on click
                 if let Some(position) = cursor.position_in(bounds) {
+                    let font = self.font.unwrap_or_else(|| renderer.font());
                     let size =
-                        self.size.unwrap_or_else(|| renderer.default_size());
-                    let font =
-                        self.font.unwrap_or_else(|| renderer.default_font());
+                        self.size.unwrap_or_else(|| renderer.text_size());
+                    let line_height = self
+                        .line_height
+                        .unwrap_or_else(|| renderer.line_height());
 
                     let text_with_spans = |spans| Text {
                         content: spans,
                         bounds: bounds.size(),
                         size,
-                        line_height: self.line_height,
+                        line_height,
                         font,
                         align_x: self.align_x,
                         align_y: self.align_y,
@@ -665,11 +662,11 @@ where
                     let size = span
                         .size
                         .or(self.size)
-                        .unwrap_or(renderer.default_size());
-
+                        .unwrap_or_else(|| renderer.text_size());
                     let line_height = span
                         .line_height
-                        .unwrap_or(self.line_height)
+                        .or(self.line_height)
+                        .unwrap_or_else(|| renderer.line_height())
                         .to_absolute(size);
 
                     let color = span
@@ -726,9 +723,11 @@ where
             .selection()
             .and_then(|raw| raw.resolve(bounds))
         {
-            let line_height = f32::from(self.line_height.to_absolute(
-                self.size.unwrap_or_else(|| renderer.default_size()),
-            ));
+            let size = self.size.unwrap_or_else(|| renderer.text_size());
+            let line_height_rel =
+                self.line_height.unwrap_or_else(|| renderer.line_height());
+
+            let line_height = f32::from(line_height_rel.to_absolute(size));
 
             let baseline_y = bounds.y
                 + ((selection.start.y - bounds.y) / line_height).floor()
@@ -887,10 +886,10 @@ fn layout<Link, Renderer>(
     limits: &layout::Limits,
     width: Length,
     height: Length,
-    spans: &[Span<'_, Link, Renderer::Font>],
-    line_height: LineHeight,
+    spans: &[Span<'_, Link>],
+    line_height: Option<LineHeight>,
     size: Option<Pixels>,
-    font: Option<Renderer::Font>,
+    font: Option<Font>,
     align_x: text::Alignment,
     align_y: alignment::Vertical,
 ) -> layout::Node
@@ -901,8 +900,9 @@ where
     layout::sized(limits, width, height, |limits| {
         let bounds = limits.max();
 
-        let size = size.unwrap_or_else(|| renderer.default_size());
-        let font = font.unwrap_or_else(|| renderer.default_font());
+        let font = font.unwrap_or_else(|| renderer.font());
+        let size = size.unwrap_or_else(|| renderer.text_size());
+        let line_height = line_height.unwrap_or_else(|| renderer.line_height());
 
         let text_with_spans = |spans| Text {
             content: spans,
@@ -984,17 +984,14 @@ where
     })
 }
 
-impl<'a, Message, Link, Entry, Theme, Renderer>
-    FromIterator<Span<'a, Link, Renderer::Font>>
+impl<'a, Message, Link, Entry, Theme, Renderer> FromIterator<Span<'a, Link>>
     for Rich<'a, Message, Link, Entry, Theme, Renderer>
 where
     Link: self::Link + 'static,
     Theme: Catalog,
     Renderer: text::Renderer,
 {
-    fn from_iter<T: IntoIterator<Item = Span<'a, Link, Renderer::Font>>>(
-        spans: T,
-    ) -> Self {
+    fn from_iter<T: IntoIterator<Item = Span<'a, Link>>>(spans: T) -> Self {
         Self {
             spans: spans.into_iter().collect(),
             ..Self::new()
