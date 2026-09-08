@@ -59,12 +59,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "aliasable"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "250f629c0161ad8107cf89319e990051fae62832fd343083bea452d93e2205fd"
-
-[[package]]
 name = "aligned"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1676,7 +1670,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0bc153c91ebf221a2e7feb166aee259acf8a00ecf35c83df8b79fe8f5c3861d7"
 dependencies = [
  "derive-deftly-macros",
- "heck 0.5.0",
+ "heck",
 ]
 
 [[package]]
@@ -1685,7 +1679,7 @@ version = "1.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1747ed5fb4ab3a9f8253da3401efe7ca8f8e5ec373b2e700ff55c3304d84e31f"
 dependencies = [
- "heck 0.5.0",
+ "heck",
  "indexmap 2.14.1",
  "itertools 0.15.0",
  "proc-macro-crate",
@@ -2955,12 +2949,6 @@ dependencies = [
 
 [[package]]
 name = "heck"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
-
-[[package]]
-name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
@@ -3172,7 +3160,7 @@ dependencies = [
 [[package]]
 name = "iced"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=de8164b9aed4f4bfa88c0458e4076a37be6496cc#de8164b9aed4f4bfa88c0458e4076a37be6496cc"
+source = "git+https://github.com/squidowl/iced?rev=e2334f93989db93ad43806591a80a234520c282f#e2334f93989db93ad43806591a80a234520c282f"
 dependencies = [
  "iced_core",
  "iced_debug",
@@ -3190,7 +3178,7 @@ dependencies = [
 [[package]]
 name = "iced_beacon"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=de8164b9aed4f4bfa88c0458e4076a37be6496cc#de8164b9aed4f4bfa88c0458e4076a37be6496cc"
+source = "git+https://github.com/squidowl/iced?rev=e2334f93989db93ad43806591a80a234520c282f#e2334f93989db93ad43806591a80a234520c282f"
 dependencies = [
  "bincode 1.3.3",
  "futures",
@@ -3205,7 +3193,7 @@ dependencies = [
 [[package]]
 name = "iced_core"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=de8164b9aed4f4bfa88c0458e4076a37be6496cc#de8164b9aed4f4bfa88c0458e4076a37be6496cc"
+source = "git+https://github.com/squidowl/iced?rev=e2334f93989db93ad43806591a80a234520c282f#e2334f93989db93ad43806591a80a234520c282f"
 dependencies = [
  "bitflags 2.11.0",
  "bytes",
@@ -3225,7 +3213,7 @@ dependencies = [
 [[package]]
 name = "iced_debug"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=de8164b9aed4f4bfa88c0458e4076a37be6496cc#de8164b9aed4f4bfa88c0458e4076a37be6496cc"
+source = "git+https://github.com/squidowl/iced?rev=e2334f93989db93ad43806591a80a234520c282f#e2334f93989db93ad43806591a80a234520c282f"
 dependencies = [
  "iced_beacon",
  "iced_core",
@@ -3236,7 +3224,7 @@ dependencies = [
 [[package]]
 name = "iced_devtools"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=de8164b9aed4f4bfa88c0458e4076a37be6496cc#de8164b9aed4f4bfa88c0458e4076a37be6496cc"
+source = "git+https://github.com/squidowl/iced?rev=e2334f93989db93ad43806591a80a234520c282f#e2334f93989db93ad43806591a80a234520c282f"
 dependencies = [
  "iced_debug",
  "iced_program",
@@ -3247,7 +3235,7 @@ dependencies = [
 [[package]]
 name = "iced_futures"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=de8164b9aed4f4bfa88c0458e4076a37be6496cc#de8164b9aed4f4bfa88c0458e4076a37be6496cc"
+source = "git+https://github.com/squidowl/iced?rev=e2334f93989db93ad43806591a80a234520c282f#e2334f93989db93ad43806591a80a234520c282f"
 dependencies = [
  "futures",
  "iced_core",
@@ -3261,7 +3249,7 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=de8164b9aed4f4bfa88c0458e4076a37be6496cc#de8164b9aed4f4bfa88c0458e4076a37be6496cc"
+source = "git+https://github.com/squidowl/iced?rev=e2334f93989db93ad43806591a80a234520c282f#e2334f93989db93ad43806591a80a234520c282f"
 dependencies = [
  "bitflags 2.11.0",
  "bytemuck",
@@ -3280,7 +3268,7 @@ dependencies = [
 [[package]]
 name = "iced_highlighter"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=de8164b9aed4f4bfa88c0458e4076a37be6496cc#de8164b9aed4f4bfa88c0458e4076a37be6496cc"
+source = "git+https://github.com/squidowl/iced?rev=e2334f93989db93ad43806591a80a234520c282f#e2334f93989db93ad43806591a80a234520c282f"
 dependencies = [
  "iced_core",
  "two-face",
@@ -3289,7 +3277,7 @@ dependencies = [
 [[package]]
 name = "iced_program"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=de8164b9aed4f4bfa88c0458e4076a37be6496cc#de8164b9aed4f4bfa88c0458e4076a37be6496cc"
+source = "git+https://github.com/squidowl/iced?rev=e2334f93989db93ad43806591a80a234520c282f#e2334f93989db93ad43806591a80a234520c282f"
 dependencies = [
  "iced_graphics",
  "iced_runtime",
@@ -3298,7 +3286,7 @@ dependencies = [
 [[package]]
 name = "iced_renderer"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=de8164b9aed4f4bfa88c0458e4076a37be6496cc#de8164b9aed4f4bfa88c0458e4076a37be6496cc"
+source = "git+https://github.com/squidowl/iced?rev=e2334f93989db93ad43806591a80a234520c282f#e2334f93989db93ad43806591a80a234520c282f"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
@@ -3310,7 +3298,7 @@ dependencies = [
 [[package]]
 name = "iced_runtime"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=de8164b9aed4f4bfa88c0458e4076a37be6496cc#de8164b9aed4f4bfa88c0458e4076a37be6496cc"
+source = "git+https://github.com/squidowl/iced?rev=e2334f93989db93ad43806591a80a234520c282f#e2334f93989db93ad43806591a80a234520c282f"
 dependencies = [
  "bytes",
  "iced_core",
@@ -3321,7 +3309,7 @@ dependencies = [
 [[package]]
 name = "iced_tiny_skia"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=de8164b9aed4f4bfa88c0458e4076a37be6496cc#de8164b9aed4f4bfa88c0458e4076a37be6496cc"
+source = "git+https://github.com/squidowl/iced?rev=e2334f93989db93ad43806591a80a234520c282f#e2334f93989db93ad43806591a80a234520c282f"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -3338,7 +3326,7 @@ dependencies = [
 [[package]]
 name = "iced_wgpu"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=de8164b9aed4f4bfa88c0458e4076a37be6496cc#de8164b9aed4f4bfa88c0458e4076a37be6496cc"
+source = "git+https://github.com/squidowl/iced?rev=e2334f93989db93ad43806591a80a234520c282f#e2334f93989db93ad43806591a80a234520c282f"
 dependencies = [
  "bitflags 2.11.0",
  "bytemuck",
@@ -3357,14 +3345,13 @@ dependencies = [
 [[package]]
 name = "iced_widget"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=de8164b9aed4f4bfa88c0458e4076a37be6496cc#de8164b9aed4f4bfa88c0458e4076a37be6496cc"
+source = "git+https://github.com/squidowl/iced?rev=e2334f93989db93ad43806591a80a234520c282f#e2334f93989db93ad43806591a80a234520c282f"
 dependencies = [
  "iced_highlighter",
  "iced_renderer",
  "iced_runtime",
  "log",
  "num-traits",
- "ouroboros",
  "rustc-hash 2.1.2",
  "thiserror 2.0.20",
  "unicode-segmentation",
@@ -3373,7 +3360,7 @@ dependencies = [
 [[package]]
 name = "iced_winit"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=de8164b9aed4f4bfa88c0458e4076a37be6496cc#de8164b9aed4f4bfa88c0458e4076a37be6496cc"
+source = "git+https://github.com/squidowl/iced?rev=e2334f93989db93ad43806591a80a234520c282f#e2334f93989db93ad43806591a80a234520c282f"
 dependencies = [
  "arboard",
  "iced_debug",
@@ -4065,12 +4052,6 @@ name = "linebender_resource_handle"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4a5ff6bcca6c4867b1c4fd4ef63e4db7436ef363e0ad7531d1558856bae64f4"
-
-[[package]]
-name = "linked-hash-map"
-version = "0.5.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0717cef1bc8b636c6e1c1bbdefc09e6322da8a9321966e8928ef80d20f7f770f"
 
 [[package]]
 name = "linux-raw-sys"
@@ -5131,30 +5112,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ouroboros"
-version = "0.18.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e0f050db9c44b97a94723127e6be766ac5c340c48f2c4bb3ffa11713744be59"
-dependencies = [
- "aliasable",
- "ouroboros_macro",
- "static_assertions",
-]
-
-[[package]]
-name = "ouroboros_macro"
-version = "0.18.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c7028bdd3d43083f6d8d4d5187680d0d3560d54df4cc9d752005268b41e64d0"
-dependencies = [
- "heck 0.4.1",
- "proc-macro2",
- "proc-macro2-diagnostics",
- "quote",
- "syn 2.0.117",
-]
-
-[[package]]
 name = "owned_ttf_parser"
 version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5442,19 +5399,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
-name = "plist"
-version = "1.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "092791278e026273c1b65bbdcfbba3a300f2994c896bd01ab01da613c29c46f1"
-dependencies = [
- "base64 0.22.1",
- "indexmap 2.14.1",
- "quick-xml 0.39.2",
- "serde",
- "time",
-]
-
-[[package]]
 name = "png"
 version = "0.17.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5628,19 +5572,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fd00f0bb2e90d81d1044c2b32617f68fcb9fa3bb7640c23e9c748e53fb30934"
 dependencies = [
  "unicode-ident",
-]
-
-[[package]]
-name = "proc-macro2-diagnostics"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af066a9c399a26e020ada66a034357a868728e72cd426f3adcd35f80d88d88c8"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.117",
- "version_check",
- "yansi",
 ]
 
 [[package]]
@@ -7189,7 +7120,7 @@ version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab85eea0270ee17587ed4156089e10b9e6880ee688791d45a905f5b1ca36f664"
 dependencies = [
- "heck 0.5.0",
+ "heck",
  "proc-macro2",
  "quote",
  "syn 2.0.117",
@@ -7439,14 +7370,11 @@ dependencies = [
  "flate2",
  "fnv",
  "once_cell",
- "plist",
  "regex-syntax",
  "serde",
  "serde_derive",
- "serde_json",
  "thiserror 2.0.20",
  "walkdir",
- "yaml-rust",
 ]
 
 [[package]]
@@ -9099,9 +9027,9 @@ dependencies = [
 
 [[package]]
 name = "two-face"
-version = "0.4.5"
+version = "0.5.2+bat-0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39e51b6e60e545cfdae5a4639ff423818f52372211a8d9a3e892b4b0761f76b2"
+checksum = "915be7adc2ff6f4338acbf71f3eda0a146f46003b992a1669c674308610efdac"
 dependencies = [
  "serde",
  "serde_derive",
@@ -10628,7 +10556,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ea61de684c3ea68cb082b7a88508a8b27fcc8b797d738bfc99a82facf1d752dc"
 dependencies = [
  "anyhow",
- "heck 0.5.0",
+ "heck",
  "wit-parser",
 ]
 
@@ -10639,7 +10567,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b7c566e0f4b284dd6561c786d9cb0142da491f46a9fbed79ea69cdad5db17f21"
 dependencies = [
  "anyhow",
- "heck 0.5.0",
+ "heck",
  "indexmap 2.14.1",
  "prettyplease",
  "syn 2.0.117",
@@ -10845,21 +10773,6 @@ name = "y4m"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a5a4b21e1a62b67a2970e6831bc091d7b87e119e7f9791aef9702e3bef04448"
-
-[[package]]
-name = "yaml-rust"
-version = "0.4.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56c1936c4cc7a1c9ab21a1ebb602eb942ba868cbd44a99cb7cdc5892335e1c85"
-dependencies = [
- "linked-hash-map",
-]
-
-[[package]]
-name = "yansi"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cfe53a6657fd280eaa890a3bc59152892ffa3e30101319d168b781ed6529b049"
 
 [[package]]
 name = "yazi"

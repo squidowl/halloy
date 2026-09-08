@@ -110,7 +110,7 @@ impl UserDisplay {
             selectable,
             theme,
             config,
-            font::line_height(),
+            font::line_height(&config.font),
         );
 
         let base = if highlight {
