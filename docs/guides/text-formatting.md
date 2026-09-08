@@ -15,6 +15,7 @@ Below is a table with the supported text attributes.
 | Underline             | -                       | `$uunderline$u`           |
 | Code                  | `` `code` ``            | `$mcode$m`                |
 | Spoiler               | `\|\|spoiler\|\|`       | -                         |
+| Link                  | `<url>`                 | -                         |
 
 Markdown formatting characters can be escaped with `\`, but backslashes alone do not need escaping.
 
