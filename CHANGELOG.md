@@ -22,6 +22,7 @@ Added:
   - New `buffer.focus` theme color for the focused message border
 - Server context menu action to open Channel Discovery with that server selected
 - Animated GIFs support
+- Support link delimiters (`<` & `>`) with markdown formatting
 
 Fixed:
 
