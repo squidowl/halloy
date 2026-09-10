@@ -8,6 +8,7 @@ use super::{
     ConfirmMessageDelivery, Filters, Icon, Muteable, OptionalTyping, Reroute,
     Server, SidebarVisibility,
 };
+use crate::capabilities::Capability;
 use crate::config::sidebar::OrderChannelsBy;
 use crate::metadata;
 
@@ -32,6 +33,7 @@ pub(crate) struct Overrides {
     metadata: Option<HashMap<metadata::Key, String>>,
     icon: Option<Icon>,
     sidebar_visibility: Option<SidebarVisibility>,
+    do_not_request: Option<Vec<Capability>>,
 }
 
 impl Overrides {
@@ -84,6 +86,9 @@ impl Overrides {
         }
         if let Some(value) = self.sidebar_visibility {
             config.sidebar_visibility = value;
+        }
+        if let Some(value) = &self.do_not_request {
+            config.do_not_request.clone_from(value);
         }
     }
 }

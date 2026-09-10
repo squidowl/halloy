@@ -1242,12 +1242,10 @@ You can use `enabled = false` to hide a network and disconnect Halloy from it
 
 You can also override:
 
-`enabled`, `filters`, `reroute`, `channels`, `order_channels_by`, `queries`,
-`umodes`, `on_connect`, `who_poll_enabled`, `monitor`,
-`automated_chathistory`, `confirm_message_delivery`, `typing`, `metadata`, `icon`,
 - `automated_chathistory`
 - `channels`
 - `confirm_message_delivery`
+- `do_not_request`
 - `filters`
 - `icon`
 - `metadata`
