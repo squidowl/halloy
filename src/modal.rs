@@ -5,7 +5,7 @@ use data::{Image, Server, config};
 use iced::Task;
 
 use crate::widget::Element;
-use crate::{Theme, open_url, window};
+use crate::{Theme, image_animation, open_url, window};
 
 pub mod about;
 pub mod confirm_file_upload;
@@ -31,6 +31,7 @@ pub enum Modal {
     ImagePreview {
         image: Image,
         timer: Option<Instant>,
+        animation: Option<image_animation::Animation>,
         window: window::Id,
     },
     ConfirmFileUpload {
@@ -57,6 +58,7 @@ pub enum Message {
 pub enum ImagePreview {
     SaveImage(PathBuf),
     SavedImage(Option<PathBuf>),
+    Animation(image_animation::Message),
 }
 
 #[derive(Debug, Clone)]
@@ -73,17 +75,60 @@ pub enum Event {
 }
 
 impl Modal {
+    pub fn image_preview(
+        image: Image,
+        window: window::Id,
+        config: &config::preview::Image,
+    ) -> (Self, Task<Message>) {
+        let mut modal = Self::ImagePreview {
+            image,
+            timer: None,
+            animation: None,
+            window,
+        };
+        let task = modal.start_image_animation(config);
+        (modal, task)
+    }
+
+    pub fn start_image_animation(
+        &mut self,
+        config: &config::preview::Image,
+    ) -> Task<Message> {
+        if let Self::ImagePreview {
+            image, animation, ..
+        } = self
+            && animation.is_none()
+            && config.can_animate()
+            && matches!(
+                image.format,
+                data::image::Format::Raster(image::ImageFormat::Gif)
+            )
+        {
+            let (playback, task) =
+                image_animation::Animation::new(image.path.clone());
+            *animation = Some(playback);
+
+            task.map(|message| {
+                Message::ImagePreview(ImagePreview::Animation(message))
+            })
+        } else {
+            Task::none()
+        }
+    }
+
+    pub fn stop_image_animation(&mut self) {
+        if let Self::ImagePreview { animation, .. } = self {
+            *animation = None;
+        }
+    }
+
     pub fn window_id(&self) -> Option<window::Id> {
         match self {
             Modal::ReloadConfigurationError(..) => None,
             Modal::ServerConnect { .. } => None,
             Modal::About(..) => None,
             Modal::PromptBeforeOpenUrl { url: _, window } => Some(*window),
-            Modal::ImagePreview {
-                image: _,
-                timer: _,
-                window,
-            } => Some(*window),
+            Modal::ImagePreview { window, .. } => Some(*window),
             Modal::ConfirmFileUpload { window, .. } => Some(*window),
             Modal::KeyringPassword(_) => None,
         }
@@ -164,6 +209,16 @@ impl Modal {
 
                     (Task::none(), None)
                 }
+                ImagePreview::Animation(message) => {
+                    if let Modal::ImagePreview {
+                        animation: Some(animation),
+                        ..
+                    } = self
+                    {
+                        animation.update(message);
+                    }
+                    (Task::none(), None)
+                }
             },
             Message::KeyringPassword(action) => {
                 if let Modal::KeyringPassword(keyring_password) = self {
@@ -199,8 +254,9 @@ impl Modal {
             Modal::ImagePreview {
                 image,
                 timer,
+                animation,
                 window: _,
-            } => image_preview::view(image, timer, theme),
+            } => image_preview::view(image, timer, animation.as_ref(), theme),
             Modal::KeyringPassword(keyring_password) => {
                 keyring_password.view(font, theme)
             }

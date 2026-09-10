@@ -67,6 +67,7 @@ fancy-regex = "0.19"
 walkdir = "2.5.0"
 derive_more = { version = "2.0.1", features = ["full"] }
 image = "0.25.10"
+gif = "0.14.1"
 html-escape = "0.2.13"
 display-info = "0.5.9"
 infer = "0.22"

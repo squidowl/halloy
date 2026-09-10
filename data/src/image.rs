@@ -6,6 +6,8 @@ use url::Url;
 
 use crate::cache::HexDigest;
 
+pub mod animation;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Format {
     #[serde(with = "serde_image_format")]

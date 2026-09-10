@@ -1575,6 +1575,7 @@ dependencies = [
  "fancy-regex 0.19.0",
  "flate2",
  "futures",
+ "gif",
  "hex",
  "html-escape",
  "iced",

@@ -364,6 +364,31 @@ the `exclude` setting.
 include = { users = ["BridgeBot"] }
 ```
 
+### `animation`
+
+Control when GIFs play. Default is `"animate-on-hover"`.
+
+With `"animate-on-hover"`, GIFs play in chat when you hover over them. This also
+works for images in link cards. Moving the mouse away, scrolling past the image,
+switching buffers, or leaving the window stops it. Moving the mouse away keeps
+the current frame on screen. Hover again to start over.
+
+Opening an image with the [preview action](#action) also plays it. It stops when
+you close the preview or leave its window. Coming back to the window starts it
+over. Link card images can use their [preview action](#image_action) too.
+
+Use `"animate-on-preview-action"` to play GIFs only when you open the image
+preview. Use `"disabled"` to turn off GIF animations.
+
+```toml
+# Type: string
+# Values: "animate-on-hover", "animate-on-preview-action", "disabled"
+# Default: "animate-on-hover"
+
+[preview.image]
+animation = "animate-on-hover"
+```
+
 ## `image_cache`
 
 Settings to control how the image cache is managed. The cache is stored in:

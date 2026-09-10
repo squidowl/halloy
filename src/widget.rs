@@ -24,6 +24,7 @@ use crate::appearance::theme::{self, ICON_SIZE, TEXT_SIZE};
 use crate::{Theme, font};
 
 pub mod anchored_overlay;
+pub mod animated_image;
 pub mod color_picker;
 pub mod context_menu;
 pub mod decorate;

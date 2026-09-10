@@ -7,11 +7,12 @@ use iced::{ContentFit, Length};
 use super::Message;
 use crate::widget::button::transparent_button;
 use crate::widget::{Element, image, tooltip};
-use crate::{Theme, icon, theme};
+use crate::{Theme, icon, image_animation, theme};
 
 pub fn view<'a>(
     data: &'a Image,
     timer: &'a Option<Instant>,
+    animation: Option<&'a image_animation::Animation>,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
     container(transparent_button(
@@ -90,11 +91,14 @@ pub fn view<'a>(
                 )
             ])
             .padding(6),
-            container(image::from_data(data, false, ContentFit::Contain))
-                .padding(50)
-                .center_x(Length::Fill)
-                .center_y(Length::Fill)
-                .style(theme::container::none)
+            container(animation.map_or_else(
+                || image::from_data(data, false, ContentFit::Contain),
+                |animation| animation.view(data),
+            ))
+            .padding(50)
+            .center_x(Length::Fill)
+            .center_y(Length::Fill)
+            .style(theme::container::none)
         ],
         Message::Cancel,
     ))
