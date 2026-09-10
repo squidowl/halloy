@@ -95,12 +95,13 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::info!("config dir: {:?}", environment::config_dir());
     log::info!("data dir: {:?}", environment::data_dir());
 
-    let (config_load, window_load) = {
+    let (config_load, window_load, dashboard_load) = {
         rt.block_on(async {
             let config = Config::load().await;
             let window = data::Window::load().await;
+            let dashboard = data::Dashboard::load().await;
 
-            (config, window)
+            (config, window, dashboard.map_err(|e| e.to_string()))
         })
     };
 
@@ -145,6 +146,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             Halloy::new(
                 config_load.clone(),
                 window_load.clone(),
+                dashboard_load.clone(),
                 destination.clone(),
                 log_stream,
                 // we start with an unspecified mode because we are guaranteed to
@@ -238,6 +240,7 @@ fn handle_irc_error(e: anyhow::Error) {
 struct Halloy {
     version: Version,
     screen: Screen,
+    dashboard: data::Dashboard,
     current_mode: appearance::Mode,
     theme: Theme,
     config: Config,
@@ -275,6 +278,7 @@ impl Halloy {
     pub fn load_from_state(
         main_window: window::Id,
         config_load: Result<Config, config::Error>,
+        dashboard_load: Result<data::Dashboard, String>,
         current_mode: appearance::Mode,
     ) -> (Halloy, Task<Message>) {
         let main_window = Window::new(main_window);
@@ -282,10 +286,11 @@ impl Halloy {
             .as_ref()
             .err()
             .and_then(Self::modal_for_missing_keyring_password);
-        let load_dashboard = |config: &Config| match data::Dashboard::load() {
-            Ok(dashboard) => {
-                screen::Dashboard::restore(dashboard, config, &main_window)
-            }
+        let load_dashboard = |config: &Config| match dashboard_load {
+            Ok(dashboard) => (
+                dashboard.clone(),
+                screen::Dashboard::restore(dashboard, config, &main_window),
+            ),
             Err(error) => {
                 if data::Dashboard::exists().is_ok_and(|exists| exists) {
                     log::warn!("failed to load dashboard: {error}");
@@ -294,22 +299,26 @@ impl Halloy {
                     // downgrade severity to info
                     log::info!("failed to load dashboard: {error}");
                 }
-
-                screen::Dashboard::empty(&main_window, config)
+                (
+                    data::Dashboard::default(),
+                    screen::Dashboard::empty(&main_window, config),
+                )
             }
         };
 
-        let (screen, servers, config, commands) = match config_load {
+        let (dashboard, screen, servers, config, commands) = match config_load {
             Ok(config) => {
                 let mut servers: server::Map = config.servers.clone().into();
                 servers.set_order(config.sidebar.order_by);
-                let (mut screen, mut commands) = load_dashboard(&config);
+                let (dashboard, (mut screen, mut commands)) =
+                    load_dashboard(&config);
                 screen.init_filters(&servers, &data::client::Map::default());
                 screen
                     .set_reroute_rules(&servers, &data::client::Map::default());
                 commands = commands
                     .chain(screen.request_override_server_icons(&servers));
                 (
+                    dashboard,
                     Screen::Dashboard(screen),
                     servers,
                     config,
@@ -318,12 +327,14 @@ impl Halloy {
             }
             // Show regular welcome screen for new users.
             Err(config::Error::ConfigMissing) => (
+                data::Dashboard::default(),
                 Screen::Welcome(screen::Welcome::default()),
                 server::Map::default(),
                 Config::default(),
                 Task::none(),
             ),
             Err(error) => (
+                data::Dashboard::default(),
                 Screen::Help(screen::Help::new(error)),
                 server::Map::default(),
                 // If the config file is not missing but could not be loaded,
@@ -346,6 +357,7 @@ impl Halloy {
             Halloy {
                 version: Version::new(),
                 screen,
+                dashboard,
                 current_mode,
                 theme: current_mode.theme(&config.appearance.selected).into(),
                 clients: data::client::Map::default(),
@@ -422,6 +434,7 @@ impl Halloy {
     fn new(
         config_load: Result<Config, config::Error>,
         window_load: Result<data::Window, window::Error>,
+        dashboard_load: Result<data::Dashboard, String>,
         url_received: Option<data::Url>,
         log_stream: ReceiverStream<Vec<logger::Record>>,
         current_mode: appearance::Mode,
@@ -459,8 +472,12 @@ impl Halloy {
             ..window::settings(config)
         });
 
-        let (mut halloy, command) =
-            Halloy::load_from_state(main_window, config_load, current_mode);
+        let (mut halloy, command) = Halloy::load_from_state(
+            main_window,
+            config_load,
+            dashboard_load,
+            current_mode,
+        );
 
         halloy.main_window.fullscreen = fullscreen;
         halloy.main_window.maximized = maximized;
@@ -598,6 +615,7 @@ impl Halloy {
                 let (mut halloy, command) = Halloy::load_from_state(
                     self.main_window.id,
                     updated,
+                    Ok(self.dashboard.clone()),
                     self.current_mode,
                 );
                 halloy.main_window = saved_window;

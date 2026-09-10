@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
+use async_compression::tokio::write::GzipEncoder;
 use chrono::{DateTime, Local, NaiveDate, Utc};
 use futures::channel::mpsc;
 use futures::never::Never;
@@ -10,7 +11,7 @@ use futures::{FutureExt, SinkExt, StreamExt, future, stream};
 use irc::proto::{self, Command, command};
 use irc::{CodecLog, Connection, codec, connection};
 use tokio::fs::{self, File};
-use tokio::io::{AsyncWriteExt, BufWriter};
+use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 use tokio::time::{self, Instant, Interval};
 
 use crate::client::Client;
@@ -643,59 +644,108 @@ async fn connect(
 async fn log_codec(
     server: Server,
     config: config::server::IrcProtocolLog,
-    mut receiver: tokio::sync::mpsc::UnboundedReceiver<CodecLog>,
+    receiver: tokio::sync::mpsc::UnboundedReceiver<CodecLog>,
 ) {
-    let log_writer = LogWriter::new(&server).await;
-
-    match log_writer {
-        Ok(mut log_writer) => {
-            let mut set_timeout_to_flush = false;
-
-            while let Some(action) = if set_timeout_to_flush {
-                tokio::time::timeout(
-                    Duration::from_millis(500),
-                    receiver.recv(),
-                )
-                .await
-                .transpose()
-            } else {
-                receiver.recv().await.map(Ok)
-            } {
-                match action {
-                    Ok(message) => {
-                        log_writer.write(message, &config).await;
-                        set_timeout_to_flush = true;
-                    }
-                    Err(_) => {
-                        log_writer.flush().await;
-                        set_timeout_to_flush = false;
-                    }
-                }
+    match config.file_format {
+        config::server::FileFormat::Plain => {
+            match PlainLogWriter::new(&server).await {
+                Ok(writer) => log_codec_loop(writer, config, receiver).await,
+                Err(err) => log::error!(
+                    "unable to create log writer for {server}: {err}"
+                ),
             }
-
-            log_writer.shutdown().await;
         }
-        Err(error) => {
-            log::error!("unable to create log writer for {server}: {error}");
+        config::server::FileFormat::Gzip => {
+            match GzipLogWriter::new(&server).await {
+                Ok(writer) => log_codec_loop(writer, config, receiver).await,
+                Err(err) => log::error!(
+                    "unable to create log writer for {server}: {err}"
+                ),
+            }
         }
     }
 }
 
-struct LogWriter {
-    log_dir: PathBuf,
-    date_writer: Option<(NaiveDate, BufWriter<File>)>,
+async fn log_codec_loop<E: LogEncoder>(
+    mut log_writer: LogWriter<E>,
+    config: config::server::IrcProtocolLog,
+    mut receiver: tokio::sync::mpsc::UnboundedReceiver<CodecLog>,
+) {
+    let mut set_timeout_to_flush = false;
+
+    while let Some(action) = if set_timeout_to_flush {
+        tokio::time::timeout(Duration::from_millis(500), receiver.recv())
+            .await
+            .transpose()
+    } else {
+        receiver.recv().await.map(Ok)
+    } {
+        match action {
+            Ok(message) => {
+                log_writer.write(message, &config).await;
+                set_timeout_to_flush = true;
+            }
+            Err(_) => {
+                log_writer.flush().await;
+                set_timeout_to_flush = false;
+            }
+        }
+    }
+
+    log_writer.shutdown().await;
 }
 
-impl LogWriter {
-    pub async fn new(server: &Server) -> Result<Self, std::io::Error> {
+pub trait LogEncoder {
+    type Writer: AsyncWrite + Unpin;
+
+    fn extension() -> &'static str;
+    fn wrap(file: File) -> Self::Writer;
+}
+
+pub struct PlainEncoder;
+
+impl LogEncoder for PlainEncoder {
+    type Writer = BufWriter<File>;
+
+    fn extension() -> &'static str {
+        "log"
+    }
+
+    fn wrap(file: File) -> Self::Writer {
+        BufWriter::new(file)
+    }
+}
+
+pub struct GzipFormatEncoder;
+
+impl LogEncoder for GzipFormatEncoder {
+    type Writer = GzipEncoder<File>;
+
+    fn extension() -> &'static str {
+        "log.gz"
+    }
+
+    fn wrap(file: File) -> Self::Writer {
+        GzipEncoder::new(file)
+    }
+}
+
+pub type PlainLogWriter = LogWriter<PlainEncoder>;
+pub type GzipLogWriter = LogWriter<GzipFormatEncoder>;
+
+pub struct LogWriter<E: LogEncoder> {
+    log_dir: PathBuf,
+    date_writer: Option<(NaiveDate, E::Writer)>,
+}
+
+impl<E: LogEncoder> LogWriter<E> {
+    async fn new(server: &Server) -> Result<Self, std::io::Error> {
         let data_dir = environment::data_dir();
 
         let log_dir =
             data_dir.join("irc_protocol_logs").join(server.to_string());
 
-        if !log_dir.exists() {
-            fs::create_dir_all(&log_dir).await?;
-        }
+        fs::create_dir_all(&log_dir).await?;
 
         Ok(Self {
             log_dir,
@@ -715,9 +765,9 @@ impl LogWriter {
             config::logs::Timestamp::Utc => now.to_utc().date_naive(),
         };
 
-        if let Some((date, writer)) = &mut self.date_writer {
+        if let Some((date, _)) = &mut self.date_writer {
             if today != *date {
-                let _ = writer.flush().await;
+                self.shutdown().await;
 
                 self.create_date_writer(today).await;
             }
@@ -727,13 +777,14 @@ impl LogWriter {
 
         if let Some((_, writer)) = &mut self.date_writer {
             let _ = writer
-                .write_all(LogWriter::format(message, now, config).as_bytes())
+                .write_all(Self::format(message, now, config).as_bytes())
                 .await;
         }
     }
 
     async fn create_date_writer(&mut self, date: NaiveDate) {
-        let log_file = date.format("%Y-%m-%d.log").to_string();
+        let log_file =
+            format!("{}.{}", date.format("%Y-%m-%d"), E::extension());
 
         self.date_writer = File::options()
             .append(true)
@@ -741,7 +792,7 @@ impl LogWriter {
             .open(self.log_dir.join(log_file))
             .await
             .ok()
-            .map(|writer| (date, BufWriter::new(writer)));
+            .map(|writer| (date, E::wrap(writer)));
     }
 
     fn format(
@@ -780,9 +831,8 @@ impl LogWriter {
     }
 
     pub async fn shutdown(&mut self) {
-        if let Some((_, writer)) = &mut self.date_writer {
+        if let Some((_, mut writer)) = self.date_writer.take() {
             let _ = writer.flush().await;
-
             let _ = writer.shutdown().await;
         }
     }

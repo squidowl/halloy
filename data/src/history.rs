@@ -273,7 +273,7 @@ pub async fn overwrite(
         .await;
     }
 
-    let messages = write_messages(kind, messages).await?;
+    write_messages(kind, messages).await?;
 
     metadata::save(kind, messages, read_marker, chathistory_references).await?;
 
@@ -374,7 +374,7 @@ pub async fn append(
         },
     );
 
-    let _ = write_messages(kind, &all_messages).await?;
+    write_messages(kind, &all_messages).await?;
 
     // Update metadata directly, without referencing all messages, since all
     // messages have not been processed (and so do not have their blocked state
@@ -392,19 +392,19 @@ pub async fn append(
     Ok(echo_events)
 }
 
-async fn write_messages<'a>(
+async fn write_messages(
     kind: &Kind,
-    messages: &'a [Message],
-) -> Result<&'a [Message], Error> {
+    messages: &[Message],
+) -> Result<(), Error> {
     let latest_messages =
         &messages[messages.len().saturating_sub(MAX_MESSAGES)..];
 
     let path = path(kind).await?;
-    let compressed = compression::compress(&latest_messages)?;
+    let mut file = tokio::fs::File::create(&path).await?;
 
-    fs::write(path, &compressed).await?;
+    compression::serialize_and_compress(latest_messages, &mut file).await?;
 
-    Ok(latest_messages)
+    Ok(())
 }
 
 pub async fn delete(kind: &Kind) -> Result<(), Error> {
@@ -416,8 +416,10 @@ pub async fn delete(kind: &Kind) -> Result<(), Error> {
 }
 
 async fn read_all(path: &PathBuf) -> Result<Vec<Message>, Error> {
-    let bytes = fs::read(path).await?;
-    Ok(compression::decompress(&bytes)?)
+    let file = tokio::fs::File::open(path).await?;
+    let reader = tokio::io::BufReader::new(file);
+
+    Ok(compression::decompress_and_deserialize(reader).await?)
 }
 
 pub async fn dir_path() -> Result<PathBuf, Error> {
