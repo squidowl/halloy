@@ -635,7 +635,7 @@ impl Entry {
                 Entry::HidePreview,
                 Context::Url(UrlContext { url, message, .. }),
             ) => Some((
-                "Hide Preview".to_string(),
+                "Hide preview".to_string(),
                 message.map(|message| {
                     Message::HidePreview(message.hash, url.to_string())
                 }),
@@ -644,7 +644,7 @@ impl Entry {
                 Entry::ShowPreview,
                 Context::Url(UrlContext { url, message, .. }),
             ) => Some((
-                "Show Preview".to_string(),
+                "Show preview".to_string(),
                 message.map(|message| {
                     Message::ShowPreview(message.hash, url.to_string())
                 }),
