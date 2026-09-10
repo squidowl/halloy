@@ -3,6 +3,7 @@ use std::net::IpAddr;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Once;
+use std::time::Duration;
 
 #[cfg(feature = "tor")]
 use arti_client::DataStream as TorStream;
@@ -150,9 +151,22 @@ impl<Codec> Connection<Codec> {
         Ok(())
     }
 
-    pub async fn send_ws_ping(&mut self) -> Result<(), io::Error> {
+    /// The connection must be dropped if the send times out
+    pub async fn send_ws_ping(
+        &mut self,
+        timeout: Duration,
+    ) -> Result<(), io::Error> {
         match self {
-            Connection::WebSocket(ws) => ws.ping().await,
+            Connection::WebSocket(ws) => {
+                tokio::time::timeout(timeout, ws.ping()).await.map_err(
+                    |_| {
+                        io::Error::new(
+                            io::ErrorKind::TimedOut,
+                            "websocket ping send timed out",
+                        )
+                    },
+                )?
+            }
             _ => Ok(()),
         }
     }

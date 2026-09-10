@@ -24,6 +24,8 @@ Added:
 
 Fixed:
 
+- Reconnect WebSocket connections when ping writes fail or exceed `servers.<name>.ping_timeout`
+- Avoid bursts of IRC pings after delays
 - Display RELAYMSG senders correctly
 - Display messages from legacy ISO-8859-1 clients instead of replacing invalid UTF-8 bytes
 - Remove blank space above the input after marking a buffer as read
@@ -43,6 +45,7 @@ Fixed:
 
 Changed:
 
+- Rename `servers.<name>.websocket_ping_interval` to `servers.<name>.websocket_ping_time`
 - Link preview requests now use `Halloy/<version>` as their default User-Agent
 - User avatars are configurable with `metadata.avatar.size`
 - Ensure Theme Editor appends a `.toml` extension when saving a theme without one

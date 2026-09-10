@@ -128,7 +128,7 @@ pub struct Server {
     pub use_websocket: bool,
     /// The WebSocket request path.
     pub websocket_path: String,
-    /// The amount of inactivity in seconds before the client will ping the websocket.
+    /// The interval in seconds between WebSocket pings.
     #[serde(deserialize_with = "deserialize_u64_positive_integer")]
     #[serde(alias = "websocket_ping_interval")]
     pub websocket_ping_time: u64,

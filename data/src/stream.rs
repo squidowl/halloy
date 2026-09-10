@@ -512,12 +512,38 @@ async fn _run(
                         let now = Posix::now().as_nanos().to_string();
                         log::trace!("[{server}] websocket ping sent: {now}");
 
-                        match stream.connection.send_ws_ping().await {
+                        match stream
+                            .connection
+                            .send_ws_ping(Duration::from_secs(
+                                config.ping_timeout,
+                            ))
+                            .await
+                        {
                             Ok(()) => {}
                             Err(e) => {
                                 log::error!(
                                     "[{server}] failed to send websocket ping: {e}"
                                 );
+
+                                let autoconnect = quit_requested.is_none();
+                                connection_attempt = 0;
+
+                                let _ = sender.unbounded_send(
+                                    Update::Disconnected {
+                                        server: server.clone(),
+                                        is_initial,
+                                        error: Some(e.to_string()),
+                                        sent_time: Utc::now(),
+                                        autoconnect,
+                                    },
+                                );
+                                state = State::Disconnected {
+                                    autoconnect,
+                                    retry: time::interval_at(
+                                        Instant::now() + config.reconnect_delay,
+                                        config.reconnect_delay,
+                                    ),
+                                };
                             }
                         }
                     }

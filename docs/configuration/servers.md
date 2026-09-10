@@ -125,11 +125,11 @@ websocket_path = "/"
 
 ### `websocket_ping_time`
 
-The amount of inactivity in seconds before the client will send WebSocket pings to the server when [`use_websocket`](#use_websocket) is `true`. This is in addition to regular IRC pings controlled by [`ping_time`](#ping_time).
+The interval in seconds between WebSocket pings when [`use_websocket`](#use_websocket) is `true`. Pings are sent periodically, regardless of IRC traffic, in addition to regular IRC pings controlled by [`ping_time`](#ping_time).
 
 ```toml
 # Type: integer
-# Values: any non-negative integer
+# Values: any positive integer
 # Default: 60
 
 [servers.<name>]
