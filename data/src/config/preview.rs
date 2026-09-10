@@ -310,7 +310,7 @@ impl Card {
 #[serde(rename_all = "kebab-case")]
 pub enum ImageAnimation {
     #[default]
-    Animate,
+    AnimateOnHover,
     AnimateOnPreviewAction,
     Disabled,
 }
@@ -390,8 +390,8 @@ impl Image {
         !matches!(self.animation, ImageAnimation::Disabled)
     }
 
-    pub fn can_preview_animate(&self) -> bool {
-        matches!(self.animation, ImageAnimation::Animate)
+    pub fn animate_on_hover(&self) -> bool {
+        matches!(self.animation, ImageAnimation::AnimateOnHover)
     }
 }
 

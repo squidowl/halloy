@@ -9,6 +9,7 @@ mod event;
 mod filehost;
 mod font;
 mod icon;
+mod image_animation;
 mod logger;
 mod modal;
 mod notification;
@@ -729,12 +730,13 @@ impl Halloy {
                             return Task::none();
                         };
 
-                        self.modal = Some(Modal::ImagePreview {
+                        let (modal, task) = Modal::image_preview(
                             image,
-                            timer: None,
-                            window: id,
-                        });
-                        Task::none()
+                            id,
+                            &self.config.preview.image,
+                        );
+                        self.modal = Some(modal);
+                        task.map(Message::Modal)
                     }
                     Some(dashboard::Event::Remove(server)) => {
                         self.remove(server)
@@ -1202,7 +1204,30 @@ impl Halloy {
                 Task::none()
             }
             Message::Window(id, event) => {
+                if matches!(event, window::Event::CloseRequested)
+                    && matches!(&self.modal, Some(Modal::ImagePreview { window, .. }) if *window == id)
+                {
+                    self.modal = None;
+                }
                 let mut tasks = vec![];
+
+                if let Some(modal) = self.modal.as_mut()
+                    && modal.window_id() == Some(id)
+                {
+                    match &event {
+                        window::Event::Focused => tasks.push(
+                            modal
+                                .start_image_animation(
+                                    &self.config.preview.image,
+                                )
+                                .map(Message::Modal),
+                        ),
+                        window::Event::Unfocused => {
+                            modal.stop_image_animation();
+                        }
+                        _ => {}
+                    }
+                }
 
                 match &event {
                     window::Event::Focused => {
@@ -1494,7 +1519,7 @@ impl Halloy {
                     widget::modal(
                         content,
                         modal
-                            .view(&self.config, &self.theme)
+                            .view(&self.config.font, &self.theme)
                             .map(Message::Modal),
                         || Message::Modal(modal::Message::Cancel),
                         0.8,
@@ -1523,7 +1548,9 @@ impl Halloy {
             match &self.modal {
                 Some(modal) if modal.window_id() == Some(id) => widget::modal(
                     content,
-                    modal.view(&self.config, &self.theme).map(Message::Modal),
+                    modal
+                        .view(&self.config.font, &self.theme)
+                        .map(Message::Modal),
                     || Message::Modal(modal::Message::Cancel),
                     0.8,
                 ),
@@ -1600,6 +1627,11 @@ impl Halloy {
 
         match config {
             Ok(updated) => {
+                if !updated.preview.image.can_animate()
+                    && let Some(modal) = self.modal.as_mut()
+                {
+                    modal.stop_image_animation();
+                }
                 let reload_channel_monitor =
                     self.config.channel_monitor != updated.channel_monitor;
 
@@ -1735,7 +1767,7 @@ impl Halloy {
                         dashboard
                             .reload_visible_previews(
                                 &self.clients,
-                                &self.config.preview,
+                                &self.config,
                             )
                             .map(Message::Dashboard),
                     );

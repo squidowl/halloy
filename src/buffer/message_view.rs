@@ -427,8 +427,12 @@ impl<'a> ChannelQueryLayout<'a> {
     ) -> Element<'a, Message> {
         let content = match preview {
             data::Preview::Card(card) => {
-                let (title, description, image) =
-                    preview_card_parts(card, self.config, self.theme);
+                let (title, description, image) = preview_card_parts(
+                    card,
+                    self.config,
+                    self.theme,
+                    Some(Message::AnimatePreview),
+                );
 
                 let mut card_content = column![title, description]
                     .spacing(8)
@@ -468,7 +472,12 @@ impl<'a> ChannelQueryLayout<'a> {
                 )
             }
             data::Preview::Image(img) => {
-                let inner = preview_content(preview, self.config, self.theme);
+                let inner = preview_content(
+                    preview,
+                    self.config,
+                    self.theme,
+                    Some(Message::AnimatePreview),
+                );
 
                 keyed(
                     keyed::Key::Preview(message.hash, index),
@@ -2052,7 +2061,8 @@ impl<'a> ChannelQueryLayout<'a> {
 
         if show_previews {
             for (_, preview) in &loaded {
-                let el = preview_content(preview, self.config, self.theme);
+                let el =
+                    preview_content(preview, self.config, self.theme, None);
                 let el: Element<_> = match preview {
                     data::Preview::Card(..) => button(el)
                         .style(|theme, _| {

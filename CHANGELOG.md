@@ -21,7 +21,7 @@ Added:
   - Links and channel mentions within a message can be focused and opened
   - New `buffer.focus` theme color for the focused message border
 - Server context menu action to open Channel Discovery with that server selected
-- Animate gifs for previews
+- Animated GIFs support
 
 Fixed:
 

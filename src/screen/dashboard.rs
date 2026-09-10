@@ -254,23 +254,23 @@ impl Dashboard {
     pub fn reload_visible_previews(
         &mut self,
         clients: &client::Map,
-        preview_config: &config::Preview,
+        config: &Config,
     ) -> Task<Message> {
         Task::batch(
             self.visible_preview_urls_with_preview_clients(
                 clients,
-                preview_config,
+                &config.preview,
             )
             .into_iter()
             .map(|(url, client)| {
                 Task::perform(
                     data::preview::load(
                         url.clone(),
-                        client,
-                        preview_config.clone(),
+                        client.clone(),
+                        config.preview.clone(),
                         self.previews_cache.clone(),
                     ),
-                    move |result| Message::LoadPreview((url, result)),
+                    move |result| Message::LoadPreview((url.clone(), result)),
                 )
             }),
         )
@@ -2151,10 +2151,9 @@ impl Dashboard {
 
                         if let (Some(kind), Some(url)) = (kind, parsed) {
                             self.history.show_preview(kind, hash, &url);
-                            tasks.push(self.reload_visible_previews(
-                                clients,
-                                &config.preview,
-                            ));
+                            tasks.push(
+                                self.reload_visible_previews(clients, config),
+                            );
                         }
 
                         None

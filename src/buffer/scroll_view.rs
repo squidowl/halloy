@@ -64,6 +64,7 @@ pub enum Message {
     ContextMenu(context_menu::Message),
     Link(message::Link),
     ImagePreview(Image),
+    AnimatePreview(crate::widget::animated_image::hover::Request),
     ScrollTo(keyed::Hit),
     RequestOlderChatHistory,
     EnteringViewport(message::Hash, Vec<url::Url>),
@@ -1413,6 +1414,9 @@ impl State {
             }
             Message::ImagePreview(image) => {
                 return (Task::none(), Some(Event::ImagePreview(image)));
+            }
+            Message::AnimatePreview(request) => {
+                return (request.play(), None);
             }
             Message::PendingScrollTo => {
                 if let Some(ScrollTo { key, state, .. }) = &mut self.scroll_to

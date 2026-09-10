@@ -1,18 +1,18 @@
 use std::time::{Duration, Instant};
 
-use data::{Image, config};
+use data::Image;
 use iced::widget::{button, center, column, container, row, space};
 use iced::{ContentFit, Length};
 
 use super::Message;
 use crate::widget::button::transparent_button;
 use crate::widget::{Element, image, tooltip};
-use crate::{Theme, icon, theme};
+use crate::{Theme, icon, image_animation, theme};
 
 pub fn view<'a>(
-    preview_config: &'a config::preview::Image,
     data: &'a Image,
     timer: &'a Option<Instant>,
+    animation: Option<&'a image_animation::Animation>,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
     container(transparent_button(
@@ -91,11 +91,9 @@ pub fn view<'a>(
                 )
             ])
             .padding(6),
-            container(image::from_data(
-                data,
-                false,
-                ContentFit::Contain,
-                preview_config.can_animate(),
+            container(animation.map_or_else(
+                || image::from_data(data, false, ContentFit::Contain),
+                |animation| animation.view(data),
             ))
             .padding(50)
             .center_x(Length::Fill)
