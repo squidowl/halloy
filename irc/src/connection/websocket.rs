@@ -1,11 +1,9 @@
 use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use std::time::Duration;
 
 use bytes::BytesMut;
 use futures::{Sink, SinkExt, Stream, StreamExt};
-use tokio::time::Interval;
 use tokio_rustls::client::TlsStream;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
@@ -21,20 +19,11 @@ const TEXT_SUBPROTOCOL: &str = "text.ircv3.net";
 const REQUESTED_SUBPROTOCOLS: &str = "binary.ircv3.net, text.ircv3.net";
 const MAX_IRC_WEBSOCKET_MESSAGE_SIZE: usize = 8192;
 
-#[derive(Debug)]
-enum PingState {
-    Idle,
-    PendingSend,
-    PendingFlush,
-}
-
 pub struct WebSocketConnection<Codec> {
     stream: WebSocketStream<WebSocketTransport>,
     codec: Codec,
     read: BytesMut,
     mode: Mode,
-    ping_interval: Interval,
-    ping: PingState,
 }
 
 type WebSocketTransport = Either<IrcStream, TlsStream<IrcStream>>;
@@ -52,7 +41,6 @@ impl<Codec> WebSocketConnection<Codec> {
         port: u16,
         security: Security<'_>,
         path: &str,
-        ping_interval: Duration,
         codec: Codec,
     ) -> Result<Self, Error> {
         let (scheme, transport) = match security {
@@ -91,23 +79,24 @@ impl<Codec> WebSocketConnection<Codec> {
         let (stream, response) =
             client_async_with_config(request, transport, Some(config)).await?;
 
-        let mut ping_interval = tokio::time::interval(ping_interval);
-        ping_interval
-            .set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-
         Ok(Self {
             stream,
             codec,
             read: BytesMut::new(),
             mode: mode_from_response(&response)?,
-            ping_interval,
-            ping: PingState::Idle,
         })
     }
 
     pub async fn shutdown(mut self) -> Result<(), Error> {
         self.stream.close(None).await?;
         Ok(())
+    }
+
+    pub async fn ping(&mut self) -> Result<(), io::Error> {
+        self.stream
+            .send(Message::Ping(bytes::Bytes::new()))
+            .await
+            .map_err(websocket_error)
     }
 
     // websocket frames don't include CRLF, so we re-add it for our decoder
@@ -131,52 +120,6 @@ where
         cx: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
-
-        if this.ping_interval.poll_tick(cx).is_ready()
-            && matches!(this.ping, PingState::Idle)
-        {
-            this.ping = PingState::PendingSend;
-        }
-
-        loop {
-            match this.ping {
-                PingState::Idle => {
-                    break;
-                }
-                PingState::PendingSend => {
-                    match this.stream.poll_ready_unpin(cx) {
-                        Poll::Ready(Ok(())) => {
-                            this.stream
-                                .start_send_unpin(Message::Ping(
-                                    bytes::Bytes::new(),
-                                ))
-                                .map_err(websocket_error)?;
-
-                            this.ping = PingState::PendingFlush;
-                        }
-                        Poll::Ready(Err(e)) => {
-                            return Poll::Ready(Some(Err(websocket_error(e))));
-                        }
-                        Poll::Pending => {
-                            break;
-                        }
-                    }
-                }
-                PingState::PendingFlush => {
-                    match this.stream.poll_flush_unpin(cx) {
-                        Poll::Ready(Ok(())) => {
-                            this.ping = PingState::Idle;
-                        }
-                        Poll::Ready(Err(e)) => {
-                            return Poll::Ready(Some(Err(websocket_error(e))));
-                        }
-                        Poll::Pending => {
-                            break;
-                        }
-                    }
-                }
-            }
-        }
 
         loop {
             if let Some(item) = this.codec.decode(&mut this.read)? {

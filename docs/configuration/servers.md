@@ -123,17 +123,17 @@ The WebSocket request path. For soju HTTPS listeners or reverse proxies, this is
 websocket_path = "/"
 ```
 
-### `websocket_ping_interval`
+### `websocket_ping_time`
 
-The interval in seconds at which to send WebSocket pings when [`use_websocket`](#use_websocket) is `true`. This is in addition to regular IRC pings controlled by [`ping_time`](#ping_time).
+The interval in seconds between WebSocket pings when [`use_websocket`](#use_websocket) is `true`. Pings are sent periodically, regardless of IRC traffic, in addition to regular IRC pings controlled by [`ping_time`](#ping_time).
 
 ```toml
 # Type: integer
-# Values: any non-negative integer
+# Values: any positive integer
 # Default: 60
 
 [servers.<name>]
-websocket_ping_interval = 60
+websocket_ping_time = 60
 ```
 
 ### `proxy`

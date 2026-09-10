@@ -1,3 +1,4 @@
+use std::io;
 use std::net::IpAddr;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -64,7 +65,6 @@ pub struct Config<'a> {
 #[derive(Debug, Clone)]
 pub struct WebSocket<'a> {
     pub path: &'a str,
-    pub ping_interval: Duration,
 }
 
 impl<Codec> Connection<Codec> {
@@ -84,7 +84,6 @@ impl<Codec> Connection<Codec> {
                     config.port,
                     config.security,
                     websocket.path,
-                    websocket.ping_interval,
                     codec,
                 )
                 .await?,
@@ -150,6 +149,26 @@ impl<Codec> Connection<Codec> {
             }
         }
         Ok(())
+    }
+
+    /// The connection must be dropped if the send times out
+    pub async fn send_ws_ping(
+        &mut self,
+        timeout: Duration,
+    ) -> Result<(), io::Error> {
+        match self {
+            Connection::WebSocket(ws) => {
+                tokio::time::timeout(timeout, ws.ping()).await.map_err(
+                    |_| {
+                        io::Error::new(
+                            io::ErrorKind::TimedOut,
+                            "websocket ping send timed out",
+                        )
+                    },
+                )?
+            }
+            _ => Ok(()),
+        }
     }
 }
 
