@@ -314,6 +314,24 @@ where
         })
     }
 
+    fn diff(&mut self, tree: &mut Tree) {
+        let state = tree
+            .state
+            .downcast_ref::<State<Link, Renderer::Paragraph>>();
+
+        if matches!(
+            state.context_menu.status,
+            context_menu::Status::Open { .. }
+        ) {
+            if tree.children.is_empty() {
+                tree.children.push(Tree::empty());
+            }
+        } else {
+            tree.children.clear();
+            self.cached_menu = None;
+        }
+    }
+
     fn size(&self) -> Size<Length> {
         Size {
             width: self.width,
@@ -583,6 +601,11 @@ where
                     };
                     state.context_menu_link = Some(link);
                     self.cached_entries = entries;
+
+                    if tree.children.is_empty() {
+                        tree.children.push(Tree::empty());
+                    }
+
                     shell.capture_event();
                 }
             }
@@ -844,7 +867,7 @@ where
         _renderer: &Renderer,
         _viewport: &Rectangle,
         translation: Vector,
-    ) -> Option<iced::advanced::overlay::Element<'b, Message, Theme, Renderer>>
+    ) -> Vec<iced::advanced::overlay::Element<'b, Message, Theme, Renderer>>
     {
         let state = tree
             .state
@@ -867,15 +890,22 @@ where
                 self.cached_entries = link_entries(&link);
             }
 
+            if tree.children.is_empty() {
+                tree.children.push(Tree::empty());
+            }
+
             context_menu::overlay(
                 &mut state.context_menu,
+                &mut tree.children[0],
                 &mut self.cached_menu,
                 &self.cached_entries,
                 &move |entry, length| view(&link, entry, length),
                 translation,
             )
+            .into_iter()
+            .collect()
         } else {
-            None
+            vec![]
         }
     }
 }

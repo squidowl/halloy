@@ -1,4 +1,4 @@
-use std::slice;
+use std::cell::LazyCell;
 
 use iced::advanced::widget::{Operation, operation, tree};
 use iced::advanced::{
@@ -41,11 +41,18 @@ pub fn context_menu<'a, T, Message, Theme, Renderer>(
     base: impl Into<Element<'a, Message, Theme, Renderer>>,
     entries: Vec<T>,
     entry: impl Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a,
-) -> ContextMenu<'a, T, Message, Theme, Renderer> {
+) -> ContextMenu<'a, Message, Theme, Renderer>
+where
+    T: Copy + 'a,
+    Message: 'a,
+    Theme: 'a + container::Catalog + Catalog,
+    <Theme as container::Catalog>::Class<'a>:
+        From<container::StyleFn<'a, Theme>>,
+    Renderer: advanced::Renderer + 'a,
+{
     ContextMenu {
         base: base.into(),
-        entries,
-        entry: Box::new(entry),
+        menu: LazyCell::new(Box::new(move || build_menu(&entries, &entry))),
         on_open: None,
         activation_button: match activation_button {
             MouseButton::Left => iced::mouse::Button::Left,
@@ -53,35 +60,34 @@ pub fn context_menu<'a, T, Message, Theme, Renderer>(
         },
         anchor,
         toggle_behavior,
-        menu: None,
         mouse_interaction_on_hover,
     }
 }
 
-pub struct ContextMenu<'a, T, Message, Theme, Renderer> {
+type LazyElement<'a, Message, Theme, Renderer> = LazyCell<
+    Element<'a, Message, Theme, Renderer>,
+    Box<dyn Fn() -> Element<'a, Message, Theme, Renderer> + 'a>,
+>;
+
+pub struct ContextMenu<'a, Message, Theme, Renderer> {
     base: Element<'a, Message, Theme, Renderer>,
-    entries: Vec<T>,
-    entry: Box<dyn Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a>,
+    menu: LazyElement<'a, Message, Theme, Renderer>,
     on_open: Option<Box<dyn Fn() -> Message + 'a>>,
     activation_button: iced::mouse::Button,
     anchor: Anchor,
     toggle_behavior: ToggleBehavior,
-    // Cached, recreated during overlay if menu is open
-    menu: Option<Element<'a, Message, Theme, Renderer>>,
     mouse_interaction_on_hover: Option<mouse::Interaction>,
 }
 
 #[derive(Debug)]
 pub struct State {
     pub status: Status,
-    menu_tree: widget::Tree,
 }
 
 impl State {
     pub fn new() -> Self {
         State {
             status: Status::Closed,
-            menu_tree: widget::Tree::empty(),
         }
     }
 }
@@ -114,9 +120,7 @@ impl Status {
     }
 }
 
-impl<'a, T, Message, Theme, Renderer>
-    ContextMenu<'a, T, Message, Theme, Renderer>
-{
+impl<'a, Message, Theme, Renderer> ContextMenu<'a, Message, Theme, Renderer> {
     pub fn mouse_interaction_on_hover(
         mut self,
         interaction: Option<mouse::Interaction>,
@@ -131,10 +135,9 @@ impl<'a, T, Message, Theme, Renderer>
     }
 }
 
-impl<'a, T, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
-    for ContextMenu<'a, T, Message, Theme, Renderer>
+impl<'a, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
+    for ContextMenu<'a, Message, Theme, Renderer>
 where
-    T: Copy + 'a,
     Message: 'a,
     Theme: 'a + container::Catalog + Catalog,
     <Theme as container::Catalog>::Class<'a>:
@@ -186,12 +189,21 @@ where
     fn state(&self) -> tree::State {
         tree::State::new(State {
             status: Status::Closed,
-            menu_tree: widget::Tree::empty(),
         })
     }
 
     fn diff(&mut self, tree: &mut widget::Tree) {
-        tree.diff_children(slice::from_mut(&mut self.base));
+        if tree
+            .state
+            .downcast_ref::<State>()
+            .status
+            .position()
+            .is_some()
+        {
+            tree.diff_children(&mut [&mut self.base, &mut self.menu]);
+        } else {
+            tree.diff_children(&mut [&mut self.base]);
+        }
     }
 
     fn operate(
@@ -323,6 +335,11 @@ where
                     != matches!(prev_status, Status::Open { .. })
                 {
                     shell.request_redraw();
+
+                    if tree.children.len() == 1 {
+                        tree.children.push(widget::Tree::new(&*self.menu));
+                    }
+                    self.menu.as_widget_mut().diff(&mut tree.children[1]);
                 }
 
                 if matches!(prev_status, Status::Closed)
@@ -369,35 +386,37 @@ where
         renderer: &Renderer,
         viewport: &Rectangle,
         translation: Vector,
-    ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
+    ) -> Vec<overlay::Element<'b, Message, Theme, Renderer>> {
+        let state = tree.state.downcast_mut::<State>();
+
+        let Some(position) = state.status.position() else {
+            return self.base.as_widget_mut().overlay(
+                &mut tree.children[0],
+                layout,
+                renderer,
+                viewport,
+                translation,
+            );
+        };
+
+        let (first, second) = tree.children.split_at_mut(1);
+
         let base = self.base.as_widget_mut().overlay(
-            &mut tree.children[0],
+            &mut first[0],
             layout,
             renderer,
             viewport,
             translation,
         );
 
-        let state = tree.state.downcast_mut::<State>();
-
-        let overlay = overlay(
+        let overlay = overlay::Element::new(Box::new(Overlay {
+            menu: &mut self.menu,
+            tree: &mut second[0],
             state,
-            &mut self.menu,
-            &self.entries,
-            &self.entry,
-            translation,
-        );
+            position: position + translation,
+        }));
 
-        if base.is_none() && overlay.is_none() {
-            None
-        } else {
-            Some(
-                overlay::Group::with_children(
-                    base.into_iter().chain(overlay).collect(),
-                )
-                .overlay(),
-            )
-        }
+        base.into_iter().chain(std::iter::once(overlay)).collect()
     }
 }
 
@@ -435,6 +454,7 @@ where
 
 pub fn overlay<'a, 'b, T, Message, Theme, Renderer>(
     state: &'b mut State,
+    tree: &'b mut widget::Tree,
     menu: &'b mut Option<Element<'a, Message, Theme, Renderer>>,
     entries: &[T],
     entry: &(dyn Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a),
@@ -455,10 +475,10 @@ where
     // Ensure overlay is created / diff'd
     match state.status {
         Status::Open { .. } => match menu {
-            Some(menu) => state.menu_tree.diff(&mut *menu),
+            Some(menu) => tree.diff(&mut *menu),
             None => {
                 let mut _menu = build_menu(entries, entry);
-                state.menu_tree.diff(&mut _menu);
+                tree.diff(&mut _menu);
                 *menu = Some(_menu);
             }
         },
@@ -474,6 +494,7 @@ where
         .map(|(position, menu)| {
             overlay::Element::new(Box::new(Overlay {
                 menu,
+                tree,
                 state,
                 position: position + translation,
             }))
@@ -518,26 +539,24 @@ pub fn close<Message: 'static + Send>(f: fn(bool) -> Message) -> Task<Message> {
     })
 }
 
-impl<'a, T, Message, Theme, Renderer>
-    From<ContextMenu<'a, T, Message, Theme, Renderer>>
+impl<'a, Message, Theme, Renderer>
+    From<ContextMenu<'a, Message, Theme, Renderer>>
     for Element<'a, Message, Theme, Renderer>
 where
-    T: Copy + 'a,
     Message: 'a,
     Theme: 'a + container::Catalog + Catalog,
     <Theme as container::Catalog>::Class<'a>:
         From<container::StyleFn<'a, Theme>>,
     Renderer: advanced::Renderer + 'a,
 {
-    fn from(
-        context_menu: ContextMenu<'a, T, Message, Theme, Renderer>,
-    ) -> Self {
+    fn from(context_menu: ContextMenu<'a, Message, Theme, Renderer>) -> Self {
         Element::new(context_menu)
     }
 }
 
 struct Overlay<'a, 'b, Message, Theme, Renderer> {
     menu: &'b mut Element<'a, Message, Theme, Renderer>,
+    tree: &'b mut widget::Tree,
     state: &'b mut State,
     position: Point,
 }
@@ -552,11 +571,10 @@ where
             .width(Length::Fill)
             .height(Length::Fill);
 
-        let node = self.menu.as_widget_mut().layout(
-            &mut self.state.menu_tree,
-            renderer,
-            &limits,
-        );
+        let node = self
+            .menu
+            .as_widget_mut()
+            .layout(self.tree, renderer, &limits);
 
         // Small padding to ensure that we don't spawn context menu at the very edge of the viewport.
         let padding = 5.0;
@@ -593,7 +611,7 @@ where
         cursor: mouse::Cursor,
     ) {
         self.menu.as_widget().draw(
-            &self.state.menu_tree,
+            self.tree,
             renderer,
             theme,
             style,
@@ -609,12 +627,9 @@ where
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
     ) {
-        self.menu.as_widget_mut().operate(
-            &mut self.state.menu_tree,
-            layout,
-            renderer,
-            operation,
-        );
+        self.menu
+            .as_widget_mut()
+            .operate(self.tree, layout, renderer, operation);
     }
 
     fn update(
@@ -642,7 +657,7 @@ where
         }
 
         self.menu.as_widget_mut().update(
-            &mut self.state.menu_tree,
+            self.tree,
             event,
             layout,
             cursor,
@@ -659,7 +674,7 @@ where
         renderer: &Renderer,
     ) -> iced::advanced::mouse::Interaction {
         let interaction = self.menu.as_widget().mouse_interaction(
-            &self.state.menu_tree,
+            self.tree,
             layout,
             cursor,
             &layout.bounds(),
