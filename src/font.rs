@@ -18,8 +18,6 @@ pub static ICON: LazyLock<iced::Font> =
     LazyLock::new(|| iced::Font::with_family("halloy-icons"));
 pub const MESSAGE_MARKER_FONT_SCALE: f32 = 1.33;
 
-static LINE_HEIGHT: OnceLock<LineHeight> = OnceLock::new();
-
 #[derive(Debug, Clone)]
 pub struct Font {
     bold: bool,
@@ -65,8 +63,11 @@ impl From<Font> for iced::Font {
     }
 }
 
-pub fn line_height() -> LineHeight {
-    LINE_HEIGHT.get().copied().unwrap_or_default()
+pub fn line_height(config: &config::Font) -> LineHeight {
+    config
+        .line_height
+        .map(LineHeight::Relative)
+        .unwrap_or_default()
 }
 
 pub fn shaping() -> iced::advanced::text::Shaping {
@@ -127,12 +128,6 @@ pub fn set(config: &config::Font) {
         config.weight,
         bold_weight,
     );
-
-    let line_height = config
-        .line_height
-        .map(LineHeight::Relative)
-        .unwrap_or_default();
-    let _ = LINE_HEIGHT.set(line_height);
 }
 
 pub fn load() -> Vec<Cow<'static, [u8]>> {
@@ -178,7 +173,7 @@ pub fn width_from_str(text: &str, config: &config::Font) -> f32 {
         content: text,
         bounds: Size::INFINITE,
         size: config.size.map_or(theme::TEXT_SIZE, f32::from).into(),
-        line_height: line_height(),
+        line_height: line_height(config),
         font: PRIMARY.clone().into(),
         align_x: text::Alignment::Right,
         align_y: alignment::Vertical::Top,
@@ -205,7 +200,7 @@ pub fn width_of_message_marker(config: &config::Font) -> f32 {
         content: "\u{2022}",
         bounds: Size::INFINITE,
         size: font_size.into(),
-        line_height: line_height(),
+        line_height: line_height(config),
         font: *ICON,
         align_x: text::Alignment::Right,
         align_y: alignment::Vertical::Top,

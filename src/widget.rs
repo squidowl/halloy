@@ -55,7 +55,7 @@ pub type TitleBar<'a, Message> =
 pub type Column<'a, Message> =
     iced::widget::Column<'a, Message, Theme, Renderer>;
 pub type Row<'a, Message> = iced::widget::Row<'a, Message, Theme, Renderer>;
-pub type Text<'a> = iced::widget::Text<'a, Theme, Renderer>;
+pub type Text<'a> = iced::widget::Text<'a, Theme>;
 pub type Container<'a, Message> =
     iced::widget::Container<'a, Message, Theme, Renderer>;
 pub type Button<'a, Message> = iced::widget::Button<'a, Message, Theme>;
@@ -71,7 +71,7 @@ pub enum Marker {
 pub fn text<'a>(
     content: impl iced::widget::text::IntoFragment<'a>,
 ) -> Text<'a> {
-    iced::widget::text(content).line_height(font::line_height())
+    iced::widget::text(content)
 }
 
 pub trait TextExt<'a>: Sized {

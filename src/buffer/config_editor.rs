@@ -2,13 +2,12 @@ use std::ops::Range;
 
 use data::Config;
 use data::config::buffer::text_input::KeyBindings;
-use iced::advanced::text::Highlighter;
-use iced::advanced::text::highlighter::Format;
 use iced::widget::text::Wrapping;
+use iced::widget::text::highlighter::Style;
 use iced::widget::{
     self, Space, column, container, operation, row, rule, text, text_editor,
 };
-use iced::{Font, Length, Task, highlighter, padding};
+use iced::{Length, Task, highlighter, padding};
 
 use crate::appearance::theme;
 use crate::widget::{Element, text_editor_key_bindings, tooltip};
@@ -384,15 +383,14 @@ pub fn view<'a>(
 
             text_editor::Binding::from_key_press(key_press)
         })
-        .highlight_with::<ConfigHighlighter>(
+        .highlight_with::<ConfigParser>(
             Settings {
-                highlighter: highlighter::Settings {
-                    theme: syntax_theme(theme),
+                inner: highlighter::Settings {
                     token: "toml".to_owned(),
                 },
                 error_line: state.error.as_ref().and_then(|error| error.line),
             },
-            token_format,
+            config_highlight,
         );
 
     let content = column![editor, footer].spacing(1).padding([2, 2]);
@@ -403,61 +401,37 @@ pub fn view<'a>(
         .into()
 }
 
-/// Picks a syntect color scheme matching the active theme's light/dark mode.
-fn syntax_theme(theme: &Theme) -> highlighter::Theme {
-    let background =
-        data::appearance::theme::to_hsl(theme.styles().general.background);
-
-    if background.lightness < 0.5 {
-        highlighter::Theme::SolarizedDark
-    } else {
-        highlighter::Theme::InspiredGitHub
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
 struct Settings {
-    highlighter: highlighter::Settings,
+    inner: highlighter::Settings,
     /// Zero-indexed line of a config parse error, marked as an error.
     error_line: Option<usize>,
 }
 
-enum Highlight {
-    Syntax(highlighter::Highlight),
+enum Code {
+    Syntax(iced::Code),
     Error,
 }
 
-fn token_format(highlight: &Highlight, theme: &Theme) -> Format<Font> {
-    match highlight {
-        Highlight::Syntax(highlight) => highlight.to_format(),
-        Highlight::Error => Format {
-            color: Some(theme.styles().text.error.color),
-            font: None,
-        },
-    }
-}
-
-// iced toml highlighter, with the config error lines.
-struct ConfigHighlighter {
-    inner: highlighter::Highlighter,
+// iced toml parser, with the config error lines.
+struct ConfigParser {
+    inner: highlighter::Parser,
     error_line: Option<usize>,
 }
 
-impl Highlighter for ConfigHighlighter {
-    type Settings = Settings;
-    type Highlight = Highlight;
-    type Iterator<'a> =
-        Box<dyn Iterator<Item = (Range<usize>, Highlight)> + 'a>;
+type ConfigCodeIterator<'a> =
+    Box<dyn Iterator<Item = (Range<usize>, Code)> + 'a>;
 
-    fn new(settings: &Self::Settings) -> Self {
+impl ConfigParser {
+    fn new(settings: &Settings) -> Self {
         Self {
-            inner: highlighter::Highlighter::new(&settings.highlighter),
+            inner: highlighter::Parser::new(&settings.inner),
             error_line: settings.error_line,
         }
     }
 
-    fn update(&mut self, settings: &Self::Settings) {
-        self.inner.update(&settings.highlighter);
+    fn update(&mut self, settings: &Settings) {
+        self.inner.update(&settings.inner);
         self.error_line = settings.error_line;
     }
 
@@ -465,19 +439,66 @@ impl Highlighter for ConfigHighlighter {
         self.inner.change_line(line);
     }
 
-    fn highlight_line(&mut self, line: &str) -> Self::Iterator<'_> {
+    fn parse_line(&mut self, line: &str) -> ConfigCodeIterator<'_> {
         if Some(self.inner.current_line()) == self.error_line {
-            self.inner.highlight_line(line).for_each(drop);
+            self.inner.parse_line(line).for_each(drop);
 
-            Box::new(std::iter::once((0..line.len(), Highlight::Error)))
+            Box::new(std::iter::once((0..line.len(), Code::Error)))
         } else {
-            Box::new(self.inner.highlight_line(line).map(
-                |(range, highlight)| (range, Highlight::Syntax(highlight)),
-            ))
+            Box::new(
+                self.inner
+                    .parse_line(line)
+                    .map(|(range, code)| (range, Code::Syntax(code))),
+            )
         }
     }
 
     fn current_line(&self) -> usize {
         self.inner.current_line()
+    }
+}
+
+impl text::Parser for ConfigParser {
+    type Settings = Settings;
+    type Output = Code;
+    type Iterator<'a> = ConfigCodeIterator<'a>;
+
+    fn new(settings: &Self::Settings) -> Self {
+        Self::new(settings)
+    }
+
+    fn update(&mut self, new_settings: &Self::Settings) {
+        self.update(new_settings);
+    }
+
+    fn change_line(&mut self, line: usize) {
+        self.change_line(line);
+    }
+
+    fn parse_line(&mut self, line: &str) -> Self::Iterator<'_> {
+        self.parse_line(line)
+    }
+
+    fn current_line(&self) -> usize {
+        self.current_line()
+    }
+}
+
+fn config_highlight(output: Code, theme: &Theme) -> Style {
+    let background =
+        data::appearance::theme::to_hsl(theme.styles().general.background);
+
+    let syntax_theme = if background.lightness < 0.5 {
+        iced::Theme::SolarizedDark
+    } else {
+        iced::Theme::SolarizedLight
+    };
+
+    match output {
+        Code::Syntax(code) => code.highlight(&syntax_theme),
+        Code::Error => Style {
+            color: Some(theme.styles().text.error.color),
+            style: None,
+        },
     }
 }

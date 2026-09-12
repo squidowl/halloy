@@ -6,8 +6,8 @@ use iced::advanced::widget::{Operation, Tree, operation, tree};
 use iced::advanced::{Layout, Widget, layout, mouse, renderer, text, widget};
 use iced::widget::text::{Format, Fragment, IntoFragment, Wrapping};
 use iced::{
-    Border, Color, Element, Length, Pixels, Point, Rectangle, Shadow, Size,
-    Task, alignment, touch,
+    Border, Color, Element, Font, Length, Pixels, Point, Rectangle, Shadow,
+    Size, Task, alignment, touch,
 };
 
 pub use self::selection::selection;
@@ -15,29 +15,26 @@ pub use self::text::{LineHeight, Shaping};
 
 pub mod selection;
 
-pub fn selectable_text<'a, Theme, Renderer>(
+pub fn selectable_text<'a, Theme>(
     fragment: impl IntoFragment<'a>,
-) -> Text<'a, Theme, Renderer>
+) -> Text<'a, Theme>
 where
-    Renderer: text::Renderer,
     Theme: Catalog,
 {
     Text::new(fragment)
 }
 
-pub struct Text<'a, Theme, Renderer>
+pub struct Text<'a, Theme>
 where
-    Renderer: text::Renderer,
     Theme: Catalog,
 {
     fragment: Fragment<'a>,
-    format: Format<Renderer::Font>,
+    format: Format,
     class: Theme::Class<'a>,
 }
 
-impl<'a, Theme, Renderer> Text<'a, Theme, Renderer>
+impl<'a, Theme> Text<'a, Theme>
 where
-    Renderer: text::Renderer,
     Theme: Catalog,
 {
     pub fn new(fragment: impl IntoFragment<'a>) -> Self {
@@ -46,7 +43,7 @@ where
             format: Format {
                 shaping: crate::font::shaping(),
                 wrapping: Wrapping::WordOrGlyph,
-                line_height: crate::font::line_height(),
+                line_height: None,
                 ..Format::default()
             },
             class: Theme::default(),
@@ -59,19 +56,16 @@ where
     }
 
     pub fn line_height(mut self, line_height: impl Into<LineHeight>) -> Self {
-        self.format.line_height = line_height.into();
+        self.format.line_height = Some(line_height.into());
         self
     }
 
-    pub fn font(mut self, font: impl Into<Renderer::Font>) -> Self {
+    pub fn font(mut self, font: impl Into<Font>) -> Self {
         self.format.font = Some(font.into());
         self
     }
 
-    pub fn font_maybe(
-        mut self,
-        font: Option<impl Into<Renderer::Font>>,
-    ) -> Self {
+    pub fn font_maybe(mut self, font: Option<impl Into<Font>>) -> Self {
         self.format.font = font.map(Into::into);
         self
     }
@@ -126,7 +120,7 @@ where
 }
 
 impl<Message, Theme, Renderer> Widget<Message, Theme, Renderer>
-    for Text<'_, Theme, Renderer>
+    for Text<'_, Theme>
 where
     Renderer: text::Renderer,
     Theme: Catalog,
@@ -157,16 +151,19 @@ where
         layout::sized(limits, self.format.width, self.format.height, |limits| {
             let bounds = limits.max();
 
-            let size =
-                self.format.size.unwrap_or_else(|| renderer.default_size());
-            let font =
-                self.format.font.unwrap_or_else(|| renderer.default_font());
+            let font: Font =
+                self.format.font.unwrap_or_else(|| renderer.font());
+            let size = self.format.size.unwrap_or_else(|| renderer.text_size());
+            let line_height = self
+                .format
+                .line_height
+                .unwrap_or_else(|| renderer.line_height());
 
             state.paragraph.update(text::Text {
                 content: &self.fragment,
                 bounds,
                 size,
-                line_height: self.format.line_height,
+                line_height,
                 font,
                 align_x: self.format.align_x,
                 align_y: self.format.align_y,
@@ -268,9 +265,13 @@ where
             .selection()
             .and_then(|raw| raw.resolve(bounds))
         {
-            let line_height = f32::from(self.format.line_height.to_absolute(
-                self.format.size.unwrap_or_else(|| renderer.default_size()),
-            ));
+            let size = self.format.size.unwrap_or_else(|| renderer.text_size());
+            let line_height_rel = self
+                .format
+                .line_height
+                .unwrap_or_else(|| renderer.line_height());
+
+            let line_height = f32::from(line_height_rel.to_absolute(size));
 
             let baseline_y = bounds.y
                 + ((selection.start.y - bounds.y) / line_height).floor()
@@ -451,15 +452,13 @@ fn draw<Renderer>(
     );
 }
 
-impl<'a, Message, Theme, Renderer> From<Text<'a, Theme, Renderer>>
+impl<'a, Message, Theme, Renderer> From<Text<'a, Theme>>
     for Element<'a, Message, Theme, Renderer>
 where
     Renderer: text::Renderer + 'a,
     Theme: Catalog + 'a,
 {
-    fn from(
-        text: Text<'a, Theme, Renderer>,
-    ) -> Element<'a, Message, Theme, Renderer> {
+    fn from(text: Text<'a, Theme>) -> Element<'a, Message, Theme, Renderer> {
         Element::new(text)
     }
 }
