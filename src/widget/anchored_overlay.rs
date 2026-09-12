@@ -143,7 +143,7 @@ impl<Message> Widget<Message, Theme, Renderer>
         renderer: &Renderer,
         viewport: &Rectangle,
         translation: Vector,
-    ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
+    ) -> Vec<overlay::Element<'b, Message, Theme, Renderer>> {
         let (first, second) = tree.children.split_at_mut(1);
 
         let base = self.base.as_widget_mut().overlay(
@@ -168,12 +168,7 @@ impl<Message> Widget<Message, Theme, Renderer>
             viewport: *viewport,
         }));
 
-        Some(
-            overlay::Group::with_children(
-                base.into_iter().chain(Some(overlay)).collect(),
-            )
-            .overlay(),
-        )
+        base.into_iter().chain(std::iter::once(overlay)).collect()
     }
 }
 
@@ -345,7 +340,7 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
         &'c mut self,
         layout: Layout<'c>,
         renderer: &Renderer,
-    ) -> Option<overlay::Element<'c, Message, Theme, Renderer>> {
+    ) -> Vec<overlay::Element<'c, Message, Theme, Renderer>> {
         self.content.as_widget_mut().overlay(
             self.tree,
             layout,
