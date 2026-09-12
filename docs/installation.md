@@ -38,6 +38,22 @@ The following third party repositories are available for Linux
 
 [https://snapcraft.io/halloy](https://snapcraft.io/halloy)
 
+#### Manually from release builds
+
+* Download the `.tar.gz` file for the [latest release](https://github.com/squidowl/halloy/releases/latest)
+* Unpack that file into the `~/.local` directory:
+
+```sh
+tar -xf halloy-xxxxxx-xxxx-linux.tar.gz -C ~/.local
+```
+
+You may have to update your local application and icon database so halloy becomes discoverable:
+
+```sh
+update-desktop-database "$prefix/share/applications"
+gtk-update-icon-cache -t "$prefix/share/icons/hicolor/"
+```
+
 ### Windows
 
 #### Winget
