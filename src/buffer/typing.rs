@@ -129,7 +129,7 @@ pub fn view<'a, Message: 'a>(
     typing
 }
 
-fn animate<'a, Message: 'a>(
+pub fn animate<'a, Message: 'a>(
     animation: Option<&Animation>,
     font_size: f32,
     animation_config: &data::config::buffer::Animation,

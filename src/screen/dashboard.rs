@@ -1887,6 +1887,7 @@ impl Dashboard {
                 version,
                 theme,
                 self.buffer_settings.show_muted,
+                self.typing_animation.as_ref(),
             )
             .map(|e| e.map(Message::Sidebar));
 
@@ -4571,7 +4572,7 @@ impl Dashboard {
         clients: &data::client::Map,
         config: &Config,
     ) -> Task<Message> {
-        if !self.has_typing_activity(clients) {
+        if !self.has_typing_activity(clients, config) {
             self.typing_animation = None;
         }
 
@@ -4624,8 +4625,9 @@ impl Dashboard {
         &mut self,
         now: Instant,
         clients: &data::client::Map,
+        config: &Config,
     ) -> Task<Message> {
-        if self.has_typing_activity(clients) {
+        if self.has_typing_activity(clients, config) {
             buffer::typing::advance(&mut self.typing_animation, now);
         } else {
             self.typing_animation = None;
@@ -5225,10 +5227,17 @@ impl Dashboard {
         })
     }
 
-    pub fn has_typing_activity(&self, clients: &client::Map) -> bool {
+    pub fn has_typing_activity(
+        &self,
+        clients: &client::Map,
+        config: &Config,
+    ) -> bool {
         self.panes
             .iter()
             .any(|(_, _, pane)| pane.buffer.has_typing_activity(clients))
+            || (config.can_show_any_typing()
+                && config.sidebar.can_show_typing()
+                && clients.has_any_query_typing())
     }
 
     pub fn has_typing_activity_in_focused_window(
