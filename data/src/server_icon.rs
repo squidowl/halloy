@@ -216,7 +216,7 @@ async fn fetch(
     // [IANA-registered types](https://www.iana.org/assignments/media-types/media-types.xhtml#image).
     // As per [RFC 9110](https://datatracker.ietf.org/doc/html/rfc9110#section-12.5.1-15)
     // more specific types have precedence over less specific (i.e. image/png
-    // has precdence over image/*).
+    // has precedence over image/*).
     req = req.header(
         header::ACCEPT,
         "image/avif,\
