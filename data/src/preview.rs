@@ -454,8 +454,7 @@ async fn fetch(
     // https://www.iana.org/assignments/media-types/media-types.xhtml#image
     req = req.header(
         header::ACCEPT,
-        "text/html,\
-         image/avif,\
+        "image/avif,\
          image/bmp,\
          image/gif,\
          image/vnd.microsoft.icon,\
@@ -464,7 +463,8 @@ async fn fetch(
          image/svg+xml,\
          image/tiff,\
          image/webp,\
-         image/*;q=0.8",
+         image/*,\
+         */*",
     );
 
     if let Ok(user_agent) = HeaderValue::from_str(&config.request.user_agent) {
