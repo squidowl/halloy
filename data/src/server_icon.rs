@@ -212,8 +212,11 @@ async fn fetch(
 ) -> Result<Image, LoadError> {
     let mut req = http_client.get(url.clone());
 
-    // Accept images; prefer known-supported IANA-registered types
-    // https://www.iana.org/assignments/media-types/media-types.xhtml#image
+    // Accept HTML and images; for images, prefer known-supported
+    // [IANA-registered types](https://www.iana.org/assignments/media-types/media-types.xhtml#image).
+    // As per [RFC 9110](https://datatracker.ietf.org/doc/html/rfc9110#section-12.5.1-15)
+    // more specific types have precedence over less specific (i.e. image/png
+    // has precedence over image/*).
     req = req.header(
         header::ACCEPT,
         "image/avif,\
@@ -225,7 +228,7 @@ async fn fetch(
          image/svg+xml,\
          image/tiff,\
          image/webp,\
-         image/*;q=0.8",
+         image/*",
     );
 
     let mut resp = req.send().await?.error_for_status()?;
