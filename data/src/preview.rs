@@ -450,8 +450,10 @@ async fn fetch(
         .timeout(Duration::from_millis(config.request.timeout_ms));
 
     // Accept HTML and images; for images, prefer known-supported
-    // IANA-registered types
-    // https://www.iana.org/assignments/media-types/media-types.xhtml#image
+    // [IANA-registered types](https://www.iana.org/assignments/media-types/media-types.xhtml#image).
+    // As per [RFC 9110](https://datatracker.ietf.org/doc/html/rfc9110#section-12.5.1-15)
+    // more specific types have precedence over less specific (i.e. image/png
+    // has precdence over image/* which has precedence over */*).
     req = req.header(
         header::ACCEPT,
         "image/avif,\
