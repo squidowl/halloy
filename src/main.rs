@@ -46,6 +46,7 @@ use data::version::Version;
 use data::{
     Notification, Server, Url, User, environment, history, server, version,
 };
+use iced::widget::text::LineHeight;
 use iced::widget::{column, container};
 use iced::{Length, Subscription, Task, padding};
 use screen::{dashboard, help, welcome};
@@ -174,13 +175,19 @@ fn settings(
     let default_text_size =
         font_config.size.map_or(theme::TEXT_SIZE, f32::from);
 
+    let line_height = font_config
+        .line_height
+        .map(LineHeight::Relative)
+        .unwrap_or_default();
+
     let runtime = config_load
         .as_ref()
         .map_or_else(|_| Runtime::default(), |config| config.runtime);
 
     iced::Settings {
-        default_font: font::PRIMARY.clone().into(),
-        default_text_size: default_text_size.into(),
+        font: font::PRIMARY.clone().into(),
+        text_size: default_text_size.into(),
+        line_height,
         backend: backend_from_config(runtime.backend),
         power_preference: power_preference_from_config(
             runtime.power_preference,

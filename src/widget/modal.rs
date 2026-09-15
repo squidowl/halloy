@@ -169,8 +169,8 @@ where
         _renderer: &Renderer,
         viewport: &Rectangle,
         translation: Vector,
-    ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
-        Some(overlay::Element::new(Box::new(Overlay {
+    ) -> Vec<overlay::Element<'b, Message, Theme, Renderer>> {
+        vec![overlay::Element::new(Box::new(Overlay {
             position: layout.position() + translation,
             content: &mut self.modal,
             tree: &mut state.children[1],
@@ -179,7 +179,7 @@ where
             backdrop: self.backdrop,
             shadow: self.shadow,
             viewport: *viewport,
-        })))
+        }))]
     }
 
     fn mouse_interaction(
@@ -358,7 +358,7 @@ where
         &'c mut self,
         layout: Layout<'c>,
         renderer: &Renderer,
-    ) -> Option<overlay::Element<'c, Message, Theme, Renderer>> {
+    ) -> Vec<overlay::Element<'c, Message, Theme, Renderer>> {
         self.content.as_widget_mut().overlay(
             self.tree,
             layout.children().next().unwrap(),
