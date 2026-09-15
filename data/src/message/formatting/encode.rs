@@ -4,7 +4,7 @@ use std::fmt::Write;
 
 use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::character::complete::{anychar, char, one_of, satisfy};
+use nom::character::complete::{anychar, char, none_of, one_of, satisfy};
 use nom::combinator::{
     cond, cut, eof, flat_map, map, map_opt, not, opt, peek, recognize, value,
     verify,
@@ -77,9 +77,9 @@ where
     map_opt(cond(!skip, inner), identity)
 }
 
-// [CommonMark](https://spec.commonmark.org/) is the reference specification for
-// markdown parsing; not all features can/should be supported, but supported
-// features should follow the specification as closely as possible.
+/// [CommonMark](https://spec.commonmark.org/) is the reference specification for
+/// markdown parsing;  not all features can/should be supported, but supported
+/// features should follow the specification as closely as possible.
 fn markdown<'a>(
     source: &'a str,
     markdown_only: bool,
@@ -284,8 +284,16 @@ fn markdown<'a>(
         backticks.into_iter().map(Token::Plain).collect::<Vec<_>>()
     });
 
+    let link = map(
+        pair(char('<'), many_till(none_of("<"), char('>'))),
+        |(_, (chars, _))| {
+            chars.into_iter().map(Token::Plain).collect::<Vec<_>>()
+        },
+    );
+
     alt((
         map(code, Markdown::Code),
+        map(link, Markdown::Link),
         map(italic_bold, Markdown::ItalicBold),
         map(bold, Markdown::Bold),
         map(italic, Markdown::Italic),
@@ -399,6 +407,11 @@ impl Token {
                     }
                     out.push(m);
                 }
+                Markdown::Link(tokens) => {
+                    for token in tokens {
+                        token.encode(out);
+                    }
+                }
                 Markdown::Spoiler(tokens) => {
                     let c = Modifier::Color.char();
                     let black = Color::Black.digit();
@@ -466,6 +479,7 @@ enum Markdown {
     ItalicBold(Vec<Token>),
     Strikethrough(Vec<Token>),
     Code(Vec<Token>),
+    Link(Vec<Token>),
     Spoiler(Vec<Token>),
     Plain(Vec<Token>),
 }
@@ -577,6 +591,18 @@ mod test {
             (
                 ("`foo``bar`` ```bar``", false),
                 String::from("`foo\u{11}bar\u{11} ```bar``"),
+            ),
+            (
+                ("<https://example.org/_with_underscores>", false),
+                String::from("https://example.org/_with_underscores"),
+            ),
+            (
+                ("< <https://example.org/_with_underscores> >", false),
+                String::from("< https://example.org/_with_underscores >"),
+            ),
+            (
+                ("`<https://in.code.org/>`", false),
+                String::from("\u{11}<https://in.code.org/>\u{11}"),
             ),
             (
                 (
