@@ -47,6 +47,7 @@ Fixed:
   single connection cannot grow memory without bound
 - Config editor now properly out-scrolls the cursor
 - Allow listing modes by not proviging <+|->
+- User-specified log levels are applied to all log sources (including non-Halloy log sources, which were previously exempt)
 
 Changed:
 
@@ -64,7 +65,7 @@ Changed:
 Thanks:
 
 - Contributions: @rollecode, @luca020400, @rtmongold, @tranzystorekk, @englut, @furudean, @ncfavier
-- Bug reports: @sebbu2, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae, @SRAZKVT, @WinnerWind, @lojinks, @edwardloveall, CGML
+- Bug reports: @sebbu2, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae, @SRAZKVT, @WinnerWind, @lojinks, @edwardloveall, CGML, @TheDcoder
 - Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo, ivocavalcante, @sebbu2, @coraxioU9, @ncfavier, @darienm, @Anonymous1157, gkoebel, @BigOjisan
 
 # 2026.8 (2026-07-24)
