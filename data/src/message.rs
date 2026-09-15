@@ -2029,46 +2029,56 @@ pub fn parse_fragments_with_highlights(
         )
         .then_some((&m.regex, &m.sound))
     }) {
+        let mut highlight_match = |text: &str| {
+            let set_highlight_kind = if highlight_kind.is_none() {
+                true
+            } else if sound.is_some()
+                && let Some(highlight::Kind::Match {
+                    sound: highlight_kind_sound,
+                    ..
+                }) = &highlight_kind
+                && highlight_kind_sound.is_none()
+            {
+                true
+            } else {
+                false
+            };
+
+            if set_highlight_kind {
+                highlight_kind = Some(highlight::Kind::Match {
+                    matching: regex.to_string(),
+                    sound: sound.clone(),
+                });
+            }
+
+            Some(Fragment::HighlightMatch(text.to_owned()))
+        };
+
+        let matched_users = matched_user_fragments(regex, &fragments);
+
         fragments = fragments
             .into_iter()
-            .flat_map(|fragment| {
+            .enumerate()
+            .flat_map(|(index, fragment)| {
                 if let Fragment::Text(text) = &fragment {
                     return Either::Left(
                         parse_regex_fragments(
                             regex,
                             text,
-                            |text| {
-                                let set_highlight_kind =
-                                    if highlight_kind.is_none() {
-                                        true
-                                    } else if sound.is_some()
-                                        && let Some(highlight::Kind::Match {
-                                            sound: highlight_kind_sound,
-                                            ..
-                                        }) = &highlight_kind
-                                        && highlight_kind_sound.is_none()
-                                    {
-                                        true
-                                    } else {
-                                        false
-                                    };
-
-                                if set_highlight_kind {
-                                    highlight_kind =
-                                        Some(highlight::Kind::Match {
-                                            matching: regex.to_string(),
-                                            sound: sound.clone(),
-                                        });
-                                }
-
-                                Some(Fragment::HighlightMatch(text.to_owned()))
-                            },
+                            &mut highlight_match,
                             |_| false,
                             true,
                             |_| None,
                         )
                         .into_iter(),
                     );
+                }
+
+                if matched_users.contains(&index)
+                    && let Fragment::User(_, raw) = &fragment
+                    && let Some(highlight) = highlight_match(raw)
+                {
+                    return Either::Right(iter::once(highlight));
                 }
 
                 Either::Right(iter::once(fragment))
@@ -2085,6 +2095,59 @@ pub fn parse_fragments_with_highlights(
     } else {
         (Content::Fragments(fragments), highlight_kind)
     }
+}
+
+// Indices of user fragments overlapped by a match on the surrounding text
+fn matched_user_fragments(
+    regex: &Regex,
+    fragments: &[Fragment],
+) -> HashSet<usize> {
+    let mut matched = HashSet::new();
+    let mut run = String::new();
+    let mut users = Vec::new();
+
+    let mut match_run =
+        |run: &mut String, users: &mut Vec<(usize, usize, usize)>| {
+            let mut remaining = users.as_slice();
+
+            if !remaining.is_empty() {
+                for re_match in regex.find_iter(run).filter_map(Result::ok) {
+                    while let [(_, _, end), rest @ ..] = remaining
+                        && *end <= re_match.start()
+                    {
+                        remaining = rest;
+                    }
+
+                    if remaining.is_empty() {
+                        break;
+                    }
+
+                    matched.extend(
+                        remaining
+                            .iter()
+                            .take_while(|(_, start, _)| *start < re_match.end())
+                            .map(|(index, _, _)| *index),
+                    );
+                }
+            }
+
+            run.clear();
+            users.clear();
+        };
+
+    for (index, fragment) in fragments.iter().enumerate() {
+        match fragment {
+            Fragment::Text(text) => run.push_str(text),
+            Fragment::User(_, raw) => {
+                users.push((index, run.len(), run.len() + raw.len()));
+                run.push_str(raw);
+            }
+            _ => match_run(&mut run, &mut users),
+        }
+    }
+    match_run(&mut run, &mut users);
+
+    matched
 }
 
 pub fn parse_fragments_with_user(
@@ -5070,6 +5133,99 @@ pub mod tests {
                 panic!("expected fragments with highlighting from {text}");
             }
         }
+    }
+
+    #[test]
+    fn highlight_matches_on_channel_user_nicknames() {
+        use std::collections::HashMap;
+
+        use crate::message::highlight;
+
+        let server = Server {
+            name: "Test Server".into(),
+            network: None,
+        };
+
+        let isupport = HashMap::<isupport::Kind, isupport::Parameter>::new();
+        let chantypes = isupport::get_chantypes_or_default(&isupport);
+        let statusmsg = isupport::get_statusmsg_or_default(&isupport);
+        let casemapping = isupport::get_casemapping_or_default(&isupport);
+
+        let target =
+            target::Target::parse("#test", chantypes, statusmsg, casemapping);
+        let our_nick = Nick::from_str("steve", casemapping);
+        let sender = User::from(Nick::from_str("bob", casemapping));
+
+        let parse = |text: &str, nicks: &[&str], matches: &str| {
+            let channel_users = nicks
+                .iter()
+                .map(|nick| User::from(Nick::from_str(nick, casemapping)))
+                .collect::<ChannelUsers>();
+            let highlights = Highlights {
+                nickname: Nickname {
+                    exclude: None,
+                    include: None,
+                    case_insensitive: true,
+                },
+                matches: vec![toml::from_str(matches).unwrap()],
+            };
+
+            let (content, kind) = parse_fragments_with_highlights(
+                text.to_string(),
+                Some(&sender),
+                Some(&channel_users),
+                &target,
+                &our_nick,
+                &highlights,
+                &server,
+                casemapping,
+            );
+            let fragments = match content {
+                Content::Fragments(fragments) => fragments,
+                Content::Plain(text) => vec![Fragment::Text(text)],
+                Content::Log(_) => vec![],
+            };
+
+            (fragments, kind)
+        };
+
+        let is_match = |kind: &Option<highlight::Kind>| {
+            matches!(kind, Some(highlight::Kind::Match { .. }))
+        };
+
+        let words = "words = [\"alice\"]\ncase_insensitive = true";
+        let text = "alice: can you look at this?";
+
+        for nicks in [&["bob", "steve"][..], &["alice", "bob", "steve"]] {
+            let (fragments, kind) = parse(text, nicks, words);
+            assert!(
+                matches!(&fragments[..], [Fragment::HighlightMatch(m), Fragment::Text(_)] if m == "alice"),
+                "{nicks:?}: {fragments:?}"
+            );
+            assert!(is_match(&kind), "{nicks:?}");
+        }
+
+        let (fragments, kind) =
+            parse("bob and alice", &["alice", "bob"], words);
+        assert!(
+            matches!(&fragments[..], [Fragment::User(..), Fragment::Text(_), Fragment::HighlightMatch(m)] if m == "alice"),
+            "{fragments:?}"
+        );
+        assert!(is_match(&kind));
+
+        let (_, kind) =
+            parse("hello alice", &["alice", "bob"], "regex = '^alice$'");
+        assert!(kind.is_none());
+
+        let (_, kind) =
+            parse("steve: alice is here", &["alice", "bob", "steve"], words);
+        assert!(matches!(kind, Some(highlight::Kind::Nick)));
+
+        let (_, kind) = parse("steve", &["bob", "steve"], "regex = 'ste'");
+        assert!(matches!(kind, Some(highlight::Kind::Nick)));
+
+        let (_, kind) = parse("bobsteve", &["bob", "steve"], "regex = 'bob'");
+        assert!(is_match(&kind));
     }
 
     pub const SERDE_IRC_MESSAGES: &[&str] = &[

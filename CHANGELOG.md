@@ -25,6 +25,7 @@ Added:
 
 Fixed:
 
+- `highlights.match` now matches nicknames of users in the channel
 - Reconnect WebSocket connections when ping writes fail or exceed `servers.<name>.ping_timeout`
 - Avoid bursts of IRC pings after delays
 - Display RELAYMSG senders correctly
