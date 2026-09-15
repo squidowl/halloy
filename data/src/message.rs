@@ -413,7 +413,14 @@ impl Message {
             && match self.target.source() {
                 Source::User(_) => true,
                 Source::Action(_) => true,
-                Source::Server(Some(server)) => server.kind().is_action(),
+                Source::Server(Some(server)) => {
+                    let kind = server.kind();
+                    kind.is_action()
+                        && !matches!(
+                            kind,
+                            Kind::ChangeMode | Kind::Kick | Kind::ChangeTopic
+                        )
+                }
                 Source::Internal(source::Internal::Logs(level)) => {
                     match level {
                         Level::Warn | Level::Error => true,
