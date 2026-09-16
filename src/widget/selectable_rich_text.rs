@@ -203,6 +203,7 @@ where
             From<container::StyleFn<'a, Theme>>,
         Renderer: 'a,
     {
+        let link_entries = Arc::new(link_entries);
         let view = Arc::new(view);
 
         self.context_menus = self
@@ -210,22 +211,22 @@ where
             .iter()
             .map(|span| {
                 if let Some(link) = span.link.as_ref() {
-                    let entries = link_entries(link);
-                    if !entries.is_empty() {
-                        let view = Arc::clone(&view);
-                        let link = link.clone();
+                    let link_entries = Arc::clone(&link_entries);
+                    let view = Arc::clone(&view);
 
-                        return context_menu::context_menu(
-                            context_menu::MouseButton::Right,
-                            context_menu::Anchor::Cursor,
-                            context_menu::ToggleBehavior::KeepOpen,
-                            None,
-                            widget::Space::new(),
-                            entries,
-                            move |entry, length| view(&link, entry, length),
-                        )
-                        .into();
-                    }
+                    let entries_link = link.clone();
+                    let link = link.clone();
+
+                    return context_menu::lazy_context_menu(
+                        context_menu::MouseButton::Right,
+                        context_menu::Anchor::Cursor,
+                        context_menu::ToggleBehavior::KeepOpen,
+                        None,
+                        widget::Space::new(),
+                        move || link_entries(&entries_link),
+                        move |entry, length| view(&link, entry, length),
+                    )
+                    .into();
                 }
 
                 widget::Space::new().into()
