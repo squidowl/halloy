@@ -60,6 +60,7 @@ Changed:
 - `esc` in the input box now scrolls the buffer to the bottom
 - Decouple `+draft/unreact` from `+draft/react`
 - When reloading the config file, if the config file editor pane is opened with unsaved changes then those changes will be saved before reloading
+- IRC protocol logs for bouncer networks have their logs directory nested under the bouncer name
 
 Thanks:
 

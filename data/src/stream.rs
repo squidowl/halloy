@@ -749,8 +749,13 @@ impl LogWriter {
     pub async fn new(server: &Server) -> Result<Self, std::io::Error> {
         let data_dir = environment::data_dir();
 
-        let log_dir =
-            data_dir.join("irc_protocol_logs").join(server.to_string());
+        let mut log_dir = data_dir
+            .join("irc_protocol_logs")
+            .join(server.name.as_ref());
+
+        if let Some(network) = &server.network {
+            log_dir = log_dir.join(&network.name);
+        };
 
         if !log_dir.exists() {
             fs::create_dir_all(&log_dir).await?;
