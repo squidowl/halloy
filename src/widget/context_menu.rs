@@ -50,9 +50,41 @@ where
         From<container::StyleFn<'a, Theme>>,
     Renderer: advanced::Renderer + 'a,
 {
+    lazy_context_menu(
+        activation_button,
+        anchor,
+        toggle_behavior,
+        mouse_interaction_on_hover,
+        base,
+        move || entries,
+        entry,
+    )
+}
+
+pub fn lazy_context_menu<'a, T, Message, Theme, Renderer>(
+    activation_button: MouseButton,
+    anchor: Anchor,
+    toggle_behavior: ToggleBehavior,
+    mouse_interaction_on_hover: Option<mouse::Interaction>,
+    base: impl Into<Element<'a, Message, Theme, Renderer>>,
+    entries: impl FnOnce() -> Vec<T> + 'a,
+    entry: impl Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a,
+) -> ContextMenu<'a, Message, Theme, Renderer>
+where
+    T: Copy + 'a,
+    Message: 'a,
+    Theme: 'a + container::Catalog + Catalog,
+    <Theme as container::Catalog>::Class<'a>:
+        From<container::StyleFn<'a, Theme>>,
+    Renderer: advanced::Renderer + 'a,
+{
     ContextMenu {
         base: base.into(),
-        menu: LazyCell::new(Box::new(move || build_menu(&entries, &entry))),
+        menu: LazyCell::new(Box::new(move || {
+            let entries = entries();
+
+            build_menu(&entries, &entry)
+        })),
         on_open: None,
         activation_button: match activation_button {
             MouseButton::Left => iced::mouse::Button::Left,
@@ -66,7 +98,7 @@ where
 
 type LazyElement<'a, Message, Theme, Renderer> = LazyCell<
     Element<'a, Message, Theme, Renderer>,
-    Box<dyn Fn() -> Element<'a, Message, Theme, Renderer> + 'a>,
+    Box<dyn FnOnce() -> Element<'a, Message, Theme, Renderer> + 'a>,
 >;
 
 pub struct ContextMenu<'a, Message, Theme, Renderer> {
