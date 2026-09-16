@@ -87,12 +87,14 @@ impl<Message> Widget<Message, Theme, Renderer>
         &mut self,
         tree: &mut iced::advanced::widget::Tree,
         layout: Layout<'_>,
+        viewport: &Rectangle,
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
     ) {
         self.base.as_widget_mut().operate(
             &mut tree.children[0],
             layout,
+            viewport,
             renderer,
             operation,
         );
@@ -165,7 +167,7 @@ impl<Message> Widget<Message, Theme, Renderer>
             // so the overlay anchors to the base's on-screen position rather
             // than its position in unscrolled content space.
             position: layout.position() + translation,
-            viewport: *viewport,
+            viewport: *viewport + translation,
         }));
 
         base.into_iter().chain(std::iter::once(overlay)).collect()
@@ -279,9 +281,13 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
     ) {
-        self.content
-            .as_widget_mut()
-            .operate(self.tree, layout, renderer, operation);
+        self.content.as_widget_mut().operate(
+            self.tree,
+            layout,
+            &layout.bounds(),
+            renderer,
+            operation,
+        );
     }
 
     fn update(

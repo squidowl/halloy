@@ -2181,11 +2181,12 @@ pub mod keyed {
                       inner: &mut Element<'a, Message>,
                       tree: &mut advanced::widget::Tree,
                       layout: advanced::Layout<'_>,
+                      viewport: &Rectangle,
                       renderer: &Renderer,
                       operation: &mut dyn advanced::widget::Operation<()>| {
                     let mut key = key;
                     operation.custom(None, layout.bounds(), &mut key);
-                    inner.as_widget_mut().operate(tree, layout, renderer, operation);
+                    inner.as_widget_mut().operate(tree, layout, viewport, renderer, operation);
                 },
             )
             .into()
@@ -2273,7 +2274,13 @@ pub mod keyed {
             }
         }
 
-        fn container(&mut self, _id: Option<&widget::Id>, _bounds: Rectangle) {}
+        fn container(
+            &mut self,
+            _id: Option<&widget::Id>,
+            _bounds: Rectangle,
+            _viewport: &Rectangle,
+        ) {
+        }
 
         fn traverse(
             &mut self,
@@ -2342,7 +2349,13 @@ pub mod keyed {
             }
         }
 
-        fn container(&mut self, _id: Option<&widget::Id>, _bounds: Rectangle) {}
+        fn container(
+            &mut self,
+            _id: Option<&widget::Id>,
+            _bounds: Rectangle,
+            _viewport: &Rectangle,
+        ) {
+        }
 
         fn traverse(
             &mut self,
@@ -2406,7 +2419,13 @@ pub mod keyed {
             self.active = id == Some(&self.scrollable_id);
         }
 
-        fn container(&mut self, _id: Option<&widget::Id>, _bounds: Rectangle) {}
+        fn container(
+            &mut self,
+            _id: Option<&widget::Id>,
+            _bounds: Rectangle,
+            _viewport: &Rectangle,
+        ) {
+        }
 
         fn traverse(
             &mut self,
@@ -2505,7 +2524,7 @@ mod correct_viewport {
 
                         inner
                             .as_widget_mut()
-                            .operate(tree, layout, renderer, &mut operation);
+                            .operate(tree, layout, viewport, renderer, &mut operation);
                         operation.finish();
                         drop(operation);
 
@@ -2536,7 +2555,7 @@ mod correct_viewport {
                                 );
                                 inner
                                     .as_widget_mut()
-                                    .operate(tree, layout, renderer, &mut operation);
+                                    .operate(tree, layout, viewport, renderer, &mut operation);
                                 operation.finish();
                             }
                         }
@@ -2605,7 +2624,7 @@ mod correct_viewport {
 
                         inner
                             .as_widget_mut()
-                            .operate(tree, layout, renderer, &mut operation);
+                            .operate(tree, layout, viewport, renderer, &mut operation);
                         operation.finish();
                         drop(operation);
 
@@ -2620,9 +2639,10 @@ mod correct_viewport {
                       inner: &mut Element<'a, Message>,
                       tree: &mut advanced::widget::Tree,
                       layout: advanced::Layout<'_>,
+                      viewport: &iced::Rectangle,
                       renderer: &Renderer,
                       operation: &mut dyn advanced::widget::Operation<()>| {
-                    inner.as_widget_mut().operate(tree, layout, renderer, operation);
+                    inner.as_widget_mut().operate(tree, layout, viewport, renderer, operation);
 
                     let mut is_scroll_to = false;
 
@@ -2652,7 +2672,7 @@ mod correct_viewport {
 
                         inner
                             .as_widget_mut()
-                            .operate(tree, layout, renderer, &mut operation);
+                            .operate(tree, layout, viewport, renderer, &mut operation);
                         operation.finish();
                         drop(operation);
 
@@ -2675,7 +2695,13 @@ mod correct_viewport {
         }
 
         impl<T> Operation<T> for ScrollTo {
-            fn container(&mut self, _id: Option<&Id>, _bounds: Rectangle) {}
+            fn container(
+                &mut self,
+                _id: Option<&Id>,
+                _bounds: Rectangle,
+                _viewport: &Rectangle,
+            ) {
+            }
 
             fn traverse(
                 &mut self,
@@ -2729,7 +2755,13 @@ mod correct_viewport {
         }
 
         impl<T> Operation<T> for ScrollBy {
-            fn container(&mut self, _id: Option<&Id>, _bounds: Rectangle) {}
+            fn container(
+                &mut self,
+                _id: Option<&Id>,
+                _bounds: Rectangle,
+                _viewport: &Rectangle,
+            ) {
+            }
 
             fn traverse(
                 &mut self,

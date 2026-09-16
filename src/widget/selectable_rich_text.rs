@@ -833,6 +833,7 @@ where
         &mut self,
         tree: &mut Tree,
         layout: Layout<'_>,
+        _viewport: &Rectangle,
         _renderer: &Renderer,
         operation: &mut dyn Operation<()>,
     ) {

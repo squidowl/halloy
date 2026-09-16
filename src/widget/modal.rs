@@ -197,12 +197,14 @@ where
         &mut self,
         state: &mut widget::Tree,
         layout: Layout<'_>,
+        viewport: &Rectangle,
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
     ) {
         self.base.as_widget_mut().operate(
             &mut state.children[0],
             layout,
+            viewport,
             renderer,
             operation,
         );
@@ -334,6 +336,7 @@ where
         self.content.as_widget_mut().operate(
             self.tree,
             layout.children().next().unwrap(),
+            &layout.bounds(),
             renderer,
             operation,
         );

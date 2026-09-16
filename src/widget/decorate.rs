@@ -529,6 +529,7 @@ pub trait Operate<'a, Message, Theme, Renderer, State> {
         inner: &mut Element<'a, Message, Theme, Renderer>,
         tree: &mut advanced::widget::Tree,
         layout: advanced::Layout<'_>,
+        viewport: &Rectangle,
         renderer: &Renderer,
         operation: &mut dyn advanced::widget::Operation<()>,
     );
@@ -545,12 +546,13 @@ where
         inner: &mut Element<'a, Message, Theme, Renderer>,
         tree: &mut advanced::widget::Tree,
         layout: advanced::Layout<'_>,
+        viewport: &Rectangle,
         renderer: &Renderer,
         operation: &mut dyn advanced::widget::Operation<()>,
     ) {
         inner
             .as_widget_mut()
-            .operate(tree, layout, renderer, operation);
+            .operate(tree, layout, viewport, renderer, operation);
     }
 }
 
@@ -562,6 +564,7 @@ where
             &mut Element<'a, Message, Theme, Renderer>,
             &mut advanced::widget::Tree,
             advanced::Layout<'_>,
+            &Rectangle,
             &Renderer,
             &mut dyn advanced::widget::Operation<()>,
         ) + 'a,
@@ -572,10 +575,11 @@ where
         inner: &mut Element<'a, Message, Theme, Renderer>,
         tree: &mut advanced::widget::Tree,
         layout: advanced::Layout<'_>,
+        rectangle: &Rectangle,
         renderer: &Renderer,
         operation: &mut dyn advanced::widget::Operation<()>,
     ) {
-        self(state, inner, tree, layout, renderer, operation);
+        self(state, inner, tree, layout, rectangle, renderer, operation);
     }
 }
 
@@ -783,6 +787,7 @@ where
         &mut self,
         tree: &mut advanced::widget::Tree,
         layout: advanced::Layout<'_>,
+        viewport: &Rectangle,
         renderer: &Renderer,
         operation: &mut dyn advanced::widget::Operation<()>,
     ) {
@@ -791,6 +796,7 @@ where
             &mut self.inner,
             &mut tree.children[0],
             layout,
+            viewport,
             renderer,
             operation,
         );

@@ -210,6 +210,7 @@ where
         &mut self,
         tree: &mut iced::advanced::widget::Tree,
         layout: Layout<'_>,
+        viewport: &Rectangle,
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
     ) {
@@ -220,6 +221,7 @@ where
         self.base.as_widget_mut().operate(
             &mut tree.children[0],
             layout,
+            viewport,
             renderer,
             operation,
         );
@@ -508,7 +510,13 @@ pub fn close<Message: 'static + Send>(f: fn(bool) -> Message) -> Task<Message> {
     }
 
     impl<T> Operation<T> for Close<T> {
-        fn container(&mut self, _id: Option<&widget::Id>, _bounds: Rectangle) {}
+        fn container(
+            &mut self,
+            _id: Option<&widget::Id>,
+            _bounds: Rectangle,
+            _viewport: &Rectangle,
+        ) {
+        }
 
         fn traverse(&mut self, operate: &mut dyn FnMut(&mut dyn Operation<T>)) {
             operate(self);
@@ -627,9 +635,13 @@ where
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
     ) {
-        self.menu
-            .as_widget_mut()
-            .operate(self.tree, layout, renderer, operation);
+        self.menu.as_widget_mut().operate(
+            self.tree,
+            layout,
+            &layout.bounds(),
+            renderer,
+            operation,
+        );
     }
 
     fn update(

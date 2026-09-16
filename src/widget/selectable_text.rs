@@ -409,6 +409,7 @@ where
         &mut self,
         tree: &mut Tree,
         layout: Layout<'_>,
+        _viewport: &Rectangle,
         _renderer: &Renderer,
         operation: &mut dyn Operation<()>,
     ) {
@@ -513,7 +514,13 @@ pub fn selected<Message: Send + 'static>(
     }
 
     impl<T> Operation<T> for Selected<T> {
-        fn container(&mut self, _id: Option<&widget::Id>, _bounds: Rectangle) {}
+        fn container(
+            &mut self,
+            _id: Option<&widget::Id>,
+            _bounds: Rectangle,
+            _viewport: &Rectangle,
+        ) {
+        }
 
         fn traverse(&mut self, operate: &mut dyn FnMut(&mut dyn Operation<T>)) {
             operate(self);
