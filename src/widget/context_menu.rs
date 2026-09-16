@@ -210,6 +210,7 @@ where
         &mut self,
         tree: &mut iced::advanced::widget::Tree,
         layout: Layout<'_>,
+        viewport: &Rectangle,
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
     ) {
@@ -220,6 +221,7 @@ where
         self.base.as_widget_mut().operate(
             &mut tree.children[0],
             layout,
+            viewport,
             renderer,
             operation,
         );
@@ -414,6 +416,7 @@ where
             tree: &mut second[0],
             state,
             position: position + translation,
+            viewport: *viewport,
         }));
 
         base.into_iter().chain(std::iter::once(overlay)).collect()
@@ -459,6 +462,7 @@ pub fn overlay<'a, 'b, T, Message, Theme, Renderer>(
     entries: &[T],
     entry: &(dyn Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a),
     translation: Vector,
+    viewport: &Rectangle,
 ) -> Option<overlay::Element<'b, Message, Theme, Renderer>>
 where
     T: Copy + 'a,
@@ -497,6 +501,7 @@ where
                 tree,
                 state,
                 position: position + translation,
+                viewport: *viewport,
             }))
         })
 }
@@ -508,7 +513,13 @@ pub fn close<Message: 'static + Send>(f: fn(bool) -> Message) -> Task<Message> {
     }
 
     impl<T> Operation<T> for Close<T> {
-        fn container(&mut self, _id: Option<&widget::Id>, _bounds: Rectangle) {}
+        fn container(
+            &mut self,
+            _id: Option<&widget::Id>,
+            _bounds: Rectangle,
+            _viewport: &Rectangle,
+        ) {
+        }
 
         fn traverse(&mut self, operate: &mut dyn FnMut(&mut dyn Operation<T>)) {
             operate(self);
@@ -559,6 +570,7 @@ struct Overlay<'a, 'b, Message, Theme, Renderer> {
     tree: &'b mut widget::Tree,
     state: &'b mut State,
     position: Point,
+    viewport: Rectangle,
 }
 
 impl<Message, Theme, Renderer> overlay::Overlay<Message, Theme, Renderer>
@@ -627,9 +639,13 @@ where
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
     ) {
-        self.menu
-            .as_widget_mut()
-            .operate(self.tree, layout, renderer, operation);
+        self.menu.as_widget_mut().operate(
+            self.tree,
+            layout,
+            &self.viewport,
+            renderer,
+            operation,
+        );
     }
 
     fn update(

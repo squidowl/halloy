@@ -297,6 +297,7 @@ fn viewer<'a, Message: 'a>(
                   inner: &mut Element<'a, Message>,
                   tree: &mut widget::Tree,
                   layout: layout::Layout<'_>,
+                  viewport: &Rectangle,
                   renderer: &iced::Renderer,
                   operation: &mut dyn Operation| {
                 state.update_id(operate_playback.id(state));
@@ -319,7 +320,7 @@ fn viewer<'a, Message: 'a>(
                 }
                 inner
                     .as_widget_mut()
-                    .operate(tree, layout, renderer, operation);
+                    .operate(tree, layout, viewport, renderer, operation);
             },
         )
         .draw(

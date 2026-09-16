@@ -833,6 +833,7 @@ where
         &mut self,
         tree: &mut Tree,
         layout: Layout<'_>,
+        _viewport: &Rectangle,
         _renderer: &Renderer,
         operation: &mut dyn Operation<()>,
     ) {
@@ -865,7 +866,7 @@ where
         tree: &'b mut Tree,
         _layout: Layout<'_>,
         _renderer: &Renderer,
-        _viewport: &Rectangle,
+        viewport: &Rectangle,
         translation: Vector,
     ) -> Vec<iced::advanced::overlay::Element<'b, Message, Theme, Renderer>>
     {
@@ -901,6 +902,7 @@ where
                 &self.cached_entries,
                 &move |entry, length| view(&link, entry, length),
                 translation,
+                viewport,
             )
             .into_iter()
             .collect()

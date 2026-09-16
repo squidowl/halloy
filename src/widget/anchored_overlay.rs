@@ -87,12 +87,14 @@ impl<Message> Widget<Message, Theme, Renderer>
         &mut self,
         tree: &mut iced::advanced::widget::Tree,
         layout: Layout<'_>,
+        viewport: &Rectangle,
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
     ) {
         self.base.as_widget_mut().operate(
             &mut tree.children[0],
             layout,
+            viewport,
             renderer,
             operation,
         );
@@ -279,9 +281,13 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
     ) {
-        self.content
-            .as_widget_mut()
-            .operate(self.tree, layout, renderer, operation);
+        self.content.as_widget_mut().operate(
+            self.tree,
+            layout,
+            &self.viewport,
+            renderer,
+            operation,
+        );
     }
 
     fn update(
