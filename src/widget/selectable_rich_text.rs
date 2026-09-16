@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 use iced::advanced::graphics::core::touch;
@@ -56,20 +57,8 @@ pub struct Rich<
     class: Theme::Class<'a>,
     on_link: Option<Box<dyn Fn(Link) -> Message + 'a>>,
 
-    #[allow(clippy::type_complexity)]
-    context_menu: Option<(
-        Box<dyn Fn(&Link) -> Vec<Entry> + 'a>,
-        Arc<
-            dyn Fn(
-                    &Link,
-                    Entry,
-                    Length,
-                ) -> Element<'a, Message, Theme, Renderer>
-                + 'a,
-        >,
-    )>,
-    cached_entries: Vec<Entry>,
-    cached_menu: Option<Element<'a, Message, Theme, Renderer>>,
+    context_menus: Vec<Element<'a, Message, Theme, Renderer>>,
+    marker: PhantomData<Entry>,
 }
 
 impl<'a, Message, Link, Entry, Theme, Renderer>
@@ -93,9 +82,8 @@ where
             class: Theme::default(),
             on_link: None,
 
-            context_menu: None,
-            cached_entries: vec![],
-            cached_menu: None,
+            context_menus: vec![],
+            marker: PhantomData,
         }
     }
 
@@ -202,15 +190,49 @@ where
     }
 
     pub fn context_menu(
-        self,
+        mut self,
         link_entries: impl Fn(&Link) -> Vec<Entry> + 'a,
         view: impl Fn(&Link, Entry, Length) -> Element<'a, Message, Theme, Renderer>
         + 'a,
-    ) -> Self {
-        Self {
-            context_menu: Some((Box::new(link_entries), Arc::new(view))),
-            ..self
-        }
+    ) -> Self
+    where
+        Entry: Copy + 'a,
+        Message: 'a,
+        Theme: 'a + container::Catalog + context_menu::Catalog,
+        <Theme as container::Catalog>::Class<'a>:
+            From<container::StyleFn<'a, Theme>>,
+        Renderer: 'a,
+    {
+        let view = Arc::new(view);
+
+        self.context_menus = self
+            .spans
+            .iter()
+            .map(|span| {
+                if let Some(link) = span.link.as_ref() {
+                    let entries = link_entries(link);
+                    if !entries.is_empty() {
+                        let view = Arc::clone(&view);
+                        let link = link.clone();
+
+                        return context_menu::context_menu(
+                            context_menu::MouseButton::Right,
+                            context_menu::Anchor::Cursor,
+                            context_menu::ToggleBehavior::KeepOpen,
+                            None,
+                            widget::Space::new(),
+                            entries,
+                            move |entry, length| view(&link, entry, length),
+                        )
+                        .into();
+                    }
+                }
+
+                widget::Space::new().into()
+            })
+            .collect();
+
+        self
     }
 }
 
@@ -243,9 +265,6 @@ struct State<Link, P: Paragraph> {
     spoiler_hovered: bool,
     interaction: Interaction,
     shown_spoilers: HashMap<usize, (Color, Highlight)>,
-
-    context_menu_link: Option<Link>,
-    context_menu: context_menu::State,
 }
 
 struct Snapshot {
@@ -254,7 +273,6 @@ struct Snapshot {
     spoiler_hovered: bool,
     span_pressed: Option<usize>,
     interaction: Interaction,
-    context_menu_status: context_menu::Status,
     shown_spoilers: HashMap<usize, (Color, Highlight)>,
 }
 
@@ -266,7 +284,6 @@ impl<Link, P: Paragraph> From<&State<Link, P>> for Snapshot {
             spoiler_hovered: value.spoiler_hovered,
             span_pressed: value.span_pressed,
             interaction: value.interaction,
-            context_menu_status: value.context_menu.status,
             shown_spoilers: value.shown_spoilers.clone(),
         }
     }
@@ -279,7 +296,6 @@ impl Snapshot {
             || self.spoiler_hovered != other.spoiler_hovered
             || self.span_pressed != other.span_pressed
             || self.interaction != other.interaction
-            || self.context_menu_status != other.context_menu_status
             || self.shown_spoilers != other.shown_spoilers
     }
 }
@@ -289,7 +305,6 @@ impl<'a, Message, Link, Entry, Theme, Renderer> Widget<Message, Theme, Renderer>
 where
     Message: 'a,
     Link: self::Link + 'static,
-    Entry: Copy + 'a,
     Theme: 'a + container::Catalog + context_menu::Catalog + Catalog,
     <Theme as container::Catalog>::Class<'a>:
         From<container::StyleFn<'a, Theme>>,
@@ -306,8 +321,6 @@ where
             paragraph: Renderer::Paragraph::default(),
             interaction: Interaction::default(),
             shown_spoilers: HashMap::new(),
-            context_menu_link: None,
-            context_menu: context_menu::State::new(),
             hovered: false,
             link_hovered: false,
             spoiler_hovered: false,
@@ -315,21 +328,7 @@ where
     }
 
     fn diff(&mut self, tree: &mut Tree) {
-        let state = tree
-            .state
-            .downcast_ref::<State<Link, Renderer::Paragraph>>();
-
-        if matches!(
-            state.context_menu.status,
-            context_menu::Status::Open { .. }
-        ) {
-            if tree.children.is_empty() {
-                tree.children.push(Tree::empty());
-            }
-        } else {
-            tree.children.clear();
-            self.cached_menu = None;
-        }
+        tree.diff_children(&mut self.context_menus);
     }
 
     fn size(&self) -> Size<Length> {
@@ -572,41 +571,19 @@ where
                 button: mouse::Button::Right,
                 ..
             }) => {
-                if let Some(position) = cursor.position_in(bounds)
-                    && let Some((link_entries, _)) = &self.context_menu
-                    && let Some((link, entries)) =
-                        state.spans.iter().enumerate().find_map(|(i, span)| {
-                            if span.link.is_some()
-                                && state
-                                    .paragraph
-                                    .span_bounds(i)
-                                    .into_iter()
-                                    .any(|bounds| bounds.contains(position))
-                            {
-                                let link = span.link.clone().unwrap();
-                                let entries = (link_entries)(&link);
-
-                                if !entries.is_empty() {
-                                    return Some((link, entries));
-                                }
-                            }
-
-                            None
-                        })
+                if let Some(index) = cursor
+                    .position_in(bounds)
+                    .and_then(|position| state.paragraph.hit_span(position))
                 {
-                    state.context_menu.status = context_menu::Status::Open {
-                        // Need absolute position. Infallible since we're within position_in
-                        position: cursor.position_over(bounds).unwrap(),
-                        keep_open_bounds: None,
-                    };
-                    state.context_menu_link = Some(link);
-                    self.cached_entries = entries;
-
-                    if tree.children.is_empty() {
-                        tree.children.push(Tree::empty());
-                    }
-
-                    shell.capture_event();
+                    self.context_menus[index].as_widget_mut().update(
+                        &mut tree.children[index],
+                        event,
+                        layout,
+                        cursor,
+                        renderer,
+                        shell,
+                        viewport,
+                    );
                 }
             }
             _ => {}
@@ -833,8 +810,8 @@ where
         &mut self,
         tree: &mut Tree,
         layout: Layout<'_>,
-        _viewport: &Rectangle,
-        _renderer: &Renderer,
+        viewport: &Rectangle,
+        renderer: &Renderer,
         operation: &mut dyn Operation<()>,
     ) {
         let state = tree
@@ -857,58 +834,36 @@ where
             operation.custom(None, bounds, &mut content);
         }
 
-        // Context menu
-        operation.custom(None, bounds, &mut state.context_menu);
+        for (menu, child) in
+            self.context_menus.iter_mut().zip(&mut tree.children)
+        {
+            menu.as_widget_mut()
+                .operate(child, layout, viewport, renderer, operation);
+        }
     }
 
     fn overlay<'b>(
         &'b mut self,
         tree: &'b mut Tree,
-        _layout: Layout<'_>,
-        _renderer: &Renderer,
+        layout: Layout<'b>,
+        renderer: &Renderer,
         viewport: &Rectangle,
         translation: Vector,
     ) -> Vec<iced::advanced::overlay::Element<'b, Message, Theme, Renderer>>
     {
-        let state = tree
-            .state
-            .downcast_mut::<State<Link, Renderer::Paragraph>>();
-
-        // Sync local state w/ context menu change
-        if matches!(state.context_menu.status, context_menu::Status::Closed) {
-            state.context_menu_link = None;
-        }
-
-        if let Some((link, (link_entries, view))) = state
-            .context_menu_link
-            .clone()
-            .zip(self.context_menu.as_ref())
-        {
-            let view = view.clone();
-
-            // Rebuild if not cached (view recreated)
-            if self.cached_entries.is_empty() {
-                self.cached_entries = link_entries(&link);
-            }
-
-            if tree.children.is_empty() {
-                tree.children.push(Tree::empty());
-            }
-
-            context_menu::overlay(
-                &mut state.context_menu,
-                &mut tree.children[0],
-                &mut self.cached_menu,
-                &self.cached_entries,
-                &move |entry, length| view(&link, entry, length),
-                translation,
-                viewport,
-            )
-            .into_iter()
+        self.context_menus
+            .iter_mut()
+            .zip(&mut tree.children)
+            .flat_map(|(menu, child)| {
+                menu.as_widget_mut().overlay(
+                    child,
+                    layout,
+                    renderer,
+                    viewport,
+                    translation,
+                )
+            })
             .collect()
-        } else {
-            vec![]
-        }
     }
 }
 
@@ -1037,7 +992,7 @@ impl<'a, Message, Link, Entry, Theme, Renderer>
 where
     Message: 'a,
     Link: self::Link + 'static,
-    Entry: Copy + 'a,
+    Entry: 'a,
     Theme: 'a + container::Catalog + context_menu::Catalog + Catalog,
     <Theme as container::Catalog>::Class<'a>:
         From<container::StyleFn<'a, Theme>>,

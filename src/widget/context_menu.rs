@@ -455,57 +455,6 @@ where
     )
 }
 
-pub fn overlay<'a, 'b, T, Message, Theme, Renderer>(
-    state: &'b mut State,
-    tree: &'b mut widget::Tree,
-    menu: &'b mut Option<Element<'a, Message, Theme, Renderer>>,
-    entries: &[T],
-    entry: &(dyn Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a),
-    translation: Vector,
-    viewport: &Rectangle,
-) -> Option<overlay::Element<'b, Message, Theme, Renderer>>
-where
-    T: Copy + 'a,
-    Message: 'a,
-    Theme: 'a + container::Catalog + Catalog,
-    <Theme as container::Catalog>::Class<'a>:
-        From<container::StyleFn<'a, Theme>>,
-    Renderer: advanced::Renderer + 'a,
-{
-    if entries.is_empty() {
-        return None;
-    }
-
-    // Ensure overlay is created / diff'd
-    match state.status {
-        Status::Open { .. } => match menu {
-            Some(menu) => tree.diff(&mut *menu),
-            None => {
-                let mut _menu = build_menu(entries, entry);
-                tree.diff(&mut _menu);
-                *menu = Some(_menu);
-            }
-        },
-        Status::Closed => {
-            *menu = None;
-        }
-    }
-
-    state
-        .status
-        .position()
-        .zip(menu.as_mut())
-        .map(|(position, menu)| {
-            overlay::Element::new(Box::new(Overlay {
-                menu,
-                tree,
-                state,
-                position: position + translation,
-                viewport: *viewport,
-            }))
-        })
-}
-
 pub fn close<Message: 'static + Send>(f: fn(bool) -> Message) -> Task<Message> {
     struct Close<T> {
         any_closed: bool,
