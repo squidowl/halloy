@@ -52,27 +52,22 @@ jobs:
       RUSTFLAGS: ${{ matrix.target.rustflags }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
       - name: Install dependencies
         if: matrix.target.target == 'linux'
         run: |
           sudo apt update
           sudo apt install $(cat .github/linux-deps.txt) git mold clang
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target
-          key: ${{ runner.os }}-${{ runner.arch }}-cargo-debug-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-cargo-debug-
 
       - uses: dtolnay/rust-toolchain@master # recommended when specifying toolchain
         with:
           toolchain: stable minus 3 releases
           components: clippy
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: debug-${{ matrix.target.target }}
+
       - run: cargo version
       - name: Check
         run: cargo check --locked --profile ci
