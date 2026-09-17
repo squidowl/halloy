@@ -223,6 +223,8 @@ pub struct Scrollbar {
     pub width: u32,
     /// Width of the scrollbar scroller.
     pub scroller_width: u32,
+    /// Whether the scrollbar is hidden.
+    pub hidden: bool,
 }
 
 impl Default for Scrollbar {
@@ -230,6 +232,7 @@ impl Default for Scrollbar {
         Self {
             width: 5,
             scroller_width: 5,
+            hidden: false,
         }
     }
 }

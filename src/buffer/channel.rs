@@ -800,10 +800,17 @@ mod nick_list {
 
         Scrollable::new(content)
             .direction(scrollable::Direction::Vertical(
-                scrollable::Scrollbar::new().width(1).scroller_width(1),
+                scrollable::Scrollbar::default()
+                    .width(nicklist_config.scrollbar.width)
+                    .scroller_width(nicklist_config.scrollbar.scroller_width)
+                    .spacing(4),
             ))
             .width(Length::Fixed(width))
-            .style(theme::scrollable::hidden)
+            .style(if nicklist_config.scrollbar.hidden {
+                theme::scrollable::hidden
+            } else {
+                theme::scrollable::primary
+            })
             .into()
     }
 }
