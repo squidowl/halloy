@@ -1323,7 +1323,9 @@ kill_to_clipboard = true
 
 ### `max_lines`
 
-Maximum number of lines in a single input.  If [`multiline`](https://ircv3.net/specs/extensions/multiline) is supported by the server then it will be utilized, otherwise messages will be sent individually with [`send_line_delay`](#send_line_delay) milliseconds between them.
+Maximum number of lines in a single input.
+If [`multiline`](https://ircv3.net/specs/extensions/multiline) is supported by the server then it will be utilized, otherwise messages will be sent individually with [`send_line_delay`](#send_line_delay) milliseconds between them.
+If [`upload_on_limit`](#upload_on_limit) is enabled, filehost is enabled, and the pasted text exceeds server's multiline limit, it will instead be uploaded as a text file.
 
 ::: warning
 In many IRC communities sending multiple lines in quick succession is frowned upon (and may be a bannable offense); be mindful of community norms when using this feature
@@ -1349,6 +1351,20 @@ Delay (milliseconds) between each line when sending multiple lines.  When the se
 
 [buffer.text_input]
 send_line_delay = 100
+```
+
+### `upload_on_limit`
+
+If filehost is enabled automatically upload pasted text as a text file when it reaches [`max_lines`](#max_lines) and the server's multiline limit has also been reached.
+The pasted text will be replaced with a link to the uploaded file in the message input.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[buffer.text_input]
+upload_on_limit = false
 ```
 
 ### `persist`
