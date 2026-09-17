@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 use iced::advanced::graphics::core::touch;
@@ -11,8 +12,8 @@ use iced::advanced::{Layout, Shell, Widget, layout, renderer};
 use iced::widget::container;
 use iced::widget::text::{IntoFragment as _, LineHeight, Shaping};
 use iced::{
-    self, Background, Border, Color, Element, Event, Length, Pixels, Point,
-    Rectangle, Shadow, Size, Vector, alignment, mouse, widget,
+    self, Background, Border, Color, Element, Event, Font, Length, Pixels,
+    Point, Rectangle, Shadow, Size, Vector, alignment, mouse, widget,
 };
 use itertools::Itertools;
 
@@ -21,7 +22,7 @@ use super::selectable_text::{Catalog, Interaction, Style, StyleFn, selection};
 
 /// Creates a new [`Rich`] text widget with the provided spans.
 pub fn selectable_rich_text<'a, Message, Link, Entry, Theme, Renderer>(
-    spans: impl Into<Cow<'a, [Span<'a, Link, Renderer::Font>]>>,
+    spans: impl Into<Cow<'a, [Span<'a, Link>]>>,
 ) -> Rich<'a, Message, Link, Entry, Theme, Renderer>
 where
     Link: self::Link + 'static,
@@ -45,31 +46,19 @@ pub struct Rich<
     Theme: Catalog,
     Renderer: text::Renderer,
 {
-    spans: Cow<'a, [Span<'a, Link, Renderer::Font>]>,
+    spans: Cow<'a, [Span<'a, Link>]>,
     size: Option<Pixels>,
-    line_height: LineHeight,
+    line_height: Option<LineHeight>,
     width: Length,
     height: Length,
-    font: Option<Renderer::Font>,
+    font: Option<Font>,
     align_x: text::Alignment,
     align_y: alignment::Vertical,
     class: Theme::Class<'a>,
     on_link: Option<Box<dyn Fn(Link) -> Message + 'a>>,
 
-    #[allow(clippy::type_complexity)]
-    context_menu: Option<(
-        Box<dyn Fn(&Link) -> Vec<Entry> + 'a>,
-        Arc<
-            dyn Fn(
-                    &Link,
-                    Entry,
-                    Length,
-                ) -> Element<'a, Message, Theme, Renderer>
-                + 'a,
-        >,
-    )>,
-    cached_entries: Vec<Entry>,
-    cached_menu: Option<Element<'a, Message, Theme, Renderer>>,
+    context_menus: Vec<Element<'a, Message, Theme, Renderer>>,
+    marker: PhantomData<Entry>,
 }
 
 impl<'a, Message, Link, Entry, Theme, Renderer>
@@ -84,7 +73,7 @@ where
         Self {
             spans: Cow::default(),
             size: None,
-            line_height: crate::font::line_height(),
+            line_height: None,
             width: Length::Shrink,
             height: Length::Shrink,
             font: None,
@@ -93,16 +82,13 @@ where
             class: Theme::default(),
             on_link: None,
 
-            context_menu: None,
-            cached_entries: vec![],
-            cached_menu: None,
+            context_menus: vec![],
+            marker: PhantomData,
         }
     }
 
     /// Creates a new [`Rich`] text with the given text spans.
-    pub fn with_spans(
-        spans: impl Into<Cow<'a, [Span<'a, Link, Renderer::Font>]>>,
-    ) -> Self {
+    pub fn with_spans(spans: impl Into<Cow<'a, [Span<'a, Link>]>>) -> Self {
         Self {
             spans: spans.into(),
             ..Self::new()
@@ -117,21 +103,18 @@ where
 
     /// Sets the default [`LineHeight`] of the [`Rich`] text.
     pub fn line_height(mut self, line_height: impl Into<LineHeight>) -> Self {
-        self.line_height = line_height.into();
+        self.line_height = Some(line_height.into());
         self
     }
 
     /// Sets the default font of the [`Rich`] text.
-    pub fn font(mut self, font: impl Into<Renderer::Font>) -> Self {
+    pub fn font(mut self, font: impl Into<Font>) -> Self {
         self.font = Some(font.into());
         self
     }
 
     /// Sets the default font of the [`Rich`] text, if `Some`.
-    pub fn font_maybe(
-        mut self,
-        font: Option<impl Into<Renderer::Font>>,
-    ) -> Self {
+    pub fn font_maybe(mut self, font: Option<impl Into<Font>>) -> Self {
         self.font = font.map(Into::into);
         self
     }
@@ -207,15 +190,50 @@ where
     }
 
     pub fn context_menu(
-        self,
+        mut self,
         link_entries: impl Fn(&Link) -> Vec<Entry> + 'a,
         view: impl Fn(&Link, Entry, Length) -> Element<'a, Message, Theme, Renderer>
         + 'a,
-    ) -> Self {
-        Self {
-            context_menu: Some((Box::new(link_entries), Arc::new(view))),
-            ..self
-        }
+    ) -> Self
+    where
+        Entry: Copy + 'a,
+        Message: 'a,
+        Theme: 'a + container::Catalog + context_menu::Catalog,
+        <Theme as container::Catalog>::Class<'a>:
+            From<container::StyleFn<'a, Theme>>,
+        Renderer: 'a,
+    {
+        let link_entries = Arc::new(link_entries);
+        let view = Arc::new(view);
+
+        self.context_menus = self
+            .spans
+            .iter()
+            .map(|span| {
+                if let Some(link) = span.link.as_ref() {
+                    let link_entries = Arc::clone(&link_entries);
+                    let view = Arc::clone(&view);
+
+                    let entries_link = link.clone();
+                    let link = link.clone();
+
+                    return context_menu::lazy_context_menu(
+                        context_menu::MouseButton::Right,
+                        context_menu::Anchor::Cursor,
+                        context_menu::ToggleBehavior::KeepOpen,
+                        None,
+                        widget::Space::new(),
+                        move || link_entries(&entries_link),
+                        move |entry, length| view(&link, entry, length),
+                    )
+                    .into();
+                }
+
+                widget::Space::new().into()
+            })
+            .collect();
+
+        self
     }
 }
 
@@ -240,7 +258,7 @@ pub trait Link: Clone {
 impl Link for () {}
 
 struct State<Link, P: Paragraph> {
-    spans: Vec<Span<'static, Link, P::Font>>,
+    spans: Vec<Span<'static, Link>>,
     span_pressed: Option<usize>,
     paragraph: P,
     hovered: bool,
@@ -248,9 +266,6 @@ struct State<Link, P: Paragraph> {
     spoiler_hovered: bool,
     interaction: Interaction,
     shown_spoilers: HashMap<usize, (Color, Highlight)>,
-
-    context_menu_link: Option<Link>,
-    context_menu: context_menu::State,
 }
 
 struct Snapshot {
@@ -259,7 +274,6 @@ struct Snapshot {
     spoiler_hovered: bool,
     span_pressed: Option<usize>,
     interaction: Interaction,
-    context_menu_status: context_menu::Status,
     shown_spoilers: HashMap<usize, (Color, Highlight)>,
 }
 
@@ -271,7 +285,6 @@ impl<Link, P: Paragraph> From<&State<Link, P>> for Snapshot {
             spoiler_hovered: value.spoiler_hovered,
             span_pressed: value.span_pressed,
             interaction: value.interaction,
-            context_menu_status: value.context_menu.status,
             shown_spoilers: value.shown_spoilers.clone(),
         }
     }
@@ -284,7 +297,6 @@ impl Snapshot {
             || self.spoiler_hovered != other.spoiler_hovered
             || self.span_pressed != other.span_pressed
             || self.interaction != other.interaction
-            || self.context_menu_status != other.context_menu_status
             || self.shown_spoilers != other.shown_spoilers
     }
 }
@@ -294,7 +306,6 @@ impl<'a, Message, Link, Entry, Theme, Renderer> Widget<Message, Theme, Renderer>
 where
     Message: 'a,
     Link: self::Link + 'static,
-    Entry: Copy + 'a,
     Theme: 'a + container::Catalog + context_menu::Catalog + Catalog,
     <Theme as container::Catalog>::Class<'a>:
         From<container::StyleFn<'a, Theme>>,
@@ -311,12 +322,14 @@ where
             paragraph: Renderer::Paragraph::default(),
             interaction: Interaction::default(),
             shown_spoilers: HashMap::new(),
-            context_menu_link: None,
-            context_menu: context_menu::State::new(),
             hovered: false,
             link_hovered: false,
             spoiler_hovered: false,
         })
+    }
+
+    fn diff(&mut self, tree: &mut Tree) {
+        tree.diff_children(&mut self.context_menus);
     }
 
     fn size(&self) -> Size<Length> {
@@ -464,16 +477,18 @@ where
 
                 // Toggle spoiler on click
                 if let Some(position) = cursor.position_in(bounds) {
+                    let font = self.font.unwrap_or_else(|| renderer.font());
                     let size =
-                        self.size.unwrap_or_else(|| renderer.default_size());
-                    let font =
-                        self.font.unwrap_or_else(|| renderer.default_font());
+                        self.size.unwrap_or_else(|| renderer.text_size());
+                    let line_height = self
+                        .line_height
+                        .unwrap_or_else(|| renderer.line_height());
 
                     let text_with_spans = |spans| Text {
                         content: spans,
                         bounds: bounds.size(),
                         size,
-                        line_height: self.line_height,
+                        line_height,
                         font,
                         align_x: self.align_x,
                         align_y: self.align_y,
@@ -557,36 +572,19 @@ where
                 button: mouse::Button::Right,
                 ..
             }) => {
-                if let Some(position) = cursor.position_in(bounds)
-                    && let Some((link_entries, _)) = &self.context_menu
-                    && let Some((link, entries)) =
-                        state.spans.iter().enumerate().find_map(|(i, span)| {
-                            if span.link.is_some()
-                                && state
-                                    .paragraph
-                                    .span_bounds(i)
-                                    .into_iter()
-                                    .any(|bounds| bounds.contains(position))
-                            {
-                                let link = span.link.clone().unwrap();
-                                let entries = (link_entries)(&link);
-
-                                if !entries.is_empty() {
-                                    return Some((link, entries));
-                                }
-                            }
-
-                            None
-                        })
+                if let Some(index) = cursor
+                    .position_in(bounds)
+                    .and_then(|position| state.paragraph.hit_span(position))
                 {
-                    state.context_menu.status = context_menu::Status::Open {
-                        // Need absolute position. Infallible since we're within position_in
-                        position: cursor.position_over(bounds).unwrap(),
-                        keep_open_bounds: None,
-                    };
-                    state.context_menu_link = Some(link);
-                    self.cached_entries = entries;
-                    shell.capture_event();
+                    self.context_menus[index].as_widget_mut().update(
+                        &mut tree.children[index],
+                        event,
+                        layout,
+                        cursor,
+                        renderer,
+                        shell,
+                        viewport,
+                    );
                 }
             }
             _ => {}
@@ -665,11 +663,11 @@ where
                     let size = span
                         .size
                         .or(self.size)
-                        .unwrap_or(renderer.default_size());
-
+                        .unwrap_or_else(|| renderer.text_size());
                     let line_height = span
                         .line_height
-                        .unwrap_or(self.line_height)
+                        .or(self.line_height)
+                        .unwrap_or_else(|| renderer.line_height())
                         .to_absolute(size);
 
                     let color = span
@@ -726,9 +724,11 @@ where
             .selection()
             .and_then(|raw| raw.resolve(bounds))
         {
-            let line_height = f32::from(self.line_height.to_absolute(
-                self.size.unwrap_or_else(|| renderer.default_size()),
-            ));
+            let size = self.size.unwrap_or_else(|| renderer.text_size());
+            let line_height_rel =
+                self.line_height.unwrap_or_else(|| renderer.line_height());
+
+            let line_height = f32::from(line_height_rel.to_absolute(size));
 
             let baseline_y = bounds.y
                 + ((selection.start.y - bounds.y) / line_height).floor()
@@ -811,7 +811,8 @@ where
         &mut self,
         tree: &mut Tree,
         layout: Layout<'_>,
-        _renderer: &Renderer,
+        viewport: &Rectangle,
+        renderer: &Renderer,
         operation: &mut dyn Operation<()>,
     ) {
         let state = tree
@@ -834,50 +835,36 @@ where
             operation.custom(None, bounds, &mut content);
         }
 
-        // Context menu
-        operation.custom(None, bounds, &mut state.context_menu);
+        for (menu, child) in
+            self.context_menus.iter_mut().zip(&mut tree.children)
+        {
+            menu.as_widget_mut()
+                .operate(child, layout, viewport, renderer, operation);
+        }
     }
 
     fn overlay<'b>(
         &'b mut self,
         tree: &'b mut Tree,
-        _layout: Layout<'_>,
-        _renderer: &Renderer,
-        _viewport: &Rectangle,
+        layout: Layout<'b>,
+        renderer: &Renderer,
+        viewport: &Rectangle,
         translation: Vector,
-    ) -> Option<iced::advanced::overlay::Element<'b, Message, Theme, Renderer>>
+    ) -> Vec<iced::advanced::overlay::Element<'b, Message, Theme, Renderer>>
     {
-        let state = tree
-            .state
-            .downcast_mut::<State<Link, Renderer::Paragraph>>();
-
-        // Sync local state w/ context menu change
-        if matches!(state.context_menu.status, context_menu::Status::Closed) {
-            state.context_menu_link = None;
-        }
-
-        if let Some((link, (link_entries, view))) = state
-            .context_menu_link
-            .clone()
-            .zip(self.context_menu.as_ref())
-        {
-            let view = view.clone();
-
-            // Rebuild if not cached (view recreated)
-            if self.cached_entries.is_empty() {
-                self.cached_entries = link_entries(&link);
-            }
-
-            context_menu::overlay(
-                &mut state.context_menu,
-                &mut self.cached_menu,
-                &self.cached_entries,
-                &move |entry, length| view(&link, entry, length),
-                translation,
-            )
-        } else {
-            None
-        }
+        self.context_menus
+            .iter_mut()
+            .zip(&mut tree.children)
+            .flat_map(|(menu, child)| {
+                menu.as_widget_mut().overlay(
+                    child,
+                    layout,
+                    renderer,
+                    viewport,
+                    translation,
+                )
+            })
+            .collect()
     }
 }
 
@@ -887,10 +874,10 @@ fn layout<Link, Renderer>(
     limits: &layout::Limits,
     width: Length,
     height: Length,
-    spans: &[Span<'_, Link, Renderer::Font>],
-    line_height: LineHeight,
+    spans: &[Span<'_, Link>],
+    line_height: Option<LineHeight>,
     size: Option<Pixels>,
-    font: Option<Renderer::Font>,
+    font: Option<Font>,
     align_x: text::Alignment,
     align_y: alignment::Vertical,
 ) -> layout::Node
@@ -901,8 +888,9 @@ where
     layout::sized(limits, width, height, |limits| {
         let bounds = limits.max();
 
-        let size = size.unwrap_or_else(|| renderer.default_size());
-        let font = font.unwrap_or_else(|| renderer.default_font());
+        let font = font.unwrap_or_else(|| renderer.font());
+        let size = size.unwrap_or_else(|| renderer.text_size());
+        let line_height = line_height.unwrap_or_else(|| renderer.line_height());
 
         let text_with_spans = |spans| Text {
             content: spans,
@@ -984,17 +972,14 @@ where
     })
 }
 
-impl<'a, Message, Link, Entry, Theme, Renderer>
-    FromIterator<Span<'a, Link, Renderer::Font>>
+impl<'a, Message, Link, Entry, Theme, Renderer> FromIterator<Span<'a, Link>>
     for Rich<'a, Message, Link, Entry, Theme, Renderer>
 where
     Link: self::Link + 'static,
     Theme: Catalog,
     Renderer: text::Renderer,
 {
-    fn from_iter<T: IntoIterator<Item = Span<'a, Link, Renderer::Font>>>(
-        spans: T,
-    ) -> Self {
+    fn from_iter<T: IntoIterator<Item = Span<'a, Link>>>(spans: T) -> Self {
         Self {
             spans: spans.into_iter().collect(),
             ..Self::new()
@@ -1008,7 +993,7 @@ impl<'a, Message, Link, Entry, Theme, Renderer>
 where
     Message: 'a,
     Link: self::Link + 'static,
-    Entry: Copy + 'a,
+    Entry: 'a,
     Theme: 'a + container::Catalog + context_menu::Catalog + Catalog,
     <Theme as container::Catalog>::Class<'a>:
         From<container::StyleFn<'a, Theme>>,

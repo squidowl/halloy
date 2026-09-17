@@ -238,7 +238,6 @@ pub fn view<'a>(
         .padding([2, 4])
         .wrapping(Wrapping::WordOrGlyph)
         .height(Length::Shrink)
-        .line_height(theme::line_height(&config.font))
         .style(style)
         .on_action(Message::Action)
         .key_binding(move |key_press| {
@@ -376,7 +375,7 @@ pub fn view<'a>(
                  message: Option<Message>| {
                     button(
                         row![
-                            title.line_height(theme::line_height(&config.font)),
+                            title,
                             keybind.map(|kb| {
                                 text(format!("({kb})"))
                                     .shaping(Shaping::Advanced)

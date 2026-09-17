@@ -592,8 +592,6 @@ impl Sidebar {
                          keybinds: Option<&data::shortcut::KeyBinds>,
                          icon: TextColorSvg<'a, Theme>,
                          message: Message| {
-                            let title = title
-                                .line_height(theme::line_height(&config.font));
                             let keybind =
                                 keybinds.and_then(|key_binds| match key_binds
                                     .primary()

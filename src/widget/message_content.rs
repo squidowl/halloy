@@ -438,7 +438,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
             text.into()
         }
         data::message::Content::Log(record) => {
-            let spans: Vec<Span<'a, message::Link, _>> = vec![
+            let spans: Vec<Span<'a, message::Link>> = vec![
                 span(&record.message)
                     .font_maybe(font_style(theme).map(font::get)),
             ];
