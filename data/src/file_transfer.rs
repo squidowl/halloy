@@ -20,15 +20,13 @@ pub fn sanitize_filename(raw: &str) -> String {
         .and_then(|n| n.to_str())
         .unwrap_or(FALLBACK_FILENAME);
 
-    replace_control_chars(name)
-}
+    let sanitized = sanitize_filename::sanitize(name);
 
-// Replace control characters to avoid problematic filenames.
-fn replace_control_chars(input: &str) -> String {
-    input
-        .chars()
-        .map(|c| if c.is_control() { '_' } else { c })
-        .collect()
+    if sanitized.is_empty() {
+        FALLBACK_FILENAME.to_string()
+    } else {
+        sanitized
+    }
 }
 
 pub fn receive_save_path(save_directory: &Path, filename: &str) -> PathBuf {
@@ -139,7 +137,7 @@ pub struct SendRequest {
 mod tests {
     use std::path::Path;
 
-    use super::{receive_save_path, sanitize_filename};
+    use super::{FALLBACK_FILENAME, receive_save_path, sanitize_filename};
 
     #[test]
     fn sanitize_filename_strips_traversal_components() {
@@ -153,12 +151,37 @@ mod tests {
 
     #[test]
     fn sanitize_filename_replaces_invalid_or_empty_values() {
-        assert_eq!(sanitize_filename(".."), "dcc_transfer");
-        assert_eq!(sanitize_filename(""), "dcc_transfer");
+        assert_eq!(sanitize_filename(".."), FALLBACK_FILENAME);
+        assert_eq!(sanitize_filename(""), FALLBACK_FILENAME);
         assert_eq!(
             sanitize_filename("name\u{0}with\u{1f}controls"),
-            "name_with_controls"
+            "namewithcontrols"
         );
+    }
+
+    #[test]
+    #[cfg(target_os = "windows")]
+    fn sanitize_filename_neutralizes_windows_reserved_names() {
+        assert_eq!(sanitize_filename("CON"), FALLBACK_FILENAME);
+        assert_eq!(sanitize_filename("nul.txt"), FALLBACK_FILENAME);
+        assert_eq!(sanitize_filename("Lpt1.log"), FALLBACK_FILENAME);
+        // Trailing dot/space would be stripped by Windows, so it must not let
+        // a reserved name slip through.
+        assert_eq!(sanitize_filename("con. "), FALLBACK_FILENAME);
+        // A name that merely contains a reserved word is fine.
+        assert_eq!(sanitize_filename("console.txt"), "console.txt");
+    }
+
+    #[test]
+    #[cfg(not(target_os = "windows"))]
+    fn sanitize_filename_ignores_non_windows_reserved_names() {
+        assert_eq!(sanitize_filename("CON"), "CON");
+    }
+
+    #[test]
+    fn sanitize_filename_replaces_illegal_characters() {
+        assert_eq!(sanitize_filename("a<b>c:d|e?f*g"), "abcdefg");
+        assert_eq!(sanitize_filename("quote\"name.txt"), "quotename.txt");
     }
 
     #[test]

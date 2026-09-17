@@ -48,6 +48,8 @@ Fixed:
   single connection cannot grow memory without bound
 - Config editor now properly out-scrolls the cursor
 - Allow listing modes by not proviging <+|->
+- Sanitize incoming DCC filenames against Windows reserved device names, illegal
+  characters, and trailing dots/spaces
 
 Changed:
 
