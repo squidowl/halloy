@@ -1,6 +1,7 @@
 use serde::Deserialize;
 
 use crate::channel::Position;
+use crate::config::Scrollbar;
 use crate::config::buffer::AccessLevelFormat;
 use crate::isupport;
 use crate::serde::deserialize_u32_positive_integer;
@@ -59,6 +60,7 @@ pub struct Nicklist {
     pub show_access_levels: AccessLevelFormat,
     pub show_bot_icon: bool,
     pub truncate: Option<u16>,
+    pub scrollbar: Scrollbar,
 }
 
 impl Default for Nicklist {
@@ -71,6 +73,10 @@ impl Default for Nicklist {
             show_access_levels: AccessLevelFormat::default(),
             show_bot_icon: true,
             truncate: None,
+            scrollbar: Scrollbar {
+                hidden: true,
+                ..Default::default()
+            },
         }
     }
 }
