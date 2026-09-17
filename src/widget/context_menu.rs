@@ -448,7 +448,7 @@ where
             tree: &mut second[0],
             state,
             position: position + translation,
-            viewport: *viewport,
+            viewport: *viewport + translation,
         }));
 
         base.into_iter().chain(std::iter::once(overlay)).collect()
