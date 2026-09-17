@@ -215,6 +215,49 @@ Overwrite nicklist width in pixels.
 width = 150
 ```
 
+## `scrollbar`
+
+Scrollbar in nicklist
+
+### `hidden`
+
+Whether the scrollbar is hidden.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.channel.nicklist.scrollbar]
+hidden = false
+```
+
+### `width`
+
+Width of the nicklist scrollbar.
+
+```toml
+# Type: integer
+# Values: any non-negative integer
+# Default: 5
+
+[buffer.channel.nicklist.scrollbar]
+width = 5
+```
+
+### `scroller_width`
+
+Width of the nicklist scrollbar scroller.
+
+```toml
+# Type: integer
+# Values: any non-negative integer
+# Default: 5
+
+[buffer.channel.nicklist.scrollbar]
+scroller_width = 5
+```
+
 ### `topic_banner`
 
 Topic banner settings within a channel buffer.
