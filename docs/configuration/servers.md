@@ -257,10 +257,10 @@ The largest number of messages that may be sent in a burst to servers without SA
 ```toml
 # Type: integer
 # Values: 1 .. 32
-# Default: 8
+# Default: 6
 
 [servers.<name>]
-anti_flood.burst = 1
+anti_flood.burst = 2
 ```
 
 ## User
