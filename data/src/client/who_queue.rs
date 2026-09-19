@@ -86,7 +86,7 @@ impl WhoQueue {
         let interval = BackoffInterval::from(
             config
                 .who_poll_interval
-                .max(config.anti_flood.saturating_mul(2)),
+                .max(config.anti_flood.rate.saturating_mul(2)),
         );
 
         Self {
@@ -117,7 +117,7 @@ impl WhoQueue {
             self.interval.set_min(
                 config
                     .who_poll_interval
-                    .max(config.anti_flood.saturating_mul(2)),
+                    .max(config.anti_flood.rate.saturating_mul(2)),
             );
         }
 
