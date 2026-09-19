@@ -23,7 +23,7 @@ Added:
 - Server context menu action to open Channel Discovery with that server selected
 - Animated GIFs support
 - Support link delimiters (`<` & `>`) with markdown formatting
-- Additional setting for controlling anti-flood burst parameter (`servers.<name>.anti_flood.burst`); default value has been reduced from `10` to `8`
+- Additional setting for controlling anti-flood burst parameter (`servers.<name>.anti_flood.burst`); default value has been reduced from `10` to `6`
 
 Fixed:
 
