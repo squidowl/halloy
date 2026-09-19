@@ -235,7 +235,7 @@ ping_timeout = 20
 
 ### `anti_flood`
 
-Parameters that control how quickly messages are sent to servers without SAFERATE.
+Parameters that control how quickly messages are sent to servers without [SAFERATE](https://github.com/ircv3/ircv3-specifications/pull/556).
 
 #### `rate`
 
