@@ -155,7 +155,7 @@ pub struct Server {
     pub automated_chathistory: bool,
     /// Flood protection settings, to help the user avoid sending too many messages too quickly.
     #[serde(deserialize_with = "deserialize_anti_flood")]
-    pub anti_flood: Duration,
+    pub anti_flood: AntiFlood,
     #[serde(skip)]
     pub order: u16,
     pub proxy: Option<config::Proxy>,
@@ -374,7 +374,7 @@ impl Default for Server {
             who_poll_interval: Duration::from_secs(2),
             monitor: Vec::default(),
             automated_chathistory: true,
-            anti_flood: Duration::from_millis(2000),
+            anti_flood: AntiFlood::default(),
             order: 0,
             proxy: None,
             confirm_message_delivery: ConfirmMessageDelivery::default(),
@@ -753,7 +753,50 @@ pub struct OptionalTyping {
     pub show: Option<bool>,
 }
 
-fn deserialize_anti_flood<'de, D>(deserializer: D) -> Result<Duration, D::Error>
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(default)]
+pub struct AntiFlood {
+    #[serde(deserialize_with = "deserialize_anti_flood_rate")]
+    pub rate: Duration,
+    #[serde(deserialize_with = "deserialize_anti_flood_burst")]
+    pub burst: usize,
+}
+
+impl Default for AntiFlood {
+    fn default() -> Self {
+        Self {
+            rate: Duration::from_millis(2000),
+            burst: 6,
+        }
+    }
+}
+
+fn deserialize_anti_flood<'de, D>(
+    deserializer: D,
+) -> Result<AntiFlood, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Data {
+        #[serde(deserialize_with = "deserialize_anti_flood_rate")]
+        Rate(Duration),
+        AntiFlood(AntiFlood),
+    }
+
+    match Data::deserialize(deserializer)? {
+        Data::Rate(rate) => Ok(AntiFlood {
+            rate,
+            ..AntiFlood::default()
+        }),
+        Data::AntiFlood(anti_flood) => Ok(anti_flood),
+    }
+}
+
+fn deserialize_anti_flood_rate<'de, D>(
+    deserializer: D,
+) -> Result<Duration, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -766,6 +809,24 @@ where
         ))
     } else {
         Ok(Duration::from_millis(milliseconds))
+    }
+}
+
+fn deserialize_anti_flood_burst<'de, D>(
+    deserializer: D,
+) -> Result<usize, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let burst: usize = Deserialize::deserialize(deserializer)?;
+
+    if !(1..=32).contains(&burst) {
+        Err(serde::de::Error::invalid_value(
+            serde::de::Unexpected::Unsigned(burst as u64),
+            &"integer in the range 1 .. 32",
+        ))
+    } else {
+        Ok(burst)
     }
 }
 

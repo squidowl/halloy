@@ -23,6 +23,7 @@ Added:
 - Server context menu action to open Channel Discovery with that server selected
 - Animated GIFs support
 - Support link delimiters (`<` & `>`) with markdown formatting
+- Additional setting for controlling anti-flood burst parameter (`servers.<name>.anti_flood.burst`); default value has been reduced from `10` to `6`
 
 Fixed:
 
@@ -63,11 +64,12 @@ Changed:
 - Decouple `+draft/unreact` from `+draft/react`
 - When reloading the config file, if the config file editor pane is opened with unsaved changes then those changes will be saved before reloading
 - IRC protocol logs for bouncer networks have their logs directory nested under the bouncer name
+- Anti-flood rate parameter has been moved `servers.<name>.anti_flood` to `servers.<name>.anti_flood.rate`
 
 Thanks:
 
 - Contributions: @rollecode, @luca020400, @rtmongold, @tranzystorekk, @englut, @furudean, @ncfavier
-- Bug reports: @sebbu2, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae, @SRAZKVT, @WinnerWind, @lojinks, @edwardloveall, CGML, @TheDcoder
+- Bug reports: @sebbu2, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae, @SRAZKVT, @WinnerWind, @lojinks, @edwardloveall, CGML, @TheDcoder, @ToyKeeper
 - Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo, ivocavalcante, @sebbu2, @coraxioU9, @ncfavier, @darienm, @Anonymous1157, gkoebel, @BigOjisan
 
 # 2026.8 (2026-07-24)

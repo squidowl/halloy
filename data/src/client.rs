@@ -314,7 +314,10 @@ impl Client {
             isupport: HashMap::new(),
             who_queue: who_queue::WhoQueue::new(&config),
             resolved_netid: None,
-            anti_flood: Some(TokenBucket::new(config.anti_flood, 10)),
+            anti_flood: Some(TokenBucket::new(
+                config.anti_flood.rate,
+                config.anti_flood.burst,
+            )),
             mode_requests: Vec::new(),
             metadata_sub_requests: HashSet::new(),
             metadata_syncs: BinaryHeap::new(),

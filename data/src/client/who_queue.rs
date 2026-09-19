@@ -86,7 +86,7 @@ impl WhoQueue {
         let interval = BackoffInterval::from(
             config
                 .who_poll_interval
-                .max(config.anti_flood.saturating_mul(2)),
+                .max(config.anti_flood.rate.saturating_mul(2)),
         );
 
         Self {
@@ -117,7 +117,7 @@ impl WhoQueue {
             self.interval.set_min(
                 config
                     .who_poll_interval
-                    .max(config.anti_flood.saturating_mul(2)),
+                    .max(config.anti_flood.rate.saturating_mul(2)),
             );
         }
 
@@ -670,9 +670,18 @@ impl WhoQueue {
             command!("WHO", who_poll.channel.to_string())
         };
 
+        let token_priority = if capabilities
+            .acknowledged(Capability::NoImplicitNames)
+            && matches!(who_poll.source, WhoSource::Join { .. })
+        {
+            TokenPriority::High
+        } else {
+            TokenPriority::Low
+        };
+
         self.in_flight.push(who_poll);
 
-        (message.into(), TokenPriority::Low)
+        (message.into(), token_priority)
     }
 
     // Insert poll based on sort order, at the back of its sort category.

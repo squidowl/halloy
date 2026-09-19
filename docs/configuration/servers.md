@@ -235,6 +235,10 @@ ping_timeout = 20
 
 ### `anti_flood`
 
+Parameters that control how quickly messages are sent to servers without [SAFERATE](https://github.com/ircv3/ircv3-specifications/pull/556).
+
+#### `rate`
+
 The time (in milliseconds) between sending messages to servers without SAFERATE. Timing is not strictly guaranteed; small groups of messages may be allowed to be sent at a faster rate, messages may be delayed in order to be batched, automated messages are included in the queue (most at a lower priority than user messages), etc.
 
 ```toml
@@ -243,7 +247,20 @@ The time (in milliseconds) between sending messages to servers without SAFERATE.
 # Default: 2000
 
 [servers.<name>]
-anti_flood = 2000
+anti_flood.rate = 2000
+```
+
+#### `burst`
+
+The largest number of messages that may be sent in a burst to servers without SAFERATE.  The rate at which bursts can be sent is controlled by [`anti_flood.rate`](#rate).
+
+```toml
+# Type: integer
+# Values: 1 .. 32
+# Default: 6
+
+[servers.<name>]
+anti_flood.burst = 2
 ```
 
 ## User
