@@ -670,9 +670,18 @@ impl WhoQueue {
             command!("WHO", who_poll.channel.to_string())
         };
 
+        let token_priority = if capabilities
+            .acknowledged(Capability::NoImplicitNames)
+            && matches!(who_poll.source, WhoSource::Join { .. })
+        {
+            TokenPriority::High
+        } else {
+            TokenPriority::Low
+        };
+
         self.in_flight.push(who_poll);
 
-        (message.into(), TokenPriority::Low)
+        (message.into(), token_priority)
     }
 
     // Insert poll based on sort order, at the back of its sort category.
