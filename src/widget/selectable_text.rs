@@ -149,7 +149,7 @@ where
         let state = tree.state.downcast_mut::<State<Renderer::Paragraph>>();
 
         layout::sized(limits, self.format.width, self.format.height, |limits| {
-            let bounds = limits.max();
+            let bounds = limits.bounds();
 
             let font: Font =
                 self.format.font.unwrap_or_else(|| renderer.font());

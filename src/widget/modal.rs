@@ -236,7 +236,7 @@ where
             .content
             .as_widget_mut()
             .layout(self.tree, renderer, &limits)
-            .align(Alignment::Center, Alignment::Center, limits.max());
+            .align(Alignment::Center, Alignment::Center, limits.max);
 
         layout::Node::with_children(self.size, vec![child])
             .move_to(self.position)
