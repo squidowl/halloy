@@ -5,7 +5,7 @@ use itertools::Itertools;
 use super::metadata::ReadMarker;
 use super::{
     Id, Kind, KindRef, find_message_by_history_id, find_message_by_id,
-    find_message_mut_by_history_id, smart_filter_internal_message,
+    find_message_mut_by_history_id, position_message_by_history_id,
 };
 use crate::message::{self, ReplyPreview, Searchable, Temporal};
 use crate::{Config, Server, config, target};
@@ -14,11 +14,22 @@ use crate::{Config, Server, config, target};
 pub enum Message {
     Update(Kind, Update),
     Remove(Kind),
+    GoToMessage(Navigation),
 }
 
 #[derive(Debug)]
 pub enum Event {
     Opened(Kind),
+    GoToMessage(Navigation),
+}
+
+#[derive(Debug, Clone)]
+pub struct Navigation {
+    pub server: Server,
+    pub channel: target::Channel,
+    pub message: Option<Id>,
+    pub buffer_action: crate::dashboard::BufferAction,
+    pub token: std::sync::Weak<()>,
 }
 
 #[derive(Debug, Default)]
@@ -36,6 +47,21 @@ impl Manager {
         self.models
             .get(&kind_ref)
             .map(|model| model.view(request_limit, config))
+    }
+
+    /// Resolve a source message to its current row, including a condensed group.
+    pub fn resolve_anchor(
+        &self,
+        kind: KindRef,
+        id: &Id,
+        time: &message::Time,
+        config: &config::Buffer,
+    ) -> Option<Id> {
+        let model = self.models.get(&kind)?;
+        let Pane::Open { messages, .. } = &model.pane else {
+            return None;
+        };
+        resolve_anchor(messages, id, time, config)
     }
 
     pub fn can_mark_as_read(&self, kind: &Kind) -> bool {
@@ -96,6 +122,9 @@ impl Manager {
         config: &config::buffer::Condensation,
     ) -> Option<Event> {
         match message {
+            Message::GoToMessage(navigation) => {
+                Some(Event::GoToMessage(navigation))
+            }
             Message::Update(kind, update) => {
                 if let Some(model) = self.models.get_mut(&kind) {
                     model.update(kind, update, config)
@@ -202,11 +231,14 @@ pub enum Pane {
     Open {
         has_more_older_messages: bool,
         has_more_newer_messages: bool,
-        messages: Vec<message::MessageDisplay>, // sorted by MessageDisplay.message.server_time
+        messages: Vec<message::MessageDisplay>, // ordered by (time, history ID)
         limit: message::Limit,
         clear: Option<DateTime<Utc>>,
+        loading: bool,
+        read_marker: Option<ReadMarker>,
     },
     Loading,
+    Migrating,
     #[default]
     Closed,
 }
@@ -224,8 +256,10 @@ impl Model {
                 messages,
                 limit,
                 clear,
+                loading,
+                read_marker,
             } => {
-                let processed = process_messages(messages, config);
+                let mut processed = process_messages(messages, config);
 
                 let split_at =
                     self.display_read_marker.map_or(0, |display_read_marker| {
@@ -241,19 +275,24 @@ impl Model {
                             )
                     });
 
-                let (old, new) = processed.split_at(split_at);
+                let new_messages = processed.split_off(split_at);
 
                 View {
-                    old_messages: old.to_vec(),
-                    new_messages: new.to_vec(),
+                    old_messages: processed,
+                    new_messages,
                     has_more_older_messages: *has_more_older_messages,
                     has_more_newer_messages: *has_more_newer_messages,
-                    loading: request_limit != limit,
+                    loading: *loading
+                        || request_limit != limit
+                        || (matches!(limit, message::Limit::Backlog(_))
+                            && *read_marker != self.display_read_marker),
+                    migrating: false,
                     cleared: clear.is_some(),
                 }
             }
-            Pane::Loading => View {
+            Pane::Loading | Pane::Migrating => View {
                 loading: true,
+                migrating: matches!(self.pane, Pane::Migrating),
                 ..View::default()
             },
             Pane::Closed => View::default(),
@@ -282,16 +321,43 @@ impl Model {
             },
         ) = (&self.pane, &mut update.pane)
         {
+            let mut has_expanded_group = false;
             for message in messages {
-                if (message.inner.can_condense(config)
-                    || message.inner.has_redaction())
+                if message.expanded
+                    && (message.inner.can_condense(config)
+                        || message.inner.has_redaction())
                     && let Some(update_message) = find_message_mut_by_history_id(
                         update_messages,
                         message.history_id(),
                         message.time(),
                     )
                 {
-                    update_message.expanded = message.expanded;
+                    update_message.expanded = true;
+                    has_expanded_group |=
+                        update_message.inner.can_condense(config);
+                }
+            }
+            // Extending an expanded group must also expand its new members.
+            let mut index = 0;
+            while has_expanded_group && index < update_messages.len() {
+                if let Some(range) = message::MessageDisplay::condensation_range(
+                    update_messages,
+                    index,
+                    config,
+                ) {
+                    let expanded = update_messages[range.clone()]
+                        .iter()
+                        .any(|message| !message.blocked && message.expanded);
+                    if expanded {
+                        for message in &mut update_messages[range.clone()] {
+                            if !message.blocked {
+                                message.expanded = true;
+                            }
+                        }
+                    }
+                    index = range.end;
+                } else {
+                    index += 1;
                 }
             }
         }
@@ -348,7 +414,7 @@ impl Model {
                 has_more_newer_messages,
                 ..
             } => *has_more_older_messages || *has_more_newer_messages,
-            Pane::Loading | Pane::Closed => true,
+            Pane::Loading | Pane::Migrating | Pane::Closed => true,
         }
     }
 
@@ -360,6 +426,7 @@ impl Model {
     ) {
         self.get_expansion_messages(history_id, time, config)
             .iter_mut()
+            .filter(|message| !message.blocked)
             .for_each(|message| {
                 message.expanded = true;
             });
@@ -373,6 +440,7 @@ impl Model {
     ) {
         self.get_expansion_messages(history_id, time, config)
             .iter_mut()
+            .filter(|message| !message.blocked)
             .for_each(|message| {
                 message.expanded = false;
             });
@@ -386,63 +454,25 @@ impl Model {
         history_id: &Id,
         time: &message::Time,
         config: &config::buffer::Condensation,
-    ) -> Vec<&mut message::MessageDisplay> {
+    ) -> &mut [message::MessageDisplay] {
         let Pane::Open { messages, .. } = &mut self.pane else {
-            return vec![];
+            return &mut [];
         };
 
-        let fuzz_seconds = chrono::Duration::seconds(1);
-
-        let start = time.utc - fuzz_seconds;
-        let end = time.utc + fuzz_seconds;
-
-        let start_index = match messages
-            .binary_search_by(|stored| stored.time().utc.cmp(&start))
-        {
-            Ok(match_index) => match_index,
-            Err(sorted_insert_index) => sorted_insert_index,
+        let Some(index) =
+            position_message_by_history_id(messages, history_id, time)
+        else {
+            return &mut [];
         };
-        let end_index = match messages
-            .binary_search_by(|stored| stored.time().utc.cmp(&end))
-        {
-            Ok(match_index) => match_index,
-            Err(sorted_insert_index) => sorted_insert_index,
-        };
-
-        if let Some(index) = messages[start_index..end_index]
-            .iter()
-            .enumerate()
-            .find_map(|(slice_index, message)| {
-                (message.history_id() == history_id)
-                    .then_some(start_index + slice_index)
-            })
-        {
-            if messages[index].inner.redaction.is_some() {
-                return vec![&mut messages[index]];
-            } else if let Some(first_index) = messages[..=index]
-                .iter()
-                .rev()
-                .position(|message| message.condensed.is_some())
-                .map(|position| index - position)
-            {
-                return messages[first_index..]
-                    .iter_mut()
-                    .filter(|message| !message.blocked)
-                    .scan(true, |is_first_message, message| {
-                        if *is_first_message {
-                            *is_first_message = false;
-                            Some(message)
-                        } else {
-                            (message.inner.can_condense(config)
-                                && message.condensed.is_none())
-                            .then_some(message)
-                        }
-                    })
-                    .collect();
-            }
+        if messages[index].inner.redaction.is_some() {
+            return &mut messages[index..=index];
         }
-
-        vec![]
+        let Some(range) = message::MessageDisplay::condensation_range(
+            messages, index, config,
+        ) else {
+            return &mut [];
+        };
+        &mut messages[range]
     }
 
     fn generate_reply_preview(
@@ -490,6 +520,7 @@ pub struct View<'a> {
     pub has_more_older_messages: bool,
     pub has_more_newer_messages: bool,
     pub loading: bool,
+    pub migrating: bool,
     pub cleared: bool,
 }
 
@@ -500,48 +531,52 @@ fn process_messages<'a>(
     messages: &'a [message::MessageDisplay],
     config: &Config,
 ) -> Vec<&'a message::MessageDisplay> {
-    let current_time = Utc::now();
-
+    let now = Utc::now();
     messages
         .iter()
-        .flat_map(|message| {
-            if message.blocked {
-                None
-            } else if message
-                .inner
-                .can_condense(&config.buffer.server_messages.condense)
-            {
-                if message.expanded {
-                    Some(message)
-                } else {
-                    message.condensed.as_ref().and_then(|condensed_message| {
-                        (!condensed_message.inner.text().is_empty())
-                            .then_some(condensed_message.as_ref())
-                    })
-                }
-            } else {
-                match &message.inner.source {
-                    message::Source::Internal(
-                        message::source::Internal::Status(status),
-                    ) => {
-                        if !config.buffer.internal_messages.enabled(status) {
-                            return None;
-                        } else if let Some(seconds) =
-                            config.buffer.internal_messages.smart(status)
-                            && smart_filter_internal_message(
-                                &message.inner,
-                                &seconds,
-                                &current_time,
-                            )
-                        {
-                            return None;
-                        }
+        .filter_map(|message| message.displayed(&config.buffer, now))
+        .collect()
+}
 
-                        Some(message)
-                    }
-                    _ => Some(message),
-                }
-            }
+fn resolve_anchor(
+    messages: &[message::MessageDisplay],
+    id: &Id,
+    time: &message::Time,
+    config: &config::Buffer,
+) -> Option<Id> {
+    let now = Utc::now();
+    let index = position_message_by_history_id(messages, id, time);
+    if let Some(index) = index {
+        if let Some(row) = messages[index].displayed(config, now) {
+            return Some(*row.history_id());
+        }
+        if let Some(range) = message::MessageDisplay::condensation_range(
+            messages,
+            index,
+            &config.server_messages.condense,
+        ) && let Some(row) = messages[range.start].displayed(config, now)
+        {
+            return Some(*row.history_id());
+        }
+    }
+
+    let next = index.map_or_else(
+        || messages.partition_point(|message| {
+            message.time() < time || (message.time() == time && matches!(
+                (message.history_id(), id), (Id::Determined(candidate), Id::Determined(anchor)) if candidate < anchor
+            ))
+        }),
+        |index| index + 1,
+    );
+    messages[next..]
+        .iter()
+        .filter_map(|message| message.displayed(config, now))
+        .next()
+        .or_else(|| {
+            messages[..next]
+                .iter()
+                .rev()
+                .find_map(|message| message.displayed(config, now))
         })
-        .collect::<Vec<_>>()
+        .map(|message| *message.history_id())
 }

@@ -5,6 +5,7 @@ Added:
 - Added Gopher(+s) / Gemini protocol schemes (make links clickable)
 - Added `buffer.text_input.upload_long_paste` to automatically use filehost in case pasted text is too long
 - Right-clickable text in the server buffer now offers a context menu
+- SQLite history storage, with automatic migration of existing gzip history as buffers are used and loading of history in windows.
 
 Fixed:
 
@@ -18,6 +19,7 @@ Fixed:
 Changed:
 
 - Default keybinds for focus movement on macOS changed from `⌥ + <arrow keys>` to `ctrl + <arrow keys>` to avoid conflicting with macOS by-word movement keybinds (`⌥ + ←` and `⌥ + →`)
+- Saved chat history is no longer limited to 10,000 messages per buffer.
 
 Thanks:
 

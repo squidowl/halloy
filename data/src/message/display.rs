@@ -1,5 +1,7 @@
+use std::ops::Range;
 use std::sync::Arc;
 
+use chrono::{DateTime, Local, Utc};
 use hashbrown::HashSet;
 use url::Url;
 
@@ -14,7 +16,7 @@ use crate::{User, config, history};
 /// configuration.
 #[derive(Debug, Clone)]
 pub struct MessageDisplay {
-    pub inner: Message,
+    pub inner: Arc<Message>,
     pub blocked: bool,
     pub condensed: Option<Arc<MessageDisplay>>,
     pub expanded: bool, // Only relevant if message.can_condense() or message.redaction.is_some()
@@ -23,8 +25,14 @@ pub struct MessageDisplay {
 
 impl From<&Message> for MessageDisplay {
     fn from(message: &Message) -> Self {
+        Self::from(message.clone())
+    }
+}
+
+impl From<Message> for MessageDisplay {
+    fn from(message: Message) -> Self {
         Self {
-            inner: message.clone(),
+            inner: Arc::new(message),
             blocked: false,
             condensed: None,
             expanded: false,
@@ -34,6 +42,84 @@ impl From<&Message> for MessageDisplay {
 }
 
 impl MessageDisplay {
+    pub fn displayed(
+        &self,
+        config: &config::Buffer,
+        now: DateTime<Utc>,
+    ) -> Option<&Self> {
+        if self.blocked {
+            return None;
+        }
+        if self.inner.can_condense(&config.server_messages.condense) {
+            return if self.expanded {
+                Some(self)
+            } else {
+                self.condensed.as_deref().filter(|summary| {
+                    match &summary.inner.content {
+                        Content::Plain(text) => !text.is_empty(),
+                        Content::Fragments(fragments) => fragments
+                            .iter()
+                            .any(|fragment| !fragment.as_str().is_empty()),
+                        Content::Log(record) => !record.message.is_empty(),
+                    }
+                })
+            };
+        }
+        if let Source::Internal(super::source::Internal::Status(status)) =
+            &self.inner.source
+            && (!config.internal_messages.enabled(status)
+                || config.internal_messages.smart(status).is_some_and(
+                    |seconds| {
+                        history::smart_filter_internal_message(
+                            self.inner.as_ref(),
+                            &seconds,
+                            &now,
+                        )
+                    },
+                ))
+        {
+            return None;
+        }
+        Some(self)
+    }
+
+    pub fn condensation_range(
+        messages: &[Self],
+        index: usize,
+        config: &config::buffer::Condensation,
+    ) -> Option<Range<usize>> {
+        let source = messages.get(index)?;
+        if source.blocked || !source.inner.can_condense(config) {
+            return None;
+        }
+        let date = source.time().utc.with_timezone(&Local).date_naive();
+        let same_group = |message: &Self| {
+            message.inner.can_condense(config)
+                && message.time().utc.with_timezone(&Local).date_naive() == date
+        };
+        let mut start = index;
+        for (position, message) in messages[..index].iter().enumerate().rev() {
+            if message.blocked {
+                continue;
+            }
+            if !same_group(message) {
+                break;
+            }
+            start = position;
+        }
+        let mut end = index + 1;
+        for (position, message) in messages.iter().enumerate().skip(end) {
+            if message.blocked {
+                continue;
+            }
+            if !same_group(message) {
+                break;
+            }
+            end = position + 1;
+        }
+        Some(start..end)
+    }
+
     pub fn redaction_expanded(
         &self,
         config: &config::buffer::Redaction,
