@@ -333,13 +333,21 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
         cursor: mouse::Cursor,
         renderer: &Renderer,
     ) -> iced::advanced::mouse::Interaction {
-        self.content.as_widget().mouse_interaction(
+        let interaction = self.content.as_widget().mouse_interaction(
             self.tree,
             layout,
             cursor,
-            &layout.bounds(),
+            &self.viewport,
             renderer,
-        )
+        );
+
+        if interaction == mouse::Interaction::None
+            && cursor.is_over(layout.bounds())
+        {
+            mouse::Interaction::Idle
+        } else {
+            interaction
+        }
     }
 
     fn overlay<'c>(
