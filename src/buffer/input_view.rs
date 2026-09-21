@@ -1825,7 +1825,7 @@ impl State {
 
             (send_count, multiline_line_count)
         } else {
-            (1, 1)
+            (1.min(lines.len()), 1.min(lines.len()))
         };
 
         let remaining_lines = lines.split_off(send_count);
