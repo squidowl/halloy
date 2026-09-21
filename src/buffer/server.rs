@@ -348,7 +348,7 @@ impl Server {
             buffer,
             server,
             scroll_view: scroll_view::State::new(
-                pane_size, kind, clients, storage, config,
+                pane_size, kind, storage, config,
             ),
         }
     }
@@ -446,7 +446,6 @@ impl Server {
                             self.scroll_view
                                 .scroll_to_end(
                                     history::KindRef::Server(&self.server),
-                                    clients,
                                     storage,
                                     config,
                                 )

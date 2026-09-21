@@ -1,5 +1,13 @@
 # Unreleased
 
+Added:
+
+- SQLite history storage, with automatic migration of existing gzip history as buffers are used and loading of history in windows.
+
+Changed:
+
+- Saved chat history is no longer limited to 10,000 messages per buffer.
+
 # 2026.9 (2026-09-29)
 
 Added:
