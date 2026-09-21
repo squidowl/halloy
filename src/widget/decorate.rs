@@ -593,6 +593,7 @@ pub trait Overlay<'a, Message, Theme, Renderer, State> {
         renderer: &Renderer,
         viewport: &Rectangle,
         translation: iced::Vector,
+        window: iced::Size,
     ) -> Vec<advanced::overlay::Element<'b, Message, Theme, Renderer>>;
 }
 
@@ -610,6 +611,7 @@ where
         renderer: &Renderer,
         viewport: &Rectangle,
         translation: iced::Vector,
+        window: iced::Size,
     ) -> Vec<advanced::overlay::Element<'b, Message, Theme, Renderer>> {
         inner.as_widget_mut().overlay(
             tree,
@@ -617,6 +619,7 @@ where
             renderer,
             viewport,
             translation,
+            window,
         )
     }
 }
@@ -631,6 +634,7 @@ where
             advanced::Layout<'_>,
             &Renderer,
             iced::Vector,
+            iced::Size,
         ) -> Vec<
             advanced::overlay::Element<'b, Message, Theme, Renderer>,
         > + 'a,
@@ -644,8 +648,9 @@ where
         renderer: &Renderer,
         _viewport: &Rectangle,
         translation: iced::Vector,
+        window: iced::Size,
     ) -> Vec<advanced::overlay::Element<'b, Message, Theme, Renderer>> {
-        self(state, inner, tree, layout, renderer, translation)
+        self(state, inner, tree, layout, renderer, translation, window)
     }
 }
 
@@ -809,6 +814,7 @@ where
         renderer: &Renderer,
         viewport: &Rectangle,
         translation: iced::Vector,
+        window: iced::Size,
     ) -> Vec<advanced::overlay::Element<'b, Message, Theme, Renderer>> {
         self.overlay.overlay(
             tree.state.downcast_mut(),
@@ -818,6 +824,7 @@ where
             renderer,
             viewport,
             translation,
+            window,
         )
     }
 }

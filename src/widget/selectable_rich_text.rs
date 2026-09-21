@@ -850,6 +850,7 @@ where
         renderer: &Renderer,
         viewport: &Rectangle,
         translation: Vector,
+        window: Size,
     ) -> Vec<iced::advanced::overlay::Element<'b, Message, Theme, Renderer>>
     {
         self.context_menus
@@ -862,6 +863,7 @@ where
                     renderer,
                     viewport,
                     translation,
+                    window,
                 )
             })
             .collect()
