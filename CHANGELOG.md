@@ -24,7 +24,7 @@ Added:
 - Animated GIFs support
 - Support link delimiters (`<` & `>`) with markdown formatting
 - Config options `buffer.channel.nicklist.scrollbar.hidden`, `sidebar.scrollbar.hidden`, and `pane.scrollbar.hidden` that control whether the nicklist, sidebar, and in-pane scrollbars respectively are enabled or not
-- Additional setting for controlling anti-flood burst parameter (`servers.<name>.anti_flood.burst`); default value has been reduced from `10` to `6`
+- Additional setting for controlling anti-flood burst parameter (`servers.<name>.anti_flood.burst`); default value has been reduced from `10` to `8`
 
 Fixed:
 
@@ -53,6 +53,7 @@ Fixed:
 - User-specified log levels are applied to all log sources (including non-Halloy log sources, which were previously exempt)
 - Sanitize incoming DCC filenames against Windows reserved device names, illegal
   characters, and trailing dots/spaces
+- Anti-flood rate-limiting applied to post-authentication JOINs (and similar on-connect messages)
 
 Changed:
 
@@ -72,7 +73,7 @@ Changed:
 Thanks:
 
 - Contributions: @rollecode, @luca020400, @rtmongold, @tranzystorekk, @englut, @furudean, @ncfavier
-- Bug reports: @sebbu2, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae, @SRAZKVT, @WinnerWind, @lojinks, @edwardloveall, CGML, @TheDcoder, @ToyKeeper
+- Bug reports: @sebbu2, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae, @SRAZKVT, @WinnerWind, @lojinks, @edwardloveall, CGML, @TheDcoder, @ToyKeeper, @BKVad1m
 - Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo, ivocavalcante, @sebbu2, @coraxioU9, @ncfavier, @darienm, @Anonymous1157, gkoebel, @BigOjisan, garoto
 
 # 2026.8 (2026-07-24)

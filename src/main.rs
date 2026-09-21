@@ -38,6 +38,7 @@ use data::history::filter::FilterChain;
 use data::history::manager::{EchoEvent, ReactionToEcho, ReplyToEcho};
 use data::history::reroute::RerouteRules;
 use data::message::{self, Broadcast};
+use data::rate_limit::TokenPriority;
 use data::reaction::Reaction;
 use data::redaction::Redaction;
 use data::target::{self, Target};
@@ -1401,6 +1402,11 @@ impl Halloy {
                 .map(Message::Dashboard)
             }
             Message::OnConnect(server, event) => match event {
+                client::on_connect::Event::Command(message) => {
+                    self.clients.send(&server, message, TokenPriority::High);
+
+                    Task::none()
+                }
                 client::on_connect::Event::OpenBuffers(targets) => {
                     let Screen::Dashboard(dashboard) = &mut self.screen else {
                         return Task::none();

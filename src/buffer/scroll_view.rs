@@ -2045,7 +2045,7 @@ fn send_reaction(
 
     let encoded = message::Encoded::try_from(command).ok()?;
     let labeled_response_context =
-        clients.send(buffer, encoded, TokenPriority::User);
+        clients.send_from_buffer(buffer, encoded, TokenPriority::User);
 
     if !clients.get_server_supports_echoes(server) {
         let nick = clients.nickname(server)?;

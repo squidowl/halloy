@@ -766,7 +766,7 @@ impl Default for AntiFlood {
     fn default() -> Self {
         Self {
             rate: Duration::from_millis(2000),
-            burst: 6,
+            burst: 8,
         }
     }
 }

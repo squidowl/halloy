@@ -461,26 +461,25 @@ impl Client {
                         &self.server,
                         self.monitored_users.len(),
                     )
-                    .collect::<Vec<_>>();
+                    .map(Into::into)
+                    .collect::<Vec<message::Encoded>>();
 
                     if !remove_monitors.is_empty() {
-                        messages.push(command!(
-                            "MONITOR",
-                            "-",
-                            remove_monitors
-                                .iter()
-                                .map(super::user::User::as_normalized_str)
-                                .join(",")
-                        ));
+                        messages.push(
+                            command!(
+                                "MONITOR",
+                                "-",
+                                remove_monitors
+                                    .iter()
+                                    .map(super::user::User::as_normalized_str)
+                                    .join(",")
+                            )
+                            .into(),
+                        );
                     }
 
                     for message in messages {
-                        if let Err(e) = self.handle.try_send(message) {
-                            log::warn!(
-                                "[{}] Error sending monitor: {e}",
-                                self.server
-                            );
-                        }
+                        self.send(None, message, TokenPriority::High);
                     }
                 } else {
                     log::warn!(
@@ -604,12 +603,12 @@ impl Client {
             channels,
             &keys,
             find_target_limit(&self.isupport, "JOIN"),
-        );
+        )
+        .map(Into::into)
+        .collect::<Vec<message::Encoded>>();
 
         for message in messages {
-            if let Err(e) = self.handle.try_send(message) {
-                log::warn!("[{}] Error sending join: {e}", self.server);
-            }
+            self.send(None, message, TokenPriority::High);
         }
     }
 
@@ -1546,12 +1545,16 @@ impl Client {
                 self.logged_in = true;
 
                 if !self.registration_required_channels.is_empty() {
-                    for message in group_joins(
+                    let messages = group_joins(
                         &self.registration_required_channels,
                         &self.config.channel_keys,
                         find_target_limit(&self.isupport, "JOIN"),
-                    ) {
-                        self.handle.try_send(message)?;
+                    )
+                    .map(Into::into)
+                    .collect::<Vec<message::Encoded>>();
+
+                    for message in messages {
+                        self.send(None, message, TokenPriority::High);
                     }
 
                     self.registration_required_channels.clear();
@@ -2360,12 +2363,16 @@ impl Client {
                             )
                         })
                     {
-                        for message in group_joins(
+                        let messages = group_joins(
                             &self.registration_required_channels,
                             &self.config.channel_keys,
                             find_target_limit(&self.isupport, "JOIN"),
-                        ) {
-                            self.handle.try_send(message)?;
+                        )
+                        .map(Into::into)
+                        .collect::<Vec<message::Encoded>>();
+
+                        for message in messages {
+                            self.send(None, message, TokenPriority::High);
                         }
 
                         self.registration_required_channels.clear();
@@ -2846,12 +2853,16 @@ impl Client {
                     && accountname != "*"
                     && !self.registration_required_channels.is_empty()
                 {
-                    for message in group_joins(
+                    let messages = group_joins(
                         &self.registration_required_channels,
                         &self.config.channel_keys,
                         find_target_limit(&self.isupport, "JOIN"),
-                    ) {
-                        self.handle.try_send(message)?;
+                    )
+                    .map(Into::into)
+                    .collect::<Vec<message::Encoded>>();
+
+                    for message in messages {
+                        self.send(None, message, TokenPriority::High);
                     }
 
                     self.registration_required_channels.clear();
@@ -3113,7 +3124,7 @@ impl Client {
                 }
 
                 // Send nick password & ghost
-                if let Some(nick_pass) = self.config.nick_password.as_ref() {
+                if let Some(nick_pass) = self.config.nick_password.clone() {
                     // Try ghost recovery if we couldn't claim our nick
                     if self.config.should_ghost
                         && self.resolved_nick.as_ref().is_some_and(
@@ -3122,15 +3133,25 @@ impl Client {
                             },
                         )
                     {
-                        for sequence in &self.config.ghost_sequence {
-                            self.handle.try_send(command!(
-                                "PRIVMSG",
-                                "NickServ",
-                                format!(
-                                    "{sequence} {} {nick_pass}",
-                                    &self.config.nickname
+                        let messages = self
+                            .config
+                            .ghost_sequence
+                            .iter()
+                            .map(|sequence| {
+                                command!(
+                                    "PRIVMSG",
+                                    "NickServ",
+                                    format!(
+                                        "{sequence} {} {nick_pass}",
+                                        &self.config.nickname
+                                    )
                                 )
-                            ))?;
+                            })
+                            .map(Into::into)
+                            .collect::<Vec<message::Encoded>>();
+
+                        for message in messages {
+                            self.send(None, message, TokenPriority::High);
                         }
                     }
 
@@ -3139,24 +3160,34 @@ impl Client {
                     {
                         match identify_syntax {
                             config::server::IdentifySyntax::PasswordNick => {
-                                self.handle.try_send(command!(
-                                    "PRIVMSG",
-                                    "NickServ",
-                                    format!(
-                                        "IDENTIFY {nick_pass} {}",
-                                        &self.config.nickname
+                                self.send(
+                                    None,
+                                    command!(
+                                        "PRIVMSG",
+                                        "NickServ",
+                                        format!(
+                                            "IDENTIFY {nick_pass} {}",
+                                            &self.config.nickname
+                                        )
                                     )
-                                ))?;
+                                    .into(),
+                                    TokenPriority::High,
+                                );
                             }
                             config::server::IdentifySyntax::NickPassword => {
-                                self.handle.try_send(command!(
-                                    "PRIVMSG",
-                                    "NickServ",
-                                    format!(
-                                        "IDENTIFY {} {nick_pass}",
-                                        &self.config.nickname
+                                self.send(
+                                    None,
+                                    command!(
+                                        "PRIVMSG",
+                                        "NickServ",
+                                        format!(
+                                            "IDENTIFY {} {nick_pass}",
+                                            &self.config.nickname
+                                        )
                                     )
-                                ))?;
+                                    .into(),
+                                    TokenPriority::High,
+                                );
                             }
                         }
                     } else if self.resolved_nick.as_ref().is_some_and(
@@ -3164,21 +3195,31 @@ impl Client {
                     ) {
                         // Use nickname-less identification if possible, since it has
                         // no possible argument order issues.
-                        self.handle.try_send(command!(
-                            "PRIVMSG",
-                            "NickServ",
-                            format!("IDENTIFY {nick_pass}")
-                        ))?;
+                        self.send(
+                            None,
+                            command!(
+                                "PRIVMSG",
+                                "NickServ",
+                                format!("IDENTIFY {nick_pass}")
+                            )
+                            .into(),
+                            TokenPriority::High,
+                        );
                     } else {
                         // Default to most common syntax if unknown
-                        self.handle.try_send(command!(
-                            "PRIVMSG",
-                            "NickServ",
-                            format!(
-                                "IDENTIFY {} {nick_pass}",
-                                &self.config.nickname
+                        self.send(
+                            None,
+                            command!(
+                                "PRIVMSG",
+                                "NickServ",
+                                format!(
+                                    "IDENTIFY {} {nick_pass}",
+                                    &self.config.nickname
+                                )
                             )
-                        ))?;
+                            .into(),
+                            TokenPriority::High,
+                        );
                     }
                 }
 
@@ -3186,11 +3227,11 @@ impl Client {
                 if let (Some(nick), Some(modestring)) =
                     (self.resolved_nick.clone(), self.config.umodes.as_ref())
                 {
-                    self.handle.try_send(command!(
-                        "MODE",
-                        nick.to_string(),
-                        modestring
-                    ))?;
+                    self.send(
+                        None,
+                        command!("MODE", nick.to_string(), modestring).into(),
+                        TokenPriority::High,
+                    );
                 }
 
                 // Request bouncer networks
@@ -3226,7 +3267,11 @@ impl Client {
                         let mut args = vec!["*".to_string(), "SUB".to_string()];
                         args.extend(requested);
 
-                        self.handle.try_send(command("METADATA", args))?;
+                        self.send(
+                            None,
+                            command("METADATA", args).into(),
+                            TokenPriority::High,
+                        );
                     }
                 }
 
@@ -3248,12 +3293,16 @@ impl Client {
                 // The bouncer keeps the upstream channel state.
                 if !self.capabilities.acknowledged(Capability::BouncerNetworks)
                 {
-                    for message in group_joins(
+                    let messages = group_joins(
                         &channels,
                         &self.config.channel_keys,
                         find_target_limit(&self.isupport, "JOIN"),
-                    ) {
-                        self.handle.try_send(message)?;
+                    )
+                    .map(Into::into)
+                    .collect::<Vec<message::Encoded>>();
+
+                    for message in messages {
+                        self.send(None, message, TokenPriority::High);
                     }
                 }
 
@@ -3267,9 +3316,12 @@ impl Client {
                             find_target_limit(&self.isupport, "MONITOR"),
                             &self.server,
                             0,
-                        );
+                        )
+                        .map(Into::into)
+                        .collect::<Vec<message::Encoded>>();
+
                         for message in messages {
-                            self.handle.try_send(message)?;
+                            self.send(None, message, TokenPriority::High);
                         }
                     } else {
                         log::warn!(
@@ -3294,7 +3346,6 @@ impl Client {
                         .map(Event::AddToSidebar)
                     })
                     .chain(iter::once(Event::OnConnect(on_connect(
-                        self.handle.clone(),
                         self.config.clone(),
                         self.nickname(),
                         &self.isupport,
@@ -5027,7 +5078,7 @@ impl Map {
         }
     }
 
-    pub fn send(
+    pub fn send_from_buffer(
         &mut self,
         buffer: &buffer::Upstream,
         message: message::Encoded,
@@ -5037,7 +5088,7 @@ impl Map {
             .and_then(|client| client.send(Some(buffer), message, priority))
     }
 
-    pub fn send_multiline_batch(
+    pub fn send_multiline_batch_from_buffer(
         &mut self,
         buffer: &buffer::Upstream,
         messages: Vec<message::Encoded>,
@@ -5059,6 +5110,16 @@ impl Map {
         if let Some(client) = self.client_mut(server) {
             client.send_markread(target, read_marker, priority);
         }
+    }
+
+    pub fn send(
+        &mut self,
+        server: &Server,
+        message: message::Encoded,
+        priority: TokenPriority,
+    ) -> Option<LabeledResponseContext> {
+        self.client_mut(server)
+            .and_then(|client| client.send(None, message, priority))
     }
 
     pub fn join(&mut self, server: &Server, channels: &[target::Channel]) {
