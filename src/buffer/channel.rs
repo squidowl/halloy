@@ -43,7 +43,7 @@ pub enum Event {
     ImagePreview(Image),
     ExpandMessage(message::Time, history::Id),
     ContractMessage(message::Time, history::Id),
-    GoToMessage(Server, target::Channel, history::Id, BufferAction),
+    GoToMessage(Server, target::Channel, message::MessageLink, BufferAction),
     InputSent {
         open_buffers: Vec<(Target, BufferAction)>,
         was_join_command: bool,
@@ -298,7 +298,7 @@ impl Channel {
             server,
             target,
             scroll_view: scroll_view::State::new(
-                pane_size, kind, clients, storage, config,
+                pane_size, kind, storage, config,
             ),
             message_focus: message_focus::Manager::new(),
         }
@@ -487,7 +487,6 @@ impl Channel {
                                         &self.server,
                                         &self.target,
                                     ),
-                                    clients,
                                     storage,
                                     config,
                                 )

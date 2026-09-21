@@ -1072,7 +1072,7 @@ pub fn condense(
         };
 
         Some(Arc::new(MessageDisplay {
-            inner: condensed_message,
+            inner: Arc::new(condensed_message),
             blocked: false,
             condensed: None,
             expanded: false,
@@ -3831,12 +3831,18 @@ pub fn quit_text(
     )
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum MessageLink {
+    Message(history::Id),
+    Highlight(history::Id),
+}
+
 #[derive(Debug, Clone)]
 pub enum Link {
     Channel(Server, target::Channel, Option<BufferAction>),
     Url(String),
     User(Server, User),
-    GoToMessage(Server, target::Channel, history::Id, Option<BufferAction>),
+    GoToMessage(Server, target::Channel, MessageLink, Option<BufferAction>),
     ExpandMessage(message::Time, history::Id, Option<LinkContext>),
     ContractMessage(message::Time, history::Id, Option<LinkContext>),
 }

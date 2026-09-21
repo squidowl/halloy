@@ -2273,7 +2273,7 @@ impl State {
                     command::Internal::ClearBuffer => {
                         let kind = history::Kind::from(buffer.clone());
 
-                        storage.clear_model(kind, clients, &config.buffer);
+                        storage.clear_model(kind);
 
                         return (Task::none(), None);
                     }
