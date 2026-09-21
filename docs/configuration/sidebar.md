@@ -212,6 +212,19 @@ channel_name_casing = "lowercase"
 
 Scrollbar in sidebar
 
+### `hidden`
+
+Whether the scrollbar is hidden.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[sidebar.scrollbar]
+hidden = true
+```
+
 ### `width`
 
 Width of the scrollbar.

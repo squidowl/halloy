@@ -945,15 +945,20 @@ impl Sidebar {
                                 .spacing(1)
                                 .padding(column_padding)
                         )
-                        .direction(
-                            scrollable::Direction::Vertical(
-                                scrollable::Scrollbar::default()
-                                    .width(config.sidebar.scrollbar.width)
-                                    .scroller_width(
-                                        config.sidebar.scrollbar.scroller_width
-                                    )
-                                    .spacing(4)
-                            )
+                        .direction(scrollable::Direction::Vertical(
+                            scrollable::Scrollbar::default()
+                                .width(config.sidebar.scrollbar.width)
+                                .scroller_width(
+                                    config.sidebar.scrollbar.scroller_width
+                                )
+                                .spacing(4)
+                        ))
+                        .style(
+                            if config.sidebar.scrollbar.hidden {
+                                theme::scrollable::hidden
+                            } else {
+                                theme::scrollable::primary
+                            }
                         )
                     ];
 
@@ -973,15 +978,20 @@ impl Sidebar {
                                 .spacing(2)
                                 .align_y(Alignment::Center)
                         )
-                        .direction(
-                            scrollable::Direction::Horizontal(
-                                scrollable::Scrollbar::default()
-                                    .width(config.sidebar.scrollbar.width)
-                                    .scroller_width(
-                                        config.sidebar.scrollbar.scroller_width
-                                    )
-                                    .spacing(4)
-                            )
+                        .direction(scrollable::Direction::Horizontal(
+                            scrollable::Scrollbar::default()
+                                .width(config.sidebar.scrollbar.width)
+                                .scroller_width(
+                                    config.sidebar.scrollbar.scroller_width
+                                )
+                                .spacing(4)
+                        ))
+                        .style(
+                            if config.sidebar.scrollbar.hidden {
+                                theme::scrollable::hidden
+                            } else {
+                                theme::scrollable::primary
+                            }
                         )
                     ];
 
