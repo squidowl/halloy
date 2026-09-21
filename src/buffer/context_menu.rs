@@ -74,7 +74,7 @@ pub trait ChannelsContext {
             server,
             channel,
             is_open: self.is_open(server, channel),
-            message: message.map(|message| &message.inner),
+            message: message.map(|message| message.inner.as_ref()),
         }
     }
 }
@@ -639,6 +639,7 @@ impl Entry {
                 "Hide preview".to_string(),
                 message.map(|message| {
                     Message::HidePreview(
+                        preview_history(message),
                         message.history_id,
                         message.time,
                         url.to_string(),
@@ -652,6 +653,7 @@ impl Entry {
                 "Show preview".to_string(),
                 message.map(|message| {
                     Message::ShowPreview(
+                        preview_history(message),
                         message.history_id,
                         message.time,
                         url.to_string(),
@@ -892,8 +894,8 @@ pub enum Message {
     CtcpRequest(ctcp::Command, Server, Nick, Option<String>),
     CopyText(String),
     OpenUrl(String),
-    HidePreview(history::Id, message::Time, String),
-    ShowPreview(history::Id, message::Time, String),
+    HidePreview(Option<history::Kind>, history::Id, message::Time, String),
+    ShowPreview(Option<history::Kind>, history::Id, message::Time, String),
     CopyTimestamp(DateTime<Utc>),
     #[allow(clippy::enum_variant_names)]
     DeleteMessage(message::Time, history::Id),
@@ -925,8 +927,8 @@ pub enum Event {
     CtcpRequest(ctcp::Command, Server, Nick, Option<String>),
     CopyText(String),
     OpenUrl(String),
-    HidePreview(history::Id, message::Time, String),
-    ShowPreview(history::Id, message::Time, String),
+    HidePreview(Option<history::Kind>, history::Id, message::Time, String),
+    ShowPreview(Option<history::Kind>, history::Id, message::Time, String),
     CopyTimestamp(DateTime<Utc>),
     DeleteMessage(message::Time, history::Id),
     ResendMessage(message::Time, history::Id),
@@ -959,11 +961,11 @@ pub fn update(message: Message) -> Option<Event> {
         }
         Message::CopyText(text) => Some(Event::CopyText(text)),
         Message::OpenUrl(url) => Some(Event::OpenUrl(url)),
-        Message::HidePreview(history_id, time, url) => {
-            Some(Event::HidePreview(history_id, time, url))
+        Message::HidePreview(kind, history_id, time, url) => {
+            Some(Event::HidePreview(kind, history_id, time, url))
         }
-        Message::ShowPreview(history_id, time, url) => {
-            Some(Event::ShowPreview(history_id, time, url))
+        Message::ShowPreview(kind, history_id, time, url) => {
+            Some(Event::ShowPreview(kind, history_id, time, url))
         }
         Message::CopyTimestamp(date_time) => {
             Some(Event::CopyTimestamp(date_time))
@@ -1548,4 +1550,13 @@ fn avatar_placeholder<'a>(size: u16) -> Element<'a, Message> {
             }
         })
         .into()
+}
+
+fn preview_history(message: &message::Message) -> Option<history::Kind> {
+    match &message.target {
+        message::Target::ChannelMonitor {
+            server, channel, ..
+        } => Some(history::Kind::Channel(server.clone(), channel.clone())),
+        _ => None,
+    }
 }

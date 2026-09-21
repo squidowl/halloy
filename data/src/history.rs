@@ -12,6 +12,10 @@ use crate::client::Destination;
 use crate::target::{self, Target, TargetRef};
 use crate::{Buffer, Message, Server, buffer, isupport, message};
 
+mod database;
+
+mod legacy;
+
 pub mod filter;
 pub mod metadata;
 pub mod model;
@@ -537,12 +541,14 @@ where
         .rev()
         .position(&is_match)
         .map(|position| start_index - 1 - position)
-        .or(messages
-            .iter()
-            .skip(start_index)
-            .rev()
-            .position(is_match)
-            .map(|position| messages.len() - 1 - position))
+        .or_else(|| {
+            messages
+                .iter()
+                .skip(start_index)
+                .rev()
+                .position(is_match)
+                .map(|position| messages.len() - 1 - position)
+        })
 }
 
 /// The position of the last message with time before or at the specified

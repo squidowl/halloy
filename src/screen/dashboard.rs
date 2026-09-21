@@ -71,6 +71,7 @@ pub struct Dashboard {
     buffer_settings: dashboard::BufferSettings,
     pub filehost: filehost::Manager,
     reloading_config: bool,
+    pending_navigation: Option<Arc<()>>,
 }
 
 #[derive(Debug)]
@@ -157,6 +158,7 @@ impl Dashboard {
             buffer_settings: dashboard::BufferSettings::default(),
             filehost: filehost::Manager::new(),
             reloading_config: false,
+            pending_navigation: None,
         };
 
         let sidebar_task = sidebar_task.map(Message::Sidebar);
@@ -394,7 +396,7 @@ impl Dashboard {
                         if let Some(state) = self.panes.get_mut(window, pane) {
                             let task = state
                                 .buffer
-                                .scroll_to_end(clients, storage, config)
+                                .scroll_to_end(storage, config)
                                 .map(move |message| {
                                     Message::Pane(
                                         window,
@@ -431,7 +433,7 @@ impl Dashboard {
                                 .data()
                                 .and_then(history::Kind::from_buffer)
                         {
-                            storage.clear_model(kind, clients, &config.buffer);
+                            storage.clear_model(kind);
 
                             return (Task::none(), None);
                         }
@@ -441,7 +443,6 @@ impl Dashboard {
                             state.size = size;
                             state.buffer.update_pane_size(
                                 size,
-                                clients,
                                 &self.models,
                                 storage,
                                 config,
@@ -1170,9 +1171,7 @@ impl Dashboard {
                                 Task::none,
                                 |(window, id, pane)| {
                                     pane.buffer
-                                        .scroll_to_start(
-                                            clients, storage, config,
-                                        )
+                                        .scroll_to_start(storage, config)
                                         .map(move |message| {
                                             Message::Pane(
                                                 window,
@@ -1192,7 +1191,7 @@ impl Dashboard {
                             |(window, pane, state)| {
                                 let task = state
                                     .buffer
-                                    .scroll_to_end(clients, storage, config)
+                                    .scroll_to_end(storage, config)
                                     .map(move |message| {
                                         Message::Pane(
                                             window,
@@ -1537,7 +1536,6 @@ impl Dashboard {
                                 state
                                     .buffer
                                     .scroll_to_backlog(
-                                        clients,
                                         &self.models,
                                         storage,
                                         config,
@@ -1554,7 +1552,18 @@ impl Dashboard {
                             );
                         }
                     }
-                    None => (),
+                    Some(model::Event::GoToMessage(navigation))
+                        if navigation.token.strong_count() != 0 =>
+                    {
+                        self.pending_navigation = None;
+                        return (
+                            self.go_to_message(
+                                navigation, clients, storage, config,
+                            ),
+                            None,
+                        );
+                    }
+                    Some(model::Event::GoToMessage(_)) | None => (),
                 }
             }
         }
@@ -1949,14 +1958,16 @@ impl Dashboard {
                         ))
                     }
                     buffer::context_menu::Event::HidePreview(
+                        origin,
                         history_id,
                         time,
                         url,
                     ) => {
-                        let kind = pane
-                            .buffer
-                            .data()
-                            .and_then(history::Kind::from_buffer);
+                        let kind = origin.or_else(|| {
+                            pane.buffer
+                                .data()
+                                .and_then(history::Kind::from_buffer)
+                        });
                         let parsed = url::Url::parse(&url).ok();
 
                         if let (Some(kind), Some(url)) = (kind, parsed) {
@@ -1976,14 +1987,16 @@ impl Dashboard {
                         None
                     }
                     buffer::context_menu::Event::ShowPreview(
+                        origin,
                         history_id,
                         time,
                         url,
                     ) => {
-                        let kind = pane
-                            .buffer
-                            .data()
-                            .and_then(history::Kind::from_buffer);
+                        let kind = origin.or_else(|| {
+                            pane.buffer
+                                .data()
+                                .and_then(history::Kind::from_buffer)
+                        });
                         let parsed = url::Url::parse(&url).ok();
 
                         if let (Some(kind), Some(url)) = (kind, parsed) {
@@ -2184,36 +2197,12 @@ impl Dashboard {
                         time,
                         history_id,
                     ) => {
-                        if let Some(buffer) = pane.buffer.upstream()
-                            && let kind = history::Kind::from(buffer.clone())
-                            && let Some(message) = storage
-                                .find_message_by_history_id(
-                                    &history_id,
-                                    &kind,
-                                    &time,
-                                )
-                            && let Some(message_with_context) = clients
-                                .resend_privmsg_or_notice(
-                                    buffer,
-                                    message,
-                                    TokenPriority::User,
-                                    storage.get_reroute_rules(),
-                                )
-                        {
-                            let history_updates = vec![
-                                storage::Update::Remove(kind, history_id, time),
-                                storage::Update::Message(
-                                    Some(buffer.as_server().clone()),
-                                    message_with_context,
-                                ),
-                            ];
-
-                            storage.write(
-                                history_updates,
-                                clients,
-                                &self.panes,
-                                focused_window,
-                                config,
+                        if let Some(buffer) = pane.buffer.upstream() {
+                            clients.request_resend_message(
+                                buffer.clone(),
+                                history_id,
+                                time,
+                                storage,
                             );
                         }
 
@@ -2360,48 +2349,34 @@ impl Dashboard {
             buffer::Event::GoToMessage(
                 server,
                 channel,
-                message,
+                destination,
                 buffer_action,
             ) => {
-                let buffer = data::Buffer::Upstream(buffer::Upstream::Channel(
-                    server, channel,
-                ));
-
-                let mut tasks = vec![];
-
-                if self.panes.get_mut_by_buffer(&buffer).is_none() {
-                    tasks.push(self.open_buffer(
-                        buffer.clone(),
-                        buffer_action,
-                        clients,
-                        storage,
-                        config,
-                    ));
+                self.pending_navigation = None;
+                let mut navigation = model::Navigation {
+                    server,
+                    channel,
+                    message: None,
+                    buffer_action,
+                    token: std::sync::Weak::new(),
+                };
+                match destination {
+                    message::MessageLink::Message(message) => {
+                        navigation.message = Some(message);
+                        return (
+                            self.go_to_message(
+                                navigation, clients, storage, config,
+                            ),
+                            None,
+                        );
+                    }
+                    message::MessageLink::Highlight(highlight) => {
+                        let token = Arc::new(());
+                        navigation.token = Arc::downgrade(&token);
+                        self.pending_navigation = Some(token);
+                        storage.request_highlight_source(navigation, highlight);
+                    }
                 }
-
-                if let Some((window, pane, state)) =
-                    self.panes.get_mut_by_buffer(&buffer)
-                {
-                    tasks.push(
-                        state
-                            .buffer
-                            .scroll_to_message(
-                                message,
-                                clients,
-                                &self.models,
-                                storage,
-                                config,
-                            )
-                            .map(move |message| {
-                                Message::Pane(
-                                    window,
-                                    pane::Message::Buffer(pane, message),
-                                )
-                            }),
-                    );
-                }
-
-                return (Task::batch(tasks), None);
             }
             buffer::Event::RequestOlderChathistory => {
                 if let Some((server, target)) =
@@ -3170,6 +3145,51 @@ impl Dashboard {
         }
     }
 
+    fn go_to_message(
+        &mut self,
+        navigation: model::Navigation,
+        clients: &mut client::Map,
+        storage: &mut storage::Manager,
+        config: &Config,
+    ) -> Task<Message> {
+        let buffer = data::Buffer::Upstream(buffer::Upstream::Channel(
+            navigation.server,
+            navigation.channel,
+        ));
+
+        let mut tasks = vec![];
+
+        if self.panes.get_mut_by_buffer(&buffer).is_none() {
+            tasks.push(self.open_buffer(
+                buffer.clone(),
+                navigation.buffer_action,
+                clients,
+                storage,
+                config,
+            ));
+        }
+
+        if let Some(message) = navigation.message
+            && message != history::Id::Undetermined
+            && let Some((window, pane, state)) =
+                self.panes.get_mut_by_buffer(&buffer)
+        {
+            tasks.push(
+                state
+                    .buffer
+                    .scroll_to_message(message, &self.models, storage, config)
+                    .map(move |message| {
+                        Message::Pane(
+                            window,
+                            pane::Message::Buffer(pane, message),
+                        )
+                    }),
+            );
+        }
+
+        Task::batch(tasks)
+    }
+
     fn open_buffer(
         &mut self,
         buffer: data::Buffer,
@@ -3178,6 +3198,7 @@ impl Dashboard {
         storage: &mut storage::Manager,
         config: &Config,
     ) -> Task<Message> {
+        self.pending_navigation = None;
         let open_in = self.panes.iter().find_map(|(window, pane, state)| {
             (state.buffer.data().as_ref() == Some(&buffer))
                 .then_some((window, pane))
@@ -3676,6 +3697,7 @@ impl Dashboard {
         window: window::Id,
         pane: pane_grid::Pane,
     ) -> Task<Message> {
+        self.pending_navigation = None;
         if (self.panes.focus != Focus { window, pane })
             || self.panes.focus_history.is_empty()
         {
@@ -4231,6 +4253,7 @@ impl Dashboard {
             buffer_settings: data.buffer_settings.clone(),
             filehost: filehost::Manager::new(),
             reloading_config: false,
+            pending_navigation: None,
         };
 
         let mut tasks = vec![sidebar_task.map(Message::Sidebar)];

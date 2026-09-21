@@ -1,11 +1,11 @@
 use data::buffer::BuffersContext;
-use data::client::{self, ClientsContext};
+use data::client::ClientsContext;
 use data::config::buffer::nickname::ShownStatus;
 use data::dashboard::BufferAction;
 use data::history::{self, model, storage};
 use data::message::{self, Temporal};
 use data::target::{self, Target};
-use data::{Config, Image, Preview, Server, User, metadata, preview};
+use data::{Config, Image, Preview, Server, User, client, metadata, preview};
 use iced::widget::{container, row, span};
 use iced::{Color, Length, Size, Task};
 
@@ -25,7 +25,7 @@ pub enum Message {
 pub enum Event {
     ContextMenu(context_menu::Event),
     OpenBuffer(Server, Target, BufferAction),
-    GoToMessage(Server, target::Channel, history::Id, BufferAction),
+    GoToMessage(Server, target::Channel, message::MessageLink, BufferAction),
     OpenUrl(String),
     MarkAsRead,
     ImagePreview(Image),
@@ -79,6 +79,15 @@ pub fn view<'a>(
             return None;
         };
 
+        let destination = if matches!(
+            message.inner.target,
+            message::Target::Highlights { .. }
+        ) {
+            message::MessageLink::Highlight(message.inner.history_id)
+        } else {
+            message::MessageLink::Message(*history_id)
+        };
+
         match &message.inner.source {
             message::Source::User(user) => {
                 let users = clients.get_channel_users(server, channel);
@@ -116,7 +125,7 @@ pub fn view<'a>(
                         .link(message::Link::GoToMessage(
                             server.clone(),
                             channel.clone(),
-                            *history_id,
+                            destination,
                             config
                                 .actions
                                 .buffer
@@ -334,7 +343,7 @@ pub fn view<'a>(
                             .link(message::Link::GoToMessage(
                                 server.clone(),
                                 channel.clone(),
-                                *history_id,
+                                destination,
                                 config
                                     .actions
                                     .buffer
@@ -414,7 +423,6 @@ impl MessageFeed {
     pub fn new(
         kind: Kind,
         pane_size: Size,
-        clients_context: &dyn ClientsContext,
         storage: &mut storage::Manager,
         config: &Config,
     ) -> Self {
@@ -423,7 +431,6 @@ impl MessageFeed {
             scroll_view: scroll_view::State::new(
                 pane_size,
                 kind.history(),
-                clients_context,
                 storage,
                 config,
             ),
