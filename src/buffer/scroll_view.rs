@@ -59,7 +59,7 @@ pub enum Message {
         has_more_newer_messages: bool,
         oldest: DateTime<Utc>,
         status: Status,
-        viewport: scrollable::Viewport,
+        scroll: scrollable::Scroll,
     },
     ContextMenu(context_menu::Message),
     Link(message::Link),
@@ -869,13 +869,13 @@ pub fn view<'a>(
             } else {
                 theme::scrollable::primary
             })
-            .on_scroll(move |viewport| Message::Scrolled {
+            .on_scroll(move |scroll| Message::Scrolled {
                 has_more_older_messages,
                 has_more_newer_messages,
                 count,
                 oldest,
                 status,
-                viewport,
+                scroll,
             })
             .id(state.scrollable.clone()),
         state.scrollable.clone(),
@@ -947,16 +947,16 @@ impl State {
                 has_more_newer_messages,
                 oldest,
                 status: old_status,
-                viewport,
+                scroll,
             } => {
                 if self.scroll_to.is_some() {
                     return (Task::none(), None);
                 }
 
-                self.last_scroll_offset = viewport.absolute_offset().y;
+                self.last_scroll_offset = scroll.viewport.absolute_offset().y;
 
-                let relative_offset = viewport.relative_offset().y;
-                let absolute_offset = viewport.absolute_offset().y;
+                let relative_offset = scroll.viewport.relative_offset().y;
+                let absolute_offset = scroll.viewport.absolute_offset().y;
                 let height = self.pane_size.height;
 
                 let mut event = None;
@@ -1101,7 +1101,7 @@ impl State {
                 // If alignment changes, we need to flip the scrollable translation
                 // for the new offset
                 if let Some(new_offset) =
-                    self.status.flipped(old_status, viewport)
+                    self.status.flipped(old_status, scroll.viewport)
                 {
                     self.last_scroll_offset = new_offset.y;
                     let scroll_to = correct_viewport::scroll_to(
@@ -1240,16 +1240,16 @@ impl State {
 
                 let max_offset = scrollable.max_vertical_offset();
 
-                let content_top = hit_bounds.y - scrollable.content.y;
+                let content_top = hit_bounds.y - scrollable.bounds.y;
                 let content_bottom = content_top + hit_bounds.height;
 
                 let inset = theme::resolve_line_height(&config.font) * 2.75;
 
-                let viewport_top = scrollable.offset.y;
+                let viewport_top = scrollable.translation.y;
                 let viewport_top_inset = viewport_top + inset;
 
                 let viewport_bottom =
-                    scrollable.offset.y + scrollable.viewport.height;
+                    scrollable.translation.y + scrollable.bounds.height;
                 let viewport_bottom_inset = viewport_bottom - inset;
 
                 let fully_within_inset_viewport = match align {
@@ -1270,8 +1270,7 @@ impl State {
                 }
 
                 // offset that puts the message's bottom at the viewport's bottom
-                let bottom_aligned =
-                    content_bottom - scrollable.viewport.height;
+                let bottom_aligned = content_bottom - scrollable.bounds.height;
                 // capped so a message taller than the viewport doesn't get its
                 // top pushed out the other side
                 let reveal_bottom = bottom_aligned.min(content_top);
@@ -2158,8 +2157,7 @@ fn step_messages(height: f32, config: &Config) -> usize {
 pub mod keyed {
     use data::message;
     use iced::advanced::widget::{self, Operation};
-    use iced::widget::scrollable::{self, AbsoluteOffset};
-    use iced::{Rectangle, Task, Vector, advanced};
+    use iced::{Rectangle, Size, Task, Vector, advanced};
 
     use crate::widget::{Element, Renderer, decorate};
 
@@ -2206,33 +2204,14 @@ pub mod keyed {
 
     #[derive(Debug, Clone, Copy)]
     pub struct Scrollable {
-        pub viewport: Rectangle,
-        pub content: Rectangle,
-        pub offset: AbsoluteOffset,
+        pub bounds: Rectangle,
+        pub content: Size,
+        pub translation: Vector,
     }
 
     impl Scrollable {
         pub fn max_vertical_offset(&self) -> f32 {
-            (self.content.height - self.viewport.height).max(0.0)
-        }
-
-        pub fn reversed_offset(&self) -> AbsoluteOffset {
-            AbsoluteOffset {
-                x: (self.content.width - self.viewport.width).max(0.0)
-                    - self.offset.x,
-                y: (self.content.height - self.viewport.height).max(0.0)
-                    - self.offset.y,
-            }
-        }
-    }
-
-    impl From<scrollable::Viewport> for Scrollable {
-        fn from(viewport: scrollable::Viewport) -> Self {
-            Self {
-                viewport: viewport.bounds(),
-                content: viewport.content_bounds(),
-                offset: viewport.absolute_offset(),
-            }
+            (self.content.height - self.bounds.height).max(0.0)
         }
     }
 
@@ -2260,31 +2239,20 @@ pub mod keyed {
             &mut self,
             id: Option<&widget::Id>,
             bounds: Rectangle,
-            content_bounds: Rectangle,
+            content: Size,
             translation: Vector,
             _state: &mut dyn widget::operation::Scrollable,
         ) {
             if id.is_some_and(|id| *id == self.scrollable_id) {
                 self.scrollable = Some(Scrollable {
-                    viewport: bounds,
-                    content: content_bounds,
-                    offset: AbsoluteOffset {
-                        x: translation.x,
-                        y: translation.y,
-                    },
+                    bounds,
+                    content,
+                    translation,
                 });
                 self.active = true;
             } else {
                 self.active = false;
             }
-        }
-
-        fn container(
-            &mut self,
-            _id: Option<&widget::Id>,
-            _bounds: Rectangle,
-            _viewport: &Rectangle,
-        ) {
         }
 
         fn traverse(
@@ -2335,31 +2303,20 @@ pub mod keyed {
             &mut self,
             id: Option<&widget::Id>,
             bounds: Rectangle,
-            content_bounds: Rectangle,
+            content: Size,
             translation: Vector,
             _state: &mut dyn widget::operation::Scrollable,
         ) {
             if id.is_some_and(|id| *id == self.scrollable_id) {
                 self.scrollable = Some(Scrollable {
-                    viewport: bounds,
-                    content: content_bounds,
-                    offset: AbsoluteOffset {
-                        x: translation.x,
-                        y: translation.y,
-                    },
+                    bounds,
+                    content,
+                    translation,
                 });
                 self.active = true;
             } else {
                 self.active = false;
             }
-        }
-
-        fn container(
-            &mut self,
-            _id: Option<&widget::Id>,
-            _bounds: Rectangle,
-            _viewport: &Rectangle,
-        ) {
         }
 
         fn traverse(
@@ -2379,13 +2336,9 @@ pub mod keyed {
                 && let Some(key) = state.downcast_ref::<Key>()
                 && self.hit_bounds.is_none()
                 && self.scrollable.is_some_and(|scrollable| {
-                    scrollable.viewport.intersects(
-                        &(bounds
-                            - Vector::new(
-                                scrollable.offset.x,
-                                scrollable.offset.y,
-                            )),
-                    )
+                    scrollable
+                        .bounds
+                        .intersects(&(bounds - scrollable.translation))
                 })
             {
                 self.hit_bounds = Some((*key, bounds));
@@ -2417,7 +2370,7 @@ pub mod keyed {
             &mut self,
             id: Option<&widget::Id>,
             _bounds: Rectangle,
-            _content_bounds: Rectangle,
+            _content: Size,
             _translation: Vector,
             _state: &mut dyn widget::operation::Scrollable,
         ) {
@@ -2479,7 +2432,7 @@ mod correct_viewport {
     use iced::advanced::widget::{Id, Operation};
     use iced::advanced::{self, shell, widget};
     use iced::widget::scrollable::{AbsoluteOffset, Anchor};
-    use iced::{Rectangle, Task, Vector};
+    use iced::{Rectangle, Size, Task, Vector};
 
     use super::{Message, keyed};
     use crate::widget::{Element, Renderer, decorate};
@@ -2540,15 +2493,17 @@ mod correct_viewport {
                             // Something shifted this, let's put it back to the
                             // top of the viewport
                             if new.hit_bounds.y != old.hit_bounds.y {
-                                let viewport_offset = old.scrollable.viewport.y
-                                    - (old.hit_bounds.y - old.scrollable.offset.y);
+                                let viewport_offset = old.scrollable.bounds.y
+                                    - (old.hit_bounds.y
+                                        - old.scrollable.translation.y);
 
                                 // New offset needed to place same element back to same offset
                                 // from top of viewport
                                 let new_offset = f32::min(
                                     (new.hit_bounds.y + viewport_offset)
-                                        - new.scrollable.viewport.y,
-                                    new.scrollable.content.height - new.scrollable.viewport.height,
+                                        - new.scrollable.bounds.y,
+                                    new.scrollable.content.height
+                                        - new.scrollable.bounds.height,
                                 );
 
                                 let mut operation = scrollable::scroll_to(
@@ -2557,6 +2512,7 @@ mod correct_viewport {
                                         x: None,
                                         y: Some(new_offset),
                                     },
+                                    widget::operation::Animation::Instant,
                                 );
                                 inner
                                     .as_widget_mut()
@@ -2588,13 +2544,7 @@ mod correct_viewport {
                             iced::window::RedrawRequest::Wait => {}
                         }
 
-                        if let Some(diff) = shell.is_layout_invalid() {
-                            shell.invalidate_layout_with(diff);
-                        }
-
-                        if local_shell.are_widgets_invalid() {
-                            shell.invalidate_widgets();
-                        }
+                        shell.invalidate(local_shell.invalidation());
 
                         if local_shell.is_event_captured() {
                             shell.capture_event();
@@ -2718,13 +2668,18 @@ mod correct_viewport {
             fn scrollable(
                 &mut self,
                 id: Option<&Id>,
-                _bounds: Rectangle,
-                _content_bounds: Rectangle,
+                bounds: Rectangle,
+                content: Size,
                 _translation: Vector,
                 state: &mut dyn Scrollable,
             ) {
                 if id.is_some_and(|id| *id == self.target) {
-                    state.scroll_to(self.offset.into());
+                    state.scroll_to(
+                        self.offset.into(),
+                        widget::operation::Animation::Instant,
+                        bounds,
+                        content,
+                    );
                 }
             }
 
@@ -2779,7 +2734,7 @@ mod correct_viewport {
                 &mut self,
                 id: Option<&Id>,
                 bounds: Rectangle,
-                content_bounds: Rectangle,
+                content: Size,
                 _translation: Vector,
                 state: &mut dyn Scrollable,
             ) {
@@ -2791,7 +2746,12 @@ mod correct_viewport {
                         offset.y = -offset.y;
                     }
 
-                    state.scroll_by(offset, bounds, content_bounds);
+                    state.scroll_by(
+                        offset,
+                        widget::operation::Animation::Instant,
+                        bounds,
+                        content,
+                    );
                 }
             }
 
