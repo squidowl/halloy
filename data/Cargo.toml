@@ -44,6 +44,7 @@ iced = { workspace = true, features = [
 nom = { workspace = true }
 percent-encoding = { workspace = true }
 keyring-core = "1"
+rusqlite = { version = "0.38", features = ["bundled"] }
 
 equivalent = "1.0"
 base64 = "0.23.0"
@@ -90,6 +91,7 @@ windows-native-keyring-store = { version = "1", default-features = false }
 
 [dev-dependencies]
 serde_test = "1.0"
+tempfile = "3"
 
 [dependencies.irc]
 path = "../irc"

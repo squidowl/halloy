@@ -172,21 +172,33 @@ impl Map {
         })
     }
 
-    pub fn resend_privmsg_or_notice(
+    pub fn request_resend_message(
         &mut self,
-        buffer: &buffer::Upstream,
-        message: &message::Message,
-        priority: TokenPriority,
+        buffer: buffer::Upstream,
+        history_id: crate::history::Id,
+        time: message::Time,
+        storage: &mut storage::Manager,
+    ) {
+        if let Some(client) = self.client_mut(buffer.as_server())
+            && let Some(lookup) =
+                client.begin_resend_lookup(buffer, history_id, time)
+        {
+            storage.request_resend_message(lookup);
+        }
+    }
+
+    pub fn resend_message_ready(
+        &mut self,
+        lookup: super::ResendLookup,
+        message: Option<message::Message>,
         reroute_rules: &RerouteRules,
-    ) -> Option<message::MessageWithContext> {
-        self.client_mut(buffer.as_server()).and_then(|client| {
-            client.resend_privmsg_or_notice(
-                buffer,
-                message,
-                priority,
-                reroute_rules,
-            )
-        })
+    ) -> Vec<storage::Update> {
+        self.client_mut(lookup.buffer.as_server()).map_or_else(
+            Vec::new,
+            |client| {
+                client.resend_message_ready(lookup, message, reroute_rules)
+            },
+        )
     }
 
     pub fn send_markread(
@@ -655,6 +667,16 @@ impl Map {
         }
     }
 
+    pub fn chathistory_reference_ready(
+        &mut self,
+        lookup: super::ChathistoryLookup,
+        reference: Option<isupport::MessageReference>,
+    ) {
+        if let Some(client) = self.client_mut(&lookup.server) {
+            client.chathistory_reference_ready(lookup, reference);
+        }
+    }
+
     pub fn request_older_chathistory(
         &mut self,
         server: &Server,
@@ -693,7 +715,9 @@ impl Map {
     ) -> Option<ChathistoryState> {
         self.client(server).and_then(|client| {
             if client.capabilities.acknowledged(Capability::Chathistory) {
-                if client.chathistory_request(target).is_some() {
+                if client.chathistory_request(target).is_some()
+                    || client.chathistory_lookups.contains_key(target)
+                {
                     Some(ChathistoryState::PendingRequest)
                 } else if client.chathistory_exhausted(target) {
                     Some(ChathistoryState::Exhausted)

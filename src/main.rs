@@ -67,6 +67,25 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    let destination = data::Url::find_in(std::env::args());
+    if let Some(loc) = &destination
+        && ipc::connect_and_send(loc.to_string())
+    {
+        return Ok(());
+    }
+
+    std::fs::create_dir_all(environment::data_dir())?;
+    let instance_lock = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(environment::data_dir().join("history.lock"))?;
+    instance_lock.try_lock().map_err(|error| {
+        format!(
+            "Cannot start Halloy; another instance may be using the same data directory: {error}"
+        )
+    })?;
+
     // Prepare crypto provider before any TLS config is built.
     irc::connection::prepare();
 
@@ -75,19 +94,12 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let logs_config = Config::load_logs().unwrap_or_default();
 
-    // spin up a single-threaded tokio runtime to run the logs deletion and
+    // spin up a single-threaded tokio runtime to run the
     // config loading tasks to completion we don't want to wrap our whole
     // program with a runtime since iced starts its own.
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;
-
-    let _ = rt.block_on(async {
-        tokio::join!(
-            storage::delete(&history::Kind::Logs),
-            storage::delete_metadata(&history::Kind::Logs)
-        )
-    });
 
     let log_stream = logger::setup(logs_config).expect("setup logging");
     log::info!("halloy {} has started", environment::formatted_version());
@@ -121,13 +133,6 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     // DANGER ZONE - font must be set using config
     // before we do any iced related stuff w/ it
     font::set(&font_config);
-
-    let destination = data::Url::find_in(std::env::args());
-    if let Some(loc) = &destination
-        && ipc::connect_and_send(loc.to_string())
-    {
-        return Ok(());
-    }
 
     let settings = settings(&config_load, &font_config);
     let log_stream = Mutex::new(Some(log_stream));
@@ -1529,12 +1534,22 @@ impl Halloy {
                     .into_iter()
                     .map(|event| match event {
                         storage::Event::History(message) => {
-                            let is_exit_message = matches!(message, storage::Message::Exited(..));
+                            let is_exit_message =
+                                matches!(message, storage::Message::Exited(..));
 
-                            self.storage.update(message, &self.clients, self.screen.buffers_context(), &self.focused_window, &self.config);
+                            self.storage.update(
+                                message,
+                                &self.clients,
+                                self.screen.buffers_context(),
+                                &self.config,
+                            );
 
                             if is_exit_message {
-                                if let Screen::Exit { history_pending_exit, servers_pending_exit } = &mut self.screen {
+                                if let Screen::Exit {
+                                    history_pending_exit,
+                                    servers_pending_exit,
+                                } = &mut self.screen
+                                {
                                     *history_pending_exit = false;
 
                                     if servers_pending_exit.is_empty() {
@@ -1559,7 +1574,11 @@ impl Halloy {
                             }
                         }
                         storage::Event::Notification(server, notification) => {
-                            self.notifications.notify(&self.config, &notification, &server);
+                            if matches!(self.screen, Screen::Dashboard(_)) {
+                                self.notifications.notify(
+                                    &self.config, &notification, &server,
+                                );
+                            }
 
                             Task::none()
                         }
@@ -1573,6 +1592,31 @@ impl Halloy {
             }
             Message::Client(message) => {
                 match message {
+                    client::Message::ResendMessage(lookup, message) => {
+                        if matches!(self.screen, Screen::Dashboard(_)) {
+                            let updates = self.clients.resend_message_ready(
+                                lookup,
+                                message.map(|message| *message),
+                                self.storage.get_reroute_rules(),
+                            );
+                            if !updates.is_empty() {
+                                self.storage.write(
+                                    updates,
+                                    &self.clients,
+                                    self.screen.buffers_context(),
+                                    &self.focused_window,
+                                    &self.config,
+                                );
+                            }
+                        }
+                    }
+                    client::Message::ChathistoryReference(
+                        lookup,
+                        reference,
+                    ) => {
+                        self.clients
+                            .chathistory_reference_ready(lookup, reference);
+                    }
                     client::Message::ChathistoryRequest(server, subcommand) => {
                         self.clients.send_chathistory_request(
                             &server,
@@ -1856,7 +1900,7 @@ impl Halloy {
                     );
                 }
 
-                self.storage.set_filters(
+                self.storage.reload_configuration(
                     &self.servers,
                     &self.clients,
                     &self.config.buffer,
@@ -1866,10 +1910,6 @@ impl Halloy {
 
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
                     dashboard.refresh_cache_limits(&self.config);
-
-                    // If redaction settings are changed then history needs to
-                    // be reprocessed; that is already performed by
-                    // `set_filters`, so it does not need to be done again.
 
                     let mut tasks = Vec::new();
 
@@ -2015,17 +2055,10 @@ impl Halloy {
             history_pending_exit: true,
         };
 
-        let history_events = self.storage.exit(
-            &self.clients,
-            &buffers_context,
-            &self.focused_window,
-            &self.config,
-        );
+        self.storage.exit(&buffers_context, &self.config);
 
         self.controllers
             .exit(&self.config.buffer.commands.quit.default_reason);
-
-        exit_tasks.push(self.update(Message::History(history_events)));
 
         Task::batch(exit_tasks)
     }

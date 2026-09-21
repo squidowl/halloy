@@ -3,14 +3,13 @@ use std::fmt;
 
 use data::buffer::{self, BuffersContext};
 pub use data::buffer::{Internal, Settings, Upstream};
-use data::client::{self, ClientsContext};
 use data::config::buffer::text_input::Autocomplete;
 use data::dashboard::BufferAction;
 use data::history::filter::FilterChain;
 use data::history::{self, model, storage};
 use data::target::{self, Target, TargetRef};
 use data::user::Nick;
-use data::{Config, Image, file_transfer, input, message, preview};
+use data::{Config, Image, client, file_transfer, input, message, preview};
 use iced::advanced::widget;
 use iced::advanced::widget::operation::focusable;
 use iced::{Size, Task};
@@ -83,7 +82,12 @@ pub enum Event {
     Reconnect(data::Server),
     LeaveBuffers(Vec<Target>, Option<String>),
     SelectedServer(data::Server),
-    GoToMessage(data::Server, target::Channel, history::Id, BufferAction),
+    GoToMessage(
+        data::Server,
+        target::Channel,
+        message::MessageLink,
+        BufferAction,
+    ),
     RequestOlderChathistory,
     PreviewChanged,
     HidePreview(history::Kind, history::Id, message::Time, url::Url),
@@ -136,13 +140,12 @@ impl Buffer {
                     Self::FileTransfers(FileTransfers::new())
                 }
                 buffer::Internal::Logs => {
-                    Self::Logs(Logs::new(pane_size, clients, storage, config))
+                    Self::Logs(Logs::new(pane_size, storage, config))
                 }
                 buffer::Internal::Highlights => {
                     Self::Highlights(Highlights::new(
                         message_feed::Kind::Highlights,
                         pane_size,
-                        clients,
                         storage,
                         config,
                     ))
@@ -151,7 +154,6 @@ impl Buffer {
                     Self::ChannelMonitor(ChannelMonitor::new(
                         message_feed::Kind::ChannelMonitor,
                         pane_size,
-                        clients,
                         storage,
                         config,
                     ))
@@ -988,7 +990,6 @@ impl Buffer {
 
     pub fn scroll_to_start(
         &mut self,
-        clients_context: &dyn ClientsContext,
         storage: &mut storage::Manager,
         config: &Config,
     ) -> Task<Message> {
@@ -1004,7 +1005,7 @@ impl Buffer {
             let kind = history::Kind::from(kind_ref);
 
             scroll_task = scroll_view
-                .scroll_to_start(kind_ref, clients_context, storage, config)
+                .scroll_to_start(kind_ref, storage, config)
                 .map(move |message| {
                     map_scroll_view_message(kind.clone(), message)
                 });
@@ -1015,7 +1016,6 @@ impl Buffer {
 
     pub fn scroll_to_end(
         &mut self,
-        clients_context: &dyn ClientsContext,
         storage: &mut storage::Manager,
         config: &Config,
     ) -> Task<Message> {
@@ -1031,7 +1031,7 @@ impl Buffer {
             let kind = history::Kind::from(kind_ref);
 
             scroll_task = scroll_view
-                .scroll_to_end(kind_ref, clients_context, storage, config)
+                .scroll_to_end(kind_ref, storage, config)
                 .map(move |message| {
                     map_scroll_view_message(kind.clone(), message)
                 });
@@ -1043,7 +1043,6 @@ impl Buffer {
     pub fn scroll_to_message(
         &mut self,
         history_id: history::Id,
-        clients_context: &dyn ClientsContext,
         models: &model::Manager,
         storage: &mut storage::Manager,
         config: &Config,
@@ -1057,7 +1056,6 @@ impl Buffer {
                 .scroll_to_message(
                     history_id,
                     kind_ref,
-                    clients_context,
                     models,
                     storage,
                     config,
@@ -1074,7 +1072,6 @@ impl Buffer {
 
     pub fn scroll_to_backlog(
         &mut self,
-        clients_context: &dyn ClientsContext,
         models: &model::Manager,
         storage: &mut storage::Manager,
         config: &Config,
@@ -1085,13 +1082,7 @@ impl Buffer {
             let kind = history::Kind::from(kind_ref);
 
             scroll_view
-                .scroll_to_backlog(
-                    kind_ref,
-                    clients_context,
-                    models,
-                    storage,
-                    config,
-                )
+                .scroll_to_backlog(kind_ref, models, storage, config)
                 .map(move |message| {
                     map_scroll_view_message(kind.clone(), message)
                 })
@@ -1159,7 +1150,6 @@ impl Buffer {
     pub fn update_pane_size(
         &mut self,
         pane_size: Size,
-        clients_context: &dyn ClientsContext,
         models: &model::Manager,
         storage: &mut storage::Manager,
         config: &Config,
@@ -1167,14 +1157,8 @@ impl Buffer {
         if let Some((scroll_view, kind_ref)) =
             self.scroll_view_mut_with_kind_ref()
         {
-            scroll_view.update_pane_size(
-                pane_size,
-                kind_ref,
-                clients_context,
-                models,
-                storage,
-                config,
-            );
+            scroll_view
+                .update_pane_size(pane_size, kind_ref, models, storage, config);
         }
     }
 

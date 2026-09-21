@@ -1,8 +1,7 @@
 use data::buffer::BuffersContext;
-use data::client::{self, ClientsContext};
 use data::history::{self, model, storage};
 use data::message::{self, Temporal};
-use data::{Config, Image, Preview, metadata, preview};
+use data::{Config, Image, Preview, client, metadata, preview};
 use iced::widget::{container, row};
 use iced::{Length, Size, Task};
 
@@ -127,7 +126,6 @@ pub struct Logs {
 impl Logs {
     pub fn new(
         pane_size: Size,
-        clients_context: &dyn ClientsContext,
         storage: &mut storage::Manager,
         config: &Config,
     ) -> Self {
@@ -135,7 +133,6 @@ impl Logs {
             scroll_view: scroll_view::State::new(
                 pane_size,
                 history::Kind::Logs,
-                clients_context,
                 storage,
                 config,
             ),

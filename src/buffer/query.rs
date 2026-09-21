@@ -229,7 +229,7 @@ impl Query {
             server,
             target,
             scroll_view: scroll_view::State::new(
-                pane_size, kind, clients, storage, config,
+                pane_size, kind, storage, config,
             ),
             message_focus: message_focus::Manager::new(),
         }
@@ -405,7 +405,6 @@ impl Query {
                                         &self.server,
                                         &self.target,
                                     ),
-                                    clients,
                                     storage,
                                     config,
                                 )

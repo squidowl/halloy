@@ -94,7 +94,27 @@ impl From<Target> for Destination {
 #[derive(Debug)]
 pub enum Message {
     ChathistoryRequest(Server, ChathistorySubcommand),
+    ChathistoryReference(ChathistoryLookup, Option<MessageReference>),
+    ResendMessage(ResendLookup, Option<Box<message::Message>>),
     SendMarkread(Server, Target, ReadMarker),
+}
+
+#[derive(Debug)]
+pub struct ChathistoryLookup {
+    pub(crate) server: Server,
+    pub(crate) target: Target,
+    pub(crate) query: storage::ReferenceQuery,
+    pub(crate) reference_types: Vec<isupport::MessageReferenceType>,
+    pub(crate) priority: TokenPriority,
+    pub(crate) token: Arc<()>,
+}
+
+#[derive(Debug)]
+pub struct ResendLookup {
+    pub(crate) buffer: buffer::Upstream,
+    pub(crate) history_id: history::Id,
+    pub(crate) time: message::Time,
+    pub(crate) token: Arc<()>,
 }
 
 #[derive(Debug)]
@@ -162,6 +182,8 @@ pub struct Client {
     pending_chathistory_requests:
         HashMap<Target, (ChathistorySubcommand, TokenPriority)>,
     chathistory_requests: HashMap<Target, ChathistoryRequest>,
+    chathistory_lookups: HashMap<Target, Arc<()>>,
+    resend_lookups: HashMap<(history::Kind, history::Id), Arc<()>>,
     chathistory_exhausted: HashMap<Target, bool>,
     chathistory_targets_request: Option<ChathistoryRequest>,
     notification_blackout: NotificationBlackout,
@@ -228,6 +250,8 @@ impl Client {
             sasl_succeeded: false,
             pending_chathistory_requests: HashMap::new(),
             chathistory_requests: HashMap::new(),
+            chathistory_lookups: HashMap::new(),
+            resend_lookups: HashMap::new(),
             chathistory_exhausted: HashMap::new(),
             chathistory_targets_request: None,
             notification_blackout: NotificationBlackout::Blackout(
@@ -903,6 +927,66 @@ impl Client {
 
             None
         }
+    }
+
+    fn begin_resend_lookup(
+        &mut self,
+        buffer: buffer::Upstream,
+        history_id: history::Id,
+        time: message::Time,
+    ) -> Option<ResendLookup> {
+        let key = (history::Kind::from(buffer.clone()), history_id);
+        let hashbrown::hash_map::Entry::Vacant(entry) =
+            self.resend_lookups.entry(key)
+        else {
+            return None;
+        };
+        let token = Arc::new(());
+        entry.insert(token.clone());
+        Some(ResendLookup {
+            buffer,
+            history_id,
+            time,
+            token,
+        })
+    }
+
+    fn resend_message_ready(
+        &mut self,
+        lookup: ResendLookup,
+        message: Option<message::Message>,
+        reroute_rules: &RerouteRules,
+    ) -> Vec<storage::Update> {
+        let kind = history::Kind::from(lookup.buffer.clone());
+        let key = (kind.clone(), lookup.history_id);
+        if !self
+            .resend_lookups
+            .get(&key)
+            .is_some_and(|token| Arc::ptr_eq(token, &lookup.token))
+        {
+            return vec![];
+        }
+        self.resend_lookups.remove(&key);
+        let Some(message) = message else {
+            return vec![];
+        };
+        if message.history_id != lookup.history_id
+            || message.time != lookup.time
+        {
+            return vec![];
+        }
+        let Some(message) = self.resend_privmsg_or_notice(
+            &lookup.buffer,
+            &message,
+            TokenPriority::User,
+            reroute_rules,
+        ) else {
+            return vec![];
+        };
+        vec![
+            storage::Update::Remove(kind, lookup.history_id, lookup.time),
+            storage::Update::Message(Some(self.server.clone()), message),
+        ]
     }
 
     fn resend_privmsg_or_notice(
@@ -1903,22 +1987,13 @@ impl Client {
                     // This will be stopped in send_chathistory_request if
                     // automated_chathistory is disabled
                     if self.capabilities.acknowledged(Capability::Chathistory) {
-                        let message_reference = storage
-                            .last_can_reference_before(
-                                chathistory_entry_server_time(&message),
-                                kind,
-                                self.chathistory_message_reference_types(),
-                            );
-
-                        let subcommand = ChathistorySubcommand::Latest(
+                        self.request_chathistory_reference(
                             target_channel.clone().into_target(),
-                            message_reference,
-                            self.chathistory_limit(),
-                        );
-
-                        self.send_chathistory_request(
-                            subcommand,
+                            storage::ReferenceQuery::Before(
+                                chathistory_entry_server_time(&message),
+                            ),
                             TokenPriority::High,
+                            storage,
                         );
                     }
 
@@ -2963,27 +3038,11 @@ impl Client {
                             }
                             Target::Query(_) => true,
                         } {
-                            let kind = history::Kind::from_target(
-                                self.server.clone(),
-                                target.clone(),
-                            );
-
-                            let message_reference = storage
-                                .last_can_reference_before(
-                                    server_time,
-                                    kind,
-                                    self.chathistory_message_reference_types(),
-                                );
-
-                            let subcommand = ChathistorySubcommand::Latest(
+                            self.request_chathistory_reference(
                                 target,
-                                message_reference,
-                                self.chathistory_limit(),
-                            );
-
-                            self.send_chathistory_request(
-                                subcommand,
+                                storage::ReferenceQuery::Before(server_time),
                                 TokenPriority::High,
+                                storage,
                             );
                         }
 
@@ -4100,23 +4159,82 @@ impl Client {
         &mut self,
         target: Target,
         priority: TokenPriority,
-        storage: &storage::Manager,
+        storage: &mut storage::Manager,
     ) {
-        let kind =
-            history::Kind::from_target(self.server.clone(), target.clone());
+        self.request_chathistory_reference(
+            target,
+            storage::ReferenceQuery::Oldest,
+            priority,
+            storage,
+        );
+    }
 
-        if let Some(message_reference) = storage.oldest_can_reference(
-            &kind,
-            self.chathistory_message_reference_types(),
-        ) {
-            let subcommand = ChathistorySubcommand::Before(
-                target,
-                message_reference,
-                self.chathistory_limit(),
-            );
-
-            self.send_chathistory_request(subcommand, priority);
+    fn request_chathistory_reference(
+        &mut self,
+        target: Target,
+        query: storage::ReferenceQuery,
+        priority: TokenPriority,
+        storage: &mut storage::Manager,
+    ) {
+        if !self.capabilities.acknowledged(Capability::Chathistory)
+            || (!matches!(priority, TokenPriority::User)
+                && !self.config.automated_chathistory)
+            || self.chathistory_lookups.contains_key(&target)
+            || self.chathistory_requests.contains_key(&target)
+            || self.pending_chathistory_requests.contains_key(&target)
+        {
+            return;
         }
+        let token = Arc::new(());
+        self.chathistory_lookups
+            .insert(target.clone(), token.clone());
+        storage.request_chathistory_reference(ChathistoryLookup {
+            server: self.server.clone(),
+            target,
+            query,
+            reference_types: self
+                .chathistory_message_reference_types()
+                .to_vec(),
+            priority,
+            token,
+        });
+    }
+
+    pub fn chathistory_reference_ready(
+        &mut self,
+        lookup: ChathistoryLookup,
+        reference: Option<MessageReference>,
+    ) {
+        // A new client after reconnect has no matching token. A cancelled or
+        // replaced lookup must not consume a newer request for the same target.
+        if !self
+            .chathistory_lookups
+            .get(&lookup.target)
+            .is_some_and(|token| Arc::ptr_eq(token, &lookup.token))
+        {
+            return;
+        }
+        self.chathistory_lookups.remove(&lookup.target);
+        let subcommand = match lookup.query {
+            storage::ReferenceQuery::Oldest => {
+                let Some(reference) = reference else {
+                    return;
+                };
+                ChathistorySubcommand::Before(
+                    lookup.target,
+                    reference,
+                    self.chathistory_limit(),
+                )
+            }
+            storage::ReferenceQuery::Before(_) => {
+                ChathistorySubcommand::Latest(
+                    lookup.target,
+                    reference,
+                    self.chathistory_limit(),
+                )
+            }
+        };
+        self.send_chathistory_request(subcommand, lookup.priority);
     }
 
     pub fn send_chathistory_request(
@@ -4321,6 +4439,7 @@ impl Client {
 
     pub fn clear_chathistory_request(&mut self, target: Option<&Target>) {
         if let Some(target) = target {
+            self.chathistory_lookups.remove(target);
             self.chathistory_requests.remove(target);
         } else {
             self.chathistory_targets_request = None;

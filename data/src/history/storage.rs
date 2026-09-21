@@ -1,71 +1,51 @@
-use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::ops::Range;
 use std::path::PathBuf;
-use std::time::Instant;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 use std::{fs, io};
 
 use chrono::{self, DateTime, Local, NaiveDate, Utc};
-use futures::FutureExt;
-use futures::future::{self, BoxFuture};
 use hashbrown::{HashMap, HashSet, hash_map};
 use iced::Task;
 use itertools::Itertools;
 use tokio::sync::mpsc;
-use tokio::time::Duration;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use super::filter::{Filter, FilterChain};
 use super::reroute::RerouteRules;
 use super::{
-    Id, Kind, Metadata, ReadMarker, Request, find_message_by_history_id,
-    find_message_by_id, find_message_mut_by_history_id, find_message_mut_by_id,
-    model, position_first_message_after_date_time,
-    position_last_message_before_or_at_date_time,
-    position_message_by_history_id, position_message_by_id,
+    Id, Kind, Metadata, ReadMarker, Request, database, model,
     smart_filter_internal_message, smart_filter_message, smart_filter_repeat,
 };
 use crate::buffer::{self, BuffersContext};
 use crate::client::ClientsContext;
 use crate::config::buffer::OnMessage;
-use crate::message::{
-    self, MessageReferences, Searchable, Source, Temporal, broadcast,
-    highlight, source,
-};
+use crate::message::{self, Searchable, Source, Temporal, broadcast, source};
 use crate::target::{self, Target};
-use crate::time::Posix;
 use crate::user::Nick;
 use crate::{
-    Config, Notification, Server, client, compression, config, environment,
-    input, isupport, reaction, redaction, server,
+    Config, Notification, Server, client, config, environment, input, reaction,
+    redaction, server,
 };
 
-/// Max # messages to persist; TODO: make configurable (alter message store when
-/// set to zero?)
-const MAX_SAVED_MESSAGES: usize = 10_000;
-/// Max # of messages to include in channel monitor (may be droppable after
-/// moving to SQLite)
-const MAX_CHANNEL_MONITOR_MESSAGES: usize = 10_000;
-/// Duration to wait after last received update before saving/flushing to disk
-const SAVE_AFTER_DURATION_SINCE_UPDATE: Duration = Duration::from_secs(12);
-/// # of pending updates to trigger save/flush to disk even if
-/// SAVE_AFTER_DURATION_SINCE_UPDATE has not passed
-const SAVE_AFTER_UPDATE_COUNT: usize = 500;
-/// Duration to wait after a pane is closed before clearing the cached history.
+mod batch;
+mod cache;
+mod worker;
+use cache::{MessageCache, ReadCache};
+
 const CLEAR_AFTER_DURATION_SINCE_CLOSED: Duration = Duration::from_secs(8);
 
 #[derive(Debug)]
 pub enum Message {
-    Loaded(Kind, Result<Vec<message::Message>, Error>),
-    Saved(Kind, Result<usize, Error>),
+    Initialized(Kind, Metadata),
+    Read(Kind, cache::Read, database::Window),
+    Committed(Vec<batch::Committed>),
+    Importing(Kind),
+    Failed(String),
+    Unrecorded(batch::Batch),
     DraftsSaved(Result<usize, Error>),
-    Highlights(Vec<Update>),
-    ChannelMonitorLoad(Vec<message::Message>),
-    ChannelMonitorUpdate(Vec<Update>),
-    Exited(
-        HashMap<Kind, Result<usize, Error>>,
-        Option<Result<usize, Error>>,
-    ),
+    Exited(Result<(), String>, Option<Result<usize, Error>>),
 }
 
 #[derive(Debug)]
@@ -74,6 +54,12 @@ pub enum Event {
     Model(model::Message),
     Notification(Server, Notification),
     Client(client::Message),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ReferenceQuery {
+    Oldest,
+    Before(DateTime<Utc>),
 }
 
 #[derive(Debug)]
@@ -89,27 +75,17 @@ pub enum Update {
     ShowInSidebar(Kind, bool),
 }
 
-#[derive(Debug, Default)]
-pub struct PostWriteUpdate {
-    events: Vec<Event>,
-    highlights: Vec<Update>,
-    channel_monitor: Vec<Update>,
-    read_marker_update: Option<ReadMarkerUpdate>,
-}
-
-#[derive(Debug)]
-pub enum ReadMarkerUpdate {
-    Canonical,
-    Display,
-}
-
 #[derive(Debug)]
 pub struct Manager {
     storage: HashMap<Kind, Storage>,
+    worker: worker::Worker,
     input_storage: input::Storage,
     filters: Vec<Filter>,
     reroute_rules: RerouteRules,
     event_sender: mpsc::UnboundedSender<Vec<Event>>,
+    monitored: Vec<Kind>,
+    failure: Option<String>,
+    exiting: bool,
 }
 
 impl Manager {
@@ -123,10 +99,14 @@ impl Manager {
         (
             Self {
                 storage: HashMap::new(),
+                worker: worker::Worker::new(event_sender.clone()),
                 input_storage,
                 filters: Vec::new(),
                 reroute_rules: RerouteRules::default(),
                 event_sender,
+                monitored: vec![],
+                failure: None,
+                exiting: false,
             },
             Task::stream(UnboundedReceiverStream::new(event_receiver)),
         )
@@ -138,15 +118,18 @@ impl Manager {
 
         Self {
             storage: HashMap::new(),
+            worker: worker::Worker::test(event_sender.clone()),
             input_storage: input::Storage::default(),
             filters: Vec::new(),
             reroute_rules: RerouteRules::default(),
             event_sender,
+            monitored: vec![],
+            failure: None,
+            exiting: false,
         }
     }
 
-    /// Write all pending updates for all history to the message store (not save
-    /// to disk).
+    /// Queue a batch. Models and side effects update after its transaction commits.
     pub fn write(
         &mut self,
         updates: Vec<Update>,
@@ -180,11 +163,7 @@ impl Manager {
                     updates_by_kind.entry(kind).or_insert(vec![]);
 
                 kind_updates.push(update);
-            } else if matches!(update, Update::Broadcast(..)) {
-                let Update::Broadcast(server, mut broadcast) = update else {
-                    unreachable!();
-                };
-
+            } else if let Update::Broadcast(server, mut broadcast) = update {
                 let mut targets = match &mut broadcast.in_channels {
                     broadcast::Channels::All => self
                         .storage
@@ -281,24 +260,60 @@ impl Manager {
             }
         }
 
-        let events = updates_by_kind
-            .into_iter()
-            .flat_map(|(kind, updates)| {
-                let (kind_storage, filter_chain) =
-                    self.get_or_load_mut_with_filter_chain(kind);
-
-                kind_storage.write(
-                    updates,
-                    filter_chain,
-                    clients_context,
-                    buffers_context,
-                    focused_window,
-                    config,
+        if self.exiting {
+            return;
+        }
+        for (kind, updates) in &updates_by_kind {
+            if let Kind::Channel(server, channel) = kind
+                && config.channel_monitor.is_channel_included(
+                    server,
+                    channel,
+                    clients_context.get_server_casemapping_or_default(server),
                 )
-            })
-            .collect();
-
-        let _ = self.event_sender.send(events);
+                && !self.monitored.contains(kind)
+            {
+                self.monitored.push(kind.clone());
+            }
+            let storage = self.get_or_load_mut(kind.clone());
+            for update in updates {
+                let seen = match update {
+                    Update::Message(_, message) => message
+                        .inner
+                        .user()
+                        .map(|user| (user.nickname(), message.inner.time.utc)),
+                    Update::Reaction(_, reaction) => {
+                        Some((&reaction.inner.sender, reaction.inner.time.utc))
+                    }
+                    Update::Redaction(_, redaction) => {
+                        Some((&redaction.inner.from, redaction.time.utc))
+                    }
+                    _ => None,
+                };
+                if let Some((nick, time)) = seen {
+                    storage
+                        .last_seen
+                        .entry(nick.clone())
+                        .and_modify(|seen| *seen = (*seen).max(time))
+                        .or_insert(time);
+                }
+            }
+        }
+        let batch = batch::Batch::capture(
+            updates_by_kind,
+            &self.filters,
+            clients_context,
+            buffers_context,
+            focused_window,
+            config,
+        );
+        for kind in batch.kinds() {
+            self.get_or_load_mut(kind);
+        }
+        if self.failure.is_some() {
+            self.unrecorded(batch, clients_context, &config.buffer);
+        } else {
+            self.worker.send(worker::Command::Write(batch));
+        }
     }
 
     pub fn record_draft(&mut self, raw_input: input::RawInput) {
@@ -319,27 +334,21 @@ impl Manager {
 
     pub fn tick(&mut self, now: Instant, config: &Config) {
         if let Some(save_future) = self.input_storage.tick(now, config) {
-            let event_sender = self.event_sender.clone();
-
+            let events = self.event_sender.clone();
             tokio::task::spawn(async move {
-                let saved = save_future.await;
-
-                let _ = event_sender
-                    .send(vec![Event::History(Message::DraftsSaved(saved))]);
+                let _ = events.send(vec![Event::History(
+                    Message::DraftsSaved(save_future.await),
+                )]);
             });
         }
-
-        for kind_storage in self.storage.values_mut() {
-            if let Some(save_future) = kind_storage.tick(now) {
-                let event_sender = self.event_sender.clone();
-
-                tokio::task::spawn(async move {
-                    let (kind, saved) = save_future.await;
-
-                    let _ = event_sender.send(vec![Event::History(
-                        Message::Saved(kind, saved),
-                    )]);
-                });
+        for storage in self.storage.values_mut() {
+            if let Request::Closed { at: Some(closed) } =
+                storage.read_cache.requested
+                && self.failure.is_none()
+                && now.duration_since(closed)
+                    >= CLEAR_AFTER_DURATION_SINCE_CLOSED
+            {
+                storage.read_cache.clear();
             }
         }
     }
@@ -349,268 +358,276 @@ impl Manager {
         message: Message,
         clients_context: &dyn ClientsContext,
         buffers_context: &dyn BuffersContext,
-        focused_window: &Option<iced::window::Id>,
         config: &Config,
     ) {
         match message {
-            Message::Loaded(kind, Ok(messages)) => {
-                log::debug!(
-                    "loaded history {kind}: {} messages",
-                    messages.len()
-                );
-
-                let (kind_storage, filter_chain) =
-                    self.get_or_load_mut_with_filter_chain(kind.clone());
-
-                kind_storage.loaded(messages);
-
-                let mut events = vec![];
-
-                if buffers_context.is_open(&Kind::ChannelMonitor)
-                    && let Kind::Channel(server, channel) = &kind
-                    && config.channel_monitor.is_channel_included(
-                        server,
-                        channel,
-                        clients_context
-                            .get_server_casemapping_or_default(server),
-                    )
-                    && let Some(messages) = kind_storage.messages.as_ref()
-                {
-                    let channel_monitor_messages =
-                        channel_monitor_messages_from_ref(messages, server);
-
-                    events.push(Event::History(Message::ChannelMonitorLoad(
-                        channel_monitor_messages,
-                    )));
-                }
-
-                let flush_events = kind_storage.flush(
-                    filter_chain,
-                    clients_context,
-                    buffers_context,
-                    focused_window,
-                    config,
-                    false,
-                );
-
-                if flush_events.is_empty() {
-                    kind_storage.read(
-                        true,
-                        filter_chain,
-                        clients_context,
-                        &config.buffer,
-                    );
-
-                    events.push(Event::Model(model::Message::Update(
-                        kind,
-                        kind_storage.model_update(),
-                    )));
-                } else {
-                    events.extend(flush_events);
-                }
-
-                let _ = self.event_sender.send(events);
+            Message::Initialized(kind, metadata) => {
+                let storage = self
+                    .storage
+                    .entry(kind.clone())
+                    .or_insert_with(|| Storage::from(kind.clone()));
+                storage.importing = false;
+                storage.apply_metadata(metadata, None);
+                self.refresh(&kind);
+                self.publish(&kind);
             }
-            Message::Loaded(kind, Err(error)) => {
-                log::error!("failed to load history {kind}: {error}");
-
-                let kind_storage = self.get_or_load_mut(kind);
-
-                kind_storage.messages = Some(vec![]);
-            }
-            Message::Saved(kind, result) => {
-                match result {
-                    Ok(message_count) => {
-                        log::debug!(
-                            "saved history {kind}: {message_count} messages"
-                        );
-                    }
-                    Err(error) => {
-                        log::error!("failed to save history {kind}: {error}");
-                    }
+            Message::Read(kind, read, window) => {
+                if self.failure.is_some() {
+                    return;
                 }
-
-                let kind_storage = self.get_or_load_mut(kind);
-
-                kind_storage.saved();
-            }
-            Message::DraftsSaved(result) => {
-                match result {
-                    Ok(draft_count) => {
-                        log::debug!("saved input drafts: {draft_count} drafts");
-                    }
-                    Err(error) => {
-                        log::error!("failed to save input drafts: {error}");
-                    }
-                }
-
-                self.input_storage.saved();
-            }
-            Message::Highlights(updates) => {
-                let (kind_storage, filter_chain) =
-                    self.get_or_load_mut_with_filter_chain(Kind::Highlights);
-
-                let events = kind_storage.write(
-                    updates,
-                    filter_chain,
-                    clients_context,
-                    buffers_context,
-                    focused_window,
-                    config,
-                );
-
-                let _ = self.event_sender.send(events);
-            }
-            Message::ChannelMonitorLoad(messages) => {
-                let (channel_monitor_storage, filter_chain) = self
-                    .get_or_load_mut_with_filter_chain(Kind::ChannelMonitor);
-
-                if let Some(channel_monitor_messages) =
-                    channel_monitor_storage.messages.as_mut()
-                {
-                    combine_with_channel_monitor_messages(
-                        channel_monitor_messages,
-                        messages,
-                    );
-
-                    channel_monitor_messages
-                        .sort_unstable_by_key(|message| *message.time());
-                } else {
-                    channel_monitor_storage.messages = Some(messages);
-                }
-
-                channel_monitor_storage.read(
-                    true,
-                    filter_chain,
+                let visible_through = window
+                    .messages
+                    .last()
+                    .map(|message| ReadMarker::from(&message.time));
+                let newest_visible = !window.has_more_newer;
+                let older =
+                    read.extension.is_some_and(|extension| extension.older);
+                let Some(storage) = self.storage.get_mut(&kind) else {
+                    return;
+                };
+                let accepted = storage.read_cache.loaded(
+                    &read,
+                    window,
+                    &kind,
+                    FilterChain::borrow(&self.filters),
                     clients_context,
                     &config.buffer,
                 );
-
-                let events = vec![Event::Model(model::Message::Update(
-                    Kind::ChannelMonitor,
-                    channel_monitor_storage.model_update(),
-                ))];
-
-                let _ = self.event_sender.send(events);
+                let mark = if accepted && !older {
+                    let at_bottom = match config.buffer.mark_as_read.on_message
+                    {
+                        OnMessage::Focused => {
+                            buffers_context.is_focused_and_at_bottom(&kind)
+                        }
+                        OnMessage::Open => buffers_context
+                            .is_open_and_at_bottom_in_focused_window(&kind),
+                        OnMessage::None => false,
+                    };
+                    let admitted = storage.auto_read.take();
+                    if at_bottom && newest_visible {
+                        admitted
+                            .filter(|marker| Some(*marker) <= visible_through)
+                            .and_then(|marker| {
+                                storage.read_cache.visible_through(marker)
+                            })
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+                if let Some(marker) = mark {
+                    self.worker.send(worker::Command::MarkRead(
+                        kind.clone(),
+                        Some(marker),
+                        true,
+                    ));
+                }
+                self.refresh(&kind);
+                if accepted {
+                    self.publish(&kind);
+                }
             }
-            Message::ChannelMonitorUpdate(updates) => {
-                let (channel_monitor_storage, filter_chain) = self
-                    .get_or_load_mut_with_filter_chain(Kind::ChannelMonitor);
-
-                let events = channel_monitor_storage.write(
-                    updates,
-                    filter_chain,
-                    clients_context,
-                    buffers_context,
-                    focused_window,
-                    config,
+            Message::Committed(committed) => {
+                let mut events = vec![];
+                let mut monitor_changed = false;
+                for committed in committed {
+                    let kind = committed.kind;
+                    let storage = self
+                        .storage
+                        .entry(kind.clone())
+                        .or_insert_with(|| Storage::from(kind.clone()));
+                    storage.apply_metadata(
+                        committed.metadata,
+                        committed.display_read_marker,
+                    );
+                    if let Some(show) = committed.show_in_sidebar {
+                        storage.show_in_sidebar = show;
+                    }
+                    if matches!(
+                        storage.read_cache.requested,
+                        Request::Open { .. }
+                    ) {
+                        storage.auto_read = storage.auto_read.max(
+                            committed.admitted_latest.map(ReadMarker::from),
+                        );
+                    }
+                    match committed.change {
+                        batch::Change::Metadata => (),
+                        batch::Change::Append => {
+                            storage.read_cache.committed(true);
+                        }
+                        batch::Change::Replace => {
+                            storage.read_cache.committed(false);
+                            monitor_changed |= self.monitored.contains(&kind);
+                        }
+                    }
+                    events.extend(committed.events);
+                    self.refresh(&kind);
+                    self.publish(&kind);
+                }
+                if monitor_changed
+                    && let Some(storage) =
+                        self.storage.get_mut(&Kind::ChannelMonitor)
+                {
+                    storage.read_cache.changed();
+                    self.refresh(&Kind::ChannelMonitor);
+                }
+                if !self.exiting {
+                    let _ = self.event_sender.send(events);
+                } else {
+                    let _ = self.event_sender.send(
+                        events
+                            .into_iter()
+                            .filter(|event| matches!(event, Event::Client(_)))
+                            .collect(),
+                    );
+                }
+            }
+            Message::Importing(kind) => {
+                if let Some(storage) = self.storage.get_mut(&kind) {
+                    storage.importing = true;
+                }
+                self.publish(&kind);
+            }
+            Message::Failed(error) => {
+                log::error!(
+                    "History is not being recorded. New messages are available only in this session. Restart Halloy after resolving: {error}"
                 );
-
-                let _ = self.event_sender.send(events);
-            }
-            Message::Exited(results, input_result) => {
-                for (kind, result) in results {
-                    match result {
-                        Ok(message_count) => {
-                            log::debug!(
-                                "saved history {kind}: {message_count} messages"
-                            );
-                        }
-                        Err(error) => {
-                            log::error!(
-                                "failed to save history {kind}: {error}"
-                            );
-                        }
-                    }
+                self.failure = Some(error);
+                for storage in self.storage.values_mut() {
+                    storage.importing = false;
+                    storage.read_cache.failed();
+                    let _ = self.event_sender.send(vec![Event::Model(
+                        model::Message::Update(
+                            storage.kind.clone(),
+                            storage.model_update(),
+                        ),
+                    )]);
                 }
-
-                if let Some(input_result) = input_result {
-                    match input_result {
-                        Ok(draft_count) => {
-                            log::debug!(
-                                "saved input drafts: {draft_count} drafts"
-                            );
-                        }
-                        Err(error) => {
-                            log::error!("failed to save input drafts: {error}");
-                        }
-                    }
+            }
+            Message::Unrecorded(batch) => {
+                self.unrecorded(batch, clients_context, &config.buffer);
+            }
+            Message::DraftsSaved(result) => {
+                if let Err(error) = result {
+                    log::error!("failed to save input drafts: {error}");
+                }
+                self.input_storage.saved();
+            }
+            Message::Exited(result, input_result) => {
+                if let Err(error) = result {
+                    log::error!("history shutdown failed: {error}");
+                }
+                if let Some(Err(error)) = input_result {
+                    log::error!("failed to save input drafts: {error}");
                 }
             }
         }
     }
 
-    /// If performing other storage actions at the same time, then adding a
-    /// `Update::ShowInSidebar` to a call to `update` is preferable.
-    pub fn show_in_sidebar(&mut self, kind: Kind, show_in_sidebar: bool) {
-        let kind_storage = self.get_or_load_mut(kind);
-
-        if let Some(event) = kind_storage.show_in_sidebar(show_in_sidebar) {
-            let _ = self.event_sender.send(vec![event]);
+    fn unrecorded(
+        &mut self,
+        batch: batch::Batch,
+        clients: &dyn ClientsContext,
+        config: &config::Buffer,
+    ) {
+        let mut changed = HashSet::new();
+        for (kind, message) in batch.transient() {
+            let storage = self
+                .storage
+                .entry(kind.clone())
+                .or_insert_with(|| Storage::from(kind.clone()));
+            if self.failure.is_some() {
+                storage.read_cache.failed();
+            }
+            if !FilterChain::borrow(&self.filters)
+                .filter_message_of_kind(&message, &kind)
+                || message.is_ours()
+            {
+                storage.show_in_sidebar = true;
+            }
+            storage.read_cache.unrecorded(
+                message,
+                &kind,
+                FilterChain::borrow(&self.filters),
+                clients,
+                config,
+            );
+            changed.insert(kind);
+        }
+        for kind in changed {
+            self.publish(&kind);
         }
     }
 
-    /// Marks the history specified by `kind` as read, triggering an update in
-    /// the display and potentially the sending of a MARKREAD to the server.
-    /// When receiving a MARKREAD from the server, `Update::ReadMarker` should
-    /// be used instead.
+    fn refresh(&mut self, kind: &Kind) {
+        if self.failure.is_some() || self.exiting {
+            return;
+        }
+        let Some(storage) = self.storage.get_mut(kind) else {
+            return;
+        };
+        if let Some(read) =
+            storage.read_cache.request(storage.display_read_marker)
+        {
+            self.worker.send(worker::Command::Read(
+                kind.clone(),
+                read,
+                if *kind == Kind::ChannelMonitor {
+                    self.monitored.clone()
+                } else {
+                    vec![]
+                },
+            ));
+        }
+    }
+
+    fn publish(&self, kind: &Kind) {
+        if let Some(storage) = self.storage.get(kind) {
+            let _ = self.event_sender.send(vec![Event::Model(
+                model::Message::Update(kind.clone(), storage.model_update()),
+            )]);
+        }
+    }
+
+    pub fn show_in_sidebar(&mut self, kind: Kind, show: bool) {
+        self.get_or_load_mut(kind.clone()).show_in_sidebar = show;
+        self.publish(&kind);
+    }
+
     pub fn mark_as_read(&mut self, kind: Kind) {
-        let kind_storage = self.get_or_load_mut(kind);
-
-        let events = kind_storage.mark_as_read();
-
-        let _ = self.event_sender.send(events);
+        self.get_or_load_mut(kind.clone());
+        if self.failure.is_none() && !self.exiting {
+            self.worker
+                .send(worker::Command::MarkRead(kind, None, true));
+        }
     }
 
-    /// Marks all histories associatd with `server` as read, triggering an
-    /// update in their displays and potentially the sending of a MARKREAD to
-    /// the server for every non-server buffer marked.
     pub fn mark_server_as_read(&mut self, server: &Server) {
-        let events = self
-            .get_server_mut(server)
-            .iter_mut()
-            .flat_map(|server_storage| server_storage.mark_as_read())
-            .collect();
-
-        let _ = self.event_sender.send(events);
+        let kinds = self
+            .storage
+            .keys()
+            .filter(|kind| kind.as_server() == Some(server))
+            .cloned()
+            .collect::<Vec<_>>();
+        for kind in kinds {
+            self.mark_as_read(kind);
+        }
     }
 
-    pub fn set_model_limit(
-        &mut self,
-        kind: Kind,
-        limit: message::Limit,
-        clients_context: &dyn ClientsContext,
-        buffer_config: &config::Buffer,
-    ) {
-        let (kind_storage, filter_chain) =
-            self.get_or_load_mut_with_filter_chain(kind);
-
-        let event = kind_storage.set_model_limit(
-            limit,
-            filter_chain,
-            clients_context,
-            buffer_config,
-        );
-
-        let _ = self.event_sender.send(vec![event]);
+    pub fn set_model_limit(&mut self, kind: Kind, limit: message::Limit) {
+        self.get_or_load_mut(kind.clone())
+            .read_cache
+            .set_model_limit(limit);
+        self.refresh(&kind);
+        self.publish(&kind);
     }
 
-    pub fn clear_model(
-        &mut self,
-        kind: Kind,
-        clients_context: &dyn ClientsContext,
-        buffer_config: &config::Buffer,
-    ) {
-        let (kind_storage, filter_chain) =
-            self.get_or_load_mut_with_filter_chain(kind);
-
-        let event = kind_storage.clear_model(
-            filter_chain,
-            clients_context,
-            buffer_config,
-        );
-
-        let _ = self.event_sender.send(vec![event]);
+    pub fn clear_model(&mut self, kind: Kind) {
+        self.get_or_load_mut(kind.clone()).read_cache.clear_model();
+        self.refresh(&kind);
+        self.publish(&kind);
     }
 
     pub fn close_model(
@@ -620,15 +637,27 @@ impl Manager {
         hide_in_sidebar: bool,
         config: &Config,
     ) {
-        let kind_storage = self.get_or_load_mut(kind);
-
-        let events = kind_storage.close_model(
-            is_scrolled_to_bottom,
-            hide_in_sidebar,
-            config,
-        );
-
-        let _ = self.event_sender.send(events);
+        let storage = self.get_or_load_mut(kind.clone());
+        storage.read_cache.close_model();
+        storage.auto_read = None;
+        if hide_in_sidebar {
+            storage.show_in_sidebar = false;
+        }
+        if self.failure.is_none()
+            && !self.exiting
+            && config
+                .buffer
+                .mark_as_read
+                .on_buffer_close
+                .mark_as_read(is_scrolled_to_bottom)
+        {
+            self.worker.send(worker::Command::MarkRead(
+                kind.clone(),
+                None,
+                true,
+            ));
+        }
+        self.publish(&kind);
     }
 
     pub fn last_received_chathistory_targets(
@@ -661,234 +690,89 @@ impl Manager {
         }
     }
 
-    /// Oldest message in `history::Kind` storage that can be referenced.  If
-    /// called for a unloaded history, then None will be returned.
-    pub fn oldest_can_reference(
-        &self,
-        kind: &Kind,
-        message_reference_types: &[isupport::MessageReferenceType],
-    ) -> Option<isupport::MessageReference> {
-        self.storage.get(kind).and_then(|kind_storage| {
-            kind_storage.oldest_can_reference(message_reference_types)
-        })
-    }
-
-    /// If no message reference of an allowed message reference type is
-    /// available, then None will be returned.
-    pub fn last_can_reference_before(
+    pub fn request_chathistory_reference(
         &mut self,
-        server_time: DateTime<Utc>,
-        kind: Kind,
-        message_reference_types: &[isupport::MessageReferenceType],
-    ) -> Option<isupport::MessageReference> {
-        self.get_or_load(kind)
-            .last_can_reference_before(server_time, message_reference_types)
+        lookup: client::ChathistoryLookup,
+    ) {
+        if self.failure.is_some() || self.exiting {
+            let _ = self.event_sender.send(vec![Event::Client(
+                client::Message::ChathistoryReference(lookup, None),
+            )]);
+        } else {
+            self.worker.send(worker::Command::Reference(lookup));
+        }
     }
 
-    /// If no reference of an allowed type is available, then a pseudo-reference
-    /// will be returned at the provided server_time if
-    /// `MessageReferenceType::Timestamp` is allowed.  Otherwise None will be
-    /// returned.
-    pub fn last_can_reference_before_or_at(
+    pub fn request_highlight_source(
         &mut self,
-        server_time: DateTime<Utc>,
-        kind: Kind,
-        message_reference_types: &[isupport::MessageReferenceType],
-    ) -> Option<isupport::MessageReference> {
-        self.get_or_load(kind).last_can_reference_before_or_at(
-            server_time,
-            message_reference_types,
-        )
+        mut navigation: model::Navigation,
+        highlight: Id,
+    ) {
+        navigation.message = None;
+        if self.failure.is_some() || self.exiting {
+            let _ = self.event_sender.send(vec![Event::Model(
+                model::Message::GoToMessage(navigation),
+            )]);
+        } else {
+            self.worker
+                .send(worker::Command::HighlightSource(navigation, highlight));
+        }
     }
 
-    pub fn find_message_by_history_id(
-        &self,
-        history_id: &Id,
-        kind: &Kind,
-        time: &message::Time,
-    ) -> Option<&message::Message> {
-        self.storage.get(kind).and_then(|kind_storage| {
-            kind_storage.find_message_by_history_id(history_id, time)
-        })
-    }
-
-    pub fn find_message_by_id(
-        &self,
-        id: &message::Id,
-        kind: &Kind,
-        time: &message::Time,
-    ) -> Option<&message::Message> {
-        self.storage
-            .get(kind)
-            .and_then(|kind_storage| kind_storage.find_message_by_id(id, time))
-    }
-
-    fn get_or_load(&mut self, kind: Kind) -> &Storage {
-        self.get_or_load_mut(kind)
+    pub fn request_resend_message(&mut self, lookup: client::ResendLookup) {
+        if self.failure.is_some() || self.exiting {
+            let _ = self.event_sender.send(vec![Event::Client(
+                client::Message::ResendMessage(lookup, None),
+            )]);
+        } else {
+            self.worker.send(worker::Command::Resend(lookup));
+        }
     }
 
     fn get_or_load_mut(&mut self, kind: Kind) -> &mut Storage {
         match self.storage.entry(kind) {
             hash_map::Entry::Occupied(entry) => entry.into_mut(),
             hash_map::Entry::Vacant(entry) => {
-                if !matches!(entry.key(), Kind::ChannelMonitor) {
-                    Manager::load_message_store(
-                        self.event_sender.clone(),
-                        entry.key().clone(),
-                    );
+                if self.failure.is_none() && !self.exiting {
+                    self.worker
+                        .send(worker::Command::Initialize(entry.key().clone()));
                 }
-
-                let storage = Storage::from(entry.key().clone());
-
+                let mut storage = Storage::from(entry.key().clone());
+                if self.failure.is_some() {
+                    storage.read_cache.failed();
+                }
                 entry.insert(storage)
             }
         }
     }
 
-    fn get_or_load_mut_with_filter_chain(
-        &mut self,
-        kind: Kind,
-    ) -> (&mut Storage, FilterChain<'_>) {
-        (
-            match self.storage.entry(kind) {
-                hash_map::Entry::Occupied(entry) => entry.into_mut(),
-                hash_map::Entry::Vacant(entry) => {
-                    Manager::load_message_store(
-                        self.event_sender.clone(),
-                        entry.key().clone(),
-                    );
-
-                    let storage = Storage::from(entry.key().clone());
-
-                    entry.insert(storage)
-                }
-            },
-            FilterChain::borrow(&self.filters),
-        )
-    }
-
-    fn get_server_mut(&mut self, server: &Server) -> Vec<&mut Storage> {
-        self.storage
-            .values_mut()
-            .filter_map(|kind_storage| {
-                kind_storage
-                    .as_server()
-                    .is_some_and(|kind_server| kind_server == server)
-                    .then_some(kind_storage)
-            })
-            .collect()
-    }
-
-    fn load_message_store(
-        event_sender: mpsc::UnboundedSender<Vec<Event>>,
-        kind: Kind,
-    ) {
-        tokio::task::spawn(async move {
-            let loaded = Storage::load_message_store(&kind).await;
-
-            let _ = event_sender
-                .send(vec![Event::History(Message::Loaded(kind, loaded))]);
-        });
-    }
-
-    #[must_use]
-    pub fn exit(
-        &mut self,
-        clients_context: &dyn ClientsContext,
-        buffers_context: &dyn BuffersContext,
-        focused_window: &Option<iced::window::Id>,
-        config: &Config,
-    ) -> Vec<Event> {
-        let mut flush_events = self
+    pub fn exit(&mut self, buffers: &dyn BuffersContext, config: &Config) {
+        self.exiting = true;
+        let histories = self
             .storage
-            .values_mut()
-            .flat_map(|kind_storage| {
-                kind_storage.flush(
-                    FilterChain::borrow(&self.filters),
-                    clients_context,
-                    buffers_context,
-                    focused_window,
-                    config,
-                    true,
+            .keys()
+            .map(|kind| {
+                (
+                    kind.clone(),
+                    config.buffer.mark_as_read.on_application_exit
+                        || config
+                            .buffer
+                            .mark_as_read
+                            .on_buffer_close
+                            .mark_as_read(buffers.is_open_and_at_bottom(kind)),
                 )
             })
-            .collect::<Vec<Event>>();
-
-        let mut markread_events =
-            if config.buffer.mark_as_read.on_application_exit {
-                self.storage.values_mut().collect::<Vec<&mut Storage>>()
-            } else {
-                self.storage
-                    .values_mut()
-                    .filter(|kind_storage| {
-                        config.buffer.mark_as_read.on_buffer_close.mark_as_read(
-                            buffers_context
-                                .is_open_and_at_bottom(&kind_storage.kind),
-                        )
-                    })
-                    .collect::<Vec<&mut Storage>>()
-            }
-            .into_iter()
-            .flat_map(Storage::mark_as_read)
-            .collect::<Vec<Event>>();
-
-        for mut markread_event in markread_events.iter_mut() {
-            // Check if there is already a markread event in `flush_events`, and
-            // if so remove the markread event from `flush_events` and update
-            // the markread event in `markread_events`
-
-            if let Event::Client(client::Message::SendMarkread(
-                server,
-                target,
-                read_marker,
-            )) = &mut markread_event
-            {
-                flush_events.retain(|flush_event| {
-                    if let Event::Client(client::Message::SendMarkread(
-                        flush_server,
-                        flush_target,
-                        flush_read_marker,
-                    )) = &flush_event
-                        && flush_server == server
-                        && flush_target == target
-                    {
-                        *read_marker = (*read_marker).max(*flush_read_marker);
-
-                        false
-                    } else {
-                        true
-                    }
-                });
-            }
-        }
-
-        let save_futures = self
-            .storage
-            .values_mut()
-            .filter_map(Storage::save)
-            .collect::<Vec<_>>();
-
-        let input_save_future = self.input_storage.save(config);
-
-        let event_sender = self.event_sender.clone();
-
+            .collect();
+        let save = self.input_storage.save(config);
+        let worker = self.worker.clone();
         tokio::task::spawn(async move {
-            let saved = future::join_all(save_futures).await;
-
-            let input_saved = if let Some(input_save_future) = input_save_future
-            {
-                Some(input_save_future.await)
+            let result = if let Some(save) = save {
+                Some(save.await)
             } else {
                 None
             };
-
-            let _ = event_sender.send(vec![Event::History(Message::Exited(
-                saved.into_iter().collect(),
-                input_saved,
-            ))]);
+            worker.send(worker::Command::Exit(histories, result));
         });
-
-        flush_events.into_iter().chain(markread_events).collect()
     }
 
     pub fn get_filters(&self) -> &[Filter] {
@@ -905,6 +789,9 @@ impl Manager {
         clients: &client::Map,
         buffer_config: &config::Buffer,
     ) {
+        for storage in self.storage.values_mut() {
+            storage.read_cache.invalidate_processing();
+        }
         let new_filters = Filter::list_from_servers(servers, clients);
 
         let mut servers: HashSet<Server> = HashSet::new();
@@ -929,6 +816,32 @@ impl Manager {
 
         for server in servers {
             self.reprocess_server_history(&server, clients, buffer_config);
+        }
+    }
+
+    pub fn reload_configuration(
+        &mut self,
+        servers: &server::Map,
+        clients: &client::Map,
+        buffer_config: &config::Buffer,
+    ) {
+        self.filters = Filter::list_from_servers(servers, clients);
+        let filters = FilterChain::borrow(&self.filters);
+        let events: Vec<_> = self
+            .storage
+            .values_mut()
+            .filter_map(|storage| {
+                storage.read_cache.invalidate_processing();
+                storage.process(filters, clients, buffer_config)
+            })
+            .collect();
+        for event in &events {
+            if let Event::Model(model::Message::Update(kind, _)) = event {
+                self.refresh(kind);
+            }
+        }
+        if !events.is_empty() {
+            let _ = self.event_sender.send(events);
         }
     }
 
@@ -1023,6 +936,11 @@ impl Manager {
             })
             .collect::<Vec<Event>>();
 
+        for event in &events {
+            if let Event::Model(model::Message::Update(kind, _)) = event {
+                self.refresh(kind);
+            }
+        }
         if !events.is_empty() {
             let _ = self.event_sender.send(events);
         }
@@ -1051,6 +969,11 @@ impl Manager {
             })
             .collect::<Vec<Event>>();
 
+        for event in &events {
+            if let Event::Model(model::Message::Update(kind, _)) = event {
+                self.refresh(kind);
+            }
+        }
         if !events.is_empty() {
             let _ = self.event_sender.send(events);
         }
@@ -1069,44 +992,27 @@ impl Manager {
 
     pub fn reload_channel_monitor(
         &mut self,
-        clients_context: &dyn ClientsContext,
-        channel_monitor_config: &config::ChannelMonitor,
+        clients: &dyn ClientsContext,
+        config: &config::ChannelMonitor,
     ) {
-        let channel_monitor_storage =
-            self.get_or_load_mut(Kind::ChannelMonitor);
-
-        channel_monitor_storage.messages = None;
-
-        let monitored_channels = self
+        self.get_or_load_mut(Kind::ChannelMonitor);
+        self.monitored = self
             .storage
             .keys()
-            .filter_map(|kind| {
-                if let Kind::Channel(server, channel) = &kind
-                    && channel_monitor_config.is_channel_included(
-                        server,
-                        channel,
-                        clients_context
-                            .get_server_casemapping_or_default(server),
-                    )
-                {
-                    Some((server.clone(), channel.clone()))
-                } else {
-                    None
-                }
+            .filter(|kind| match kind {
+                Kind::Channel(server, channel) => config.is_channel_included(
+                    server,
+                    channel,
+                    clients.get_server_casemapping_or_default(server),
+                ),
+                _ => false,
             })
+            .cloned()
             .collect();
-
-        let event_sender = self.event_sender.clone();
-
-        tokio::task::spawn(async move {
-            let combined_messages =
-                Storage::load_channel_monitor(monitored_channels).await;
-
-            let _ = event_sender.send(vec![Event::History(Message::Loaded(
-                Kind::ChannelMonitor,
-                Ok(combined_messages),
-            ))]);
-        });
+        if let Some(storage) = self.storage.get_mut(&Kind::ChannelMonitor) {
+            storage.read_cache.invalidate();
+        }
+        self.refresh(&Kind::ChannelMonitor);
     }
 }
 
@@ -1117,45 +1023,31 @@ pub struct Storage {
     latest: Option<DateTime<Utc>>,
     latest_triggers_unread: Option<DateTime<Utc>>,
     latest_triggers_highlight: Option<DateTime<Utc>>,
-    // `display_read_marker` is used to avoid too many visible updates to the
-    // read marker when sending messages.  Should always be the same as or more
-    // recent than `read_marker`.
     display_read_marker: Option<ReadMarker>,
     read_marker: Option<ReadMarker>,
-    latest_chathistory_references: Option<(message::Time, MessageReferences)>,
-    messages: Option<Vec<message::Message>>, // TODO: Replace with database connection
     read_cache: ReadCache,
-    write_buffer: WriteBuffer,
     last_seen: HashMap<Nick, DateTime<Utc>>,
+    auto_read: Option<ReadMarker>,
+    importing: bool,
 }
 
 impl From<Kind> for Storage {
     fn from(kind: Kind) -> Self {
-        let show_in_sidebar = match &kind {
-            Kind::Server(_) => true,
-            Kind::Channel(_, _) => false,
-            Kind::Query(_, _) => false,
-            Kind::Logs => true,
-            Kind::Highlights => true,
-            Kind::ChannelMonitor => true,
-        };
-
-        let metadata = Storage::load_metadata(&kind).unwrap_or_default();
-
         Self {
+            show_in_sidebar: !matches!(
+                kind,
+                Kind::Channel(..) | Kind::Query(..)
+            ),
             kind,
-            show_in_sidebar,
-            latest: metadata.latest,
-            latest_triggers_unread: metadata.latest_triggers_unread,
-            latest_triggers_highlight: metadata.latest_triggers_highlight,
-            display_read_marker: metadata.read_marker,
-            read_marker: metadata.read_marker,
-            latest_chathistory_references: metadata
-                .latest_chathistory_references,
-            messages: None,
+            latest: None,
+            latest_triggers_unread: None,
+            latest_triggers_highlight: None,
+            display_read_marker: None,
+            read_marker: None,
             read_cache: ReadCache::default(),
-            write_buffer: WriteBuffer::default(),
             last_seen: HashMap::new(),
+            auto_read: None,
+            importing: false,
         }
     }
 }
@@ -1164,1055 +1056,45 @@ impl Storage {
     fn as_server(&self) -> Option<&Server> {
         self.kind.as_server()
     }
-
     fn is_message_feed(&self) -> bool {
         matches!(self.kind, Kind::Highlights | Kind::ChannelMonitor)
     }
-
-    fn load_metadata(kind: &Kind) -> Result<Metadata, Error> {
-        let path = kind_metadata_path(kind)?;
-
-        if let Ok(bytes) = fs::read(path) {
-            Ok(serde_json::from_slice(&bytes).unwrap_or_default())
-        } else {
-            Ok(Metadata::default())
-        }
-    }
-
-    async fn load_message_store(
-        kind: &Kind,
-    ) -> Result<Vec<message::Message>, Error> {
-        let path = kind_path(kind)?;
-
-        match tokio::fs::read(path).await {
-            Ok(bytes) => Ok(compression::decompress(&bytes)?),
-            Err(error) => {
-                if matches!(error.kind(), io::ErrorKind::NotFound) {
-                    // Assume this is the first load of the message store, and
-                    // return an empty message store.
-                    Ok(vec![])
-                } else {
-                    Err(error.into())
-                }
-            }
-        }
-    }
-
-    async fn load_channel_monitor(
-        monitored_channels: Vec<(Server, target::Channel)>,
-    ) -> Vec<message::Message> {
-        let load_futures = monitored_channels.into_iter().map(
-            |(server, channel)| async move {
-                let kind = Kind::Channel(server.clone(), channel.clone());
-
-                (server, channel, Storage::load_message_store(&kind).await)
-            },
-        );
-
-        let load_futures = future::join_all(load_futures);
-
-        let mut channel_monitor_messages = vec![];
-
-        for (server, channel, load_result) in load_futures.await.into_iter() {
-            let messages = match load_result {
-                Ok(messages) => {
-                    channel_monitor_messages_from(messages, &server)
-                }
-                Err(error) => {
-                    let kind = Kind::Channel(server, channel);
-
-                    log::warn!(
-                        "failed to load {kind} history for channel monitor: {error}"
-                    );
-
-                    continue;
-                }
-            };
-
-            combine_with_channel_monitor_messages(
-                &mut channel_monitor_messages,
-                messages,
-            );
-        }
-
-        channel_monitor_messages
-            .sort_unstable_by_key(|message| *message.time());
-
-        channel_monitor_messages
-    }
-
-    fn loaded(&mut self, messages: Vec<message::Message>) {
-        // If not already loaded, should always be the case
-        if self.messages.is_none() {
-            self.messages = Some(messages);
-        } else {
-            log::debug!("unexpected repeat loading of history {}", self.kind);
-        }
-    }
-
-    fn read(
+    fn apply_metadata(
         &mut self,
-        force: bool,
-        filter_chain: FilterChain,
-        clients_context: &dyn ClientsContext,
-        buffer_config: &config::Buffer,
+        metadata: Metadata,
+        display: Option<ReadMarker>,
     ) {
-        if let Some(messages) = self.messages.as_ref() {
-            self.read_cache.read(
-                &self.kind,
-                messages,
-                &self.display_read_marker,
-                force,
-                filter_chain,
-                clients_context,
-                buffer_config,
-            );
-        }
-    }
-
-    /// Write updates to this history's message store (not save to disk).
-    #[must_use]
-    fn write(
-        &mut self,
-        updates: Vec<Update>,
-        filter_chain: FilterChain,
-        clients_context: &dyn ClientsContext,
-        buffers_context: &dyn BuffersContext,
-        focused_window: &Option<iced::window::Id>,
-        config: &Config,
-    ) -> Vec<Event> {
-        self.write_buffer.updates.extend(updates);
-
-        // TODO: Do we want/need a buffer here once we've switched to SQLite?
-        self.flush(
-            filter_chain,
-            clients_context,
-            buffers_context,
-            focused_window,
-            config,
-            false,
-        )
-    }
-
-    #[must_use]
-    fn flush(
-        &mut self,
-        filter_chain: FilterChain,
-        clients_context: &dyn ClientsContext,
-        buffers_context: &dyn BuffersContext,
-        focused_window: &Option<iced::window::Id>,
-        config: &Config,
-        exiting: bool,
-    ) -> Vec<Event> {
-        if !self.write_buffer.updates.is_empty()
-            && let Some(messages) = self.messages.as_mut()
-        {
-            let updates = std::mem::take(&mut self.write_buffer.updates);
-
-            self.write_buffer.unsaved_update_count = self
-                .write_buffer
-                .unsaved_update_count
-                .saturating_add(updates.len());
-            self.write_buffer.newest_unsaved_update_at = Some(Instant::now());
-
-            let server = self.kind.as_server();
-
-            let window = buffers_context.find_window_with(&self.kind);
-
-            let is_monitored_channel = if let Kind::Channel(server, channel) =
-                &self.kind
-                && config.channel_monitor.is_channel_included(
-                    server,
-                    channel,
-                    clients_context.get_server_casemapping_or_default(server),
-                ) {
-                true
-            } else {
-                false
-            };
-
-            let channel_monitor_is_open =
-                buffers_context.is_open(&Kind::ChannelMonitor);
-
-            let mut post_write_updates =
-                HashMap::<(Id, message::Time), PostWriteUpdate>::new();
-
-            let mut received_read_marker = None;
-
-            for update in updates {
-                // Update when user(s) in were last seen in this history (since
-                // last application launch).
-                let mut update_last_seen =
-                    |nick: &Nick, date_time: DateTime<Utc>| {
-                        if let Some(last_seen) = self.last_seen.get_mut(nick) {
-                            *last_seen = (*last_seen).max(date_time);
-                        } else {
-                            self.last_seen.insert(nick.to_owned(), date_time);
-                        }
-                    };
-
-                match &update {
-                    Update::Message(_, message) => {
-                        if let Source::User(user) | Source::Action(Some(user)) =
-                            &message.inner.source
-                        {
-                            update_last_seen(
-                                user.nickname(),
-                                message.time().utc,
-                            );
-                        }
-                    }
-                    Update::Reaction(_, reaction) => {
-                        update_last_seen(
-                            &reaction.inner.sender,
-                            reaction.inner.time.utc,
-                        );
-                    }
-                    Update::Redaction(_, redaction) => {
-                        update_last_seen(
-                            &redaction.inner.from,
-                            redaction.time.utc,
-                        );
-                    }
-                    Update::Broadcast(..)
-                    | Update::Remove(..)
-                    | Update::ShowPreview(..)
-                    | Update::HidePreview(..)
-                    | Update::ReadMarker(..)
-                    | Update::ShowInSidebar(..) => (),
-                }
-
-                match update {
-                    Update::Message(_, mut message) => {
-                        let casemapping = clients_context
-                            .get_maybe_server_casemapping_or_default(server);
-
-                        let mut post_write_update = PostWriteUpdate::default();
-
-                        let mut highlight_message = None;
-
-                        let mut channel_monitor_message = None;
-
-                        if let Some(highlight) =
-                            std::mem::take(&mut message.highlight)
-                            && let Some(server) = server
-                            && let Some(channel) =
-                                message.inner.target.as_channel()
-                        {
-                            if message.notification_allowed
-                                && (window.is_none()
-                                    || *focused_window != window)
-                                && let Some(user) = message.inner.user()
-                            {
-                                let (description, sound) = match highlight {
-                                    highlight::Kind::Nick => {
-                                        ("highlighted you".to_string(), None)
-                                    }
-                                    highlight::Kind::Match {
-                                        matching,
-                                        sound,
-                                    } => (
-                                        format!("matched highlight {matching}"),
-                                        sound,
-                                    ),
-                                };
-
-                                post_write_update.events.push(
-                                    Event::Notification(
-                                        server.clone(),
-                                        Notification::Highlight {
-                                            user: user.clone(),
-                                            channel: channel.clone(),
-                                            casemapping,
-                                            message: message
-                                                .inner
-                                                .text()
-                                                .into(),
-                                            description,
-                                            sound,
-                                        },
-                                    ),
-                                );
-                            }
-
-                            highlight_message =
-                                Some(message::MessageWithContext {
-                                    inner: message::Message {
-                                        target: message::Target::Highlights {
-                                            server: server.clone(),
-                                            channel: channel.clone(),
-                                            history_id: Id::default(),
-                                        },
-                                        ..message.inner.clone()
-                                    },
-                                    highlight: None,
-                                    historical: message.historical,
-                                    labeled_response_context: message
-                                        .labeled_response_context
-                                        .clone(),
-                                    notification_allowed: false,
-                                });
-                        } else if message.notification_allowed
-                            && (window.is_none() || *focused_window != window)
-                            && let Some(user) = message.inner.user()
-                            && let Some(server) = server
-                        {
-                            if let Some(channel) =
-                                message.inner.target.as_channel()
-                            {
-                                if let Some(reply_to_id) =
-                                    message.inner.reply_to.as_ref()
-                                    && let Some(reply_to_message) =
-                                        find_message_by_id(
-                                            messages,
-                                            reply_to_id,
-                                            message.time(),
-                                        )
-                                    && reply_to_message.is_ours()
-                                {
-                                    post_write_update.events.push(
-                                        Event::Notification(
-                                            server.clone(),
-                                            Notification::Reply {
-                                                user: user.clone(),
-                                                channel: channel.clone(),
-                                                casemapping,
-                                                message: message
-                                                    .inner
-                                                    .text()
-                                                    .into(),
-                                            },
-                                        ),
-                                    );
-                                } else if let Some(channel_notifications_config) =
-                                    config
-                                        .notifications
-                                        .channels
-                                        .get(channel.as_str())
-                                    && channel_notifications_config
-                                        .should_notify(
-                                            user,
-                                            None,
-                                            server,
-                                            casemapping,
-                                        )
-                                {
-                                    post_write_update.events.push(
-                                        Event::Notification(
-                                            server.clone(),
-                                            Notification::Channel {
-                                                user: user.clone(),
-                                                channel: channel.clone(),
-                                                casemapping,
-                                                message: message
-                                                    .inner
-                                                    .text()
-                                                    .into(),
-                                            },
-                                        ),
-                                    );
-                                }
-                            } else if matches!(
-                                message.inner.target,
-                                message::Target::Query { .. }
-                            ) {
-                                post_write_update.events.push(
-                                    Event::Notification(
-                                        server.clone(),
-                                        Notification::DirectMessage {
-                                            user: user.clone(),
-                                            casemapping,
-                                            message: message
-                                                .inner
-                                                .text()
-                                                .to_string(),
-                                        },
-                                    ),
-                                );
-                            }
-                        }
-
-                        if is_monitored_channel
-                            && channel_monitor_is_open
-                            && message.inner.show_in_channel_monitor()
-                            && let Some(server) = server
-                            && let message::Target::Channel { channel } =
-                                &message.inner.target
-                        {
-                            channel_monitor_message =
-                                Some(message::MessageWithContext {
-                                    inner: message::Message {
-                                        target:
-                                            message::Target::ChannelMonitor {
-                                                server: server.clone(),
-                                                channel: channel.clone(),
-                                                history_id: Id::default(),
-                                            },
-                                        ..message.inner.clone()
-                                    },
-                                    highlight: None,
-                                    historical: message.historical,
-                                    labeled_response_context: message
-                                        .labeled_response_context
-                                        .clone(),
-                                    notification_allowed: false,
-                                });
-                        }
-
-                        if post_write_update.read_marker_update.is_none()
-                            && config.buffer.mark_as_read.on_message_sent
-                            && message.inner.is_sent()
-                        {
-                            post_write_update.read_marker_update =
-                                Some(ReadMarkerUpdate::Display);
-                        }
-
-                        if match config.buffer.mark_as_read.on_message {
-                            OnMessage::Focused => buffers_context
-                                .is_focused_and_at_bottom(&self.kind),
-                            OnMessage::Open => buffers_context
-                                .is_open_and_at_bottom_in_focused_window(
-                                    &self.kind,
-                                ),
-                            OnMessage::None => false,
-                        } {
-                            post_write_update.read_marker_update =
-                                Some(ReadMarkerUpdate::Canonical);
-                        }
-
-                        let (history_id, message_time, replaced_sent) =
-                            insert_message(messages, message);
-
-                        if replaced_sent
-                            && config.buffer.mark_as_read.on_message_sent
-                        {
-                            post_write_update.read_marker_update =
-                                Some(ReadMarkerUpdate::Canonical);
-                        }
-
-                        if let Some(mut highlight_message) = highlight_message {
-                            if let message::Target::Highlights {
-                                history_id: target_history_id,
-                                ..
-                            } = &mut highlight_message.inner.target
-                            {
-                                *target_history_id = history_id;
-                            } else {
-                                log::debug!(
-                                    "unexpected message target when prearing highlight for storage: {:?}",
-                                    highlight_message.inner.target
-                                );
-                            }
-
-                            post_write_update
-                                .highlights
-                                .push(Update::Message(None, highlight_message));
-                        }
-
-                        if let Some(mut channel_monitor_message) =
-                            channel_monitor_message
-                        {
-                            if let message::Target::ChannelMonitor {
-                                history_id: target_history_id,
-                                ..
-                            } = &mut channel_monitor_message.inner.target
-                            {
-                                *target_history_id = history_id;
-                            } else {
-                                log::debug!(
-                                    "unexpected message target when prearing highlight for storage: {:?}",
-                                    channel_monitor_message.inner.target
-                                );
-                            }
-
-                            post_write_update.channel_monitor.push(
-                                Update::Message(None, channel_monitor_message),
-                            );
-                        }
-
-                        post_write_updates.insert(
-                            (history_id, message_time),
-                            post_write_update,
-                        );
-                    }
-                    Update::Reaction(_, reaction) => {
-                        if let Some(message) = find_message_mut_by_id(
-                            messages,
-                            &reaction.in_reply_to,
-                            &reaction.inner.time,
-                        ) {
-                            if reaction.notification_allowed
-                                && (window.is_none()
-                                    || *focused_window != window)
-                                && message.is_ours()
-                                && !reaction.is_ours()
-                                && let Some(server) = self.kind.as_server()
-                            {
-                                let casemapping = clients_context
-                                    .get_server_casemapping_or_default(server);
-
-                                let post_write_update = post_write_updates
-                                    .entry((message.history_id, message.time))
-                                    .or_default();
-
-                                post_write_update.events.push(
-                                    Event::Notification(
-                                        server.clone(),
-                                        Notification::Reaction {
-                                            reaction: reaction.clone(),
-                                            casemapping,
-                                            message_text: message.text().into(),
-                                        },
-                                    ),
-                                );
-                            }
-
-                            insert_reaction(&mut message.reactions, reaction);
-                        }
-                    }
-                    Update::Broadcast(..) => {
-                        log::error!(
-                            "storage update not expanded by storage manager {update:?}"
-                        );
-                    }
-                    Update::Redaction(server, redaction) => {
-                        if let Some(position) = position_message_by_id(
-                            messages,
-                            &redaction.redacts,
-                            &redaction.time,
-                        ) {
-                            if messages[position].triggers_highlight() {
-                                let post_write_update = post_write_updates
-                                    .entry((
-                                        messages[position].history_id,
-                                        messages[position].time,
-                                    ))
-                                    .or_default();
-
-                                post_write_update.highlights.push(
-                                    Update::Redaction(
-                                        server.clone(),
-                                        redaction.clone(),
-                                    ),
-                                );
-                            }
-
-                            if is_monitored_channel
-                                && channel_monitor_is_open
-                                && messages[position].show_in_channel_monitor()
-                            {
-                                let post_write_update = post_write_updates
-                                    .entry((
-                                        messages[position].history_id,
-                                        messages[position].time,
-                                    ))
-                                    .or_default();
-
-                                post_write_update.channel_monitor.push(
-                                    Update::Redaction(
-                                        server,
-                                        redaction.clone(),
-                                    ),
-                                );
-                            }
-
-                            // TODO: Notification when message.is_ours()?
-
-                            messages[position].redaction =
-                                Some(redaction.into());
-                        }
-                    }
-                    Update::Remove(_, history_id, time) => {
-                        if let Some(position) = position_message_by_history_id(
-                            messages,
-                            &history_id,
-                            &time,
-                        ) {
-                            messages.remove(position);
-                        }
-                    }
-                    Update::ShowPreview(_, history_id, time, url) => {
-                        if let Some(message) = find_message_mut_by_history_id(
-                            messages,
-                            &history_id,
-                            &time,
-                        ) {
-                            message.hidden_urls.remove(&url);
-                        }
-                    }
-                    Update::HidePreview(_, history_id, time, url) => {
-                        if let Some(message) = find_message_mut_by_history_id(
-                            messages,
-                            &history_id,
-                            &time,
-                        ) {
-                            message.hidden_urls.insert(url);
-                        }
-                    }
-                    Update::ReadMarker(_, read_marker) => {
-                        received_read_marker =
-                            Some(read_marker).max(received_read_marker);
-                    }
-                    Update::ShowInSidebar(_, show_in_sidebar) => {
-                        self.show_in_sidebar = show_in_sidebar;
-                    }
-                }
-            }
-
-            // If the requested message::Limit is around the backlog divider,
-            // then we should update the display read marker (backlog divider)
-            // before updating the read cache.  Otherwise we can update the read
-            // cache here, so that the update is available when processing
-            // `post_write_updates`.
-            let delay_read = matches!(
+        self.latest = self.latest.max(metadata.latest);
+        self.latest_triggers_unread = self
+            .latest_triggers_unread
+            .max(metadata.latest_triggers_unread);
+        self.latest_triggers_highlight = self
+            .latest_triggers_highlight
+            .max(metadata.latest_triggers_highlight);
+        self.read_marker = self.read_marker.max(metadata.read_marker);
+        let marker = self
+            .display_read_marker
+            .max(metadata.read_marker)
+            .max(display);
+        if self.display_read_marker != marker
+            && matches!(
                 self.read_cache.requested,
                 Request::Open {
                     limit: message::Limit::Backlog(_),
                     ..
                 }
-            );
-
-            if delay_read {
-                self.read_cache.unload();
-            } else {
-                // TODO: A targeted update of the read cache
-                self.read_cache.read(
-                    &self.kind,
-                    messages,
-                    &self.display_read_marker,
-                    true,
-                    filter_chain,
-                    clients_context,
-                    &config.buffer,
-                );
-            }
-
-            let mut write_events = vec![];
-
-            let mut display_read_marker_update = None;
-            let mut read_marker_update = None;
-
-            let mut highlights = vec![];
-            let mut channel_monitor = vec![];
-
-            for ((history_id, message_time), post_write_update) in
-                post_write_updates.into_iter()
-            {
-                let message = if let Some(message) = self
-                    .read_cache
-                    .get_message_by_history_id(&history_id, &message_time)
-                {
-                    Some(Cow::Borrowed(message))
-                } else {
-                    process_message(
-                        &self.kind,
-                        messages,
-                        &history_id,
-                        &message_time,
-                        filter_chain,
-                        clients_context,
-                        &config.buffer,
-                    )
-                    .map(Cow::Owned)
-                };
-
-                let Some(message) = message else {
-                    log::error!("unable to find stored message");
-
-                    continue;
-                };
-
-                if let Some(server) = server {
-                    let message_reference_types = clients_context
-                        .get_server_chathistory_message_reference_types(server);
-
-                    if message.inner.can_reference(message_reference_types)
-                        && self
-                            .latest_chathistory_references
-                            .as_ref()
-                            .is_none_or(|(message_time, _)| {
-                                message_time < message.time()
-                            })
-                    {
-                        self.latest_chathistory_references =
-                            Some((*message.time(), message.inner.references()));
-                    }
-                }
-
-                if !message.blocked || message.inner.is_ours() {
-                    self.show_in_sidebar = true;
-
-                    self.latest = self.latest.max(Some(message.time().utc));
-
-                    if message.inner.triggers_unread() {
-                        self.latest_triggers_unread = self
-                            .latest_triggers_unread
-                            .max(Some(message.time().utc));
-                    }
-
-                    // TODO: Indicate replies to message where message.is_ours()
-                    // as highlights?
-                    if message.inner.triggers_highlight() {
-                        self.latest_triggers_highlight = self
-                            .latest_triggers_highlight
-                            .max(Some(message.time().utc));
-                    }
-
-                    match post_write_update.read_marker_update {
-                        Some(ReadMarkerUpdate::Canonical) => {
-                            display_read_marker_update =
-                                display_read_marker_update.max(Some(
-                                    ReadMarker::from(&message.inner),
-                                ));
-                            read_marker_update = read_marker_update
-                                .max(Some(ReadMarker::from(&message.inner)));
-                        }
-                        Some(ReadMarkerUpdate::Display) => {
-                            display_read_marker_update =
-                                display_read_marker_update.max(Some(
-                                    ReadMarker::from(&message.inner),
-                                ));
-                        }
-                        None => (),
-                    }
-
-                    highlights.extend(post_write_update.highlights);
-
-                    channel_monitor.extend(post_write_update.channel_monitor);
-
-                    write_events.extend(post_write_update.events);
-                }
-            }
-
-            if !highlights.is_empty() {
-                write_events
-                    .push(Event::History(Message::Highlights(highlights)));
-            }
-
-            if !channel_monitor.is_empty() {
-                write_events.push(Event::History(
-                    Message::ChannelMonitorUpdate(channel_monitor),
-                ));
-            }
-
-            self.display_read_marker = self
-                .display_read_marker
-                .max(display_read_marker_update)
-                .max(received_read_marker);
-
-            if received_read_marker > read_marker_update {
-                self.read_marker = self.read_marker.max(received_read_marker);
-            } else if read_marker_update > self.read_marker {
-                self.read_marker = read_marker_update;
-
-                if let Some(read_marker_update) = read_marker_update
-                    && let Some(server) = server
-                    && let Some(target) = self.kind.target()
-                {
-                    write_events.push(Event::Client(
-                        client::Message::SendMarkread(
-                            server.clone(),
-                            target,
-                            read_marker_update,
-                        ),
-                    ));
-                }
-            }
-
-            self.display_read_marker =
-                self.display_read_marker.max(display_read_marker_update);
-
-            if delay_read {
-                self.read_cache.read(
-                    &self.kind,
-                    messages,
-                    &self.display_read_marker,
-                    true,
-                    filter_chain,
-                    clients_context,
-                    &config.buffer,
-                );
-            }
-
-            write_events.push(Event::Model(model::Message::Update(
-                self.kind.clone(),
-                self.model_update(),
-            )));
-
-            if exiting {
-                write_events
-                    .into_iter()
-                    .filter(|event| {
-                        // Filter out model and notification events, since we are
-                        // exiting
-                        match event {
-                            Event::History(_) => true,
-                            Event::Model(_) => false,
-                            Event::Notification(_, _) => false,
-                            Event::Client(_) => true,
-                        }
-                    })
-                    .collect()
-            } else {
-                write_events
-            }
-        } else {
-            vec![]
-        }
-    }
-
-    #[must_use]
-    fn tick(
-        &mut self,
-        now: Instant,
-    ) -> Option<BoxFuture<'static, (Kind, Result<usize, Error>)>> {
-        if let Request::Closed { at: Some(closed) } = &self.read_cache.requested
-            && now.duration_since(*closed) >= CLEAR_AFTER_DURATION_SINCE_CLOSED
+            )
         {
-            self.read_cache.clear();
+            self.read_cache.invalidate();
         }
-
-        if let Some(newest_unsaved_update) =
-            self.write_buffer.newest_unsaved_update_at
-            && (now.duration_since(newest_unsaved_update)
-                >= SAVE_AFTER_DURATION_SINCE_UPDATE
-                || self.write_buffer.unsaved_update_count
-                    > SAVE_AFTER_UPDATE_COUNT)
-        {
-            self.save()
-        } else {
-            None
-        }
+        self.display_read_marker = marker;
     }
-
-    fn save(
-        &mut self,
-    ) -> Option<BoxFuture<'static, (Kind, Result<usize, Error>)>> {
-        if self.write_buffer.newest_unsaved_update_at.is_some()
-            && !self.write_buffer.saving
-        {
-            self.write_buffer.newest_unsaved_update_at = None;
-            self.write_buffer.unsaved_update_count = 0;
-
-            if matches!(self.kind, Kind::ChannelMonitor) {
-                self.write_buffer.saving = true;
-
-                let metadata = Metadata {
-                    read_marker: self.read_marker,
-                    latest: self.latest,
-                    latest_triggers_unread: self.latest_triggers_unread,
-                    latest_triggers_highlight: self.latest_triggers_highlight,
-                    latest_chathistory_references: None,
-                };
-
-                self.truncate_messages(MAX_CHANNEL_MONITOR_MESSAGES);
-
-                match Storage::save_metadata(&self.kind, &metadata) {
-                    Ok(()) => (),
-                    Err(error) => {
-                        log::error!(
-                            "failed to save history {}: {error}",
-                            self.kind
-                        );
-                    }
-                }
-
-                self.write_buffer.saving = false;
-            } else {
-                self.write_buffer.saving = true;
-
-                let kind = self.kind.clone();
-
-                let metadata = Metadata {
-                    read_marker: self.read_marker,
-                    latest: self.latest,
-                    latest_triggers_unread: self.latest_triggers_unread,
-                    latest_triggers_highlight: self.latest_triggers_highlight,
-                    latest_chathistory_references: self
-                        .latest_chathistory_references
-                        .clone(),
-                };
-
-                self.truncate_messages(MAX_SAVED_MESSAGES);
-
-                let messages =
-                    self.messages.as_ref().cloned().unwrap_or_default();
-
-                return Some(
-                    async move {
-                        let saved =
-                            match Storage::save_metadata(&kind, &metadata) {
-                                Ok(()) => Storage::save_message_store(
-                                    &kind, &messages,
-                                )
-                                .await
-                                .map(|()| messages.len()),
-                                Err(error) => Err(error),
-                            };
-
-                        (kind, saved)
-                    }
-                    .boxed(),
-                );
-            }
-        }
-
-        None
-    }
-
-    fn truncate_messages(&mut self, max_messages: usize) {
-        if let Some(messages) = self.messages.as_mut() {
-            *messages = messages[messages.len().saturating_sub(max_messages)..]
-                .to_vec();
-        }
-    }
-
-    fn save_metadata(kind: &Kind, metadata: &Metadata) -> Result<(), Error> {
-        let bytes = serde_json::to_vec(metadata)?;
-
-        let path = kind_metadata_path(kind)?;
-
-        Ok(fs::write(path, &bytes)?)
-    }
-
-    async fn save_message_store(
-        kind: &Kind,
-        messages: &Vec<message::Message>,
-    ) -> Result<(), Error> {
-        let compressed = compression::compress(messages)?;
-
-        let path = kind_path(kind)?;
-
-        Ok(tokio::fs::write(path, &compressed).await?)
-    }
-
-    fn saved(&mut self) {
-        self.write_buffer.saving = false;
-    }
-
-    #[must_use]
-    fn set_model_limit(
-        &mut self,
-        limit: message::Limit,
-        filter_chain: FilterChain,
-        clients_context: &dyn ClientsContext,
-        buffer_config: &config::Buffer,
-    ) -> Event {
-        self.read_cache.set_model_limit(limit);
-
-        self.read(false, filter_chain, clients_context, buffer_config);
-
-        Event::Model(model::Message::Update(
-            self.kind.clone(),
-            self.model_update(),
-        ))
-    }
-
-    #[must_use]
-    fn clear_model(
-        &mut self,
-        filter_chain: FilterChain,
-        clients_context: &dyn ClientsContext,
-        buffer_config: &config::Buffer,
-    ) -> Event {
-        self.read_cache.clear_model();
-
-        self.read(false, filter_chain, clients_context, buffer_config);
-
-        Event::Model(model::Message::Update(
-            self.kind.clone(),
-            self.model_update(),
-        ))
-    }
-
-    #[must_use]
-    fn close_model(
-        &mut self,
-        is_scrolled_to_bottom: bool,
-        hide_in_sidebar: bool,
-        config: &Config,
-    ) -> Vec<Event> {
-        self.read_cache.close_model();
-
-        let mut events = vec![];
-
-        if config
-            .buffer
-            .mark_as_read
-            .on_buffer_close
-            .mark_as_read(is_scrolled_to_bottom)
-        {
-            events.extend(self.mark_as_read());
-        }
-
-        if hide_in_sidebar {
-            self.show_in_sidebar = false;
-        }
-
-        events.push(Event::Model(model::Message::Update(
-            self.kind.clone(),
-            self.model_update(),
-        )));
-
-        events
-    }
-
-    #[must_use]
-    fn show_in_sidebar(&mut self, show_in_sidebar: bool) -> Option<Event> {
-        if self.show_in_sidebar != show_in_sidebar {
-            self.show_in_sidebar = show_in_sidebar;
-
-            Some(Event::Model(model::Message::Update(
-                self.kind.clone(),
-                self.model_update(),
-            )))
-        } else {
-            None
-        }
-    }
-
-    #[must_use]
-    fn mark_as_read(&mut self) -> Vec<Event> {
-        let mut events = vec![];
-
-        if self.latest.as_ref()
-            > self.read_marker.as_ref().map(ReadMarker::as_date_time)
-            && let Some(latest) = self.latest
-        {
-            self.write_buffer.newest_unsaved_update_at = Some(Instant::now());
-
-            let read_marker = ReadMarker::from(latest);
-
-            self.read_marker = Some(read_marker);
-
-            if self.read_marker > self.display_read_marker {
-                self.display_read_marker = self.read_marker;
-
-                events.push(Event::Model(model::Message::Update(
-                    self.kind.clone(),
-                    self.model_update(),
-                )));
-            }
-
-            if let Some(server) = self.kind.as_server()
-                && let Some(target) = self.kind.target()
-            {
-                events.push(Event::Client(client::Message::SendMarkread(
-                    server.clone(),
-                    target,
-                    read_marker,
-                )));
-            }
-        }
-
-        events
-    }
-
     /// Apply normalization to the `Storage`'s messages.
     fn renormalize(
         &mut self,
         clients_context: &dyn ClientsContext,
     ) -> Option<Event> {
+        self.read_cache.invalidate_processing();
         if let MessageCache::Loaded { messages, .. } =
             &mut self.read_cache.message_cache
         {
@@ -2236,6 +1118,7 @@ impl Storage {
         clients_context: &dyn ClientsContext,
         buffer_config: &config::Buffer,
     ) -> Option<Event> {
+        self.read_cache.config.clone_from(buffer_config);
         if let MessageCache::Loaded { messages, .. } =
             &mut self.read_cache.message_cache
         {
@@ -2247,6 +1130,7 @@ impl Storage {
                 buffer_config,
             );
 
+            self.read_cache.processed = true;
             log::debug!("processed messages in {}", self.kind);
 
             Some(Event::Model(model::Message::Update(
@@ -2262,6 +1146,12 @@ impl Storage {
     fn model_update(&self) -> model::Update {
         let pane_update =
             self.read_cache.model_update(&self.display_read_marker);
+        let pane_update =
+            if self.importing && matches!(pane_update, model::Pane::Loading) {
+                model::Pane::Migrating
+            } else {
+                pane_update
+            };
 
         model::Update {
             show_in_sidebar: self.show_in_sidebar,
@@ -2273,527 +1163,10 @@ impl Storage {
             pane: pane_update,
         }
     }
-
-    fn oldest_can_reference(
-        &self,
-        message_reference_types: &[isupport::MessageReferenceType],
-    ) -> Option<isupport::MessageReference> {
-        self.messages.as_ref().and_then(|messages| {
-            messages.iter().find_map(|message| {
-                if message.can_reference(message_reference_types) {
-                    message
-                        .references()
-                        .message_reference(message_reference_types)
-                } else {
-                    None
-                }
-            })
-        })
-    }
-
-    fn last_can_reference_before(
-        &self,
-        server_time: DateTime<Utc>,
-        message_reference_types: &[isupport::MessageReferenceType],
-    ) -> Option<isupport::MessageReference> {
-        self.last_can_reference(server_time, false, message_reference_types)
-    }
-
-    fn last_can_reference_before_or_at(
-        &self,
-        server_time: DateTime<Utc>,
-        message_reference_types: &[isupport::MessageReferenceType],
-    ) -> Option<isupport::MessageReference> {
-        self.last_can_reference(server_time, true, message_reference_types)
-    }
-
-    fn last_can_reference(
-        &self,
-        server_time: DateTime<Utc>,
-        allow_at_if_not_before: bool,
-        message_reference_types: &[isupport::MessageReferenceType],
-    ) -> Option<isupport::MessageReference> {
-        let (before_message, at_message) = self
-            .messages
-            .as_ref()
-            .map(|messages| {
-                let can_reference_before = |message: &message::Message| {
-                    message.can_reference(message_reference_types)
-                        && !message.is_rerouted()
-                        && message.time.utc < server_time
-                };
-
-                let mut at_message = None;
-
-                let can_reference_at = |message: &message::Message| {
-                    message.can_reference(message_reference_types)
-                        && !message.is_rerouted()
-                        && message.time.utc == server_time
-                };
-
-                let before_message = messages.iter().rev().find(|message| {
-                    if allow_at_if_not_before
-                        && at_message.is_none()
-                        && can_reference_at(message)
-                    {
-                        at_message = Some(*message);
-                    }
-
-                    can_reference_before(message)
-                });
-
-                (before_message, at_message)
-            })
-            .unzip();
-
-        // If a reference before server_time exists, then return that reference.
-        if let Some(message_references) = before_message
-            .flatten()
-            .map(message::Message::references)
-            .max(
-                if self.latest_chathistory_references.as_ref().is_some_and(
-                    |(message_time, _)| *message_time < server_time,
-                ) {
-                    self.latest_chathistory_references.as_ref().map(
-                        |(_, message_references)| message_references.clone(),
-                    )
-                } else {
-                    None
-                },
-            )
-        {
-            return message_references
-                .message_reference(message_reference_types);
-        }
-
-        // Else, if a reference at server_time is allowed and exists, then
-        // return that reference.
-        if allow_at_if_not_before
-            && let Some(message_references) =
-                at_message.flatten().map(message::Message::references).or(
-                    if self.latest_chathistory_references.as_ref().is_some_and(
-                        |(message_time, _)| *message_time == server_time,
-                    ) {
-                        self.latest_chathistory_references.as_ref().map(
-                            |(_, message_references)| {
-                                message_references.clone()
-                            },
-                        )
-                    } else {
-                        None
-                    },
-                )
-        {
-            return message_references
-                .message_reference(message_reference_types);
-        }
-
-        if allow_at_if_not_before
-            && message_reference_types
-                .contains(&isupport::MessageReferenceType::Timestamp)
-        {
-            Some(isupport::MessageReference::Timestamp(server_time))
-        } else {
-            None
-        }
-    }
-
-    fn find_message_by_history_id(
-        &self,
-        history_id: &Id,
-        time: &message::Time,
-    ) -> Option<&message::Message> {
-        self.messages.as_ref().and_then(|messages| {
-            find_message_by_history_id(messages, history_id, time)
-        })
-    }
-
-    fn find_message_by_id(
-        &self,
-        id: &message::Id,
-        time: &message::Time,
-    ) -> Option<&message::Message> {
-        self.messages
-            .as_ref()
-            .and_then(|messages| find_message_by_id(messages, id, time))
-    }
 }
 
-#[derive(Debug, Default)]
-pub struct ReadCache {
-    requested: Request,
-    message_cache: MessageCache,
-}
-
-#[derive(Debug, Default)]
-pub enum MessageCache {
-    #[default]
-    Unloaded,
-    Loaded {
-        has_more_older_messages: bool,
-        has_more_newer_messages: bool,
-        messages: Vec<message::MessageDisplay>,
-        limit: message::Limit,
-        clear: Option<DateTime<Utc>>,
-    },
-}
-
-impl ReadCache {
-    pub fn read(
-        &mut self,
-        kind: &Kind,
-        messages: &[message::Message],
-        display_read_marker: &Option<ReadMarker>,
-        force: bool,
-        filter_chain: FilterChain,
-        clients_context: &dyn ClientsContext,
-        buffer_config: &config::Buffer,
-    ) {
-        const OK_LOADED_FACTOR: usize = 4;
-        const LOAD_FACTOR: usize = 8;
-
-        let Request::Open {
-            limit: requested_limit,
-            clear: requested_clear,
-        } = &self.requested
-        else {
-            return;
-        };
-
-        let force = force
-            || match &self.message_cache {
-                MessageCache::Unloaded => true,
-                MessageCache::Loaded { clear, .. } => clear != requested_clear,
-            };
-
-        let loaded = match &self.message_cache {
-            MessageCache::Unloaded => None,
-            MessageCache::Loaded {
-                limit,
-                clear,
-                messages,
-                ..
-            } => Some((limit, clear, messages.len())),
-        };
-
-        let load_limit = match requested_limit {
-            message::Limit::Top(requested_count) => {
-                if !force
-                    && let Some((
-                        message::Limit::Top(loaded_count),
-                        _,
-                        loaded_messages_len,
-                    )) = loaded
-                    && *loaded_count
-                        >= requested_count.saturating_mul(OK_LOADED_FACTOR)
-                    && loaded_messages_len == *loaded_count
-                {
-                    return;
-                }
-
-                let load_count = requested_count.saturating_mul(LOAD_FACTOR);
-
-                message::Limit::Top(load_count)
-            }
-            message::Limit::Bottom(requested_count) => {
-                if !force
-                    && let Some((
-                        message::Limit::Bottom(loaded_count),
-                        _,
-                        loaded_messages_len,
-                    )) = loaded
-                    && *loaded_count
-                        >= requested_count.saturating_mul(OK_LOADED_FACTOR)
-                    && loaded_messages_len == *loaded_count
-                {
-                    return;
-                }
-
-                let load_count = requested_count.saturating_mul(LOAD_FACTOR);
-
-                message::Limit::Bottom(load_count)
-            }
-            message::Limit::Around(requested_count, history_id) => {
-                if !force {
-                    let (_, requested_target) =
-                        get_range_of_messages_by_message_limit(
-                            messages,
-                            display_read_marker,
-                            requested_limit,
-                            requested_clear,
-                        );
-
-                    if let Some((loaded_limit, loaded_clear, _)) = loaded {
-                        let (loaded_range, _) =
-                            get_range_of_messages_by_message_limit(
-                                messages,
-                                display_read_marker,
-                                loaded_limit,
-                                loaded_clear,
-                            );
-
-                        if (requested_target.saturating_sub(loaded_range.start)
-                            >= requested_count.saturating_mul(OK_LOADED_FACTOR)
-                            || loaded_range.start == 0)
-                            && (loaded_range
-                                .end
-                                .saturating_sub(requested_target)
-                                >= requested_count
-                                    .saturating_mul(OK_LOADED_FACTOR)
-                                || loaded_range.end == messages.len())
-                        {
-                            return;
-                        }
-                    }
-                }
-
-                let load_count = requested_count.saturating_mul(LOAD_FACTOR);
-
-                message::Limit::Around(load_count, *history_id)
-            }
-            message::Limit::Backlog(requested_count) => {
-                if !force {
-                    let (_, requested_target) =
-                        get_range_of_messages_by_message_limit(
-                            messages,
-                            display_read_marker,
-                            requested_limit,
-                            requested_clear,
-                        );
-
-                    if let Some((loaded_limit, loaded_clear, _)) = loaded {
-                        let (loaded_range, _) =
-                            get_range_of_messages_by_message_limit(
-                                messages,
-                                display_read_marker,
-                                loaded_limit,
-                                loaded_clear,
-                            );
-
-                        if (requested_target.saturating_sub(loaded_range.start)
-                            >= requested_count.saturating_mul(OK_LOADED_FACTOR)
-                            || loaded_range.start == 0)
-                            && (loaded_range
-                                .end
-                                .saturating_sub(requested_target)
-                                >= requested_count
-                                    .saturating_mul(OK_LOADED_FACTOR)
-                                || loaded_range.end == messages.len())
-                        {
-                            return;
-                        }
-                    }
-                }
-
-                let load_count = requested_count.saturating_mul(LOAD_FACTOR);
-
-                message::Limit::Backlog(load_count)
-            }
-        };
-
-        let load_clear = *requested_clear;
-
-        let (load_range, _) = get_range_of_messages_by_message_limit(
-            messages,
-            display_read_marker,
-            &load_limit,
-            &load_clear,
-        );
-
-        let has_more_older_messages = load_range.start != 0;
-        let has_more_newer_messages = load_range.end != messages.len();
-        let mut load_messages = messages[load_range]
-            .iter()
-            .map(message::MessageDisplay::from)
-            .collect::<Vec<message::MessageDisplay>>();
-
-        renormalize_messages(kind, &mut load_messages, clients_context);
-
-        process_messages(
-            kind,
-            &mut load_messages,
-            filter_chain,
-            clients_context,
-            buffer_config,
-        );
-
-        self.message_cache = MessageCache::Loaded {
-            has_more_older_messages,
-            has_more_newer_messages,
-            messages: load_messages,
-            limit: load_limit,
-            clear: load_clear,
-        };
-    }
-
-    fn get_message_by_history_id(
-        &self,
-        history_id: &Id,
-        time: &message::Time,
-    ) -> Option<&message::MessageDisplay> {
-        match &self.message_cache {
-            MessageCache::Loaded { messages, .. } => {
-                find_message_by_history_id(messages, history_id, time)
-            }
-            MessageCache::Unloaded => None,
-        }
-    }
-
-    fn unload(&mut self) {
-        self.message_cache = MessageCache::Unloaded;
-    }
-
-    fn set_model_limit(&mut self, new_limit: message::Limit) {
-        if let Request::Open { limit, .. } = &mut self.requested {
-            *limit = new_limit;
-        } else {
-            self.requested = Request::Open {
-                limit: new_limit,
-                clear: None,
-            };
-        }
-    }
-
-    fn clear_model(&mut self) {
-        if let Request::Open { clear, .. } = &mut self.requested {
-            *clear = Some(Utc::now());
-        }
-    }
-
-    fn close_model(&mut self) {
-        self.requested = Request::Closed {
-            at: Some(Instant::now()),
-        };
-    }
-
-    fn clear(&mut self) {
-        self.message_cache = MessageCache::Unloaded;
-
-        if let Request::Closed { at } = &mut self.requested {
-            *at = None;
-        }
-    }
-
-    fn model_update(
-        &self,
-        display_read_marker: &Option<ReadMarker>,
-    ) -> model::Pane {
-        if let Request::Open {
-            limit: requested_limit,
-            clear: requested_clear,
-        } = &self.requested
-        {
-            match &self.message_cache {
-                MessageCache::Loaded {
-                    has_more_older_messages,
-                    has_more_newer_messages,
-                    messages,
-                    ..
-                } => {
-                    let (range, target) =
-                        get_range_of_messages_by_message_limit(
-                            messages,
-                            display_read_marker,
-                            requested_limit,
-                            requested_clear,
-                        );
-
-                    let limit = match requested_limit {
-                        message::Limit::Top(requested_count) => {
-                            let count = range.end.saturating_sub(range.start);
-
-                            message::Limit::Top(if *has_more_newer_messages {
-                                count
-                            } else {
-                                *requested_count
-                            })
-                        }
-                        message::Limit::Bottom(requested_count) => {
-                            let count = range.end.saturating_sub(range.start);
-
-                            message::Limit::Bottom(
-                                if *has_more_older_messages {
-                                    count
-                                } else {
-                                    *requested_count
-                                },
-                            )
-                        }
-                        message::Limit::Around(requested_count, history_id) => {
-                            let before_count = if *has_more_older_messages {
-                                target.saturating_sub(range.start)
-                            } else {
-                                *requested_count
-                            };
-
-                            let after_count = if *has_more_newer_messages {
-                                range
-                                    .end
-                                    .saturating_sub(target)
-                                    .saturating_add(1)
-                            } else {
-                                *requested_count
-                            };
-
-                            message::Limit::Around(
-                                before_count.min(after_count),
-                                *history_id,
-                            )
-                        }
-                        message::Limit::Backlog(requested_count) => {
-                            let before_count = if *has_more_older_messages {
-                                target.saturating_sub(range.start)
-                            } else {
-                                *requested_count
-                            };
-
-                            let after_count = if *has_more_newer_messages {
-                                range
-                                    .end
-                                    .saturating_sub(target)
-                                    .saturating_add(1)
-                            } else {
-                                *requested_count
-                            };
-
-                            message::Limit::Backlog(
-                                before_count.min(after_count),
-                            )
-                        }
-                    };
-
-                    let has_more_older_messages =
-                        range.start > 0 || *has_more_older_messages;
-                    let has_more_newer_messages =
-                        range.end < messages.len() || *has_more_newer_messages;
-
-                    model::Pane::Open {
-                        has_more_older_messages,
-                        has_more_newer_messages,
-                        messages: messages[range].to_vec(),
-                        limit,
-                        clear: *requested_clear,
-                    }
-                }
-                MessageCache::Unloaded => model::Pane::Loading,
-            }
-        } else {
-            model::Pane::Closed
-        }
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct WriteBuffer {
-    updates: Vec<Update>,
-    unsaved_update_count: usize,
-    newest_unsaved_update_at: Option<Instant>,
-    saving: bool,
-}
-
-/// `message::Message`s are stored without normalized strings to avoid
-/// associated storage costs.  Accordingly, the messages must be renormalized
-/// after they are loaded.
+/// Normalize loaded messages using the server's current casemapping. Some
+/// fields omit normalization when serialized; others may use an older mapping.
 fn renormalize_messages(
     kind: &Kind,
     messages: &mut [message::MessageDisplay],
@@ -2808,7 +1181,10 @@ fn renormalize_messages(
                     && let Some(casemapping) =
                         clients_context.get_server_casemapping(server)
                 {
-                    message.inner.renormalize(casemapping);
+                    database::normalize(
+                        Arc::make_mut(&mut message.inner),
+                        casemapping,
+                    );
                 }
             }
         }
@@ -2817,137 +1193,14 @@ fn renormalize_messages(
                 clients_context.get_server_casemapping(server)
             {
                 for message in messages.iter_mut() {
-                    message.inner.renormalize(casemapping);
+                    database::normalize(
+                        Arc::make_mut(&mut message.inner),
+                        casemapping,
+                    );
                 }
             }
         }
         _ => (),
-    }
-}
-
-/// Process a `Message`, specified by `history::Id` and `message::Time`
-fn process_message(
-    kind: &Kind,
-    messages: &[message::Message],
-    history_id: &Id,
-    time: &message::Time,
-    filter_chain: FilterChain,
-    clients_context: &dyn ClientsContext,
-    buffer_config: &config::Buffer,
-) -> Option<message::MessageDisplay> {
-    if let Some(position) =
-        position_message_by_history_id(messages, history_id, time)
-    {
-        let mut message = message::MessageDisplay::from(&messages[position]);
-
-        if let Source::Server(source) = &message.inner.source {
-            let server = kind.as_server().or(message.inner.target.as_server());
-
-            let casemapping =
-                clients_context.get_maybe_server_casemapping_or_default(server);
-
-            let target_ref = message.inner.target.as_targetref();
-
-            let source_kind = source.as_ref().map(|source| source.kind);
-
-            // Check if server message kind is disabled or target is excluded.
-            if let Some(server) = server
-                && let Some(target_ref) = target_ref
-                && !buffer_config.server_messages.should_show_message(
-                    source.as_ref(),
-                    target_ref,
-                    server,
-                    casemapping,
-                )
-            {
-                message.blocked = true;
-            } else if let Some(seconds) =
-                buffer_config.server_messages.smart(source_kind)
-                && let Some(nick) =
-                    source.as_ref().and_then(|source| source.nick.as_ref())
-            {
-                // Check if server message is smart filtered.
-                match source_kind {
-                    Some(message::Kind::Away) => {
-                        message.blocked = messages[..position]
-                            .iter()
-                            .rev()
-                            .find_map(|historical_message| {
-                                if let Source::Server(historical_source) =
-                                    &historical_message.source
-                                    && let Some(historical_source_kind) = source
-                                        .as_ref()
-                                        .map(|source| source.kind)
-                                    && matches!(
-                                        historical_source_kind,
-                                        message::Kind::Away
-                                    )
-                                    && let Some(historical_nick) =
-                                        historical_source.as_ref().and_then(
-                                            |historical_source| {
-                                                historical_source.nick.as_ref()
-                                            },
-                                        )
-                                    && *historical_nick == *nick
-                                {
-                                    return Some(smart_filter_repeat(
-                                        &message.inner,
-                                        &seconds,
-                                        Some(&historical_message.time.utc),
-                                    ));
-                                }
-
-                                if !smart_filter_repeat(
-                                    &message.inner,
-                                    &seconds,
-                                    Some(&historical_message.time.utc),
-                                ) {
-                                    return Some(false);
-                                }
-
-                                None
-                            })
-                            .unwrap_or(false);
-                    }
-                    _ => {
-                        message.blocked = messages[..position]
-                            .iter()
-                            .rev()
-                            .find_map(|historical_message| {
-                                if let Source::User(historical_message_user) =
-                                    &historical_message.source
-                                    && *historical_message_user.nickname()
-                                        == *nick
-                                {
-                                    return Some(smart_filter_message(
-                                        &message.inner,
-                                        &seconds,
-                                        Some(&historical_message.time.utc),
-                                    ));
-                                }
-
-                                if smart_filter_message(
-                                    &message.inner,
-                                    &seconds,
-                                    Some(&historical_message.time.utc),
-                                ) {
-                                    return Some(true);
-                                }
-
-                                None
-                            })
-                            .unwrap_or(true);
-                    }
-                }
-            }
-        }
-
-        message.blocked = message.blocked
-            || filter_chain.filter_message_of_kind(&message.inner, kind);
-
-        Some(message)
-    } else {
-        None
     }
 }
 
@@ -2960,6 +1213,10 @@ fn process_messages(
     clients_context: &dyn ClientsContext,
     buffer_config: &config::Buffer,
 ) {
+    for message in messages.iter_mut() {
+        message.condensed = None;
+        message.reply_preview = None;
+    }
     block_messages(
         kind,
         messages,
@@ -2970,7 +1227,86 @@ fn process_messages(
 
     condense_messages(messages, buffer_config);
 
-    populate_messages_reply_previews(messages);
+    populate_messages_reply_previews(messages, 0);
+}
+
+fn process_appended_messages(
+    kind: &Kind,
+    messages: &mut [message::MessageDisplay],
+    appended_at: usize,
+    filter_chain: FilterChain,
+    clients_context: &dyn ClientsContext,
+    buffer_config: &config::Buffer,
+) {
+    let contextual = messages.iter().enumerate().any(|(index, message)| {
+        match &message.inner.source {
+            Source::Server(source) => {
+                index >= appended_at
+                    && buffer_config
+                        .server_messages
+                        .smart(source.as_ref().map(|source| source.kind))
+                        .is_some()
+            }
+            Source::Internal(source::Internal::Status(status)) => {
+                buffer_config.internal_messages.smart(status).is_some()
+            }
+            _ => false,
+        }
+    });
+    if contextual {
+        process_messages(
+            kind,
+            messages,
+            filter_chain,
+            clients_context,
+            buffer_config,
+        );
+        return;
+    }
+
+    block_messages(
+        kind,
+        &mut messages[appended_at..],
+        filter_chain,
+        clients_context,
+        buffer_config,
+    );
+    // Only a new condensable row can extend the preceding group. Blocked
+    // events do not split groups; condensation_range also checks local dates.
+    let boundary = messages[appended_at..]
+        .iter()
+        .position(|message| !message.blocked)
+        .and_then(|offset| {
+            message::MessageDisplay::condensation_range(
+                messages,
+                appended_at + offset,
+                &buffer_config.server_messages.condense,
+            )
+        })
+        .map_or(appended_at, |range| range.start.min(appended_at));
+    for message in &mut messages[boundary..] {
+        message.condensed = None;
+    }
+    condense_messages(&mut messages[boundary..], buffer_config);
+
+    // A parent arriving later can resolve an existing reply (including a
+    // nested preview).
+    let late_parent = {
+        let appended_ids: HashSet<&message::Id> = messages[appended_at..]
+            .iter()
+            .filter_map(|message| message.inner.id.as_ref())
+            .collect();
+        !appended_ids.is_empty()
+            && messages[..appended_at]
+                .iter()
+                .filter_map(|message| message.inner.reply_to.as_ref())
+                .any(|id| appended_ids.contains(id))
+    };
+    let from = if late_parent { 0 } else { appended_at };
+    for message in &mut messages[from..] {
+        message.reply_preview = None;
+    }
+    populate_messages_reply_previews(messages, from);
 }
 
 /// Determine which messages should be blocked (hidden).
@@ -3028,7 +1364,7 @@ fn block_messages(
                         match source_kind {
                             Some(message::Kind::Away) => {
                                 message.blocked = smart_filter_repeat(
-                                    &message.inner,
+                                    message.inner.as_ref(),
                                     &seconds,
                                     last_away.get(nick),
                                 );
@@ -3042,7 +1378,7 @@ fn block_messages(
                             }
                             _ => {
                                 message.blocked = smart_filter_message(
-                                    &message.inner,
+                                    message.inner.as_ref(),
                                     &seconds,
                                     last_seen.get(nick),
                                 );
@@ -3063,7 +1399,7 @@ fn block_messages(
                         buffer_config.internal_messages.smart(status)
                     {
                         message.blocked = smart_filter_internal_message(
-                            &message.inner,
+                            message.inner.as_ref(),
                             &seconds,
                             &current_time,
                         );
@@ -3074,7 +1410,8 @@ fn block_messages(
         }
 
         message.blocked = message.blocked
-            || filter_chain.filter_message_of_kind(&message.inner, kind);
+            || filter_chain
+                .filter_message_of_kind(message.inner.as_ref(), kind);
     });
 }
 
@@ -3125,34 +1462,61 @@ fn condense_messages(
                     first_message.condensed = condensed_message;
                 }
             }
-            CondensationKey::Singular => chunk
-                .collect::<Vec<&mut message::MessageDisplay>>()
-                .iter_mut()
-                .for_each(|message| message.condensed = None),
+            CondensationKey::Singular => {
+                for message in chunk {
+                    message.condensed = None;
+                }
+            }
         });
 }
 
 // TODO: Retrieve reply previews for messages outside read cache
-/// Backfill previews for replies for messages in a history batch
-fn populate_messages_reply_previews(messages: &mut [message::MessageDisplay]) {
+/// Backfill previews for replies at or after `from` in a history batch
+fn populate_messages_reply_previews(
+    messages: &mut [message::MessageDisplay],
+    from: usize,
+) {
+    let mut parents: HashMap<&message::Id, Vec<usize>> = HashMap::new();
+    for message in &messages[from..] {
+        if let Some(id) = &message.inner.reply_to {
+            parents.entry(id).or_default();
+        }
+    }
+    if parents.is_empty() {
+        return;
+    }
+    for (position, message) in messages.iter().enumerate() {
+        if let Some(id) = &message.inner.id
+            && let Some(positions) = parents.get_mut(id)
+        {
+            positions.push(position);
+        }
+    }
     let position_pairs: Vec<(usize, usize)> = messages
         .iter()
         .enumerate()
-        .filter_map(|(message_position, message)| {
-            message
-                .inner
-                .reply_to
-                .as_ref()
-                .and_then(|reply_to_id| {
-                    position_message_by_id(
-                        messages,
-                        reply_to_id,
-                        message.time(),
-                    )
-                })
-                .map(|reply_to_position| (message_position, reply_to_position))
+        .skip(from)
+        .filter_map(|(position, message)| {
+            let positions = parents.get(message.inner.reply_to.as_ref()?)?;
+            if positions.is_empty() {
+                return None;
+            }
+            let start = message.time().utc + chrono::Duration::seconds(1);
+            let split = messages
+                .binary_search_by(|stored| stored.time().utc.cmp(&start))
+                .unwrap_or_else(|position| position);
+            let before =
+                positions.partition_point(|position| *position < split);
+            let parent = if before > 0 {
+                positions[before - 1]
+            } else {
+                *positions.last()?
+            };
+            Some((position, parent))
         })
         .collect();
+
+    drop(parents);
 
     for (message_position, reply_to_position) in position_pairs {
         if let Some(reply_preview) = messages
@@ -3190,12 +1554,10 @@ fn populate_messages_reply_previews(messages: &mut [message::MessageDisplay]) {
 /// The return values are the history ID of the message, the time of the
 /// message, and whether a message sent from this client was was replaced by an
 /// echo by the insert.
-pub fn insert_message(
+pub(super) fn reconcile_message(
     messages: &mut Vec<message::Message>,
     mut message: message::MessageWithContext,
 ) -> (Id, message::Time, bool) {
-    message.inner.history_id = determine_history_id();
-
     let mut history_id = message.inner.history_id;
     let time = message.inner.time;
 
@@ -3220,18 +1582,10 @@ pub fn insert_message(
         let start = labeled_response_context.time.utc - fuzz_seconds;
         let end = labeled_response_context.time.utc + fuzz_seconds;
 
-        let start_index = match messages
-            .binary_search_by(|stored| stored.time.utc.cmp(&start))
-        {
-            Ok(match_index) => match_index,
-            Err(sorted_insert_index) => sorted_insert_index,
-        };
-        let end_index = match messages
-            .binary_search_by(|stored| stored.time.utc.cmp(&end))
-        {
-            Ok(match_index) => match_index,
-            Err(sorted_insert_index) => sorted_insert_index,
-        };
+        let start_index =
+            messages.partition_point(|stored| stored.time.utc < start);
+        let end_index =
+            messages.partition_point(|stored| stored.time.utc < end);
 
         if let Some(index) = messages[start_index..end_index]
             .iter()
@@ -3243,8 +1597,8 @@ pub fn insert_message(
                     .then_some(start_index + slice_index)
             })
         {
-            messages.remove(index);
-
+            history_id = messages.remove(index).history_id;
+            message.inner.history_id = history_id;
             replaced_sent = true;
         }
     }
@@ -3253,15 +1607,8 @@ pub fn insert_message(
     let end = message.time().utc + fuzz_seconds;
 
     let start_index =
-        match messages.binary_search_by(|stored| stored.time.utc.cmp(&start)) {
-            Ok(match_index) => match_index,
-            Err(sorted_insert_index) => sorted_insert_index,
-        };
-    let end_index =
-        match messages.binary_search_by(|stored| stored.time.utc.cmp(&end)) {
-            Ok(match_index) => match_index,
-            Err(sorted_insert_index) => sorted_insert_index,
-        };
+        messages.partition_point(|stored| stored.time.utc < start);
+    let end_index = messages.partition_point(|stored| stored.time.utc < end);
 
     let mut insert_at = start_index;
     let mut replace_at = None;
@@ -3296,6 +1643,8 @@ pub fn insert_message(
     }
 
     if let Some(index) = replace_at {
+        history_id = messages[index].history_id;
+        message.inner.history_id = history_id;
         if message_is_unlabeled_echo && messages[index].is_sent() {
             replaced_sent = true;
         }
@@ -3320,20 +1669,11 @@ pub fn insert_message(
                     ..message.into()
                 };
             }
-
-            history_id = messages[index].history_id;
         } else {
-            match insert_at.cmp(&index) {
-                Ordering::Less => {
-                    messages.remove(index);
-                    messages.insert(insert_at, message.into());
-                }
-                Ordering::Equal => messages[index] = message.into(),
-                Ordering::Greater => {
-                    messages.insert(insert_at, message.into());
-                    messages.remove(index);
-                }
-            }
+            messages.remove(index);
+            let insert_at =
+                messages.partition_point(|stored| stored.time <= time);
+            messages.insert(insert_at, message.into());
         }
     } else {
         messages.insert(insert_at, message.into());
@@ -3421,93 +1761,7 @@ pub fn insert_reaction(
     }
 }
 
-/// Outputs is the range and anchor position within the messages, as prescribed
-/// by the limit.
-fn get_range_of_messages_by_message_limit<M>(
-    messages: &[M],
-    read_marker: &Option<ReadMarker>,
-    limit: &message::Limit,
-    clear: &Option<DateTime<Utc>>,
-) -> (Range<usize>, usize)
-where
-    M: message::Searchable,
-{
-    let (messages, offset) = if let Some(clear) = clear {
-        let first_message_after_clear =
-            position_first_message_after_date_time(messages, clear);
-        (
-            &messages[first_message_after_clear..],
-            first_message_after_clear,
-        )
-    } else {
-        (messages, 0)
-    };
-
-    let (range, target) = match limit {
-        message::Limit::Top(count) => (0..messages.len().min(*count), 0),
-        message::Limit::Bottom(count) => (
-            messages.len().saturating_sub(*count)..messages.len(),
-            messages.len().saturating_sub(1),
-        ),
-        message::Limit::Around(count, history_id) => {
-            // TODO: When upgraded to SQLite make sure this is something
-            // performant, unlike this linear search.
-            if let Some(position) = messages
-                .iter()
-                .position(|message| message.history_id() == history_id)
-            {
-                let (before_count, after_count) =
-                    get_before_and_after_count_from_position(
-                        *count,
-                        position,
-                        messages.len(),
-                    );
-
-                (
-                    position.saturating_sub(before_count)
-                        ..position
-                            .saturating_add(after_count)
-                            .min(messages.len()),
-                    position,
-                )
-            } else {
-                (0..0, 0)
-            }
-        }
-        message::Limit::Backlog(count) => {
-            if let Some(read_marker) = read_marker {
-                let position = position_last_message_before_or_at_date_time(
-                    messages,
-                    read_marker.as_date_time(),
-                );
-
-                let (before_count, after_count) =
-                    get_before_and_after_count_from_position(
-                        *count,
-                        position,
-                        messages.len(),
-                    );
-
-                (
-                    position.saturating_sub(before_count)
-                        ..position
-                            .saturating_add(after_count)
-                            .min(messages.len()),
-                    position,
-                )
-            } else {
-                (0..messages.len().min(*count), 0)
-            }
-        }
-    };
-
-    (
-        range.start.saturating_add(offset)..range.end.saturating_add(offset),
-        target.saturating_add(offset),
-    )
-}
-
-fn get_before_and_after_count_from_position(
+pub(super) fn get_before_and_after_count_from_position(
     count: usize,
     position: usize,
     len: usize,
@@ -3533,90 +1787,6 @@ fn get_before_and_after_count_from_position(
     }
 }
 
-// TODO: get this from database or UUID; should be unique across all histories
-fn determine_history_id() -> Id {
-    Id::Determined(Posix::now().as_nanos())
-}
-
-fn channel_monitor_messages_from(
-    messages: Vec<message::Message>,
-    server: &Server,
-) -> Vec<message::Message> {
-    messages
-        .into_iter()
-        .filter_map(|mut message| {
-            if !message.show_in_channel_monitor() {
-                return None;
-            }
-
-            let target_history_id = *message.history_id();
-
-            let message::Target::Channel { channel } = message.target else {
-                log::debug!("unexpected message target in conversion into channel monitor message: {:?}", message.target);
-                return None;
-            };
-
-            message.history_id = determine_history_id();
-
-            message.target = message::Target::ChannelMonitor {
-                server: server.clone(),
-                channel,
-                history_id: target_history_id,
-            };
-
-            Some(message)
-        })
-        .collect()
-}
-
-fn channel_monitor_messages_from_ref(
-    messages: &[message::Message],
-    server: &Server,
-) -> Vec<message::Message> {
-    messages
-        .iter()
-        .filter_map(|message| {
-            if !message.show_in_channel_monitor() {
-                return None;
-            }
-
-            let message::Target::Channel { channel } = &message.target else {
-                log::debug!("unexpected message target in conversion into channel monitor message: {:?}", message.target);
-                return None;
-            };
-
-            let message = message::Message {
-                history_id: determine_history_id(),
-                target: message::Target::ChannelMonitor {
-                    server: server.clone(),
-                    channel: channel.clone(),
-                    history_id: *message.history_id(),
-                },
-                ..message.clone()
-            };
-
-            Some(message)
-        })
-        .collect()
-}
-
-fn combine_with_channel_monitor_messages(
-    channel_monitor_messages: &mut Vec<message::Message>,
-    messages: Vec<message::Message>,
-) {
-    channel_monitor_messages.extend(messages);
-
-    if channel_monitor_messages.len() > MAX_CHANNEL_MONITOR_MESSAGES {
-        let keep_from =
-            channel_monitor_messages.len() - MAX_CHANNEL_MONITOR_MESSAGES;
-
-        channel_monitor_messages
-            .select_nth_unstable_by_key(keep_from, |message| *message.time());
-
-        channel_monitor_messages.drain(..keep_from);
-    }
-}
-
 fn write_chathistory_targets_timestamp(
     server: &Server,
     timestamp: DateTime<Utc>,
@@ -3636,76 +1806,16 @@ fn chathistory_targets_path(server: &Server) -> Result<PathBuf, Error> {
     Ok(dir.join(format!("{name}.json")))
 }
 
-pub async fn delete_metadata(kind: &Kind) -> Result<(), Error> {
-    let path = kind_metadata_path(kind)?;
-
-    tokio::fs::remove_file(path).await?;
-
-    Ok(())
-}
-
-pub async fn delete(kind: &Kind) -> Result<(), Error> {
-    let path = kind_path(kind)?;
-
-    tokio::fs::remove_file(path).await?;
-
-    Ok(())
-}
-
-fn kind_metadata_path(kind: &Kind) -> Result<PathBuf, Error> {
-    let dir = dir_path()?;
-
-    let name = match kind {
-        Kind::Server(server) => format!("{server}-metadata"),
-        Kind::Channel(server, channel) => {
-            format!("{server}channel{}-metadata", channel.as_normalized_str())
-        }
-        Kind::Query(server, query) => {
-            format!("{server}nickname{}-metadata", query.as_normalized_str())
-        }
-        Kind::Logs => "logs-metadata".to_string(),
-        Kind::Highlights => "highlights-metadata".to_string(),
-        Kind::ChannelMonitor => "channel-monitor-metadata".to_string(),
-    };
-
-    Ok(dir.join(format!("{name}.json")))
-}
-
-fn kind_path(kind: &Kind) -> Result<PathBuf, Error> {
-    let dir = dir_path()?;
-
-    let name = match kind {
-        Kind::Server(server) => format!("{server:b}"),
-        Kind::Channel(server, channel) => {
-            format!("{server:b}channel{}", channel.as_normalized_str())
-        }
-        Kind::Query(server, query) => {
-            format!("{server:b}nickname{}", query.as_normalized_str())
-        }
-        Kind::Logs => "logs".to_string(),
-        Kind::Highlights => "highlights".to_string(),
-        Kind::ChannelMonitor => "channel_monitor".to_string(),
-    };
-
-    Ok(dir.join(format!("{name}.json.gz")))
-}
-
 fn dir_path() -> Result<PathBuf, Error> {
-    let data_dir = environment::data_dir();
-
-    let history_dir = data_dir.join("msdb");
-
-    if !history_dir.exists() {
-        fs::create_dir_all(&history_dir)?;
-    }
-
-    Ok(history_dir)
+    let dir = environment::data_dir().join("msdb");
+    fs::create_dir_all(&dir)?;
+    Ok(dir)
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
-    Compression(#[from] compression::Error),
+    Database(#[from] database::Error),
     #[error(transparent)]
     Io(#[from] io::Error),
     #[error(transparent)]

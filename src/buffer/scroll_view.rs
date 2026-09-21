@@ -3,7 +3,6 @@ use std::time::Duration;
 
 use chrono::{Local, NaiveDate, Utc};
 use data::buffer::{BuffersContext, RightAlignmentWidths};
-use data::client::{self, ClientsContext};
 use data::command::Irc;
 use data::config::actions::{ImageClickAction, NicknameClickAction};
 use data::config::buffer::{
@@ -18,7 +17,7 @@ use data::rate_limit::TokenPriority;
 use data::reaction::Reaction;
 use data::server::Server;
 use data::target::{self, Target};
-use data::{Config, Image, Preview, metadata, reaction};
+use data::{Config, Image, Preview, client, metadata, reaction};
 use hashbrown::{HashMap, HashSet};
 use iced::widget::{
     self, Scrollable, button, column, container, row, rule, scrollable, sensor,
@@ -58,6 +57,7 @@ const HIGHLIGHT_ALPHA_STEP: f32 =
 #[derive(Debug, Clone)]
 pub enum Message {
     Scrolled {
+        limit: Limit,
         visible_message_range: VisibleMessageRange,
         has_more_older_messages: bool,
         has_more_newer_messages: bool,
@@ -83,7 +83,7 @@ pub enum Message {
     ContentResized(Size),
     PendingScrollTo,
     FadeHighlight(history::Id, u64),
-    HeightsCollected(Vec<(keyed::Key, f32)>),
+    HeightsCollected(Vec<(keyed::Row, f32)>),
     Reacted {
         msgid: message::Id,
         text: Cow<'static, str>,
@@ -118,7 +118,7 @@ pub struct VisibleMessageRange {
 pub enum Event {
     ContextMenu(context_menu::Event),
     OpenBuffer(Server, Target, BufferAction),
-    GoToMessage(Server, target::Channel, history::Id, BufferAction),
+    GoToMessage(Server, target::Channel, message::MessageLink, BufferAction),
     RequestOlderChathistory,
     PreviewChanged,
     HidePreview(history::Kind, history::Id, message::Time, url::Url),
@@ -262,7 +262,7 @@ fn is_consecutive_user_message(
 pub fn view<'a>(
     state: &State,
     focused_message: &'a Option<FocusedMessage>,
-    kind_ref: history::KindRef,
+    kind_ref: history::KindRef<'a>,
     models: &'a model::Manager,
     previews: Option<Previews<'a>>,
     visible_for_source: Option<impl Fn(&Preview, &message::Source) -> bool>,
@@ -283,11 +283,18 @@ pub fn view<'a>(
         has_more_older_messages,
         has_more_newer_messages,
         cleared,
+        migrating,
         ..
     }) = models.view(kind_ref, &state.limit, config)
     else {
         return column![].into();
     };
+
+    if migrating {
+        return container(text("Migrating, please wait."))
+            .center(Length::Fill)
+            .into();
+    }
 
     let top_row = if !cleared
         && !has_more_older_messages
@@ -353,6 +360,7 @@ pub fn view<'a>(
     };
 
     let status = state.status;
+    let limit = state.limit;
 
     let line_spacing = config.buffer.line_spacing;
 
@@ -369,14 +377,13 @@ pub fn view<'a>(
         state
             .height_cache
             .get(&keyed::Key::Message(*msg.history_id()))
-            .copied()
-            .map_or(row_height, |h| h + line_spacing as f32)
+            .filter(|(revision, _)| *revision == keyed::Row::revision(msg))
+            .map_or(row_height, |(_, h)| h + line_spacing as f32)
     };
     let div_height = state
         .height_cache
         .get(&keyed::Key::Divider)
-        .copied()
-        .unwrap_or_default();
+        .map_or(0.0, |(_, height)| *height);
 
     let (render_start, render_end) =
         if state.scroll_to.is_some() || total <= render_budget {
@@ -748,7 +755,7 @@ pub fn view<'a>(
                         element
                     };
 
-                    Some(keyed(keyed::Key::message(message), content))
+                    Some(keyed::message(message, content))
                 })
                 .collect::<Vec<_>>()
         };
@@ -876,6 +883,7 @@ pub fn view<'a>(
                     .scroller_width(config.pane.scrollbar.scroller_width),
             ))
             .on_scroll(move |viewport| Message::Scrolled {
+                limit,
                 visible_message_range,
                 has_more_older_messages,
                 has_more_newer_messages,
@@ -885,6 +893,12 @@ pub fn view<'a>(
             .id(state.scrollable.clone()),
         state.scrollable.clone(),
         matches!(state.status, Status::Unlocked),
+        move |key, time| match (key, time) {
+            (keyed::Key::Message(id), Some(time)) => models
+                .resolve_anchor(kind_ref, &id, &time, &config.buffer)
+                .map(keyed::Key::Message),
+            _ => Some(key),
+        },
     )
 }
 
@@ -896,7 +910,7 @@ pub struct State {
     limit: Limit,
     status: Status,
     last_scroll_offset: f32,
-    height_cache: HashMap<keyed::Key, f32>,
+    height_cache: HashMap<keyed::Key, (Option<u64>, f32)>,
     scroll_to: Option<ScrollTo>,
     highlighted_message: Option<(history::Id, f32)>,
     hover_highlighted_message: Option<history::Id>,
@@ -912,7 +926,6 @@ impl State {
     pub fn new(
         pane_size: Size,
         kind: history::Kind,
-        clients_context: &dyn ClientsContext,
         storage: &mut storage::Manager,
         config: &Config,
     ) -> Self {
@@ -923,7 +936,7 @@ impl State {
             ScrollPosition::Newest => Limit::Bottom(message_count),
         };
 
-        storage.set_model_limit(kind, limit, clients_context, &config.buffer);
+        storage.set_model_limit(kind, limit);
 
         Self {
             scrollable: widget::Id::unique(),
@@ -963,13 +976,21 @@ impl State {
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::Scrolled {
+                limit,
                 visible_message_range,
                 has_more_older_messages,
                 has_more_newer_messages,
                 status: old_status,
                 viewport,
             } => {
-                if self.scroll_to.is_some() {
+                if self.scroll_to.is_some()
+                    || !accepts_scroll(
+                        self.limit,
+                        limit,
+                        has_more_older_messages,
+                        has_more_newer_messages,
+                    )
+                {
                     return (Task::none(), None);
                 }
 
@@ -1068,12 +1089,7 @@ impl State {
                     }
                 }
 
-                storage.set_model_limit(
-                    kind_ref.into(),
-                    self.limit,
-                    clients,
-                    &config.buffer,
-                );
+                storage.set_model_limit(kind_ref.into(), self.limit);
 
                 let collect = keyed::collect_heights(
                     self.scrollable.clone(),
@@ -1186,6 +1202,7 @@ impl State {
                 key,
                 hit_bounds,
                 scrollable,
+                ..
             }) => {
                 let (animate, align) =
                     if let Some(ScrollTo { animate, align, .. }) =
@@ -1294,16 +1311,12 @@ impl State {
 
                 if (offset - max_offset).abs() <= f32::EPSILON {
                     self.status = Status::Bottom;
+                    self.last_scroll_offset = 0.0;
 
                     if !matches!(self.limit, Limit::Bottom(_)) {
                         self.limit = Limit::Bottom(self.limit.count());
 
-                        storage.set_model_limit(
-                            kind_ref.into(),
-                            self.limit,
-                            clients,
-                            &config.buffer,
-                        );
+                        storage.set_model_limit(kind_ref.into(), self.limit);
                     }
 
                     return (
@@ -1333,12 +1346,7 @@ impl State {
                             self.limit = Limit::Top(self.limit.count());
                         }
 
-                        storage.set_model_limit(
-                            kind_ref.into(),
-                            self.limit,
-                            clients,
-                            &config.buffer,
-                        );
+                        storage.set_model_limit(kind_ref.into(), self.limit);
                     }
 
                     return (
@@ -1470,12 +1478,7 @@ impl State {
                 if self.limit.count() != adjusted_count {
                     self.limit = self.limit.with_count(adjusted_count);
 
-                    storage.set_model_limit(
-                        kind_ref.into(),
-                        self.limit,
-                        clients,
-                        &config.buffer,
-                    );
+                    storage.set_model_limit(kind_ref.into(), self.limit);
                 }
             }
             Message::ImagePreview(image) => {
@@ -1523,8 +1526,8 @@ impl State {
                 }
             }
             Message::HeightsCollected(heights) => {
-                for (key, height) in &heights {
-                    self.height_cache.insert(*key, *height);
+                for (row, height) in &heights {
+                    self.height_cache.insert(row.key, (row.revision, *height));
                 }
 
                 let mut preview_changed = false;
@@ -1534,7 +1537,7 @@ impl State {
                 {
                     let rendered_history_ids = heights
                         .iter()
-                        .filter_map(|(key, _)| match key {
+                        .filter_map(|(row, _)| match &row.key {
                             keyed::Key::Message(history_id) => {
                                 Some(*history_id)
                             }
@@ -1722,7 +1725,6 @@ impl State {
                     self.scroll_to_message(
                         scroll_to_history_id,
                         kind_ref,
-                        clients,
                         models,
                         storage,
                         config,
@@ -1833,7 +1835,6 @@ impl State {
         &mut self,
         pane_size: Size,
         kind_ref: history::KindRef,
-        clients_context: &dyn ClientsContext,
         models: &model::Manager,
         storage: &mut storage::Manager,
         config: &Config,
@@ -1844,12 +1845,7 @@ impl State {
         if self.limit.count() != adjusted_count {
             self.limit = self.limit.with_count(adjusted_count);
 
-            storage.set_model_limit(
-                kind_ref.into(),
-                self.limit,
-                clients_context,
-                &config.buffer,
-            );
+            storage.set_model_limit(kind_ref.into(), self.limit);
         }
 
         let width_changed = self.pane_size.width != pane_size.width;
@@ -1886,7 +1882,6 @@ impl State {
     pub fn scroll_to_start(
         &mut self,
         kind_ref: history::KindRef,
-        clients_context: &dyn ClientsContext,
         storage: &mut storage::Manager,
         config: &Config,
     ) -> Task<Message> {
@@ -1900,14 +1895,11 @@ impl State {
         }
 
         self.status = Status::Unlocked;
+        self.last_scroll_offset = 0.0;
+        self.scroll_to = None;
         self.limit = Limit::Top(minimum_count);
 
-        storage.set_model_limit(
-            kind_ref.into(),
-            self.limit,
-            clients_context,
-            &config.buffer,
-        );
+        storage.set_model_limit(kind_ref.into(), self.limit);
 
         correct_viewport::scroll_to(
             self.scrollable.clone(),
@@ -1918,7 +1910,6 @@ impl State {
     pub fn scroll_to_end(
         &mut self,
         kind_ref: history::KindRef,
-        clients_context: &dyn ClientsContext,
         storage: &mut storage::Manager,
         config: &Config,
     ) -> Task<Message> {
@@ -1932,14 +1923,11 @@ impl State {
         }
 
         self.status = Status::Bottom;
+        self.last_scroll_offset = 0.0;
+        self.scroll_to = None;
         self.limit = Limit::Bottom(minimum_count);
 
-        storage.set_model_limit(
-            kind_ref.into(),
-            self.limit,
-            clients_context,
-            &config.buffer,
-        );
+        storage.set_model_limit(kind_ref.into(), self.limit);
 
         correct_viewport::scroll_to(
             self.scrollable.clone(),
@@ -1955,7 +1943,6 @@ impl State {
         &mut self,
         history_id: history::Id,
         kind_ref: history::KindRef,
-        clients_context: &dyn ClientsContext,
         models: &model::Manager,
         storage: &mut storage::Manager,
         config: &Config,
@@ -1990,12 +1977,7 @@ impl State {
         // Load a window of messages centered on the target.
         self.limit = Limit::Around(self.limit.count(), history_id);
 
-        storage.set_model_limit(
-            kind_ref.into(),
-            self.limit,
-            clients_context,
-            &config.buffer,
-        );
+        storage.set_model_limit(kind_ref.into(), self.limit);
 
         if !old_messages
             .iter()
@@ -2082,7 +2064,6 @@ impl State {
     pub fn scroll_to_backlog(
         &mut self,
         kind_ref: history::KindRef,
-        clients_context: &dyn ClientsContext,
         models: &model::Manager,
         storage: &mut storage::Manager,
         config: &Config,
@@ -2110,19 +2091,9 @@ impl State {
         };
 
         if old_messages.is_empty() {
-            return self.scroll_to_start(
-                kind_ref,
-                clients_context,
-                storage,
-                config,
-            );
+            return self.scroll_to_start(kind_ref, storage, config);
         } else if new_messages.is_empty() {
-            return self.scroll_to_end(
-                kind_ref,
-                clients_context,
-                storage,
-                config,
-            );
+            return self.scroll_to_end(kind_ref, storage, config);
         }
 
         self.scroll_to = Some(ScrollTo {
@@ -2303,6 +2274,20 @@ impl Status {
     }
 }
 
+fn accepts_scroll(
+    requested: Limit,
+    rendered: Limit,
+    more_older: bool,
+    more_newer: bool,
+) -> bool {
+    requested == rendered
+        && match requested {
+            Limit::Top(_) => !more_older,
+            Limit::Bottom(_) => !more_newer,
+            Limit::Around(..) | Limit::Backlog(_) => true,
+        }
+}
+
 fn step_messages(height: f32, config: &Config) -> usize {
     let line_height = theme::resolve_line_height(&config.font);
 
@@ -2325,14 +2310,66 @@ pub mod keyed {
         Preview(history::Id, usize),
     }
 
-    impl Key {
-        pub fn message(message: &message::MessageDisplay) -> Self {
-            Self::Message(*message.history_id())
+    #[derive(Debug, Clone, Copy)]
+    pub struct Row {
+        pub key: Key,
+        pub time: Option<message::Time>,
+        pub revision: Option<u64>,
+    }
+
+    impl Row {
+        pub fn revision(message: &message::MessageDisplay) -> Option<u64> {
+            use std::hash::{Hash, Hasher};
+            let message::Source::Internal(
+                message::source::Internal::Condensed(end),
+            ) = &message.inner.source
+            else {
+                return None;
+            };
+
+            let mut hash = std::hash::DefaultHasher::new();
+            end.hash(&mut hash);
+            match &message.inner.content {
+                message::Content::Plain(text) => text.hash(&mut hash),
+                message::Content::Fragments(fragments) => {
+                    fragments.hash(&mut hash);
+                }
+                message::Content::Log(record) => record.message.hash(&mut hash),
+            }
+            Some(hash.finish())
         }
+    }
+
+    pub fn message<'a, Message: 'a>(
+        message: &message::MessageDisplay,
+        inner: impl Into<Element<'a, Message>>,
+    ) -> Element<'a, Message> {
+        keyed_row(
+            Row {
+                key: Key::Message(*message.history_id()),
+                time: Some(message.inner.time),
+                revision: Row::revision(message),
+            },
+            inner,
+        )
     }
 
     pub fn keyed<'a, Message: 'a>(
         key: Key,
+        inner: impl Into<Element<'a, Message>>,
+    ) -> Element<'a, Message> {
+        keyed_row(
+            Row {
+                key,
+                time: None,
+                revision: None,
+            },
+            inner,
+        )
+    }
+
+    fn keyed_row<'a, Message: 'a>(
+        row: Row,
         inner: impl Into<Element<'a, Message>>,
     ) -> Element<'a, Message> {
         decorate(inner)
@@ -2343,8 +2380,8 @@ pub mod keyed {
                       layout: advanced::Layout<'_>,
                       renderer: &Renderer,
                       operation: &mut dyn advanced::widget::Operation<()>| {
-                    let mut key = key;
-                    operation.custom(None, layout.bounds(), &mut key);
+                    let mut row = row;
+                    operation.custom(None, layout.bounds(), &mut row);
                     inner.as_widget_mut().operate(tree, layout, renderer, operation);
                 },
             )
@@ -2354,6 +2391,7 @@ pub mod keyed {
     #[derive(Debug, Clone, Copy)]
     pub struct Hit {
         pub key: Key,
+        pub time: Option<message::Time>,
         pub hit_bounds: Rectangle,
         pub scrollable: Scrollable,
     }
@@ -2397,6 +2435,7 @@ pub mod keyed {
             key,
             scrollable: None,
             hit_bounds: None,
+            time: None,
         })
     }
 
@@ -2407,6 +2446,7 @@ pub mod keyed {
         pub scrollable_id: widget::Id,
         pub scrollable: Option<Scrollable>,
         pub hit_bounds: Option<Rectangle>,
+        pub time: Option<message::Time>,
     }
 
     impl Operation<Hit> for Find {
@@ -2449,10 +2489,11 @@ pub mod keyed {
             state: &mut dyn std::any::Any,
         ) {
             if self.active
-                && let Some(key) = state.downcast_ref::<Key>()
-                && self.key == *key
+                && let Some(row) = state.downcast_ref::<Row>()
+                && self.key == row.key
             {
                 self.hit_bounds = Some(bounds);
+                self.time = row.time;
             }
         }
 
@@ -2460,6 +2501,7 @@ pub mod keyed {
             match self.scrollable.zip(self.hit_bounds).map(
                 |(scrollable, hit_bounds)| Hit {
                     key: self.key,
+                    time: self.time,
                     scrollable,
                     hit_bounds,
                 },
@@ -2475,7 +2517,7 @@ pub mod keyed {
         pub active: bool,
         pub scrollable_id: widget::Id,
         pub scrollable: Option<Scrollable>,
-        pub hit_bounds: Option<(Key, Rectangle)>,
+        pub hit_bounds: Option<(Row, Rectangle)>,
     }
 
     impl Operation<Hit> for TopOfViewport {
@@ -2518,7 +2560,7 @@ pub mod keyed {
             state: &mut dyn std::any::Any,
         ) {
             if self.active
-                && let Some(key) = state.downcast_ref::<Key>()
+                && let Some(row) = state.downcast_ref::<Row>()
                 && self.hit_bounds.is_none()
                 && self.scrollable.is_some_and(|scrollable| {
                     scrollable.viewport.intersects(
@@ -2530,14 +2572,15 @@ pub mod keyed {
                     )
                 })
             {
-                self.hit_bounds = Some((*key, bounds));
+                self.hit_bounds = Some((*row, bounds));
             }
         }
 
         fn finish(&self) -> widget::operation::Outcome<Hit> {
             match self.scrollable.zip(self.hit_bounds).map(
-                |(scrollable, (key, hit_bounds))| Hit {
-                    key,
+                |(scrollable, (row, hit_bounds))| Hit {
+                    key: row.key,
+                    time: row.time,
                     scrollable,
                     hit_bounds,
                 },
@@ -2551,10 +2594,10 @@ pub mod keyed {
     pub struct CollectHeights {
         active: bool,
         scrollable_id: widget::Id,
-        heights: Vec<(Key, f32)>,
+        heights: Vec<(Row, f32)>,
     }
 
-    impl Operation<Vec<(Key, f32)>> for CollectHeights {
+    impl Operation<Vec<(Row, f32)>> for CollectHeights {
         fn scrollable(
             &mut self,
             id: Option<&widget::Id>,
@@ -2570,7 +2613,7 @@ pub mod keyed {
 
         fn traverse(
             &mut self,
-            operate: &mut dyn FnMut(&mut dyn Operation<Vec<(Key, f32)>>),
+            operate: &mut dyn FnMut(&mut dyn Operation<Vec<(Row, f32)>>),
         ) {
             operate(self);
         }
@@ -2582,14 +2625,14 @@ pub mod keyed {
             state: &mut dyn std::any::Any,
         ) {
             if self.active
-                && let Some(key) = state.downcast_ref::<Key>()
-                && matches!(key, Key::Message(_) | Key::Divider)
+                && let Some(row) = state.downcast_ref::<Row>()
+                && matches!(row.key, Key::Message(_) | Key::Divider)
             {
-                self.heights.push((*key, bounds.height));
+                self.heights.push((*row, bounds.height));
             }
         }
 
-        fn finish(&self) -> widget::operation::Outcome<Vec<(Key, f32)>> {
+        fn finish(&self) -> widget::operation::Outcome<Vec<(Row, f32)>> {
             if self.heights.is_empty() {
                 widget::operation::Outcome::None
             } else {
@@ -2601,7 +2644,7 @@ pub mod keyed {
     pub fn collect_heights(
         scrollable: widget::Id,
         message_count: usize,
-    ) -> Task<Vec<(Key, f32)>> {
+    ) -> Task<Vec<(Row, f32)>> {
         widget::operate(CollectHeights {
             active: false,
             scrollable_id: scrollable,
@@ -2623,10 +2666,23 @@ mod correct_viewport {
     use super::{Message, keyed};
     use crate::widget::{Element, Renderer, decorate};
 
+    fn corrected_offset(old: &keyed::Hit, new: &keyed::Hit) -> f32 {
+        let within_row = (old.scrollable.viewport.y
+            - (old.hit_bounds.y - old.scrollable.offset.y))
+            .min((new.hit_bounds.height - 1.0).max(0.0));
+        (new.hit_bounds.y + within_row - new.scrollable.viewport.y)
+            .clamp(0.0, new.scrollable.max_vertical_offset())
+    }
+
     pub fn correct_viewport<'a>(
         inner: impl Into<Element<'a, Message>>,
         scrollable: iced::widget::Id,
         enabled: bool,
+        resolve: impl Fn(
+            keyed::Key,
+            Option<data::message::Time>,
+        ) -> Option<keyed::Key>
+        + 'a,
     ) -> Element<'a, Message> {
         decorate(inner)
             .update({
@@ -2647,16 +2703,19 @@ mod correct_viewport {
 
                     // Check if top-of-viewport element has shifted since we
                     // last scrolled and adjust
-                    if let (true, true, Some(old)) = (enabled, is_redraw, &state) {
+                    if let (true, true, Some(old)) = (enabled, is_redraw, &state)
+                        && let Some(key) = resolve(old.key, old.time)
+                    {
                         let hit = Arc::new(Mutex::new(None));
 
                         let mut operation = widget::operation::map(
                             keyed::Find {
                                 active: false,
-                                key: old.key,
+                                key,
                                 scrollable_id: scrollable.clone(),
                                 scrollable: None,
                                 hit_bounds: None,
+                                time: None,
                             },
                             {
                                 let hit = hit.clone();
@@ -2678,17 +2737,8 @@ mod correct_viewport {
                         {
                             // Something shifted this, let's put it back to the
                             // top of the viewport
-                            if new.hit_bounds.y != old.hit_bounds.y {
-                                let viewport_offset = old.scrollable.viewport.y
-                                    - (old.hit_bounds.y - old.scrollable.offset.y);
-
-                                // New offset needed to place same element back to same offset
-                                // from top of viewport
-                                let new_offset = f32::min(
-                                    (new.hit_bounds.y + viewport_offset)
-                                        - new.scrollable.viewport.y,
-                                    new.scrollable.content.height - new.scrollable.viewport.height,
-                                );
+                            if new.hit_bounds != old.hit_bounds || new.key != old.key {
+                                let new_offset = corrected_offset(old, &new);
 
                                 let mut operation = scrollable::scroll_to(
                                     scrollable.clone(),

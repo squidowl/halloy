@@ -2,6 +2,8 @@
 
 Added:
 
+- SQLite history storage, with automatic migration of existing gzip history as
+  buffers are used and loading of history in windows.
 - `buffer.server_messages.condense.timestamp` setting to control whether a condensed message shows a time range, its start timestamp, its end timestamp, or no timestamp
 - Ability to configure individual bouncer networks with `servers.<name>.networks.<network>`
 - CTCP actions to private message context menus
@@ -52,6 +54,7 @@ Fixed:
 
 Changed:
 
+- Saved chat history is no longer limited to 10,000 messages per buffer.
 - Rename `servers.<name>.websocket_ping_interval` to `servers.<name>.websocket_ping_time`
 - Link preview requests now use `Halloy/<version>` as their default User-Agent
 - User avatars are configurable with `metadata.avatar.size`
