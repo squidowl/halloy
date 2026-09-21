@@ -110,7 +110,7 @@ impl UserDisplay {
             selectable,
             theme,
             config,
-            font::line_height(),
+            font::line_height(&config.font),
         );
 
         let base = if highlight {
@@ -142,7 +142,7 @@ impl UserDisplay {
 
             iced::widget::tooltip(
                 base,
-                container(container(if suffix.is_empty() {
+                container(if suffix.is_empty() {
                     tooltip.into_element(
                         user,
                         color,
@@ -175,7 +175,7 @@ impl UserDisplay {
                     ]
                     .spacing(theme::ICON_SPACE)
                     .into()
-                }))
+                })
                 .style(theme::container::tooltip)
                 .padding(8),
                 iced::widget::tooltip::Position::Top,

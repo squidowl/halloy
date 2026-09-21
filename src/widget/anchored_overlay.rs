@@ -87,12 +87,14 @@ impl<Message> Widget<Message, Theme, Renderer>
         &mut self,
         tree: &mut iced::advanced::widget::Tree,
         layout: Layout<'_>,
+        viewport: &Rectangle,
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
     ) {
         self.base.as_widget_mut().operate(
             &mut tree.children[0],
             layout,
+            viewport,
             renderer,
             operation,
         );
@@ -143,7 +145,7 @@ impl<Message> Widget<Message, Theme, Renderer>
         renderer: &Renderer,
         viewport: &Rectangle,
         translation: Vector,
-    ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
+    ) -> Vec<overlay::Element<'b, Message, Theme, Renderer>> {
         let (first, second) = tree.children.split_at_mut(1);
 
         let base = self.base.as_widget_mut().overlay(
@@ -165,15 +167,10 @@ impl<Message> Widget<Message, Theme, Renderer>
             // so the overlay anchors to the base's on-screen position rather
             // than its position in unscrolled content space.
             position: layout.position() + translation,
-            viewport: *viewport,
+            viewport: *viewport + translation,
         }));
 
-        Some(
-            overlay::Group::with_children(
-                base.into_iter().chain(Some(overlay)).collect(),
-            )
-            .overlay(),
-        )
+        base.into_iter().chain(std::iter::once(overlay)).collect()
     }
 }
 
@@ -284,9 +281,13 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
     ) {
-        self.content
-            .as_widget_mut()
-            .operate(self.tree, layout, renderer, operation);
+        self.content.as_widget_mut().operate(
+            self.tree,
+            layout,
+            &layout.bounds(),
+            renderer,
+            operation,
+        );
     }
 
     fn update(
@@ -332,20 +333,28 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
         cursor: mouse::Cursor,
         renderer: &Renderer,
     ) -> iced::advanced::mouse::Interaction {
-        self.content.as_widget().mouse_interaction(
+        let interaction = self.content.as_widget().mouse_interaction(
             self.tree,
             layout,
             cursor,
-            &layout.bounds(),
+            &self.viewport,
             renderer,
-        )
+        );
+
+        if interaction == mouse::Interaction::None
+            && cursor.is_over(layout.bounds())
+        {
+            mouse::Interaction::Idle
+        } else {
+            interaction
+        }
     }
 
     fn overlay<'c>(
         &'c mut self,
         layout: Layout<'c>,
         renderer: &Renderer,
-    ) -> Option<overlay::Element<'c, Message, Theme, Renderer>> {
+    ) -> Vec<overlay::Element<'c, Message, Theme, Renderer>> {
         self.content.as_widget_mut().overlay(
             self.tree,
             layout,

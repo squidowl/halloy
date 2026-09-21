@@ -27,7 +27,7 @@ use data::{
     server, server_icon, stream,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
-use iced::widget::{Space, center, column, container, row, stack, text};
+use iced::widget::{center, column, container, row, stack, text};
 use iced::{Length, Size, Task, Vector, clipboard, padding};
 use irc::proto;
 
@@ -1944,43 +1944,41 @@ impl Dashboard {
         let base = if self.command_bar_window == Some(window)
             && let Some(command_bar) = self.command_bar.as_ref()
         {
-            let background = anchored_overlay(
+            anchored_overlay(
                 base,
                 container(
-                    Space::new().width(Length::Fill).height(Length::Fill),
+                    container(
+                        command_bar
+                            .view(
+                                servers,
+                                clients,
+                                &all_upstream_buffers(clients, &self.history),
+                                self.focus,
+                                self.buffer_resize_action(),
+                                version,
+                                config,
+                                self.main_window(),
+                                self.buffer_settings.show_muted,
+                            )
+                            .map(Message::Task),
+                    )
+                    .padding(10.0)
+                    .width(Length::Fill)
+                    .align_x(iced::Alignment::Center),
                 )
                 .width(Length::Fill)
                 .height(Length::Fill)
+                .align_x(iced::Alignment::Center)
                 .style(theme::container::transparent_overlay),
                 anchored_overlay::Anchor::BelowTopCentered,
                 0.0,
-                None,
-            );
-
-            anchored_overlay(
-                background,
-                command_bar
-                    .view(
-                        servers,
-                        clients,
-                        &all_upstream_buffers(clients, &self.history),
-                        self.focus,
-                        self.buffer_resize_action(),
-                        version,
-                        config,
-                        self.main_window(),
-                        self.buffer_settings.show_muted,
-                    )
-                    .map(Message::Task),
-                anchored_overlay::Anchor::BelowTopCentered,
-                10.0,
                 None,
             )
         } else {
             // Align `base` into same view tree shape
             // as `anchored_overlay` to prevent diff
             // from firing when displaying command bar
-            column![column![base]].into()
+            column![base].into()
         };
 
         let focused_target_info = self

@@ -167,10 +167,10 @@ where
         state: &'b mut widget::Tree,
         layout: Layout<'b>,
         _renderer: &Renderer,
-        viewport: &Rectangle,
+        _viewport: &Rectangle,
         translation: Vector,
-    ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
-        Some(overlay::Element::new(Box::new(Overlay {
+    ) -> Vec<overlay::Element<'b, Message, Theme, Renderer>> {
+        vec![overlay::Element::new(Box::new(Overlay {
             position: layout.position() + translation,
             content: &mut self.modal,
             tree: &mut state.children[1],
@@ -178,8 +178,7 @@ where
             on_blur: &self.on_blur,
             backdrop: self.backdrop,
             shadow: self.shadow,
-            viewport: *viewport,
-        })))
+        }))]
     }
 
     fn mouse_interaction(
@@ -197,12 +196,14 @@ where
         &mut self,
         state: &mut widget::Tree,
         layout: Layout<'_>,
+        viewport: &Rectangle,
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
     ) {
         self.base.as_widget_mut().operate(
             &mut state.children[0],
             layout,
+            viewport,
             renderer,
             operation,
         );
@@ -217,7 +218,6 @@ struct Overlay<'a, 'b, Message, Theme, Renderer> {
     on_blur: &'b dyn Fn() -> Message,
     backdrop: Color,
     shadow: Shadow,
-    viewport: Rectangle,
 }
 
 impl<Message, Theme, Renderer> overlay::Overlay<Message, Theme, Renderer>
@@ -234,7 +234,7 @@ where
             .content
             .as_widget_mut()
             .layout(self.tree, renderer, &limits)
-            .align(Alignment::Center, Alignment::Center, limits.max());
+            .align(Alignment::Center, Alignment::Center, limits.max);
 
         layout::Node::with_children(self.size, vec![child])
             .move_to(self.position)
@@ -334,6 +334,7 @@ where
         self.content.as_widget_mut().operate(
             self.tree,
             layout.children().next().unwrap(),
+            &layout.bounds(),
             renderer,
             operation,
         );
@@ -358,12 +359,12 @@ where
         &'c mut self,
         layout: Layout<'c>,
         renderer: &Renderer,
-    ) -> Option<overlay::Element<'c, Message, Theme, Renderer>> {
+    ) -> Vec<overlay::Element<'c, Message, Theme, Renderer>> {
         self.content.as_widget_mut().overlay(
             self.tree,
             layout.children().next().unwrap(),
             renderer,
-            &self.viewport,
+            &layout.bounds(),
             Vector::ZERO,
         )
     }

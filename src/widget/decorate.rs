@@ -529,6 +529,7 @@ pub trait Operate<'a, Message, Theme, Renderer, State> {
         inner: &mut Element<'a, Message, Theme, Renderer>,
         tree: &mut advanced::widget::Tree,
         layout: advanced::Layout<'_>,
+        viewport: &Rectangle,
         renderer: &Renderer,
         operation: &mut dyn advanced::widget::Operation<()>,
     );
@@ -545,12 +546,13 @@ where
         inner: &mut Element<'a, Message, Theme, Renderer>,
         tree: &mut advanced::widget::Tree,
         layout: advanced::Layout<'_>,
+        viewport: &Rectangle,
         renderer: &Renderer,
         operation: &mut dyn advanced::widget::Operation<()>,
     ) {
         inner
             .as_widget_mut()
-            .operate(tree, layout, renderer, operation);
+            .operate(tree, layout, viewport, renderer, operation);
     }
 }
 
@@ -562,6 +564,7 @@ where
             &mut Element<'a, Message, Theme, Renderer>,
             &mut advanced::widget::Tree,
             advanced::Layout<'_>,
+            &Rectangle,
             &Renderer,
             &mut dyn advanced::widget::Operation<()>,
         ) + 'a,
@@ -572,10 +575,11 @@ where
         inner: &mut Element<'a, Message, Theme, Renderer>,
         tree: &mut advanced::widget::Tree,
         layout: advanced::Layout<'_>,
+        rectangle: &Rectangle,
         renderer: &Renderer,
         operation: &mut dyn advanced::widget::Operation<()>,
     ) {
-        self(state, inner, tree, layout, renderer, operation);
+        self(state, inner, tree, layout, rectangle, renderer, operation);
     }
 }
 
@@ -589,7 +593,7 @@ pub trait Overlay<'a, Message, Theme, Renderer, State> {
         renderer: &Renderer,
         viewport: &Rectangle,
         translation: iced::Vector,
-    ) -> Option<advanced::overlay::Element<'b, Message, Theme, Renderer>>;
+    ) -> Vec<advanced::overlay::Element<'b, Message, Theme, Renderer>>;
 }
 
 impl<'a, Message, Theme, Renderer, State>
@@ -606,7 +610,7 @@ where
         renderer: &Renderer,
         viewport: &Rectangle,
         translation: iced::Vector,
-    ) -> Option<advanced::overlay::Element<'b, Message, Theme, Renderer>> {
+    ) -> Vec<advanced::overlay::Element<'b, Message, Theme, Renderer>> {
         inner.as_widget_mut().overlay(
             tree,
             layout,
@@ -627,7 +631,7 @@ where
             advanced::Layout<'_>,
             &Renderer,
             iced::Vector,
-        ) -> Option<
+        ) -> Vec<
             advanced::overlay::Element<'b, Message, Theme, Renderer>,
         > + 'a,
 {
@@ -640,7 +644,7 @@ where
         renderer: &Renderer,
         _viewport: &Rectangle,
         translation: iced::Vector,
-    ) -> Option<advanced::overlay::Element<'b, Message, Theme, Renderer>> {
+    ) -> Vec<advanced::overlay::Element<'b, Message, Theme, Renderer>> {
         self(state, inner, tree, layout, renderer, translation)
     }
 }
@@ -783,6 +787,7 @@ where
         &mut self,
         tree: &mut advanced::widget::Tree,
         layout: advanced::Layout<'_>,
+        viewport: &Rectangle,
         renderer: &Renderer,
         operation: &mut dyn advanced::widget::Operation<()>,
     ) {
@@ -791,6 +796,7 @@ where
             &mut self.inner,
             &mut tree.children[0],
             layout,
+            viewport,
             renderer,
             operation,
         );
@@ -803,7 +809,7 @@ where
         renderer: &Renderer,
         viewport: &Rectangle,
         translation: iced::Vector,
-    ) -> Option<advanced::overlay::Element<'b, Message, Theme, Renderer>> {
+    ) -> Vec<advanced::overlay::Element<'b, Message, Theme, Renderer>> {
         self.overlay.overlay(
             tree.state.downcast_mut(),
             &mut self.inner,
