@@ -57,7 +57,7 @@ jobs:
 
       - name: Install cargo-edit
         if: matrix.target.target == 'windows'
-        uses: taiki-e/install-action@d438492cf8a250514fa2d34b30bc3c0dc37c65ff # v2
+        uses: taiki-e/install-action@26e9283f268b880168bdbd2c545dfcd60ec2c6ab # v2
         with:
           tool: cargo-edit
 
@@ -85,7 +85,7 @@ jobs:
 
       - name: Sign Windows executable
         if: matrix.target.target == 'windows'
-        uses: signpath/github-action-submit-signing-request@v2
+        uses: signpath/github-action-submit-signing-request@v3
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
@@ -131,7 +131,7 @@ jobs:
 
       - name: Sign Windows installer
         if: matrix.target.target == 'windows'
-        uses: signpath/github-action-submit-signing-request@v2
+        uses: signpath/github-action-submit-signing-request@v3
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
