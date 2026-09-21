@@ -167,7 +167,7 @@ where
         state: &'b mut widget::Tree,
         layout: Layout<'b>,
         _renderer: &Renderer,
-        viewport: &Rectangle,
+        _viewport: &Rectangle,
         translation: Vector,
     ) -> Vec<overlay::Element<'b, Message, Theme, Renderer>> {
         vec![overlay::Element::new(Box::new(Overlay {
@@ -178,7 +178,6 @@ where
             on_blur: &self.on_blur,
             backdrop: self.backdrop,
             shadow: self.shadow,
-            viewport: *viewport,
         }))]
     }
 
@@ -219,7 +218,6 @@ struct Overlay<'a, 'b, Message, Theme, Renderer> {
     on_blur: &'b dyn Fn() -> Message,
     backdrop: Color,
     shadow: Shadow,
-    viewport: Rectangle,
 }
 
 impl<Message, Theme, Renderer> overlay::Overlay<Message, Theme, Renderer>
@@ -366,7 +364,7 @@ where
             self.tree,
             layout.children().next().unwrap(),
             renderer,
-            &self.viewport,
+            &layout.bounds(),
             Vector::ZERO,
         )
     }
