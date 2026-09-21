@@ -864,6 +864,11 @@ pub fn view<'a>(
                     .width(config.pane.scrollbar.width)
                     .scroller_width(config.pane.scrollbar.scroller_width),
             ))
+            .style(if config.pane.scrollbar.hidden {
+                theme::scrollable::hidden
+            } else {
+                theme::scrollable::primary
+            })
             .on_scroll(move |viewport| Message::Scrolled {
                 has_more_older_messages,
                 has_more_newer_messages,

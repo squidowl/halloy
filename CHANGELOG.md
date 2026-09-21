@@ -23,7 +23,7 @@ Added:
 - Server context menu action to open Channel Discovery with that server selected
 - Animated GIFs support
 - Support link delimiters (`<` & `>`) with markdown formatting
-- Config option `buffer.channel.nicklist.scrollbar.hidden` that controls whether the nicklist scrollbar is enabled or not
+- Config options `buffer.channel.nicklist.scrollbar.hidden`, `sidebar.scrollbar.hidden`, and `pane.scrollbar.hidden` that control whether the nicklist, sidebar, and in-pane scrollbars respectively are enabled or not
 
 Fixed:
 

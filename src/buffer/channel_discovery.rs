@@ -382,6 +382,11 @@ fn channel_list_view<'a>(
                 .width(config.pane.scrollbar.width)
                 .scroller_width(config.pane.scrollbar.scroller_width),
         ))
+        .style(if config.pane.scrollbar.hidden {
+            theme::scrollable::hidden
+        } else {
+            theme::scrollable::primary
+        })
         .into()
 }
 

@@ -19,6 +19,19 @@ restore_on_launch = false
 
 Scrollbar configuration.
 
+### `hidden`
+
+Whether the scrollbar is hidden.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[pane.scrollbar]
+hidden = true
+```
+
 ## `width`
 
 Width of the scrollbar.

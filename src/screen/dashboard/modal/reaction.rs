@@ -151,6 +151,11 @@ pub fn view<'a>(state: &'a State, config: &'a Config) -> Element<'a, Message> {
                     .width(config.pane.scrollbar.width)
                     .scroller_width(config.pane.scrollbar.scroller_width),
             ))
+            .style(if config.pane.scrollbar.hidden {
+                theme::scrollable::hidden
+            } else {
+                theme::scrollable::primary
+            })
             .width(Length::Fill)
             .height(Length::Fill)
             .into()
