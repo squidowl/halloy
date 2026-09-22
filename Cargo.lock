@@ -1590,6 +1590,7 @@ dependencies = [
  "rand 0.10.2",
  "rand_chacha 0.10.0",
  "reqwest",
+ "sanitize-filename",
  "seahash",
  "serde",
  "serde-untagged",
