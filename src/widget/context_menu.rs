@@ -114,7 +114,6 @@ pub struct ContextMenu<'a, Message, Theme, Renderer> {
 #[derive(Debug, Default)]
 pub struct State {
     status: Status,
-    layout: Option<layout::Node>,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
@@ -125,6 +124,7 @@ pub enum Status {
         position: Point,
         // Keep context menu open if button press is inside specified bounds
         keep_open_bounds: Option<(Vector, Size)>,
+        needs_relayout: bool,
     },
 }
 
@@ -179,12 +179,13 @@ where
         tree: &mut widget::Tree,
         renderer: &Renderer,
         limits: &layout::Limits,
-    ) -> layout::Node {
+    ) {
         self.base.as_widget_mut().layout(
             &mut tree.children[0],
             renderer,
             limits,
-        )
+        );
+        tree.size = tree.children[0].size;
     }
 
     fn draw(
@@ -193,7 +194,7 @@ where
         renderer: &mut Renderer,
         theme: &Theme,
         style: &renderer::Style,
-        layout: Layout<'_>,
+        layout: Layout,
         cursor: mouse::Cursor,
         viewport: &Rectangle,
     ) {
@@ -219,8 +220,8 @@ where
     fn diff(&mut self, tree: &mut widget::Tree) {
         let state = tree.state.downcast_mut::<State>();
 
-        if state.status.position().is_some() {
-            state.layout = None;
+        if let Status::Open { needs_relayout, .. } = &mut state.status {
+            *needs_relayout = true;
             tree.diff_children(&mut [&mut self.base, &mut self.menu]);
         } else {
             tree.diff_children(&mut [&mut self.base]);
@@ -230,7 +231,7 @@ where
     fn operate(
         &mut self,
         tree: &mut iced::advanced::widget::Tree,
-        layout: Layout<'_>,
+        layout: Layout,
         viewport: &Rectangle,
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
@@ -252,7 +253,7 @@ where
         &mut self,
         tree: &mut widget::Tree,
         event: &Event,
-        layout: Layout<'_>,
+        layout: Layout,
         cursor: mouse::Cursor,
         renderer: &Renderer,
         shell: &mut Shell<'_, Message>,
@@ -324,6 +325,7 @@ where
                     Status::Open {
                         position,
                         keep_open_bounds: None,
+                        needs_relayout: true,
                     }
                 }
                 (
@@ -342,6 +344,7 @@ where
                             layout_bounds.position() - position,
                             layout_bounds.size(),
                         )),
+                        needs_relayout: true,
                     }
                 }
                 (_, Status::Open { .. }, _, None)
@@ -357,7 +360,6 @@ where
                 if matches!(next_status, Status::Open { .. })
                     != matches!(prev_status, Status::Open { .. })
                 {
-                    state.layout = None;
                     shell.invalidate_overlay();
 
                     if tree.children.len() == 1 {
@@ -385,7 +387,7 @@ where
     fn mouse_interaction(
         &self,
         tree: &widget::Tree,
-        layout: Layout<'_>,
+        layout: Layout,
         cursor: mouse::Cursor,
         viewport: &Rectangle,
         renderer: &Renderer,
@@ -408,7 +410,7 @@ where
     fn overlay<'b>(
         &'b mut self,
         tree: &'b mut widget::Tree,
-        layout: Layout<'b>,
+        layout: Layout,
         renderer: &Renderer,
         viewport: &Rectangle,
         translation: Vector,
@@ -438,26 +440,19 @@ where
             window,
         );
 
-        if state.layout.is_none() {
+        if let Status::Open { needs_relayout, .. } = &mut state.status
+            && *needs_relayout
+        {
             let limits = layout::Limits::new(Size::ZERO, window)
                 .width(Length::Fill)
                 .height(Length::Fill);
 
-            state.layout = Some(self.menu.as_widget_mut().layout(
-                &mut second[0],
-                renderer,
-                &limits,
-            ));
+            self.menu
+                .as_widget_mut()
+                .layout(&mut second[0], renderer, &limits);
+
+            *needs_relayout = false;
         }
-
-        let State {
-            status,
-            layout: menu_layout,
-        } = state;
-
-        let node = menu_layout
-            .as_ref()
-            .expect("the context menu's node was computed above");
 
         // Small padding to ensure that we don't spawn context menu at the very edge of the viewport.
         let padding = 5.0;
@@ -468,7 +463,8 @@ where
                 window.height - 2.0 * padding,
             ),
         );
-        let mut bounds = Rectangle::new(position + translation, node.size());
+        let size = second[0].size;
+        let mut bounds = Rectangle::new(position + translation, size);
 
         if bounds.x < viewport.x {
             bounds.x = viewport.x;
@@ -485,9 +481,9 @@ where
         let overlay = overlay::Element::new(Box::new(Overlay {
             menu: &mut self.menu,
             tree: &mut second[0],
-            status,
+            status: &mut state.status,
             position: position + translation,
-            layout: Layout::new(node).move_to(bounds.position()),
+            layout: Layout::new(size).move_to(bounds.position()),
         }));
 
         base.into_iter().chain(std::iter::once(overlay)).collect()
@@ -590,7 +586,7 @@ struct Overlay<'a, 'b, Message, Theme, Renderer> {
     tree: &'b mut widget::Tree,
     status: &'b mut Status,
     position: Point,
-    layout: Layout<'b>,
+    layout: Layout,
 }
 
 impl<Message, Theme, Renderer> overlay::Overlay<Message, Theme, Renderer>

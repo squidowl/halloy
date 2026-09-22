@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use std::slice;
 
-use iced::advanced::{self, Widget, layout};
+use iced::advanced::{self, Widget};
 use iced::{Element, Rectangle};
 
 pub fn decorate<'a, Message, Theme, Renderer>(
@@ -272,7 +272,7 @@ pub trait Layout<'a, Message, Theme, Renderer, State> {
         tree: &mut iced::advanced::widget::Tree,
         renderer: &Renderer,
         limits: &iced::advanced::layout::Limits,
-    ) -> layout::Node;
+    );
 }
 
 impl<'a, Message, Theme, Renderer, State>
@@ -287,7 +287,7 @@ where
         tree: &mut iced::advanced::widget::Tree,
         renderer: &Renderer,
         limits: &iced::advanced::layout::Limits,
-    ) -> layout::Node {
+    ) {
         inner.as_widget_mut().layout(tree, renderer, limits)
     }
 }
@@ -301,8 +301,7 @@ where
             &mut iced::advanced::widget::Tree,
             &Renderer,
             &iced::advanced::layout::Limits,
-        ) -> layout::Node
-        + 'a,
+        ) + 'a,
 {
     fn layout(
         &mut self,
@@ -311,7 +310,7 @@ where
         tree: &mut iced::advanced::widget::Tree,
         renderer: &Renderer,
         limits: &iced::advanced::layout::Limits,
-    ) -> layout::Node {
+    ) {
         self(state, inner, tree, renderer, limits)
     }
 }
@@ -323,7 +322,7 @@ pub trait Update<'a, Message, Theme, Renderer, State> {
         inner: &mut Element<'a, Message, Theme, Renderer>,
         tree: &mut advanced::widget::Tree,
         event: &iced::Event,
-        layout: advanced::Layout<'_>,
+        layout: advanced::layout::Layout,
         cursor: advanced::mouse::Cursor,
         renderer: &Renderer,
         shell: &mut advanced::Shell<'_, Message>,
@@ -342,7 +341,7 @@ where
         inner: &mut Element<'a, Message, Theme, Renderer>,
         tree: &mut advanced::widget::Tree,
         event: &iced::Event,
-        layout: advanced::Layout<'_>,
+        layout: advanced::layout::Layout,
         cursor: advanced::mouse::Cursor,
         renderer: &Renderer,
         shell: &mut advanced::Shell<'_, Message>,
@@ -362,7 +361,7 @@ where
             &mut Element<'a, Message, Theme, Renderer>,
             &mut advanced::widget::Tree,
             &iced::Event,
-            advanced::Layout<'_>,
+            advanced::layout::Layout,
             advanced::mouse::Cursor,
             &Renderer,
             &mut advanced::Shell<'_, Message>,
@@ -375,7 +374,7 @@ where
         inner: &mut Element<'a, Message, Theme, Renderer>,
         tree: &mut advanced::widget::Tree,
         event: &iced::Event,
-        layout: advanced::Layout<'_>,
+        layout: advanced::layout::Layout,
         cursor: advanced::mouse::Cursor,
         renderer: &Renderer,
         shell: &mut advanced::Shell<'_, Message>,
@@ -397,7 +396,7 @@ pub trait Draw<'a, Message, Theme, Renderer, State> {
         renderer: &mut Renderer,
         theme: &Theme,
         style: &iced::advanced::renderer::Style,
-        layout: iced::advanced::Layout<'_>,
+        layout: iced::advanced::layout::Layout,
         cursor: iced::advanced::mouse::Cursor,
         viewport: &iced::Rectangle,
     );
@@ -416,7 +415,7 @@ where
         renderer: &mut Renderer,
         theme: &Theme,
         style: &iced::advanced::renderer::Style,
-        layout: iced::advanced::Layout<'_>,
+        layout: iced::advanced::layout::Layout,
         cursor: iced::advanced::mouse::Cursor,
         viewport: &iced::Rectangle,
     ) {
@@ -436,7 +435,7 @@ where
             &mut Renderer,
             &Theme,
             &iced::advanced::renderer::Style,
-            iced::advanced::Layout<'_>,
+            iced::advanced::layout::Layout,
             iced::advanced::mouse::Cursor,
             &iced::Rectangle,
         ) + 'a,
@@ -449,7 +448,7 @@ where
         renderer: &mut Renderer,
         theme: &Theme,
         style: &iced::advanced::renderer::Style,
-        layout: iced::advanced::Layout<'_>,
+        layout: iced::advanced::layout::Layout,
         cursor: iced::advanced::mouse::Cursor,
         viewport: &iced::Rectangle,
     ) {
@@ -466,7 +465,7 @@ pub trait MouseInteraction<'a, Message, Theme, Renderer, State> {
         state: &State,
         inner: &Element<'a, Message, Theme, Renderer>,
         tree: &advanced::widget::Tree,
-        layout: advanced::Layout<'_>,
+        layout: advanced::layout::Layout,
         cursor: advanced::mouse::Cursor,
         viewport: &iced::Rectangle,
         renderer: &Renderer,
@@ -483,7 +482,7 @@ where
         _state: &State,
         inner: &Element<'a, Message, Theme, Renderer>,
         tree: &advanced::widget::Tree,
-        layout: advanced::Layout<'_>,
+        layout: advanced::layout::Layout,
         cursor: advanced::mouse::Cursor,
         viewport: &iced::Rectangle,
         renderer: &Renderer,
@@ -501,7 +500,7 @@ where
             &State,
             &Element<'a, Message, Theme, Renderer>,
             &advanced::widget::Tree,
-            advanced::Layout<'_>,
+            advanced::layout::Layout,
             advanced::mouse::Cursor,
             &iced::Rectangle,
             &Renderer,
@@ -513,7 +512,7 @@ where
         state: &State,
         inner: &Element<'a, Message, Theme, Renderer>,
         tree: &advanced::widget::Tree,
-        layout: advanced::Layout<'_>,
+        layout: advanced::layout::Layout,
         cursor: advanced::mouse::Cursor,
         viewport: &iced::Rectangle,
         renderer: &Renderer,
@@ -528,7 +527,7 @@ pub trait Operate<'a, Message, Theme, Renderer, State> {
         state: &mut State,
         inner: &mut Element<'a, Message, Theme, Renderer>,
         tree: &mut advanced::widget::Tree,
-        layout: advanced::Layout<'_>,
+        layout: advanced::layout::Layout,
         viewport: &Rectangle,
         renderer: &Renderer,
         operation: &mut dyn advanced::widget::Operation<()>,
@@ -545,7 +544,7 @@ where
         _state: &mut State,
         inner: &mut Element<'a, Message, Theme, Renderer>,
         tree: &mut advanced::widget::Tree,
-        layout: advanced::Layout<'_>,
+        layout: advanced::layout::Layout,
         viewport: &Rectangle,
         renderer: &Renderer,
         operation: &mut dyn advanced::widget::Operation<()>,
@@ -563,7 +562,7 @@ where
             &mut State,
             &mut Element<'a, Message, Theme, Renderer>,
             &mut advanced::widget::Tree,
-            advanced::Layout<'_>,
+            advanced::layout::Layout,
             &Rectangle,
             &Renderer,
             &mut dyn advanced::widget::Operation<()>,
@@ -574,7 +573,7 @@ where
         state: &mut State,
         inner: &mut Element<'a, Message, Theme, Renderer>,
         tree: &mut advanced::widget::Tree,
-        layout: advanced::Layout<'_>,
+        layout: advanced::layout::Layout,
         rectangle: &Rectangle,
         renderer: &Renderer,
         operation: &mut dyn advanced::widget::Operation<()>,
@@ -589,7 +588,7 @@ pub trait Overlay<'a, Message, Theme, Renderer, State> {
         state: &'b mut State,
         inner: &'b mut Element<'a, Message, Theme, Renderer>,
         tree: &'b mut advanced::widget::Tree,
-        layout: advanced::Layout<'b>,
+        layout: advanced::layout::Layout,
         renderer: &Renderer,
         viewport: &Rectangle,
         translation: iced::Vector,
@@ -607,7 +606,7 @@ where
         _state: &'b mut State,
         inner: &'b mut Element<'a, Message, Theme, Renderer>,
         tree: &'b mut advanced::widget::Tree,
-        layout: advanced::Layout<'b>,
+        layout: advanced::layout::Layout,
         renderer: &Renderer,
         viewport: &Rectangle,
         translation: iced::Vector,
@@ -631,7 +630,7 @@ where
             &'b mut State,
             &'b mut Element<'a, Message, Theme, Renderer>,
             &'b mut advanced::widget::Tree,
-            advanced::Layout<'_>,
+            advanced::layout::Layout,
             &Renderer,
             iced::Vector,
             iced::Size,
@@ -644,7 +643,7 @@ where
         state: &'b mut State,
         inner: &'b mut Element<'a, Message, Theme, Renderer>,
         tree: &'b mut advanced::widget::Tree,
-        layout: advanced::Layout<'_>,
+        layout: advanced::layout::Layout,
         renderer: &Renderer,
         _viewport: &Rectangle,
         translation: iced::Vector,
@@ -713,21 +712,22 @@ where
         tree: &mut iced::advanced::widget::Tree,
         renderer: &Renderer,
         limits: &iced::advanced::layout::Limits,
-    ) -> iced::advanced::layout::Node {
+    ) {
         self.layout.layout(
             tree.state.downcast_mut(),
             &mut self.inner,
             &mut tree.children[0],
             renderer,
             limits,
-        )
+        );
+        tree.size = tree.children[0].size;
     }
 
     fn update(
         &mut self,
         tree: &mut advanced::widget::Tree,
         event: &iced::Event,
-        layout: advanced::Layout<'_>,
+        layout: advanced::layout::Layout,
         cursor: advanced::mouse::Cursor,
         renderer: &Renderer,
         shell: &mut advanced::Shell<'_, Message>,
@@ -752,7 +752,7 @@ where
         renderer: &mut Renderer,
         theme: &Theme,
         style: &iced::advanced::renderer::Style,
-        layout: iced::advanced::Layout<'_>,
+        layout: iced::advanced::layout::Layout,
         cursor: iced::advanced::mouse::Cursor,
         viewport: &iced::Rectangle,
     ) {
@@ -772,7 +772,7 @@ where
     fn mouse_interaction(
         &self,
         tree: &advanced::widget::Tree,
-        layout: advanced::Layout<'_>,
+        layout: advanced::layout::Layout,
         cursor: advanced::mouse::Cursor,
         viewport: &iced::Rectangle,
         renderer: &Renderer,
@@ -791,7 +791,7 @@ where
     fn operate(
         &mut self,
         tree: &mut advanced::widget::Tree,
-        layout: advanced::Layout<'_>,
+        layout: advanced::layout::Layout,
         viewport: &Rectangle,
         renderer: &Renderer,
         operation: &mut dyn advanced::widget::Operation<()>,
@@ -810,7 +810,7 @@ where
     fn overlay<'b>(
         &'b mut self,
         tree: &'b mut advanced::widget::Tree,
-        layout: advanced::Layout<'b>,
+        layout: advanced::Layout,
         renderer: &Renderer,
         viewport: &Rectangle,
         translation: iced::Vector,

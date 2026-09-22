@@ -331,7 +331,7 @@ fn picker<'a, Message: 'a>(
                   _inner: &mut Element<'a, Message>,
                   _tree: &mut advanced::widget::Tree,
                   event: &iced::Event,
-                  layout: advanced::Layout<'_>,
+                  layout: advanced::Layout,
                   cursor: advanced::mouse::Cursor,
                   _renderer: &Renderer,
                   shell: &mut advanced::Shell<'_, Message>,
