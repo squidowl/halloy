@@ -1201,7 +1201,11 @@ impl State {
 
                 // Send command.
                 if let Some(input) = input {
-                    clients.send(&buffer, input, TokenPriority::User);
+                    clients.send_from_buffer(
+                        &buffer,
+                        input,
+                        TokenPriority::User,
+                    );
                 }
 
                 (Task::none(), None)
@@ -1821,7 +1825,7 @@ impl State {
 
             (send_count, multiline_line_count)
         } else {
-            (1, 1)
+            (1.min(lines.len()), 1.min(lines.len()))
         };
 
         let remaining_lines = lines.split_off(send_count);
@@ -1886,12 +1890,13 @@ impl State {
                 .as_ref()
                 .map(|input::DraftReply { id, .. }| id);
 
-            let labeled_response_context = clients.send_multiline_batch(
-                buffer,
-                encoded,
-                TokenPriority::User,
-                reply_id,
-            );
+            let labeled_response_context = clients
+                .send_multiline_batch_from_buffer(
+                    buffer,
+                    encoded,
+                    TokenPriority::User,
+                    reply_id,
+                );
 
             let supports_echoes =
                 clients.get_server_supports_echoes(buffer.server());
@@ -2166,7 +2171,7 @@ impl State {
 
                         // Send part command.
                         if let Some(part_command) = part_command {
-                            clients.send(
+                            clients.send_from_buffer(
                                 buffer,
                                 part_command,
                                 TokenPriority::User,
@@ -2343,58 +2348,59 @@ impl State {
             }
         };
 
-        let labeled_response_context =
-            if let Some(mut encoded) = input.encoded() {
-                let reply_id = self
-                    .draft_reply
-                    .as_ref()
-                    .map(|input::DraftReply { id, .. }| id);
+        let labeled_response_context = if let Some(mut encoded) =
+            input.encoded()
+        {
+            let reply_id = self
+                .draft_reply
+                .as_ref()
+                .map(|input::DraftReply { id, .. }| id);
 
-                encoded.set_reply_to(reply_id);
+            encoded.set_reply_to(reply_id);
 
-                let sent_time = encoded.server_time_or_now().0;
+            let sent_time = encoded.server_time_or_now().0;
 
-                let labeled_response_context =
-                    clients.send(buffer, encoded, TokenPriority::User);
+            let labeled_response_context =
+                clients.send_from_buffer(buffer, encoded, TokenPriority::User);
 
-                let supports_echoes =
-                    clients.get_server_supports_echoes(buffer.server());
+            let supports_echoes =
+                clients.get_server_supports_echoes(buffer.server());
 
-                // If the server supports echoes, then send MARKREAD on echo only
-                // (not when recording the input)
-                if config.buffer.mark_as_read.on_message_sent
-                    && matches!(
-                        input.command(),
-                        Some(command::Irc::Msg(_, _))
-                            | Some(command::Irc::Notice(_, _))
-                    )
-                    && !supports_echoes
+            // If the server supports echoes, then send MARKREAD on echo only
+            // (not when recording the input)
+            if config.buffer.mark_as_read.on_message_sent
+                && matches!(
+                    input.command(),
+                    Some(command::Irc::Msg(_, _))
+                        | Some(command::Irc::Notice(_, _))
+                )
+                && !supports_echoes
+            {
+                let chantypes =
+                    clients.get_server_chantypes_or_default(buffer.server());
+                let statusmsg =
+                    clients.get_server_statusmsg_or_default(buffer.server());
+                let casemapping =
+                    clients.get_server_casemapping_or_default(buffer.server());
+
+                if let Some(targets) =
+                    input.targets(chantypes, statusmsg, casemapping)
                 {
-                    let chantypes = clients
-                        .get_server_chantypes_or_default(buffer.server());
-                    let statusmsg = clients
-                        .get_server_statusmsg_or_default(buffer.server());
-                    let casemapping = clients
-                        .get_server_casemapping_or_default(buffer.server());
-
-                    if let Some(targets) =
-                        input.targets(chantypes, statusmsg, casemapping)
-                    {
-                        for target in targets {
-                            clients.send_markread(
-                                buffer.server(),
-                                target,
-                                ReadMarker::from(sent_time),
-                                TokenPriority::High,
-                            );
-                        }
+                    for target in targets {
+                        clients.send_markread(
+                            buffer.server(),
+                            target,
+                            ReadMarker::from(sent_time),
+                            TokenPriority::High,
+                        );
                     }
                 }
+            }
 
-                labeled_response_context
-            } else {
-                None
-            };
+            labeled_response_context
+        } else {
+            None
+        };
 
         let mut history_task = Task::none();
 
@@ -2832,7 +2838,7 @@ impl State {
         .encoded();
 
         if let Some(encoded) = encoded {
-            clients.send(buffer, encoded, TokenPriority::Low);
+            clients.send_from_buffer(buffer, encoded, TokenPriority::Low);
         }
     }
 

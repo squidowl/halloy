@@ -601,7 +601,7 @@ impl Dashboard {
                                             );
 
                                         if let Some(encoded) = input.encoded() {
-                                            clients.send(
+                                            clients.send_from_buffer(
                                                 &input.buffer,
                                                 encoded,
                                                 TokenPriority::User,
@@ -2175,7 +2175,7 @@ impl Dashboard {
                         let input = data::Input::from_command(buffer, command);
 
                         if let Some(encoded) = input.encoded() {
-                            clients.send(
+                            clients.send_from_buffer(
                                 &input.buffer,
                                 encoded,
                                 TokenPriority::User,
@@ -2197,7 +2197,7 @@ impl Dashboard {
                             data::Input::from_command(buffer.clone(), command);
 
                         if let Some(encoded) = input.encoded() {
-                            clients.send(
+                            clients.send_from_buffer(
                                 &input.buffer,
                                 encoded,
                                 TokenPriority::User,
@@ -2219,7 +2219,7 @@ impl Dashboard {
                             data::Input::from_command(buffer.clone(), command);
 
                         if let Some(encoded) = input.encoded() {
-                            clients.send(
+                            clients.send_from_buffer(
                                 &input.buffer,
                                 encoded,
                                 TokenPriority::User,
@@ -2297,7 +2297,7 @@ impl Dashboard {
                             data::Input::from_command(buffer.clone(), command);
 
                         if let Some(encoded) = input.encoded() {
-                            clients.send(
+                            clients.send_from_buffer(
                                 &input.buffer,
                                 encoded,
                                 TokenPriority::High,
@@ -3257,7 +3257,11 @@ impl Dashboard {
         let input = data::Input::from_command(buffer, command);
 
         if let Some(encoded) = input.encoded() {
-            clients.send(&input.buffer, encoded, TokenPriority::User);
+            clients.send_from_buffer(
+                &input.buffer,
+                encoded,
+                TokenPriority::User,
+            );
         }
     }
 
@@ -3525,7 +3529,11 @@ impl Dashboard {
                 let input = data::Input::from_command(buffer.clone(), command);
 
                 if let Some(encoded) = input.encoded() {
-                    clients.send(&buffer, encoded, TokenPriority::High);
+                    clients.send_from_buffer(
+                        &buffer,
+                        encoded,
+                        TokenPriority::High,
+                    );
                 }
 
                 tasks.push(
@@ -3593,7 +3601,11 @@ impl Dashboard {
                 let input = data::Input::from_command(buffer.clone(), command);
 
                 if let Some(encoded) = input.encoded() {
-                    clients.send(&buffer, encoded, TokenPriority::User);
+                    clients.send_from_buffer(
+                        &buffer,
+                        encoded,
+                        TokenPriority::User,
+                    );
                 }
 
                 tasks.push(
@@ -3732,7 +3744,7 @@ impl Dashboard {
                     .map(message::Encoded::from)
             {
                 let labeled_response_context = if multiline {
-                    clients.send_multiline_batch(
+                    clients.send_multiline_batch_from_buffer(
                         buffer,
                         vec![encoded],
                         TokenPriority::User,
@@ -3741,7 +3753,11 @@ impl Dashboard {
                 } else {
                     encoded.set_reply_to(reply_id);
 
-                    clients.send(buffer, encoded, TokenPriority::User)
+                    clients.send_from_buffer(
+                        buffer,
+                        encoded,
+                        TokenPriority::User,
+                    )
                 };
 
                 return Task::batch(

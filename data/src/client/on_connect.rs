@@ -3,19 +3,20 @@ use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 
+use futures::StreamExt;
 use futures::stream::{self, BoxStream};
-use futures::{SinkExt, StreamExt};
 use tokio::time;
 
 use crate::capabilities::Capabilities;
 use crate::features::Features;
 use crate::user::NickRef;
-use crate::{Command, Target, command, config, isupport, message, server};
+use crate::{Command, Target, command, config, isupport, message};
 
 #[derive(Debug)]
 pub enum Event {
     OpenBuffers(Vec<Target>),
     LeaveBuffers(Vec<Target>, Option<String>),
+    Command(message::Encoded),
 }
 
 pub struct Stream(BoxStream<'static, Event>);
@@ -38,7 +39,6 @@ impl fmt::Debug for Stream {
 }
 
 pub fn on_connect(
-    handle: server::Handle,
     server_config: Arc<config::Server>,
     our_nickname: NickRef,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
@@ -70,19 +70,16 @@ pub fn on_connect(
     Stream(
         stream::iter(commands)
             .filter_map(move |command| {
-                let mut handle = handle.clone();
-
                 async move {
                     match command {
                         Command::Irc(command, _) => {
-                            if let Ok(message) =
+                            if let Ok(encoded) =
                                 message::Encoded::try_from(command)
-                                && let Err(e) =
-                                    handle.send(message.into()).await
                             {
-                                log::warn!("Error sending message: {e}");
+                                Some(Event::Command(encoded))
+                            } else {
+                                None
                             }
-                            None
                         }
                         Command::Internal(cmd) => match cmd {
                             command::Internal::OpenBuffers(targets) => {
