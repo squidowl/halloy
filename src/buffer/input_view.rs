@@ -344,7 +344,7 @@ pub fn view<'a>(
               inner: &mut Element<'a, Message>,
               tree: &mut Tree,
               event: &iced::Event,
-              layout: Layout<'_>,
+              layout: Layout,
               cursor: mouse::Cursor,
               renderer: &Renderer,
               shell: &mut Shell<'_, Message>,

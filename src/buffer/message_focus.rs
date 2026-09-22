@@ -798,7 +798,7 @@ pub(crate) fn focus_outline<'a, Message: 'a>(
                   renderer: &mut crate::widget::Renderer,
                   theme: &Theme,
                   style: &renderer::Style,
-                  layout: Layout<'_>,
+                  layout: Layout,
                   cursor: mouse::Cursor,
                   viewport: &iced::Rectangle| {
                 let layout_bounds = layout.bounds();

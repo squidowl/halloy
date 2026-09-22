@@ -96,10 +96,10 @@ where
 
     fn layout(
         &mut self,
-        _tree: &mut Tree,
+        tree: &mut Tree,
         renderer: &Renderer,
         limits: &layout::Limits,
-    ) -> layout::Node {
+    ) {
         // The raw w/h of the underlying image
         let Size { width, height } = renderer.measure_svg(&self.svg.handle);
         let image_size = Size::new(width as f32, height as f32);
@@ -116,7 +116,7 @@ where
         let full_size = self.content_fit.fit(rotated_size, raw_size);
 
         // Shrink the widget to fit the resized image, if requested
-        let final_size = Size {
+        tree.size = Size {
             width: match self.width {
                 Length::Shrink => f32::min(raw_size.width, full_size.width),
                 _ => raw_size.width,
@@ -126,15 +126,13 @@ where
                 _ => raw_size.height,
             },
         };
-
-        layout::Node::new(final_size)
     }
 
     fn update(
         &mut self,
         _state: &mut Tree,
         _event: &Event,
-        _layout: Layout<'_>,
+        _layout: Layout,
         _cursor: mouse::Cursor,
         _renderer: &Renderer,
         _shell: &mut Shell<'_, Message>,
@@ -148,7 +146,7 @@ where
         renderer: &mut Renderer,
         theme: &Theme,
         style: &renderer::Style,
-        layout: Layout<'_>,
+        layout: Layout,
         _cursor: mouse::Cursor,
         _viewport: &Rectangle,
     ) {

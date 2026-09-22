@@ -211,7 +211,7 @@ fn viewer<'a, Message: 'a>(
                     let bounds =
                         limits.resolve(size.width, size.height, dimensions);
                     let fitted = content_fit.fit(dimensions, bounds);
-                    layout::Node::new(Size {
+                    tree.size = Size {
                         width: if size.width == Length::Shrink {
                             bounds.width.min(fitted.width)
                         } else {
@@ -222,7 +222,7 @@ fn viewer<'a, Message: 'a>(
                         } else {
                             bounds.height
                         },
-                    })
+                    };
                 } else {
                     inner.as_widget_mut().layout(tree, renderer, limits)
                 }
@@ -233,7 +233,7 @@ fn viewer<'a, Message: 'a>(
                   inner: &mut Element<'a, Message>,
                   tree: &mut widget::Tree,
                   event: &Event,
-                  layout: layout::Layout<'_>,
+                  layout: layout::Layout,
                   cursor: mouse::Cursor,
                   renderer: &iced::Renderer,
                   shell: &mut Shell<'_, Message>,
@@ -296,7 +296,7 @@ fn viewer<'a, Message: 'a>(
             move |state: &mut State,
                   inner: &mut Element<'a, Message>,
                   tree: &mut widget::Tree,
-                  layout: layout::Layout<'_>,
+                  layout: layout::Layout,
                   viewport: &Rectangle,
                   renderer: &iced::Renderer,
                   operation: &mut dyn Operation| {
@@ -330,7 +330,7 @@ fn viewer<'a, Message: 'a>(
                   renderer: &mut iced::Renderer,
                   theme: &crate::Theme,
                   style: &renderer::Style,
-                  layout: layout::Layout<'_>,
+                  layout: layout::Layout,
                   cursor: iced::mouse::Cursor,
                   viewport: &Rectangle| {
                 if let Some((id, frame)) = &state.frame

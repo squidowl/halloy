@@ -1,4 +1,3 @@
-use iced::advanced::widget::tree;
 use iced::advanced::{
     Layout, Renderer as _, Shell, Widget, layout, overlay, renderer, widget,
 };
@@ -39,22 +38,9 @@ struct AnchoredOverlay<'a, Message> {
     on_dismiss: Option<Box<dyn Fn() -> Message + 'a>>,
 }
 
-#[derive(Debug, Default)]
-struct State {
-    layout: Option<layout::Node>,
-}
-
 impl<Message> Widget<Message, Theme, Renderer>
     for AnchoredOverlay<'_, Message>
 {
-    fn tag(&self) -> tree::Tag {
-        tree::Tag::of::<State>()
-    }
-
-    fn state(&self) -> tree::State {
-        tree::State::new(State::default())
-    }
-
     fn size(&self) -> Size<Length> {
         self.base.as_widget().size()
     }
@@ -64,12 +50,13 @@ impl<Message> Widget<Message, Theme, Renderer>
         tree: &mut widget::Tree,
         renderer: &Renderer,
         limits: &layout::Limits,
-    ) -> layout::Node {
+    ) {
         self.base.as_widget_mut().layout(
             &mut tree.children[0],
             renderer,
             limits,
-        )
+        );
+        tree.size = tree.children[0].size;
     }
 
     fn draw(
@@ -78,7 +65,7 @@ impl<Message> Widget<Message, Theme, Renderer>
         renderer: &mut Renderer,
         theme: &Theme,
         style: &renderer::Style,
-        layout: Layout<'_>,
+        layout: Layout,
         cursor: mouse::Cursor,
         viewport: &Rectangle,
     ) {
@@ -94,14 +81,13 @@ impl<Message> Widget<Message, Theme, Renderer>
     }
 
     fn diff(&mut self, tree: &mut widget::Tree) {
-        tree.state.downcast_mut::<State>().layout = None;
         tree.diff_children(&mut [&mut self.base, &mut self.overlay]);
     }
 
     fn operate(
         &mut self,
         tree: &mut iced::advanced::widget::Tree,
-        layout: Layout<'_>,
+        layout: Layout,
         viewport: &Rectangle,
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
@@ -119,7 +105,7 @@ impl<Message> Widget<Message, Theme, Renderer>
         &mut self,
         tree: &mut widget::Tree,
         event: &Event,
-        layout: Layout<'_>,
+        layout: Layout,
         cursor: mouse::Cursor,
         renderer: &Renderer,
         shell: &mut Shell<'_, Message>,
@@ -139,7 +125,7 @@ impl<Message> Widget<Message, Theme, Renderer>
     fn mouse_interaction(
         &self,
         tree: &widget::Tree,
-        layout: Layout<'_>,
+        layout: Layout,
         cursor: mouse::Cursor,
         viewport: &Rectangle,
         renderer: &Renderer,
@@ -156,7 +142,7 @@ impl<Message> Widget<Message, Theme, Renderer>
     fn overlay<'b>(
         &'b mut self,
         tree: &'b mut widget::Tree,
-        layout: Layout<'b>,
+        layout: Layout,
         renderer: &Renderer,
         viewport: &Rectangle,
         translation: Vector,
@@ -176,34 +162,22 @@ impl<Message> Widget<Message, Theme, Renderer>
         let position = layout.position() + translation;
         let viewport = *viewport + translation;
 
-        let state = tree.state.downcast_mut::<State>();
+        let (width, height) = match self.anchor {
+            // From top of base to top of viewport
+            Anchor::AboveTop => (layout.bounds().width, position.y),
+            // From top of base to bottom of viewport
+            Anchor::BelowTopCentered => (window.width, window.height),
+        };
 
-        if state.layout.is_none() {
-            let (width, height) = match self.anchor {
-                // From top of base to top of viewport
-                Anchor::AboveTop => (layout.bounds().width, position.y),
-                // From top of base to bottom of viewport
-                Anchor::BelowTopCentered => (window.width, window.height),
-            };
+        let limits = layout::Limits::new(Size::ZERO, Size { width, height })
+            .width(Length::Fill)
+            .height(Length::Fill);
 
-            let limits =
-                layout::Limits::new(Size::ZERO, Size { width, height })
-                    .width(Length::Fill)
-                    .height(Length::Fill);
+        self.overlay
+            .as_widget_mut()
+            .layout(&mut second[0], renderer, &limits);
 
-            state.layout = Some(self.overlay.as_widget_mut().layout(
-                &mut second[0],
-                renderer,
-                &limits,
-            ));
-        }
-
-        let node = state
-            .layout
-            .as_ref()
-            .expect("the anchored overlay's node was computed above");
-
-        let size = node.size();
+        let size = second[0].size;
         let translation = match self.anchor {
             // Overlay height + offset above the top
             Anchor::AboveTop => Vector::new(0.0, -(size.height + self.offset)),
@@ -244,7 +218,7 @@ impl<Message> Widget<Message, Theme, Renderer>
             content: &mut self.overlay,
             tree: &mut second[0],
             on_dismiss: &self.on_dismiss,
-            layout: Layout::new(node).move_to(position + translation),
+            layout: Layout::new(size).move_to(position + translation),
             viewport,
             window,
         }));
@@ -266,7 +240,7 @@ struct Overlay<'a, 'b, Message> {
     content: &'b mut Element<'a, Message>,
     tree: &'b mut widget::Tree,
     on_dismiss: &'b Option<Box<dyn Fn() -> Message + 'a>>,
-    layout: Layout<'b>,
+    layout: Layout,
     viewport: Rectangle,
     window: Size,
 }

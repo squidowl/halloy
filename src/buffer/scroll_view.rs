@@ -2183,7 +2183,7 @@ pub mod keyed {
                 move |_state: &mut (),
                       inner: &mut Element<'a, Message>,
                       tree: &mut advanced::widget::Tree,
-                      layout: advanced::Layout<'_>,
+                      layout: advanced::Layout,
                       viewport: &Rectangle,
                       renderer: &Renderer,
                       operation: &mut dyn advanced::widget::Operation<()>| {
@@ -2449,7 +2449,7 @@ mod correct_viewport {
                       inner: &mut Element<'a, Message>,
                       tree: &mut advanced::widget::Tree,
                       event: &iced::Event,
-                      layout: advanced::Layout<'_>,
+                      layout: advanced::Layout,
                       cursor: advanced::mouse::Cursor,
                       renderer: &Renderer,
                       shell: &mut advanced::Shell<'_, Message>,
@@ -2593,7 +2593,7 @@ mod correct_viewport {
                 move |state: &mut Option<keyed::Hit>,
                       inner: &mut Element<'a, Message>,
                       tree: &mut advanced::widget::Tree,
-                      layout: advanced::Layout<'_>,
+                      layout: advanced::Layout,
                       viewport: &iced::Rectangle,
                       renderer: &Renderer,
                       operation: &mut dyn advanced::widget::Operation<()>| {
