@@ -509,7 +509,11 @@ impl Dashboard {
                         {
                             let task = self
                                 .history
-                                .clear_messages(kind, clients)
+                                .clear_messages(
+                                    kind,
+                                    clients,
+                                    &config.buffer.server_messages,
+                                )
                                 .map_or_else(Task::none, |task| {
                                     Task::perform(task, Message::History)
                                 });
@@ -3538,7 +3542,11 @@ impl Dashboard {
 
                 tasks.push(
                     self.history
-                        .close(history::Kind::Channel(server, channel), clients)
+                        .close(
+                            history::Kind::Channel(server, channel),
+                            clients,
+                            &config.buffer.server_messages,
+                        )
                         .map_or_else(Task::none, |task| {
                             Task::perform(task, Message::History)
                         }),
@@ -3556,7 +3564,11 @@ impl Dashboard {
 
                 tasks.push(
                     self.history
-                        .close(history::Kind::Query(server, nick), clients)
+                        .close(
+                            history::Kind::Query(server, nick),
+                            clients,
+                            &config.buffer.server_messages,
+                        )
                         .map_or_else(Task::none, |task| {
                             Task::perform(task, Message::History)
                         }),
@@ -3610,7 +3622,11 @@ impl Dashboard {
 
                 tasks.push(
                     self.history
-                        .close(history::Kind::Channel(server, channel), clients)
+                        .close(
+                            history::Kind::Channel(server, channel),
+                            clients,
+                            &config.buffer.server_messages,
+                        )
                         .map_or_else(Task::none, |task| {
                             Task::perform(task, Message::History)
                         }),
@@ -3621,7 +3637,11 @@ impl Dashboard {
             Target::Query(nick) => {
                 tasks.push(
                     self.history
-                        .close(history::Kind::Query(server, nick), clients)
+                        .close(
+                            history::Kind::Query(server, nick),
+                            clients,
+                            &config.buffer.server_messages,
+                        )
                         .map_or_else(Task::none, |task| {
                             Task::perform(task, Message::History)
                         }),
@@ -3920,8 +3940,14 @@ impl Dashboard {
         )
     }
 
-    pub fn record_log(&mut self, record: data::log::Record) -> Task<Message> {
-        if let Some(task) = self.history.record_log(record) {
+    pub fn record_log(
+        &mut self,
+        record: data::log::Record,
+        server_messages_config: &config::buffer::ServerMessages,
+    ) -> Task<Message> {
+        if let Some(task) =
+            self.history.record_log(record, server_messages_config)
+        {
             Task::perform(task, Message::History)
         } else {
             Task::none()
@@ -3931,9 +3957,10 @@ impl Dashboard {
     pub fn record_highlight(
         &mut self,
         message: data::Message,
+        server_messages_config: &config::buffer::ServerMessages,
     ) -> Task<Message> {
         self.history
-            .record_highlight(message)
+            .record_highlight(message, server_messages_config)
             .map_or_else(Task::none, |task| {
                 Task::perform(task, Message::History)
             })
@@ -4435,7 +4462,11 @@ impl Dashboard {
             {
                 tasks.push(
                     self.history
-                        .close(history::Kind::Query(server, nick), clients)
+                        .close(
+                            history::Kind::Query(server, nick),
+                            clients,
+                            &config.buffer.server_messages,
+                        )
                         .map_or_else(Task::none, |task| {
                             Task::perform(task, Message::History)
                         }),
@@ -4572,7 +4603,12 @@ impl Dashboard {
 
         Task::batch(
             self.history
-                .track(resources, clients, &config.channel_monitor)
+                .track(
+                    resources,
+                    clients,
+                    &config.channel_monitor,
+                    &config.buffer.server_messages,
+                )
                 .into_iter()
                 .map(|fut| Task::perform(fut, Message::History))
                 .collect::<Vec<_>>(),
@@ -4591,7 +4627,7 @@ impl Dashboard {
 
         let history_ticks = Task::batch(
             self.history
-                .tick(now.into(), clients)
+                .tick(now.into(), clients, &config.buffer.server_messages)
                 .into_iter()
                 .map(|task| Task::perform(task, Message::History))
                 .collect::<Vec<_>>(),
@@ -5176,7 +5212,9 @@ impl Dashboard {
             mark_as_read(kind, &mut self.history, clients, TokenPriority::High);
         });
 
-        let history = self.history.exit(clients);
+        let history = self
+            .history
+            .exit(clients, config.buffer.server_messages.clone());
         let last_changed = self.last_changed.take();
         let dashboard = data::Dashboard::from(&*self);
 

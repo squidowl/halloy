@@ -25,6 +25,7 @@ Added:
 - Support link delimiters (`<` & `>`) with markdown formatting
 - Config options `buffer.channel.nicklist.scrollbar.hidden`, `sidebar.scrollbar.hidden`, and `pane.scrollbar.hidden` that control whether the nicklist, sidebar, and in-pane scrollbars respectively are enabled or not
 - Additional setting for controlling anti-flood burst parameter (`servers.<name>.anti_flood.burst`); default value has been reduced from `10` to `8`
+- Server messages can be configured to trigger unread in a buffer or not (`buffer.server_messages.<server_message>.triggers_unread`)
 
 Fixed:
 
@@ -69,12 +70,14 @@ Changed:
 - When reloading the config file, if the config file editor pane is opened with unsaved changes then those changes will be saved before reloading
 - IRC protocol logs for bouncer networks have their logs directory nested under the bouncer name
 - Anti-flood rate parameter has been moved `servers.<name>.anti_flood` to `servers.<name>.anti_flood.rate`
+- Changed mode messages reverted to not triggering unread (but not reverted to be dimmed by default)
+- Removed active and passive categories for server message types; control of dimming and triggering unread can be controlled specifically for each server message type instead
 
 Thanks:
 
 - Contributions: @rollecode, @luca020400, @rtmongold, @tranzystorekk, @englut, @furudean, @ncfavier
 - Bug reports: @sebbu2, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae, @SRAZKVT, @WinnerWind, @lojinks, @edwardloveall, CGML, @TheDcoder, @ToyKeeper, @BKVad1m
-- Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo, ivocavalcante, @sebbu2, @coraxioU9, @ncfavier, @darienm, @Anonymous1157, gkoebel, @BigOjisan, garoto
+- Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo, ivocavalcante, @sebbu2, @coraxioU9, @ncfavier, @darienm, @Anonymous1157, gkoebel, @BigOjisan, garoto, @classabbyamp
 
 # 2026.8 (2026-07-24)
 
