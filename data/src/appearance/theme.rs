@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
@@ -600,8 +602,40 @@ pub fn alpha_color_calculate(
     )
 }
 
+const RANDOMIZED_COLOR_CAPACITY: usize = 4096;
+
+thread_local! {
+    static RANDOMIZED_COLORS: RefCell<HashMap<[u32; 4], HashMap<String, Color>>> =
+        RefCell::new(HashMap::new());
+}
+
 /// Randomizes the hue value of an `iced::Color` based on a seed.
 pub fn randomize_color(original_color: Color, seed: &str) -> Color {
+    let key = [
+        original_color.r.to_bits(),
+        original_color.g.to_bits(),
+        original_color.b.to_bits(),
+        original_color.a.to_bits(),
+    ];
+
+    RANDOMIZED_COLORS.with_borrow_mut(|colors| {
+        let colors = colors.entry(key).or_default();
+
+        if let Some(color) = colors.get(seed) {
+            return *color;
+        }
+
+        if colors.len() >= RANDOMIZED_COLOR_CAPACITY {
+            colors.clear();
+        }
+
+        let color = compute_randomized_color(original_color, seed);
+        colors.insert(seed.to_owned(), color);
+        color
+    })
+}
+
+fn compute_randomized_color(original_color: Color, seed: &str) -> Color {
     // Generate a 64-bit hash from the seed string
     let seed_hash = seahash::hash(seed.as_bytes());
 

@@ -20,6 +20,7 @@ pub mod filter;
 pub mod metadata;
 pub mod model;
 pub mod reroute;
+pub mod search;
 pub mod storage;
 
 #[derive(
