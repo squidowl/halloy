@@ -358,7 +358,7 @@ where
             self.font,
             self.align_x,
             self.align_y,
-        )
+        );
     }
 
     fn update(

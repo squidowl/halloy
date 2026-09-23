@@ -224,7 +224,7 @@ fn viewer<'a, Message: 'a>(
                         },
                     };
                 } else {
-                    inner.as_widget_mut().layout(tree, renderer, limits)
+                    inner.as_widget_mut().layout(tree, renderer, limits);
                 }
             },
         )

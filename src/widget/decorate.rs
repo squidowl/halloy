@@ -288,7 +288,7 @@ where
         renderer: &Renderer,
         limits: &iced::advanced::layout::Limits,
     ) {
-        inner.as_widget_mut().layout(tree, renderer, limits)
+        inner.as_widget_mut().layout(tree, renderer, limits);
     }
 }
 
@@ -311,7 +311,7 @@ where
         renderer: &Renderer,
         limits: &iced::advanced::layout::Limits,
     ) {
-        self(state, inner, tree, renderer, limits)
+        self(state, inner, tree, renderer, limits);
     }
 }
 

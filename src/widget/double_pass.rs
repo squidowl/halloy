@@ -60,7 +60,7 @@ where
 
         second_pass
             .as_widget_mut()
-            .layout(tree, renderer, &new_limits)
+            .layout(tree, renderer, &new_limits);
     }
 }
 

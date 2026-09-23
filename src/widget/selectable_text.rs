@@ -180,7 +180,7 @@ where
 
                 state.paragraph.min_bounds()
             },
-        )
+        );
     }
 
     fn update(
