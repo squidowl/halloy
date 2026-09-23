@@ -102,6 +102,7 @@ pub fn parse(
                     command::Internal::Reconnect
                         | command::Internal::Connect(_)
                         | command::Internal::Exec(_)
+                        | command::Internal::Search(_)
                 ) {
                     return Ok(Parsed::Internal(command));
                 } else {

@@ -23,6 +23,7 @@ pub use self::logs::Logs;
 pub use self::message_feed::MessageFeed;
 pub use self::message_focus::FocusDirection;
 pub use self::query::Query;
+pub use self::search::Search;
 pub use self::server::Server;
 use crate::Theme;
 use crate::screen::dashboard::sidebar;
@@ -41,6 +42,7 @@ pub mod message_focus;
 mod message_view;
 pub mod query;
 mod scroll_view;
+pub mod search;
 pub mod server;
 pub mod typing;
 
@@ -59,6 +61,7 @@ pub enum Buffer {
     ChannelMonitor(ChannelMonitor),
     ChannelDiscovery(ChannelDiscovery),
     ConfigEditor(ConfigEditor),
+    Search(Search),
 }
 
 #[derive(Debug, Clone)]
@@ -72,6 +75,7 @@ pub enum Message {
     ChannelMonitor(message_feed::Message),
     ChannelList(channel_discovery::Message),
     ConfigEditor(config_editor::Message),
+    Search(search::Message),
 }
 
 pub enum Event {
@@ -82,12 +86,7 @@ pub enum Event {
     Reconnect(data::Server),
     LeaveBuffers(Vec<Target>, Option<String>),
     SelectedServer(data::Server),
-    GoToMessage(
-        data::Server,
-        target::Channel,
-        message::MessageLink,
-        BufferAction,
-    ),
+    GoToMessage(buffer::Upstream, message::MessageLink, BufferAction),
     RequestOlderChathistory,
     PreviewChanged,
     HidePreview(history::Kind, history::Id, message::Time, url::Url),
@@ -164,6 +163,9 @@ impl Buffer {
                 buffer::Internal::ConfigEditor => {
                     Self::ConfigEditor(ConfigEditor::new())
                 }
+                buffer::Internal::Search(query) => {
+                    Self::Search(Search::new(query))
+                }
             },
         }
     }
@@ -181,6 +183,7 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_)
             | Buffer::ChannelMonitor(_)
             | Buffer::ConfigEditor(_) => None,
         }
@@ -200,6 +203,7 @@ impl Buffer {
                 Some(buffer::Internal::ChannelDiscovery(state.server.clone()))
             }
             Buffer::ConfigEditor(_) => Some(buffer::Internal::ConfigEditor),
+            Buffer::Search(_) => Some(buffer::Internal::Search(None)),
         }
     }
 
@@ -233,6 +237,9 @@ impl Buffer {
             Buffer::ConfigEditor(_) => {
                 Some(data::Buffer::Internal(buffer::Internal::ConfigEditor))
             }
+            Buffer::Search(_) => {
+                Some(data::Buffer::Internal(buffer::Internal::Search(None)))
+            }
         }
     }
 
@@ -246,6 +253,7 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_)
             | Buffer::ChannelMonitor(_)
             | Buffer::ConfigEditor(_) => None,
         }
@@ -263,6 +271,7 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_)
             | Buffer::ChannelMonitor(_)
             | Buffer::ConfigEditor(_) => None,
         }
@@ -279,6 +288,7 @@ impl Buffer {
             | Buffer::Highlights(_)
             | Buffer::ChannelMonitor(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_)
             | Buffer::ConfigEditor(_) => None,
         }
     }
@@ -294,6 +304,7 @@ impl Buffer {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_)
             | Buffer::ConfigEditor(_) => None,
         }
     }
@@ -326,6 +337,7 @@ impl Buffer {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_)
             | Buffer::ConfigEditor(_) => None,
         }
     }
@@ -357,6 +369,7 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_)
             | Buffer::ChannelMonitor(_)
             | Buffer::ConfigEditor(_) => None,
         }
@@ -428,13 +441,10 @@ impl Buffer {
                         Event::ContractMessage(time, history_id)
                     }
                     channel::Event::GoToMessage(
-                        server,
-                        channel,
+                        buffer,
                         hash,
                         buffer_action,
-                    ) => {
-                        Event::GoToMessage(server, channel, hash, buffer_action)
-                    }
+                    ) => Event::GoToMessage(buffer, hash, buffer_action),
                     channel::Event::InputSent {
                         open_buffers,
                         was_join_command,
@@ -641,6 +651,32 @@ impl Buffer {
 
                 (command.map(Message::ConfigEditor), event)
             }
+            (Buffer::Search(state), Message::Search(message)) => {
+                let (command, event) =
+                    state.update(message, clients, storage, config);
+
+                let event = event.map(|event| match event {
+                    search::Event::ContextMenu(event) => {
+                        Event::ContextMenu(event)
+                    }
+                    search::Event::OpenBuffer(
+                        server,
+                        target,
+                        buffer_action,
+                    ) => Event::OpenBuffers(
+                        server,
+                        vec![(target, buffer_action)],
+                    ),
+                    search::Event::GoToMessage(
+                        buffer,
+                        message,
+                        buffer_action,
+                    ) => Event::GoToMessage(buffer, message, buffer_action),
+                    search::Event::OpenUrl(url) => Event::OpenUrl(url),
+                });
+
+                (command.map(Message::Search), event)
+            }
             (Buffer::Logs(state), Message::Logs(message)) => {
                 let (command, event) = state.update(
                     message,
@@ -793,6 +829,16 @@ impl Buffer {
                 config_editor::view(state, config, theme)
                     .map(Message::ConfigEditor)
             }
+            Buffer::Search(state) => search::view(
+                state,
+                clients,
+                previews,
+                filter_chain,
+                config,
+                theme,
+                channels_context,
+            )
+            .map(Message::Search),
         }
     }
 
@@ -806,6 +852,7 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_)
             | Buffer::ChannelMonitor(_)
             | Buffer::ConfigEditor(_) => false,
         }
@@ -854,6 +901,7 @@ impl Buffer {
             Buffer::ChannelDiscovery(channel_discovery) => {
                 channel_discovery.focus().map(Message::ChannelList)
             }
+            Buffer::Search(search) => search.focus().map(Message::Search),
         }
     }
 
@@ -864,6 +912,7 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_)
             | Buffer::ChannelMonitor(_)
             | Buffer::ConfigEditor(_) => {}
             Buffer::Channel(channel) => channel.reset(),
@@ -884,6 +933,7 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_)
             | Buffer::ChannelMonitor(_)
             | Buffer::ConfigEditor(_) => (),
             Buffer::Server(state) => state.input_view.insert_user(
@@ -919,6 +969,7 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_)
             | Buffer::ChannelMonitor(_)
             | Buffer::ConfigEditor(_) => (),
             Buffer::Server(state) => {
@@ -1108,6 +1159,7 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_)
             | Buffer::ChannelMonitor(_)
             | Buffer::ConfigEditor(_) => false,
             Buffer::Server(state) => state.input_view.close_picker(),
@@ -1127,6 +1179,7 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_)
             | Buffer::ChannelMonitor(_)
             | Buffer::ConfigEditor(_) => false,
             Buffer::Server(state) => state.input_view.clear_draft_reply(
@@ -1169,6 +1222,7 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_)
             | Buffer::ChannelMonitor(_)
             | Buffer::ConfigEditor(_) => None,
             Buffer::Server(state) => state.input_view.draft_reply(),
@@ -1184,6 +1238,7 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_)
             | Buffer::ChannelMonitor(_)
             | Buffer::ConfigEditor(_) => (),
             Buffer::Server(state) => {
@@ -1400,12 +1455,9 @@ fn map_message_feed_event(
         message_feed::Event::OpenBuffer(server, target, buffer_action) => {
             Event::OpenBuffers(server, vec![(target, buffer_action)])
         }
-        message_feed::Event::GoToMessage(
-            server,
-            channel,
-            message,
-            buffer_action,
-        ) => Event::GoToMessage(server, channel, message, buffer_action),
+        message_feed::Event::GoToMessage(buffer, message, buffer_action) => {
+            Event::GoToMessage(buffer, message, buffer_action)
+        }
         message_feed::Event::MarkAsRead => Event::MarkAsRead(kind),
         message_feed::Event::OpenUrl(url) => Event::OpenUrl(url),
         message_feed::Event::ImagePreview(image) => Event::ImagePreview(image),
@@ -1431,6 +1483,7 @@ impl fmt::Display for Buffer {
             Buffer::ChannelDiscovery(_) => write!(f, "Channel Discovery"),
             Buffer::ChannelMonitor(_) => write!(f, "Channel Monitor"),
             Buffer::ConfigEditor(_) => write!(f, "Config Editor"),
+            Buffer::Search(_) => write!(f, "Search"),
         }
     }
 }

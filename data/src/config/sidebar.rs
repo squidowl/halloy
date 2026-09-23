@@ -419,4 +419,5 @@ pub enum InternalBuffer {
     ChannelMonitor,
     Highlights,
     Logs,
+    Search,
 }

@@ -34,6 +34,7 @@ pub struct Keyboard {
     // Keep highlight as alias for backwards compatibility
     #[serde(alias = "highlight")]
     pub highlights: KeyBinds,
+    pub search: KeyBinds,
     pub scroll_up_page: KeyBinds,
     pub scroll_down_page: KeyBinds,
     pub scroll_to_top: KeyBinds,
@@ -83,6 +84,7 @@ impl Default for Keyboard {
             logs: KeyBind::logs().into(),
             theme_editor: KeyBind::theme_editor().into(),
             highlights: KeyBind::highlights().into(),
+            search: KeyBind::search().into(),
             scroll_up_page: KeyBind::scroll_up_page().into(),
             scroll_down_page: KeyBind::scroll_down_page().into(),
             scroll_to_top: KeyBind::scroll_to_top().into(),
@@ -144,6 +146,7 @@ impl Keyboard {
                     ScrollToTop => &self.scroll_to_top,
                     ScrollToBottom => &self.scroll_to_bottom,
                     Highlights => &self.highlights,
+                    Search => &self.search,
                     CycleNextUnreadBuffer => &self.cycle_next_unread_buffer,
                     CyclePreviousUnreadBuffer => {
                         &self.cycle_previous_unread_buffer
