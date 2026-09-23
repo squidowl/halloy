@@ -40,8 +40,7 @@ use crate::buffer::context_menu::ChannelsContext;
 use crate::buffer::{self, Buffer, FocusDirection};
 use crate::notification::{self, Notifications, toast};
 use crate::widget::{
-    Column, Element, Row, anchored_overlay, context_menu, selectable_text,
-    shortcut,
+    Column, Element, Row, context_menu, selectable_text, shortcut,
 };
 use crate::window::Window;
 use crate::{
@@ -1945,45 +1944,38 @@ impl Dashboard {
         version: &'a Version,
         config: &'a Config,
     ) -> Element<'a, Message> {
-        let base = if self.command_bar_window == Some(window)
-            && let Some(command_bar) = self.command_bar.as_ref()
-        {
-            anchored_overlay(
-                base,
+        let command_bar = self
+            .command_bar
+            .as_ref()
+            .filter(|_| self.command_bar_window == Some(window))
+            .map(|command_bar| {
                 container(
-                    container(
-                        command_bar
-                            .view(
-                                servers,
-                                clients,
-                                &all_upstream_buffers(clients, &self.history),
-                                self.focus,
-                                self.buffer_resize_action(),
-                                version,
-                                config,
-                                self.main_window(),
-                                self.buffer_settings.show_muted,
-                            )
-                            .map(Message::Task),
-                    )
-                    .padding(10.0)
-                    .width(Length::Fill)
-                    .align_x(iced::Alignment::Center),
+                    command_bar
+                        .view(
+                            servers,
+                            clients,
+                            &all_upstream_buffers(clients, &self.history),
+                            self.focus,
+                            self.buffer_resize_action(),
+                            version,
+                            config,
+                            self.main_window(),
+                            self.buffer_settings.show_muted,
+                        )
+                        .map(Message::Task),
                 )
+                .padding(10.0)
                 .width(Length::Fill)
-                .height(Length::Fill)
                 .align_x(iced::Alignment::Center)
-                .style(theme::container::transparent_overlay),
-                anchored_overlay::Anchor::BelowTopCentered,
-                0.0,
-                None,
-            )
-        } else {
-            // Align `base` into same view tree shape
-            // as `anchored_overlay` to prevent diff
-            // from firing when displaying command bar
-            column![base].into()
-        };
+                .into()
+            });
+
+        let base = crate::widget::modal::top(
+            base,
+            command_bar,
+            || Message::Task(command_bar::Message::Unfocused),
+            0.7,
+        );
 
         let focused_target_info = self
             .panes

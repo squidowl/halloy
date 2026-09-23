@@ -1,11 +1,10 @@
-use iced::Alignment;
 use iced::advanced::layout::{self, Layout};
 use iced::advanced::widget::{self, Widget};
 use iced::advanced::{self, Shell, overlay, renderer};
 use iced::keyboard::key;
 use iced::{
-    Color, Element, Event, Length, Rectangle, Shadow, Size, Vector, keyboard,
-    mouse, touch,
+    Alignment, Color, Element, Event, Length, Rectangle, Shadow, Size, Vector,
+    keyboard, mouse, touch,
 };
 
 const BASE_WIDTH: f32 = 380.0;
@@ -34,6 +33,12 @@ pub fn container<'a, Message: 'a>(
     .padding(BASE_PADDING * scale)
 }
 
+#[derive(Clone, Copy)]
+enum Position {
+    Center,
+    Top,
+}
+
 pub fn modal<'a, Message, Theme, Renderer>(
     base: impl Into<Element<'a, Message, Theme, Renderer>>,
     modal: Option<Element<'a, Message, Theme, Renderer>>,
@@ -45,17 +50,55 @@ where
     Renderer: 'a + advanced::Renderer,
     Message: 'a,
 {
-    Modal::new(base, modal, on_blur, backdrop_alpha).into()
+    let shadow = Shadow {
+        color: Color::from_rgba(0.0, 0.0, 0.0, 0.35),
+        offset: Vector::new(0.0, 10.0),
+        blur_radius: 24.0,
+    };
+
+    Modal::new(
+        base,
+        modal,
+        on_blur,
+        backdrop_alpha,
+        Position::Center,
+        shadow,
+    )
+    .into()
 }
 
-/// A widget that centers a modal element over some base element
+pub fn top<'a, Message, Theme, Renderer>(
+    base: impl Into<Element<'a, Message, Theme, Renderer>>,
+    modal: Option<Element<'a, Message, Theme, Renderer>>,
+    on_blur: impl Fn() -> Message + 'a,
+    backdrop_alpha: f32,
+) -> Element<'a, Message, Theme, Renderer>
+where
+    Theme: 'a,
+    Renderer: 'a + advanced::Renderer,
+    Message: 'a,
+{
+    Modal::new(
+        base,
+        modal,
+        on_blur,
+        backdrop_alpha,
+        Position::Top,
+        Shadow::default(),
+    )
+    .into()
+}
+
+/// A widget that displays optional modal content over a base element.
 pub struct Modal<'a, Message, Theme, Renderer> {
     base: Element<'a, Message, Theme, Renderer>,
     modal: Option<Element<'a, Message, Theme, Renderer>>,
     on_blur: Box<dyn Fn() -> Message + 'a>,
     backdrop: Color,
     shadow: Shadow,
+    position: Position,
 }
+
 impl<'a, Message, Theme, Renderer> Modal<'a, Message, Theme, Renderer> {
     /// Returns a new [`Modal`]
     fn new(
@@ -63,6 +106,8 @@ impl<'a, Message, Theme, Renderer> Modal<'a, Message, Theme, Renderer> {
         modal: Option<Element<'a, Message, Theme, Renderer>>,
         on_blur: impl Fn() -> Message + 'a,
         backdrop_alpha: f32,
+        position: Position,
+        shadow: Shadow,
     ) -> Self {
         Self {
             base: base.into(),
@@ -72,11 +117,8 @@ impl<'a, Message, Theme, Renderer> Modal<'a, Message, Theme, Renderer> {
                 a: backdrop_alpha.clamp(0.0, 1.0),
                 ..Color::BLACK
             },
-            shadow: Shadow {
-                color: Color::from_rgba(0.0, 0.0, 0.0, 0.35),
-                offset: Vector::new(0.0, 10.0),
-                blur_radius: 24.0,
-            },
+            shadow,
+            position,
         }
     }
 }
@@ -206,12 +248,18 @@ where
             .layout(&mut tree.children[1], renderer, &limits);
 
         let size = tree.children[1].size;
-        let centered =
-            size.align(limits.max, Alignment::Center, Alignment::Center);
+        let offset = size.align(
+            limits.max,
+            Alignment::Center,
+            match self.position {
+                Position::Center => Alignment::Center,
+                Position::Top => Alignment::Start,
+            },
+        );
         let layout =
             Layout::new(layout.size()).move_to(layout.position() + translation);
         let content_layout =
-            Layout::new(size).move_to(layout.position() + centered);
+            Layout::new(size).move_to(layout.position() + offset);
 
         vec![overlay::Element::new(Box::new(Overlay {
             content: modal,
