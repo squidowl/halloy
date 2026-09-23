@@ -36,7 +36,7 @@ pub fn container<'a, Message: 'a>(
 
 pub fn modal<'a, Message, Theme, Renderer>(
     base: impl Into<Element<'a, Message, Theme, Renderer>>,
-    modal: impl Into<Element<'a, Message, Theme, Renderer>>,
+    modal: Option<Element<'a, Message, Theme, Renderer>>,
     on_blur: impl Fn() -> Message + 'a,
     backdrop_alpha: f32,
 ) -> Element<'a, Message, Theme, Renderer>
@@ -51,22 +51,22 @@ where
 /// A widget that centers a modal element over some base element
 pub struct Modal<'a, Message, Theme, Renderer> {
     base: Element<'a, Message, Theme, Renderer>,
-    modal: Element<'a, Message, Theme, Renderer>,
+    modal: Option<Element<'a, Message, Theme, Renderer>>,
     on_blur: Box<dyn Fn() -> Message + 'a>,
     backdrop: Color,
     shadow: Shadow,
 }
 impl<'a, Message, Theme, Renderer> Modal<'a, Message, Theme, Renderer> {
     /// Returns a new [`Modal`]
-    pub fn new(
+    fn new(
         base: impl Into<Element<'a, Message, Theme, Renderer>>,
-        modal: impl Into<Element<'a, Message, Theme, Renderer>>,
+        modal: Option<Element<'a, Message, Theme, Renderer>>,
         on_blur: impl Fn() -> Message + 'a,
         backdrop_alpha: f32,
     ) -> Self {
         Self {
             base: base.into(),
-            modal: modal.into(),
+            modal,
             on_blur: Box::new(on_blur),
             backdrop: Color {
                 a: backdrop_alpha.clamp(0.0, 1.0),
@@ -87,7 +87,11 @@ where
     Renderer: advanced::Renderer,
 {
     fn diff(&mut self, tree: &mut widget::Tree) {
-        tree.diff_children(&mut [&mut self.base, &mut self.modal]);
+        if let Some(modal) = &mut self.modal {
+            tree.diff_children(&mut [&mut self.base, modal]);
+        } else {
+            tree.diff_children(std::slice::from_mut(&mut self.base));
+        }
     }
 
     fn size(&self) -> Size<Length> {
@@ -113,20 +117,22 @@ where
         tree: &mut widget::Tree,
         event: &Event,
         layout: Layout,
-        _cursor: mouse::Cursor,
+        cursor: mouse::Cursor,
         renderer: &Renderer,
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) {
-        if matches!(
-            event,
-            Event::Mouse(_)
-                | Event::Keyboard(_)
-                | Event::Touch(touch::Event::FingerPressed { .. })
-                | Event::Touch(touch::Event::FingerMoved { .. })
-                | Event::Touch(touch::Event::FingerLifted { .. })
-                | Event::Touch(touch::Event::FingerLost { .. })
-        ) {
+        if self.modal.is_some()
+            && matches!(
+                event,
+                Event::Mouse(_)
+                    | Event::Keyboard(_)
+                    | Event::Touch(touch::Event::FingerPressed { .. })
+                    | Event::Touch(touch::Event::FingerMoved { .. })
+                    | Event::Touch(touch::Event::FingerLifted { .. })
+                    | Event::Touch(touch::Event::FingerLost { .. })
+            )
+        {
             return;
         }
 
@@ -134,7 +140,11 @@ where
             &mut tree.children[0],
             event,
             layout,
-            mouse::Cursor::Unavailable,
+            if self.modal.is_some() {
+                mouse::Cursor::Unavailable
+            } else {
+                cursor
+            },
             renderer,
             shell,
             viewport,
@@ -148,7 +158,7 @@ where
         theme: &Theme,
         style: &renderer::Style,
         layout: Layout,
-        _cursor: mouse::Cursor,
+        cursor: mouse::Cursor,
         viewport: &Rectangle,
     ) {
         self.base.as_widget().draw(
@@ -157,7 +167,11 @@ where
             theme,
             style,
             layout,
-            mouse::Cursor::Unavailable,
+            if self.modal.is_some() {
+                mouse::Cursor::Unavailable
+            } else {
+                cursor
+            },
             viewport,
         );
     }
@@ -167,20 +181,29 @@ where
         tree: &'b mut widget::Tree,
         layout: Layout,
         renderer: &Renderer,
-        _viewport: &Rectangle,
+        viewport: &Rectangle,
         translation: Vector,
         window: Size,
     ) -> Vec<overlay::Element<'b, Message, Theme, Renderer>> {
+        let Some(modal) = &mut self.modal else {
+            return self.base.as_widget_mut().overlay(
+                &mut tree.children[0],
+                layout,
+                renderer,
+                viewport,
+                translation,
+                window,
+            );
+        };
+
         let size = layout.bounds().size();
         let limits = layout::Limits::new(Size::ZERO, size)
             .width(Length::Fill)
             .height(Length::Fill);
 
-        self.modal.as_widget_mut().layout(
-            &mut tree.children[1],
-            renderer,
-            &limits,
-        );
+        modal
+            .as_widget_mut()
+            .layout(&mut tree.children[1], renderer, &limits);
 
         let size = tree.children[1].size;
         let centered =
@@ -191,7 +214,7 @@ where
             Layout::new(size).move_to(layout.position() + centered);
 
         vec![overlay::Element::new(Box::new(Overlay {
-            content: &mut self.modal,
+            content: modal,
             tree: &mut tree.children[1],
             layout,
             content_layout,
@@ -204,13 +227,23 @@ where
 
     fn mouse_interaction(
         &self,
-        _tree: &widget::Tree,
-        _layout: Layout,
-        _cursor: mouse::Cursor,
-        _viewport: &Rectangle,
-        _renderer: &Renderer,
+        tree: &widget::Tree,
+        layout: Layout,
+        cursor: mouse::Cursor,
+        viewport: &Rectangle,
+        renderer: &Renderer,
     ) -> mouse::Interaction {
-        mouse::Interaction::default()
+        if self.modal.is_some() {
+            mouse::Interaction::default()
+        } else {
+            self.base.as_widget().mouse_interaction(
+                &tree.children[0],
+                layout,
+                cursor,
+                viewport,
+                renderer,
+            )
+        }
     }
 
     fn operate(
