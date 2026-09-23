@@ -1837,8 +1837,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     .style(theme::button::reply_preview)
                     .padding(0)
                     .on_press(Message::Link(message::Link::GoToMessage(
-                        server,
-                        channel,
+                        buffer::Upstream::Channel(server, channel),
                         message::MessageLink::Message(history_id, time),
                         None, // Currently unimportant, since the buffer will always be already open
                     )))

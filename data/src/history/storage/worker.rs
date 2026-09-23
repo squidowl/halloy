@@ -55,13 +55,9 @@ impl Command {
                 lookup.server.clone(),
                 lookup.target.clone(),
             )],
-            Self::HighlightSource(navigation, _) => vec![
-                Kind::Highlights,
-                Kind::Channel(
-                    navigation.server.clone(),
-                    navigation.channel.clone(),
-                ),
-            ],
+            Self::HighlightSource(navigation, _) => {
+                vec![Kind::Highlights, Kind::from(navigation.buffer.clone())]
+            }
             Self::Resend(lookup) => vec![Kind::from(lookup.buffer.clone())],
             Self::Exit(histories, _) => {
                 histories.iter().map(|(kind, _)| kind.clone()).collect()
@@ -484,10 +480,7 @@ impl State {
                 if navigation.token.strong_count() == 0 {
                     return;
                 }
-                let kind = Kind::Channel(
-                    navigation.server.clone(),
-                    navigation.channel.clone(),
-                );
+                let kind = Kind::from(navigation.buffer.clone());
                 match database.highlight_source(&kind, highlight) {
                     Ok(message) => navigation.message = message,
                     Err(error) => self.fail(string(error)),
