@@ -69,6 +69,7 @@ pub enum Internal {
     ChannelDiscovery(Option<Server>),
     #[strum(serialize = "Config Editor")]
     ConfigEditor,
+    Search(Option<String>),
 }
 
 impl Buffer {
@@ -174,6 +175,7 @@ impl Internal {
         Self::ChannelMonitor,
         Self::ChannelDiscovery(None),
         Self::ConfigEditor,
+        Self::Search(None),
     ];
 
     pub fn key(&self) -> String {
@@ -184,6 +186,7 @@ impl Internal {
             Internal::ChannelMonitor => "channel-monitor",
             Internal::ChannelDiscovery(_) => "channel-discovery",
             Internal::ConfigEditor => "config-editor",
+            Internal::Search(_) => "search",
         }
         .to_string()
     }
@@ -204,6 +207,7 @@ impl From<&config::sidebar::InternalBuffer> for Internal {
             config::sidebar::InternalBuffer::ChannelDiscovery => {
                 Self::ChannelDiscovery(None)
             }
+            config::sidebar::InternalBuffer::Search => Self::Search(None),
         }
     }
 }
@@ -223,6 +227,7 @@ impl From<&Internal> for config::sidebar::InternalBuffer {
             Internal::Highlights => Self::Highlights,
             Internal::ChannelDiscovery(_) => Self::ChannelDiscovery,
             Internal::ChannelMonitor => Self::ChannelMonitor,
+            Internal::Search(_) => Self::Search,
         }
     }
 }

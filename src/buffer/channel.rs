@@ -43,7 +43,7 @@ pub enum Event {
     ImagePreview(Image),
     ExpandMessage(message::Time, history::Id),
     ContractMessage(message::Time, history::Id),
-    GoToMessage(Server, target::Channel, message::MessageLink, BufferAction),
+    GoToMessage(buffer::Upstream, message::MessageLink, BufferAction),
     InputSent {
         open_buffers: Vec<(Target, BufferAction)>,
         was_join_command: bool,
@@ -412,13 +412,11 @@ impl Channel {
                         vec![(target, buffer_action)],
                     )),
                     scroll_view::Event::GoToMessage(
-                        server,
-                        channel,
+                        buffer,
                         history_id,
                         buffer_action,
                     ) => Some(Event::GoToMessage(
-                        server,
-                        channel,
+                        buffer,
                         history_id,
                         buffer_action,
                     )),

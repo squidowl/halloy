@@ -25,8 +25,7 @@ pub enum Event {
 
 #[derive(Debug, Clone)]
 pub struct Navigation {
-    pub server: Server,
-    pub channel: target::Channel,
+    pub buffer: crate::buffer::Upstream,
     pub message: Option<Id>,
     pub buffer_action: crate::dashboard::BufferAction,
     pub token: std::sync::Weak<()>,
