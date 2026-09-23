@@ -1,4 +1,4 @@
-use std::sync::mpsc;
+use std::sync::{OnceLock, mpsc};
 use std::time::{Duration, Instant};
 use std::{env, mem, thread};
 
@@ -9,13 +9,20 @@ use log::Log;
 use tokio::sync::mpsc as tokio_mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 
+static FILE_LEVEL: OnceLock<log::LevelFilter> = OnceLock::new();
+
+fn env_rust_log() -> Option<log::Level> {
+    env::var("RUST_LOG")
+        .ok()
+        .as_deref()
+        .and_then(|rust_log| str::parse::<log::Level>(rust_log).ok())
+}
+
 pub fn setup(
     config: config::Logs,
 ) -> Result<ReceiverStream<Vec<Record>>, Error> {
-    let env_rust_log = env::var("RUST_LOG")
-        .ok()
-        .as_deref()
-        .and_then(|rust_log| str::parse::<log::Level>(rust_log).ok());
+    let env_rust_log = env_rust_log();
+    let pane_level = log::LevelFilter::from(config.pane_level.clone());
 
     let file_sink = file_dispatch(config, env_rust_log);
 
@@ -29,7 +36,17 @@ pub fn setup(
 
     dispatch.apply()?;
 
+    update_max_level(pane_level);
+
     Ok(pane_receiver)
+}
+
+pub fn update_max_level(pane_level: log::LevelFilter) {
+    let pane_level = env_rust_log()
+        .map_or(pane_level, |env| pane_level.min(env.to_level_filter()));
+    let file_level = FILE_LEVEL.get().copied().unwrap_or(log::LevelFilter::Off);
+
+    log::set_max_level(file_level.max(pane_level));
 }
 
 fn file_dispatch(
@@ -47,6 +64,7 @@ fn file_dispatch(
             .map_or(log::LevelFilter::from(config.file_level), |env| {
                 env.to_level_filter()
             });
+        let _ = FILE_LEVEL.set(file_level_filter);
 
         fern::Dispatch::new()
             .format(move |out, message, record| {

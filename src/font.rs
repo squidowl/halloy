@@ -1,8 +1,10 @@
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::sync::{LazyLock, OnceLock};
 
 use data::appearance::theme::FontStyle;
 use data::config;
+use hashbrown::HashMap;
 use iced::font;
 use iced::widget::text::LineHeight;
 
@@ -17,6 +19,15 @@ pub static CODE_BOLD_ITALICS: Font = Font::new(true, true);
 pub static ICON: LazyLock<iced::Font> =
     LazyLock::new(|| iced::Font::with_family("halloy-icons"));
 pub const MESSAGE_MARKER_FONT_SCALE: f32 = 1.33;
+
+const WIDTH_CACHE_CAPACITY: usize = 4096;
+
+thread_local! {
+    static WIDTHS: RefCell<HashMap<u32, HashMap<String, f32>>> =
+        RefCell::new(HashMap::new());
+    static MESSAGE_MARKER_WIDTHS: RefCell<HashMap<u32, f32>> =
+        RefCell::new(HashMap::new());
+}
 
 #[derive(Debug, Clone)]
 pub struct Font {
@@ -163,17 +174,35 @@ pub fn load() -> Vec<Cow<'static, [u8]>> {
 }
 
 pub fn width_from_str(text: &str, config: &config::Font) -> f32 {
+    let size = config.size.map_or(crate::theme::TEXT_SIZE, f32::from);
+
+    WIDTHS.with_borrow_mut(|widths| {
+        let widths = widths.entry(size.to_bits()).or_default();
+
+        if let Some(width) = widths.get(text) {
+            return *width;
+        }
+
+        if widths.len() >= WIDTH_CACHE_CAPACITY {
+            widths.clear();
+        }
+
+        let width = measure_width(text, size);
+        widths.insert(text.to_owned(), width);
+        width
+    })
+}
+
+fn measure_width(text: &str, size: f32) -> f32 {
     use iced::advanced::graphics::text::Paragraph;
     use iced::advanced::text::{self, Paragraph as _, Text};
     use iced::{Size, alignment};
 
-    use crate::theme;
-
     Paragraph::with_text(Text {
         content: text,
         bounds: Size::INFINITE,
-        size: config.size.map_or(theme::TEXT_SIZE, f32::from).into(),
-        line_height: line_height(config),
+        size: size.into(),
+        line_height: LineHeight::default(),
         font: PRIMARY.clone().into(),
         align_x: text::Alignment::Right,
         align_y: alignment::Vertical::Top,
@@ -187,20 +216,26 @@ pub fn width_from_str(text: &str, config: &config::Font) -> f32 {
 }
 
 pub fn width_of_message_marker(config: &config::Font) -> f32 {
+    let font_size = config.size.map_or(crate::theme::TEXT_SIZE, f32::from)
+        * MESSAGE_MARKER_FONT_SCALE;
+
+    MESSAGE_MARKER_WIDTHS.with_borrow_mut(|widths| {
+        *widths
+            .entry(font_size.to_bits())
+            .or_insert_with(|| measure_message_marker(font_size))
+    })
+}
+
+fn measure_message_marker(font_size: f32) -> f32 {
     use iced::advanced::graphics::text::Paragraph;
     use iced::advanced::text::{self, Paragraph as _, Text};
     use iced::{Size, alignment};
-
-    use crate::theme;
-
-    let font_size = config.size.map_or(theme::TEXT_SIZE, f32::from)
-        * MESSAGE_MARKER_FONT_SCALE;
 
     Paragraph::with_text(Text {
         content: "\u{2022}",
         bounds: Size::INFINITE,
         size: font_size.into(),
-        line_height: line_height(config),
+        line_height: LineHeight::default(),
         font: *ICON,
         align_x: text::Alignment::Right,
         align_y: alignment::Vertical::Top,
