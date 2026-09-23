@@ -652,6 +652,9 @@ where
             shell.invalidate_overlay();
         }
 
+        let should_capture = matches!(event, Event::Mouse(_) | Event::Touch(_))
+            && cursor.is_over(self.layout.bounds());
+
         self.menu.as_widget_mut().update(
             self.tree,
             event,
@@ -661,6 +664,10 @@ where
             shell,
             &self.layout.bounds(),
         );
+
+        if should_capture {
+            shell.capture_event();
+        }
     }
 
     fn mouse_interaction(
