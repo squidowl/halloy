@@ -1529,22 +1529,25 @@ impl Halloy {
 
             // Modals might have a id representing which window to be presented on.
             // If modal has no id, we show them on main_window.
-            match &self.modal {
-                Some(modal)
-                    if modal.window_id() == Some(self.main_window.id)
-                        || modal.window_id().is_none() =>
-                {
-                    widget::modal(
-                        content,
-                        modal
-                            .view(&self.config.font, &self.theme)
-                            .map(Message::Modal),
-                        || Message::Modal(modal::Message::Cancel),
-                        0.8,
-                    )
-                }
-                _ => column![content].into(),
-            }
+            let modal = self
+                .modal
+                .as_ref()
+                .filter(|modal| {
+                    modal.window_id() == Some(self.main_window.id)
+                        || modal.window_id().is_none()
+                })
+                .map(|modal| {
+                    modal
+                        .view(&self.config.font, &self.theme)
+                        .map(Message::Modal)
+                });
+
+            widget::modal(
+                content,
+                modal,
+                || Message::Modal(modal::Message::Cancel),
+                0.8,
+            )
         // Popped out window.
         } else if let Screen::Dashboard(dashboard) = &self.screen {
             let content = container(
@@ -1563,17 +1566,22 @@ impl Halloy {
 
             // Modals might have a id representing which window to be presented on.
             // If modal id match the current id we show it.
-            match &self.modal {
-                Some(modal) if modal.window_id() == Some(id) => widget::modal(
-                    content,
+            let modal = self
+                .modal
+                .as_ref()
+                .filter(|modal| modal.window_id() == Some(id))
+                .map(|modal| {
                     modal
                         .view(&self.config.font, &self.theme)
-                        .map(Message::Modal),
-                    || Message::Modal(modal::Message::Cancel),
-                    0.8,
-                ),
-                _ => column![content].into(),
-            }
+                        .map(Message::Modal)
+                });
+
+            widget::modal(
+                content,
+                modal,
+                || Message::Modal(modal::Message::Cancel),
+                0.8,
+            )
         } else {
             column![].into()
         }
