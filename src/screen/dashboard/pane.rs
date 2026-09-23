@@ -179,6 +179,21 @@ impl Pane {
                 .wrapping(Wrapping::None)
                 .ellipsis(text::Ellipsis::End)
                 .into(),
+            Buffer::Search(state) => {
+                let title = match state.result_count() {
+                    Some(count) if state.has_more() => {
+                        format!("Search - {count}+ results")
+                    }
+                    Some(1) => "Search - 1 result".to_string(),
+                    Some(count) => format!("Search - {count} results"),
+                    None => "Search".to_string(),
+                };
+
+                text(title)
+                    .wrapping(Wrapping::None)
+                    .ellipsis(text::Ellipsis::End)
+                    .into()
+            }
         };
 
         let title_bar = self.title_bar.view(
@@ -267,7 +282,8 @@ impl Pane {
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
             | Buffer::ChannelMonitor(_)
-            | Buffer::ConfigEditor(_) => vec![],
+            | Buffer::ConfigEditor(_)
+            | Buffer::Search(_) => vec![],
         }
     }
 }
@@ -931,6 +947,11 @@ impl From<Pane> for data::Pane {
             ),
             Buffer::ConfigEditor(_) => {
                 data::Buffer::Internal(buffer::Internal::ConfigEditor)
+            }
+            Buffer::Search(state) => {
+                data::Buffer::Internal(buffer::Internal::Search(
+                    (!state.query.is_empty()).then_some(state.query),
+                ))
             }
         };
 

@@ -3838,7 +3838,7 @@ pub enum Link {
     Channel(Server, target::Channel, Option<BufferAction>),
     Url(String),
     User(Server, User),
-    GoToMessage(Server, target::Channel, MessageLink, Option<BufferAction>),
+    GoToMessage(buffer::Upstream, MessageLink, Option<BufferAction>),
     ExpandMessage(message::Time, history::Id, Option<LinkContext>),
     ContractMessage(message::Time, history::Id, Option<LinkContext>),
 }
@@ -3857,9 +3857,15 @@ impl Link {
             | Link::ContractMessage(_, _, link_context) => {
                 *link_context = match other {
                     Link::Channel(server, channel, _)
-                    | Link::GoToMessage(server, channel, _, _) => Some(
-                        LinkContext::Channel(server.clone(), channel.clone()),
-                    ),
+                    | Link::GoToMessage(
+                        buffer::Upstream::Channel(server, channel),
+                        _,
+                        _,
+                    ) => Some(LinkContext::Channel(
+                        server.clone(),
+                        channel.clone(),
+                    )),
+                    Link::GoToMessage(..) => None,
                     Link::Url(url) => Some(LinkContext::Url(url.clone())),
                     Link::User(_, user) => {
                         Some(LinkContext::User(user.clone()))

@@ -1796,6 +1796,10 @@ impl Halloy {
 
         match config {
             Ok(updated) => {
+                logger::update_max_level(
+                    updated.logs.pane_level.clone().into(),
+                );
+
                 if !updated.preview.image.can_animate()
                     && let Some(modal) = self.modal.as_mut()
                 {

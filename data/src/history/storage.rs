@@ -15,7 +15,7 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 use super::filter::{Filter, FilterChain};
 use super::reroute::RerouteRules;
 use super::{
-    Id, Kind, Metadata, ReadMarker, Request, database, model,
+    Id, Kind, Metadata, ReadMarker, Request, database, model, search,
     smart_filter_internal_message, smart_filter_message, smart_filter_repeat,
 };
 use crate::buffer::{self, BuffersContext};
@@ -31,6 +31,7 @@ use crate::{
 
 mod batch;
 mod cache;
+mod searcher;
 mod worker;
 use cache::{MessageCache, ReadCache};
 
@@ -79,6 +80,7 @@ pub enum Update {
 pub struct Manager {
     storage: HashMap<Kind, Storage>,
     worker: worker::Worker,
+    searcher: searcher::Searcher,
     input_storage: input::Storage,
     filters: Vec<Filter>,
     reroute_rules: RerouteRules,
@@ -100,6 +102,7 @@ impl Manager {
             Self {
                 storage: HashMap::new(),
                 worker: worker::Worker::new(event_sender.clone()),
+                searcher: searcher::Searcher::new(),
                 input_storage,
                 filters: Vec::new(),
                 reroute_rules: RerouteRules::default(),
@@ -119,6 +122,7 @@ impl Manager {
         Self {
             storage: HashMap::new(),
             worker: worker::Worker::test(event_sender.clone()),
+            searcher: searcher::Searcher::test(),
             input_storage: input::Storage::default(),
             filters: Vec::new(),
             reroute_rules: RerouteRules::default(),
@@ -701,6 +705,14 @@ impl Manager {
         } else {
             self.worker.send(worker::Command::Reference(lookup));
         }
+    }
+
+    pub fn search(
+        &self,
+        query: search::Query,
+        before: Option<search::Cursor>,
+    ) -> impl Future<Output = Result<search::Page, search::Error>> + use<> {
+        self.searcher.search(query, before)
     }
 
     pub fn request_highlight_source(

@@ -20,6 +20,7 @@ pub mod filter;
 pub mod metadata;
 pub mod model;
 pub mod reroute;
+pub mod search;
 pub mod storage;
 
 #[derive(
@@ -169,6 +170,7 @@ impl Kind {
             }
             Buffer::Internal(buffer::Internal::ChannelDiscovery(_)) => None,
             Buffer::Internal(buffer::Internal::ConfigEditor) => None,
+            Buffer::Internal(buffer::Internal::Search(_)) => None,
         }
     }
 }

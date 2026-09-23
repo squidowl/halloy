@@ -14,6 +14,8 @@ use crate::{client, environment, message};
 
 const QUEUE_WARNING: usize = 10_000;
 const MAX_ACTIVE_IMPORTS: usize = 2;
+const INDEX_BATCH: usize = 1_000;
+const INDEX_INTERVAL: Duration = Duration::from_secs(2);
 
 type Events = tokio::sync::mpsc::UnboundedSender<Vec<Event>>;
 
@@ -51,13 +53,9 @@ impl Command {
                 lookup.server.clone(),
                 lookup.target.clone(),
             )],
-            Self::HighlightSource(navigation, _) => vec![
-                Kind::Highlights,
-                Kind::Channel(
-                    navigation.server.clone(),
-                    navigation.channel.clone(),
-                ),
-            ],
+            Self::HighlightSource(navigation, _) => {
+                vec![Kind::Highlights, Kind::from(navigation.buffer.clone())]
+            }
             Self::Resend(lookup) => vec![Kind::from(lookup.buffer.clone())],
             Self::Exit(histories, _) => {
                 histories.iter().map(|(kind, _)| kind.clone()).collect()
@@ -105,14 +103,43 @@ impl Worker {
                 blocked: HashSet::new(),
                 exit_pending: false,
                 failure: None,
+                index_backlog: true,
+                index_failed: false,
             };
             match state.open() {
                 Ok(database) => state.database = Some(database),
                 Err(error) => state.fail(error),
             }
-            while let Ok(command) = receiver.recv() {
-                if state.accept(command) {
-                    break;
+            let mut changed_at: Option<Instant> = None;
+            loop {
+                let received = if state.index_backlog {
+                    receiver.recv_timeout(Duration::ZERO)
+                } else if let Some(changed_at) = changed_at {
+                    receiver.recv_timeout(
+                        INDEX_INTERVAL.saturating_sub(changed_at.elapsed()),
+                    )
+                } else {
+                    receiver
+                        .recv()
+                        .map_err(|_| mpsc::RecvTimeoutError::Disconnected)
+                };
+                match received {
+                    Ok(command) => {
+                        changed_at.get_or_insert_with(Instant::now);
+                        if state.accept(command) {
+                            break;
+                        }
+                    }
+                    Err(mpsc::RecvTimeoutError::Timeout) => (),
+                    Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                }
+                if state.index_backlog
+                    || changed_at.is_some_and(|changed_at| {
+                        changed_at.elapsed() >= INDEX_INTERVAL
+                    })
+                {
+                    state.index();
+                    changed_at = None;
                 }
             }
         });
@@ -161,13 +188,32 @@ struct State {
     blocked: HashSet<Kind>,
     exit_pending: bool,
     failure: Option<String>,
+    index_backlog: bool,
+    index_failed: bool,
 }
 
 impl State {
+    fn index(&mut self) {
+        if self.failure.is_some() || self.index_failed {
+            return;
+        }
+        let Some(database) = self.database.as_mut() else {
+            return;
+        };
+        match database.index(INDEX_BATCH) {
+            Ok(more) => self.index_backlog = more,
+            Err(error) => {
+                log::warn!("search indexing stopped: {error}");
+                self.index_failed = true;
+                self.index_backlog = false;
+            }
+        }
+    }
+
     fn open(&self) -> Result<database::Database, String> {
         let connection = if let Some(path) = &self.path {
             fs::create_dir_all(path).map_err(string)?;
-            Connection::open(path.join("history.sqlite3")).map_err(string)?
+            Connection::open(path.join(database::FILE_NAME)).map_err(string)?
         } else {
             Connection::open_in_memory().map_err(string)?
         };
@@ -408,10 +454,7 @@ impl State {
                 if navigation.token.strong_count() == 0 {
                     return;
                 }
-                let kind = Kind::Channel(
-                    navigation.server.clone(),
-                    navigation.channel.clone(),
-                );
+                let kind = Kind::from(navigation.buffer.clone());
                 match database.highlight_source(&kind, highlight) {
                     Ok(message) => navigation.message = message,
                     Err(error) => self.fail(string(error)),

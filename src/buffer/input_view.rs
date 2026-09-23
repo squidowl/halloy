@@ -2250,6 +2250,16 @@ impl State {
                             )),
                         );
                     }
+                    command::Internal::Search(query) => {
+                        let query = (!query.is_empty()).then_some(query);
+
+                        return (
+                            Task::none(),
+                            Some(Event::OpenInternalBuffer(
+                                buffer::Internal::Search(query),
+                            )),
+                        );
+                    }
                     command::Internal::Delay(_) => {
                         return (Task::none(), None);
                     }

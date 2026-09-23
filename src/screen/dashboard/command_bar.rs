@@ -454,6 +454,7 @@ impl std::fmt::Display for Buffer {
                     buffer::Internal::ChannelMonitor => {
                         write!(f, "Open channel monitor")
                     }
+                    buffer::Internal::Search(_) => write!(f, "Open search"),
                 },
                 data::Buffer::Upstream(upstream) => match upstream {
                     buffer::Upstream::Server(server) => {

@@ -1102,6 +1102,17 @@ impl Dashboard {
                             None,
                         );
                     }
+                    Search => {
+                        return (
+                            self.toggle_internal_buffer(
+                                clients,
+                                storage,
+                                config,
+                                buffer::Internal::Search(None),
+                            ),
+                            None,
+                        );
+                    }
                     ToggleFullscreen => {
                         return (
                             window::toggle_fullscreen(),
@@ -2097,6 +2108,22 @@ impl Dashboard {
 
                         None
                     }
+                    buffer::context_menu::Event::SearchMessages(nick) => {
+                        tasks.push(
+                            self.open_buffer(
+                                buffer::Internal::Search(Some(format!(
+                                    "from:{nick} "
+                                )))
+                                .into(),
+                                config.actions.buffer.open_internal,
+                                clients,
+                                storage,
+                                config,
+                            ),
+                        );
+
+                        None
+                    }
                     buffer::context_menu::Event::OpenTarget(
                         server,
                         target,
@@ -2357,15 +2384,13 @@ impl Dashboard {
                 }
             }
             buffer::Event::GoToMessage(
-                server,
-                channel,
+                upstream,
                 destination,
                 buffer_action,
             ) => {
                 self.pending_navigation = None;
                 let mut navigation = model::Navigation {
-                    server,
-                    channel,
+                    buffer: upstream,
                     message: None,
                     buffer_action,
                     token: std::sync::Weak::new(),
@@ -3158,10 +3183,7 @@ impl Dashboard {
         storage: &mut storage::Manager,
         config: &Config,
     ) -> Task<Message> {
-        let buffer = data::Buffer::Upstream(buffer::Upstream::Channel(
-            navigation.server,
-            navigation.channel,
-        ));
+        let buffer = data::Buffer::Upstream(navigation.buffer);
 
         let mut tasks = vec![];
 
@@ -3205,6 +3227,30 @@ impl Dashboard {
         config: &Config,
     ) -> Task<Message> {
         self.pending_navigation = None;
+
+        let buffer = match buffer {
+            data::Buffer::Internal(buffer::Internal::Search(Some(query))) => {
+                let open =
+                    self.panes.iter().find_map(|(window, pane, state)| {
+                        matches!(state.buffer, Buffer::Search(_))
+                            .then_some((window, pane))
+                    });
+
+                if let Some((window, pane)) = open {
+                    if let Some(state) = self.panes.get_mut(window, pane)
+                        && let Buffer::Search(search) = &mut state.buffer
+                    {
+                        search.set_query(query);
+                    }
+
+                    return self.focus_pane(window, pane);
+                }
+
+                data::Buffer::Internal(buffer::Internal::Search(Some(query)))
+            }
+            buffer => buffer,
+        };
+
         let open_in = self.panes.iter().find_map(|(window, pane, state)| {
             (state.buffer.data().as_ref() == Some(&buffer))
                 .then_some((window, pane))
@@ -3245,7 +3291,8 @@ impl Dashboard {
                 | buffer::Internal::Logs
                 | buffer::Internal::Highlights
                 | buffer::Internal::ChannelDiscovery(_)
-                | buffer::Internal::ConfigEditor => (),
+                | buffer::Internal::ConfigEditor
+                | buffer::Internal::Search(_) => (),
             }
         }
 

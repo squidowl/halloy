@@ -106,10 +106,11 @@ pub fn on_connect(
                                 None
                             }
                             // We don't handle hop, clear-buffer, sysinfo,
-                            // channel_discovery, connect, or reconnect when
-                            // called on connection.
+                            // channel_discovery, search, connect, or reconnect
+                            // when called on connection.
                             command::Internal::ClearBuffer
                             | command::Internal::ChannelDiscovery
+                            | command::Internal::Search(_)
                             | command::Internal::Connect(_)
                             | command::Internal::Exec(_)
                             | command::Internal::Hop(_, _)
