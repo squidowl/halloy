@@ -9,10 +9,11 @@ use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use super::{Id, Kind, Metadata, ReadMarker, storage};
+use super::{Id, Kind, Metadata, ReadMarker, search, storage};
 use crate::{isupport, message, reaction, redaction, user};
 
 pub(super) const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
+pub(super) const FILE_NAME: &str = "history.sqlite3";
 
 const UNLABELED_ECHO_CANDIDATES: &str = "SELECT id, time, time_from_server, msgid, content FROM message
                  WHERE history = ?1 AND time >= ?2 AND time < ?3
@@ -160,6 +161,7 @@ impl PartialOrd for MonitorHead {
 
 pub(super) struct Database {
     connection: Connection,
+    indexed: i64,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -197,6 +199,14 @@ struct StoredSource {
     source: message::Source,
 }
 
+#[derive(Deserialize)]
+struct SearchableMessage {
+    source: message::Source,
+    content: message::Content,
+    #[serde(default)]
+    redaction: Option<redaction::Redaction>,
+}
+
 impl Database {
     pub fn new(mut connection: Connection) -> Result<Self, Error> {
         connection.busy_timeout(BUSY_TIMEOUT)?;
@@ -217,6 +227,8 @@ impl Database {
                     "CREATE TABLE history (
                         id INTEGER PRIMARY KEY,
                         kind TEXT NOT NULL UNIQUE,
+                        server TEXT,
+                        target TEXT,
                         read_marker INTEGER,
                         latest INTEGER,
                         latest_triggers_unread INTEGER,
@@ -239,23 +251,30 @@ impl Database {
                     CREATE INDEX message_msgid ON message(history, msgid) WHERE msgid IS NOT NULL;
                     CREATE INDEX message_referenceable ON message(history, time) WHERE referenceable = 1;
                     CREATE INDEX message_monitor ON message(history, time) WHERE in_channel_monitor = 1;
-                    PRAGMA user_version = 2;",
+                    CREATE VIRTUAL TABLE message_search USING fts5(
+                        nick, text, message UNINDEXED,
+                        content='', contentless_delete=1, contentless_unindexed=1,
+                        tokenize='unicode61 remove_diacritics 2'
+                    );
+                    CREATE TABLE search_state (indexed INTEGER NOT NULL);
+                    INSERT INTO search_state VALUES (0);
+                    CREATE TABLE search_pending (key INTEGER PRIMARY KEY, message INTEGER NOT NULL);
+                    PRAGMA user_version = 3;",
                 )?;
                 transaction.commit()?;
             }
-            1 => {
-                let transaction = connection.transaction()?;
-                transaction.execute_batch(
-                    "DROP INDEX message_monitor;
-                     CREATE INDEX message_monitor ON message(history, time) WHERE in_channel_monitor = 1;
-                     PRAGMA user_version = 2;",
-                )?;
-                transaction.commit()?;
-            }
-            2 => (),
+            3 => (),
             other => return Err(Error::Schema(other)),
         }
-        Ok(Self { connection })
+        let indexed = connection.query_row(
+            "SELECT indexed FROM search_state",
+            [],
+            |row| row.get(0),
+        )?;
+        Ok(Self {
+            connection,
+            indexed,
+        })
     }
 
     pub fn is_imported(&self, kind: &Kind) -> Result<bool, Error> {
@@ -273,9 +292,86 @@ impl Database {
         Ok(Write {
             transaction: self.connection.transaction()?,
             histories: HashMap::new(),
+            searchable: HashSet::new(),
+            indexed: self.indexed,
             appends: HashMap::new(),
             serialization_buffer: Vec::new(),
         })
+    }
+
+    pub fn index(&mut self, limit: usize) -> Result<bool, Error> {
+        let limit = i64::try_from(limit).unwrap_or(i64::MAX);
+        let transaction = self.connection.transaction()?;
+        let pending = transaction
+            .prepare_cached("SELECT key, message FROM search_pending LIMIT ?1")?
+            .query_map([limit], |row| {
+                Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut rows = vec![];
+        for (key, message) in &pending {
+            transaction
+                .prepare_cached("DELETE FROM message_search WHERE rowid = ?1")?
+                .execute([key])?;
+            transaction
+                .prepare_cached("DELETE FROM search_pending WHERE key = ?1")?
+                .execute([key])?;
+            rows.extend(
+                transaction
+                    .prepare_cached(
+                        "SELECT m.id, m.time, m.content, h.server IS NOT NULL FROM message m
+                         JOIN history h ON h.id = m.history WHERE m.id = ?1",
+                    )?
+                    .query_row([message], indexable_row)
+                    .optional()?,
+            );
+        }
+        let remaining = limit - pending.len() as i64;
+        let new = transaction
+            .prepare_cached(
+                "SELECT m.id, m.time, m.content, h.server IS NOT NULL FROM message m
+                 JOIN history h ON h.id = m.history
+                 WHERE m.id > ?1 ORDER BY m.id LIMIT ?2",
+            )?
+            .query_map(params![self.indexed, remaining], indexable_row)?
+            .collect::<Result<Vec<_>, _>>()?;
+        if pending.is_empty() && new.is_empty() {
+            return Ok(false);
+        }
+        let more = remaining == 0 || new.len() as i64 == remaining;
+        let indexed = new.last().map_or(self.indexed, |(id, ..)| *id);
+        rows.extend(new);
+        {
+            let mut insert = transaction.prepare_cached(
+                "INSERT OR REPLACE INTO message_search(rowid, nick, text, message) VALUES (?1, ?2, ?3, ?4)",
+            )?;
+            for (id, time, content, searchable) in &rows {
+                if !searchable {
+                    continue;
+                }
+                let stored: SearchableMessage =
+                    serde_json::from_slice(content)?;
+                if stored.redaction.is_some() {
+                    continue;
+                }
+                let (Some(user), Some(key)) =
+                    (stored.source.user(), search_key(*time, *id))
+                else {
+                    continue;
+                };
+                insert.execute(params![
+                    key,
+                    search::nick_token(user.nickname().as_str()),
+                    stored.content.text(),
+                    id,
+                ])?;
+            }
+        }
+        transaction
+            .execute("UPDATE search_state SET indexed = ?1", [indexed])?;
+        transaction.commit()?;
+        self.indexed = indexed;
+        Ok(more)
     }
 
     pub fn window(
@@ -691,6 +787,16 @@ impl Database {
             .map(|message| message.history_id))
     }
 
+    #[cfg(test)]
+    pub fn search(
+        &self,
+        query: &search::Query,
+        before: Option<search::Cursor>,
+        limit: usize,
+    ) -> Result<search::Page, Error> {
+        search(&self.connection, query, before, limit)
+    }
+
     pub fn reference(
         &self,
         kind: &Kind,
@@ -769,6 +875,8 @@ impl Database {
 pub(super) struct Write<'a> {
     transaction: Transaction<'a>,
     histories: HashMap<Kind, i64>,
+    searchable: HashSet<i64>,
+    indexed: i64,
     // Pre-transaction maximum and reconciliation-confirmed append classification.
     appends: HashMap<i64, (Option<(i64, i64)>, bool)>,
     serialization_buffer: Vec<u8>,
@@ -1022,6 +1130,16 @@ impl Write<'_> {
                 "DELETE FROM message WHERE history = (SELECT id FROM history WHERE kind = ?1) AND id = ?2",
                 params![history_key(kind)?, sql_id(id)?],
             )?;
+            if is_searchable(kind)
+                && sql_id(id)? <= self.indexed
+                && let Some(key) =
+                    search_key(message.time.utc.timestamp_micros(), sql_id(id)?)
+            {
+                self.transaction.execute(
+                    "INSERT OR REPLACE INTO search_pending VALUES (?1, ?2)",
+                    params![key, sql_id(id)?],
+                )?;
+            }
         }
         Ok(message)
     }
@@ -1209,6 +1327,12 @@ impl Write<'_> {
 
     pub fn clear(&mut self, kind: &Kind) -> Result<(), Error> {
         let history = self.history(kind)?;
+        if is_searchable(kind) {
+            self.transaction.execute(
+                "INSERT OR REPLACE INTO search_pending SELECT time * 1024 + (id & 1023), id FROM message WHERE history = ?1 AND id <= ?2",
+                [history, self.indexed],
+            )?;
+        }
         self.transaction
             .execute("DELETE FROM message WHERE history = ?1", [history])?;
         self.transaction.execute(
@@ -1289,12 +1413,28 @@ impl Write<'_> {
             return Ok(*id);
         }
         let key = history_key(kind)?;
-        self.transaction.prepare_cached("INSERT INTO history(kind) VALUES (?1) ON CONFLICT(kind) DO NOTHING")?.execute([&key])?;
+        let (server, target) = match kind {
+            Kind::Server(server) => (Some(server), None),
+            Kind::Channel(server, channel) => {
+                (Some(server), Some(channel.as_str()))
+            }
+            Kind::Query(server, query) => (Some(server), Some(query.as_str())),
+            Kind::Logs | Kind::Highlights | Kind::ChannelMonitor => {
+                (None, None)
+            }
+        };
+        let server = server.map(|server| format!("{server:b}"));
+        self.transaction.prepare_cached(
+            "INSERT INTO history(kind, server, target) VALUES (?1, ?2, ?3) ON CONFLICT(kind) DO NOTHING",
+        )?.execute(params![&key, server, target])?;
         let id = self
             .transaction
             .prepare_cached("SELECT id FROM history WHERE kind = ?1")?
             .query_row([&key], |row| row.get(0))?;
         self.histories.insert(kind.clone(), id);
+        if is_searchable(kind) {
+            self.searchable.insert(id);
+        }
         Ok(id)
     }
 
@@ -1326,9 +1466,22 @@ impl Write<'_> {
             Id::Undetermined => None,
             Id::Determined(id) => Some(sql_id(id)?),
         };
+        let user = self
+            .searchable
+            .contains(&history)
+            .then(|| message.source.user())
+            .flatten();
+        let previous_time: Option<i64> = match (user, id) {
+            (Some(_), Some(id)) if id <= self.indexed => self
+                .transaction
+                .prepare_cached("SELECT time FROM message WHERE id = ?1")?
+                .query_row([id], |row| row.get(0))
+                .optional()?,
+            _ => None,
+        };
         // msgid is not unique: Halloy's historical/echo matching decides which
         // row is replaced, not an SQL uniqueness constraint.
-        self.transaction.prepare_cached(
+        let changed = self.transaction.prepare_cached(
             "INSERT INTO message(id, history, time, time_from_server, msgid, referenceable, in_channel_monitor, content)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
              ON CONFLICT(id) DO UPDATE SET time=excluded.time, time_from_server=excluded.time_from_server,
@@ -1338,9 +1491,25 @@ impl Write<'_> {
         )?.execute(params![id, history, message.time.utc.timestamp_micros(),
             matches!(message.time.source, message::time::Source::Server),
             message.id.as_deref(), referenceable, monitor, self.serialization_buffer.as_slice()])?;
-        if id.is_none() {
-            message.history_id =
-                Id::Determined(self.transaction.last_insert_rowid() as u64);
+        if changed == 0 {
+            return Ok(());
+        }
+        let rowid = match id {
+            Some(id) => id,
+            None => {
+                let rowid = self.transaction.last_insert_rowid();
+                message.history_id = Id::Determined(rowid as u64);
+                rowid
+            }
+        };
+        if let Some(key) =
+            previous_time.and_then(|time| search_key(time, rowid))
+        {
+            self.transaction
+                .prepare_cached(
+                    "INSERT OR REPLACE INTO search_pending VALUES (?1, ?2)",
+                )?
+                .execute([key, rowid])?;
         }
         Ok(())
     }
@@ -1432,6 +1601,84 @@ fn history_key(kind: &Kind) -> Result<String, serde_json::Error> {
     ))
 }
 
+pub(super) fn search(
+    connection: &Connection,
+    query: &search::Query,
+    before: Option<search::Cursor>,
+    limit: usize,
+) -> Result<search::Page, Error> {
+    let Some(fts) = query.fts() else {
+        return Ok(search::Page {
+            hits: vec![],
+            next: None,
+        });
+    };
+    let limit = i64::try_from(limit).unwrap_or(i64::MAX);
+    let mut statement = connection.prepare_cached(
+        "SELECT m.id, m.time, m.time_from_server, m.msgid, m.content,
+                h.server, h.target, json_extract(h.kind, '$[0]'), s.rowid
+         FROM message_search s
+         JOIN message m ON m.id = s.message
+         JOIN history h ON h.id = m.history
+         WHERE message_search MATCH ?1
+           AND (?2 IS NULL OR h.target = ?2 COLLATE NOCASE)
+           AND (?3 IS NULL OR s.rowid < ?3)
+         ORDER BY s.rowid DESC
+         LIMIT ?4",
+    )?;
+    let rows = statement
+        .query_map(
+            params![fts, query.within, before.map(|cursor| cursor.key), limit],
+            |row| {
+                let message = row_message(row)?;
+                let server: String = row.get(5)?;
+                let target: Option<String> = row.get(6)?;
+                let tag: String = row.get(7)?;
+                let buffer = match (tag.as_str(), target) {
+                    ("channel", Some(target)) => {
+                        search::Buffer::Channel(target)
+                    }
+                    ("query", Some(target)) => search::Buffer::Query(target),
+                    _ => search::Buffer::Server,
+                };
+                let key: i64 = row.get(8)?;
+                Ok((
+                    search::Hit {
+                        server,
+                        buffer,
+                        message,
+                    },
+                    key,
+                ))
+            },
+        )?
+        .collect::<Result<Vec<_>, _>>()?;
+    let next = (rows.len() as i64 == limit)
+        .then(|| rows.last())
+        .flatten()
+        .map(|(_, key)| search::Cursor { key: *key });
+    let hits = rows
+        .into_iter()
+        .map(|(hit, _)| hit)
+        .filter(|hit| hit.message.redaction.is_none())
+        .collect();
+    Ok(search::Page { hits, next })
+}
+
+fn indexable_row(
+    row: &rusqlite::Row<'_>,
+) -> rusqlite::Result<(i64, i64, Vec<u8>, bool)> {
+    Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+}
+
+fn search_key(time: i64, id: i64) -> Option<i64> {
+    time.checked_mul(1024)?.checked_add(id & 1023)
+}
+
+fn is_searchable(kind: &Kind) -> bool {
+    matches!(kind, Kind::Server(_) | Kind::Channel(..) | Kind::Query(..))
+}
+
 fn row_message(row: &rusqlite::Row<'_>) -> rusqlite::Result<message::Message> {
     let timestamp: i64 = row.get(1)?;
     let utc =
@@ -1484,4 +1731,289 @@ fn sql_id(id: u64) -> rusqlite::Result<i64> {
     i64::try_from(id).map_err(|error| {
         rusqlite::Error::ToSqlConversionFailure(Box::new(error))
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::TimeZone;
+
+    use super::*;
+    use crate::history::search::{Buffer, Query};
+    use crate::user::Nick;
+    use crate::{Server, User, isupport, target};
+
+    fn database() -> Database {
+        Database::new(Connection::open_in_memory().unwrap()).unwrap()
+    }
+
+    fn server() -> Server {
+        Server::from(std::sync::Arc::<str>::from("libera"))
+    }
+
+    fn channel(name: &str) -> Kind {
+        Kind::Channel(
+            server(),
+            target::Channel::from_str(
+                name,
+                &['#'],
+                isupport::CaseMap::default(),
+            ),
+        )
+    }
+
+    fn user(nick: &str) -> User {
+        User::from(Nick::from_str(nick, isupport::CaseMap::default()))
+    }
+
+    fn message(seconds: i64, nick: &str, text: &str) -> message::Message {
+        message::Message {
+            history_id: Id::Undetermined,
+            time: message::Time::client(
+                Utc.timestamp_opt(1_700_000_000 + seconds, 0).unwrap(),
+            ),
+            direction: message::Direction::Received { is_echo: false },
+            source: message::Source::User(user(nick)),
+            target: message::Target::Server,
+            content: message::Content::Plain(text.to_string()),
+            id: None,
+            hidden_urls: HashSet::new(),
+            reactions: vec![],
+            relayed_by: None,
+            rerouted_from: None,
+            redaction: None,
+            reply_to: None,
+        }
+    }
+
+    fn store(
+        database: &mut Database,
+        kind: &Kind,
+        messages: Vec<message::Message>,
+    ) -> Vec<message::Message> {
+        let mut write = database.transaction().unwrap();
+        let history = write.history(kind).unwrap();
+        let stored = messages
+            .into_iter()
+            .map(|mut message| {
+                write.store(history, &mut message).unwrap();
+                message
+            })
+            .collect();
+        write.commit().unwrap();
+        while database.index(10).unwrap() {}
+        stored
+    }
+
+    fn texts(database: &mut Database, query: &str) -> Vec<String> {
+        while database.index(10).unwrap() {}
+        database
+            .search(&Query::parse(query), None, 100)
+            .unwrap()
+            .hits
+            .into_iter()
+            .map(|hit| hit.message.content.text().into_owned())
+            .collect()
+    }
+
+    #[test]
+    fn search_finds_words_and_prefixes_newest_first() {
+        let mut database = database();
+        store(
+            &mut database,
+            &channel("#Halloy"),
+            vec![
+                message(1, "casper", "the release is out"),
+                message(2, "andrew", "Released a fix"),
+                message(3, "casper", "unrelated chatter"),
+            ],
+        );
+
+        assert_eq!(
+            texts(&mut database, "release"),
+            ["Released a fix", "the release is out"]
+        );
+        assert_eq!(texts(&mut database, "release "), ["the release is out"]);
+        assert_eq!(
+            texts(&mut database, "\"release is\""),
+            ["the release is out"]
+        );
+        assert!(texts(&mut database, "nothing").is_empty());
+
+        let page = database
+            .search(&Query::parse("chatter"), None, 100)
+            .unwrap();
+        let hit = &page.hits[0];
+        assert_eq!(hit.server, "libera");
+        assert_eq!(hit.buffer, Buffer::Channel("#Halloy".to_string()));
+    }
+
+    #[test]
+    fn search_filters_by_nick_and_target() {
+        let mut database = database();
+        store(
+            &mut database,
+            &channel("#halloy"),
+            vec![
+                message(1, "Casper", "hello halloy"),
+                message(2, "andrew", "hello halloy"),
+                message(5, "casper_away", "hello away"),
+            ],
+        );
+        store(
+            &mut database,
+            &channel("#other"),
+            vec![message(3, "casper", "hello other")],
+        );
+        let query = Kind::Query(
+            server(),
+            target::Query::from(Nick::from_str(
+                "casper",
+                isupport::CaseMap::default(),
+            )),
+        );
+        store(
+            &mut database,
+            &query,
+            vec![message(4, "casper", "hello query")],
+        );
+
+        assert_eq!(
+            texts(&mut database, "from:CASPER hello"),
+            ["hello query", "hello other", "hello halloy"]
+        );
+        assert_eq!(
+            texts(&mut database, "from:casper in:#HALLOY"),
+            ["hello halloy"]
+        );
+        assert_eq!(texts(&mut database, "in:casper hello"), ["hello query"]);
+
+        let page = database.search(&Query::parse("query"), None, 100).unwrap();
+        assert_eq!(page.hits[0].buffer, Buffer::Query("casper".to_string()));
+    }
+
+    #[test]
+    fn only_user_messages_in_upstream_histories_are_searchable() {
+        let mut database = database();
+        let mut event = message(1, "casper", "casper joined the channel");
+        event.source = message::Source::Server(None);
+        store(&mut database, &channel("#halloy"), vec![event]);
+        store(
+            &mut database,
+            &Kind::Highlights,
+            vec![message(2, "casper", "casper highlighted")],
+        );
+        store(
+            &mut database,
+            &Kind::Server(server()),
+            vec![message(3, "casper", "casper on the server")],
+        );
+
+        assert_eq!(texts(&mut database, "casper"), ["casper on the server"]);
+        let page = database.search(&Query::parse("casper"), None, 100).unwrap();
+        assert_eq!(page.hits[0].buffer, Buffer::Server);
+    }
+
+    #[test]
+    fn rewrites_redactions_and_deletes_update_the_index() {
+        let mut database = database();
+        let kind = channel("#halloy");
+        let mut stored = store(
+            &mut database,
+            &kind,
+            vec![
+                message(1, "casper", "first draft"),
+                message(2, "casper", "second draft"),
+                message(3, "casper", "third draft"),
+            ],
+        );
+
+        stored[0].content = message::Content::Plain("first edit".to_string());
+        let rewritten = store(&mut database, &kind, vec![stored[0].clone()]);
+        assert_eq!(rewritten[0].history_id, stored[0].history_id);
+        assert_eq!(texts(&mut database, "first"), ["first edit"]);
+        assert_eq!(
+            texts(&mut database, "draft"),
+            ["third draft", "second draft"]
+        );
+
+        stored[0].time = message(10, "casper", "").time;
+        store(&mut database, &kind, vec![stored[0].clone()]);
+        assert_eq!(texts(&mut database, "first"), ["first edit"]);
+        assert_eq!(
+            texts(&mut database, "from:casper"),
+            ["first edit", "third draft", "second draft"]
+        );
+
+        stored[1].redaction = Some(redaction::Redaction {
+            from: Nick::from_str("casper", isupport::CaseMap::default()),
+            reason: None,
+        });
+        store(&mut database, &kind, vec![stored[1].clone()]);
+        assert_eq!(texts(&mut database, "draft"), ["third draft"]);
+        assert!(texts(&mut database, "from:casper").len() == 2);
+
+        let write = database.transaction().unwrap();
+        write.remove(&kind, stored[2].history_id).unwrap();
+        write.commit().unwrap();
+        assert!(texts(&mut database, "draft").is_empty());
+
+        let mut write = database.transaction().unwrap();
+        write.clear(&kind).unwrap();
+        write.commit().unwrap();
+        assert!(texts(&mut database, "first").is_empty());
+        let count: i64 = database
+            .connection
+            .query_row("SELECT count(*) FROM message_search", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn redacted_messages_are_hidden_before_reindexing() {
+        let mut database = database();
+        let kind = channel("#halloy");
+        let mut stored =
+            store(&mut database, &kind, vec![message(1, "casper", "secret")]);
+
+        stored[0].redaction = Some(redaction::Redaction {
+            from: Nick::from_str("casper", isupport::CaseMap::default()),
+            reason: None,
+        });
+        let mut write = database.transaction().unwrap();
+        let history = write.history(&kind).unwrap();
+        write.store(history, &mut stored[0]).unwrap();
+        write.commit().unwrap();
+
+        let page = database.search(&Query::parse("secret"), None, 100).unwrap();
+        assert!(page.hits.is_empty());
+    }
+
+    #[test]
+    fn search_pages_without_gaps_or_overlaps() {
+        let mut database = database();
+        let messages = (0..25)
+            .map(|index| {
+                message(index / 2, "casper", &format!("paged {index}"))
+            })
+            .collect();
+        store(&mut database, &channel("#halloy"), messages);
+
+        let query = Query::parse("paged");
+        let mut seen = vec![];
+        let mut before = None;
+        loop {
+            let page = database.search(&query, before, 10).unwrap();
+            seen.extend(page.hits.iter().map(|hit| hit.message.history_id));
+            match page.next {
+                Some(next) => before = Some(next),
+                None => break,
+            }
+        }
+
+        let mut expected: Vec<_> = (1..=25).rev().map(Id::Determined).collect();
+        expected.dedup();
+        assert_eq!(seen, expected);
+    }
 }
