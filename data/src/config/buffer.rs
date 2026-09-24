@@ -532,6 +532,14 @@ impl ServerMessages {
         }
     }
 
+    pub fn condense_dimmed(&self) -> Option<&Dimmed> {
+        self.condense
+            .dimmed
+            .as_ref()
+            .or(self.default.dimmed.as_ref())
+            .or(Some(&DIMMED_DEFAULT))
+    }
+
     pub fn dimmed(
         &self,
         kind: Option<source::server::Kind>,

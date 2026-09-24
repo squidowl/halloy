@@ -921,20 +921,14 @@ impl<'a> ChannelQueryLayout<'a> {
     ) {
         let formatter = *self;
 
-        let dimmed = formatter
-            .config
-            .buffer
-            .server_messages
-            .condense
-            .dimmed
-            .or(formatter.config.buffer.server_messages.default.dimmed);
+        let dimmed = formatter.config.buffer.server_messages.condense_dimmed();
 
         let message_style = move |message_theme: &Theme| {
             theme::selectable_text::dimmed(
                 theme::selectable_text::server(message_theme, None),
                 message_theme,
                 dimmed.map(|dimmed| {
-                    (dimmed, formatter.theme.styles().buffer.background)
+                    (*dimmed, formatter.theme.styles().buffer.background)
                 }),
             )
         };
