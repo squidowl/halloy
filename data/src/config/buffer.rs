@@ -730,7 +730,7 @@ impl Default for Condensation {
             format: CondensationFormat::default(),
             icon: CondensationIcon::default(),
             timestamp: CondensationTimestamp::default(),
-            dimmed: Some(Dimmed::default()),
+            dimmed: None,
             max: None,
         }
     }
