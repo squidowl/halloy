@@ -1867,7 +1867,6 @@ impl<'a> ChannelQueryLayout<'a> {
                 tooltip::Position::TopLeft,
             )
             .smart_placement(true)
-            .padding(0) // this only takes uniform padding; we wrap in a container above to get what we want
             .delay(delay)
             .into()
         } else {

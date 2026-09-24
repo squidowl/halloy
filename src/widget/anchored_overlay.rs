@@ -1,7 +1,7 @@
 use iced::advanced::{
-    Layout, Shell, Widget, layout, overlay, renderer, widget,
+    Layout, Renderer as _, Shell, Widget, layout, overlay, renderer, widget,
 };
-use iced::{Event, Length, Point, Rectangle, Size, Vector, mouse};
+use iced::{Event, Length, Rectangle, Size, Vector, mouse};
 
 use super::{Element, Renderer};
 use crate::Theme;
@@ -50,12 +50,13 @@ impl<Message> Widget<Message, Theme, Renderer>
         tree: &mut widget::Tree,
         renderer: &Renderer,
         limits: &layout::Limits,
-    ) -> layout::Node {
+    ) {
         self.base.as_widget_mut().layout(
             &mut tree.children[0],
             renderer,
             limits,
-        )
+        );
+        tree.size = tree.children[0].size;
     }
 
     fn draw(
@@ -64,7 +65,7 @@ impl<Message> Widget<Message, Theme, Renderer>
         renderer: &mut Renderer,
         theme: &Theme,
         style: &renderer::Style,
-        layout: Layout<'_>,
+        layout: Layout,
         cursor: mouse::Cursor,
         viewport: &Rectangle,
     ) {
@@ -86,7 +87,7 @@ impl<Message> Widget<Message, Theme, Renderer>
     fn operate(
         &mut self,
         tree: &mut iced::advanced::widget::Tree,
-        layout: Layout<'_>,
+        layout: Layout,
         viewport: &Rectangle,
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
@@ -104,7 +105,7 @@ impl<Message> Widget<Message, Theme, Renderer>
         &mut self,
         tree: &mut widget::Tree,
         event: &Event,
-        layout: Layout<'_>,
+        layout: Layout,
         cursor: mouse::Cursor,
         renderer: &Renderer,
         shell: &mut Shell<'_, Message>,
@@ -124,7 +125,7 @@ impl<Message> Widget<Message, Theme, Renderer>
     fn mouse_interaction(
         &self,
         tree: &widget::Tree,
-        layout: Layout<'_>,
+        layout: Layout,
         cursor: mouse::Cursor,
         viewport: &Rectangle,
         renderer: &Renderer,
@@ -141,10 +142,11 @@ impl<Message> Widget<Message, Theme, Renderer>
     fn overlay<'b>(
         &'b mut self,
         tree: &'b mut widget::Tree,
-        layout: Layout<'b>,
+        layout: Layout,
         renderer: &Renderer,
         viewport: &Rectangle,
         translation: Vector,
+        window: Size,
     ) -> Vec<overlay::Element<'b, Message, Theme, Renderer>> {
         let (first, second) = tree.children.split_at_mut(1);
 
@@ -154,20 +156,71 @@ impl<Message> Widget<Message, Theme, Renderer>
             renderer,
             viewport,
             translation,
+            window,
         );
+
+        let position = layout.position() + translation;
+        let viewport = *viewport + translation;
+
+        let (width, height) = match self.anchor {
+            // From top of base to top of viewport
+            Anchor::AboveTop => (layout.bounds().width, position.y),
+            // From top of base to bottom of viewport
+            Anchor::BelowTopCentered => (window.width, window.height),
+        };
+
+        let limits = layout::Limits::new(Size::ZERO, Size { width, height })
+            .width(Length::Fill)
+            .height(Length::Fill);
+
+        self.overlay
+            .as_widget_mut()
+            .layout(&mut second[0], renderer, &limits);
+
+        let size = second[0].size;
+        let translation = match self.anchor {
+            // Overlay height + offset above the top
+            Anchor::AboveTop => Vector::new(0.0, -(size.height + self.offset)),
+            // Offset below the top and centered, pushed up just enough to stay
+            // within the viewport when it would overflow the bottom edge.
+            Anchor::BelowTopCentered => {
+                let mut x = layout.bounds().width / 2.0 - size.width / 2.0;
+
+                // overlay may be wider than parent
+                let left = position.x + x;
+                if left < viewport.x {
+                    x += viewport.x - left;
+                }
+                let right = position.x + x + size.width;
+                let viewport_right = viewport.x + viewport.width;
+                if right > viewport_right {
+                    x -= right - viewport_right;
+                }
+
+                let mut y = self.offset;
+
+                let overflow = position.y + y + size.height
+                    - (viewport.y + viewport.height);
+                if overflow > 0.0 {
+                    y -= overflow;
+                }
+
+                // Never push above the top of the viewport.
+                if position.y + y < viewport.y {
+                    y = viewport.y - position.y;
+                }
+
+                Vector::new(x, y)
+            }
+        };
 
         let overlay = overlay::Element::new(Box::new(Overlay {
             content: &mut self.overlay,
             tree: &mut second[0],
-            anchor: self.anchor,
-            offset: self.offset,
             on_dismiss: &self.on_dismiss,
-            base_layout: layout.bounds(),
-            // Apply the accumulated translation (e.g. a scrollable's offset)
-            // so the overlay anchors to the base's on-screen position rather
-            // than its position in unscrolled content space.
-            position: layout.position() + translation,
-            viewport: *viewport + translation,
+            layout: Layout::new(size).move_to(position + translation),
+            viewport,
+            window,
         }));
 
         base.into_iter().chain(std::iter::once(overlay)).collect()
@@ -186,105 +239,44 @@ where
 struct Overlay<'a, 'b, Message> {
     content: &'b mut Element<'a, Message>,
     tree: &'b mut widget::Tree,
-    anchor: Anchor,
-    offset: f32,
     on_dismiss: &'b Option<Box<dyn Fn() -> Message + 'a>>,
-    base_layout: Rectangle,
-    position: Point,
+    layout: Layout,
     viewport: Rectangle,
+    window: Size,
 }
 
 impl<Message> overlay::Overlay<Message, Theme, Renderer>
     for Overlay<'_, '_, Message>
 {
-    fn layout(&mut self, renderer: &Renderer, bounds: Size) -> layout::Node {
-        let (width, height) = match self.anchor {
-            // From top of base to top of viewport
-            Anchor::AboveTop => (self.base_layout.width, self.position.y),
-            // From top of base to bottom of viewport
-            Anchor::BelowTopCentered => (bounds.width, bounds.height),
-        };
-
-        let limits = layout::Limits::new(Size::ZERO, Size { width, height })
-            .width(Length::Fill)
-            .height(Length::Fill);
-
-        let node = self
-            .content
-            .as_widget_mut()
-            .layout(self.tree, renderer, &limits);
-
-        let translation = match self.anchor {
-            // Overlay height + offset above the top
-            Anchor::AboveTop => {
-                Vector::new(0.0, -(node.size().height + self.offset))
-            }
-            // Offset below the top and centered, pushed up just enough to stay
-            // within the viewport when it would overflow the bottom edge.
-            Anchor::BelowTopCentered => {
-                let mut x =
-                    self.base_layout.width / 2.0 - node.size().width / 2.0;
-
-                // overlay may be wider than parent
-                let left = self.position.x + x;
-                if left < self.viewport.x {
-                    x += self.viewport.x - left;
-                }
-                let right = self.position.x + x + node.size().width;
-                let viewport_right = self.viewport.x + self.viewport.width;
-                if right > viewport_right {
-                    x -= right - viewport_right;
-                }
-
-                let mut y = self.offset;
-
-                let overflow = (self.position.y + y + node.size().height)
-                    - (self.viewport.y + self.viewport.height);
-                if overflow > 0.0 {
-                    y -= overflow;
-                }
-
-                // Never push above the top of the viewport.
-                if self.position.y + y < self.viewport.y {
-                    y = self.viewport.y - self.position.y;
-                }
-
-                Vector::new(x, y)
-            }
-        };
-
-        node.move_to(self.position + translation)
-    }
-
     fn draw(
         &self,
         renderer: &mut Renderer,
         theme: &Theme,
         style: &renderer::Style,
-        layout: Layout<'_>,
         cursor: mouse::Cursor,
     ) {
-        self.content.as_widget().draw(
-            self.tree,
-            renderer,
-            theme,
-            style,
-            layout,
-            cursor,
-            &layout.bounds(),
-        );
+        renderer.with_layer(self.layout.bounds(), |renderer| {
+            self.content.as_widget().draw(
+                self.tree,
+                renderer,
+                theme,
+                style,
+                self.layout,
+                cursor,
+                &self.layout.bounds(),
+            );
+        });
     }
 
     fn operate(
         &mut self,
-        layout: Layout<'_>,
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
     ) {
         self.content.as_widget_mut().operate(
             self.tree,
-            layout,
-            &layout.bounds(),
+            self.layout,
+            &self.layout.bounds(),
             renderer,
             operation,
         );
@@ -293,7 +285,6 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
     fn update(
         &mut self,
         event: &Event,
-        layout: Layout<'_>,
         cursor: mouse::Cursor,
         renderer: &Renderer,
         shell: &mut Shell<'_, Message>,
@@ -302,7 +293,7 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
         // doesn't also act on whatever is underneath).
         if let Some(on_dismiss) = self.on_dismiss.as_ref()
             && matches!(event, Event::Mouse(mouse::Event::ButtonPressed { .. }))
-            && !cursor.is_over(layout.bounds())
+            && !cursor.is_over(self.layout.bounds())
         {
             shell.publish(on_dismiss());
             shell.capture_event();
@@ -310,16 +301,16 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
         }
 
         let should_capture = matches!(event, Event::Mouse(_) | Event::Touch(_))
-            && cursor.is_over(layout.bounds());
+            && cursor.is_over(self.layout.bounds());
 
         self.content.as_widget_mut().update(
             self.tree,
             event,
-            layout,
+            self.layout,
             cursor,
             renderer,
             shell,
-            &layout.bounds(),
+            &self.layout.bounds(),
         );
 
         if should_capture {
@@ -329,20 +320,19 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
 
     fn mouse_interaction(
         &self,
-        layout: Layout<'_>,
         cursor: mouse::Cursor,
         renderer: &Renderer,
     ) -> iced::advanced::mouse::Interaction {
         let interaction = self.content.as_widget().mouse_interaction(
             self.tree,
-            layout,
+            self.layout,
             cursor,
             &self.viewport,
             renderer,
         );
 
         if interaction == mouse::Interaction::None
-            && cursor.is_over(layout.bounds())
+            && cursor.is_over(self.layout.bounds())
         {
             mouse::Interaction::Idle
         } else {
@@ -352,15 +342,15 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
 
     fn overlay<'c>(
         &'c mut self,
-        layout: Layout<'c>,
         renderer: &Renderer,
     ) -> Vec<overlay::Element<'c, Message, Theme, Renderer>> {
         self.content.as_widget_mut().overlay(
             self.tree,
-            layout,
+            self.layout,
             renderer,
             &self.viewport,
             Vector::default(),
+            self.window,
         )
     }
 }

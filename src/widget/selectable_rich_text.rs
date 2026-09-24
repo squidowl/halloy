@@ -344,8 +344,8 @@ where
         tree: &mut Tree,
         renderer: &Renderer,
         limits: &layout::Limits,
-    ) -> layout::Node {
-        layout(
+    ) {
+        tree.size = layout(
             tree.state
                 .downcast_mut::<State<Link, Renderer::Paragraph>>(),
             renderer,
@@ -358,14 +358,14 @@ where
             self.font,
             self.align_x,
             self.align_y,
-        )
+        );
     }
 
     fn update(
         &mut self,
         tree: &mut Tree,
         event: &Event,
-        layout: Layout<'_>,
+        layout: Layout,
         cursor: mouse::Cursor,
         renderer: &Renderer,
         shell: &mut Shell<'_, Message>,
@@ -601,7 +601,7 @@ where
         renderer: &mut Renderer,
         theme: &Theme,
         defaults: &renderer::Style,
-        layout: Layout<'_>,
+        layout: Layout,
         cursor: mouse::Cursor,
         viewport: &Rectangle,
     ) {
@@ -787,7 +787,7 @@ where
     fn mouse_interaction(
         &self,
         tree: &Tree,
-        _layout: Layout<'_>,
+        _layout: Layout,
         _cursor: mouse::Cursor,
         _viewport: &Rectangle,
         _renderer: &Renderer,
@@ -810,7 +810,7 @@ where
     fn operate(
         &mut self,
         tree: &mut Tree,
-        layout: Layout<'_>,
+        layout: Layout,
         viewport: &Rectangle,
         renderer: &Renderer,
         operation: &mut dyn Operation<()>,
@@ -846,10 +846,11 @@ where
     fn overlay<'b>(
         &'b mut self,
         tree: &'b mut Tree,
-        layout: Layout<'b>,
+        layout: Layout,
         renderer: &Renderer,
         viewport: &Rectangle,
         translation: Vector,
+        window: Size,
     ) -> Vec<iced::advanced::overlay::Element<'b, Message, Theme, Renderer>>
     {
         self.context_menus
@@ -862,6 +863,7 @@ where
                     renderer,
                     viewport,
                     translation,
+                    window,
                 )
             })
             .collect()
@@ -880,7 +882,7 @@ fn layout<Link, Renderer>(
     font: Option<Font>,
     align_x: text::Alignment,
     align_y: alignment::Vertical,
-) -> layout::Node
+) -> Size
 where
     Link: Clone,
     Renderer: text::Renderer,

@@ -1,9 +1,7 @@
 use data::user::{ChannelUsers, User};
 use data::{Config, file_transfer, history, preview};
 use iced::widget::text::Wrapping;
-use iced::widget::{
-    button, center, column, container, pane_grid, row, sensor, text,
-};
+use iced::widget::{button, center, container, pane_grid, row, sensor, text};
 use iced::{Length, Padding, Size, Task, padding};
 
 use super::sidebar;
@@ -214,17 +212,18 @@ impl Pane {
         let content = sensor(content)
             .on_resize(move |size| Message::ContentResized(id, size));
 
-        let content = match &self.modal {
-            Some(modal) => widget::modal(
-                content,
-                modal
-                    .view(config)
-                    .map(move |message| Message::Modal(id, message)),
-                move || Message::CloseBufferModal(id),
-                0.2,
-            ),
-            None => column![content].into(),
-        };
+        let modal = self.modal.as_ref().map(|modal| {
+            modal
+                .view(config)
+                .map(move |message| Message::Modal(id, message))
+        });
+
+        let content = widget::modal(
+            content,
+            modal,
+            move || Message::CloseBufferModal(id),
+            0.2,
+        );
 
         widget::Content::new(content)
             .style(move |theme| theme::container::buffer(theme, is_focused))
