@@ -26,6 +26,7 @@ Added:
 - Config options `buffer.channel.nicklist.scrollbar.hidden`, `sidebar.scrollbar.hidden`, and `pane.scrollbar.hidden` that control whether the nicklist, sidebar, and in-pane scrollbars respectively are enabled or not
 - Additional setting for controlling anti-flood burst parameter (`servers.<name>.anti_flood.burst`); default value has been reduced from `10` to `8`
 - Server messages can be configured to trigger unread in a buffer or not (`buffer.server_messages.<server_message>.triggers_unread`)
+- Sidebar typing indicators for queries
 
 Fixed:
 
