@@ -104,7 +104,15 @@ impl Completion {
 
         if (config.buffer.emojis.show_picker
             || config.buffer.emojis.auto_replace)
-            && let Some(word) = get_word(input, cursor_position)
+            && let Some(word) = get_word(input, cursor_position).filter(|_| {
+                get_word_bounds(input, cursor_position).is_some_and(
+                    |word_bounds| {
+                        input.get(*word_bounds.end()..).is_some_and(
+                            |after_word| after_word.starts_with(' '),
+                        )
+                    },
+                )
+            })
             && let Some(shortcode) = config
                 .buffer
                 .emojis
