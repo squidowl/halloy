@@ -104,14 +104,14 @@ impl Completion {
 
         if (config.buffer.emojis.show_picker
             || config.buffer.emojis.auto_replace)
-            && let Some(word) = get_word(input, cursor_position, Some(" "))
-            && let Some(shortcode) = config
-                .buffer
-                .emojis
-                .aliases
-                .get(word)
-                .map(String::as_str)
-                .or_else(|| word.starts_with(':').then_some(word))
+            && let Some(shortcode) = get_word(input, cursor_position, Some(" "))
+                .and_then(|word| {
+                    config.buffer.emojis.aliases.get(word).map(String::as_str)
+                })
+                .or_else(|| {
+                    get_word(input, cursor_position, None)
+                        .filter(|word| word.starts_with(':'))
+                })
         {
             self.emojis.process(shortcode, config);
 
