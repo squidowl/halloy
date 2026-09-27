@@ -15,7 +15,7 @@ use data::isupport::{self, find_target_limit};
 use data::server::Server;
 use data::target::{self, Target};
 use data::user::{ChannelUsers, Nick, NickRef};
-use data::{Config, command, mode};
+use data::{Config, command, emoji, mode};
 use iced::Length;
 use iced::widget::text::Shaping;
 use iced::widget::{button, column, container, row, text_editor, tooltip};
@@ -23,9 +23,9 @@ use irc::proto;
 use itertools::{Either, Itertools};
 use unicode_segmentation::UnicodeSegmentation;
 
+use crate::font;
 use crate::theme::{self, Theme};
 use crate::widget::{Element, double_pass, text};
-use crate::{emoji, font};
 
 const MAX_SHOWN_COMMAND_ENTRIES: usize = 5;
 const MAX_SHOWN_EMOJI_ENTRIES: usize = 8;
@@ -102,13 +102,16 @@ impl Completion {
             return;
         }
 
-        if let Some(shortcode) = (config.buffer.emojis.show_picker
+        if (config.buffer.emojis.show_picker
             || config.buffer.emojis.auto_replace)
-            .then(|| {
-                get_word(input, cursor_position)
-                    .filter(|word| word.starts_with(':'))
-            })
-            .flatten()
+            && let Some(shortcode) = get_word(input, cursor_position, Some(" "))
+                .and_then(|word| {
+                    config.buffer.emojis.aliases.get(word).map(String::as_str)
+                })
+                .or_else(|| {
+                    get_word(input, cursor_position, None)
+                        .filter(|word| word.starts_with(':'))
+                })
         {
             self.emojis.process(shortcode, config);
 
@@ -2024,7 +2027,7 @@ impl Words {
     ) {
         let autocomplete = &config.buffer.text_input.autocomplete;
 
-        let Some(word) = get_word(input, cursor_position) else {
+        let Some(word) = get_word(input, cursor_position, None) else {
             *self = Self::default();
             return;
         };
@@ -2088,7 +2091,7 @@ impl Words {
     ) -> bool {
         let autocomplete = &config.buffer.text_input.autocomplete;
 
-        if let Some(input_channel) = get_word(input, cursor_position)
+        if let Some(input_channel) = get_word(input, cursor_position, None)
             && input_channel.starts_with(chantypes)
         {
             let filtered = channels
@@ -3879,10 +3882,21 @@ pub enum Arrow {
     Down,
 }
 
-fn get_word(input: &str, cursor_position: usize) -> Option<&str> {
-    get_word_bounds(input, cursor_position).and_then(|word_bounds| {
-        input.get(*word_bounds.start()..*word_bounds.end())
-    })
+fn get_word<'a>(
+    input: &'a str,
+    cursor_position: usize,
+    postfix: Option<&str>,
+) -> Option<&'a str> {
+    let word_bounds = get_word_bounds(input, cursor_position)?;
+    let word = input.get(*word_bounds.start()..*word_bounds.end())?;
+
+    let postfix_matches = postfix.is_none_or(|suffix| {
+        input
+            .get(*word_bounds.end()..)
+            .is_some_and(|after| after.starts_with(suffix))
+    });
+
+    postfix_matches.then_some(word)
 }
 
 fn get_word_bounds(

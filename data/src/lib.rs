@@ -36,6 +36,7 @@ pub mod config;
 pub mod ctcp;
 pub mod dashboard;
 pub mod dcc;
+pub mod emoji;
 pub mod environment;
 pub mod features;
 pub mod file_transfer;

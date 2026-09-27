@@ -12,8 +12,9 @@ pub use self::redaction::Redaction;
 pub use self::typing::{Animation, Style, Typing};
 pub use crate::appearance::theme::{alpha_color, alpha_color_calculate};
 use crate::buffer::{
-    BacklogSeparator, DateSeparators, SkinTone, StatusMessagePrefix, Timestamp,
+    BacklogSeparator, DateSeparators, StatusMessagePrefix, Timestamp,
 };
+use crate::config::buffer::emoji::Emojis;
 use crate::config::buffer::nickname::Nickname;
 use crate::config::buffer::text_input::TextInput;
 use crate::config::inclusivities::{
@@ -25,6 +26,7 @@ use crate::user::Nick;
 use crate::{Server, isupport};
 
 pub mod channel;
+pub mod emoji;
 pub mod hide_consecutive;
 pub mod nickname;
 pub mod redaction;
@@ -118,26 +120,6 @@ impl Default for ReplyTooltip {
             delay: 500,
             max_width: 600.0,
             max_chars: 1024,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(default)]
-pub struct Emojis {
-    pub show_picker: bool,
-    pub skin_tone: SkinTone,
-    pub auto_replace: bool,
-    pub characters_to_trigger_picker: usize,
-}
-
-impl Default for Emojis {
-    fn default() -> Self {
-        Self {
-            show_picker: true,
-            skin_tone: SkinTone::default(),
-            auto_replace: true,
-            characters_to_trigger_picker: 2,
         }
     }
 }
