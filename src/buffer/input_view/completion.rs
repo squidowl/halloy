@@ -3890,7 +3890,7 @@ fn get_word<'a>(
     let word_bounds = get_word_bounds(input, cursor_position)?;
     let word = input.get(*word_bounds.start()..*word_bounds.end())?;
 
-    let postfix_matches = postfix.map_or(true, |suffix| {
+    let postfix_matches = postfix.is_none_or(|suffix| {
         input
             .get(*word_bounds.end()..)
             .is_some_and(|after| after.starts_with(suffix))
