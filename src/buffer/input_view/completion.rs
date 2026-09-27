@@ -104,15 +104,7 @@ impl Completion {
 
         if (config.buffer.emojis.show_picker
             || config.buffer.emojis.auto_replace)
-            && let Some(word) = get_word(input, cursor_position).filter(|_| {
-                get_word_bounds(input, cursor_position).is_some_and(
-                    |word_bounds| {
-                        input.get(*word_bounds.end()..).is_some_and(
-                            |after_word| after_word.starts_with(' '),
-                        )
-                    },
-                )
-            })
+            && let Some(word) = get_word(input, cursor_position, Some(" "))
             && let Some(shortcode) = config
                 .buffer
                 .emojis
@@ -2035,7 +2027,7 @@ impl Words {
     ) {
         let autocomplete = &config.buffer.text_input.autocomplete;
 
-        let Some(word) = get_word(input, cursor_position) else {
+        let Some(word) = get_word(input, cursor_position, None) else {
             *self = Self::default();
             return;
         };
@@ -2099,7 +2091,7 @@ impl Words {
     ) -> bool {
         let autocomplete = &config.buffer.text_input.autocomplete;
 
-        if let Some(input_channel) = get_word(input, cursor_position)
+        if let Some(input_channel) = get_word(input, cursor_position, None)
             && input_channel.starts_with(chantypes)
         {
             let filtered = channels
@@ -3890,10 +3882,21 @@ pub enum Arrow {
     Down,
 }
 
-fn get_word(input: &str, cursor_position: usize) -> Option<&str> {
-    get_word_bounds(input, cursor_position).and_then(|word_bounds| {
-        input.get(*word_bounds.start()..*word_bounds.end())
-    })
+fn get_word<'a>(
+    input: &'a str,
+    cursor_position: usize,
+    postfix: Option<&str>,
+) -> Option<&'a str> {
+    let word_bounds = get_word_bounds(input, cursor_position)?;
+    let word = input.get(*word_bounds.start()..*word_bounds.end())?;
+
+    let postfix_matches = postfix.map_or(true, |suffix| {
+        input
+            .get(*word_bounds.end()..)
+            .is_some_and(|after| after.starts_with(suffix))
+    });
+
+    postfix_matches.then_some(word)
 }
 
 fn get_word_bounds(
