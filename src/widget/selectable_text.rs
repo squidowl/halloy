@@ -145,43 +145,49 @@ where
         tree: &mut Tree,
         renderer: &Renderer,
         limits: &layout::Limits,
-    ) -> layout::Node {
+    ) {
         let state = tree.state.downcast_mut::<State<Renderer::Paragraph>>();
 
-        layout::sized(limits, self.format.width, self.format.height, |limits| {
-            let bounds = limits.bounds();
+        tree.size = layout::sized(
+            limits,
+            self.format.width,
+            self.format.height,
+            |limits| {
+                let bounds = limits.bounds();
 
-            let font: Font =
-                self.format.font.unwrap_or_else(|| renderer.font());
-            let size = self.format.size.unwrap_or_else(|| renderer.text_size());
-            let line_height = self
-                .format
-                .line_height
-                .unwrap_or_else(|| renderer.line_height());
+                let font: Font =
+                    self.format.font.unwrap_or_else(|| renderer.font());
+                let size =
+                    self.format.size.unwrap_or_else(|| renderer.text_size());
+                let line_height = self
+                    .format
+                    .line_height
+                    .unwrap_or_else(|| renderer.line_height());
 
-            state.paragraph.update(text::Text {
-                content: &self.fragment,
-                bounds,
-                size,
-                line_height,
-                font,
-                align_x: self.format.align_x,
-                align_y: self.format.align_y,
-                shaping: self.format.shaping,
-                wrapping: self.format.wrapping,
-                ellipsis: text::Ellipsis::default(),
-                hint_factor: renderer.hint_factor(),
-            });
+                state.paragraph.update(text::Text {
+                    content: &self.fragment,
+                    bounds,
+                    size,
+                    line_height,
+                    font,
+                    align_x: self.format.align_x,
+                    align_y: self.format.align_y,
+                    shaping: self.format.shaping,
+                    wrapping: self.format.wrapping,
+                    ellipsis: text::Ellipsis::default(),
+                    hint_factor: renderer.hint_factor(),
+                });
 
-            state.paragraph.min_bounds()
-        })
+                state.paragraph.min_bounds()
+            },
+        );
     }
 
     fn update(
         &mut self,
         tree: &mut Tree,
         event: &iced::Event,
-        layout: Layout<'_>,
+        layout: Layout,
         cursor: mouse::Cursor,
         _renderer: &Renderer,
         shell: &mut iced::advanced::Shell<'_, Message>,
@@ -246,7 +252,7 @@ where
         renderer: &mut Renderer,
         theme: &Theme,
         style: &renderer::Style,
-        layout: Layout<'_>,
+        layout: Layout,
         _cursor_position: mouse::Cursor,
         viewport: &Rectangle,
     ) {
@@ -391,7 +397,7 @@ where
     fn mouse_interaction(
         &self,
         tree: &Tree,
-        _layout: Layout<'_>,
+        _layout: Layout,
         _cursor: mouse::Cursor,
         _viewport: &Rectangle,
         _renderer: &Renderer,
@@ -408,7 +414,7 @@ where
     fn operate(
         &mut self,
         tree: &mut Tree,
-        layout: Layout<'_>,
+        layout: Layout,
         _viewport: &Rectangle,
         _renderer: &Renderer,
         operation: &mut dyn Operation<()>,
@@ -431,7 +437,7 @@ where
 fn draw<Renderer>(
     renderer: &mut Renderer,
     style: &renderer::Style,
-    layout: Layout<'_>,
+    layout: Layout,
     state: &State<Renderer::Paragraph>,
     appearance: Style,
     viewport: &Rectangle,

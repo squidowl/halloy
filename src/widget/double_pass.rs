@@ -43,16 +43,16 @@ where
         tree: &mut iced::advanced::widget::Tree,
         renderer: &Renderer,
         limits: &iced::advanced::layout::Limits,
-    ) -> layout::Node {
+    ) {
         let mut first_pass_tree = widget::Tree::new(&self.first_pass);
         let first_pass = self.first_pass.as_widget_mut();
         first_pass.diff(&mut first_pass_tree);
-        let layout = first_pass.layout(&mut first_pass_tree, renderer, limits);
+        first_pass.layout(&mut first_pass_tree, renderer, limits);
+        let size = first_pass_tree.size;
 
         let new_limits = layout::Limits::new(
             Size::ZERO,
-            layout
-                .size()
+            size
                 // eliminate float precision issues if second pass
                 // is fill
                 .expand(Size::new(horizontal_expansion(), 1.0)),
@@ -60,7 +60,7 @@ where
 
         second_pass
             .as_widget_mut()
-            .layout(tree, renderer, &new_limits)
+            .layout(tree, renderer, &new_limits);
     }
 }
 

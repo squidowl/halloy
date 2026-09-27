@@ -1,10 +1,9 @@
 use iced::advanced::layout::{self, Layout};
 use iced::advanced::widget::{self, Widget};
 use iced::advanced::{self, Shell, overlay, renderer};
-use iced::alignment::Alignment;
 use iced::keyboard::key;
 use iced::{
-    Color, Element, Event, Length, Point, Rectangle, Shadow, Size, Vector,
+    Alignment, Color, Element, Event, Length, Rectangle, Shadow, Size, Vector,
     keyboard, mouse, touch,
 };
 
@@ -34,9 +33,15 @@ pub fn container<'a, Message: 'a>(
     .padding(BASE_PADDING * scale)
 }
 
+#[derive(Clone, Copy)]
+enum Position {
+    Center,
+    Top,
+}
+
 pub fn modal<'a, Message, Theme, Renderer>(
     base: impl Into<Element<'a, Message, Theme, Renderer>>,
-    modal: impl Into<Element<'a, Message, Theme, Renderer>>,
+    modal: Option<Element<'a, Message, Theme, Renderer>>,
     on_blur: impl Fn() -> Message + 'a,
     backdrop_alpha: f32,
 ) -> Element<'a, Message, Theme, Renderer>
@@ -45,39 +50,75 @@ where
     Renderer: 'a + advanced::Renderer,
     Message: 'a,
 {
-    Modal::new(base, modal, on_blur, backdrop_alpha).into()
+    let shadow = Shadow {
+        color: Color::from_rgba(0.0, 0.0, 0.0, 0.35),
+        offset: Vector::new(0.0, 10.0),
+        blur_radius: 24.0,
+    };
+
+    Modal::new(
+        base,
+        modal,
+        on_blur,
+        backdrop_alpha,
+        Position::Center,
+        shadow,
+    )
+    .into()
 }
 
-/// A widget that centers a modal element over some base element
+pub fn top<'a, Message, Theme, Renderer>(
+    base: impl Into<Element<'a, Message, Theme, Renderer>>,
+    modal: Option<Element<'a, Message, Theme, Renderer>>,
+    on_blur: impl Fn() -> Message + 'a,
+    backdrop_alpha: f32,
+) -> Element<'a, Message, Theme, Renderer>
+where
+    Theme: 'a,
+    Renderer: 'a + advanced::Renderer,
+    Message: 'a,
+{
+    Modal::new(
+        base,
+        modal,
+        on_blur,
+        backdrop_alpha,
+        Position::Top,
+        Shadow::default(),
+    )
+    .into()
+}
+
+/// A widget that displays optional modal content over a base element.
 pub struct Modal<'a, Message, Theme, Renderer> {
     base: Element<'a, Message, Theme, Renderer>,
-    modal: Element<'a, Message, Theme, Renderer>,
+    modal: Option<Element<'a, Message, Theme, Renderer>>,
     on_blur: Box<dyn Fn() -> Message + 'a>,
     backdrop: Color,
     shadow: Shadow,
+    position: Position,
 }
 
 impl<'a, Message, Theme, Renderer> Modal<'a, Message, Theme, Renderer> {
     /// Returns a new [`Modal`]
-    pub fn new(
+    fn new(
         base: impl Into<Element<'a, Message, Theme, Renderer>>,
-        modal: impl Into<Element<'a, Message, Theme, Renderer>>,
+        modal: Option<Element<'a, Message, Theme, Renderer>>,
         on_blur: impl Fn() -> Message + 'a,
         backdrop_alpha: f32,
+        position: Position,
+        shadow: Shadow,
     ) -> Self {
         Self {
             base: base.into(),
-            modal: modal.into(),
+            modal,
             on_blur: Box::new(on_blur),
             backdrop: Color {
                 a: backdrop_alpha.clamp(0.0, 1.0),
                 ..Color::BLACK
             },
-            shadow: Shadow {
-                color: Color::from_rgba(0.0, 0.0, 0.0, 0.35),
-                offset: Vector::new(0.0, 10.0),
-                blur_radius: 24.0,
-            },
+            shadow,
+            position,
         }
     }
 }
@@ -88,7 +129,11 @@ where
     Renderer: advanced::Renderer,
 {
     fn diff(&mut self, tree: &mut widget::Tree) {
-        tree.diff_children(&mut [&mut self.base, &mut self.modal]);
+        if let Some(modal) = &mut self.modal {
+            tree.diff_children(&mut [&mut self.base, modal]);
+        } else {
+            tree.diff_children(std::slice::from_mut(&mut self.base));
+        }
     }
 
     fn size(&self) -> Size<Length> {
@@ -100,41 +145,48 @@ where
         tree: &mut widget::Tree,
         renderer: &Renderer,
         limits: &layout::Limits,
-    ) -> layout::Node {
+    ) {
         self.base.as_widget_mut().layout(
             &mut tree.children[0],
             renderer,
             limits,
-        )
+        );
+        tree.size = tree.children[0].size;
     }
 
     fn update(
         &mut self,
-        state: &mut widget::Tree,
+        tree: &mut widget::Tree,
         event: &Event,
-        layout: Layout<'_>,
-        _cursor: mouse::Cursor,
+        layout: Layout,
+        cursor: mouse::Cursor,
         renderer: &Renderer,
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) {
-        if matches!(
-            event,
-            Event::Mouse(_)
-                | Event::Keyboard(_)
-                | Event::Touch(touch::Event::FingerPressed { .. })
-                | Event::Touch(touch::Event::FingerMoved { .. })
-                | Event::Touch(touch::Event::FingerLifted { .. })
-                | Event::Touch(touch::Event::FingerLost { .. })
-        ) {
+        if self.modal.is_some()
+            && matches!(
+                event,
+                Event::Mouse(_)
+                    | Event::Keyboard(_)
+                    | Event::Touch(touch::Event::FingerPressed { .. })
+                    | Event::Touch(touch::Event::FingerMoved { .. })
+                    | Event::Touch(touch::Event::FingerLifted { .. })
+                    | Event::Touch(touch::Event::FingerLost { .. })
+            )
+        {
             return;
         }
 
         self.base.as_widget_mut().update(
-            &mut state.children[0],
+            &mut tree.children[0],
             event,
             layout,
-            mouse::Cursor::Unavailable,
+            if self.modal.is_some() {
+                mouse::Cursor::Unavailable
+            } else {
+                cursor
+            },
             renderer,
             shell,
             viewport,
@@ -143,65 +195,115 @@ where
 
     fn draw(
         &self,
-        state: &widget::Tree,
+        tree: &widget::Tree,
         renderer: &mut Renderer,
         theme: &Theme,
         style: &renderer::Style,
-        layout: Layout<'_>,
-        _cursor: mouse::Cursor,
+        layout: Layout,
+        cursor: mouse::Cursor,
         viewport: &Rectangle,
     ) {
         self.base.as_widget().draw(
-            &state.children[0],
+            &tree.children[0],
             renderer,
             theme,
             style,
             layout,
-            mouse::Cursor::Unavailable,
+            if self.modal.is_some() {
+                mouse::Cursor::Unavailable
+            } else {
+                cursor
+            },
             viewport,
         );
     }
 
     fn overlay<'b>(
         &'b mut self,
-        state: &'b mut widget::Tree,
-        layout: Layout<'b>,
-        _renderer: &Renderer,
-        _viewport: &Rectangle,
+        tree: &'b mut widget::Tree,
+        layout: Layout,
+        renderer: &Renderer,
+        viewport: &Rectangle,
         translation: Vector,
+        window: Size,
     ) -> Vec<overlay::Element<'b, Message, Theme, Renderer>> {
+        let Some(modal) = &mut self.modal else {
+            return self.base.as_widget_mut().overlay(
+                &mut tree.children[0],
+                layout,
+                renderer,
+                viewport,
+                translation,
+                window,
+            );
+        };
+
+        let size = layout.bounds().size();
+        let limits = layout::Limits::new(Size::ZERO, size)
+            .width(Length::Fill)
+            .height(Length::Fill);
+
+        modal
+            .as_widget_mut()
+            .layout(&mut tree.children[1], renderer, &limits);
+
+        let size = tree.children[1].size;
+        let offset = size.align(
+            limits.max,
+            Alignment::Center,
+            match self.position {
+                Position::Center => Alignment::Center,
+                Position::Top => Alignment::Start,
+            },
+        );
+        let layout =
+            Layout::new(layout.size()).move_to(layout.position() + translation);
+        let content_layout =
+            Layout::new(size).move_to(layout.position() + offset);
+
         vec![overlay::Element::new(Box::new(Overlay {
-            position: layout.position() + translation,
-            content: &mut self.modal,
-            tree: &mut state.children[1],
-            size: layout.bounds().size(),
+            content: modal,
+            tree: &mut tree.children[1],
+            layout,
+            content_layout,
             on_blur: &self.on_blur,
             backdrop: self.backdrop,
             shadow: self.shadow,
+            window,
         }))]
     }
 
     fn mouse_interaction(
         &self,
-        _state: &widget::Tree,
-        _layout: Layout<'_>,
-        _cursor: mouse::Cursor,
-        _viewport: &Rectangle,
-        _renderer: &Renderer,
+        tree: &widget::Tree,
+        layout: Layout,
+        cursor: mouse::Cursor,
+        viewport: &Rectangle,
+        renderer: &Renderer,
     ) -> mouse::Interaction {
-        mouse::Interaction::default()
+        if self.modal.is_some() {
+            mouse::Interaction::default()
+        } else {
+            self.base.as_widget().mouse_interaction(
+                &tree.children[0],
+                layout,
+                cursor,
+                viewport,
+                renderer,
+            )
+        }
     }
 
     fn operate(
         &mut self,
-        state: &mut widget::Tree,
-        layout: Layout<'_>,
+        tree: &mut widget::Tree,
+        layout: Layout,
         viewport: &Rectangle,
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
     ) {
         self.base.as_widget_mut().operate(
-            &mut state.children[0],
+            &mut tree.children[0],
             layout,
             viewport,
             renderer,
@@ -211,13 +313,14 @@ where
 }
 
 struct Overlay<'a, 'b, Message, Theme, Renderer> {
-    position: Point,
     content: &'b mut Element<'a, Message, Theme, Renderer>,
     tree: &'b mut widget::Tree,
-    size: Size,
+    layout: Layout,
+    content_layout: Layout,
     on_blur: &'b dyn Fn() -> Message,
     backdrop: Color,
     shadow: Shadow,
+    window: Size,
 }
 
 impl<Message, Theme, Renderer> overlay::Overlay<Message, Theme, Renderer>
@@ -225,25 +328,9 @@ impl<Message, Theme, Renderer> overlay::Overlay<Message, Theme, Renderer>
 where
     Renderer: advanced::Renderer,
 {
-    fn layout(&mut self, renderer: &Renderer, _bounds: Size) -> layout::Node {
-        let limits = layout::Limits::new(Size::ZERO, self.size)
-            .width(Length::Fill)
-            .height(Length::Fill);
-
-        let child = self
-            .content
-            .as_widget_mut()
-            .layout(self.tree, renderer, &limits)
-            .align(Alignment::Center, Alignment::Center, limits.max);
-
-        layout::Node::with_children(self.size, vec![child])
-            .move_to(self.position)
-    }
-
     fn update(
         &mut self,
         event: &Event,
-        layout: Layout<'_>,
         cursor: mouse::Cursor,
         renderer: &Renderer,
         shell: &mut Shell<'_, Message>,
@@ -261,7 +348,7 @@ where
                 button: mouse::Button::Left,
                 ..
             }) => {
-                let bounds = layout.children().next().unwrap().bounds();
+                let bounds = self.content_layout.bounds();
 
                 if !cursor.is_over(bounds) {
                     shell.publish((self.on_blur)());
@@ -275,11 +362,11 @@ where
         self.content.as_widget_mut().update(
             self.tree,
             event,
-            layout.children().next().unwrap(),
+            self.content_layout,
             cursor,
             renderer,
             shell,
-            &layout.bounds(),
+            &self.layout.bounds(),
         );
     }
 
@@ -288,53 +375,53 @@ where
         renderer: &mut Renderer,
         theme: &Theme,
         style: &renderer::Style,
-        layout: Layout<'_>,
         cursor: mouse::Cursor,
     ) {
-        renderer.fill_quad(
-            renderer::Quad {
-                bounds: layout.bounds(),
-                ..renderer::Quad::default()
-            },
-            self.backdrop,
-        );
-
-        let bounds = layout.children().next().unwrap().bounds();
-
-        renderer.fill_quad(
-            renderer::Quad {
-                bounds,
-                border: iced::Border {
-                    radius: 4.0.into(),
-                    ..iced::Border::default()
+        renderer.with_layer(self.layout.bounds(), |renderer| {
+            renderer.fill_quad(
+                renderer::Quad {
+                    bounds: self.layout.bounds(),
+                    ..renderer::Quad::default()
                 },
-                shadow: self.shadow,
-                ..renderer::Quad::default()
-            },
-            Color::TRANSPARENT,
-        );
+                self.backdrop,
+            );
 
-        self.content.as_widget().draw(
-            self.tree,
-            renderer,
-            theme,
-            style,
-            layout.children().next().unwrap(),
-            cursor,
-            &layout.bounds(),
-        );
+            let bounds = self.content_layout.bounds();
+
+            renderer.fill_quad(
+                renderer::Quad {
+                    bounds,
+                    border: iced::Border {
+                        radius: 4.0.into(),
+                        ..iced::Border::default()
+                    },
+                    shadow: self.shadow,
+                    ..renderer::Quad::default()
+                },
+                Color::TRANSPARENT,
+            );
+
+            self.content.as_widget().draw(
+                self.tree,
+                renderer,
+                theme,
+                style,
+                self.content_layout,
+                cursor,
+                &self.layout.bounds(),
+            );
+        });
     }
 
     fn operate(
         &mut self,
-        layout: Layout<'_>,
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
     ) {
         self.content.as_widget_mut().operate(
             self.tree,
-            layout.children().next().unwrap(),
-            &layout.bounds(),
+            self.content_layout,
+            &self.layout.bounds(),
             renderer,
             operation,
         );
@@ -342,30 +429,29 @@ where
 
     fn mouse_interaction(
         &self,
-        layout: Layout<'_>,
         cursor: mouse::Cursor,
         renderer: &Renderer,
     ) -> mouse::Interaction {
         self.content.as_widget().mouse_interaction(
             self.tree,
-            layout.children().next().unwrap(),
+            self.content_layout,
             cursor,
-            &layout.bounds(),
+            &self.layout.bounds(),
             renderer,
         )
     }
 
     fn overlay<'c>(
         &'c mut self,
-        layout: Layout<'c>,
         renderer: &Renderer,
     ) -> Vec<overlay::Element<'c, Message, Theme, Renderer>> {
         self.content.as_widget_mut().overlay(
             self.tree,
-            layout.children().next().unwrap(),
+            self.content_layout,
             renderer,
-            &layout.bounds(),
+            &self.layout.bounds(),
             Vector::ZERO,
+            self.window,
         )
     }
 }
