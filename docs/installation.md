@@ -38,6 +38,21 @@ The following third party repositories are available for Linux
 
 [https://snapcraft.io/halloy](https://snapcraft.io/halloy)
 
+#### Manually from release builds
+
+Download the `.tar.gz` file for the [latest release](https://github.com/squidowl/halloy/releases/latest). The `.tar.gz` release has files and folders in it that match the the [XDG Desktop Entry Specification](https://specifications.freedesktop.org/desktop-entry/latest/), which is how many Linux desktop environments store applications.  We will use `/usr/local` as the extraction for our examples since it is widely supported, but you can extract the files wherever you prefer (e.g. `/opt`, `~/.local/`, etc).  To extract into `/usr/local` you'll likely need to be root, or use `sudo`/`doas`/etc:
+
+```sh
+sudo tar -xf halloy-*-x86_64-linux.tar.gz -C /usr/local
+```
+
+You may have to update your local application and icon database so Halloy becomes discoverable:
+
+```sh
+sudo update-desktop-database /usr/local/share/applications
+sudo gtk-update-icon-cache -t /usr/local/share/icons/hicolor/
+```
+
 ### Windows
 
 #### Winget
