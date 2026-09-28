@@ -149,7 +149,7 @@ async fn _run(
 
     let mut state = State::Disconnected {
         autoconnect: config.autoconnect,
-        retry: time::interval(config.reconnect_delay),
+        retry: retry_interval_at(Instant::now(), config.reconnect_delay),
     };
 
     // Notify app of initial disconnected state
@@ -191,7 +191,10 @@ async fn _run(
 
                         state = State::Disconnected {
                             autoconnect: config.autoconnect,
-                            retry: time::interval(config.reconnect_delay),
+                            retry: retry_interval_at(
+                                Instant::now(),
+                                config.reconnect_delay,
+                            ),
                         };
                     }
                     Some(Control::Disconnect {
@@ -400,7 +403,7 @@ async fn _run(
                                 // https://modern.ircdocs.horse/#quit-message
                                 state = State::Disconnected {
                                     autoconnect,
-                                    retry: time::interval_at(
+                                    retry: retry_interval_at(
                                         Instant::now() + config.reconnect_delay,
                                         config.reconnect_delay,
                                     ),
@@ -419,7 +422,7 @@ async fn _run(
                                 );
                                 state = State::Disconnected {
                                     autoconnect,
-                                    retry: time::interval_at(
+                                    retry: retry_interval_at(
                                         Instant::now() + config.reconnect_delay,
                                         config.reconnect_delay,
                                     ),
@@ -448,7 +451,7 @@ async fn _run(
                         });
                         state = State::Disconnected {
                             autoconnect,
-                            retry: time::interval_at(
+                            retry: retry_interval_at(
                                 Instant::now() + config.reconnect_delay,
                                 config.reconnect_delay,
                             ),
@@ -903,6 +906,12 @@ fn ping_time_interval(secs: u64) -> Interval {
 
     interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
+    interval
+}
+
+fn retry_interval_at(start: Instant, period: Duration) -> Interval {
+    let mut interval = time::interval_at(start, period);
+    interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
     interval
 }
 
