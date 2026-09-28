@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2026.9 (2026-09-29)
+
 Added:
 
 - Animated GIFs support
