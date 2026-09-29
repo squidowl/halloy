@@ -1,84 +1,81 @@
 # Unreleased
 
+# 2026.9 (2026-09-29)
+
 Added:
 
-- `buffer.server_messages.condense.timestamp` setting to control whether a condensed message shows a time range, its start timestamp, its end timestamp, or no timestamp
-- Ability to configure individual bouncer networks with `servers.<name>.networks.<network>`
-- CTCP actions to private message context menus
-- Remember sidebar visibility
-- Expanded `servers.<name>.max_connection_attempts` to allow unlimited attempts
-- `file_transfer.send_completion_message` setting to control whether a PRIVMSG is sent to the remote user when a file
-  transfer completes.
-- Config file path is now shown in config editor
-- Config option to include ignored nicknames in autocomplete
-  (`buffer.text_input.autocomplete.include_ignored`)
-- Optional `font.code` setting for code-formatted text
-- `buffer.nickname.color_override` rules for assigning colors to specific nicknames
-- Optional `buffer.self_message` theme style for messages sent by yourself
-- Settings to control how internal and server buffers are opened from the sidebar (`actions.sidebar.internal` and `actions.sidebar.server`)
-- `buffer.nickname.offline` supports `"dimmed"` / `{ dimmed = float }`, and `{ color = "theme"|"nickname", alpha = ...}` so theme offline color and dimming can be combined
+- Animated GIFs support
 - Keyboard-driven message focus: navigate and act on messages without mouse
   - Links and channel mentions within a message can be focused and opened
   - New `buffer.focus` theme color for the focused message border
-- Server context menu action to open Channel Discovery with that server selected
-- Animated GIFs support
+- Smooth scrolling
 - Support link delimiters (`<` & `>`) with markdown formatting
+- Ability to configure individual bouncer networks with `servers.<name>.networks.<network>`
+- `buffer.server_messages.condense.timestamp` setting to control whether a condensed message shows a time range, its start timestamp, its end timestamp, or no timestamp
+- Optional `font.code` setting for code-formatted text
+- `buffer.nickname.offline` supports `"dimmed"` / `{ dimmed = float }`, and `{ color = "theme"|"nickname", alpha = ...}` so theme offline color and dimming can be combined
+- `buffer.nickname.color_override` rules for assigning colors to specific nicknames
+- Optional `buffer.self_message` theme style for messages sent by yourself
 - Config options `buffer.channel.nicklist.scrollbar.hidden`, `sidebar.scrollbar.hidden`, and `pane.scrollbar.hidden` that control whether the nicklist, sidebar, and in-pane scrollbars respectively are enabled or not
 - Additional setting for controlling anti-flood burst parameter (`servers.<name>.anti_flood.burst`); default value has been reduced from `10` to `8`
+- Expanded `servers.<name>.max_connection_attempts` to allow unlimited attempts
+- Server context menu action to open Channel Discovery with that server selected
 - Server messages can be configured to trigger unread in a buffer or not (`buffer.server_messages.<server_message>.triggers_unread`)
-- Smooth scrolling
+- Sidebar visibility is remembered across application launches
+- Settings to control how internal and server buffers are opened from the sidebar (`actions.sidebar.internal` and `actions.sidebar.server`)
+- Config file path is now shown in config editor
+- CTCP actions in private message context menus
+- Config option to include ignored nicknames in autocomplete (`buffer.text_input.autocomplete.include_ignored`)
+- `file_transfer.send_completion_message` setting to control whether a PRIVMSG is sent to the remote user when a file transfer completes.
 
 Fixed:
 
+- Scroll-to-reply when clicking a reply preview
+- Allow listing modes by not providing <+|->
+- Display RELAYMSG senders correctly
+- Receiving an invite will reveal the query with the inviter in the sidebar
+- Config editor now properly out-scrolls the cursor
+- Anti-flood rate-limiting applied to post-authentication JOINs (and similar on-connect messages)
+- Display messages from legacy ISO-8859-1 clients instead of replacing invalid UTF-8 bytes
 - Reconnect WebSocket connections when ping writes fail or exceed `servers.<name>.ping_timeout`
 - Avoid bursts of IRC pings after delays
-- Display RELAYMSG senders correctly
-- Display messages from legacy ISO-8859-1 clients instead of replacing invalid UTF-8 bytes
-- Remove blank space above the input after marking a buffer as read
-- User avatars are only shown when `avatar` is included in `metadata.preferred_keys`
 - Text in input box being scrolled/clipped 2px on the left on pane load or when navigating history
-- Expand `$HOME` or `%AppData%` when first component in a path setting
-- Don't show another preview from the same message after hiding one
-- Restrict commonly used (`()<>"`) chars from being used to highlight nicks
-- Receiving an invite will reveal the query with the inviter in the sidebar
-- Better support for larger font sizes in modals
-- "Apply Colors & Font Styles" button in Theme Editor persists modifications made via the theme editor
-- Scroll-to-reply when clicking a reply preview
 - Show registration-required join errors in the channel buffer instead of the server buffer
+- Remove blank space above the input after marking a buffer as read
+- Don't show another preview from the same message after hiding one
+- User avatars are only shown when `avatar` is included in `metadata.preferred_keys`
+- Expand `$HOME` or `%AppData%` when first component in a path setting
 - Include/exclude conditions are properly accounted for when highlighting nicknames
-- Reject server icons whose decoded dimensions would exceed the maximum GPU
-  buffer size, matching the existing link-preview guard
-- Cap the number of concurrently open IRCv3 batches a server can hold open, so a
-  single connection cannot grow memory without bound
-- Config editor now properly out-scrolls the cursor
-- Allow listing modes by not proviging <+|->
+- Restrict commonly used (`()<>"`) chars from being used to highlight nicks
+- "Apply Colors & Font Styles" button in Theme Editor persists modifications made via the theme editor
+- Better support for larger font sizes in modals
+- Sanitize incoming DCC filenames against Windows reserved device names, illegal characters, and trailing dots/spaces
+- Reject server icons whose decoded dimensions would exceed the maximum GPU buffer size, matching the existing link-preview guard
+- Cap the number of concurrently open IRCv3 batches a server can hold open, so a single connection cannot grow memory without bound
 - User-specified log levels are applied to all log sources (including non-Halloy log sources, which were previously exempt)
-- Sanitize incoming DCC filenames against Windows reserved device names, illegal
-  characters, and trailing dots/spaces
-- Anti-flood rate-limiting applied to post-authentication JOINs (and similar on-connect messages)
 
 Changed:
 
-- Rename `servers.<name>.websocket_ping_interval` to `servers.<name>.websocket_ping_time`
-- Link preview requests now use `Halloy/<version>` as their default User-Agent
-- User avatars are configurable with `metadata.avatar.size`
-- Ensure Theme Editor appends a `.toml` extension when saving a theme without one
 - Right-aligned nickname columns now size to nearby messages instead of the entire loaded history
-- The XDG data directory `~/.local/share/halloy` can be used for storing history/logs/etc macOS, instead of `~/Library/Application Support/halloy/` (move entire directory to migrate)
 - Offline nicknames are styled only by `buffer.nickname.offline`; `buffer.nickname.away` no longer applies to them
 - `esc` in the input box now scrolls the buffer to the bottom
-- Decouple `+draft/unreact` from `+draft/react`
-- When reloading the config file, if the config file editor pane is opened with unsaved changes then those changes will be saved before reloading
-- IRC protocol logs for bouncer networks have their logs directory nested under the bouncer name
-- Anti-flood rate parameter has been moved `servers.<name>.anti_flood` to `servers.<name>.anti_flood.rate`
-- Changed mode messages reverted to not triggering unread (but not reverted to be dimmed by default)
+- "Changed mode" messages reverted to not trigger unread (but remain not-dimmed by default)
 - Removed active and passive categories for server message types; control of dimming and triggering unread can be controlled specifically for each server message type instead
+- User avatars are configurable with `metadata.avatar.size`
+- Link preview requests now use `Halloy/<version>` as their default User-Agent
+- Anti-flood rate parameter has been moved `servers.<name>.anti_flood` to `servers.<name>.anti_flood.rate`
+- IRC protocol logs for bouncer networks have their logs directory nested under the bouncer name
+- Rename `servers.<name>.websocket_ping_interval` to `servers.<name>.websocket_ping_time`
+- When reloading the config file, if the config file editor pane is opened with unsaved changes then those changes will be saved before reloading
+- The XDG data directory `~/.local/share/halloy` can be used for storing history/logs/etc macOS, instead of `~/Library/Application Support/halloy/` (move entire directory to migrate)
+- `+draft/unreact` and `+draft/react` capabilities can be enabled separately (when either is available for the server)
+- The Theme Editor appends a `.toml` extension when saving a theme without the extension specified
 
 Thanks:
 
 - Contributions: @rollecode, @luca020400, @rtmongold, @tranzystorekk, @englut, @furudean, @ncfavier, @edwardloveall
-- Bug reports: @sebbu2, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae, @SRAZKVT, @WinnerWind, @lojinks, @edwardloveall, CGML, @TheDcoder, @ToyKeeper, @BKVad1m
-- Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo, ivocavalcante, @sebbu2, @coraxioU9, @ncfavier, @darienm, @Anonymous1157, gkoebel, @BigOjisan, garoto, @classabbyamp
+- Bug reports: @sebbu2, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae, @SRAZKVT, @WinnerWind, @lojinks, @edwardloveall, CGML, @TheDcoder, @ToyKeeper, @BKVad1m, @gigioneggiando, @dei-layborer
+- Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo, ivocavalcante, @sebbu2, @coraxioU9, @ncfavier, @darienm, @Anonymous1157, gkoebel, @BigOjisan, garoto, @classabbyamp, @WinnerWind, @NoHandlebars87, @cyrneko, @Victorious3
 
 # 2026.8 (2026-07-24)
 

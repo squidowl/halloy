@@ -437,7 +437,7 @@ The User-Agent sent when fetching link previews. Defaults to `Halloy/<version>` 
 # Default: "Halloy/<version>"
 
 [preview.request]
-user_agent = "Halloy/2026.8"
+user_agent = "Halloy/2026.9"
 ```
 
 ### `timeout_ms`
