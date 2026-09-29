@@ -1557,7 +1557,7 @@ fn populate_messages_reply_previews(
 /// Insert the incoming message into the provided vector, sorted on server
 /// time.
 ///
-/// Deduplication is peformed for:
+/// Deduplication is performed for:
 ///  - Messages that the server has marked as historical (e.g. chathistory or
 ///    ZNC-playback)
 ///  - Messages with an exact ID match
@@ -1569,11 +1569,11 @@ fn populate_messages_reply_previews(
 /// For labeled echoes the exact time should be either be stored locally, or the
 /// message was sent from another client.
 ///
-/// For unlabled echoes a search window of +/- 300s is used to account for
+/// For unlabeled echoes a search window of +/- 300s is used to account for
 /// transit time and potential clock skew.
 ///
 /// For matching methods that do not have an identifier (i.e. when matching
-/// historical messages without a message ID or unlabled echoes) the messages
+/// historical messages without a message ID or unlabeled echoes) the messages
 /// must have an exact match + target & / content.
 ///
 /// The return values are the history ID of the message, the time of the
