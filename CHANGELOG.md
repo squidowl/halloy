@@ -32,6 +32,7 @@ Fixed:
 
 - Scroll-to-reply when clicking a reply preview
 - Allow listing modes by not providing <+|->
+- Selection on mutliline messages
 - Display RELAYMSG senders correctly
 - Receiving an invite will reveal the query with the inviter in the sidebar
 - Config editor now properly out-scrolls the cursor
@@ -74,7 +75,7 @@ Changed:
 Thanks:
 
 - Contributions: @rollecode, @luca020400, @rtmongold, @tranzystorekk, @englut, @furudean, @ncfavier, @edwardloveall
-- Bug reports: @sebbu2, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae, @SRAZKVT, @WinnerWind, @lojinks, @edwardloveall, CGML, @TheDcoder, @ToyKeeper, @BKVad1m, @gigioneggiando, @dei-layborer
+- Bug reports: @sebbu2, @dpedu, kurwavidae, @ncfavier, wwWraith, kurwavidae, @SRAZKVT, @WinnerWind, @lojinks, @edwardloveall, CGML, @TheDcoder, @ToyKeeper, @BKVad1m, @gigioneggiando, @dei-layborer, @goyusia
 - Feature requests: @daniiooo, @fabricionaweb, @RoboDanjal, @AbandonedCranium, tbo, ivocavalcante, @sebbu2, @coraxioU9, @ncfavier, @darienm, @Anonymous1157, gkoebel, @BigOjisan, garoto, @classabbyamp, @WinnerWind, @NoHandlebars87, @cyrneko, @Victorious3
 
 # 2026.8 (2026-07-24)
