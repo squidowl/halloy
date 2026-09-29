@@ -829,7 +829,7 @@ where
         if let Some(selection) = state
             .interaction
             .selection()
-            .and_then(|raw| selection(raw, bounds, &state.paragraph))
+            .and_then(|raw| selection(raw, bounds, &state.paragraph, value))
         {
             let mut content = value[selection.start..selection.end].to_string();
             operation.custom(None, bounds, &mut content);

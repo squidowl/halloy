@@ -1,4 +1,5 @@
 use iced::advanced::text;
+use iced::widget::text::Fragment;
 use iced::{Point, Rectangle, Vector};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -63,6 +64,7 @@ pub fn selection<P: text::Paragraph>(
     raw: Raw,
     bounds: Rectangle,
     paragraph: &P,
+    value: &Fragment,
 ) -> Option<Selection> {
     let resolved = raw.resolve(bounds)?;
 
@@ -71,6 +73,17 @@ pub fn selection<P: text::Paragraph>(
 
     let start = paragraph.hit_test(start_pos).map(text::Hit::cursor)?;
     let end = paragraph.hit_test(end_pos).map(text::Hit::cursor)?;
+
+    let position_to_index = |position: text::Position| {
+        value
+            .split_inclusive('\n')
+            .take(position.line)
+            .fold(0, |lines_len, line| lines_len + line.len())
+            + position.index
+    };
+
+    let start = position_to_index(start);
+    let end = position_to_index(end);
 
     (start != end).then(|| Selection {
         start: start.min(end),

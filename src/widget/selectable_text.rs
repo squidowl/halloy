@@ -423,11 +423,9 @@ where
 
         let bounds = layout.bounds();
         let value = &self.fragment;
-        if let Some(selection) = state
-            .interaction
-            .selection()
-            .and_then(|raw| selection(raw, bounds, state.paragraph.raw()))
-        {
+        if let Some(selection) = state.interaction.selection().and_then(|raw| {
+            selection(raw, bounds, state.paragraph.raw(), value)
+        }) {
             let mut content = value[selection.start..selection.end].to_string();
             operation.custom(None, bounds, &mut content);
         }
