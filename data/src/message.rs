@@ -2760,6 +2760,32 @@ fn source_and_target(
 
             Some((source, Target::Channel { channel }, None))
         }
+        Command::Numeric(RPL_TARGUMODEG | RPL_TARGNOTIFY, params) => {
+            let target = match target::Target::parse(
+                params.get(1)?,
+                chantypes,
+                statusmsg,
+                casemapping,
+            ) {
+                target::Target::Channel(_) => Target::Server, // Should never be the case, fall back to server
+                target::Target::Query(query) => Target::Query { query },
+            };
+
+            Some((Source::Server(None), target, None))
+        }
+        Command::Numeric(RPL_UMODEGMSG, params) => {
+            let target = match target::Target::parse(
+                params.get(2)?,
+                chantypes,
+                statusmsg,
+                casemapping,
+            ) {
+                target::Target::Channel(_) => Target::Server, // Should never be the case, fall back to server
+                target::Target::Query(query) => Target::Query { query },
+            };
+
+            Some((Source::Server(None), target, None))
+        }
         // Server
         Command::PASS(_)
         | Command::CHGHOST(_, _)
@@ -2807,9 +2833,7 @@ fn source_and_target(
         | Command::BOUNCER(_, _)
         | Command::REDACT(_, _, _)
         | Command::METADATA(_, _)
-        | Command::Raw(_) => {
-            Some((Source::Server(None), Target::Server {}, None))
-        }
+        | Command::Raw(_) => Some((Source::Server(None), Target::Server, None)),
     }
 }
 
