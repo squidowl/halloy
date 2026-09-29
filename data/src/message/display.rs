@@ -10,16 +10,16 @@ use crate::redaction::Redaction;
 use crate::{User, config, history};
 
 /// An IRC message with additional data used to display the message.  The
-/// aditional data is not stored with the message, it is looked up or created as
-/// needed for display based on the message contents, the message context (e.g.
-/// whether it can be condensed into another message), and the user's
+/// additional data is not stored with the message, it is looked up or created
+/// as needed for display based on the message contents, the message context
+/// (e.g. whether it can be condensed into another message), and the user's
 /// configuration.
 #[derive(Debug, Clone)]
 pub struct MessageDisplay {
     pub inner: Arc<Message>,
     pub blocked: bool,
     pub condensed: Option<Arc<MessageDisplay>>,
-    pub expanded: bool, // Only relevant if message.can_condense() or message.redaction.is_some()
+    pub expanded: bool, // Only relevant if message.inner.can_condense() or message.redaction.is_some()
     pub reply_preview: Option<ReplyPreview>,
 }
 
