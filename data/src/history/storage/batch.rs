@@ -658,7 +658,9 @@ fn notifications(
                 message: text,
             });
         (channel, reply)
-    } else if matches!(message.inner.target, message::Target::Query { .. }) {
+    } else if matches!(message.inner.target, message::Target::Query { .. })
+        && !message.inner.is_ours()
+    {
         (
             Some(Notification::DirectMessage {
                 user: user.clone(),
