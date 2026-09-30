@@ -668,7 +668,7 @@ impl Database {
         let seed = WindowQuery { count: 1, ..query };
         let mut statement = self.connection.prepare_cached(&format!(
             "SELECT message.time, message.id, message.history
-             FROM (SELECT DISTINCT value FROM json_each(?1)) AS histories
+             FROM json_each(?1) AS histories
              JOIN message ON message.id = (SELECT id FROM ({}))",
             seed.sql("time, id", "histories.value", true),
         ))?;
