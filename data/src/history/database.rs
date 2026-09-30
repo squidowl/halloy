@@ -303,24 +303,27 @@ impl Database {
                 Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?))
             })?
             .collect::<Result<Vec<_>, _>>()?;
-        let mut rows = vec![];
-        for (key, message) in &pending {
-            transaction
-                .prepare_cached("DELETE FROM message_search WHERE rowid = ?1")?
-                .execute([key])?;
-            transaction
-                .prepare_cached("DELETE FROM search_pending WHERE key = ?1")?
-                .execute([key])?;
-            rows.extend(
-                transaction
-                    .prepare_cached(
-                        "SELECT m.id, m.time, m.content, h.server IS NOT NULL FROM message m
-                         JOIN history h ON h.id = m.history WHERE m.id = ?1",
-                    )?
-                    .query_row([message], indexable_row)
-                    .optional()?,
-            );
-        }
+        let (keys, messages): (Vec<_>, Vec<_>) =
+            pending.iter().copied().unzip();
+        let keys = serde_json::to_string(&keys)?;
+        transaction
+            .prepare_cached(
+                "DELETE FROM message_search WHERE rowid IN (SELECT value FROM json_each(?1))",
+            )?
+            .execute([&keys])?;
+        transaction
+            .prepare_cached(
+                "DELETE FROM search_pending WHERE key IN (SELECT value FROM json_each(?1))",
+            )?
+            .execute([&keys])?;
+        let mut rows = transaction
+            .prepare_cached(
+                "SELECT m.id, m.time, m.content, h.server IS NOT NULL FROM message m
+                 JOIN history h ON h.id = m.history
+                 WHERE m.id IN (SELECT value FROM json_each(?1))",
+            )?
+            .query_map([serde_json::to_string(&messages)?], indexable_row)?
+            .collect::<Result<Vec<_>, _>>()?;
         let remaining = limit - pending.len() as i64;
         let new = transaction
             .prepare_cached(
