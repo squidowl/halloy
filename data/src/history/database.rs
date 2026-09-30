@@ -75,11 +75,6 @@ impl WindowQuery {
     }
 
     fn sql(self, columns: &str, history: &str, monitor: bool) -> String {
-        let index = if monitor {
-            " INDEXED BY message_monitor"
-        } else {
-            ""
-        };
         let eligibility = if monitor {
             " AND in_channel_monitor = 1"
         } else {
@@ -92,7 +87,7 @@ impl WindowQuery {
             ""
         };
         let select = format!(
-            "SELECT {columns} FROM message{index} WHERE history = {history}{eligibility}{clear}"
+            "SELECT {columns} FROM message WHERE history = {history}{eligibility}{clear}"
         );
         let order = self.order();
         if matches!(self.boundary, Bound::Unbounded) {
