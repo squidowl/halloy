@@ -2,6 +2,7 @@
 
 Fixed:
 
+- Closing Halloy hangs while a toast notification is pending on Windows and macOS
 - Normalize short frame delays (`<=10ms`) to `100ms` for animated gifs
 
 Thanks:
