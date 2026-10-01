@@ -18,3 +18,8 @@ updates:
       github-actions:
         patterns:
           - "*"
+    ignore:
+      # v3 submits to SignPath's new Pipeline Connector, which rejects our
+      # signing requests. Stay on v2 until that is resolved.
+      - dependency-name: "signpath/github-action-submit-signing-request"
+        update-types: ["version-update:semver-major"]
