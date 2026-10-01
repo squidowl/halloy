@@ -157,6 +157,7 @@ pub fn view<'a>(
     let text_input = show_text_input.then(|| {
         input_view::view(
             &state.input_view,
+            clients,
             our_user.as_ref(),
             None,
             &state.server,

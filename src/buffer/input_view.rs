@@ -1,13 +1,17 @@
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::convert;
+use std::ops::Range;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use chrono::{DateTime, Utc};
 use data::buffer::{self, Upstream};
 use data::capabilities::{MultilineBatchKind, multiline_concat_lines};
-use data::config::buffer::text_input::{AutoFormat, Autocomplete, KeyBindings};
+use data::config::buffer::text_input::{
+    AutoFormat, Autocomplete, FontStyle, KeyBindings, Spellcheck,
+};
 use data::dashboard::BufferAction;
 use data::history::filter::FilterChain;
 use data::history::{self, ReadMarker};
@@ -21,6 +25,7 @@ use iced::Length::Fit;
 use iced::advanced::widget::Tree;
 use iced::advanced::{Layout, Shell, mouse};
 use iced::keyboard::{Key, key};
+use iced::widget::text::highlighter::{Style, Underline};
 use iced::widget::text::{self, Shaping, Wrapping};
 use iced::widget::{
     self, Space, button, center, column, container, mouse_area, operation, row,
@@ -45,6 +50,22 @@ use crate::{Theme, font, theme};
 
 mod completion;
 mod exec;
+
+// Platform spellchecker is not `Send`; keep one instance per UI thread.
+thread_local! {
+    static SPELL_CHECKER: RefCell<Option<SpellCheckerSlot>> =
+        const { RefCell::new(None) };
+}
+
+enum SpellCheckerSlot {
+    Ready {
+        locale: Option<String>,
+        checker: spellkit::Checker,
+    },
+    Failed {
+        locale: Option<String>,
+    },
+}
 
 const TYPING_REFRESH_INTERVAL: Duration = Duration::from_secs(4);
 
@@ -213,6 +234,7 @@ fn paste_key_binding(
 
 pub fn view<'a>(
     state: &'a State,
+    clients: &'a data::client::Map,
     our_user: Option<&User>,
     channel_users: Option<&'a ChannelUsers>,
     server: &'a Server,
@@ -338,6 +360,21 @@ pub fn view<'a>(
                 _ => text_editor::Binding::from_key_press(key_press),
             }
         });
+
+    let chantypes = clients.get_server_chantypes_or_default(server);
+    let casemapping = clients.get_server_casemapping_or_default(server);
+    let own_nick = our_user.map(|user| user.nickname().to_owned());
+
+    let text_input = text_input.highlight_with::<SpellParser>(
+        config.buffer.text_input.spellcheck.clone(),
+        SpellHighlighter {
+            config: &config.buffer.text_input.spellcheck,
+            own_nick,
+            channel_users,
+            chantypes,
+            casemapping,
+        },
+    );
 
     let text_input = decorate(text_input).update(
         move |_state: &mut State,
@@ -3191,6 +3228,192 @@ fn reset_undo_history(content: &mut text_editor::Content) {
 
     *content = text_editor::Content::with_text(&text);
     content.move_to(cursor);
+}
+
+struct SpellParser {
+    spellcheck: Spellcheck,
+    current_line: usize,
+}
+
+type ConfigCodeIterator<'a> =
+    Box<dyn Iterator<Item = (Range<usize>, String)> + 'a>;
+
+impl SpellParser {
+    fn new(spellcheck: &Spellcheck) -> Self {
+        Self {
+            current_line: 0,
+            spellcheck: spellcheck.clone(),
+        }
+    }
+
+    fn update(&mut self, spellcheck: &Spellcheck) {
+        self.current_line = 0;
+        self.spellcheck = spellcheck.clone();
+    }
+
+    fn change_line(&mut self, line: usize) {
+        self.current_line = line;
+    }
+
+    fn parse_line(&mut self, line: &str) -> ConfigCodeIterator<'_> {
+        let mut errors = vec![];
+
+        if !self.spellcheck.enabled {
+            return Box::new(errors.into_iter());
+        }
+
+        SPELL_CHECKER.with(|slot| {
+            {
+                let mut slot = slot.borrow_mut();
+                let needs_new = match slot.as_ref() {
+                    None => true,
+                    Some(SpellCheckerSlot::Ready {
+                        locale: cached, ..
+                    })
+                    | Some(SpellCheckerSlot::Failed { locale: cached }) => {
+                        cached != &self.spellcheck.locale
+                    }
+                };
+                if needs_new {
+                    let result = match self.spellcheck.locale.as_deref() {
+                        Some(locale) => spellkit::Checker::with_locale(locale),
+                        None => spellkit::Checker::new(),
+                    };
+                    match result {
+                        Ok(checker) => {
+                            *slot = Some(SpellCheckerSlot::Ready {
+                                locale: self.spellcheck.locale.clone(),
+                                checker,
+                            });
+                        }
+                        Err(err) => {
+                            log::warn!("spellcheck unavailable: {err}");
+                            *slot = Some(SpellCheckerSlot::Failed {
+                                locale: self.spellcheck.locale.clone(),
+                            });
+                            return;
+                        }
+                    }
+                }
+            }
+            let slot = slot.borrow();
+            let Some(SpellCheckerSlot::Ready { checker, .. }) = slot.as_ref()
+            else {
+                return;
+            };
+            for error in checker.check(line) {
+                errors.push((
+                    error.range(),
+                    token_context(line, error.range()).to_owned(),
+                ));
+            }
+        });
+
+        Box::new(errors.into_iter())
+    }
+
+    fn current_line(&self) -> usize {
+        self.current_line
+    }
+}
+
+impl text::Parser for SpellParser {
+    type Settings = Spellcheck;
+    type Output = String;
+    type Iterator<'a> = ConfigCodeIterator<'a>;
+
+    fn new(settings: &Self::Settings) -> Self {
+        Self::new(settings)
+    }
+
+    fn update(&mut self, new_settings: &Self::Settings) {
+        self.update(new_settings);
+    }
+
+    fn change_line(&mut self, line: usize) {
+        self.change_line(line);
+    }
+
+    fn parse_line(&mut self, line: &str) -> Self::Iterator<'_> {
+        self.parse_line(line)
+    }
+
+    fn current_line(&self) -> usize {
+        self.current_line()
+    }
+}
+
+struct SpellHighlighter<'a> {
+    config: &'a Spellcheck,
+    own_nick: Option<Nick>,
+    channel_users: Option<&'a ChannelUsers>,
+    chantypes: &'a [char],
+    casemapping: data::isupport::CaseMap,
+}
+
+impl text::highlighter::Highlighter<String, Theme> for SpellHighlighter<'_> {
+    fn id(&self) -> &str {
+        "spellcheck"
+    }
+
+    fn highlight(&self, token: String, theme: &Theme) -> Style {
+        if ignored_spell_token(
+            &token,
+            self.own_nick.as_ref(),
+            self.channel_users,
+            self.chantypes,
+            self.casemapping,
+        ) {
+            Style::default()
+        } else {
+            spell_highlight(self.config, theme)
+        }
+    }
+}
+
+fn token_context(line: &str, range: Range<usize>) -> &str {
+    let separator = |c: char| c.is_whitespace() || c == ',';
+
+    let start = line[..range.start]
+        .char_indices()
+        .rev()
+        .find(|(_, c)| separator(*c))
+        .map_or(0, |(i, c)| i + c.len_utf8());
+
+    line[start..range.end].trim_end_matches(':')
+}
+
+fn ignored_spell_token(
+    token: &str,
+    own_nick: Option<&Nick>,
+    channel_users: Option<&ChannelUsers>,
+    chantypes: &[char],
+    casemapping: data::isupport::CaseMap,
+) -> bool {
+    if token.starts_with(chantypes) {
+        return true;
+    }
+
+    let nick = Nick::from_str(token, casemapping);
+    own_nick.is_some_and(|own_nick| own_nick == &nick)
+        || channel_users
+            .is_some_and(|users| users.get_by_nick(nick.as_nickref()).is_some())
+}
+
+fn spell_highlight(config: &Spellcheck, theme: &Theme) -> Style {
+    let error_color = theme.styles().text.error.color;
+
+    Style {
+        color: Some(config.color.unwrap_or(error_color)),
+        style: Some(match config.style {
+            FontStyle::Normal => iced::font::Style::Normal,
+            FontStyle::Italic => iced::font::Style::Italic,
+            FontStyle::Oblique => iced::font::Style::Oblique,
+        }),
+        underline: config.underline.then_some(Underline::Single),
+        underline_color: Some(config.underline_color.unwrap_or(error_color)),
+        ..Style::default()
+    }
 }
 
 #[cfg(test)]

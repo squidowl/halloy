@@ -97,6 +97,7 @@ percent-encoding = { workspace = true }
 data = { version = "0.1.0", path = "data" }
 ipc = { version = "0.1.0", path = "ipc" }
 irc = { version = "0.1.0", path = "irc" }
+spellkit = "0.4"
 
 signal-hook = "0.3.18"
 notify-rust = { version = "4.18", features = [ "images" ] }
@@ -166,9 +167,12 @@ embed-resource = "3.0.2"
 windows_exe_info = "0.4"
 
 [patch.crates-io]
-iced = { git = "https://github.com/squidowl/iced", rev = "3124ac8a68529d10a34f708431ffc373615f9470" }
-iced_core = { git = "https://github.com/squidowl/iced", rev = "3124ac8a68529d10a34f708431ffc373615f9470" }
-iced_wgpu = { git = "https://github.com/squidowl/iced", rev = "3124ac8a68529d10a34f708431ffc373615f9470" }
+iced = { git = "https://github.com/squidowl/iced", rev = "6317712b9d6fabe3d0092b30298cf241b678e94f" }
+iced_core = { git = "https://github.com/squidowl/iced", rev = "6317712b9d6fabe3d0092b30298cf241b678e94f" }
+iced_wgpu = { git = "https://github.com/squidowl/iced", rev = "6317712b9d6fabe3d0092b30298cf241b678e94f" }
+
+[patch."https://github.com/hecrj/cosmic-text.git"]
+cosmic-text = { git = "https://github.com/luca020400/cosmic-text", rev = "8386bdbf207b05932817df780a7c35d593324b07" }
 
 [profile.packaging]
 inherits = "release"

@@ -1446,6 +1446,95 @@ If enabled, saves unsent messages on disk.
 persist = true
 ```
 
+### `spellcheck`
+
+Spellcheck for the message input.
+
+Halloy uses the platform spellchecker (system APIs on Windows and macOS; Hunspell dictionaries on other Unix-like systems). If no dictionary is available, spellcheck does nothing (a warning may be logged).
+
+Words are not marked as misspelled when they are:
+
+- a channel name (text after a channel prefix such as `#`)
+- your own nick
+- a nick present in the current channel
+
+#### `enabled`
+
+Enable spellcheck in the text input.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[buffer.text_input.spellcheck]
+enabled = true
+```
+
+#### `locale`
+
+Dictionary locale for the spellchecker. When unset, the system/default locale is used.
+
+```toml
+# Type: string
+# Values: locale id string (e.g. "en-US"), or omit
+# Default: unset (system/default)
+
+[buffer.text_input.spellcheck]
+locale = "en-US"
+```
+
+#### `color`
+
+Color of misspelled words in the text input.
+
+```toml
+# Type: string
+# Values: hex color string
+# Default: text error color from theme
+
+[buffer.text_input.spellcheck]
+color = "#FF0000"
+```
+
+#### `style`
+
+Style of misspelled words in the text input.
+
+```toml
+# Type: string
+# Values: "normal", "italic", "oblique"
+# Default: "italic"
+
+[buffer.text_input.spellcheck]
+style = "italic"
+```
+
+#### `underline`
+
+Whether to underline misspelled words in the text input.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[buffer.text_input.spellcheck]
+underline = true
+```
+
+#### `underline_color`
+Color of the underline for misspelled words in the text input.
+
+```toml
+# Type: string
+# Values: hex color string
+# Default: text error color from theme
+
+[buffer.text_input.spellcheck]
+underline_color = "#FF0000"
+```
+
 ### `autocomplete`
 
 Customize autocomplete.

@@ -1,5 +1,7 @@
+use iced::Color;
 use serde::Deserialize;
 
+use crate::appearance::theme::color_serde_maybe;
 use crate::config::buffer::AccessLevelFormat;
 use crate::serde::deserialize_usize_positive_integer;
 
@@ -16,6 +18,7 @@ pub struct TextInput {
     pub max_lines: usize,
     pub send_line_delay: u64,
     pub persist: bool,
+    pub spellcheck: Spellcheck,
 }
 
 impl Default for TextInput {
@@ -30,8 +33,30 @@ impl Default for TextInput {
             max_lines: 5,
             send_line_delay: 100,
             persist: true,
+            spellcheck: Spellcheck::default(),
         }
     }
+}
+
+#[derive(Debug, PartialEq, Default, Clone, Deserialize)]
+#[serde(default)]
+pub struct Spellcheck {
+    pub enabled: bool,
+    pub locale: Option<String>,
+    #[serde(with = "color_serde_maybe")]
+    pub color: Option<Color>,
+    pub style: FontStyle,
+    pub underline: bool,
+    #[serde(with = "color_serde_maybe")]
+    pub underline_color: Option<Color>,
+}
+#[derive(Debug, PartialEq, Default, Clone, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FontStyle {
+    #[default]
+    Normal,
+    Italic,
+    Oblique,
 }
 
 #[derive(Debug, Clone, Deserialize)]
