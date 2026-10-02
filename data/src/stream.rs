@@ -149,7 +149,7 @@ async fn _run(
 
     let mut state = State::Disconnected {
         autoconnect: config.autoconnect,
-        retry: time::interval(config.reconnect_delay),
+        retry: interval_at(Duration::ZERO, config.reconnect_delay),
     };
 
     // Notify app of initial disconnected state
@@ -191,7 +191,10 @@ async fn _run(
 
                         state = State::Disconnected {
                             autoconnect: config.autoconnect,
-                            retry: time::interval(config.reconnect_delay),
+                            retry: interval_at(
+                                Duration::ZERO,
+                                config.reconnect_delay,
+                            ),
                         };
                     }
                     Some(Control::Disconnect {
@@ -252,13 +255,15 @@ async fn _run(
                                     stream,
                                     batch: Batch::new(),
                                     ping_timeout: None,
-                                    ping_time: ping_time_interval(
+                                    ping_time: interval_at(
+                                        config.ping_time,
                                         config.ping_time,
                                     ),
                                     websocket_ping_time: config
                                         .use_websocket
                                         .then(|| {
-                                            ping_time_interval(
+                                            interval_at(
+                                                config.websocket_ping_time,
                                                 config.websocket_ping_time,
                                             )
                                         }),
@@ -400,8 +405,8 @@ async fn _run(
                                 // https://modern.ircdocs.horse/#quit-message
                                 state = State::Disconnected {
                                     autoconnect,
-                                    retry: time::interval_at(
-                                        Instant::now() + config.reconnect_delay,
+                                    retry: interval_at(
+                                        config.reconnect_delay,
                                         config.reconnect_delay,
                                     ),
                                 };
@@ -419,8 +424,8 @@ async fn _run(
                                 );
                                 state = State::Disconnected {
                                     autoconnect,
-                                    retry: time::interval_at(
-                                        Instant::now() + config.reconnect_delay,
+                                    retry: interval_at(
+                                        config.reconnect_delay,
                                         config.reconnect_delay,
                                     ),
                                 };
@@ -448,8 +453,8 @@ async fn _run(
                         });
                         state = State::Disconnected {
                             autoconnect,
-                            retry: time::interval_at(
-                                Instant::now() + config.reconnect_delay,
+                            retry: interval_at(
+                                config.reconnect_delay,
                                 config.reconnect_delay,
                             ),
                         };
@@ -482,7 +487,8 @@ async fn _run(
                             stream.connection.send(command!("PING", now)).await;
 
                         if ping_timeout.is_none() {
-                            *ping_timeout = Some(ping_timeout_interval(
+                            *ping_timeout = Some(interval_at(
+                                config.ping_timeout,
                                 config.ping_timeout,
                             ));
                         }
@@ -502,8 +508,8 @@ async fn _run(
                         });
                         state = State::Disconnected {
                             autoconnect,
-                            retry: time::interval_at(
-                                Instant::now() + config.reconnect_delay,
+                            retry: interval_at(
+                                config.reconnect_delay,
                                 config.reconnect_delay,
                             ),
                         };
@@ -514,9 +520,7 @@ async fn _run(
 
                         match stream
                             .connection
-                            .send_ws_ping(Duration::from_secs(
-                                config.ping_timeout,
-                            ))
+                            .send_ws_ping(config.ping_timeout)
                             .await
                         {
                             Ok(()) => {}
@@ -539,8 +543,8 @@ async fn _run(
                                 );
                                 state = State::Disconnected {
                                     autoconnect,
-                                    retry: time::interval_at(
-                                        Instant::now() + config.reconnect_delay,
+                                    retry: interval_at(
+                                        config.reconnect_delay,
                                         config.reconnect_delay,
                                     ),
                                 };
@@ -570,8 +574,8 @@ async fn _run(
                                 );
                                 state = State::Disconnected {
                                     autoconnect: updated_config.autoconnect,
-                                    retry: time::interval_at(
-                                        Instant::now() + Duration::from_secs(1),
+                                    retry: interval_at(
+                                        Duration::from_secs(1),
                                         config.reconnect_delay,
                                     ),
                                 };
@@ -606,8 +610,8 @@ async fn _run(
                                 });
                             state = State::Disconnected {
                                 autoconnect,
-                                retry: time::interval_at(
-                                    Instant::now() + config.reconnect_delay,
+                                retry: interval_at(
+                                    config.reconnect_delay,
                                     config.reconnect_delay,
                                 ),
                             };
@@ -633,8 +637,8 @@ async fn _run(
                                 });
                             state = State::Disconnected {
                                 autoconnect,
-                                retry: time::interval_at(
-                                    Instant::now() + config.reconnect_delay,
+                                retry: interval_at(
+                                    config.reconnect_delay,
                                     config.reconnect_delay,
                                 ),
                             };
@@ -895,22 +899,10 @@ impl futures::Stream for Batch {
     }
 }
 
-fn ping_time_interval(secs: u64) -> Interval {
-    let mut interval = time::interval_at(
-        Instant::now() + Duration::from_secs(secs),
-        Duration::from_secs(secs),
-    );
-
+fn interval_at(delay: Duration, period: Duration) -> Interval {
+    let mut interval = time::interval_at(Instant::now() + delay, period);
     interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
-
     interval
-}
-
-fn ping_timeout_interval(secs: u64) -> Interval {
-    time::interval_at(
-        Instant::now() + Duration::from_secs(secs),
-        Duration::from_secs(secs),
-    )
 }
 
 #[derive(Debug, Default)]

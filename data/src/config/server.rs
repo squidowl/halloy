@@ -23,7 +23,7 @@ use crate::config::sidebar::OrderChannelsBy;
 use crate::serde::{
     deserialize_path_buf_with_path_transformations,
     deserialize_path_buf_with_path_transformations_maybe,
-    deserialize_u16_positive_integer_limit, deserialize_u64_positive_integer,
+    deserialize_u16_positive_integer_limit,
 };
 use crate::{config, isupport, metadata, target};
 
@@ -100,11 +100,11 @@ pub struct Server {
     /// A list of queries to add to the sidebar on connection.
     pub queries: Vec<Muteable>,
     /// The amount of inactivity in seconds before the client will ping the server.
-    #[serde(deserialize_with = "deserialize_u64_positive_integer")]
-    pub ping_time: u64,
+    #[serde(deserialize_with = "deserialize_duration_from_secs")]
+    pub ping_time: Duration,
     /// The amount of time in seconds for a client to reconnect due to no ping response.
-    #[serde(deserialize_with = "deserialize_u64_positive_integer")]
-    pub ping_timeout: u64,
+    #[serde(deserialize_with = "deserialize_duration_from_secs")]
+    pub ping_timeout: Duration,
     /// The amount of time in seconds before attempting to reconnect to the server when disconnected.
     #[serde(deserialize_with = "deserialize_duration_from_secs")]
     pub reconnect_delay: Duration,
@@ -129,9 +129,9 @@ pub struct Server {
     /// The WebSocket request path.
     pub websocket_path: String,
     /// The interval in seconds between WebSocket pings.
-    #[serde(deserialize_with = "deserialize_u64_positive_integer")]
+    #[serde(deserialize_with = "deserialize_duration_from_secs")]
     #[serde(alias = "websocket_ping_interval")]
-    pub websocket_ping_time: u64,
+    pub websocket_ping_time: Duration,
     /// On `true`, all certificate validations are skipped. Defaults to `false`.
     pub dangerously_accept_invalid_certs: bool,
     /// The path to the root TLS certificate for this server in PEM format.
@@ -355,8 +355,8 @@ impl Default for Server {
             channel_keys_keyring: HashMap::default(),
             order_channels_by: None,
             queries: Vec::default(),
-            ping_time: 180,
-            ping_timeout: 20,
+            ping_time: Duration::from_secs(180),
+            ping_timeout: Duration::from_secs(20),
             reconnect_delay: Duration::from_secs(10),
             max_connection_attempts: Some(10),
             should_ghost: Default::default(),
@@ -365,7 +365,7 @@ impl Default for Server {
             use_tls: true,
             use_websocket: false,
             websocket_path: "/".into(),
-            websocket_ping_time: 60,
+            websocket_ping_time: Duration::from_secs(60),
             dangerously_accept_invalid_certs: Default::default(),
             root_cert_path: Option::default(),
             sasl: Option::default(),
