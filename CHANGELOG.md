@@ -7,7 +7,7 @@ Fixed:
 
 Changed:
 
-- Default keybindings for focus movement changed from `⌥ + <arrow keys>` to `ctrl + <arrow keys>` to avoid conflicting with macOS by-word movement (`⌥ + ←` and `⌥ + →`)
+- Default keybinds for focus movement on macOS changed from `⌥ + <arrow keys>` to `ctrl + <arrow keys>` to avoid conflicting with macOS by-word movement keybinds (`⌥ + ←` and `⌥ + →`)
 
 Thanks:
 
