@@ -127,20 +127,32 @@ impl Toast {
         self,
         default_action: NotificationAction,
     ) -> Option<Action> {
-        let mut action = None;
+        let (sender, receiver) = futures::channel::oneshot::channel();
 
         // Notification::show_async and
         // NotificationHandle::wait_for_action_async are not available on
-        // macOS/Windows.
-        self.0
-            .show()
-            .ok()?
-            .wait_for_response(|response: &NotificationResponse| {
-                Toast::handle_response(response, default_action, &mut action);
-            })
-            .ok()?;
+        // macOS/Windows. wait_for_response blocks until the toast is clicked
+        // or dismissed, which may be never. Waiting on a detached thread keeps
+        // it from tying up a runtime worker and blocking shutdown on exit.
+        std::thread::spawn(move || {
+            let mut action = None;
 
-        action
+            if let Ok(handle) = self.0.show() {
+                let _ = handle.wait_for_response(
+                    |response: &NotificationResponse| {
+                        Toast::handle_response(
+                            response,
+                            default_action,
+                            &mut action,
+                        );
+                    },
+                );
+            }
+
+            let _ = sender.send(action);
+        });
+
+        receiver.await.ok().flatten()
     }
 
     fn handle_response(
