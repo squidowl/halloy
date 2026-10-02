@@ -701,6 +701,14 @@ impl Sidebar {
                                 buffer::Internal::FileTransfers.into(),
                             ),
                         ),
+                        Menu::Search => context_button(
+                            text("Search"),
+                            Some(&keyboard.search),
+                            icon::search(),
+                            Message::Replace(
+                                buffer::Internal::Search(None).into(),
+                            ),
+                        ),
                         Menu::Highlights => context_button(
                             text("Highlights"),
                             Some(&keyboard.highlights),
@@ -1215,6 +1223,7 @@ enum Menu {
     RefreshConfig,
     ConfigEditor,
     CommandBar,
+    Search,
     ThemeEditor,
     Highlights,
     ChannelDiscovery,
@@ -1247,6 +1256,10 @@ impl Menu {
             Self::CommandBar,
             Self::Documentation,
         ]);
+
+        if !internal_buffers_in_sidebar.contains(&InternalBuffer::Search) {
+            list.push(Self::Search);
+        }
 
         if file_transfer_enabled
             && !internal_buffers_in_sidebar
@@ -2068,6 +2081,9 @@ fn internal_buffer_button<'a>(
         }
         buffer::Internal::ConfigEditor => {
             (show_icon.then_some(icon::config()), None)
+        }
+        buffer::Internal::Search(_) => {
+            (show_icon.then_some(icon::search()), None)
         }
         buffer::Internal::FileTransfers => {
             (show_icon.then_some(icon::file_transfer()), None)

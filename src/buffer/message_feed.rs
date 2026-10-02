@@ -1,11 +1,12 @@
-use data::buffer::BuffersContext;
+use data::buffer::{self, BuffersContext};
 use data::client::ClientsContext;
 use data::config::buffer::nickname::ShownStatus;
 use data::dashboard::BufferAction;
 use data::history::{self, model, storage};
-use data::message::{self, Temporal};
 use data::target::{self, Target};
-use data::{Config, Image, Preview, Server, User, client, metadata, preview};
+use data::{
+    Config, Image, Preview, Server, User, client, message, metadata, preview,
+};
 use iced::widget::{container, row, span};
 use iced::{Color, Length, Size, Task};
 
@@ -25,7 +26,7 @@ pub enum Message {
 pub enum Event {
     ContextMenu(context_menu::Event),
     OpenBuffer(Server, Target, BufferAction),
-    GoToMessage(Server, target::Channel, message::MessageLink, BufferAction),
+    GoToMessage(buffer::Upstream, message::MessageLink, BufferAction),
     OpenUrl(String),
     MarkAsRead,
     ImagePreview(Image),
@@ -88,305 +89,20 @@ pub fn view<'a>(
             message::MessageLink::Message(*history_id)
         };
 
-        match &message.inner.source {
-            message::Source::User(user) => {
-                let users = clients.get_channel_users(server, channel);
+        let buffer = buffer::Upstream::Channel(server.clone(), channel.clone());
 
-                let timestamp = config
-                    .buffer
-                    .format_timestamp(&message.time().utc)
-                    .map(|timestamp| {
-                        context_menu::timestamp(
-                            selectable_text(timestamp)
-                                .font_maybe(
-                                    theme::font_style::timestamp(theme)
-                                        .map(font::get),
-                                )
-                                .style(theme::selectable_text::timestamp),
-                            &message.time().utc,
-                            config,
-                            theme,
-                        )
-                        .map(scroll_view::Message::ContextMenu)
-                    });
-
-                let channel_text = selectable_rich_text::<
-                    _,
-                    message::Link,
-                    context_menu::Entry,
-                    _,
-                    _,
-                >(vec![
-                    span(channel.as_str())
-                        .font_maybe(
-                            theme.styles().buffer.url.font_style.map(font::get),
-                        )
-                        .color(theme.styles().buffer.url.color)
-                        .link(message::Link::GoToMessage(
-                            server.clone(),
-                            channel.clone(),
-                            destination,
-                            config
-                                .actions
-                                .buffer
-                                .click_highlight
-                                .buffer_action(),
-                        )),
-                    span(" "),
-                ])
-                .on_link(scroll_view::Message::Link)
-                .context_menu(
-                    move |link| {
-                        context_menu::Entry::link_list(
-                                    link,
-                                    Option::<
-                                        fn(&User) -> Vec<context_menu::Entry>,
-                                    >::None,
-                                    Option::<
-                                        fn(&str) -> Vec<context_menu::Entry>,
-                                    >::None,
-                                    Some(|server, channel| {
-                                        channels_context
-                                            .channel_entries(server, channel)
-                                    }),
-                                )
-                    },
-                    move |link, entry, length| {
-                        entry
-                            .view(
-                                Context::link(
-                                    link,
-                                    Option::<fn(&User) -> UserContext>::None,
-                                    Option::<fn(&str) -> UrlContext>::None,
-                                    Some(|server, channel| {
-                                        channels_context.channel_context(
-                                            server, channel, None,
-                                        )
-                                    }),
-                                ),
-                                length,
-                                config,
-                                theme,
-                                false,
-                            )
-                            .map(scroll_view::Message::ContextMenu)
-                    },
-                );
-
-                let current_user = users.and_then(|users| users.resolve(user));
-                let is_user_away = match config.buffer.nickname.shown_status {
-                    ShownStatus::Current => current_user.unwrap_or(user),
-                    ShownStatus::Historical => user,
-                }
-                .is_away();
-                let is_user_offline = if message.inner.is_relayed() {
-                    false
-                } else {
-                    match config.buffer.nickname.shown_status {
-                        ShownStatus::Current => current_user.is_none(),
-                        ShownStatus::Historical => false,
-                    }
-                };
-
-                let registry = clients.get_registry(server);
-
-                let user_display = UserDisplay::new(
-                    user,
-                    config.buffer.nickname.show_access_levels,
-                    config.buffer.nickname.show_bot_icon,
-                    false,
-                    registry,
-                    &config.display.nickname,
-                    config.buffer.nickname.truncate,
-                    config.display.truncation_character,
-                    Some(&config.buffer.nickname.brackets),
-                    true,
-                );
-
-                let nick_text = user_display.into_element(
-                    user,
-                    is_user_away,
-                    is_user_offline,
-                    None,
-                    None,
-                    false,
-                    true,
-                    false,
-                    theme,
-                    config,
-                );
-
-                let chantypes = clients.get_server_chantypes_or_default(server);
-                let casemapping =
-                    clients.get_server_casemapping_or_default(server);
-                let prefix = clients.get_server_prefix_or_default(server);
-
-                let nick = context_menu::user(
-                    nick_text,
-                    server,
-                    prefix,
-                    Some(channel),
-                    clients.get_registry(server),
-                    previews,
-                    user,
-                    current_user,
-                    None,
-                    message.inner.relayed_by.as_ref(),
-                    config,
-                    theme,
-                    &config.actions.buffer.click_username,
-                )
-                .map(scroll_view::Message::ContextMenu);
-
-                let text = message_content::with_context(
-                    &message.inner.content,
-                    &[],
-                    server,
-                    registry,
-                    chantypes,
-                    casemapping,
-                    theme,
-                    scroll_view::Message::Link,
-                    None,
-                    theme::selectable_text::default,
-                    theme::font_style::primary,
-                    Option::<fn(Color) -> Color>::None,
-                    move |link| {
-                        context_menu::Entry::link_list(
-                            link,
-                            Some(|user| {
-                                context_menu::Entry::user_list(
-                                    true,
-                                    current_user,
-                                    None,
-                                    config.file_transfer.enabled,
-                                    context_menu::has_user_metadata(
-                                        user,
-                                        clients.get_registry(server),
-                                        config,
-                                    ),
-                                    None,
-                                    true,
-                                )
-                            }),
-                            Some(|_| context_menu::Entry::url_list(None)),
-                            Some(|server, channel| {
-                                channels_context
-                                    .channel_entries(server, channel)
-                            }),
-                        )
-                    },
-                    move |link, entry, length| {
-                        let context = Context::link(
-                            link,
-                            Some(|user| UserContext {
-                                server,
-                                prefix,
-                                channel: Some(channel),
-                                registry: clients.get_registry(server),
-                                avatar: context_menu::user_avatar(
-                                    user,
-                                    clients.get_registry(server),
-                                    previews,
-                                    config.metadata.avatar_size(),
-                                ),
-                                user,
-                                current_user,
-                                relayed_by: None,
-                                message: None,
-                            }),
-                            Some(|url| UrlContext { url, message: None }),
-                            Some(|server, channel| {
-                                channels_context
-                                    .channel_context(server, channel, None)
-                            }),
-                        );
-
-                        entry
-                            .view(context, length, config, theme, false)
-                            .map(scroll_view::Message::ContextMenu)
-                    },
-                    None,
-                    config,
-                    None,
-                );
-
-                Some(
-                    container(row![
-                        timestamp,
-                        selectable_text(" "),
-                        channel_text,
-                        nick,
-                        selectable_text(" "),
-                        text,
-                    ])
-                    .into(),
-                )
-            }
-            message::Source::Action(_) => {
-                let timestamp = config
-                    .buffer
-                    .format_timestamp(&message.time().utc)
-                    .map(|timestamp| {
-                        selectable_text(timestamp)
-                            .font_maybe(
-                                theme::font_style::timestamp(theme)
-                                    .map(font::get),
-                            )
-                            .style(theme::selectable_text::timestamp)
-                    });
-
-                let channel_text =
-                    selectable_rich_text::<_, _, (), _, _>(vec![
-                        span(channel.as_str())
-                            .color(theme.styles().buffer.url.color)
-                            .link(message::Link::GoToMessage(
-                                server.clone(),
-                                channel.clone(),
-                                destination,
-                                config
-                                    .actions
-                                    .buffer
-                                    .click_highlight
-                                    .buffer_action(),
-                            )),
-                        span(" "),
-                    ])
-                    .on_link(scroll_view::Message::Link);
-
-                let chantypes = clients.get_server_chantypes_or_default(server);
-                let casemapping =
-                    clients.get_server_casemapping_or_default(server);
-
-                let text = message_content(
-                    &message.inner.content,
-                    &[],
-                    server,
-                    clients.get_registry(server),
-                    chantypes,
-                    casemapping,
-                    theme,
-                    scroll_view::Message::Link,
-                    None,
-                    theme::selectable_text::action,
-                    theme::font_style::action,
-                    Option::<fn(Color) -> Color>::None,
-                    None,
-                    config,
-                );
-
-                Some(
-                    container(row![
-                        timestamp,
-                        selectable_text(" "),
-                        channel_text,
-                        text
-                    ])
-                    .into(),
-                )
-            }
-            _ => None,
-        }
+        message_row(
+            &message.inner,
+            buffer,
+            server,
+            Some(channel),
+            destination,
+            clients,
+            previews,
+            config,
+            theme,
+            channels_context,
+        )
     };
 
     let messages = scroll_view::view(
@@ -411,6 +127,306 @@ pub fn view<'a>(
         .height(Length::Fill)
         .padding(8)
         .into()
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn message_row<'a>(
+    message: &'a data::Message,
+    buffer: buffer::Upstream,
+    server: &'a Server,
+    channel: Option<&'a target::Channel>,
+    destination: message::MessageLink,
+    clients: &'a client::Map,
+    previews: &'a preview::Collection,
+    config: &'a Config,
+    theme: &'a Theme,
+    channels_context: &'a dyn context_menu::ChannelsContext,
+) -> Option<Element<'a, scroll_view::Message>> {
+    let label = match &buffer {
+        buffer::Upstream::Server(server) => server.to_string(),
+        buffer::Upstream::Channel(_, channel) => channel.as_str().to_owned(),
+        buffer::Upstream::Query(_, query) => query.as_str().to_owned(),
+    };
+
+    match &message.source {
+        message::Source::User(user) => {
+            let users = channel
+                .and_then(|channel| clients.get_channel_users(server, channel));
+
+            let timestamp = config
+                .buffer
+                .format_timestamp(&message.time.utc)
+                .map(|timestamp| {
+                    context_menu::timestamp(
+                        selectable_text(timestamp)
+                            .font_maybe(
+                                theme::font_style::timestamp(theme)
+                                    .map(font::get),
+                            )
+                            .style(theme::selectable_text::timestamp),
+                        &message.time.utc,
+                        config,
+                        theme,
+                    )
+                    .map(scroll_view::Message::ContextMenu)
+                });
+
+            let channel_text = selectable_rich_text::<
+                _,
+                message::Link,
+                context_menu::Entry,
+                _,
+                _,
+            >(vec![
+                span(label.clone())
+                    .font_maybe(
+                        theme.styles().buffer.url.font_style.map(font::get),
+                    )
+                    .color(theme.styles().buffer.url.color)
+                    .link(message::Link::GoToMessage(
+                        buffer.clone(),
+                        destination,
+                        config.actions.buffer.click_highlight.buffer_action(),
+                    )),
+                span(" "),
+            ])
+            .on_link(scroll_view::Message::Link)
+            .context_menu(
+                move |link| {
+                    context_menu::Entry::link_list(
+                        link,
+                        Option::<fn(&User) -> Vec<context_menu::Entry>>::None,
+                        Option::<fn(&str) -> Vec<context_menu::Entry>>::None,
+                        Some(|server, channel| {
+                            channels_context.channel_entries(server, channel)
+                        }),
+                    )
+                },
+                move |link, entry, length| {
+                    entry
+                        .view(
+                            Context::link(
+                                link,
+                                Option::<fn(&User) -> UserContext>::None,
+                                Option::<fn(&str) -> UrlContext>::None,
+                                Some(|server, channel| {
+                                    channels_context
+                                        .channel_context(server, channel, None)
+                                }),
+                            ),
+                            length,
+                            config,
+                            theme,
+                            false,
+                        )
+                        .map(scroll_view::Message::ContextMenu)
+                },
+            );
+
+            let current_user = users.and_then(|users| users.resolve(user));
+            let is_user_away = match config.buffer.nickname.shown_status {
+                ShownStatus::Current => current_user.unwrap_or(user),
+                ShownStatus::Historical => user,
+            }
+            .is_away();
+            let is_user_offline = if message.is_relayed() {
+                false
+            } else {
+                match config.buffer.nickname.shown_status {
+                    ShownStatus::Current => current_user.is_none(),
+                    ShownStatus::Historical => false,
+                }
+            };
+
+            let registry = clients.get_registry(server);
+
+            let user_display = UserDisplay::new(
+                user,
+                config.buffer.nickname.show_access_levels,
+                config.buffer.nickname.show_bot_icon,
+                false,
+                registry,
+                &config.display.nickname,
+                config.buffer.nickname.truncate,
+                config.display.truncation_character,
+                Some(&config.buffer.nickname.brackets),
+                true,
+            );
+
+            let nick_text = user_display.into_element(
+                user,
+                is_user_away,
+                is_user_offline,
+                None,
+                None,
+                false,
+                true,
+                false,
+                theme,
+                config,
+            );
+
+            let chantypes = clients.get_server_chantypes_or_default(server);
+            let casemapping = clients.get_server_casemapping_or_default(server);
+            let prefix = clients.get_server_prefix_or_default(server);
+
+            let nick = context_menu::user(
+                nick_text,
+                server,
+                prefix,
+                channel,
+                clients.get_registry(server),
+                previews,
+                user,
+                current_user,
+                None,
+                message.relayed_by.as_ref(),
+                config,
+                theme,
+                &config.actions.buffer.click_username,
+            )
+            .map(scroll_view::Message::ContextMenu);
+
+            let text = message_content::with_context(
+                &message.content,
+                &[],
+                server,
+                registry,
+                chantypes,
+                casemapping,
+                theme,
+                scroll_view::Message::Link,
+                None,
+                theme::selectable_text::default,
+                theme::font_style::primary,
+                Option::<fn(Color) -> Color>::None,
+                move |link| {
+                    context_menu::Entry::link_list(
+                        link,
+                        Some(|user| {
+                            context_menu::Entry::user_list(
+                                channel.is_some(),
+                                current_user,
+                                None,
+                                config.file_transfer.enabled,
+                                context_menu::has_user_metadata(
+                                    user,
+                                    clients.get_registry(server),
+                                    config,
+                                ),
+                                None,
+                                true,
+                            )
+                        }),
+                        Some(|_| context_menu::Entry::url_list(None)),
+                        Some(|server, channel| {
+                            channels_context.channel_entries(server, channel)
+                        }),
+                    )
+                },
+                move |link, entry, length| {
+                    let context = Context::link(
+                        link,
+                        Some(|user| UserContext {
+                            server,
+                            prefix,
+                            channel,
+                            registry: clients.get_registry(server),
+                            avatar: context_menu::user_avatar(
+                                user,
+                                clients.get_registry(server),
+                                previews,
+                                config.metadata.avatar_size(),
+                            ),
+                            user,
+                            current_user,
+                            relayed_by: None,
+                            message: None,
+                        }),
+                        Some(|url| UrlContext { url, message: None }),
+                        Some(|server, channel| {
+                            channels_context
+                                .channel_context(server, channel, None)
+                        }),
+                    );
+
+                    entry
+                        .view(context, length, config, theme, false)
+                        .map(scroll_view::Message::ContextMenu)
+                },
+                None,
+                config,
+                None,
+            );
+
+            Some(
+                container(row![
+                    timestamp,
+                    selectable_text(" "),
+                    channel_text,
+                    nick,
+                    selectable_text(" "),
+                    text,
+                ])
+                .into(),
+            )
+        }
+        message::Source::Action(_) => {
+            let timestamp = config
+                .buffer
+                .format_timestamp(&message.time.utc)
+                .map(|timestamp| {
+                    selectable_text(timestamp)
+                        .font_maybe(
+                            theme::font_style::timestamp(theme).map(font::get),
+                        )
+                        .style(theme::selectable_text::timestamp)
+                });
+
+            let channel_text = selectable_rich_text::<_, _, (), _, _>(vec![
+                span(label.clone())
+                    .color(theme.styles().buffer.url.color)
+                    .link(message::Link::GoToMessage(
+                        buffer.clone(),
+                        destination,
+                        config.actions.buffer.click_highlight.buffer_action(),
+                    )),
+                span(" "),
+            ])
+            .on_link(scroll_view::Message::Link);
+
+            let chantypes = clients.get_server_chantypes_or_default(server);
+            let casemapping = clients.get_server_casemapping_or_default(server);
+
+            let text = message_content(
+                &message.content,
+                &[],
+                server,
+                clients.get_registry(server),
+                chantypes,
+                casemapping,
+                theme,
+                scroll_view::Message::Link,
+                None,
+                theme::selectable_text::action,
+                theme::font_style::action,
+                Option::<fn(Color) -> Color>::None,
+                None,
+                config,
+            );
+
+            Some(
+                container(row![
+                    timestamp,
+                    selectable_text(" "),
+                    channel_text,
+                    text
+                ])
+                .into(),
+            )
+        }
+        _ => None,
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -475,13 +491,10 @@ impl MessageFeed {
                         buffer_action,
                     ) => Some(Event::OpenBuffer(server, target, buffer_action)),
                     scroll_view::Event::GoToMessage(
-                        server,
-                        channel,
+                        buffer,
                         message,
                         action,
-                    ) => Some(Event::GoToMessage(
-                        server, channel, message, action,
-                    )),
+                    ) => Some(Event::GoToMessage(buffer, message, action)),
                     scroll_view::Event::RequestOlderChathistory => None,
                     scroll_view::Event::PreviewChanged => None,
                     scroll_view::Event::HidePreview(..) => None,
