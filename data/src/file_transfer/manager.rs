@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use std::num::NonZeroU16;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -6,6 +6,7 @@ use std::time::Duration;
 use chrono::Utc;
 use futures::StreamExt;
 use futures::stream::BoxStream;
+use hashbrown::HashMap;
 use itertools::Itertools;
 use rand::RngExt;
 

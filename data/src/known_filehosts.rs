@@ -1,6 +1,7 @@
-use std::collections::HashSet;
 use std::io;
 use std::path::PathBuf;
+
+use hashbrown::HashSet;
 
 use crate::environment;
 
