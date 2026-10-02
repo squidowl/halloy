@@ -12,7 +12,14 @@ use tokio_stream::wrappers::ReceiverStream;
 static DECODER: Semaphore = Semaphore::const_new(1);
 const MAX_FILE_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_FRAME_BYTES: u64 = 8 * 1024 * 1024;
-const MIN_FRAME_DELAY: Duration = Duration::from_millis(20);
+
+// Browsers like Firefox & Chromium default to a frame timeout of 100ms when a GIF's frame timeout
+// is 10ms or less.
+//
+// https://github.com/mozilla-firefox/firefox/blob/084057e952e7dbf376f6c3765ad242aec3785dc6/image/FrameTimeout.h#L35-L59
+// https://chromium.googlesource.com/chromium/src.git/+/main/ash/quick_insert/views/quick_insert_gif_view.cc#31
+const NORMALIZED_FRAME_DELAY: Duration = Duration::from_millis(100);
+const SHORT_FRAME_DELAY_THRESHOLD: Duration = Duration::from_millis(10);
 
 pub struct Frame {
     pub pixels: RgbaImage,
@@ -117,7 +124,12 @@ fn decode(
                 break;
             };
             let frame = frame?;
-            let delay = Duration::from(frame.delay()).max(MIN_FRAME_DELAY);
+            let delay = match Duration::from(frame.delay()) {
+                delay if delay <= SHORT_FRAME_DELAY_THRESHOLD => {
+                    NORMALIZED_FRAME_DELAY
+                }
+                delay => delay,
+            };
             if !emit(Frame {
                 pixels: frame.into_buffer(),
                 delay,
