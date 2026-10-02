@@ -1,5 +1,13 @@
 # Unreleased
 
+Fixed:
+
+- Normalize short frame delays (`<=10ms`) to `100ms` for animated gifs
+
+Thanks:
+
+- Bug reports: @0xS3raph
+
 # 2026.9 (2026-09-29)
 
 Added:
