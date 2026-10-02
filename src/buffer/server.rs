@@ -314,6 +314,7 @@ pub fn view<'a>(
             space::vertical().height(4),
             input_view::view(
                 &state.input_view,
+                clients,
                 our_user.as_ref(),
                 None,
                 &state.server,

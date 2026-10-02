@@ -760,7 +760,7 @@ mod color_serde {
     }
 }
 
-mod color_serde_maybe {
+pub mod color_serde_maybe {
     use iced_core::Color;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 

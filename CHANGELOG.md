@@ -1,5 +1,13 @@
 # Unreleased
 
+Added:
+
+- Spellcheck for the message input (`buffer.text_input.spellcheck`)
+  - Uses the platform spellchecker; optional `locale`
+  - Skips channel names and known nicks
+
+- Contributions: @rtmongold, @luca020400
+
 # 2026.9 (2026-09-29)
 
 Added:

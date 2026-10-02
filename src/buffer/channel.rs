@@ -213,6 +213,7 @@ pub fn view<'a>(
     let text_input = show_text_input.then(move || {
         input_view::view(
             &state.input_view,
+            clients,
             our_user,
             users,
             &state.server,
