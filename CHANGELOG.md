@@ -5,10 +5,14 @@ Fixed:
 - Closing Halloy hangs while a toast notification is pending on Windows
 - Normalize short frame delays (`<=10ms`) to `100ms` for animated gifs
 
+Changed:
+
+- Default keybinds for focus movement on macOS changed from `⌥ + <arrow keys>` to `ctrl + <arrow keys>` to avoid conflicting with macOS by-word movement keybinds (`⌥ + ←` and `⌥ + →`)
+
 Thanks:
 
 - Contributions: @httpsterio
-- Bug reports: @0xS3raph, @httpsterio
+- Bug reports: @0xS3raph, @httpsterio, tbo
 
 # 2026.9 (2026-09-29)
 
