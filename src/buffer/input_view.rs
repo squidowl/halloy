@@ -1247,12 +1247,11 @@ impl State {
                             .and_then(|limits| limits.max_lines)
                             .map_or(max_lines, |limit| max_lines.min(limit));
 
-                        Some(TextInfo {
+                        TextInfo {
                             bytes: max_bytes,
                             lines: max_lines,
-                        })
-                    })
-                    .flatten();
+                        }
+                    });
 
                 let task =
                     read_clipboard(has_filehost, max_lines, current, limit);
