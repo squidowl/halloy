@@ -49,6 +49,7 @@ const guidesItems = [
   { text: "Unix Signals", link: "/guides/unix-signals" },
   { text: "Text Formatting", link: "/guides/text-formatting" },
   { text: "URL Schemes", link: "/guides/url-schemes" },
+  { text: "Flatpak Tips", link: "/guides/flatpak-tips" },
 ];
 
 const configurationItems = [
