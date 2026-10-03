@@ -669,12 +669,7 @@ impl Map {
                 State::Ready(client) => Some(client),
                 _ => None,
             })
-            .any(|client| {
-                client
-                    .querymap
-                    .keys()
-                    .any(|query| client.has_query_typing_users(query))
-            })
+            .any(Client::has_any_query_typing_users)
     }
 
     pub fn get_server_chathistory_limit(&self, server: &Server) -> u16 {
