@@ -170,6 +170,9 @@ iced = { git = "https://github.com/squidowl/iced", rev = "3124ac8a68529d10a34f70
 iced_core = { git = "https://github.com/squidowl/iced", rev = "3124ac8a68529d10a34f708431ffc373615f9470" }
 iced_wgpu = { git = "https://github.com/squidowl/iced", rev = "3124ac8a68529d10a34f708431ffc373615f9470" }
 
+[patch."https://github.com/hecrj/cosmic-text.git"]
+cosmic-text = { git = "https://github.com/luca020400/cosmic-text", rev = "ad635c76586a1849ecf30af3afe6688e5bd281f9" }
+
 [profile.packaging]
 inherits = "release"
 lto = "fat"

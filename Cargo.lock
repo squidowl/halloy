@@ -1233,7 +1233,7 @@ dependencies = [
 [[package]]
 name = "cosmic-text"
 version = "0.19.0"
-source = "git+https://github.com/hecrj/cosmic-text.git?rev=1cdc3e0fcda67e38946db57df777181e4569d7c0#1cdc3e0fcda67e38946db57df777181e4569d7c0"
+source = "git+https://github.com/luca020400/cosmic-text?rev=ad635c76586a1849ecf30af3afe6688e5bd281f9#ad635c76586a1849ecf30af3afe6688e5bd281f9"
 dependencies = [
  "bitflags 2.11.0",
  "fontdb",
@@ -1244,11 +1244,13 @@ dependencies = [
  "rustc-hash 2.1.2",
  "self_cell",
  "skrifa",
+ "smallvec",
  "smol_str 0.3.6",
  "swash",
  "sys-locale",
  "unicode-bidi",
  "unicode-linebreak",
+ "unicode-properties",
  "unicode-script",
  "unicode-segmentation",
 ]
@@ -9110,6 +9112,12 @@ checksum = "5fd4f6878c9cb28d874b009da9e8d183b5abc80117c40bbd187a1fde336be6e8"
 dependencies = [
  "tinyvec",
 ]
+
+[[package]]
+name = "unicode-properties"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7df058c713841ad818f1dc5d3fd88063241cc61f49f5fbea4b951e8cf5a8d71d"
 
 [[package]]
 name = "unicode-script"
