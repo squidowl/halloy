@@ -7,7 +7,8 @@ use std::{convert, slice};
 
 use chrono::{DateTime, Utc};
 use data::capabilities::{
-    LabeledResponseContext, MultilineBatchKind, multiline_concat_lines,
+    LabeledResponseContext, MultilineBatchKind, MultilineLimits,
+    multiline_concat_lines,
 };
 use data::config::buffer::{ScrollPosition, UsernameFormat};
 use data::dashboard::{self, BufferAction};
@@ -3693,10 +3694,11 @@ impl Dashboard {
                 } {
                 if text.lines().count() > 1 {
                     true
-                } else if let Some(multiline_limits) =
-                    clients.get_multiline_limits(buffer.server())
+                } else if clients
+                    .get_multiline_limits(buffer.server())
+                    .is_some()
                 {
-                    let multiline_concat_bytes = multiline_limits.concat_bytes(
+                    let multiline_concat_bytes = MultilineLimits::concat_bytes(
                         clients.get_relay_bytes(buffer.server()),
                         batch_kind,
                         target,
