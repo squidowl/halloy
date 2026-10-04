@@ -458,9 +458,21 @@ impl KeyBind {
     default!(open_config_file);
     default!(show_muted_buffers);
     default!(hide_muted_buffers);
+    #[cfg(target_os = "macos")]
+    default!(focus_up, ArrowUp, CTRL);
+    #[cfg(not(target_os = "macos"))]
     default!(focus_up, ArrowUp, ALT);
+    #[cfg(target_os = "macos")]
+    default!(focus_down, ArrowDown, CTRL);
+    #[cfg(not(target_os = "macos"))]
     default!(focus_down, ArrowDown, ALT);
+    #[cfg(target_os = "macos")]
+    default!(focus_left, ArrowLeft, CTRL);
+    #[cfg(not(target_os = "macos"))]
     default!(focus_left, ArrowLeft, ALT);
+    #[cfg(target_os = "macos")]
+    default!(focus_right, ArrowRight, CTRL);
+    #[cfg(not(target_os = "macos"))]
     default!(focus_right, ArrowRight, ALT);
     pub fn focus_activate() -> Vec<KeyBind> {
         vec![
