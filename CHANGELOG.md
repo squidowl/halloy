@@ -2,7 +2,7 @@
 
 Added:
 
-- Added `buffer.text_input.upload_on_limit` to automatically use filehost in case pasted text is too long
+- Added `buffer.text_input.upload_long_paste` to automatically use filehost in case pasted text is too long
 
 Fixed:
 

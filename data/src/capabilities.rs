@@ -156,7 +156,6 @@ impl FromStr for MetadataLimits {
 
 impl MultilineLimits {
     pub fn concat_bytes(
-        &self,
         relay_bytes: usize,
         batch_kind: MultilineBatchKind,
         target: &str,

@@ -858,7 +858,7 @@ impl Client {
         priority: TokenPriority,
         reply_id: Option<&message::Id>,
     ) -> Option<LabeledResponseContext> {
-        if let Some(multiline_limits) = self.multiline_limits()
+        if self.multiline_limits().is_some()
             && let Some(batch_kind) =
                 messages.first().and_then(|message| match message.command {
                     Command::PRIVMSG(_, _) => Some(MultilineBatchKind::PRIVMSG),
@@ -891,7 +891,7 @@ impl Client {
             let closing_batch: message::Encoded =
                 command!("BATCH", format!("-{reference_tag}")).into();
 
-            let multiline_concat_bytes = multiline_limits.concat_bytes(
+            let multiline_concat_bytes = MultilineLimits::concat_bytes(
                 self.relay_bytes(),
                 batch_kind,
                 target.as_str(),

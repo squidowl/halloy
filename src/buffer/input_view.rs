@@ -6,7 +6,9 @@ use std::time::{Duration, Instant};
 
 use chrono::{DateTime, Utc};
 use data::buffer::{self, Upstream};
-use data::capabilities::{MultilineBatchKind, multiline_concat_lines};
+use data::capabilities::{
+    MultilineBatchKind, MultilineLimits, multiline_concat_lines,
+};
 use data::config::buffer::text_input::{AutoFormat, Autocomplete, KeyBindings};
 use data::dashboard::BufferAction;
 use data::history::filter::FilterChain;
@@ -1232,15 +1234,28 @@ impl State {
                     lines: self.input_content.line_count(),
                 };
 
-                let limit = (config.buffer.text_input.upload_on_limit
+                let limit = (config.buffer.text_input.upload_long_paste
                     && has_filehost)
                     .then(|| {
                         let multiline_limits =
                             clients.get_multiline_limits(buffer.server());
 
-                        let max_bytes = multiline_limits
-                            .as_ref()
-                            .map_or(usize::MAX, |limits| limits.max_bytes);
+                        let max_bytes = multiline_limits.map_or_else(
+                            || {
+                                buffer.target().map_or(usize::MAX, |target| {
+                                    max_lines.saturating_mul(
+                                        MultilineLimits::concat_bytes(
+                                            clients.get_relay_bytes(
+                                                buffer.server(),
+                                            ),
+                                            MultilineBatchKind::PRIVMSG,
+                                            target.as_str(),
+                                        ),
+                                    )
+                                })
+                            },
+                            |limits| limits.max_bytes,
+                        );
 
                         let max_lines = multiline_limits
                             .as_ref()
@@ -1773,8 +1788,8 @@ impl State {
                             }
                         } else {
                             multiline_batch_kind = Some(batch_kind);
-                            multiline_concat_bytes = multiline_limits
-                                .concat_bytes(
+                            multiline_concat_bytes =
+                                MultilineLimits::concat_bytes(
                                     clients.get_relay_bytes(buffer.server()),
                                     batch_kind,
                                     target.as_str(),
