@@ -40,8 +40,9 @@ it again when the configuration is loaded.
 
 ### Access in Flatpak
 
-From the [Flatpak tips](./flatpak-tips) guide:
+From the [Flatpak tips](./flatpak-tips#keyring-access) guide:
 
+:::tip
 To access keyrings while running in Flatpak, you will need to manually grant your install of
 Halloy access to the system keyring. You can do this by running:
 
@@ -49,3 +50,4 @@ Halloy access to the system keyring. You can do this by running:
 ```bash
 flatpak override --user --talk-name=org.freedesktop.secrets org.squidowl.halloy
 ```
+:::

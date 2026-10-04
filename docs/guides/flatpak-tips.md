@@ -66,9 +66,10 @@ Halloy access to the system keyring. You can do this by running:
 flatpak override --user --talk-name=org.freedesktop.secrets org.squidowl.halloy
 ```
 
-## Wayland clipboard access
+## Wayland clipboard issues
 
-There are currently clipboard issues with some desktop environments on Wayland.
+There are currently [Wayland clipboard issues](https://github.com/1Password/arboard/issues/223)
+with some desktop environments.
 
 There is a workaround that might work, but first test this:
 
@@ -81,6 +82,6 @@ If this works, you can set the override permanently:
 flatpak override --user --nosocket=wayland org.squidowl.halloy
 ```
 
-Your mileage may vary, but turning off wayland like this may cause UI issues.
+Your mileage may vary, but turning off Wayland like this may cause UI issues.
 
-You can follow the [issue here](https://github.com/flathub/org.squidowl.halloy/issues/52).
+You can follow our [issue here](https://github.com/flathub/org.squidowl.halloy/issues/52).
