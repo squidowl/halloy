@@ -2,6 +2,36 @@
 
 Here are a collection of tips for using the Flatpak version of Halloy.
 
+## Wayland clipboard issues
+
+There are currently [Wayland clipboard issues](https://github.com/1Password/arboard/issues/223)
+with some desktop environments.
+
+There is a workaround that might work, but first test this:
+
+```sh
+flatpak run --nosocket=wayland org.squidowl.halloy
+```
+
+If this works, you can set the override permanently:
+```sh
+flatpak override --user --nosocket=wayland org.squidowl.halloy
+```
+
+Your mileage may vary, but turning off Wayland like this may cause UI issues.
+
+You can follow our [issue here](https://github.com/flathub/org.squidowl.halloy/issues/52).
+
+## Keyring access
+
+To access keyrings while running in Flatpak, you will need to manually grant your install of
+Halloy access to the system keyring. You can do this by running:
+
+
+```bash
+flatpak override --user --talk-name=org.freedesktop.secrets org.squidowl.halloy
+```
+
 ## Configuration in `$HOME` paths
 
 When using Flatpak, the default location of your Halloy data is `~/.var/app/org.squidowl.halloy`.
@@ -25,7 +55,7 @@ mv ~/.var/app/org.squidowl.halloy/cache/halloy ~/.var/app/org.squidowl.halloy/ca
 mv ~/.var/app/org.squidowl.halloy/config/halloy ~/.var/app/org.squidowl.halloy/config/halloy.bak
 mv ~/.var/app/org.squidowl.halloy/data/halloy ~/.var/app/org.squidowl.halloy/data/halloy.bak
 
-# backing these up in case they've any data in them
+# renaming any existing data to prevent being overwritten
 mv ~/.cache/halloy ~/.cache/halloy.bak
 mv ~/.config/halloy ~/.config/halloy.bak
 mv ~/.local/share/halloy ~/.local/share/halloy.bak
@@ -55,33 +85,3 @@ ln -s ~/.local/share/halloy ~/.var/app/org.squidowl.halloy/data/halloy
 
 You can now launch the Flatpak and your configuration will be loaded from the
 `$HOME` folders.
-
-## Keyring access
-
-To access keyrings while running in Flatpak, you will need to manually grant your install of
-Halloy access to the system keyring. You can do this by running:
-
-
-```bash
-flatpak override --user --talk-name=org.freedesktop.secrets org.squidowl.halloy
-```
-
-## Wayland clipboard issues
-
-There are currently [Wayland clipboard issues](https://github.com/1Password/arboard/issues/223)
-with some desktop environments.
-
-There is a workaround that might work, but first test this:
-
-```sh
-flatpak run --nosocket=wayland org.squidowl.halloy
-```
-
-If this works, you can set the override permanently:
-```sh
-flatpak override --user --nosocket=wayland org.squidowl.halloy
-```
-
-Your mileage may vary, but turning off Wayland like this may cause UI issues.
-
-You can follow our [issue here](https://github.com/flathub/org.squidowl.halloy/issues/52).
