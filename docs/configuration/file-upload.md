@@ -17,7 +17,7 @@ enabled = false
 
 ## `button`
 
-Show the upload button (<kbd>+</kbd>) in the message input bar.
+Show the upload button (<kbd>+</kbd>) in the message input box.
 
 ```toml
 # Type: boolean
@@ -30,7 +30,7 @@ button = false
 
 ## `paste`
 
-Allow uploading files from the clipboard.
+Allow uploading files from the clipboard by copying the file(s) and pasting into an input box.
 
 ```toml
 # Type: boolean
@@ -43,7 +43,7 @@ paste = false
 
 ## `file_drop`
 
-Handle files dropped into the window.
+Handle files dropped into the window, uploading into focused buffer (not supported on Wayland).
 
 ```toml
 # Type: boolean
