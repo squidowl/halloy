@@ -10,7 +10,7 @@ Uploads can be triggered by:
 - The [`/upload`](/commands#types) command
 
 ::: info
-Filehost requires your server to advertise support for it according to the spec. Alternatively, [`filehost.override_url`](/configuration/servers#override_url) can be set to override with any filehost.
+Filehost requires your server to advertise support for it according to the spec. Alternatively, [`servers.<server>.filehost.override_url`](/configuration/servers#override_url) can be set to override with any filehost.
 :::
 
 ## Server support
