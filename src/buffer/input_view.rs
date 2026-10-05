@@ -921,24 +921,40 @@ impl State {
                 }
             }
             Message::Send => {
-                let cursor_position = self.input_content.cursor().position;
+                let cursor = self.input_content.cursor();
 
                 // Reset notice
                 self.notice = None;
                 // Reset selected history
                 self.selected_history = None;
 
-                if let Some(entry) = self.completion.select(config)
+                let visible_completion =
+                    config.tooltips.show_for_autocomplete()
+                        && self
+                            .completion
+                            .view(
+                                self.input_content.text().as_str(),
+                                cursor.position.index,
+                                cursor.selection.is_some(),
+                                buffer.server(),
+                                config,
+                                &Theme::default(),
+                                Message::SelectCompletion,
+                            )
+                            .is_some();
+
+                if visible_completion
+                    && let Some(entry) = self.completion.select(config)
                     && let Some(line) = self
                         .input_content
-                        .line(cursor_position.line)
+                        .line(cursor.position.line)
                         .map(|line| line.text)
                 {
                     let chantypes = clients
                         .get_server_chantypes_or_default(buffer.server());
                     let actions = entry.complete_input(
                         &line,
-                        cursor_position.index,
+                        cursor.position.index,
                         chantypes,
                         config,
                     );
@@ -955,7 +971,7 @@ impl State {
                     self.parse_lines(buffer, clients, config);
 
                     if let Some(Err(error)) =
-                        self.parsed.get(cursor_position.line)
+                        self.parsed.get(cursor.position.line)
                     {
                         self.notice = Some(Notice::Error(error.to_string()));
 
