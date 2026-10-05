@@ -51,8 +51,8 @@ struct Pending {
     message: message::Message,
     notifications: Vec<Notification>,
     highlight: Option<message::MessageWithContext>,
-    sent: bool,
-    echoed: bool,
+    update_display_read_marker: bool,
+    update_read_marker: bool,
 }
 
 impl Pending {
@@ -61,8 +61,8 @@ impl Pending {
             message,
             notifications: vec![],
             highlight: None,
-            sent: false,
-            echoed: false,
+            update_display_read_marker: false,
+            update_read_marker: false,
         }
     }
 }
@@ -248,9 +248,9 @@ impl Batch {
                         } {
                             notifications.push(notification.clone());
                         }
-                        let sent = stored.is_sent()
+                        let update_display_read_marker = stored.is_sent()
                             && self.buffer.mark_as_read.on_message_sent;
-                        let echoed = replaced_sent
+                        let update_read_marker = replaced_sent
                             && self.buffer.mark_as_read.on_message_sent;
                         pending.insert(
                             stored.history_id,
@@ -261,8 +261,8 @@ impl Batch {
                                     .highlight
                                     .as_ref()
                                     .map(|_| message.clone()),
-                                sent,
-                                echoed,
+                                update_display_read_marker,
+                                update_read_marker,
                             },
                         );
                     }
@@ -335,13 +335,14 @@ impl Batch {
                 }
             }
             let mut send_marker = None;
+            let mut show_marker = None;
             for (_, pending) in pending {
                 let Pending {
                     message: mut stored,
                     notifications,
                     highlight,
-                    sent,
-                    echoed,
+                    update_display_read_marker,
+                    update_read_marker,
                 } = pending;
                 stored.renormalize(history.casemapping);
                 if !stored.is_rerouted()
@@ -406,12 +407,12 @@ impl Batch {
                         );
                         monitor.admitted_latest =
                             monitor.admitted_latest.max(Some(stored.time.utc));
-                        if sent || echoed {
+                        if update_display_read_marker || update_read_marker {
                             monitor.display_read_marker = monitor
                                 .display_read_marker
                                 .max(Some(ReadMarker::from(&stored)));
                         }
-                        if echoed {
+                        if update_read_marker {
                             monitor.metadata.read_marker = monitor
                                 .metadata
                                 .read_marker
@@ -426,13 +427,16 @@ impl Batch {
                 );
                 result.admitted_latest =
                     result.admitted_latest.max(Some(stored.time.utc));
-                result.show_in_sidebar = Some(true);
-                if sent || echoed {
+                if stored.triggers_unread(server_messages_config) {
+                    show_marker =
+                        show_marker.max(Some(ReadMarker::from(&stored)));
+                }
+                if update_display_read_marker || update_read_marker {
                     result.display_read_marker = result
                         .display_read_marker
                         .max(Some(ReadMarker::from(&stored)));
                 }
-                if echoed {
+                if update_read_marker {
                     send_marker =
                         send_marker.max(Some(ReadMarker::from(&stored)));
                 }
@@ -449,6 +453,9 @@ impl Batch {
             let previous = result.metadata.read_marker;
             result.metadata.read_marker =
                 previous.max(received_marker).max(send_marker);
+            if show_marker > result.metadata.read_marker {
+                result.show_in_sidebar = Some(true);
+            }
             if send_marker > previous
                 && send_marker >= received_marker
                 && let Some(marker) = send_marker
