@@ -8,6 +8,7 @@ Fixed:
 
 - Closing Halloy hangs while a toast notification is pending on Windows
 - Normalize short frame delays (`<=10ms`) to `100ms` for animated gifs
+- Config editor crash when caret is outside the window bounds
 
 Changed:
 
