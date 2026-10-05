@@ -50,7 +50,7 @@ If you've been configuring Halloy via the Flatpak data folders
 folders, start by backing up your configuration:
 
 ```sh
-# backup your existing Halloy configuration & data
+# rename your existing Flatpak config & data
 mv ~/.var/app/org.squidowl.halloy/cache/halloy ~/.var/app/org.squidowl.halloy/cache/halloy.bak
 mv ~/.var/app/org.squidowl.halloy/config/halloy ~/.var/app/org.squidowl.halloy/config/halloy.bak
 mv ~/.var/app/org.squidowl.halloy/data/halloy ~/.var/app/org.squidowl.halloy/data/halloy.bak
@@ -60,7 +60,7 @@ mv ~/.cache/halloy ~/.cache/halloy.bak
 mv ~/.config/halloy ~/.config/halloy.bak
 mv ~/.local/share/halloy ~/.local/share/halloy.bak
 
-# restore your configuration from the flatpaks to the $HOME paths
+# restore your data from the Flatpak to the $HOME paths
 cp -R ~/.var/app/org.squidowl.halloy/cache/halloy.bak ~/.cache/halloy
 cp -R ~/.var/app/org.squidowl.halloy/config/halloy.bak ~/.config/halloy
 cp -R ~/.var/app/org.squidowl.halloy/data/halloy.bak ~/.local/share/halloy
@@ -73,9 +73,9 @@ to grant access and then symlink the Halloy paths to the correct locations.
 
 ```sh
 flatpak override --user \
-  --filesystem=~/.cache/halloy:rw \
-  --filesystem=~/.config/halloy:rw \
-  --filesystem=~/.local/share/halloy:rw \
+  --filesystem=~/.cache/halloy:create \
+  --filesystem=~/.config/halloy:create \
+  --filesystem=~/.local/share/halloy:create \
   org.squidowl.halloy
 
 ln -s ~/.cache/halloy ~/.var/app/org.squidowl.halloy/cache/halloy
