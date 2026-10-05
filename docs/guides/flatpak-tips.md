@@ -34,20 +34,20 @@ flatpak override --user --talk-name=org.freedesktop.secrets org.squidowl.halloy
 
 ## Configuration in `$HOME` paths
 
-When using Flatpak, the default location of your Halloy data is `~/.var/app/org.squidowl.halloy`.
+When using Flatpak, the location of your Halloy data is `~/.var/app/org.squidowl.halloy`.
 
-If you would rather use the `$HOME` paths instead, the following should help you
-do so.
+If you want to access your configuration data via the `$HOME` paths, this
+section will help you do so.
 
 If you've not been using Flatpak to configure Halloy yet, or you want to use
 existing configuration located in your `$HOME` paths, then skip to the
-[override section](./flatpak-tips#accessing-home-paths-in-flatpak).
+[override section](./flatpak-tips#sharing-data-with-home-paths).
 
 ### Existing Flatpak installation and usage
 
-If you've been configuring Halloy via the Flatpak data folders
-(`~/.var/app/org.squidowl.halloy`), and you want to switch to the `$HOME`
-folders, start by backing up your configuration:
+If you've been running and using Flatpak, then your data folders
+(`~/.var/app/org.squidowl.halloy`) needs to be symlinked to your `$HOME`
+folders.
 
 ```sh
 # rename your existing Flatpak config & data
@@ -66,7 +66,7 @@ cp -R ~/.var/app/org.squidowl.halloy/config/halloy.bak ~/.config/halloy
 cp -R ~/.var/app/org.squidowl.halloy/data/halloy.bak ~/.local/share/halloy
 ```
 
-### Accessing `$HOME` paths in Flatpak
+### Sharing data with `$HOME` paths
 
 Flatpak by default does not allow access to the `$HOME` directory. You will need
 to grant access and then symlink the Halloy paths to the correct locations.
@@ -83,5 +83,4 @@ ln -s ~/.config/halloy ~/.var/app/org.squidowl.halloy/config/halloy
 ln -s ~/.local/share/halloy ~/.var/app/org.squidowl.halloy/data/halloy
 ```
 
-You can now launch the Flatpak and your configuration will be loaded from the
-`$HOME` folders.
+Your configuration data will now be shared with the `$HOME` paths.
