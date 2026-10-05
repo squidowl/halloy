@@ -1887,12 +1887,8 @@ impl Client {
             Command::QUIT(comment) => {
                 let user = ok!(message.user(self.casemapping()));
 
-                self.chanmap.values_mut().for_each(|channel| {
-                    channel.users.remove(&user);
-                });
-
-                return Ok(vec![Event::Broadcast(
-                    broadcast::BroadcastWithContext {
+                let broadcast =
+                    Event::Broadcast(broadcast::BroadcastWithContext {
                         in_channels: broadcast::Channels::Vec(
                             self.user_channels(user.nickname()),
                         ),
@@ -1901,12 +1897,17 @@ impl Client {
                             user.nickname().clone(),
                         ),
                         inner: broadcast::Broadcast::Quit {
-                            user,
+                            user: user.clone(),
                             comment: comment.clone(),
                         },
                         time: message.time(),
-                    },
-                )]);
+                    });
+
+                self.chanmap.values_mut().for_each(|channel| {
+                    channel.users.remove(&user);
+                });
+
+                return Ok(vec![broadcast]);
             }
             Command::PART(channel, _) => {
                 let casemapping = self.casemapping();
