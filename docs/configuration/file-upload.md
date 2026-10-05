@@ -41,7 +41,7 @@ Allow uploading files from the clipboard by copying the file(s) and pasting into
 paste = false
 ```
 
-## `file_drop`
+## `file_drop` {#file-drop}
 
 Handle files dropped into the window, uploading into focused buffer (not supported on Wayland).
 

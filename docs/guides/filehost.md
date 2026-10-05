@@ -5,12 +5,12 @@ Halloy supports file uploads via the [`soju.im/filehost`](https://soju.im/fileho
 Uploads can be triggered by:
 
 - Using the <kbd>+</kbd> button in the buffer
-- Dragging and dropping a file into the window (if enabled with [`filehost.file_drop`](/configuration/file-upload#file_drop))
+- Dragging and dropping a file into the window (if enabled with [`filehost.file_drop`](/configuration/file-upload#file-drop))
 - Pasting a file into the window
 - The [`/upload`](/commands#types) command
 
 ::: info
-Filehost requires your server to advertise support for it according to the spec. Alternatively, [`servers.<server>.filehost.override_url`](/configuration/servers#override_url) can be set to override with any filehost.
+Filehost requires your server to advertise support for it according to the spec. Alternatively, [`servers.<server>.filehost.override_url`](/configuration/servers#override-url) can be set to override with any filehost.
 :::
 
 ## Server support
