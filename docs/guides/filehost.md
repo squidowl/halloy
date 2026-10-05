@@ -70,7 +70,7 @@ credentials = "none"
 ## Limitations
 
 - Drag and drop is not supported on Wayland.
-- Drag and drop only works in the active buffer.
+- Drag and drop only works in the focused buffer.
 - When connecting through soju, downstream server filehosts are not passed through to child networks. Soju does not support forwarding `FILEHOST` ISUPPORT tokens from downstream servers (see [soju#374](https://codeberg.org/emersion/soju/issues/374)). You can set [`filehost.override_url`](/configuration/servers#override_url) to work around this.
 
 ## Configuration reference
