@@ -813,7 +813,7 @@ Control whether to use a custom server icon in the sidebar.
 enabled = true
 ```
 
-#### `override_url`
+#### `override_url` {#override-url}
 
 Override the server icon URL advertised by the server via ISUPPORT.
 
@@ -960,7 +960,7 @@ Enable or disable filehost support for this server.
 enabled = true
 ```
 
-#### `override_url`
+#### `override_url` {#override-url-1}
 
 Override the filehost URL advertised by the server via ISUPPORT. The filehost must be compatible with the `soju.im/filehost` spec.
 
