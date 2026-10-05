@@ -1,9 +1,9 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
 use base64::Engine;
+use hashbrown::HashMap;
 use iced_core::Color;
 use palette::rgb::{Rgb, Rgba};
 use palette::{FromColor, Hsva, Okhsl, Srgba};
