@@ -10,6 +10,7 @@ Fixed:
 - Normalize short frame delays (`<=10ms`) to `100ms` for animated gifs
 - Config editor crash when caret is outside the window bounds
 - Colored emojis are now preferred over outline ones
+- Send a message with enter when autocomplete tooltip is not visible (i.e. don't have to press enter twice when just autocompleted a nickname)
 
 Changed:
 
@@ -18,7 +19,7 @@ Changed:
 Thanks:
 
 - Contributions: @httpsterio
-- Bug reports: @0xS3raph, @httpsterio, tbo
+- Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768
 - Feature requests: @ainola
 
 # 2026.9 (2026-09-29)
