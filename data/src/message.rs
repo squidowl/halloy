@@ -1988,6 +1988,10 @@ fn parse_regex_fragments<'a>(
     let mut fragments = Vec::with_capacity(1);
 
     for re_match in regex.find_iter::<str>(&text).filter_map(Result::ok) {
+        if should_skip((&re_match, &text)) {
+            continue;
+        }
+
         let (mut leading_delimiter, mut trailing_delimiter) = (None, None);
         let (mut matching, trailing_punctuation) =
             filter_trailing_punctuation(re_match, &text);
@@ -2008,10 +2012,6 @@ fn parse_regex_fragments<'a>(
             } else {
                 (matching, None)
             };
-
-        if should_skip((&re_match, &text)) {
-            continue;
-        }
 
         if let Some(fragment) = fragment_match(matching) {
             let mut leading_text = String::new();
