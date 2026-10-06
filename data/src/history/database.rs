@@ -1621,6 +1621,7 @@ pub(super) fn search(
          WHERE message_search MATCH ?1
            AND (?2 IS NULL OR h.target = ?2 COLLATE NOCASE)
            AND (?3 IS NULL OR s.rowid < ?3)
+           AND json_type(CAST(m.content AS TEXT), '$.redaction') IS NULL
          ORDER BY s.rowid DESC
          LIMIT ?4",
     )?;
@@ -1655,11 +1656,7 @@ pub(super) fn search(
         .then(|| rows.last())
         .flatten()
         .map(|(_, key)| search::Cursor { key: *key });
-    let hits = rows
-        .into_iter()
-        .map(|(hit, _)| hit)
-        .filter(|hit| hit.message.redaction.is_none())
-        .collect();
+    let hits = rows.into_iter().map(|(hit, _)| hit).collect();
     Ok(search::Page { hits, next })
 }
 
@@ -1669,6 +1666,7 @@ fn indexable_row(
     Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
 }
 
+// FTS5 only orders by rowid without sorting every match, so the rowid encodes time.
 fn search_key(time: i64, id: i64) -> Option<i64> {
     time.checked_mul(1024)?.checked_add(id & 1023)
 }
