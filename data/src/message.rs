@@ -2039,43 +2039,37 @@ pub fn parse_fragments_with_highlights(
     }) {
         fragments = fragments
             .into_iter()
-            .flat_map(|fragment| {
-                if let Fragment::Text(text) = &fragment {
-                    return Either::Left(
-                        parse_regex_fragments(
-                            &m.regex,
-                            text,
-                            |text| {
-                                let set_highlight_kind = match highlight_kind {
-                                    None => true,
-                                    Some(highlight::Kind::Match {
-                                        sound: None,
-                                        ..
-                                    }) => m.sound.is_some(),
-                                    _ => false,
-                                };
+            .flat_map(|fragment| match fragment {
+                Fragment::Text(text) => Either::Left(
+                    parse_regex_fragments(
+                        &m.regex,
+                        text,
+                        |text| {
+                            let set_highlight_kind = match highlight_kind {
+                                None => true,
+                                Some(highlight::Kind::Match {
+                                    sound: None,
+                                    ..
+                                }) => m.sound.is_some(),
+                                _ => false,
+                            };
 
-                                if set_highlight_kind {
-                                    highlight_kind =
-                                        Some(highlight::Kind::Match {
-                                            matching: m
-                                                .notification_name()
-                                                .to_owned(),
-                                            sound: m.sound.clone(),
-                                        });
-                                }
+                            if set_highlight_kind {
+                                highlight_kind = Some(highlight::Kind::Match {
+                                    matching: m.notification_name().to_owned(),
+                                    sound: m.sound.clone(),
+                                });
+                            }
 
-                                Some(Fragment::HighlightMatch(text.to_owned()))
-                            },
-                            |_| false,
-                            true,
-                            |_| None,
-                        )
-                        .into_iter(),
-                    );
-                }
-
-                Either::Right(iter::once(fragment))
+                            Some(Fragment::HighlightMatch(text.to_owned()))
+                        },
+                        |_| false,
+                        true,
+                        |_| None,
+                    )
+                    .into_iter(),
+                ),
+                fragment => Either::Right(iter::once(fragment)),
             })
             .collect();
     }
