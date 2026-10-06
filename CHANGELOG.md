@@ -3,6 +3,7 @@
 Added:
 
 - Added `buffer.text_input.upload_long_paste` to automatically use filehost in case pasted text is too long
+- Highlight matches can be optionally named via the `name` property
 
 Fixed:
 
@@ -20,7 +21,7 @@ Thanks:
 
 - Contributions: @httpsterio
 - Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768
-- Feature requests: @ainola
+- Feature requests: @ainola, @kalebris
 
 # 2026.9 (2026-09-29)
 
