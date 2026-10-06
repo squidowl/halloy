@@ -2244,54 +2244,50 @@ fn parse_fragments_inner<'a>(
             ),
             fragment => Either::Right(iter::once(fragment)),
         })
-        .flat_map(move |fragment| {
-            if let Fragment::Text(text) = fragment {
-                if let Some(fragments) = formatting::parse_fragments(
-                    &text,
-                    &mut modifiers,
-                    &mut fg,
-                    &mut bg,
-                ) {
-                    if fragments.is_empty() {
-                        return Either::Right(Either::Left(iter::empty()));
-                    }
-
+        .flat_map(move |fragment| match fragment {
+            Fragment::Text(text) => match formatting::parse_fragments(
+                &text,
+                &mut modifiers,
+                &mut fg,
+                &mut bg,
+            ) {
+                Some(fragments) if fragments.is_empty() => {
+                    Either::Right(Either::Left(iter::empty()))
+                }
+                Some(fragments)
                     if fragments.iter().any(|fragment| {
                         matches!(
                             fragment,
                             formatting::Fragment::Formatted(_, _)
                         )
-                    }) {
-                        return Either::Left(
-                            fragments.into_iter().map(Fragment::from),
-                        );
-                    // If there are no Formatted fragments,
-                    // then fragments should contain a single Unformatted fragment
-                    } else if let Some(text) = fragments
-                        .into_iter()
-                        .next()
-                        .and_then(|fragment| match fragment {
-                            formatting::Fragment::Unformatted(text) => {
-                                Some(text)
-                            }
-                            formatting::Fragment::Formatted(_, _) => None,
-                        })
-                    {
-                        // Even if the fragment is Unformatted there may have been formatting
-                        // characters in the text input into formatting::parse. They are
-                        // stripped from the text contained in the fragment.
-                        return Either::Right(Either::Right(iter::once(
-                            Fragment::Text(text),
-                        )));
-                    }
-                } else if text.is_empty() {
-                    return Either::Right(Either::Left(iter::empty()));
+                    }) =>
+                {
+                    Either::Left(fragments.into_iter().map(Fragment::from))
                 }
-
-                Either::Right(Either::Right(iter::once(Fragment::Text(text))))
-            } else {
-                Either::Right(Either::Right(iter::once(fragment)))
-            }
+                // If there are no Formatted fragments,
+                // then fragments should contain a single Unformatted fragment
+                Some(fragments) => {
+                    // Even if the fragment is Unformatted there may have been formatting
+                    // characters in the text input into formatting::parse. They are
+                    // stripped from the text contained in the fragment.
+                    let text = match fragments.into_iter().next() {
+                        Some(formatting::Fragment::Unformatted(stripped)) => {
+                            stripped
+                        }
+                        _ => text,
+                    };
+                    Either::Right(Either::Right(iter::once(Fragment::Text(
+                        text,
+                    ))))
+                }
+                None if text.is_empty() => {
+                    Either::Right(Either::Left(iter::empty()))
+                }
+                None => Either::Right(Either::Right(iter::once(
+                    Fragment::Text(text),
+                ))),
+            },
+            fragment => Either::Right(Either::Right(iter::once(fragment))),
         })
 }
 
