@@ -947,7 +947,7 @@ impl State {
                                 self.input_content.text().as_str(),
                                 cursor.position.index,
                                 cursor.selection.is_some(),
-                                buffer.server(),
+                                buffer.as_server(),
                                 config,
                                 &Theme::default(),
                                 Message::SelectCompletion,
