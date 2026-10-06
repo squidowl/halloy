@@ -76,6 +76,19 @@ Example shows a regex that matches the word "casper", regardless of case and onl
 regex = '''(?i)\bcasper\b'''
 ```
 
+### `name`
+
+Optional name shown in highlight notification for this match.
+
+```toml
+# Type: string
+# Default: not set
+
+[[highlights.match]]
+name = "Someone said hi to alice or bob"
+regex = '''Hi (alice|bob)'''
+```
+
 ### `exclude`
 
 [Exclusion conditions](/configuration/conditions.md) in which you won't be
