@@ -17,6 +17,7 @@ pub struct TextInput {
     pub send_line_delay: u64,
     pub persist: bool,
     pub upload_long_paste: bool,
+    pub spellcheck: Spellcheck,
 }
 
 impl Default for TextInput {
@@ -32,6 +33,27 @@ impl Default for TextInput {
             send_line_delay: 100,
             persist: true,
             upload_long_paste: false,
+            spellcheck: Spellcheck::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct Spellcheck {
+    pub enabled: bool,
+    pub suggestions: bool,
+    pub underline: bool,
+    pub locale: Option<String>,
+}
+
+impl Default for Spellcheck {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            suggestions: true,
+            underline: true,
+            locale: None,
         }
     }
 }
