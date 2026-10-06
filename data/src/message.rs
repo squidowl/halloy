@@ -2292,10 +2292,6 @@ fn parse_fragments_inner<'a>(
                     }
                 } else if text.is_empty() {
                     return Either::Right(Either::Left(iter::empty()));
-                } else {
-                    return Either::Right(Either::Right(iter::once(
-                        Fragment::Text(text),
-                    )));
                 }
 
                 Either::Right(Either::Right(iter::once(Fragment::Text(text))))
