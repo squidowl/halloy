@@ -784,7 +784,9 @@ impl Buffer {
     pub fn insert_user_to_input(
         &mut self,
         nick: Nick,
+        clients: &data::client::Map,
         history: &mut history::Manager,
+        config: &Config,
         autocomplete: &Autocomplete,
     ) {
         match self {
@@ -798,18 +800,24 @@ impl Buffer {
             Buffer::Server(state) => state.input_view.insert_user(
                 nick,
                 state.buffer.clone(),
+                clients,
+                config,
                 history,
                 autocomplete,
             ),
             Buffer::Channel(state) => state.input_view.insert_user(
                 nick,
                 state.buffer.clone(),
+                clients,
+                config,
                 history,
                 autocomplete,
             ),
             Buffer::Query(state) => state.input_view.insert_user(
                 nick,
                 state.buffer.clone(),
+                clients,
+                config,
                 history,
                 autocomplete,
             ),
@@ -1293,6 +1301,7 @@ impl Buffer {
 
     pub fn clear_draft_reply(
         &mut self,
+        clients: &data::client::Map,
         history: &mut history::Manager,
         config: &Config,
     ) -> bool {
@@ -1306,16 +1315,19 @@ impl Buffer {
             | Buffer::ConfigEditor(_) => false,
             Buffer::Server(state) => state.input_view.clear_draft_reply(
                 &state.buffer,
+                clients,
                 history,
                 config,
             ),
             Buffer::Channel(state) => state.input_view.clear_draft_reply(
                 &state.buffer,
+                clients,
                 history,
                 config,
             ),
             Buffer::Query(state) => state.input_view.clear_draft_reply(
                 &state.buffer,
+                clients,
                 history,
                 config,
             ),

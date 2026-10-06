@@ -3,6 +3,14 @@
 Added:
 
 - Added `buffer.text_input.upload_long_paste` to automatically use filehost in case pasted text is too long
+- Spellcheck for the message input (`buffer.text_input.spellcheck`)
+  - Uses the platform spellchecker; optional `locale`
+  - Skips channel names and known nicks
+  - Solid underline for misspellings (`underline = true` by default)
+  - <kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd> cycles suggestions when
+    autocomplete does not apply (`suggestions = true`)
+- Theme style `text.spellcheck_misspelled`
+  (default: `text.error` in italic when unset; optional `underline_color`)
 
 Fixed:
 
@@ -16,7 +24,7 @@ Changed:
 
 Thanks:
 
-- Contributions: @httpsterio
+- Contributions: @httpsterio, @rtmongold
 - Bug reports: @0xS3raph, @httpsterio, tbo
 - Feature requests: @ainola
 
