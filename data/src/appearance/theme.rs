@@ -323,6 +323,7 @@ pub struct Text {
     pub info: OptionalTextStyle,
     pub debug: OptionalTextStyle,
     pub trace: OptionalTextStyle,
+    pub spellcheck_misspelled: OptionalTextStyle,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
@@ -435,6 +436,7 @@ impl Serialize for TextStyle {
 pub struct OptionalTextStyle {
     pub color: Option<Color>,
     pub font_style: Option<FontStyle>,
+    pub underline_color: Option<Color>,
 }
 
 impl<'de> Deserialize<'de> for OptionalTextStyle {
@@ -449,19 +451,26 @@ impl<'de> Deserialize<'de> for OptionalTextStyle {
             Extended {
                 color: Option<String>,
                 font_style: Option<FontStyle>,
+                #[serde(default)]
+                underline_color: Option<String>,
             },
         }
 
         let data = Data::deserialize(deserializer)?;
 
-        let (hex, font_style) = match data {
-            Data::Basic(color) => (color, None),
-            Data::Extended { color, font_style } => (color, font_style),
+        let (hex, font_style, underline_color) = match data {
+            Data::Basic(color) => (color, None, None),
+            Data::Extended {
+                color,
+                font_style,
+                underline_color,
+            } => (color, font_style, underline_color),
         };
 
         Ok(OptionalTextStyle {
             color: hex.and_then(|hex| hex_to_color(&hex)),
             font_style,
+            underline_color: underline_color.and_then(|hex| hex_to_color(&hex)),
         })
     }
 }
@@ -475,14 +484,16 @@ impl Serialize for OptionalTextStyle {
         struct Data {
             color: Option<String>,
             font_style: Option<FontStyle>,
+            underline_color: Option<String>,
         }
 
         let hex = self.color.map(color_to_hex);
 
-        if self.font_style.is_some() {
+        if self.font_style.is_some() || self.underline_color.is_some() {
             Data {
                 color: hex,
                 font_style: self.font_style,
+                underline_color: self.underline_color.map(color_to_hex),
             }
             .serialize(serializer)
         } else {
@@ -908,6 +919,7 @@ mod binary {
         BufferFocusBorder = 60,
         BufferFocusBackground = 61,
         BufferSelfMessage = 62,
+        TextSpellcheckMisspelled = 63,
     }
 
     impl Tag {
@@ -927,6 +939,9 @@ mod binary {
                 Tag::TextError => styles.text.error.color,
                 Tag::TextWarning => styles.text.warning.color?,
                 Tag::TextInfo => styles.text.info.color?,
+                Tag::TextSpellcheckMisspelled => {
+                    styles.text.spellcheck_misspelled.color?
+                }
                 Tag::TextDebug => styles.text.debug.color?,
                 Tag::TextTrace => styles.text.trace.color?,
                 Tag::BufferAction => styles.buffer.action.color,
@@ -1065,6 +1080,9 @@ mod binary {
                 Tag::TextError => styles.text.error.color = color,
                 Tag::TextWarning => styles.text.warning.color = Some(color),
                 Tag::TextInfo => styles.text.info.color = Some(color),
+                Tag::TextSpellcheckMisspelled => {
+                    styles.text.spellcheck_misspelled.color = Some(color);
+                }
                 Tag::TextDebug => styles.text.debug.color = Some(color),
                 Tag::TextTrace => styles.text.trace.color = Some(color),
                 Tag::BufferAction => styles.buffer.action.color = color,

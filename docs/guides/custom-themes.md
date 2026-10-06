@@ -19,9 +19,13 @@ Halloy has a built in theme editor which makes theme creation easier
 
  Each `<text style>` is expected to be either a valid hex color string (`"<color
  string>"`), or table ("`{ color = "<color string>", font_style = "<font style
- string>" }`") with entries for `color` (valid hex color string) and
- `font_style` (valid font style string; `"normal"`, `"italic"`, `"bold"`, or
- `"italic-bold"`).
+ string>", underline_color = "<color string>" }`") with entries for `color`
+ (valid hex color string), `font_style` (valid font style string; `"normal"`,
+ `"italic"`, `"bold"`, or `"italic-bold"`), and optional `underline_color` (valid
+ hex color string). `spellcheck_misspelled` is optional. If `color` or
+ `font_style` is omitted, falls back to `text.error` + italic for misspelled
+ input words. If `underline_color` is omitted, the underline uses the misspelled
+ text color.
 
  A custom theme is structured as follows:
 
@@ -45,6 +49,7 @@ warning = <text style>
 info = <text style>
 debug = <text style>
 trace = <text style>
+spellcheck_misspelled = <text style>
 
 [buttons.primary]
 background = "<color string>"

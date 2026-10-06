@@ -1567,7 +1567,7 @@ impl Dashboard {
                         // close_picker does not return true.
                         } else if state
                             .buffer
-                            .clear_draft_reply(history, config)
+                            .clear_draft_reply(clients, history, config)
                         {
                             return (Task::none(), None);
                         }
@@ -2247,7 +2247,9 @@ impl Dashboard {
                         {
                             pane.buffer.insert_user_to_input(
                                 nick,
+                                clients,
                                 history,
+                                config,
                                 &config.buffer.text_input.autocomplete,
                             );
                         }
