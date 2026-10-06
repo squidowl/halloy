@@ -2083,7 +2083,6 @@ pub fn parse_fragments_with_highlights(
     (content_from_fragments(fragments), highlight_kind)
 }
 
-#[derive(Clone, Copy)]
 enum UserLookup<'a> {
     User(&'a User),
     Channel(Option<&'a ChannelUsers>),
