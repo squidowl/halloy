@@ -1703,14 +1703,13 @@ pub fn parse_fragments_with_highlights(
             })
             .collect::<Vec<_>>();
 
-    for (regex, sound) in highlights.matches.iter().filter_map(|m| {
+    for m in highlights.matches.iter().filter(|m| {
         m.is_target_included(
             message_user,
             target.as_targetref(),
             server,
             casemapping,
         )
-        .then_some((&m.regex, &m.sound))
     }) {
         fragments = fragments
             .into_iter()
@@ -1718,13 +1717,13 @@ pub fn parse_fragments_with_highlights(
                 if let Fragment::Text(text) = &fragment {
                     return Either::Left(
                         parse_regex_fragments(
-                            regex,
+                            &m.regex,
                             text,
                             |text| {
                                 let set_highlight_kind =
                                     if highlight_kind.is_none() {
                                         true
-                                    } else if sound.is_some()
+                                    } else if m.sound.is_some()
                                         && let Some(highlight::Kind::Match {
                                             sound: highlight_kind_sound,
                                             ..
@@ -1739,8 +1738,10 @@ pub fn parse_fragments_with_highlights(
                                 if set_highlight_kind {
                                     highlight_kind =
                                         Some(highlight::Kind::Match {
-                                            matching: regex.to_string(),
-                                            sound: sound.clone(),
+                                            matching: m
+                                                .notification_name()
+                                                .to_owned(),
+                                            sound: m.sound.clone(),
                                         });
                                 }
 
