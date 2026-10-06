@@ -2343,7 +2343,7 @@ fn parse_regex_fragments<'a>(
                 leading_text.push_str(delimiter);
             }
             if !leading_text.is_empty() {
-                merge_text_fragment(&mut fragments, leading_text);
+                merge_text_fragment(&mut fragments, &leading_text);
             }
 
             fragments.push(fragment);
@@ -2370,29 +2370,21 @@ fn parse_regex_fragments<'a>(
     }
 
     if i == 0 {
-        merge_text_fragment(&mut fragments, text.into_owned());
+        merge_text_fragment(&mut fragments, &text);
     } else {
-        merge_text_fragment(&mut fragments, text[i..].to_owned());
+        merge_text_fragment(&mut fragments, &text[i..]);
     }
 
     fragments
 }
 
-fn merge_text_fragment(fragments: &mut Vec<Fragment>, text: String) {
+fn merge_text_fragment(fragments: &mut Vec<Fragment>, text: &str) {
     if text.is_empty() {
         return;
     }
-    match fragments.pop() {
-        Some(Fragment::Text(mut fragment_text)) => {
-            fragment_text.push_str(&text);
-            fragments.push(Fragment::Text(fragment_text));
-        }
-        fragment => {
-            if let Some(fragment) = fragment {
-                fragments.push(fragment);
-            }
-            fragments.push(Fragment::Text(text));
-        }
+    match fragments.last_mut() {
+        Some(Fragment::Text(last)) => last.push_str(text),
+        _ => fragments.push(Fragment::Text(text.to_owned())),
     }
 }
 
