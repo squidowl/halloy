@@ -27,6 +27,7 @@ Changed:
 - Default keybinds for focus movement on macOS changed from `⌥ + <arrow keys>` to `ctrl + <arrow keys>` to avoid conflicting with macOS by-word movement keybinds (`⌥ + ←` and `⌥ + →`)
 - Saved chat history is no longer limited to 10,000 messages per buffer
 - Use OS provided certificate verification service on Windows & macOS
+- Your own join/part is shown in the channel buffer.
 
 Thanks:
 
