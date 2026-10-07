@@ -2177,7 +2177,8 @@ fn step_messages(height: f32, config: &Config) -> usize {
 
 pub mod keyed {
     use data::message;
-    use iced::advanced::widget::{self, Operation};
+    use iced::widget::selector::{Candidate, Selector};
+    use iced::widget::{self, selector};
     use iced::{Rectangle, Size, Task, Vector, advanced};
 
     use crate::widget::{Element, Renderer, decorate};
@@ -2236,211 +2237,78 @@ pub mod keyed {
         }
     }
 
-    pub fn find(scrollable: widget::Id, key: Key) -> Task<Hit> {
-        widget::operate(Find {
-            active: false,
-            scrollable_id: scrollable,
-            key,
-            scrollable: None,
-            hit_bounds: None,
-        })
-    }
-
-    #[derive(Debug, Clone)]
-    pub struct Find {
-        pub active: bool,
-        pub key: Key,
-        pub scrollable_id: widget::Id,
-        pub scrollable: Option<Scrollable>,
-        pub hit_bounds: Option<Rectangle>,
-    }
-
-    impl Operation<Hit> for Find {
-        fn scrollable(
-            &mut self,
-            id: Option<&widget::Id>,
-            bounds: Rectangle,
-            content: Size,
-            translation: Vector,
-            _state: &mut dyn widget::operation::Scrollable,
-        ) {
-            if id.is_some_and(|id| *id == self.scrollable_id) {
-                self.scrollable = Some(Scrollable {
-                    bounds,
-                    content,
-                    translation,
-                });
-                self.active = true;
-            } else {
-                self.active = false;
-            }
-        }
-
-        fn traverse(
-            &mut self,
-            operate: &mut dyn FnMut(&mut dyn Operation<Hit>),
-        ) {
-            operate(self);
-        }
-
-        fn custom(
-            &mut self,
-            _id: Option<&widget::Id>,
-            bounds: Rectangle,
-            state: &mut dyn std::any::Any,
-        ) {
-            if self.active
-                && let Some(key) = state.downcast_ref::<Key>()
-                && self.key == *key
-            {
-                self.hit_bounds = Some(bounds);
-            }
-        }
-
-        fn finish(&self) -> widget::operation::Outcome<Hit> {
-            match self.scrollable.zip(self.hit_bounds).map(
-                |(scrollable, hit_bounds)| Hit {
-                    key: self.key,
-                    scrollable,
-                    hit_bounds,
-                },
-            ) {
-                Some(hit) => widget::operation::Outcome::Some(hit),
-                None => widget::operation::Outcome::None,
-            }
-        }
-    }
-
-    #[derive(Debug, Clone)]
-    pub struct TopOfViewport {
-        pub active: bool,
-        pub scrollable_id: widget::Id,
-        pub scrollable: Option<Scrollable>,
-        pub hit_bounds: Option<(Key, Rectangle)>,
-    }
-
-    impl Operation<Hit> for TopOfViewport {
-        fn scrollable(
-            &mut self,
-            id: Option<&widget::Id>,
-            bounds: Rectangle,
-            content: Size,
-            translation: Vector,
-            _state: &mut dyn widget::operation::Scrollable,
-        ) {
-            if id.is_some_and(|id| *id == self.scrollable_id) {
-                self.scrollable = Some(Scrollable {
-                    bounds,
-                    content,
-                    translation,
-                });
-                self.active = true;
-            } else {
-                self.active = false;
-            }
-        }
-
-        fn traverse(
-            &mut self,
-            operate: &mut dyn FnMut(&mut dyn Operation<Hit>),
-        ) {
-            operate(self);
-        }
-
-        fn custom(
-            &mut self,
-            _id: Option<&widget::Id>,
-            bounds: Rectangle,
-            state: &mut dyn std::any::Any,
-        ) {
-            if self.active
-                && let Some(key) = state.downcast_ref::<Key>()
-                && self.hit_bounds.is_none()
-                && self.scrollable.is_some_and(|scrollable| {
-                    scrollable
-                        .bounds
-                        .intersects(&(bounds - scrollable.translation))
-                })
-            {
-                self.hit_bounds = Some((*key, bounds));
-            }
-        }
-
-        fn finish(&self) -> widget::operation::Outcome<Hit> {
-            match self.scrollable.zip(self.hit_bounds).map(
-                |(scrollable, (key, hit_bounds))| Hit {
-                    key,
-                    scrollable,
-                    hit_bounds,
-                },
-            ) {
-                Some(hit) => widget::operation::Outcome::Some(hit),
-                None => widget::operation::Outcome::None,
-            }
-        }
-    }
-
-    pub struct CollectHeights {
-        active: bool,
+    pub fn find_hit(
         scrollable_id: widget::Id,
-        heights: Vec<(Key, f32)>,
-    }
+        hit_key: Option<Key>,
+    ) -> impl Selector<Output = Hit> {
+        let mut scrollable = None;
 
-    impl Operation<Vec<(Key, f32)>> for CollectHeights {
-        fn scrollable(
-            &mut self,
-            id: Option<&widget::Id>,
-            _bounds: Rectangle,
-            _content: Size,
-            _translation: Vector,
-            _state: &mut dyn widget::operation::Scrollable,
-        ) {
-            self.active = id == Some(&self.scrollable_id);
-        }
+        move |candidate: Candidate<'_>| match candidate {
+            Candidate::Scrollable {
+                id,
+                bounds,
+                content,
+                translation,
+                ..
+            } => {
+                if id == Some(&scrollable_id) {
+                    scrollable = Some(Scrollable {
+                        bounds,
+                        content,
+                        translation,
+                    });
+                }
 
-        fn container(
-            &mut self,
-            _id: Option<&widget::Id>,
-            _bounds: Rectangle,
-            _viewport: &Rectangle,
-        ) {
-        }
-
-        fn traverse(
-            &mut self,
-            operate: &mut dyn FnMut(&mut dyn Operation<Vec<(Key, f32)>>),
-        ) {
-            operate(self);
-        }
-
-        fn custom(
-            &mut self,
-            _id: Option<&widget::Id>,
-            bounds: Rectangle,
-            state: &mut dyn std::any::Any,
-        ) {
-            if self.active
-                && let Some(key) = state.downcast_ref::<Key>()
-                && matches!(key, Key::Message(_) | Key::Divider)
+                None
+            }
+            Candidate::Custom { bounds, state, .. }
+                if let Some(scrollable) = scrollable =>
             {
-                self.heights.push((*key, bounds.height));
-            }
-        }
+                let key = *state.downcast_ref::<Key>()?;
+                let selected = hit_key.map_or_else(
+                    || {
+                        scrollable
+                            .bounds
+                            .intersects(&(bounds - scrollable.translation))
+                    },
+                    |hit| hit == key,
+                );
 
-        fn finish(&self) -> widget::operation::Outcome<Vec<(Key, f32)>> {
-            if self.heights.is_empty() {
-                widget::operation::Outcome::None
-            } else {
-                widget::operation::Outcome::Some(self.heights.clone())
+                selected.then_some(Hit {
+                    key,
+                    hit_bounds: bounds,
+                    scrollable,
+                })
             }
+            _ => None,
         }
     }
 
-    pub fn collect_heights(scrollable: widget::Id) -> Task<Vec<(Key, f32)>> {
-        widget::operate(CollectHeights {
-            active: false,
-            scrollable_id: scrollable,
-            heights: Vec::with_capacity(256),
+    pub fn find(scrollable: widget::Id, key: Key) -> Task<Hit> {
+        selector::find(find_hit(scrollable, Some(key))).and_then(Task::done)
+    }
+
+    pub fn collect_heights(scrollable_id: widget::Id) -> Task<Vec<(Key, f32)>> {
+        let mut active = false;
+
+        selector::find_all(move |candidate: Candidate<'_>| match candidate {
+            Candidate::Scrollable { id, .. } => {
+                active = id == Some(&scrollable_id);
+                None
+            }
+            Candidate::Custom { bounds, state, .. } if active => {
+                let key = *state.downcast_ref::<Key>()?;
+                matches!(key, Key::Message(_) | Key::Divider)
+                    .then_some((key, bounds.height))
+            }
+            _ => None,
+        })
+        .then(|heights| {
+            if heights.is_empty() {
+                Task::none()
+            } else {
+                Task::done(heights)
+            }
         })
     }
 }
@@ -2449,6 +2317,7 @@ mod correct_viewport {
     use iced::advanced::widget::Operation;
     use iced::advanced::{self, shell, widget};
     use iced::widget::scrollable;
+    use iced::widget::selector::Selector;
 
     use super::{Message, keyed};
     use crate::widget::{Element, Renderer, decorate};
@@ -2482,13 +2351,9 @@ mod correct_viewport {
                     if let (true, true, Some(old)) =
                         (enabled, is_redraw, &state)
                     {
-                        let mut operation = keyed::Find {
-                            active: false,
-                            key: old.key,
-                            scrollable_id: scrollable.clone(),
-                            scrollable: None,
-                            hit_bounds: None,
-                        };
+                        let mut operation =
+                            keyed::find_hit(scrollable.clone(), Some(old.key))
+                                .find();
 
                         inner.as_widget_mut().operate(
                             tree,
@@ -2498,7 +2363,7 @@ mod correct_viewport {
                             &mut widget::operation::black_box(&mut operation),
                         );
 
-                        if let widget::operation::Outcome::Some(new) =
+                        if let widget::operation::Outcome::Some(Some(new)) =
                             operation.finish()
                         {
                             // Something shifted this, let's put it back to the
@@ -2580,12 +2445,8 @@ mod correct_viewport {
 
                     // Re-query top of viewport any-time we scroll
                     if is_scrolled {
-                        let mut operation = keyed::TopOfViewport {
-                            active: false,
-                            scrollable_id: scrollable.clone(),
-                            scrollable: None,
-                            hit_bounds: None,
-                        };
+                        let mut operation =
+                            keyed::find_hit(scrollable.clone(), None).find();
 
                         inner.as_widget_mut().operate(
                             tree,
@@ -2596,7 +2457,7 @@ mod correct_viewport {
                         );
 
                         *state = match operation.finish() {
-                            widget::operation::Outcome::Some(hit) => Some(hit),
+                            widget::operation::Outcome::Some(hit) => hit,
                             _ => None,
                         };
                     }
