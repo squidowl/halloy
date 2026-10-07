@@ -365,6 +365,10 @@ impl ConfigMap {
         self.0.iter()
     }
 
+    pub fn servers(&self) -> impl Iterator<Item = &Arc<config::Server>> {
+        self.0.values()
+    }
+
     /// Returns a configured parent server.
     pub fn get(&self, server: &ServerName) -> Option<Arc<config::Server>> {
         self.0.get(server).cloned()

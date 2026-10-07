@@ -4309,6 +4309,14 @@ impl Client {
             .is_some_and(|updated_at| !is_typing_expired(updated_at))
     }
 
+    pub fn has_any_query_typing_users(&self) -> bool {
+        self.querymap.values().any(|query_state| {
+            query_state
+                .typing
+                .is_some_and(|updated_at| !is_typing_expired(updated_at))
+        })
+    }
+
     fn user_channels(&self, nick: NickRef) -> Vec<target::Channel> {
         self.chanmap
             .iter()
@@ -5697,6 +5705,16 @@ impl Map {
         server: &Server,
     ) -> Option<&server::Handle> {
         self.client(server).map(|client| &client.handle)
+    }
+
+    pub fn has_any_query_typing(&self) -> bool {
+        self.0
+            .values()
+            .filter_map(|state| match state {
+                State::Ready(client) => Some(client),
+                _ => None,
+            })
+            .any(Client::has_any_query_typing_users)
     }
 
     pub fn connected_servers(&self) -> impl Iterator<Item = &Server> {
