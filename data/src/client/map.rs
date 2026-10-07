@@ -374,6 +374,11 @@ impl Map {
 
     pub fn remove_query(&mut self, server: &Server, query: &target::Query) {
         if let Some(client) = self.client_mut(server) {
+            if let user = User::from(Nick::from(query))
+                && client.is_monitored_user_automated(&user)
+            {
+                client.remove_monitored_user(&user);
+            }
             client.querymap.shift_remove(query);
         }
     }
