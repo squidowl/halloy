@@ -19,7 +19,6 @@ use data::isupport::{self};
 use data::message::source::Status;
 use data::rate_limit::TokenPriority;
 use data::target::{self, Target};
-use data::user::Nick;
 use data::{
     Config, Image, Notification, Server, User, Version, cache, command, config,
     environment, file_transfer, message, preview, server, server_icon, stream,
@@ -3212,16 +3211,12 @@ impl Dashboard {
                     clients.prioritize_who_poll(server, channel);
                 }
                 buffer::Upstream::Query(server, query) => {
-                    let user = User::from(Nick::from(query));
-
                     storage.show_in_sidebar(
                         history::Kind::Query(server.clone(), query.clone()),
                         true,
                     );
 
                     clients.add_query(server, query.clone());
-
-                    clients.add_monitored_user_automated(server, &user);
                 }
                 buffer::Upstream::Server(..) => (),
             }
@@ -3576,13 +3571,6 @@ impl Dashboard {
                 history::Kind::Channel(server, channel)
             }
             Target::Query(query) => {
-                if let Some(client) = clients.client_mut(&server)
-                    && let user = User::from(Nick::from(&query))
-                    && client.is_monitored_user_automated(&user)
-                {
-                    client.remove_monitored_user(&user);
-                }
-
                 // No PART to send, just remove query.
                 clients.remove_query(&server, &query);
 
