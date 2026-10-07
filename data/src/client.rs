@@ -375,7 +375,7 @@ impl Client {
                                 prefix,
                             );
                             if !config.monitor.contains(existing_monitor)
-                                && !self.is_monitored_user_automated(&user)
+                                && self.is_monitored_user_manual(&user)
                             {
                                 Some(user)
                             } else {
@@ -384,46 +384,61 @@ impl Client {
                         })
                         .collect::<Vec<_>>();
 
-                    let monitored_users_keys: Vec<User> =
-                        self.monitored_users.keys().cloned().collect();
-                    for user in monitored_users_keys {
-                        if remove_monitors
-                            .iter()
-                            .any(|remove_monitor| remove_monitor == &user)
-                        {
-                            self.monitored_users.remove(&user);
-                        } else {
-                            self.monitored_users.entry(user).and_modify(
-                                |monitored_user| {
-                                    monitored_user.automated = false;
-                                },
-                            );
-                        }
+                    for user in &remove_monitors {
+                        self.monitored_users.remove(user);
                     }
 
-                    let mut messages = group_monitors(
-                        &config.monitor,
+                    let add_monitors = config
+                        .monitor
+                        .iter()
+                        .filter_map(|monitor| {
+                            let user = User::parse_or_force(
+                                monitor,
+                                casemapping,
+                                prefix,
+                            );
+                            if let Some(monitored_user) =
+                                self.monitored_users.get_mut(&user)
+                            {
+                                monitored_user.automated = false;
+                                None
+                            } else {
+                                Some(user)
+                            }
+                        })
+                        .collect::<Vec<_>>();
+
+                    let monitor_target_limit =
+                        find_target_limit(&self.isupport, "MONITOR");
+
+                    let add_monitors = add_monitors
+                        .into_iter()
+                        .map(|user| user.as_str().to_owned())
+                        .collect::<Vec<_>>();
+
+                    let mut messages = group_add_monitors(
+                        &add_monitors,
                         *monitor_limit,
-                        find_target_limit(&self.isupport, "MONITOR"),
+                        monitor_target_limit,
                         &self.server,
                         self.monitored_users.len(),
                     )
                     .map(Into::into)
                     .collect::<Vec<message::Encoded>>();
 
-                    if !remove_monitors.is_empty() {
-                        messages.push(
-                            command!(
-                                "MONITOR",
-                                "-",
-                                remove_monitors
-                                    .iter()
-                                    .map(super::user::User::as_normalized_str)
-                                    .join(",")
-                            )
-                            .into(),
-                        );
-                    }
+                    let remove_monitors = remove_monitors
+                        .into_iter()
+                        .map(|user| user.as_str().to_owned())
+                        .collect::<Vec<_>>();
+
+                    messages.extend(
+                        group_remove_monitors(
+                            &remove_monitors,
+                            monitor_target_limit,
+                        )
+                        .map(Into::into)
+                        .collect::<Vec<message::Encoded>>(),
+                    );
 
                     for message in messages {
                         self.send(None, message, TokenPriority::High);
@@ -779,7 +794,7 @@ impl Client {
             && let Some(isupport::Parameter::MONITOR(monitor_limit)) =
                 self.isupport.get(&isupport::Kind::MONITOR)
         {
-            let messages = group_monitors(
+            let messages = group_add_monitors(
                 &restore_automated_monitored_users,
                 *monitor_limit,
                 find_target_limit(&self.isupport, "MONITOR"),
@@ -3350,7 +3365,7 @@ impl Client {
                     if let Some(isupport::Parameter::MONITOR(monitor_limit)) =
                         self.isupport.get(&isupport::Kind::MONITOR)
                     {
-                        let messages = group_monitors(
+                        let messages = group_add_monitors(
                             &self.config.monitor,
                             *monitor_limit,
                             find_target_limit(&self.isupport, "MONITOR"),
@@ -5124,6 +5139,12 @@ impl Client {
                 .is_some_and(|monitored_user| monitored_user.online)
     }
 
+    pub fn is_monitored_user_manual(&self, user: &User) -> bool {
+        self.monitored_users
+            .get(user)
+            .is_some_and(|monitored_user| !monitored_user.automated)
+    }
+
     pub fn is_monitored_user_automated(&self, user: &User) -> bool {
         self.monitored_users
             .get(user)
@@ -5592,7 +5613,7 @@ fn group_joins<'a>(
     joins_without_keys.chain(joins_with_keys)
 }
 
-fn group_monitors<'a>(
+fn group_add_monitors<'a>(
     users: &'a [String],
     monitor_limit: Option<u16>,
     target_limit: Option<u16>,
@@ -5635,6 +5656,37 @@ fn group_monitors<'a>(
     .into_group_map()
     .into_values()
     .map(|targets| command!("MONITOR", "+", targets.into_iter().join(",")))
+}
+
+fn group_remove_monitors<'a>(
+    users: &'a [String],
+    target_limit: Option<u16>,
+) -> impl Iterator<Item = proto::Message> + 'a {
+    const MAX_LEN: usize = proto::format::BYTE_LIMIT - b"MONITOR + \r\n".len();
+
+    users
+        .iter()
+        .take(users.len())
+        .scan((0, 0, 0), |(char_count, target_count, chunk), target| {
+            // Target + a comma
+            *char_count += target.len() + 1;
+            *target_count += 1;
+
+            if *char_count > MAX_LEN
+                || target_limit
+                    .is_some_and(|target_limit| *target_count > target_limit)
+            {
+                *chunk += 1;
+
+                *char_count = target.len() + 1;
+                *target_count = 1;
+            }
+
+            Some((*chunk, target))
+        })
+        .into_group_map()
+        .into_values()
+        .map(|targets| command!("MONITOR", "-", targets.into_iter().join(",")))
 }
 
 #[derive(Debug, thiserror::Error)]
