@@ -778,11 +778,14 @@ Side effects for when closing buffers.
 
 ### `query`
 
-What happens when closing a query buffer. `"keep"` only closes the pane, while `"close"` also closes the query.
+What happens when closing/replacing a pane with a query buffer.
+- `"keep"`: do not close the query when closing or replacing its pane with another
+- `"close-pane"`: when closing the pane also close the query (when replacing the pane do not close the query)
+- `"close-buffer"`: when closing or replacing the pane also close the query
 
 ```toml
 # Type: string
-# Values: "close", "keep"
+# Values: "close-pane", "close-buffer", "keep"
 # Default: "keep"
 
 [buffer.close]
