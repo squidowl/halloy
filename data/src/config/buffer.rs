@@ -65,12 +65,18 @@ pub struct Close {
 pub enum CloseQuery {
     #[default]
     Keep,
-    Close,
+    #[serde(alias = "close")]
+    ClosePane,
+    CloseBuffer,
 }
 
 impl CloseQuery {
-    pub fn close(&self) -> bool {
-        matches!(self, Self::Close)
+    pub fn close(&self, replaced: bool) -> bool {
+        if replaced {
+            matches!(self, Self::CloseBuffer)
+        } else {
+            matches!(self, Self::CloseBuffer | Self::ClosePane)
+        }
     }
 }
 

@@ -3280,6 +3280,7 @@ impl Dashboard {
                         clients,
                         storage,
                         config,
+                        true,
                     );
 
                     state.buffer = Buffer::from_data(
@@ -3835,7 +3836,13 @@ impl Dashboard {
         let mut tasks = vec![];
 
         if let Some(state) = self.panes.get(window, pane) {
-            Dashboard::close_buffer(&state.buffer, clients, storage, config);
+            Dashboard::close_buffer(
+                &state.buffer,
+                clients,
+                storage,
+                config,
+                false,
+            );
         }
 
         self.last_changed = Some(Instant::now());
@@ -3869,6 +3876,7 @@ impl Dashboard {
         clients: &mut client::Map,
         storage: &mut storage::Manager,
         config: &Config,
+        replaced: bool,
     ) {
         if let Some(kind) = buffer.data().and_then(history::Kind::from_buffer) {
             let is_scrolled_to_bottom = buffer
@@ -3877,9 +3885,8 @@ impl Dashboard {
 
             let hide_in_sidebar = match &kind {
                 history::Kind::Query(server, query) => {
-                    if config.buffer.close.query.close() {
+                    if config.buffer.close.query.close(replaced) {
                         clients.remove_query(server, query);
-
                         true
                     } else {
                         !clients.contains_query(server, query)

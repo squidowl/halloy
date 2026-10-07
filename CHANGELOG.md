@@ -7,6 +7,7 @@ Added:
 - Right-clickable text in the server buffer now offers a context menu
 - Pressing Tab after `/topic ` fills in the current channel topic for editing
 - SQLite history storage, with automatic migration of existing gzip history as buffers are used and loading of history in windows.
+- `buffer.close.query` option `"close-buffer"` (previous option `"close"` renamed to `"close-pane"`)
 
 Fixed:
 
@@ -17,6 +18,7 @@ Fixed:
 - Send a message with enter when autocomplete tooltip is not visible (i.e. don't have to press enter twice when just autocompleted a nickname)
 - Crash when right clicking a message in the server buffer
 - ZNC-service style nicks (e.g. `*status`, `*grep`, etc) are not automatically routed to the server buffer
+- Message drafts for sent messages sometimes being restored after restart (instead of being cleared)
 
 Changed:
 
