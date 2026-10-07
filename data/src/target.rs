@@ -2,6 +2,7 @@ use std::hash::Hash;
 use std::sync::Arc;
 use std::{cmp, fmt};
 
+use equivalent::Equivalent;
 use irc::proto;
 use serde::{Deserialize, Serialize};
 
@@ -455,6 +456,11 @@ impl From<NickRef<'_>> for Query {
             raw: nickref.as_str().to_string(),
             normalized: nickref.as_normalized_str().to_string(),
         })
+    }
+}
+impl Equivalent<User> for Query {
+    fn equivalent(&self, user: &User) -> bool {
+        self.as_normalized_str().eq(user.as_normalized_str())
     }
 }
 
