@@ -21,3 +21,8 @@ The location of the configuration directory depends on your system:
 * Windows: `%AppData%\halloy`
 * macOS: `~/Library/Application Support/halloy` or `$HOME/.config/halloy`
 * Linux: `$XDG_CONFIG_HOME/halloy`, `$HOME/.config/halloy` or `$HOME/.var/app/org.squidowl.halloy/config` (Flatpak)
+
+::: tip
+For Flatpak users that want to use the `$HOME` paths for configuration, see
+[Flatpak tips](./guides/flatpak-tips#configuration-in-home-paths).
+:::
