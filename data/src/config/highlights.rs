@@ -56,6 +56,7 @@ impl Nickname {
 #[derive(Debug, Clone)]
 pub struct Match {
     pub regex: Regex,
+    pub name: Option<String>,
     pub exclude: Option<Inclusivities>,
     pub include: Option<Inclusivities>,
     pub sound: Option<String>,
@@ -72,6 +73,8 @@ impl<'de> Deserialize<'de> for Match {
             Words {
                 words: Vec<String>,
                 #[serde(default)]
+                name: Option<String>,
+                #[serde(default)]
                 exclude: Option<Inclusivities>,
                 #[serde(default)]
                 include: Option<Inclusivities>,
@@ -82,6 +85,8 @@ impl<'de> Deserialize<'de> for Match {
             },
             Regex {
                 regex: String,
+                #[serde(default)]
+                name: Option<String>,
                 #[serde(default)]
                 exclude: Option<Inclusivities>,
                 #[serde(default)]
@@ -94,6 +99,7 @@ impl<'de> Deserialize<'de> for Match {
         match Inner::deserialize(deserializer)? {
             Inner::Words {
                 words,
+                name,
                 exclude,
                 include,
                 case_insensitive,
@@ -118,6 +124,7 @@ impl<'de> Deserialize<'de> for Match {
 
                 Ok(Match {
                     regex,
+                    name,
                     exclude,
                     include,
                     sound,
@@ -125,6 +132,7 @@ impl<'de> Deserialize<'de> for Match {
             }
             Inner::Regex {
                 regex,
+                name,
                 exclude,
                 include,
                 sound,
@@ -138,6 +146,7 @@ impl<'de> Deserialize<'de> for Match {
 
                 Ok(Match {
                     regex,
+                    name,
                     exclude,
                     include,
                     sound,
@@ -148,6 +157,10 @@ impl<'de> Deserialize<'de> for Match {
 }
 
 impl Match {
+    pub fn notification_name(&self) -> &str {
+        self.name.as_deref().unwrap_or(self.regex.as_str())
+    }
+
     pub fn is_target_included(
         &self,
         user: Option<&User>,
