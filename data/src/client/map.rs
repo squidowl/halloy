@@ -265,6 +265,16 @@ impl Map {
         }
     }
 
+    pub fn remove_monitored_user_automated(
+        &mut self,
+        server: &Server,
+        user: &User,
+    ) {
+        if let Some(client) = self.client_mut(server) {
+            client.remove_monitored_user_automated(user);
+        }
+    }
+
     pub fn resolve_user_attributes<'a>(
         &'a self,
         server: &Server,
@@ -367,18 +377,22 @@ impl Map {
     }
 
     pub fn add_query(&mut self, server: &Server, query: target::Query) {
+        self.add_monitored_user_automated(
+            server,
+            &User::from(Nick::from(&query)),
+        );
         if let Some(client) = self.client_mut(server) {
             let _ = client.querymap.entry(query).or_default();
         }
     }
 
     pub fn remove_query(&mut self, server: &Server, query: &target::Query) {
+        self.remove_monitored_user_automated(
+            server,
+            &User::from(Nick::from(query)),
+        );
+
         if let Some(client) = self.client_mut(server) {
-            if let user = User::from(Nick::from(query))
-                && client.is_monitored_user_automated(&user)
-            {
-                client.remove_monitored_user(&user);
-            }
             client.querymap.shift_remove(query);
         }
     }

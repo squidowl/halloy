@@ -5131,6 +5131,7 @@ impl Client {
     }
 
     pub fn add_monitored_user_automated(&mut self, user: &User) {
+        // only add automated if not monitored at all
         if self.has_isupport_monitor() && !self.is_monitored_user(user) {
             self.monitored_users.insert(
                 user.clone(),
@@ -5147,8 +5148,10 @@ impl Client {
         }
     }
 
-    pub fn remove_monitored_user(&mut self, user: &User) {
-        if self.has_isupport_monitor() {
+    pub fn remove_monitored_user_automated(&mut self, user: &User) {
+        // only remove if monitor was added as automated
+        if self.has_isupport_monitor() && self.is_monitored_user_automated(user)
+        {
             self.monitored_users.remove(user);
             self.send(
                 None,
