@@ -2001,28 +2001,33 @@ pub fn parse_fragments_with_highlights(
 ) -> (Content, Option<highlight::Kind>) {
     let mut highlight_kind = None;
 
-    let mut fragments =
-        parse_fragments_with_users_inner(text, channel_users, casemapping)
-            .map(|fragment| match fragment {
-                Fragment::User(user, raw)
-                    if highlights.nickname.is_target_included(
-                        message_user,
-                        target.as_target_ref(),
-                        server,
-                        casemapping,
-                    ) && ((user.nickname() == *our_nick
-                        && highlights.nickname.case_insensitive)
-                        || raw.as_str() == our_nick.as_str()) =>
-                {
-                    if highlight_kind.is_none() {
-                        highlight_kind = Some(highlight::Kind::Nick);
-                    }
+    let target_included = highlights.nickname.is_target_included(
+        message_user,
+        target.as_target_ref(),
+        server,
+        casemapping,
+    );
 
-                    Fragment::HighlightNick(user, raw)
-                }
-                f => f,
-            })
-            .collect::<Vec<_>>();
+    let is_our_nick = |user: &User, raw: &str| {
+        (highlights.nickname.case_insensitive && user.nickname() == *our_nick)
+            || raw == our_nick.as_str()
+    };
+
+    let mut fragments = parse_fragments_with_users_inner(
+        text,
+        UserLookup::Channel(channel_users),
+        casemapping,
+    )
+    .map(|fragment| match fragment {
+        Fragment::User(user, raw)
+            if target_included && is_our_nick(&user, &raw) =>
+        {
+            highlight_kind.get_or_insert(highlight::Kind::Nick);
+            Fragment::HighlightNick(user, raw)
+        }
+        fragment => fragment,
+    })
+    .collect::<Vec<_>>();
 
     for m in highlights.matches.iter().filter(|m| {
         m.is_target_included(
@@ -2034,62 +2039,47 @@ pub fn parse_fragments_with_highlights(
     }) {
         fragments = fragments
             .into_iter()
-            .flat_map(|fragment| {
-                if let Fragment::Text(text) = &fragment {
-                    return Either::Left(
-                        parse_regex_fragments(
-                            &m.regex,
-                            text,
-                            |text| {
-                                let set_highlight_kind =
-                                    if highlight_kind.is_none() {
-                                        true
-                                    } else if m.sound.is_some()
-                                        && let Some(highlight::Kind::Match {
-                                            sound: highlight_kind_sound,
-                                            ..
-                                        }) = &highlight_kind
-                                        && highlight_kind_sound.is_none()
-                                    {
-                                        true
-                                    } else {
-                                        false
-                                    };
+            .flat_map(|fragment| match fragment {
+                Fragment::Text(text) => Either::Left(
+                    parse_regex_fragments(
+                        &m.regex,
+                        text,
+                        |text| {
+                            let set_highlight_kind = match highlight_kind {
+                                None => true,
+                                Some(highlight::Kind::Match {
+                                    sound: None,
+                                    ..
+                                }) => m.sound.is_some(),
+                                _ => false,
+                            };
 
-                                if set_highlight_kind {
-                                    highlight_kind =
-                                        Some(highlight::Kind::Match {
-                                            matching: m
-                                                .notification_name()
-                                                .to_owned(),
-                                            sound: m.sound.clone(),
-                                        });
-                                }
+                            if set_highlight_kind {
+                                highlight_kind = Some(highlight::Kind::Match {
+                                    matching: m.notification_name().to_owned(),
+                                    sound: m.sound.clone(),
+                                });
+                            }
 
-                                Some(Fragment::HighlightMatch(text.to_owned()))
-                            },
-                            |_| false,
-                            true,
-                            |_| None,
-                        )
-                        .into_iter(),
-                    );
-                }
-
-                Either::Right(iter::once(fragment))
+                            Some(Fragment::HighlightMatch(text.to_owned()))
+                        },
+                        |_| false,
+                        true,
+                        |_| None,
+                    )
+                    .into_iter(),
+                ),
+                fragment => Either::Right(iter::once(fragment)),
             })
             .collect();
     }
 
-    if fragments.len() == 1 && matches!(&fragments[0], Fragment::Text(_)) {
-        let Some(Fragment::Text(text)) = fragments.into_iter().next() else {
-            unreachable!();
-        };
+    (content_from_fragments(fragments), highlight_kind)
+}
 
-        (Content::Plain(text), None)
-    } else {
-        (Content::Fragments(fragments), highlight_kind)
-    }
+enum UserLookup<'a> {
+    User(&'a User),
+    Channel(Option<&'a ChannelUsers>),
 }
 
 pub fn parse_fragments_with_user(
@@ -2097,12 +2087,14 @@ pub fn parse_fragments_with_user(
     user: &User,
     casemapping: isupport::CaseMap,
 ) -> Content {
-    // XXX(pounce) annoying clone. Cow somewhere?
-    parse_fragments_with_users(
+    let fragments = parse_fragments_with_users_inner(
         text,
-        Some(&[user.clone()].into_iter().collect()),
+        UserLookup::User(user),
         casemapping,
     )
+    .collect();
+
+    content_from_fragments(fragments)
 }
 
 pub fn parse_fragments_with_users(
@@ -2110,54 +2102,62 @@ pub fn parse_fragments_with_users(
     channel_users: Option<&ChannelUsers>,
     casemapping: isupport::CaseMap,
 ) -> Content {
-    let fragments =
-        parse_fragments_with_users_inner(text, channel_users, casemapping)
-            .collect::<Vec<_>>();
+    let fragments = parse_fragments_with_users_inner(
+        text,
+        UserLookup::Channel(channel_users),
+        casemapping,
+    )
+    .collect();
 
-    if fragments.len() == 1 && matches!(&fragments[0], Fragment::Text(_)) {
-        let Some(Fragment::Text(text)) = fragments.into_iter().next() else {
-            unreachable!();
-        };
-
-        Content::Plain(text)
-    } else {
-        Content::Fragments(fragments)
-    }
+    content_from_fragments(fragments)
 }
 
 pub fn parse_fragments(text: String) -> Content {
-    let fragments = parse_fragments_inner(text).collect::<Vec<_>>();
+    let fragments = parse_fragments_inner(text).collect();
 
-    if fragments.len() == 1 && matches!(&fragments[0], Fragment::Text(_)) {
-        let Some(Fragment::Text(text)) = fragments.into_iter().next() else {
-            unreachable!();
-        };
+    content_from_fragments(fragments)
+}
 
-        Content::Plain(text)
-    } else {
-        Content::Fragments(fragments)
+fn content_from_fragments(mut fragments: Vec<Fragment>) -> Content {
+    if let [Fragment::Text(text)] = fragments.as_mut_slice() {
+        return Content::Plain(std::mem::take(text));
     }
+
+    Content::Fragments(fragments)
 }
 
 fn parse_fragments_with_users_inner(
     text: String,
-    channel_users: Option<&ChannelUsers>,
+    users: UserLookup<'_>,
     casemapping: isupport::CaseMap,
 ) -> impl Iterator<Item = Fragment> + use<'_> {
+    let has_users = match users {
+        UserLookup::Channel(channel_users) => {
+            channel_users.is_some_and(|users| !users.is_empty())
+        }
+        UserLookup::User(_) => true,
+    };
+
     parse_fragments_inner(text).flat_map(move |fragment| {
-        if let Fragment::Text(text) = &fragment {
-            return Either::Left(
+        match fragment {
+            Fragment::Text(text) if !has_users => {
+                Either::Right(iter::once(Fragment::Text(text)))
+            }
+            Fragment::Text(text) => Either::Left(
                 parse_regex_fragments(
                     &USER_REGEX,
                     text,
                     |text| {
-                        channel_users?
-                            .get_by_nick(
-                                Nick::from_str(text, casemapping).as_nickref(),
-                            )
-                            .map(|user| {
-                                Fragment::User(user.clone(), text.to_owned())
-                            })
+                        let nick = Nick::from_str(text, casemapping);
+                        let user = match users {
+                            UserLookup::Channel(channel_users) => {
+                                channel_users?.get_by_nick(nick.as_nickref())
+                            }
+                            UserLookup::User(user) => {
+                                (user.nickname() == nick).then_some(user)
+                            }
+                        }?;
+                        Some(Fragment::User(user.clone(), text.to_owned()))
                     },
                     |(re_match, text)| {
                         // attempting to skip matching of abbreviations
@@ -2191,10 +2191,9 @@ fn parse_fragments_with_users_inner(
                     },
                 )
                 .into_iter(),
-            );
+            ),
+            fragment => Either::Right(iter::once(fragment)),
         }
-
-        Either::Right(iter::once(fragment))
     })
 }
 
@@ -2213,94 +2212,82 @@ fn parse_fragments_inner<'a>(
     formatting::parse_code_fragments(&text)
         .into_iter()
         .map(Fragment::from)
-        .flat_map(|fragment| {
-            if let Fragment::Text(text) = &fragment {
-                return Either::Left(
-                    parse_regex_fragments(
-                        &URL_REGEX,
-                        text,
-                        |url| {
-                            Url::parse(url).ok().map(|canonical| {
-                                Fragment::Url(canonical, url.to_string())
-                            })
-                        },
-                        |_| false,
-                        true,
-                        |_| None,
-                    )
-                    .into_iter(),
-                );
-            }
-
-            Either::Right(iter::once(fragment))
-        })
-        .flat_map(|fragment| {
-            if let Fragment::Text(text) = &fragment {
-                return Either::Left(
-                    parse_regex_fragments(
-                        &CHANNEL_REGEX,
-                        text,
-                        |channel| Some(Fragment::Channel(channel.to_owned())),
-                        |_| false,
-                        true,
-                        |_| None,
-                    )
-                    .into_iter(),
-                );
-            }
-
-            Either::Right(iter::once(fragment))
-        })
-        .flat_map(move |fragment| {
-            if let Fragment::Text(text) = &fragment {
-                if let Some(fragments) = formatting::parse_fragments(
+        .flat_map(|fragment| match fragment {
+            Fragment::Text(text) => Either::Left(
+                parse_regex_fragments(
+                    &URL_REGEX,
                     text,
-                    &mut modifiers,
-                    &mut fg,
-                    &mut bg,
-                ) {
-                    if fragments.is_empty() {
-                        return Either::Right(Either::Left(iter::empty()));
-                    }
-
+                    |url| {
+                        Url::parse(url).ok().map(|canonical| {
+                            Fragment::Url(canonical, url.to_string())
+                        })
+                    },
+                    |_| false,
+                    true,
+                    |_| None,
+                )
+                .into_iter(),
+            ),
+            fragment => Either::Right(iter::once(fragment)),
+        })
+        .flat_map(|fragment| match fragment {
+            Fragment::Text(text) => Either::Left(
+                parse_regex_fragments(
+                    &CHANNEL_REGEX,
+                    text,
+                    |channel| Some(Fragment::Channel(channel.to_owned())),
+                    |_| false,
+                    true,
+                    |_| None,
+                )
+                .into_iter(),
+            ),
+            fragment => Either::Right(iter::once(fragment)),
+        })
+        .flat_map(move |fragment| match fragment {
+            Fragment::Text(text) => match formatting::parse_fragments(
+                &text,
+                &mut modifiers,
+                &mut fg,
+                &mut bg,
+            ) {
+                Some(fragments) if fragments.is_empty() => {
+                    Either::Right(Either::Left(iter::empty()))
+                }
+                Some(fragments)
                     if fragments.iter().any(|fragment| {
                         matches!(
                             fragment,
                             formatting::Fragment::Formatted(_, _)
                         )
-                    }) {
-                        return Either::Left(
-                            fragments.into_iter().map(Fragment::from),
-                        );
-                    // If there are no Formatted fragments,
-                    // then fragments should contain a single Unformatted fragment
-                    } else if let Some(text) = fragments
-                        .into_iter()
-                        .next()
-                        .and_then(|fragment| match fragment {
-                            formatting::Fragment::Unformatted(text) => {
-                                Some(text)
-                            }
-                            formatting::Fragment::Formatted(_, _) => None,
-                        })
-                    {
-                        // Even if the fragment is Unformatted there may have been formatting
-                        // characters in the text input into formatting::parse. They are
-                        // stripped from the text contained in the fragment.
-                        return Either::Right(Either::Right(iter::once(
-                            Fragment::Text(text),
-                        )));
-                    }
-                } else if text.is_empty() {
-                    return Either::Right(Either::Left(iter::empty()));
-                } else {
-                    return Either::Right(Either::Right(iter::once(
-                        Fragment::Text(text.clone()),
-                    )));
+                    }) =>
+                {
+                    Either::Left(fragments.into_iter().map(Fragment::from))
                 }
-            }
-
-            Either::Right(Either::Right(iter::once(fragment)))
+                // If there are no Formatted fragments,
+                // then fragments should contain a single Unformatted fragment
+                Some(fragments) => {
+                    // Even if the fragment is Unformatted there may have been formatting
+                    // characters in the text input into formatting::parse. They are
+                    // stripped from the text contained in the fragment.
+                    let text = match fragments.into_iter().next() {
+                        Some(formatting::Fragment::Unformatted(stripped)) => {
+                            stripped
+                        }
+                        _ => text,
+                    };
+                    Either::Right(Either::Right(iter::once(Fragment::Text(
+                        text,
+                    ))))
+                }
+                None if text.is_empty() => {
+                    Either::Right(Either::Left(iter::empty()))
+                }
+                None => Either::Right(Either::Right(iter::once(
+                    Fragment::Text(text),
+                ))),
+            },
+            fragment => Either::Right(Either::Right(iter::once(fragment))),
         })
 }
 
@@ -2318,6 +2305,10 @@ fn parse_regex_fragments<'a>(
     let mut fragments = Vec::with_capacity(1);
 
     for re_match in regex.find_iter::<str>(&text).filter_map(Result::ok) {
+        if should_skip((&re_match, &text)) {
+            continue;
+        }
+
         let (mut leading_delimiter, mut trailing_delimiter) = (None, None);
         let (mut matching, trailing_punctuation) =
             filter_trailing_punctuation(re_match, &text);
@@ -2339,10 +2330,6 @@ fn parse_regex_fragments<'a>(
                 (matching, None)
             };
 
-        if should_skip((&re_match, &text)) {
-            continue;
-        }
-
         if let Some(fragment) = fragment_match(matching) {
             let mut leading_text = String::new();
             if i < re_match.start() {
@@ -2352,7 +2339,7 @@ fn parse_regex_fragments<'a>(
                 leading_text.push_str(delimiter);
             }
             if !leading_text.is_empty() {
-                merge_text_fragment(&mut fragments, leading_text);
+                merge_text_fragment(&mut fragments, &leading_text);
             }
 
             fragments.push(fragment);
@@ -2378,27 +2365,22 @@ fn parse_regex_fragments<'a>(
         }
     }
 
-    let next_fragment_text = if i == 0 { &text } else { &text[i..] };
-    merge_text_fragment(&mut fragments, next_fragment_text.to_string());
+    if i == 0 {
+        merge_text_fragment(&mut fragments, &text);
+    } else {
+        merge_text_fragment(&mut fragments, &text[i..]);
+    }
 
     fragments
 }
 
-fn merge_text_fragment(fragments: &mut Vec<Fragment>, text: String) {
+fn merge_text_fragment(fragments: &mut Vec<Fragment>, text: &str) {
     if text.is_empty() {
         return;
     }
-    match fragments.pop() {
-        Some(Fragment::Text(mut fragment_text)) => {
-            fragment_text.push_str(&text);
-            fragments.push(Fragment::Text(fragment_text));
-        }
-        fragment => {
-            if let Some(fragment) = fragment {
-                fragments.push(fragment);
-            }
-            fragments.push(Fragment::Text(text));
-        }
+    match fragments.last_mut() {
+        Some(Fragment::Text(last)) => last.push_str(text),
+        _ => fragments.push(Fragment::Text(text.to_owned())),
     }
 }
 
