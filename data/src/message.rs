@@ -3309,25 +3309,23 @@ fn content<'a>(
             .and_then(|channel| resolve_attributes(&raw_user, &channel))
             .unwrap_or(raw_user);
 
-            (user.nickname() != *our_nick).then(|| {
-                (
-                    parse_fragments_with_user(
-                        format!(
-                            "{} {} has joined the channel",
-                            config.display.direction_arrows.right,
-                            user.formatted(
-                                config
-                                    .buffer
-                                    .server_messages
-                                    .username_format(Some(Kind::Join))
-                            )
-                        ),
-                        &user,
-                        casemapping,
+            Some((
+                parse_fragments_with_user(
+                    format!(
+                        "{} {} has joined the channel",
+                        config.display.direction_arrows.right,
+                        user.formatted(
+                            config
+                                .buffer
+                                .server_messages
+                                .username_format(Some(Kind::Join))
+                        )
                     ),
-                    None,
-                )
-            })
+                    &user,
+                    casemapping,
+                ),
+                None,
+            ))
         }
         Command::NICK(new_nick) => {
             let old_user = message.user(casemapping)?;
@@ -5193,6 +5191,21 @@ pub mod tests {
             } if user.nickname().to_string() == "dan"
         ));
         assert_eq!(message.text(), "maintenance window");
+    }
+
+    #[test]
+    fn own_join_has_content() {
+        let server = Server {
+            name: "Test Server".into(),
+            network: None,
+        };
+
+        let (message, _) = message_with_highlight_from_irc_message(
+            ":our_nick!o@localhost JOIN #halloy\r\n",
+            &server,
+        );
+
+        assert!(message.text().contains("our_nick has joined the channel"));
     }
 
     pub fn serde_broadcasts() -> Vec<Broadcast> {
