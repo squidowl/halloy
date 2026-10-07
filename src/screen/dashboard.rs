@@ -4241,6 +4241,20 @@ impl Dashboard {
             main_window,
         );
 
+        for (_, _, pane) in panes.iter() {
+            if let Some(buffer::Upstream::Query(server, query)) = pane
+                .buffer
+                .data()
+                .as_ref()
+                .and_then(|buffer| buffer.upstream())
+            {
+                storage.show_in_sidebar(
+                    history::Kind::Query(server.clone(), query.clone()),
+                    true,
+                );
+            }
+        }
+
         let (sidebar, sidebar_task) = Sidebar::new(data.sidebar.is_hidden());
 
         let mut dashboard = Self {
