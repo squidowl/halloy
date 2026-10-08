@@ -210,10 +210,19 @@ pub fn view<'a>(
 
     let filehost_url = clients.get_filehost(server);
 
-    let text_input = show_text_input.then(move || {
+    let disconnected = !clients.contains_channel(server, channel);
+    let show_join_banner = connected
+        && disconnected
+        && !clients.is_channel_join_pending(server, channel);
+    let our_nick_user =
+        our_nick.map(|our_nick| User::from(Nick::from(our_nick)));
+
+    let text_input = show_text_input.then(|| {
         input_view::view(
             &state.input_view,
-            our_user,
+            our_user.or(our_nick_user.as_ref()),
+            disconnected,
+            show_join_banner,
             users,
             &state.server,
             registry,

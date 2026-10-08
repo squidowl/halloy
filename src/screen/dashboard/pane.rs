@@ -85,6 +85,16 @@ impl Pane {
                 };
 
                 let server = &state.server;
+
+                let not_joined = !clients
+                    .contains_channel(server, &state.target)
+                    && !clients.is_channel_join_pending(server, &state.target);
+
+                let state_text = not_joined.then(|| {
+                    container(text("(Parted)").wrapping(Wrapping::None))
+                        .padding(Padding::default().left(5))
+                });
+
                 row![
                     text(display_channel)
                         .style(theme::text::url)
@@ -93,6 +103,7 @@ impl Pane {
                         )
                         .wrapping(Wrapping::None)
                         .ellipsis(text::Ellipsis::End),
+                    state_text,
                     if let Some(mode) =
                         clients.get_channel_mode(&state.server, &state.target)
                     {
@@ -108,7 +119,7 @@ impl Pane {
                         text(format!(" @ {server}"))
                             .wrapping(Wrapping::None)
                             .ellipsis(text::Ellipsis::End)
-                    }
+                    },
                 ]
                 .into()
             }

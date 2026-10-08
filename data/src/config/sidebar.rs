@@ -40,6 +40,7 @@ pub struct Sidebar {
     pub order_channels_by: OrderChannelsBy,
     pub channel_name_casing: Option<ChannelNameCasing>,
     pub internal_buffers: InternalBuffers,
+    pub remember_buffers: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]

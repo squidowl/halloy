@@ -17,6 +17,7 @@ use data::history::ReadMarker;
 use data::history::filter::Filter;
 use data::history::manager::EchoEvent;
 use data::history::reroute::RerouteRules;
+use data::history::sidebar_buffers::SidebarBuffers;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::message::{self, Broadcast};
 use data::rate_limit::TokenPriority;
@@ -189,8 +190,19 @@ impl Dashboard {
             dashboard.focus_buffer = None;
         }
 
+        let forget_buffers =
+            !config.sidebar.remember_buffers && !dashboard.buffers.is_empty();
+
+        if forget_buffers {
+            dashboard.buffers.clear();
+        }
+
         let (mut dashboard, task) =
             Dashboard::from_data(dashboard, config, main_window);
+
+        if forget_buffers {
+            dashboard.last_changed = Some(Instant::now());
+        }
 
         let tasks = Task::batch(vec![task, dashboard.track(None, config)]);
 
@@ -716,6 +728,15 @@ impl Dashboard {
                             (Task::none(), None)
                         }
                     }
+                    sidebar::Event::Join(buffer) => {
+                        if let buffer::Upstream::Channel(server, channel) =
+                            buffer
+                        {
+                            clients.join(&server, slice::from_ref(&channel));
+                        }
+
+                        (Task::none(), None)
+                    }
                     sidebar::Event::Leave(buffer) => {
                         self.leave_buffer(clients, config, buffer)
                     }
@@ -723,7 +744,7 @@ impl Dashboard {
                         self.toggle_command_bar(
                             servers,
                             clients,
-                            &closed_upstream_buffers(self, clients),
+                            &closed_upstream_buffers(self, servers, clients),
                             version,
                             config,
                             theme,
@@ -1027,7 +1048,9 @@ impl Dashboard {
                                 self.toggle_command_bar(
                                     servers,
                                     clients,
-                                    &closed_upstream_buffers(self, clients),
+                                    &closed_upstream_buffers(
+                                        self, servers, clients,
+                                    ),
                                     version,
                                     config,
                                     theme,
@@ -1041,7 +1064,9 @@ impl Dashboard {
                             self.toggle_command_bar(
                                 servers,
                                 clients,
-                                &closed_upstream_buffers(self, clients),
+                                &closed_upstream_buffers(
+                                    self, servers, clients,
+                                ),
                                 version,
                                 config,
                                 theme,
@@ -1220,7 +1245,9 @@ impl Dashboard {
                             self.toggle_command_bar(
                                 servers,
                                 clients,
-                                &closed_upstream_buffers(self, clients),
+                                &closed_upstream_buffers(
+                                    self, servers, clients,
+                                ),
                                 version,
                                 config,
                                 theme,
@@ -1955,7 +1982,11 @@ impl Dashboard {
                         .view(
                             servers,
                             clients,
-                            &all_upstream_buffers(clients, &self.history),
+                            &all_upstream_buffers(
+                                servers,
+                                clients,
+                                &self.history,
+                            ),
                             self.focus,
                             self.buffer_resize_action(),
                             version,
@@ -2894,7 +2925,7 @@ impl Dashboard {
                     self.toggle_command_bar(
                         servers,
                         clients,
-                        &closed_upstream_buffers(self, clients),
+                        &closed_upstream_buffers(self, servers, clients),
                         version,
                         config,
                         theme,
@@ -3525,7 +3556,9 @@ impl Dashboard {
                 );
                 let input = data::Input::from_command(buffer.clone(), command);
 
-                if let Some(encoded) = input.encoded() {
+                if clients.contains_channel(&server, &channel)
+                    && let Some(encoded) = input.encoded()
+                {
                     clients.send_from_buffer(
                         &buffer,
                         encoded,
@@ -3605,7 +3638,9 @@ impl Dashboard {
                 let command = command::Irc::Part(channel.to_string(), reason);
                 let input = data::Input::from_command(buffer.clone(), command);
 
-                if let Some(encoded) = input.encoded() {
+                if clients.contains_channel(&server, &channel)
+                    && let Some(encoded) = input.encoded()
+                {
                     clients.send_from_buffer(
                         &buffer,
                         encoded,
@@ -4256,6 +4291,10 @@ impl Dashboard {
         self.history.get_unique_queries(server)
     }
 
+    pub fn sidebar_buffers_mut(&mut self) -> &mut SidebarBuffers {
+        self.history.sidebar_buffers_mut()
+    }
+
     pub fn add_to_sidebar(&mut self, server: Server, query: target::Query) {
         let kind = history::Kind::Query(server, query);
 
@@ -4638,6 +4677,13 @@ impl Dashboard {
             })
             .flatten();
 
+        if self
+            .history
+            .update_saved_buffers(clients, config.sidebar.remember_buffers)
+        {
+            self.last_changed = Some(now);
+        }
+
         if let Some(last_changed) = self.last_changed
             && now.duration_since(last_changed) >= SAVE_AFTER
         {
@@ -4959,6 +5005,14 @@ impl Dashboard {
 
         let mut tasks = vec![sidebar_task.map(Message::Sidebar)];
 
+        tasks.extend(
+            dashboard
+                .history
+                .restore_saved_buffers(data.buffers, &config.servers)
+                .into_iter()
+                .map(|task| Task::perform(task, Message::History)),
+        );
+
         for pane in data.popout_panes {
             // Popouts are only a single pane
             let Configuration::Pane(pane) = configuration(
@@ -5205,6 +5259,13 @@ impl Dashboard {
         .for_each(|kind| {
             mark_as_read(kind, &mut self.history, clients, TokenPriority::High);
         });
+
+        if self
+            .history
+            .update_saved_buffers(clients, config.sidebar.remember_buffers)
+        {
+            self.last_changed = Some(Instant::now());
+        }
 
         let history = self
             .history
@@ -5661,6 +5722,7 @@ impl<'a> From<&'a Dashboard> for data::Dashboard {
             } else {
                 data::dashboard::Sidebar::Visible
             },
+            buffers: dashboard.history.saved_buffers(),
         }
     }
 }
@@ -5770,21 +5832,24 @@ impl Panes {
 }
 
 fn all_upstream_buffers(
+    servers: &server::Map,
     clients: &client::Map,
     history: &history::Manager,
 ) -> Vec<buffer::Upstream> {
     clients
-        .connected_servers()
-        .flat_map(|server| {
+        .iter()
+        .flat_map(|(server, _)| {
+            let config = servers.get(server);
+            let targets =
+                history.sidebar_targets(server, clients, config.as_deref());
+
             std::iter::once(buffer::Upstream::Server(server.clone()))
-                .chain(clients.get_channels(server).map(|channel| {
+                .chain(targets.channels.into_iter().map(|(channel, _)| {
                     buffer::Upstream::Channel(server.clone(), channel.clone())
                 }))
-                .chain(history.get_unique_queries(server).into_iter().map(
-                    |nick| {
-                        buffer::Upstream::Query(server.clone(), nick.clone())
-                    },
-                ))
+                .chain(targets.queries.into_iter().map(|nick| {
+                    buffer::Upstream::Query(server.clone(), nick.clone())
+                }))
         })
         .collect()
 }
@@ -5808,11 +5873,12 @@ fn open_upstream_buffers(dashboard: &Dashboard) -> Vec<buffer::Upstream> {
 
 fn closed_upstream_buffers(
     dashboard: &Dashboard,
+    servers: &server::Map,
     clients: &client::Map,
 ) -> Vec<buffer::Upstream> {
     let open_buffers = open_upstream_buffers(dashboard);
 
-    all_upstream_buffers(clients, &dashboard.history)
+    all_upstream_buffers(servers, clients, &dashboard.history)
         .into_iter()
         .filter(|buffer| !open_buffers.contains(buffer))
         .collect()

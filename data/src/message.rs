@@ -3382,7 +3382,6 @@ fn content<'a>(
                     victim,
                     ourself,
                     reason,
-                    None,
                     &config.display.direction_arrows,
                     casemapping,
                 ),
@@ -4118,7 +4117,6 @@ fn kick_text(
     victim: User,
     ourself: bool,
     reason: &Option<String>,
-    channel: Option<target::Channel>,
     direction_arrows: &crate::config::display::DirectionArrows,
     casemapping: isupport::CaseMap,
 ) -> Content {
@@ -4134,18 +4132,11 @@ fn kick_text(
         .unwrap_or_default();
 
     parse_fragments_with_users(
-        if let Some(channel) = channel {
-            format!(
-                "{target} been kicked from {channel} by {}{reason}",
-                kicker.nickname()
-            )
-        } else {
-            format!(
-                "{} {target} been kicked by {}{reason}",
-                direction_arrows.left,
-                kicker.nickname()
-            )
-        },
+        format!(
+            "{} {target} been kicked by {}{reason}",
+            direction_arrows.left,
+            kicker.nickname()
+        ),
         Some(&[kicker, victim].into_iter().collect()),
         casemapping,
     )
