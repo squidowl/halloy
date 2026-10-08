@@ -572,18 +572,17 @@ where
                 button: mouse::Button::Right,
                 ..
             }) => {
-                if let Some(index) = cursor
+                if let Some((menu, child)) = cursor
                     .position_in(bounds)
                     .and_then(|position| state.paragraph.hit_span(position))
+                    .and_then(|index| {
+                        self.context_menus
+                            .get_mut(index)
+                            .zip(tree.children.get_mut(index))
+                    })
                 {
-                    self.context_menus[index].as_widget_mut().update(
-                        &mut tree.children[index],
-                        event,
-                        layout,
-                        cursor,
-                        renderer,
-                        shell,
-                        viewport,
+                    menu.as_widget_mut().update(
+                        child, event, layout, cursor, renderer, shell, viewport,
                     );
                 }
             }

@@ -10,7 +10,8 @@ use iced::advanced::text;
 use iced::widget::{Space, column, container, row, space};
 use iced::{Color, Length, Size, Task, padding};
 
-use super::{context_menu, input_view, scroll_view};
+use super::context_menu::{self, Context, UrlContext, UserContext};
+use super::{input_view, scroll_view};
 use crate::widget::user_display::UserDisplay;
 use crate::widget::{Element, message_content, selectable_text};
 use crate::{Theme, font, theme};
@@ -106,6 +107,69 @@ pub fn view<'a>(
                   right_alignment_widths: Option<RightAlignmentWidths>,
                   _,
                   hide_nickname| {
+                let link_entries = move |link: &message::Link| {
+                    context_menu::Entry::link_list(
+                        link,
+                        Some(|user| {
+                            context_menu::Entry::user_list(
+                                false,
+                                None,
+                                None,
+                                config.file_transfer.enabled,
+                                context_menu::has_user_metadata(
+                                    user, registry, config,
+                                ),
+                                None,
+                                message.is_rerouted(),
+                            )
+                        }),
+                        Some(|_| context_menu::Entry::url_list(None)),
+                        Some(|server, channel| {
+                            channels_context.channel_entries(server, channel)
+                        }),
+                    )
+                };
+
+                let link_entry =
+                    move |link: &message::Link,
+                          entry: context_menu::Entry,
+                          length| {
+                        let context = Context::link(
+                            link,
+                            Some(|user| UserContext {
+                                server: &state.server,
+                                prefix,
+                                channel: None,
+                                registry,
+                                avatar: context_menu::user_avatar(
+                                    user,
+                                    registry,
+                                    previews,
+                                    config.metadata.avatar_size(),
+                                ),
+                                user,
+                                current_user: None,
+                                relayed_by: None,
+                                message: Some(message),
+                            }),
+                            Some(|url| UrlContext {
+                                url,
+                                message: Some(message),
+                            }),
+                            Some(|server, channel| {
+                                channels_context.channel_context(
+                                    server,
+                                    channel,
+                                    Some(message),
+                                )
+                            }),
+                        );
+
+                        entry
+                            .view(context, length, config, theme, false)
+                            .map(scroll_view::Message::ContextMenu)
+                    };
+
                 let timestamp = config
                     .buffer
                     .format_timestamp(&message.server_time)
@@ -126,7 +190,7 @@ pub fn view<'a>(
 
                 match message.target.source() {
                     message::Source::Server(server) => {
-                        let text_content = message_content(
+                        let text_content = message_content::with_context(
                             &message.content,
                             &[],
                             &state.server,
@@ -149,8 +213,11 @@ pub fn view<'a>(
                                 )
                             },
                             Option::<fn(Color) -> Color>::None,
+                            link_entries,
+                            link_entry,
                             None,
                             config,
+                            None,
                         );
 
                         Some(context_menu::message(
@@ -256,7 +323,7 @@ pub fn view<'a>(
 
                         let rerouted_message = message.is_rerouted();
 
-                        let content = message_content(
+                        let content = message_content::with_context(
                             &message.content,
                             &[],
                             &state.server,
@@ -275,8 +342,11 @@ pub fn view<'a>(
                             },
                             theme::font_style::primary,
                             Option::<fn(Color) -> Color>::None,
+                            link_entries,
+                            link_entry,
                             None,
                             config,
+                            None,
                         );
 
                         Some(context_menu::message(
