@@ -18,6 +18,7 @@ Fixed:
 Changed:
 
 - Default keybinds for focus movement on macOS changed from `⌥ + <arrow keys>` to `ctrl + <arrow keys>` to avoid conflicting with macOS by-word movement keybinds (`⌥ + ←` and `⌥ + →`)
+- Your own join/part is shown in the channel buffer.
 
 Thanks:
 
