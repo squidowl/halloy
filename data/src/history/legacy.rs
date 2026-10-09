@@ -539,8 +539,12 @@ mod tests {
                 .0
                 .is_empty()
         );
-        let invalid_directory = directory.path().join("file");
-        fs::write(&invalid_directory, b"").unwrap();
-        assert!(exists(&invalid_directory, &metadata_only).is_err());
+        // Windows reports a file in a directory position as not found.
+        #[cfg(unix)]
+        {
+            let invalid_directory = directory.path().join("file");
+            fs::write(&invalid_directory, b"").unwrap();
+            assert!(exists(&invalid_directory, &metadata_only).is_err());
+        }
     }
 }
