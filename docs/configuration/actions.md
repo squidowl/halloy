@@ -180,6 +180,12 @@ click_nickname = { "open-query" = "replace-pane" }
 
 How notification actions should be enacted.
 
+::: info
+
+The settings in this section only apply to Linux notifications.
+
+:::
+
 ```toml
 # Open buffer in a new window when clicking on a notification
 
@@ -191,6 +197,12 @@ open_buffer = "new-window"
 ### `default`
 
 Default action when clicking on a notification.  When set to `"activate-application"` or when there is no buffer context for the notification (e.g. when clicking a notification for a monitored user going offline), then the default application activation behavior for notification will be enacted.  When there is a buffer context (e.g. when clicking a notification for a highlight in a channel, the context is the channel buffer) and set to `"open-buffer"`, then the buffer context will be opened.  If there is a buffer context and `"activate-application"` is set, then `"open-buffer"` will be provided as a secondary action (if supported by the notification system).  When opening a buffer, [`actions.notification.open_buffer`](#open_buffer) determines how it will be opened.
+
+::: info
+
+This setting only applies to Linux notifications; the default action is always `"activate-application"` for other OSes.
+
+:::
 
 ```toml
 # Type: string
@@ -204,6 +216,12 @@ default = "open-buffer"
 ### `open_buffer`
 
 When opening a buffer from a notification, how it will be opened. `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with the buffer. `"new-window"` opens a new window each time.
+
+::: info
+
+This setting only applies to Linux notifications; notifications on other OSes do not open a specific buffer.
+
+:::
 
 ```toml
 # Type: string
