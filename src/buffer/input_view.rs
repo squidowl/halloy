@@ -712,12 +712,12 @@ fn join_banner<'a>(config: &'a Config) -> Element<'a, Message> {
         container(
             row![
                 text("You are not in this channel")
-                    .size(font_size)
+                    .size(font_size - 1.0)
                     .line_height(1.0)
                     .style(theme::text::primary)
                     .width(Length::Fill),
                 button(text("Join").size(font_size - 1.0).line_height(1.0))
-                    .padding([3, 6])
+                    .padding([4, 6])
                     .style(|theme, status| {
                         theme::button::secondary(theme, status, false)
                     })
@@ -726,7 +726,7 @@ fn join_banner<'a>(config: &'a Config) -> Element<'a, Message> {
             .spacing(8)
             .align_y(Alignment::Center),
         )
-        .padding([4, 7])
+        .padding([4, 6])
         .style(theme::container::buffer_background),
         rule::horizontal(1.0).style(theme::rule::primary),
     ];
