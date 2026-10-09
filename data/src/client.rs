@@ -4299,24 +4299,17 @@ impl Client {
         &'a self,
         disconnected: impl Iterator<Item = &'a target::Channel>,
     ) -> impl Iterator<Item = &'a target::Channel> {
-        let casemapping = self.casemapping();
-        let chantypes = self.chantypes();
+        let order = ChannelOrder::new(
+            &self.config,
+            self.chantypes(),
+            self.casemapping(),
+        );
 
-        let compare = move |a: &&target::Channel, b: &&target::Channel| {
-            compare_channels(
-                &self.config,
-                chantypes,
-                casemapping,
-                a.as_normalized_str(),
-                b.as_normalized_str(),
-            )
-        };
-
-        let disconnected = disconnected.sorted_by(compare);
+        let disconnected = disconnected.sorted_by(|a, b| order.compare(a, b));
 
         self.chanmap
             .keys()
-            .merge_by(disconnected, move |a, b| compare(a, b).is_le())
+            .merge_by(disconnected, move |a, b| order.compare(a, b).is_le())
     }
 
     pub fn is_joined(&self, channel: &target::Channel) -> bool {
@@ -4820,15 +4813,74 @@ pub fn offline_sidebar_channels<'a>(
     config: &config::server::Server,
     channels: impl Iterator<Item = &'a target::Channel>,
 ) -> impl Iterator<Item = &'a target::Channel> {
-    channels.sorted_by(|a, b| {
-        compare_channels(
-            config,
-            isupport::DEFAULT_CHANTYPES,
-            isupport::CaseMap::default(),
-            a.as_normalized_str(),
-            b.as_normalized_str(),
+    let order = ChannelOrder::new(
+        config,
+        isupport::DEFAULT_CHANTYPES,
+        isupport::CaseMap::default(),
+    );
+
+    channels.sorted_by(|a, b| order.compare(a, b))
+}
+
+// `compare_channels` with configured channels normalized once, for sorting per frame
+struct ChannelOrder<'a> {
+    config: &'a config::server::Server,
+    chantypes: &'a [char],
+    casemapping: isupport::CaseMap,
+    positions: Option<HashMap<String, usize>>,
+}
+
+impl<'a> ChannelOrder<'a> {
+    fn new(
+        config: &'a config::server::Server,
+        chantypes: &'a [char],
+        casemapping: isupport::CaseMap,
+    ) -> Self {
+        let positions = matches!(
+            config.order_channels_by,
+            Some(config::sidebar::OrderChannelsBy::Config)
         )
-    })
+        .then(|| {
+            // reversed so the first position wins, same as `position`
+            config
+                .channels
+                .iter()
+                .enumerate()
+                .rev()
+                .map(|(pos, channel)| {
+                    (casemapping.normalize(&channel.name), pos)
+                })
+                .collect()
+        });
+
+        Self {
+            config,
+            chantypes,
+            casemapping,
+            positions,
+        }
+    }
+
+    fn compare(&self, a: &target::Channel, b: &target::Channel) -> Ordering {
+        let (a, b) = (a.as_normalized_str(), b.as_normalized_str());
+
+        match &self.positions {
+            Some(positions) => compare_channel_positions(
+                self.chantypes,
+                positions.get(a).copied(),
+                positions.get(b).copied(),
+                a,
+                b,
+            ),
+            None => compare_channels(
+                self.config,
+                self.chantypes,
+                self.casemapping,
+                a,
+                b,
+            ),
+        }
+    }
 }
 
 fn compare_channels_default(chantypes: &[char], a: &str, b: &str) -> Ordering {
@@ -4882,21 +4934,31 @@ fn compare_channels(
          * config.server.<server_name>.channels. Anything not in this list is sorted by `name` (default).
          */
         Some(config::sidebar::OrderChannelsBy::Config) => {
-            let a_pos = &config
+            let a_pos = config
                 .channels
                 .iter()
                 .position(|channel| casemapping.normalize(&channel.name) == a);
-            let b_pos = &config
+            let b_pos = config
                 .channels
                 .iter()
                 .position(|channel| casemapping.normalize(&channel.name) == b);
-            match (a_pos, b_pos) {
-                (Some(a_pos), Some(b_pos)) => a_pos.cmp(b_pos),
-                (Some(_), None) => Ordering::Less,
-                (None, Some(_)) => Ordering::Greater,
-                (None, None) => compare_channels_default(chantypes, a, b),
-            }
+            compare_channel_positions(chantypes, a_pos, b_pos, a, b)
         }
+    }
+}
+
+fn compare_channel_positions(
+    chantypes: &[char],
+    a_pos: Option<usize>,
+    b_pos: Option<usize>,
+    a: &str,
+    b: &str,
+) -> Ordering {
+    match (a_pos, b_pos) {
+        (Some(a_pos), Some(b_pos)) => a_pos.cmp(&b_pos),
+        (Some(_), None) => Ordering::Less,
+        (None, Some(_)) => Ordering::Greater,
+        (None, None) => compare_channels_default(chantypes, a, b),
     }
 }
 
