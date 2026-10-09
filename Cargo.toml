@@ -168,9 +168,9 @@ embed-resource = "3.0.2"
 windows_exe_info = "0.4"
 
 [patch.crates-io]
-iced = { git = "https://github.com/squidowl/iced", rev = "138b1d0ddc86e108f7d4f25765afca126a8dc166" }
-iced_core = { git = "https://github.com/squidowl/iced", rev = "138b1d0ddc86e108f7d4f25765afca126a8dc166" }
-iced_wgpu = { git = "https://github.com/squidowl/iced", rev = "138b1d0ddc86e108f7d4f25765afca126a8dc166" }
+iced = { git = "https://github.com/squidowl/iced", rev = "c48ed64a0e322199bea8da38452c3db212aed014" }
+iced_core = { git = "https://github.com/squidowl/iced", rev = "c48ed64a0e322199bea8da38452c3db212aed014" }
+iced_wgpu = { git = "https://github.com/squidowl/iced", rev = "c48ed64a0e322199bea8da38452c3db212aed014" }
 
 [patch."https://github.com/hecrj/cosmic-text.git"]
 cosmic-text = { git = "https://github.com/squidowl/cosmic-text", rev = "c791410aa6f8e2f90ce3bf6d1f244a0afbca1d9f" }

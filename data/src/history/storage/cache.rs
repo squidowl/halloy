@@ -576,11 +576,11 @@ impl ReadCache {
     }
 
     pub fn set_model_limit(&mut self, new_limit: message::Limit) {
-        if let Request::Open { limit, .. } = &mut self.requested {
-            if *limit == new_limit {
+        if let Request::Open { limit, clear } = self.requested {
+            if limit == new_limit {
                 return;
             }
-            let same_anchor = match (*limit, new_limit) {
+            let same_anchor = match (limit, new_limit) {
                 (message::Limit::Top(_), message::Limit::Top(_))
                 | (message::Limit::Bottom(_), message::Limit::Bottom(_))
                 | (message::Limit::Backlog(_), message::Limit::Backlog(_)) => {
@@ -592,8 +592,12 @@ impl ReadCache {
                 ) => previous == next,
                 _ => false,
             };
-            *limit = new_limit;
-            if self.pending.is_some() && !same_anchor {
+            let covered = self.useful(new_limit, clear, None);
+            self.requested = Request::Open {
+                limit: new_limit,
+                clear,
+            };
+            if self.pending.is_some() && !same_anchor && !covered {
                 self.invalidate();
             }
         } else {

@@ -37,6 +37,7 @@ use crate::widget::{Element, notify_visibility};
 use crate::{Theme, buffer, font, theme};
 
 const SCROLL_TO_TIMEOUT: Duration = Duration::from_millis(200);
+const SCROLL_TO_ATTEMPTS: u8 = 10;
 /// Pages of off-screen messages to keep rendered above and below the viewport
 const BUFFER_PAGES: usize = 3;
 
@@ -59,6 +60,7 @@ pub enum Message {
     Scrolled {
         limit: Limit,
         visible_message_range: VisibleMessageRange,
+        loaded_message_range: VisibleMessageRange,
         has_more_older_messages: bool,
         has_more_newer_messages: bool,
         status: Status,
@@ -68,7 +70,7 @@ pub enum Message {
     Link(message::Link),
     ImagePreview(Image),
     AnimatePreview(crate::widget::animated_image::hover::Request),
-    ScrollTo(keyed::Hit),
+    ScrollTo(Option<keyed::Hit>),
     RequestOlderChathistory,
     EnteringViewport(history::Id, Vec<url::Url>),
     ExitingViewport(history::Id),
@@ -356,6 +358,19 @@ pub fn view<'a>(
             .iter()
             .chain(&new_messages)
             .nth(end_index)
+            .map(|message| *message.history_id()),
+    };
+
+    let loaded_message_range = VisibleMessageRange {
+        start_history_id: old_messages
+            .iter()
+            .chain(&new_messages)
+            .next()
+            .map(|message| *message.history_id()),
+        end_history_id: old_messages
+            .iter()
+            .chain(&new_messages)
+            .last()
             .map(|message| *message.history_id()),
     };
 
@@ -890,6 +905,7 @@ pub fn view<'a>(
             .on_scroll(move |scroll| Message::Scrolled {
                 limit,
                 visible_message_range,
+                loaded_message_range,
                 has_more_older_messages,
                 has_more_newer_messages,
                 status,
@@ -983,11 +999,17 @@ impl State {
             Message::Scrolled {
                 limit,
                 visible_message_range,
+                loaded_message_range,
                 has_more_older_messages,
                 has_more_newer_messages,
                 status: old_status,
                 scroll,
             } => {
+                if old_status.anchor() == self.status.anchor() {
+                    self.last_scroll_offset =
+                        scroll.viewport.absolute_offset().y;
+                }
+
                 if self.scroll_to.is_some()
                     || !accepts_scroll(
                         self.limit,
@@ -998,8 +1020,6 @@ impl State {
                 {
                     return (Task::none(), None);
                 }
-
-                self.last_scroll_offset = scroll.viewport.absolute_offset().y;
 
                 let relative_offset = scroll.viewport.relative_offset().y;
                 let absolute_offset = scroll.viewport.absolute_offset().y;
@@ -1021,7 +1041,7 @@ impl State {
                     // Scrolling down from top & need to load more messages.
 
                     if let Some(end_history_id) =
-                        visible_message_range.end_history_id
+                        loaded_message_range.end_history_id
                     {
                         self.status = Status::Unlocked;
 
@@ -1048,7 +1068,7 @@ impl State {
                     // Scrolling up from bottom & have more to load
 
                     if let Some(start_history_id) =
-                        visible_message_range.start_history_id
+                        loaded_message_range.start_history_id
                     {
                         self.status = Status::Unlocked;
 
@@ -1203,12 +1223,37 @@ impl State {
                     )),
                 );
             }
-            Message::ScrollTo(keyed::Hit {
+            Message::ScrollTo(None) => {
+                if let Some(ScrollTo {
+                    key,
+                    attempts,
+                    state,
+                    ..
+                }) = &mut self.scroll_to
+                {
+                    *attempts += 1;
+                    if *attempts < SCROLL_TO_ATTEMPTS {
+                        *state = ScrollToState::Pending;
+                        return (
+                            Task::perform(
+                                time::sleep(SCROLL_TO_TIMEOUT),
+                                move |()| Message::PendingScrollTo,
+                            ),
+                            None,
+                        );
+                    }
+                    log::debug!(
+                        "scroll_to target {key:?} not found, giving up"
+                    );
+                    self.scroll_to = None;
+                }
+            }
+            Message::ScrollTo(Some(keyed::Hit {
                 key,
                 hit_bounds,
                 scrollable,
                 ..
-            }) => {
+            })) => {
                 let (animate, align) =
                     if let Some(ScrollTo { animate, align, .. }) =
                         self.scroll_to.take()
@@ -1971,6 +2016,7 @@ impl State {
                 animate,
                 align,
                 state: ScrollToState::Pending,
+                attempts: 0,
             });
 
             return Task::perform(time::sleep(SCROLL_TO_TIMEOUT), move |()| {
@@ -1997,6 +2043,7 @@ impl State {
                 animate,
                 align,
                 state: ScrollToState::Pending,
+                attempts: 0,
             });
 
             return Task::perform(time::sleep(SCROLL_TO_TIMEOUT), move |()| {
@@ -2048,6 +2095,7 @@ impl State {
                 animate,
                 align,
                 state: scroll_to_state,
+                attempts: 0,
             });
 
             return task;
@@ -2058,6 +2106,7 @@ impl State {
             animate,
             align,
             state: ScrollToState::Pending,
+            attempts: 0,
         });
 
         Task::perform(time::sleep(SCROLL_TO_TIMEOUT), move |()| {
@@ -2105,6 +2154,7 @@ impl State {
             animate: false,
             align: ScrollAnchor::Top,
             state: ScrollToState::Pending,
+            attempts: 0,
         });
 
         Task::perform(time::sleep(SCROLL_TO_TIMEOUT), move |()| {
@@ -2413,7 +2463,7 @@ pub mod keyed {
         }
     }
 
-    pub fn find(scrollable: widget::Id, key: Key) -> Task<Hit> {
+    pub fn find(scrollable: widget::Id, key: Key) -> Task<Option<Hit>> {
         widget::operate(Find {
             active: false,
             scrollable_id: scrollable,
@@ -2434,7 +2484,7 @@ pub mod keyed {
         pub time: Option<message::Time>,
     }
 
-    impl Operation<Hit> for Find {
+    impl Operation<Option<Hit>> for Find {
         fn scrollable(
             &mut self,
             id: Option<&widget::Id>,
@@ -2457,7 +2507,7 @@ pub mod keyed {
 
         fn traverse(
             &mut self,
-            operate: &mut dyn FnMut(&mut dyn Operation<Hit>),
+            operate: &mut dyn FnMut(&mut dyn Operation<Option<Hit>>),
         ) {
             operate(self);
         }
@@ -2477,18 +2527,17 @@ pub mod keyed {
             }
         }
 
-        fn finish(&self) -> widget::operation::Outcome<Hit> {
-            match self.scrollable.zip(self.hit_bounds).map(
-                |(scrollable, hit_bounds)| Hit {
-                    key: self.key,
-                    time: self.time,
-                    scrollable,
-                    hit_bounds,
-                },
-            ) {
-                Some(hit) => widget::operation::Outcome::Some(hit),
-                None => widget::operation::Outcome::None,
-            }
+        fn finish(&self) -> widget::operation::Outcome<Option<Hit>> {
+            widget::operation::Outcome::Some(
+                self.scrollable.zip(self.hit_bounds).map(
+                    |(scrollable, hit_bounds)| Hit {
+                        key: self.key,
+                        time: self.time,
+                        scrollable,
+                        hit_bounds,
+                    },
+                ),
+            )
         }
     }
 
@@ -2697,7 +2746,7 @@ mod correct_viewport {
                             {
                                 let hit = hit.clone();
                                 move |result| {
-                                    *hit.lock().unwrap() = Some(result);
+                                    *hit.lock().unwrap() = result;
                                 }
                             },
                         );
@@ -3013,6 +3062,7 @@ struct ScrollTo {
     animate: bool,
     align: ScrollAnchor,
     state: ScrollToState,
+    attempts: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
