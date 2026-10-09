@@ -87,7 +87,7 @@ impl Pane {
                 let server = &state.server;
 
                 let state_label = if !clients.status(server).connected() {
-                    Some("(Disconnected)")
+                    Some("(Offline)")
                 } else if !clients.contains_channel(server, &state.target)
                     && !clients.is_channel_join_pending(server, &state.target)
                 {
