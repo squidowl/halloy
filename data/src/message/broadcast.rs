@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use chrono::{DateTime, Utc};
 
 use super::{
-    Content, Direction, Message, Source, Target, kick_text, nickname_text,
+    Content, Direction, Message, Source, Target, nickname_text,
     parse_fragments_with_user, plain, quit_text, source,
 };
 use crate::config::buffer::UsernameFormat;
@@ -289,43 +289,6 @@ pub fn change_host(
     }
 }
 
-pub fn kick(
-    kicker: User,
-    victim: User,
-    reason: Option<String>,
-    channel: target::Channel,
-    config: &Config,
-    casemapping: isupport::CaseMap,
-    server_time: DateTime<Utc>,
-    received_with_server_time: bool,
-) -> Vec<Message> {
-    let cause = Cause::Server(Some(source::Server::new(
-        source::server::Kind::Kick,
-        Some(kicker.nickname().to_owned()),
-        None,
-    )));
-
-    let content = kick_text(
-        kicker,
-        victim,
-        true, // Broadcast of KICK is always ourself
-        &reason,
-        Some(channel),
-        &config.display.direction_arrows,
-        casemapping,
-    );
-
-    expand(
-        [],
-        [],
-        true,
-        cause,
-        content,
-        server_time,
-        received_with_server_time,
-    )
-}
-
 #[derive(Debug, Clone)]
 pub enum Broadcast {
     Connecting,
@@ -357,13 +320,6 @@ pub enum Broadcast {
         ourself: bool,
         logged_in: bool,
         user_channels: Vec<target::Channel>,
-        casemapping: isupport::CaseMap,
-    },
-    Kick {
-        kicker: User,
-        victim: User,
-        reason: Option<String>,
-        channel: target::Channel,
         casemapping: isupport::CaseMap,
     },
     FilehostUploadFailed {
@@ -490,22 +446,6 @@ pub fn into_messages(
                 )
             }
         }
-        Broadcast::Kick {
-            kicker,
-            victim,
-            reason,
-            channel,
-            casemapping,
-        } => message::broadcast::kick(
-            kicker,
-            victim,
-            reason,
-            channel,
-            config,
-            casemapping,
-            server_time,
-            received_with_server_time,
-        ),
         Broadcast::FilehostUploadFailed { error, target } => {
             upload_failed(error, target, server_time)
         }

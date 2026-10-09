@@ -200,6 +200,22 @@ impl Server {
         }
     }
 
+    pub fn channel_muted(
+        &self,
+        channel: &target::Channel,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
+        is_muted(&self.channels, channel.as_normalized_str(), casemapping)
+    }
+
+    pub fn query_muted(
+        &self,
+        query: &target::Query,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
+        is_muted(&self.queries, query.as_normalized_str(), casemapping)
+    }
+
     pub fn connection(
         &self,
         proxy: Option<config::Proxy>,
@@ -423,6 +439,19 @@ impl Muteable {
             ..Self::default()
         }
     }
+}
+
+fn is_muted(
+    muteables: &[Muteable],
+    normalized_name: &str,
+    casemapping: isupport::CaseMap,
+) -> bool {
+    muteables
+        .iter()
+        .find(|muteable| {
+            casemapping.normalize(&muteable.name) == normalized_name
+        })
+        .is_some_and(|muteable| muteable.mute)
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Deserialize)]

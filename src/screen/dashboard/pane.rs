@@ -85,6 +85,22 @@ impl Pane {
                 };
 
                 let server = &state.server;
+
+                let state_label = if !clients.status(server).connected() {
+                    Some("(Offline)")
+                } else if !clients.contains_channel(server, &state.target)
+                    && !clients.is_channel_join_pending(server, &state.target)
+                {
+                    Some("(Parted)")
+                } else {
+                    None
+                };
+
+                let state_text = state_label.map(|label| {
+                    container(text(label).wrapping(Wrapping::None))
+                        .padding(Padding::default().left(5))
+                });
+
                 row![
                     text(display_channel)
                         .style(theme::text::url)
@@ -93,6 +109,7 @@ impl Pane {
                         )
                         .wrapping(Wrapping::None)
                         .ellipsis(text::Ellipsis::End),
+                    state_text,
                     if let Some(mode) =
                         clients.get_channel_mode(&state.server, &state.target)
                     {
@@ -108,7 +125,7 @@ impl Pane {
                         text(format!(" @ {server}"))
                             .wrapping(Wrapping::None)
                             .ellipsis(text::Ellipsis::End)
-                    }
+                    },
                 ]
                 .into()
             }
