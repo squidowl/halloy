@@ -75,6 +75,15 @@ impl SidebarBuffers {
     ) {
         self.dirty = true;
         self.unmark_disconnected(server, channel);
+
+        // rejoining cancels an earlier close
+        if let Some(channels) = self.closing.get_mut(server) {
+            channels.remove(channel);
+
+            if channels.is_empty() {
+                self.closing.remove(server);
+            }
+        }
     }
 
     pub fn forget_closed_channel(
