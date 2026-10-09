@@ -52,6 +52,7 @@ const CHATHISTORY_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 const MODE_REQUEST_DELAY: Duration = Duration::from_millis(600);
 const MODE_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 const TYPING_TIMEOUT: Duration = Duration::from_secs(6);
+const JOIN_TIMEOUT: Duration = Duration::from_secs(10);
 // Upper bound on concurrently open IRCv3 batches. A server opens a batch with
 // `BATCH +<ref>` and must close it with `BATCH -<ref>`; without a ceiling a
 // malicious or buggy server could open batches without ever closing them and
@@ -237,7 +238,7 @@ pub struct Client {
     chathistory_targets_request: Option<ChatHistoryRequest>,
     notification_blackout: NotificationBlackout,
     registration_required_channels: Vec<target::Channel>,
-    pending_joins: HashSet<target::Channel>,
+    pending_joins: HashMap<target::Channel, Instant>,
     bouncer_network_listing: Option<Vec<Server>>,
     isupport: HashMap<isupport::Kind, isupport::Parameter>,
     who_queue: who_queue::WhoQueue,
@@ -307,7 +308,7 @@ impl Client {
                 Instant::now(),
             ),
             registration_required_channels: vec![],
-            pending_joins: HashSet::new(),
+            pending_joins: HashMap::new(),
             bouncer_network_listing: None,
             isupport: HashMap::new(),
             who_queue: who_queue::WhoQueue::new(&config),
@@ -624,7 +625,7 @@ impl Client {
                 self.casemapping(),
             ) && !self.chanmap.contains_key(&channel)
             {
-                self.pending_joins.insert(channel);
+                self.pending_joins.insert(channel, Instant::now());
             }
         }
     }
@@ -638,6 +639,21 @@ impl Client {
                 };
 
                 (code, args)
+            }
+            Command::FAIL(command, _, context, _) if command == "JOIN" => {
+                if let Some(channel) =
+                    context.as_ref().and_then(|context| context.first())
+                    && let Ok(channel) = target::Channel::parse(
+                        channel,
+                        self.chantypes(),
+                        self.statusmsg(),
+                        self.casemapping(),
+                    )
+                {
+                    self.pending_joins.remove(&channel);
+                }
+
+                return;
             }
             _ => return,
         };
@@ -4309,8 +4325,9 @@ impl Client {
 
     pub fn is_join_pending(&self, channel: &target::Channel) -> bool {
         // autojoins go out once registration completes
-        self.pending_joins.contains(channel)
-            || self.registration_required_channels.contains(channel)
+        self.pending_joins
+            .get(channel)
+            .is_some_and(|sent_at| sent_at.elapsed() < JOIN_TIMEOUT)
             || self.registration_step != RegistrationStep::Complete
     }
 
@@ -4555,6 +4572,8 @@ impl Client {
             .values_mut()
             .for_each(|channel| prune_expired_typing(&mut channel.typing));
         prune_expired_querymap(&mut self.querymap);
+        self.pending_joins
+            .retain(|_, sent_at| now.duration_since(*sent_at) < JOIN_TIMEOUT);
 
         for (message, priority) in self.who_queue.tick(
             &self.server,
