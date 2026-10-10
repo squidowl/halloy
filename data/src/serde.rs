@@ -25,7 +25,7 @@ where
         None => Vec::new(),
     };
 
-    if vec.iter().any(|s| s.is_empty()) {
+    if vec.iter().any(std::string::String::is_empty) {
         return Err(serde::de::Error::invalid_value(
             serde::de::Unexpected::Str(""),
             &"non-empty string",
