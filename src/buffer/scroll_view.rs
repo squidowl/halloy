@@ -2647,6 +2647,42 @@ mod correct_viewport {
     use super::{Message, keyed};
     use crate::widget::{Element, Renderer, decorate};
 
+    #[derive(Debug, Default)]
+    struct State {
+        hit: Option<keyed::Hit>,
+        previous_corrections: [Option<Correction>; 2],
+    }
+
+    impl State {
+        fn is_recorded_correction(&self, correction: Correction) -> bool {
+            self.previous_corrections.iter().any(|maybe_correction| {
+                maybe_correction.is_some_and(|previous_correction| {
+                    previous_correction == correction
+                })
+            })
+        }
+
+        fn record_correction(&mut self, correction: Correction) {
+            self.previous_corrections[1] = self.previous_corrections[0];
+            self.previous_corrections[0] = Some(correction);
+        }
+    }
+
+    #[derive(Debug, Clone, Copy)]
+    struct Correction {
+        key: keyed::Key,
+        offset_y: f32,
+    }
+
+    impl PartialEq for Correction {
+        fn eq(&self, other: &Self) -> bool {
+            self.key == other.key
+                && (self.offset_y - other.offset_y).abs() <= f32::EPSILON
+        }
+    }
+
+    impl Eq for Correction {}
+
     fn corrected_offset(old: &keyed::Hit, new: &keyed::Hit) -> f32 {
         let within_row = (old.scrollable.bounds.y
             - (old.hit_bounds.y - old.scrollable.translation.y))
@@ -2668,7 +2704,7 @@ mod correct_viewport {
         decorate(inner)
             .update({
                 let scrollable = scrollable.clone();
-                move |state: &mut Option<keyed::Hit>,
+                move |state: &mut State,
                       inner: &mut Element<'a, Message>,
                       tree: &mut advanced::widget::Tree,
                       event: &iced::Event,
@@ -2684,7 +2720,7 @@ mod correct_viewport {
 
                     // Check if top-of-viewport element has shifted since we
                     // last scrolled and adjust
-                    if let (true, true, Some(old)) = (enabled, is_redraw, &state)
+                    if let (true, true, Some(old)) = (enabled, is_redraw, &state.hit)
                         && let Some(key) = resolve(old.key, old.time)
                     {
                         let hit = Arc::new(Mutex::new(None));
@@ -2718,21 +2754,29 @@ mod correct_viewport {
                         {
                             // Something shifted this, let's put it back to the
                             // top of the viewport
-                            if new.hit_bounds != old.hit_bounds || new.key != old.key {
+                            if new.hit_bounds.y != old.hit_bounds.y || new.key != old.key {
                                 let new_offset = corrected_offset(old, &new);
 
-                                let mut operation = scrollable::scroll_to(
-                                    scrollable.clone(),
-                                    scrollable::AbsoluteOffset {
-                                        x: None,
-                                        y: Some(new_offset),
-                                    },
-                                    widget::operation::Animation::Instant,
-                                );
-                                inner
-                                    .as_widget_mut()
-                                    .operate(tree, layout, viewport, renderer, &mut operation);
-                                operation.finish();
+                                let correction = Correction {
+                                    key: old.key,
+                                    offset_y: new_offset,
+                                };
+
+                                if !state.is_recorded_correction(correction) {
+                                    state.record_correction(correction);
+                                    let mut operation = scrollable::scroll_to(
+                                        scrollable.clone(),
+                                        scrollable::AbsoluteOffset {
+                                            x: None,
+                                            y: Some(new_offset),
+                                        },
+                                        widget::operation::Animation::Instant,
+                                    );
+                                    inner
+                                        .as_widget_mut()
+                                        .operate(tree, layout, viewport, renderer, &mut operation);
+                                    operation.finish();
+                                }
                             }
                         }
                     }
@@ -2798,14 +2842,14 @@ mod correct_viewport {
                         operation.finish();
                         drop(operation);
 
-                        *state = Arc::into_inner(hit)
+                        state.hit = Arc::into_inner(hit)
                             .and_then(|m| m.into_inner().ok())
                             .flatten();
                     }
                 }
             })
             .operate(
-                move |state: &mut Option<keyed::Hit>,
+                move |state: &mut State,
                       inner: &mut Element<'a, Message>,
                       tree: &mut advanced::widget::Tree,
                       layout: advanced::Layout,
@@ -2846,7 +2890,7 @@ mod correct_viewport {
                         operation.finish();
                         drop(operation);
 
-                        *state = Arc::into_inner(hit)
+                        state.hit = Arc::into_inner(hit)
                             .and_then(|m| m.into_inner().ok())
                             .flatten();
                     }
