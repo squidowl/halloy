@@ -118,7 +118,7 @@ pub struct VisibleMessageRange {
 pub enum Event {
     ContextMenu(context_menu::Event),
     OpenBuffer(Server, Target, BufferAction),
-    GoToMessage(Server, target::Channel, message::MessageLink, BufferAction),
+    GoToMessage(buffer::Upstream, message::MessageLink, BufferAction),
     RequestOlderChathistory,
     PreviewChanged,
     HidePreview(history::Kind, history::Id, message::Time, url::Url),
@@ -1192,16 +1192,14 @@ impl State {
                 return (Task::none(), event);
             }
             Message::Link(message::Link::GoToMessage(
-                server,
-                channel,
+                buffer,
                 message,
                 buffer_action,
             )) => {
                 return (
                     Task::none(),
                     Some(Event::GoToMessage(
-                        server,
-                        channel,
+                        buffer,
                         message,
                         buffer_action.unwrap_or_default(),
                     )),
