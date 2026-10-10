@@ -12,6 +12,7 @@ Added:
 - Highlight matches can be optionally named via the `name` property
 - Search buffer to search messages across all servers, channels and queries, opened from the command bar, sidebar menu, a nickname's context menu, the `search` key binding or `/search`
 - Setting `runtime.smooth_scrolling` to control whether smooth scrolling is used
+- Notification and highlights matches `sound` property now accept an array of sounds, in which case they'll be picked at random
 
 Fixed:
 
@@ -36,7 +37,8 @@ Thanks:
 
 - Contributions: @httpsterio, @oooo-ps
 - Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768, @WinnerWind, @strafe
-- Feature requests: @ainola, @kalebris, @sf302
+- Feature requests: @ainola, @kalebris, @sf302, @ToyKeeper
+- Contributions: @httpsterio
 
 # 2026.9 (2026-09-29)
 
