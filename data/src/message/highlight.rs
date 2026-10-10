@@ -10,9 +10,11 @@ pub struct Highlight {
 
 #[derive(Debug, Clone)]
 pub enum Kind {
-    Nick,
+    Nick {
+        sounds: Vec<String>,
+    },
     Match {
         matching: String,
-        sound: Option<String>,
+        sounds: Vec<String>,
     },
 }
