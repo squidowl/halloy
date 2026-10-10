@@ -14,6 +14,7 @@ Fixed:
 - Colored emojis are now preferred over outline ones
 - Send a message with enter when autocomplete tooltip is not visible (i.e. don't have to press enter twice when just autocompleted a nickname)
 - Crash when right clicking a message in the server buffer
+- ZNC-service style nicks (e.g. `*status`, `*grep`, etc) are not automatically routed to the server buffer
 
 Changed:
 
@@ -22,7 +23,7 @@ Changed:
 Thanks:
 
 - Contributions: @httpsterio
-- Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768
+- Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768, WinnerWind
 - Feature requests: @ainola
 
 # 2026.9 (2026-09-29)
