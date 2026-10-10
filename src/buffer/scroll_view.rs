@@ -1027,7 +1027,9 @@ impl State {
 
                         self.limit = Limit::Around(count, end_history_id);
                     }
-                } else if old_status.is_bottom(relative_offset) {
+                } else if old_status.is_bottom(relative_offset)
+                    && !has_more_newer_messages
+                {
                     // Hit bottom, anchor it
 
                     if !matches!(self.status, Status::Bottom)
@@ -1054,7 +1056,9 @@ impl State {
 
                         self.limit = Limit::Around(count, start_history_id);
                     }
-                } else if old_status.is_top(relative_offset) {
+                } else if old_status.is_top(relative_offset)
+                    && !has_more_older_messages
+                {
                     // Hit top
 
                     // If we're infinite scroll & out of messages, load more via chathistory
