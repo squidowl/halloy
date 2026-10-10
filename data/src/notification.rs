@@ -18,7 +18,7 @@ pub enum Notification {
         casemapping: isupport::CaseMap,
         message: String,
         description: String,
-        sound: Option<String>,
+        sound: Vec<String>,
     },
     FileTransferRequest {
         nick: Nick,

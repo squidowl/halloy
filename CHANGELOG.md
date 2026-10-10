@@ -5,6 +5,7 @@ Added:
 - Added Gopher(+s) / Gemini protocol schemes (make links clickable)
 - Added `buffer.text_input.upload_long_paste` to automatically use filehost in case pasted text is too long
 - Right-clickable text in the server buffer now offers a context menu
+- Notification and highlights matches `sound` property now accept an array of sounds, in which case they'll be picked at random
 
 Fixed:
 
@@ -23,7 +24,7 @@ Thanks:
 
 - Contributions: @httpsterio
 - Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768
-- Feature requests: @ainola
+- Feature requests: @ainola, @ToyKeeper
 
 # 2026.9 (2026-09-29)
 

@@ -2045,12 +2045,12 @@ pub fn parse_fragments_with_highlights(
                                 let set_highlight_kind =
                                     if highlight_kind.is_none() {
                                         true
-                                    } else if sound.is_some()
+                                    } else if !sound.is_empty()
                                         && let Some(highlight::Kind::Match {
                                             sound: highlight_kind_sound,
                                             ..
                                         }) = &highlight_kind
-                                        && highlight_kind_sound.is_none()
+                                        && highlight_kind_sound.is_empty()
                                     {
                                         true
                                     } else {

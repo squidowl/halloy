@@ -4,6 +4,7 @@ use serde::{Deserialize, Deserializer};
 
 use crate::config::inclusivities::{Inclusivities, is_target_included};
 use crate::isupport;
+use crate::serde::deserialize_string_or_vec;
 use crate::server::Server;
 use crate::target::TargetRef;
 use crate::user::User;
@@ -58,7 +59,7 @@ pub struct Match {
     pub regex: Regex,
     pub exclude: Option<Inclusivities>,
     pub include: Option<Inclusivities>,
-    pub sound: Option<String>,
+    pub sound: Vec<String>,
 }
 
 impl<'de> Deserialize<'de> for Match {
@@ -78,7 +79,8 @@ impl<'de> Deserialize<'de> for Match {
                 #[serde(default)]
                 case_insensitive: bool,
                 #[serde(default)]
-                sound: Option<String>,
+                #[serde(deserialize_with = "deserialize_string_or_vec")]
+                sound: Vec<String>,
             },
             Regex {
                 regex: String,
@@ -87,7 +89,8 @@ impl<'de> Deserialize<'de> for Match {
                 #[serde(default)]
                 include: Option<Inclusivities>,
                 #[serde(default)]
-                sound: Option<String>,
+                #[serde(deserialize_with = "deserialize_string_or_vec")]
+                sound: Vec<String>,
             },
         }
 
