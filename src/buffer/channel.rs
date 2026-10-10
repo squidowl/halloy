@@ -835,6 +835,7 @@ mod nick_list {
             } else {
                 theme::scrollable::primary
             })
+            .smooth_scroll(config.runtime.smooth_scrolling)
             .into()
     }
 }

@@ -964,13 +964,12 @@ impl Sidebar {
                                 )
                                 .spacing(4)
                         ))
-                        .style(
-                            if config.sidebar.scrollbar.hidden {
-                                theme::scrollable::hidden
-                            } else {
-                                theme::scrollable::primary
-                            }
-                        )
+                        .style(if config.sidebar.scrollbar.hidden {
+                            theme::scrollable::hidden
+                        } else {
+                            theme::scrollable::primary
+                        })
+                        .smooth_scroll(config.runtime.smooth_scrolling)
                     ];
 
                     // Wrap buffers in a column with user_menu_button
@@ -997,13 +996,12 @@ impl Sidebar {
                                 )
                                 .spacing(4)
                         ))
-                        .style(
-                            if config.sidebar.scrollbar.hidden {
-                                theme::scrollable::hidden
-                            } else {
-                                theme::scrollable::primary
-                            }
-                        )
+                        .style(if config.sidebar.scrollbar.hidden {
+                            theme::scrollable::hidden
+                        } else {
+                            theme::scrollable::primary
+                        })
+                        .smooth_scroll(config.runtime.smooth_scrolling)
                     ];
 
                     // Wrap buffers in a row with user_menu_button
