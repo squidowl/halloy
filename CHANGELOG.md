@@ -23,7 +23,7 @@ Changed:
 Thanks:
 
 - Contributions: @httpsterio
-- Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768, WinnerWind
+- Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768, @WinnerWind
 - Feature requests: @ainola
 
 # 2026.9 (2026-09-29)
