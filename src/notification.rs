@@ -9,7 +9,7 @@ use data::config::notification;
 use data::user::Nick;
 use data::{Config, Notification, Server, User, list_format};
 use iced::Task;
-use rand::seq::IteratorRandom;
+use rand::prelude::*;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 
@@ -584,11 +584,10 @@ impl Notifications {
             });
         }
 
-        let sound_name = if sound_names.is_empty() {
-            config.sound.iter().choose(&mut rand::rng())
-        } else {
-            sound_names.iter().choose(&mut rand::rng())
-        };
+        let mut rng = rand::rng();
+        let sound_name = sound_names
+            .choose(&mut rng)
+            .or_else(|| config.sound.choose(&mut rng));
 
         if let Some(sound) =
             sound_name.and_then(|sound_name| self.sounds.get(sound_name))
