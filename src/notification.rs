@@ -9,6 +9,7 @@ use data::config::notification;
 use data::user::Nick;
 use data::{Config, Notification, Server, User, list_format};
 use iced::Task;
+use rand::seq::IteratorRandom;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 
@@ -120,7 +121,8 @@ impl Notifications {
                 .highlights
                 .matches
                 .iter()
-                .filter_map(|highlight_match| highlight_match.sound.as_deref()),
+                .flat_map(|highlight_match| &highlight_match.sound)
+                .map(String::as_str),
         )
     }
 
@@ -130,14 +132,14 @@ impl Notifications {
         notification: &Notification,
         server: &Server,
     ) {
-        let (notification_config, title, subtitle, body, sound_name, buffer) =
+        let (notification_config, title, subtitle, body, sound_names, buffer) =
             match notification {
                 Notification::Connected => (
                     &config.notifications.connected,
                     "Connected".to_string(),
                     None,
                     server.to_string(),
-                    None,
+                    vec![],
                     None,
                 ),
                 Notification::Disconnected => (
@@ -145,7 +147,7 @@ impl Notifications {
                     "Disconnected".to_string(),
                     None,
                     server.to_string(),
-                    None,
+                    vec![],
                     None,
                 ),
                 Notification::Reconnected => (
@@ -153,7 +155,7 @@ impl Notifications {
                     "Reconnected".to_string(),
                     None,
                     server.to_string(),
-                    None,
+                    vec![],
                     None,
                 ),
                 Notification::MonitoredOnline(targets) => (
@@ -168,7 +170,7 @@ impl Notifications {
                     list_format::join(
                         &targets.iter().map(User::as_str).collect::<Vec<_>>(),
                     ),
-                    None,
+                    vec![],
                     None,
                 ),
                 Notification::MonitoredOffline(targets) => (
@@ -183,7 +185,7 @@ impl Notifications {
                     list_format::join(
                         &targets.iter().map(Nick::as_str).collect::<Vec<_>>(),
                     ),
-                    None,
+                    vec![],
                     None,
                 ),
                 Notification::FileTransferRequest {
@@ -224,7 +226,7 @@ impl Notifications {
                             title,
                             subtitle,
                             body,
-                            None,
+                            vec![],
                             Some(Buffer::Internal(
                                 buffer::Internal::FileTransfers,
                             )),
@@ -270,7 +272,7 @@ impl Notifications {
                             title,
                             subtitle,
                             body,
-                            None,
+                            vec![],
                             Some(Buffer::Upstream(buffer::Upstream::Query(
                                 server.clone(),
                                 user.into(),
@@ -361,7 +363,7 @@ impl Notifications {
                                     format!("{channel}, {server}")
                                 }),
                                 message.to_owned(),
-                                None,
+                                vec![],
                                 Some(buffer),
                             )
                         } else {
@@ -372,7 +374,7 @@ impl Notifications {
                                 format!(
                                     "Sent a message in {channel} ({server})"
                                 ),
-                                None,
+                                vec![],
                                 Some(buffer),
                             )
                         }
@@ -455,7 +457,7 @@ impl Notifications {
                             title,
                             subtitle,
                             body,
-                            None,
+                            vec![],
                             Some(buffer),
                         )
                     } else {
@@ -490,7 +492,7 @@ impl Notifications {
                                     format!("{channel}, {server}")
                                 }),
                                 message.to_owned(),
-                                None,
+                                vec![],
                                 Some(buffer),
                             )
                         } else {
@@ -501,7 +503,7 @@ impl Notifications {
                                 format!(
                                     "replied to you in {channel} ({server})"
                                 ),
-                                None,
+                                vec![],
                                 Some(buffer),
                             )
                         }
@@ -527,7 +529,7 @@ impl Notifications {
             &title,
             subtitle.as_deref(),
             &body,
-            sound_name.as_deref(),
+            &sound_names,
             buffer,
         );
     }
@@ -540,7 +542,7 @@ impl Notifications {
         title: &str,
         subtitle: Option<&str>,
         body: &str,
-        sound_name: Option<&str>,
+        sound_names: &[String],
         buffer: Option<Buffer>,
     ) {
         let now = Utc::now();
@@ -582,9 +584,14 @@ impl Notifications {
             });
         }
 
-        if let Some(sound) = sound_name
-            .or(config.sound.as_deref())
-            .and_then(|sound_name| self.sounds.get(sound_name))
+        let sound_name = if sound_names.is_empty() {
+            config.sound.iter().choose(&mut rand::rng())
+        } else {
+            sound_names.iter().choose(&mut rand::rng())
+        };
+
+        if let Some(sound) =
+            sound_name.and_then(|sound_name| self.sounds.get(sound_name))
             && self
                 .audio
                 .as_ref()

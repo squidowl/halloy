@@ -123,14 +123,16 @@ the `sounds` folder within the [configuration directory](/configuration#director
 [notifications](/configuration/notifications#sound) for a list of all built-in
 sounds.
 
+When multiple sounds are specified, Halloy will randomly select one each time the notification is triggered.
+
 ```toml
-# Type: string
-# Values: see above for built-in sounds, eg: "sing" or external sound.
+# Type: string or array of strings
+# Values: `"<string>"`, `["<string>", "<string>"]` see above for built-in sounds, eg: "sing" or external sound.
 # Default: not set
 
 [[highlights.match]]
 words = ["word1", "word2", "word3"]
-sound = "sing"
+sound = ["sing", "peck"]
 ```
 
 ## `nickname`

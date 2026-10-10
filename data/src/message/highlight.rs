@@ -13,6 +13,6 @@ pub enum Kind {
     Nick,
     Match {
         matching: String,
-        sound: Option<String>,
+        sound: Vec<String>,
     },
 }

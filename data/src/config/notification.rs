@@ -7,6 +7,7 @@ use crate::config::inclusivities::{
     Inclusivities, is_user_channel_server_included,
 };
 use crate::isupport;
+use crate::serde::deserialize_string_or_vec;
 use crate::server::Server;
 use crate::target::Channel;
 use crate::user::User;
@@ -17,7 +18,8 @@ pub struct Notification {
     pub show_toast: bool,
     pub request_attention: bool,
     pub show_content: bool,
-    pub sound: Option<String>,
+    #[serde(deserialize_with = "deserialize_string_or_vec")]
+    pub sound: Vec<String>,
     pub delay: Option<u32>,
     pub exclude: Option<Inclusivities>,
     pub include: Option<Inclusivities>,
@@ -29,7 +31,7 @@ impl Default for Notification {
             show_toast: false,
             request_attention: false,
             show_content: false,
-            sound: None,
+            sound: Vec::new(),
             delay: Some(500),
             exclude: None,
             include: None,
@@ -94,38 +96,26 @@ impl Notifications {
         };
 
         // Load sounds from each notification
-        if let Some(sound_name) = self.connected.sound.as_deref() {
+        let notifications = [
+            &self.connected,
+            &self.disconnected,
+            &self.reconnected,
+            &self.direct_message,
+            &self.highlight,
+            &self.file_transfer_request,
+            &self.monitored_online,
+            &self.monitored_offline,
+            &self.reaction,
+        ];
+
+        for sound_name in notifications
+            .into_iter()
+            .chain(self.channels.values())
+            .flat_map(|notification| &notification.sound)
+        {
             load_and_insert(sound_name);
         }
-        if let Some(sound_name) = self.disconnected.sound.as_deref() {
-            load_and_insert(sound_name);
-        }
-        if let Some(sound_name) = self.reconnected.sound.as_deref() {
-            load_and_insert(sound_name);
-        }
-        if let Some(sound_name) = self.direct_message.sound.as_deref() {
-            load_and_insert(sound_name);
-        }
-        if let Some(sound_name) = self.highlight.sound.as_deref() {
-            load_and_insert(sound_name);
-        }
-        if let Some(sound_name) = self.file_transfer_request.sound.as_deref() {
-            load_and_insert(sound_name);
-        }
-        if let Some(sound_name) = self.monitored_online.sound.as_deref() {
-            load_and_insert(sound_name);
-        }
-        if let Some(sound_name) = self.monitored_offline.sound.as_deref() {
-            load_and_insert(sound_name);
-        }
-        if let Some(sound_name) = self.reaction.sound.as_deref() {
-            load_and_insert(sound_name);
-        }
-        for notification in self.channels.values() {
-            if let Some(sound_name) = notification.sound.as_deref() {
-                load_and_insert(sound_name);
-            }
-        }
+
         for sound_name in highlight_matches_sounds {
             load_and_insert(sound_name);
         }

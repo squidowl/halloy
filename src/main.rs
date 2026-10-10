@@ -2521,7 +2521,7 @@ fn handle_highlight(
     {
         let (description, sound) = match highlight_kind {
             message::highlight::Kind::Nick => {
-                ("highlighted you".to_string(), None)
+                ("highlighted you".to_string(), Vec::new())
             }
             message::highlight::Kind::Match { matching, sound } => {
                 (format!("matched highlight {matching}"), sound)
