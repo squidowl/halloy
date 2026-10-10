@@ -1,7 +1,7 @@
 use std::borrow::Cow;
-use std::collections::HashSet;
 
 use data::{Config, message};
+use hashbrown::HashSet;
 use iced::widget::{
     Scrollable, button, column, container, operation, scrollable, text_input,
 };

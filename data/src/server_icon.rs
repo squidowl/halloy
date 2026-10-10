@@ -1,7 +1,7 @@
-use std::collections::HashMap;
 use std::io;
 use std::sync::Arc;
 
+use hashbrown::HashMap;
 use iced::Task;
 use reqwest::header;
 use sha2::{Digest, Sha256};

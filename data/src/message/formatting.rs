@@ -1,6 +1,6 @@
-use std::collections::HashSet;
 use std::{fmt, mem};
 
+use hashbrown::HashSet;
 use iced_core::color;
 use serde::{Deserialize, Serialize};
 

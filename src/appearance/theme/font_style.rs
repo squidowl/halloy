@@ -42,7 +42,7 @@ pub fn server(
 ) -> Option<FontStyle> {
     let styles = theme.styles().buffer.server_messages;
     server
-        .and_then(|server| match server.kind() {
+        .and_then(|server| match server.kind {
             Kind::Join => styles.join.font_style,
             Kind::Part => styles.part.font_style,
             Kind::Quit => styles.quit.font_style,

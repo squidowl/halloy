@@ -22,6 +22,7 @@ license = "GPL-3.0-or-later"
 edition = "2024"
 
 [workspace.dependencies]
+hashbrown = { version = "0.17", features = ['serde'] }
 tokio = { version = "1.52.3" }
 futures = "0.3.32"
 thiserror = "2.0.18"
@@ -57,6 +58,7 @@ nom = "8.0"
 percent-encoding = "2.3.2"
 
 [dependencies]
+hashbrown = { workspace = true }
 tokio = { workspace = true, features = ["rt", "fs", "process"] }
 futures = { workspace = true }
 thiserror = { workspace = true }

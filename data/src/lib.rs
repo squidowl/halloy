@@ -8,7 +8,7 @@ pub use self::dashboard::Dashboard;
 pub use self::image::Image;
 pub use self::input::Input;
 pub use self::known_filehosts::KnownFilehosts;
-pub use self::message::Message;
+pub use self::message::{Message, MessageDisplay, MessageWithContext};
 pub use self::mode::Mode;
 pub use self::notification::Notification;
 pub use self::pane::Pane;
