@@ -14,15 +14,14 @@ where
 {
     #[derive(Deserialize)]
     #[serde(untagged)]
-    enum StringOrVec {
+    enum Inner {
         String(String),
         Vec(Vec<String>),
     }
 
-    let vec = match Option::<StringOrVec>::deserialize(deserializer)? {
-        Some(StringOrVec::String(sound)) => vec![sound],
-        Some(StringOrVec::Vec(sounds)) => sounds,
-        None => Vec::new(),
+    let vec = match Inner::deserialize(deserializer)? {
+        Inner::String(sound) => vec![sound],
+        Inner::Vec(sounds) => sounds,
     };
 
     if vec.iter().any(std::string::String::is_empty) {
