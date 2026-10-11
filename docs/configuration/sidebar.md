@@ -272,6 +272,17 @@ title = false
 
 Changes the icon which appears when unread messages are present. To disable use `"none"`.
 
+| Name         | Icon                                                                                              |
+| ------------ | :-----------------------------------------------------------------------------------------------: |
+| dot          | ![dot](../images/unread-indicators/fontawesome-circle.svg){width=12px height=12px}                |
+| circle-empty | ![circle-empty](../images/unread-indicators/fontawesome-circle-empty.svg){width=12px height=12px} |
+| dot-circled  | ![dot-circled](../images/unread-indicators/fontawesome-dot-circled.svg){width=12px height=12px}   |
+| certificate  | ![certificate](../images/unread-indicators/fontawesome-certificate.svg){width=12px height=12px}   |
+| asterisk     | ![asterisk](../images/unread-indicators/fontawesome-asterisk.svg){width=12px height=12px}         |
+| speaker      | ![speaker](../images/unread-indicators/entypo-sound.svg){width=12px height=12px}                  |
+| lightbulb    | ![lightbulb](../images/unread-indicators/fontawesome-lightbulb.svg){width=12px height=12px}       |
+| star         | ![star](../images/unread-indicators/fontawesome-star.svg){width=12px height=12px}                 |
+
 ```toml
 # Type: string
 # Values: "dot", "circle-empty", "dot-circled", "certificate", "asterisk", "speaker", "lightbulb", "star", "none"
@@ -380,6 +391,17 @@ title = false
 ### `icon`
 
 Changes the icon which appears when unread highlights are present. To disable use `"none"`.
+
+| Name         | Icon                                                                                                 |
+| ------------ | :--------------------------------------------------------------------------------------------------: |
+| dot          | ![dot](../images/highlight-indicators/fontawesome-circle.svg){width=12px height=12px}                |
+| circle-empty | ![circle-empty](../images/highlight-indicators/fontawesome-circle-empty.svg){width=12px height=12px} |
+| dot-circled  | ![dot-circled](../images/highlight-indicators/fontawesome-dot-circled.svg){width=12px height=12px}   |
+| certificate  | ![certificate](../images/highlight-indicators/fontawesome-certificate.svg){width=12px height=12px}   |
+| asterisk     | ![asterisk](../images/highlight-indicators/fontawesome-asterisk.svg){width=12px height=12px}         |
+| speaker      | ![speaker](../images/highlight-indicators/entypo-sound.svg){width=12px height=12px}                  |
+| lightbulb    | ![lightbulb](../images/highlight-indicators/fontawesome-lightbulb.svg){width=12px height=12px}       |
+| star         | ![star](../images/highlight-indicators/fontawesome-star.svg){width=12px height=12px}                 |
 
 ```toml
 # Type: string
