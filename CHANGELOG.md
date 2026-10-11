@@ -19,6 +19,7 @@ Fixed:
 - Send a message with enter when autocomplete tooltip is not visible (i.e. don't have to press enter twice when just autocompleted a nickname)
 - Crash when right clicking a message in the server buffer
 - Message drafts for sent messages sometimes being restored after restart (instead of being cleared)
+- Scroll position being lost when showing the typing indicator with `buffer.typing.style = "popped"`
 
 Changed:
 
