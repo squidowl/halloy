@@ -154,13 +154,14 @@ fn user(input: &str) -> IResult<&str, User> {
     let strict_nick =
         recognize(pair(none_of("$:. ,*?!@"), many0_count(none_of(":. ,*?!@"))));
     // Expand allowed nicknames by allowing '.' (anywhere) and ':' (anywhere
-    // except the start), as prescribed by HorseDocs.  Expand only when the
-    // nickname is terminated by '!' and contains both '.' and ':' or neither,
-    // so the expansion does not falsely matching server IPs or hostnames).
-    // Typically needed by bridges.
+    // except the start), as prescribed by HorseDocs.  Also allow '*' as the
+    // starting character for ZNC services.  Expand only when the nickname is
+    // terminated by '!' and contains both '.' and ':' or neither, so the
+    // expansion does not falsely matching server IPs or hostnames). Typically
+    // needed by bridges.
     let expanded_nick = verify(
         recognize(terminated(
-            pair(none_of("$: ,*?!"), many0_count(none_of(" ,*?!"))),
+            pair(none_of("$: ,?!"), many0_count(none_of(" ,*?!"))),
             peek(char('!')),
         )),
         |s: &str| s.contains(':') == s.contains('.'),
@@ -213,6 +214,7 @@ mod test {
             "Ἀλέξανδρος!greek@localhost",
             "Володи́мир!cyrillic@localhost",
             "🐶Woof🐶!emoji@localhost",
+            "*status!status@znc.in",
         ];
 
         for test in tests {
