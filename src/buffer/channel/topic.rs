@@ -203,7 +203,8 @@ pub fn view<'a>(
     .direction(scrollable::Direction::Vertical(
         scrollable::Scrollbar::new().width(1).scroller_width(1),
     ))
-    .style(theme::scrollable::hidden);
+    .style(theme::scrollable::hidden)
+    .smooth_scroll(config.runtime.smooth_scrolling);
 
     // Use double pass to limit layout to `max_lines` of text
     column![

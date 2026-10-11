@@ -887,6 +887,7 @@ pub fn view<'a>(
             } else {
                 theme::scrollable::primary
             })
+            .smooth_scroll(config.runtime.smooth_scrolling)
             .on_scroll(move |scroll| Message::Scrolled {
                 limit,
                 visible_message_range,
