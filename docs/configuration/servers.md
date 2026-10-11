@@ -1287,7 +1287,7 @@ Logs of **all** IRC messages received from and sent to and the server (logged me
 * macOS: `~/Library/Application Support/halloy/irc_protocol_logs/<name>/` or `$HOME/.local/share/halloy/irc_protocol_logs/<name>/`
 * Linux: `$XDG_DATA_HOME/halloy/irc_protocol_logs/<name>/`, `$HOME/.local/share/halloy/irc_protocol_logs/<name>/`, or `$HOME/.var/app/org.squidowl.halloy/data/halloy/irc_protocol_logs/<name>/` (Flatpak)
 
-::: Info
+::: info
 In case the server is connected via a bouncer the server logs directory will be nested under the bouncer name.
 :::
 
