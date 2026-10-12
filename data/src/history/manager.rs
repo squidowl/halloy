@@ -383,7 +383,6 @@ impl Manager {
     }
 
     pub fn set_filters(&mut self, mut new_filters: Vec<Filter>) {
-        self.data.sidebar_queries_changed = true;
         self.filters.clear();
         self.filters.append(&mut new_filters);
         log::debug!(
@@ -392,7 +391,6 @@ impl Manager {
     }
 
     pub fn get_filters_mut(&mut self) -> &mut Vec<Filter> {
-        self.data.sidebar_queries_changed = true;
         &mut self.filters
     }
 
@@ -424,7 +422,6 @@ impl Manager {
         server_messages_config: &config::buffer::ServerMessages,
     ) -> Option<impl Future<Output = Message> + use<>> {
         self.sidebar_buffers.forget_closed_channel(&kind, clients);
-        self.data.sidebar_queries_changed = true;
 
         let history = self.data.map.remove(&kind)?;
         let seed = clients.get_seed(&kind);
@@ -439,8 +436,6 @@ impl Manager {
     }
 
     pub fn open(&mut self, kind: history::Kind) {
-        self.data.sidebar_queries_changed = true;
-
         let history = self
             .data
             .map
@@ -927,10 +922,6 @@ impl Manager {
         clients: &client::Map,
         remember_buffers: bool,
     ) -> bool {
-        if std::mem::take(&mut self.data.sidebar_queries_changed) {
-            self.sidebar_buffers.mark_dirty();
-        }
-
         self.sidebar_buffers.update_saved(
             sidebar_queries(&self.data.map, &self.filters),
             clients,
@@ -1663,7 +1654,6 @@ fn sidebar_queries<'a>(
 struct Data {
     map: HashMap<history::Kind, History>,
     input: input::Storage,
-    sidebar_queries_changed: bool,
 }
 
 impl Data {
@@ -1676,9 +1666,6 @@ impl Data {
         buffer_config: &config::Buffer,
     ) {
         use std::collections::hash_map;
-
-        self.sidebar_queries_changed |=
-            matches!(kind, history::Kind::Query(..));
 
         let history::Loaded {
             mut messages,
@@ -1959,20 +1946,13 @@ impl Data {
             message.reply_preview = Some(reply_target.as_reply_preview());
         }
 
-        let is_query = matches!(kind, history::Kind::Query(..));
-
         match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
-                let was_shown = entry.get().shown_in_sidebar();
-
                 let read_marker = entry.get_mut().add_message(
                     message,
                     labeled_response_context,
                     server_messages_config,
                 );
-
-                self.sidebar_queries_changed |=
-                    is_query && was_shown != entry.get().shown_in_sidebar();
 
                 // Update the read marker immediately so the split is correct
                 if let Some(read_marker) = read_marker
@@ -1992,16 +1972,12 @@ impl Data {
                 }
             }
             hash_map::Entry::Vacant(entry) => {
-                let history = entry.insert(History::partial(kind.clone()));
-
-                let _ = history.add_message(
-                    message,
-                    labeled_response_context,
-                    server_messages_config,
-                );
-
-                self.sidebar_queries_changed |=
-                    is_query && history.shown_in_sidebar();
+                let _ =
+                    entry.insert(History::partial(kind.clone())).add_message(
+                        message,
+                        labeled_response_context,
+                        server_messages_config,
+                    );
 
                 Some(
                     async move {
