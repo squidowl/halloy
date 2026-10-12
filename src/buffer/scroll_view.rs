@@ -1270,16 +1270,9 @@ impl State {
                         ScrollAnchor::Bottom => inset,
                     };
 
-                let fully_within_inset_viewport = match align {
-                    ScrollAnchor::Top => {
-                        content_top >= viewport_top_inset
-                            && content_bottom <= viewport_bottom_inset
-                    }
-                    ScrollAnchor::Bottom => {
-                        content_top >= viewport_top_inset
-                            && content_bottom <= viewport_bottom_inset
-                    }
-                };
+                let fully_within_inset_viewport = content_top
+                    >= viewport_top_inset
+                    && content_bottom <= viewport_bottom_inset;
                 let covers_viewport = content_top <= viewport_top
                     && content_bottom >= viewport_bottom;
 
@@ -1957,6 +1950,13 @@ impl State {
         animate: bool,
         align: ScrollAnchor,
     ) -> Task<Message> {
+        let message_scroll_to = ScrollTo {
+            key: keyed::Key::Message(history_id),
+            animate,
+            align,
+            state: ScrollToState::Pending,
+        };
+
         let (old_messages, new_messages) = if let Some(model::View {
             old_messages,
             new_messages,
@@ -1970,12 +1970,7 @@ impl State {
         } else {
             // We're still loading history, set pending scroll_to to scroll to
             // the target message.
-            self.scroll_to = Some(ScrollTo {
-                key: keyed::Key::Message(history_id),
-                animate,
-                align,
-                state: ScrollToState::Pending,
-            });
+            self.scroll_to = Some(message_scroll_to);
 
             return Task::perform(time::sleep(SCROLL_TO_TIMEOUT), move |()| {
                 Message::PendingScrollTo
@@ -1996,12 +1991,7 @@ impl State {
             // model limit has just been set to ensure the target message is in
             // the history when it loads, so set the pending scroll_to to scroll
             // to the target message.
-            self.scroll_to = Some(ScrollTo {
-                key: keyed::Key::Message(history_id),
-                animate,
-                align,
-                state: ScrollToState::Pending,
-            });
+            self.scroll_to = Some(message_scroll_to);
 
             return Task::perform(time::sleep(SCROLL_TO_TIMEOUT), move |()| {
                 Message::PendingScrollTo
@@ -2048,21 +2038,14 @@ impl State {
             };
 
             self.scroll_to = Some(ScrollTo {
-                key: keyed::Key::Message(history_id),
-                animate,
-                align,
                 state: scroll_to_state,
+                ..message_scroll_to
             });
 
             return task;
         }
 
-        self.scroll_to = Some(ScrollTo {
-            key: keyed::Key::Message(history_id),
-            animate,
-            align,
-            state: ScrollToState::Pending,
-        });
+        self.scroll_to = Some(message_scroll_to);
 
         Task::perform(time::sleep(SCROLL_TO_TIMEOUT), move |()| {
             Message::PendingScrollTo
@@ -2084,6 +2067,13 @@ impl State {
             });
         }
 
+        let backlog_scroll_to = ScrollTo {
+            key: keyed::Key::Divider,
+            animate: false,
+            align: ScrollAnchor::Top,
+            state: ScrollToState::Pending,
+        };
+
         let (old_messages, new_messages) = if let Some(model::View {
             old_messages,
             new_messages,
@@ -2095,7 +2085,11 @@ impl State {
         {
             (old_messages, new_messages)
         } else {
-            return Task::none();
+            self.scroll_to = Some(backlog_scroll_to);
+
+            return Task::perform(time::sleep(SCROLL_TO_TIMEOUT), move |()| {
+                Message::PendingScrollTo
+            });
         };
 
         if old_messages.is_empty() {
@@ -2104,12 +2098,7 @@ impl State {
             return self.scroll_to_end(kind_ref, storage, config);
         }
 
-        self.scroll_to = Some(ScrollTo {
-            key: keyed::Key::Divider,
-            animate: false,
-            align: ScrollAnchor::Top,
-            state: ScrollToState::Pending,
-        });
+        self.scroll_to = Some(backlog_scroll_to);
 
         Task::perform(time::sleep(SCROLL_TO_TIMEOUT), move |()| {
             Message::PendingScrollTo
