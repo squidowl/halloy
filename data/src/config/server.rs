@@ -200,20 +200,11 @@ impl Server {
         }
     }
 
-    pub fn channel_muted(
-        &self,
-        channel: &target::Channel,
-        casemapping: isupport::CaseMap,
-    ) -> bool {
-        is_muted(&self.channels, channel.as_normalized_str(), casemapping)
-    }
-
-    pub fn query_muted(
-        &self,
-        query: &target::Query,
-        casemapping: isupport::CaseMap,
-    ) -> bool {
-        is_muted(&self.queries, query.as_normalized_str(), casemapping)
+    pub fn muted(&self, casemapping: isupport::CaseMap) -> Muted {
+        Muted {
+            channels: muted_names(&self.channels, casemapping),
+            queries: muted_names(&self.queries, casemapping),
+        }
     }
 
     pub fn connection(
@@ -441,17 +432,36 @@ impl Muteable {
     }
 }
 
-fn is_muted(
+#[derive(Debug, Default)]
+pub struct Muted {
+    channels: HashMap<String, bool>,
+    queries: HashMap<String, bool>,
+}
+
+impl Muted {
+    pub fn channel(&self, channel: &target::Channel) -> bool {
+        self.channels
+            .get(channel.as_normalized_str())
+            .is_some_and(|mute| *mute)
+    }
+
+    pub fn query(&self, query: &target::Query) -> bool {
+        self.queries
+            .get(query.as_normalized_str())
+            .is_some_and(|mute| *mute)
+    }
+}
+
+fn muted_names(
     muteables: &[Muteable],
-    normalized_name: &str,
     casemapping: isupport::CaseMap,
-) -> bool {
+) -> HashMap<String, bool> {
+    // reversed so the first entry for a name wins
     muteables
         .iter()
-        .find(|muteable| {
-            casemapping.normalize(&muteable.name) == normalized_name
-        })
-        .is_some_and(|muteable| muteable.mute)
+        .rev()
+        .map(|muteable| (casemapping.normalize(&muteable.name), muteable.mute))
+        .collect()
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Deserialize)]

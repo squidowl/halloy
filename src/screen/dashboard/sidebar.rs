@@ -255,9 +255,11 @@ impl Sidebar {
                 server_config.as_deref(),
             );
 
-            let mute_config = clients
+            let muted = clients
                 .get_server_config(server)
-                .or(server_config.as_deref());
+                .or(server_config.as_deref())
+                .map(|config| config.muted(casemapping))
+                .unwrap_or_default();
 
             let mut collapsible_buffers = vec![];
 
@@ -265,9 +267,7 @@ impl Sidebar {
                 if let Some(buffer_data) = upstream_buffer_data(
                     buffer::Upstream::Channel(server.clone(), channel.clone()),
                     history::Kind::Channel(server.clone(), channel.clone()),
-                    mute_config.is_some_and(|config| {
-                        config.channel_muted(channel, casemapping)
-                    }),
+                    muted.channel(channel),
                     Some(channel_state),
                     casemapping,
                 ) {
@@ -276,17 +276,14 @@ impl Sidebar {
             }
 
             for query in targets.queries {
-                let muted = !show_muted_buffers
-                    && mute_config.is_some_and(|config| {
-                        config.query_muted(query, casemapping)
-                    });
+                let query_muted = !show_muted_buffers && muted.query(query);
                 let query =
                     clients.resolve_query(server, query).unwrap_or(query);
 
                 if let Some(buffer_data) = upstream_buffer_data(
                     buffer::Upstream::Query(server.clone(), query.clone()),
                     history::Kind::Query(server.clone(), query.clone()),
-                    muted,
+                    query_muted,
                     None,
                     casemapping,
                 ) {
