@@ -217,8 +217,7 @@ fn paste_key_binding(
 pub fn view<'a>(
     state: &'a State,
     our_user: Option<&User>,
-    disconnected: bool,
-    show_join_banner: bool,
+    channel_state: Option<client::ChannelState>,
     channel_users: Option<&'a ChannelUsers>,
     server: &'a Server,
     registry: &'a dyn metadata::Registry,
@@ -506,15 +505,13 @@ pub fn view<'a>(
         reply_bar(reply_preview, channel_users, registry, config, theme)
     });
 
+    let joined = channel_state.is_none_or(|channel_state| {
+        channel_state == client::ChannelState::Joined
+    });
+
     let input_row = container(
         row![]
-            .extend(maybe_our_user(
-                our_user,
-                disconnected,
-                registry,
-                config,
-                theme,
-            ))
+            .extend(maybe_our_user(our_user, joined, registry, config, theme))
             .push(wrapped_input)
             .extend(maybe_upload_spinner.into_iter().chain(maybe_upload_button))
             .spacing(INPUT_ROW_SPACING)
@@ -528,11 +525,12 @@ pub fn view<'a>(
     )
     .padding(8);
 
-    let join_banner: Element<'a, Message> = if show_join_banner {
-        join_banner(config)
-    } else {
-        column![].into()
-    };
+    let join_banner: Element<'a, Message> =
+        if channel_state == Some(client::ChannelState::Parted) {
+            join_banner(config)
+        } else {
+            column![].into()
+        };
 
     let styled_input = container(column![join_banner, input_row])
         .style(theme::container::buffer_text_input);
@@ -576,11 +574,7 @@ pub fn view<'a>(
         let overlay = double_pass(
             row![]
                 .extend(maybe_our_user(
-                    our_user,
-                    disconnected,
-                    registry,
-                    config,
-                    theme,
+                    our_user, joined, registry, config, theme,
                 ))
                 .push(overlay())
                 .spacing(INPUT_ROW_SPACING),
@@ -602,7 +596,7 @@ pub fn view<'a>(
 
 fn maybe_our_user<'a>(
     our_user: Option<&User>,
-    disconnected: bool,
+    joined: bool,
     registry: &'a dyn metadata::Registry,
     config: &'a Config,
     theme: &'a Theme,
@@ -626,7 +620,7 @@ fn maybe_our_user<'a>(
                 vec![
                     container(user_display.into_element(
                         user,
-                        user.is_away() || disconnected,
+                        user.is_away() || !joined,
                         false,
                         None,
                         None,

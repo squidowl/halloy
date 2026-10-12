@@ -73,6 +73,14 @@ impl Status {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChannelState {
+    Joined,
+    Joining,
+    Parted,
+    Offline,
+}
+
 #[derive(Debug)]
 pub enum State {
     Disconnected { autoconnect: bool, connecting: bool },
@@ -4316,7 +4324,17 @@ impl Client {
         self.chanmap.contains_key(channel)
     }
 
-    pub fn is_join_pending(&self, channel: &target::Channel) -> bool {
+    pub fn channel_state(&self, channel: &target::Channel) -> ChannelState {
+        if self.is_joined(channel) {
+            ChannelState::Joined
+        } else if self.is_join_pending(channel) {
+            ChannelState::Joining
+        } else {
+            ChannelState::Parted
+        }
+    }
+
+    fn is_join_pending(&self, channel: &target::Channel) -> bool {
         // autojoins go out once registration completes
         self.pending_joins
             .get(channel)
@@ -5419,12 +5437,13 @@ impl Map {
         self.client(server).is_some_and(|c| c.is_joined(chan))
     }
 
-    pub fn is_channel_join_pending(
+    pub fn channel_state(
         &self,
         server: &Server,
         chan: &target::Channel,
-    ) -> bool {
-        self.client(server).is_some_and(|c| c.is_join_pending(chan))
+    ) -> ChannelState {
+        self.client(server)
+            .map_or(ChannelState::Offline, |c| c.channel_state(chan))
     }
 
     pub fn resolve_query<'a>(
