@@ -1145,6 +1145,38 @@ impl<'de> Deserialize<'de> for Message {
     }
 }
 
+#[derive(Default)]
+struct Summary {
+    joins: usize,
+    parts: usize,
+    quits: usize,
+    kicks: usize,
+    nick_changes: usize,
+    host_changes: usize,
+}
+
+impl std::fmt::Display for Summary {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut parts = vec![];
+
+        let mut push = |count: usize, singular: &str, plural: &str| {
+            if count > 0 {
+                let text = if count == 1 { singular } else { plural };
+                parts.push(format!("{count} {text}"));
+            }
+        };
+
+        push(self.joins, "user has joined", "users have joined");
+        push(self.parts, "user has left", "users have left");
+        push(self.quits, "user has quit", "users have quit");
+        push(self.kicks, "user has been kicked", "users have been kicked");
+        push(self.nick_changes, "nick has changed", "nicks have changed");
+        push(self.host_changes, "host has changed", "hosts have changed");
+
+        write!(f, "{}", parts.join(", "))
+    }
+}
+
 pub fn condense(
     messages: &[&Message],
     condense: &config::buffer::Condensation,
@@ -1323,6 +1355,31 @@ pub fn condense(
             })
             .collect();
         condensed_fragments.pop(); // Remove trailing whitespace fragment
+
+        condensed_fragments = if matches!(
+            condense.format,
+            config::buffer::CondensationFormat::Summary
+        ) {
+            let mut summary = Summary::default();
+
+            for fragment in condensed_fragments.iter() {
+                if let Fragment::Condensed { source, .. } = fragment {
+                    match source.kind() {
+                        Kind::Join => summary.joins += 1,
+                        Kind::Part => summary.parts += 1,
+                        Kind::Quit => summary.quits += 1,
+                        Kind::Kick => summary.kicks += 1,
+                        Kind::ChangeNick => summary.nick_changes += 1,
+                        Kind::ChangeHost => summary.host_changes += 1,
+                        _ => (),
+                    }
+                }
+            }
+
+            vec![Fragment::Text(summary.to_string())]
+        } else {
+            condensed_fragments
+        };
 
         if let Some(max) = condense.max {
             let max = max as usize;
