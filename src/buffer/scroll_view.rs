@@ -836,6 +836,8 @@ pub fn view<'a>(
         // If all newer messages in viewport, only show backlog divider at the top
         // if we don't have any older messages at all (we're scrolled all the way up)
         !has_more_older_messages
+    } else if new.is_empty() && has_more_newer_messages {
+        false
     } else {
         // Always show backlog divider after any visible older messages
         if config.buffer.backlog_separator.hide_when_all_read {
