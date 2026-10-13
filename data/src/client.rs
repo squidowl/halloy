@@ -4327,6 +4327,8 @@ impl Client {
     pub fn channel_state(&self, channel: &target::Channel) -> ChannelState {
         if self.is_joined(channel) {
             ChannelState::Joined
+        } else if !self.registration_complete() {
+            ChannelState::Offline
         } else if self.is_join_pending(channel) {
             ChannelState::Joining
         } else {
@@ -4335,11 +4337,9 @@ impl Client {
     }
 
     fn is_join_pending(&self, channel: &target::Channel) -> bool {
-        // autojoins go out once registration completes
         self.pending_joins
             .get(channel)
             .is_some_and(|sent_at| sent_at.elapsed() < JOIN_TIMEOUT)
-            || self.registration_step != RegistrationStep::Complete
     }
 
     fn channel_users_received(&mut self, target_channel: target::Channel) {

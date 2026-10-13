@@ -89,9 +89,11 @@ impl Pane {
 
                 let state_label =
                     match clients.channel_state(server, &state.target) {
-                        ChannelState::Offline => Some("(Offline)"),
+                        ChannelState::Offline | ChannelState::Joining => {
+                            Some("(Offline)")
+                        }
                         ChannelState::Parted => Some("(Parted)"),
-                        ChannelState::Joined | ChannelState::Joining => None,
+                        ChannelState::Joined => None,
                     };
 
                 let state_text = state_label.map(|label| {
