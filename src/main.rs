@@ -876,7 +876,7 @@ impl Halloy {
                     };
 
                     dashboard
-                        .sidebar_buffers_mut()
+                        .get_sidebar_buffers_mut()
                         .mark_server_channels_disconnected(
                             &server,
                             &self.clients,
@@ -1777,7 +1777,9 @@ impl Halloy {
                         .map(|(server, _)| server)
                         .chain(&removed_bouncer_networks)
                     {
-                        dashboard.sidebar_buffers_mut().forget_server(server);
+                        dashboard
+                            .get_sidebar_buffers_mut()
+                            .forget_server(server);
                     }
 
                     dashboard.set_reroute_rules(&self.servers, &self.clients);
@@ -1887,7 +1889,7 @@ impl Halloy {
                     self.clients.remove(&bouncer_network);
 
                     dashboard
-                        .sidebar_buffers_mut()
+                        .get_sidebar_buffers_mut()
                         .forget_server(&bouncer_network);
                 }
 
@@ -1900,7 +1902,7 @@ impl Halloy {
 
                 self.clients.remove(&server);
 
-                dashboard.sidebar_buffers_mut().forget_server(&server);
+                dashboard.get_sidebar_buffers_mut().forget_server(&server);
 
                 Task::none()
             }
@@ -2029,12 +2031,12 @@ fn handle_client_events(
             }
             Event::LeftChannel(channel) => {
                 dashboard
-                    .sidebar_buffers_mut()
+                    .get_sidebar_buffers_mut()
                     .mark_channel_disconnected(server.clone(), channel);
             }
             Event::JoinedChannel(channel, server_time) => {
                 dashboard
-                    .sidebar_buffers_mut()
+                    .get_sidebar_buffers_mut()
                     .mark_channel_joined(server, &channel);
 
                 commands.push(
@@ -2180,7 +2182,7 @@ fn handle_client_events(
             }
             Event::BouncerNetworksListed(listed) => {
                 dashboard
-                    .sidebar_buffers_mut()
+                    .get_sidebar_buffers_mut()
                     .forget_unlisted_bouncer_networks(server, &listed);
             }
             Event::AddToSidebar(query) => {

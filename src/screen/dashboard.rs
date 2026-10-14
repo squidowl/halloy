@@ -4291,8 +4291,8 @@ impl Dashboard {
         self.history.get_unique_queries(server)
     }
 
-    pub fn sidebar_buffers_mut(&mut self) -> &mut SidebarBuffers {
-        self.history.sidebar_buffers_mut()
+    pub fn get_sidebar_buffers_mut(&mut self) -> &mut SidebarBuffers {
+        self.history.get_sidebar_buffers_mut()
     }
 
     pub fn add_to_sidebar(&mut self, server: Server, query: target::Query) {

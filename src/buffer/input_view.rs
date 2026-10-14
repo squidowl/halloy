@@ -2297,7 +2297,7 @@ impl State {
                                 })
                             {
                                 history
-                                    .sidebar_buffers_mut()
+                                    .get_sidebar_buffers_mut()
                                     .forget_closed_channel(
                                         &history::Kind::Channel(
                                             buffer.server().clone(),
