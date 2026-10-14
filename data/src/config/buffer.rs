@@ -803,6 +803,7 @@ pub enum CondensationFormat {
     Brief,
     Detailed,
     Full,
+    Summary,
 }
 
 #[derive(Debug, Default, Clone, Deserialize)]
