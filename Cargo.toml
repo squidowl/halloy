@@ -149,16 +149,29 @@ iced = { workspace = true, features = [
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6.4"
+block2 = "0.6.2"
 objc2-app-kit = { version = "0.3.2", default-features = false, features = [
     "std",
+    "block2",
+    "NSApplication",
+    "NSButton",
+    "NSControl",
+    "NSEvent",
+    "NSMenu",
+    "NSMenuItem",
+    "NSResponder",
+    "NSView",
+    "NSWindow",
     "NSWorkspace",
     "NSPasteboard",
     "NSPasteboardItem",
 ] }
 objc2-foundation = { version = "0.3.2", default-features = false, features = [
     "std",
+    "NSGeometry",
     "NSString",
     "NSURL",
+    "NSUserDefaults",
 ] }
 
 [target.'cfg(windows)'.build-dependencies]
