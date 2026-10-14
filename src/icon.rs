@@ -7,11 +7,11 @@ use crate::widget::text_color_svg::{TextColorSvg, text_color_svg};
 use crate::{Theme, font, theme};
 
 pub fn dot<'a>() -> Text<'a> {
-    to_text('\u{F111}')
+    to_text('\u{E017}')
 }
 
 pub fn error<'a>() -> Text<'a> {
-    to_text('\u{E80D}')
+    to_text('\u{E00D}')
 }
 
 pub fn connected<'a>() -> TextColorSvg<'a, Theme> {
@@ -49,23 +49,23 @@ pub fn link<'a>() -> TextColorSvg<'a, Theme> {
 }
 
 pub fn cancel<'a>() -> Text<'a> {
-    to_text('\u{E80F}')
+    to_text('\u{E00F}')
 }
 
 pub fn maximize<'a>() -> Text<'a> {
-    to_text('\u{E801}')
+    to_text('\u{E007}')
 }
 
 pub fn restore<'a>() -> Text<'a> {
-    to_text('\u{E805}')
+    to_text('\u{E00A}')
 }
 
 pub fn people<'a>() -> Text<'a> {
-    to_text('\u{E804}')
+    to_text('\u{E009}')
 }
 
 pub fn topic<'a>() -> Text<'a> {
-    to_text('\u{E803}')
+    to_text('\u{E008}')
 }
 
 pub fn search<'a>() -> TextColorSvg<'a, Theme> {
@@ -75,7 +75,7 @@ pub fn search<'a>() -> TextColorSvg<'a, Theme> {
 }
 
 pub fn checkmark<'a>() -> Text<'a> {
-    to_text('\u{E806}')
+    to_text('\u{E00B}')
 }
 
 pub fn file_transfer<'a>() -> TextColorSvg<'a, Theme> {
@@ -103,15 +103,15 @@ pub fn theme_editor<'a>() -> TextColorSvg<'a, Theme> {
 }
 
 pub fn undo<'a>() -> Text<'a> {
-    to_text('\u{E80B}')
+    to_text('\u{E00C}')
 }
 
 pub fn copy<'a>() -> Text<'a> {
-    to_text('\u{F0C5}')
+    to_text('\u{E015}')
 }
 
 pub fn popout<'a>() -> Text<'a> {
-    to_text('\u{E80E}')
+    to_text('\u{E00E}')
 }
 
 pub fn logs<'a>() -> TextColorSvg<'a, Theme> {
@@ -145,15 +145,15 @@ pub fn channel_monitor<'a>() -> TextColorSvg<'a, Theme> {
 }
 
 pub fn scroll_to_bottom<'a>() -> Text<'a> {
-    to_text('\u{F103}')
+    to_text('\u{E016}')
 }
 
 pub fn share<'a>() -> Text<'a> {
-    to_text('\u{E813}')
+    to_text('\u{E010}')
 }
 
 pub fn mark_as_read<'a>() -> Text<'a> {
-    to_text('\u{E817}')
+    to_text('\u{E011}')
 }
 
 pub fn config<'a>() -> TextColorSvg<'a, Theme> {
@@ -164,7 +164,7 @@ pub fn config<'a>() -> TextColorSvg<'a, Theme> {
 }
 
 pub fn open<'a>() -> Text<'a> {
-    to_text('\u{F115}')
+    to_text('\u{E018}')
 }
 
 pub fn star<'a>() -> TextColorSvg<'a, Theme> {
@@ -233,32 +233,32 @@ pub fn channel_discovery<'a>() -> TextColorSvg<'a, Theme> {
 }
 
 pub fn plus<'a>() -> Text<'a> {
-    to_text('\u{E820}')
+    to_text('\u{E013}')
 }
 
 pub fn chevron_left<'a>() -> Text<'a> {
-    to_text('\u{003C}')
+    to_text('\u{E005}')
 }
 
 pub fn chevron_right<'a>() -> Text<'a> {
-    to_text('\u{003E}')
+    to_text('\u{E001}')
 }
 
 #[allow(dead_code)]
 pub fn chevron_up<'a>() -> Text<'a> {
-    to_text('\u{005E}')
+    to_text('\u{E006}')
 }
 
 pub fn chevron_down<'a>() -> Text<'a> {
-    to_text('\u{0076}')
+    to_text('\u{E002}')
 }
 
 pub fn lock<'a>() -> Text<'a> {
-    to_text('\u{E821}')
+    to_text('\u{E014}')
 }
 
 pub fn reply<'a>() -> Text<'a> {
-    to_text('\u{E81B}')
+    to_text('\u{E012}')
 }
 
 pub fn not_sent<'a>() -> TextColorSvg<'a, Theme> {
@@ -269,7 +269,7 @@ pub fn not_sent<'a>() -> TextColorSvg<'a, Theme> {
 }
 
 pub fn eraser<'a>() -> Text<'a> {
-    to_text('\u{F12D}')
+    to_text('\u{E019}')
 }
 
 pub fn about<'a>() -> TextColorSvg<'a, Theme> {
