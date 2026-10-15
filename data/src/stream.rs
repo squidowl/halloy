@@ -331,8 +331,8 @@ async fn _run(
                                         connection_attempt >= max_attempts
                                     },
                                 ) {
+                                    attempts_exhausted = *autoconnect;
                                     *autoconnect = false;
-                                    attempts_exhausted = true;
                                 }
 
                                 let _ = sender.unbounded_send(
