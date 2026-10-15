@@ -1,4 +1,5 @@
 use std::io;
+use std::net::IpAddr;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
@@ -90,6 +91,13 @@ impl<Codec> WebSocketConnection<Codec> {
     pub async fn shutdown(mut self) -> Result<(), Error> {
         self.stream.close(None).await?;
         Ok(())
+    }
+
+    pub fn local_ip(&self) -> Option<IpAddr> {
+        match self.stream.get_ref() {
+            Either::Left(stream) => stream.local_ip(),
+            Either::Right(tls) => tls.get_ref().0.local_ip(),
+        }
     }
 
     pub async fn ping(&mut self) -> Result<(), io::Error> {
