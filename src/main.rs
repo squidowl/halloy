@@ -861,6 +861,13 @@ impl Halloy {
                 self.power = system::State::Awake;
                 Task::none()
             }
+            Message::System(system::Event::NetworkChanged {
+                available,
+                addresses,
+            }) => {
+                self.controllers.network_changed(available, &addresses);
+                Task::none()
+            }
             Message::Stream(update) => match update {
                 stream::Update::Disconnected {
                     server,

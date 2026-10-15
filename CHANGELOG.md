@@ -5,6 +5,8 @@ Added:
 - Added Gopher(+s) / Gemini protocol schemes (make links clickable)
 - Added `buffer.text_input.upload_long_paste` to automatically use filehost in case pasted text is too long
 - Right-clickable text in the server buffer now offers a context menu
+- When the network changes Halloy checks if any connections were lost and
+  reconnects right away. 
 
 Fixed:
 
@@ -15,6 +17,8 @@ Fixed:
 - Send a message with enter when autocomplete tooltip is not visible (i.e. don't have to press enter twice when just autocompleted a nickname)
 - Crash when right clicking a message in the server buffer
 - ZNC-service style nicks (e.g. `*status`, `*grep`, etc) are not automatically routed to the server buffer
+- Will no longer try to reconnect to servers on the internet if there is no
+  connection.
 
 Changed:
 
@@ -22,7 +26,7 @@ Changed:
 
 Thanks:
 
-- Contributions: @httpsterio
+- Contributions: @httpsterio, @furudean
 - Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768, @WinnerWind
 - Feature requests: @ainola
 

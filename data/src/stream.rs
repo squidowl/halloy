@@ -1,4 +1,6 @@
 use std::collections::{BTreeMap, HashSet};
+use std::io;
+use std::net::IpAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -20,6 +22,7 @@ use crate::time::Posix;
 use crate::{config, environment, message, server};
 
 const QUIT_REQUEST_TIMEOUT: Duration = Duration::from_millis(400);
+const NETWORK_RETRY_DELAY: Duration = Duration::from_secs(1);
 
 pub type Result<T = Update, E = Error> = std::result::Result<T, E>;
 
@@ -78,6 +81,7 @@ enum State {
         batch: Batch,
         ping_time: Interval,
         ping_timeout: Option<Interval>,
+        network_probe: bool,
         websocket_ping_time: Option<Interval>,
         quit_requested: Option<Instant>,
     },
@@ -104,6 +108,10 @@ pub enum Control {
     },
     Connect(bool),
     DisableAutoconnect,
+    NetworkChanged {
+        available: bool,
+        addresses: Arc<HashSet<IpAddr>>,
+    },
     End(Option<String>),
     UpdateConfiguration(Arc<config::Server>, Option<config::Proxy>),
 }
@@ -147,6 +155,9 @@ async fn _run(
     // authentication
     let mut connection_attempt = 0;
 
+    let mut attempts_exhausted = false;
+    let mut network_available = true;
+
     let mut state = State::Disconnected {
         autoconnect: config.autoconnect,
         retry: interval_at(Duration::ZERO, config.reconnect_delay),
@@ -165,7 +176,11 @@ async fn _run(
         match &mut state {
             State::Disconnected { autoconnect, retry } => {
                 let selection = {
-                    if *autoconnect {
+                    if *autoconnect
+                        && (network_available
+                            // loopback servers stay reachable while the network is down
+                            || is_loopback(&config, default_proxy.as_ref()))
+                    {
                         stream::select(
                             (&mut control).boxed(),
                             retry
@@ -188,6 +203,7 @@ async fn _run(
                     )) => {
                         config = updated_config;
                         default_proxy = updated_default_proxy;
+                        attempts_exhausted = false;
 
                         state = State::Disconnected {
                             autoconnect: config.autoconnect,
@@ -203,10 +219,26 @@ async fn _run(
                     }) => {
                         if disable_autoconnect {
                             *autoconnect = false;
+                            attempts_exhausted = false;
+                        }
+                    }
+                    Some(Control::NetworkChanged { available, .. }) => {
+                        network_available = available;
+
+                        if available && (*autoconnect || attempts_exhausted) {
+                            log::info!(
+                                "[{server}] network changed, reconnecting"
+                            );
+
+                            *autoconnect = true;
+                            attempts_exhausted = false;
+                            connection_attempt = 0;
+                            *retry = network_retry();
                         }
                     }
                     Some(Control::DisableAutoconnect) => {
                         *autoconnect = false;
+                        attempts_exhausted = false;
 
                         let _ = sender.unbounded_send(
                             Update::AutoconnectDisabled {
@@ -220,6 +252,7 @@ async fn _run(
                         } else {
                             *autoconnect = config.autoconnect;
                             connection_attempt = 1;
+                            attempts_exhausted = false;
                         }
 
                         let _ = sender.unbounded_send(Update::Connecting {
@@ -255,6 +288,7 @@ async fn _run(
                                     stream,
                                     batch: Batch::new(),
                                     ping_timeout: None,
+                                    network_probe: false,
                                     ping_time: interval_at(
                                         config.ping_time,
                                         config.ping_time,
@@ -283,13 +317,20 @@ async fn _run(
                                     "[{server}] connection failed: {error}"
                                 );
 
-                                retry.reset();
+                                // the period doubles until it reaches reconnect_delay,
+                                // so retries after a network change back off
+                                let period = retry.period();
+                                *retry = interval_at(
+                                    period,
+                                    (period * 2).min(config.reconnect_delay),
+                                );
 
                                 if config.max_connection_attempts.is_some_and(
                                     |max_attempts| {
                                         connection_attempt >= max_attempts
                                     },
                                 ) {
+                                    attempts_exhausted = *autoconnect;
                                     *autoconnect = false;
                                 }
 
@@ -315,12 +356,22 @@ async fn _run(
                 batch,
                 ping_time,
                 ping_timeout,
+                network_probe,
                 websocket_ping_time,
                 quit_requested,
             } => {
                 let input = {
                     let mut select = stream::select_all([
-                        (&mut stream.connection).map(Input::IrcMessage).boxed(),
+                        (&mut stream.connection)
+                            .map(Input::IrcMessage)
+                            .chain(stream::once(async {
+                                Input::IrcMessage(Err(io::Error::new(
+                                    io::ErrorKind::UnexpectedEof,
+                                    "connection closed",
+                                )
+                                .into()))
+                            }))
+                            .boxed(),
                         (&mut stream.receiver).map(Input::Send).boxed(),
                         ping_time
                             .tick()
@@ -370,20 +421,35 @@ async fn _run(
                     select.next().await.expect("Connected select")
                 };
 
+                // we know the connection is alive, so we can defer the next ping,
+                // except during a network probe, where buffered data proves nothing
+                if matches!(input, Input::IrcMessage(Ok(_))) && !*network_probe
+                {
+                    ping_time.reset();
+                }
+
+                let autoconnect = quit_requested.is_none();
+                let mut connection_error: Option<String> = None;
+                let mut network_lost = false;
+
                 match input {
                     Input::IrcMessage(Ok(Ok(message))) => match message.command
                     {
                         proto::Command::PING(token) => {
-                            let _ = stream
+                            if let Err(e) = stream
                                 .connection
                                 .send(command!("PONG", token))
-                                .await;
+                                .await
+                            {
+                                connection_error = Some(e.to_string());
+                            }
                         }
                         proto::Command::PONG(_, token) => {
                             let token = token.unwrap_or_default();
                             log::trace!("[{server}] pong received: {token}");
 
                             *ping_timeout = None;
+                            *network_probe = false;
                         }
                         proto::Command::ERROR(error) => {
                             let autoconnect = !quit_requested.is_some();
@@ -439,25 +505,7 @@ async fn _run(
                         log::warn!("message decoding failed: {e}");
                     }
                     Input::IrcMessage(Err(e)) => {
-                        log::info!("[{server}] disconnected: {e}");
-
-                        let autoconnect = quit_requested.is_none();
-                        connection_attempt = 0;
-
-                        let _ = sender.unbounded_send(Update::Disconnected {
-                            server: server.clone(),
-                            is_initial,
-                            error: Some(e.to_string()),
-                            sent_time: Utc::now(),
-                            autoconnect,
-                        });
-                        state = State::Disconnected {
-                            autoconnect,
-                            retry: interval_at(
-                                config.reconnect_delay,
-                                config.reconnect_delay,
-                            ),
-                        };
+                        connection_error = Some(e.to_string());
                     }
                     Input::Batch(messages) => {
                         let _ = sender.unbounded_send(
@@ -475,16 +523,21 @@ async fn _run(
                             log::info!("[{server}] quit");
 
                             *quit_requested = Some(Instant::now());
-                        } else {
-                            let _ = stream.connection.send(message).await;
+                        } else if let Err(e) =
+                            stream.connection.send(message).await
+                        {
+                            connection_error = Some(e.to_string());
                         }
                     }
                     Input::Ping => {
                         let now = Posix::now().as_nanos().to_string();
                         log::trace!("[{server}] ping sent: {now}");
 
-                        let _ =
-                            stream.connection.send(command!("PING", now)).await;
+                        if let Err(e) =
+                            stream.connection.send(command!("PING", now)).await
+                        {
+                            connection_error = Some(e.to_string());
+                        }
 
                         if ping_timeout.is_none() {
                             *ping_timeout = Some(interval_at(
@@ -494,25 +547,13 @@ async fn _run(
                         }
                     }
                     Input::PingTimeout => {
-                        log::info!("[{server}] ping timeout");
+                        connection_error = Some("ping timeout".into());
 
-                        let autoconnect = quit_requested.is_none();
-                        connection_attempt = 0;
-
-                        let _ = sender.unbounded_send(Update::Disconnected {
-                            server: server.clone(),
-                            is_initial,
-                            error: Some("ping timeout".into()),
-                            sent_time: Utc::now(),
-                            autoconnect,
-                        });
-                        state = State::Disconnected {
-                            autoconnect,
-                            retry: interval_at(
-                                config.reconnect_delay,
-                                config.reconnect_delay,
-                            ),
-                        };
+                        // a network change most likely broke the connection,
+                        // so reconnect now instead of after reconnect_delay
+                        if *network_probe {
+                            network_lost = true;
+                        }
                     }
                     Input::WebSocketPing => {
                         let now = Posix::now().as_nanos().to_string();
@@ -592,6 +633,26 @@ async fn _run(
                             default_proxy = updated_default_proxy;
                         }
                         Control::Connect(_) | Control::DisableAutoconnect => (),
+                        Control::NetworkChanged {
+                            available,
+                            addresses,
+                        } => {
+                            network_available = available;
+
+                            if stream
+                                .connection
+                                .local_ip()
+                                .is_some_and(|ip| !addresses.contains(&ip))
+                            {
+                                connection_error =
+                                    Some("network changed".into());
+                                network_lost = true;
+                            } else {
+                                // ping now to find out if the connection survived
+                                *network_probe = true;
+                                ping_time.reset_immediately();
+                            }
+                        }
                         Control::AuthenticationFailed { error } => {
                             let autoconnect = config.autoconnect
                                 && config.max_connection_attempts.is_none_or(
@@ -652,6 +713,33 @@ async fn _run(
                             state = State::End;
                         }
                     },
+                }
+
+                if let Some(error) = connection_error {
+                    log::info!("[{server}] disconnected: {error}");
+
+                    connection_attempt = 0;
+
+                    // autoconnect is off only after QUIT, where the server
+                    // closing the connection is expected
+                    let _ = sender.unbounded_send(Update::Disconnected {
+                        server: server.clone(),
+                        is_initial,
+                        error: autoconnect.then_some(error),
+                        sent_time: Utc::now(),
+                        autoconnect,
+                    });
+                    state = State::Disconnected {
+                        autoconnect,
+                        retry: if network_lost {
+                            network_retry()
+                        } else {
+                            interval_at(
+                                config.reconnect_delay,
+                                config.reconnect_delay,
+                            )
+                        },
+                    };
                 }
             }
             State::End => {
@@ -899,6 +987,23 @@ impl futures::Stream for Batch {
     }
 }
 
+fn is_loopback(
+    config: &config::Server,
+    default_proxy: Option<&config::Proxy>,
+) -> bool {
+    config.proxy.is_none()
+        && default_proxy.is_none()
+        && (config.server.eq_ignore_ascii_case("localhost")
+            || config
+                .server
+                .parse::<IpAddr>()
+                .is_ok_and(|ip| ip.is_loopback()))
+}
+
+fn network_retry() -> Interval {
+    interval_at(Duration::ZERO, NETWORK_RETRY_DELAY)
+}
+
 fn interval_at(delay: Duration, period: Duration) -> Interval {
     let mut interval = time::interval_at(Instant::now() + delay, period);
     interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
@@ -906,15 +1011,25 @@ fn interval_at(delay: Duration, period: Duration) -> Interval {
 }
 
 #[derive(Debug, Default)]
-pub struct Map(BTreeMap<Server, mpsc::Sender<Control>>);
+pub struct Map {
+    controllers: BTreeMap<Server, mpsc::Sender<Control>>,
+    offline: bool,
+}
 
 impl Map {
     pub fn insert(
         &mut self,
         server: Server,
-        controller: mpsc::Sender<Control>,
+        mut controller: mpsc::Sender<Control>,
     ) {
-        self.0.insert(server, controller);
+        if self.offline {
+            let _ = controller.try_send(Control::NetworkChanged {
+                available: false,
+                addresses: Arc::default(),
+            });
+        }
+
+        self.controllers.insert(server, controller);
     }
 
     pub fn update_config(
@@ -923,7 +1038,7 @@ impl Map {
         config: Arc<config::Server>,
         default_proxy: Option<config::Proxy>,
     ) {
-        if let Some(controller) = self.0.get_mut(server) {
+        if let Some(controller) = self.controllers.get_mut(server) {
             let _ = controller
                 .try_send(Control::UpdateConfiguration(config, default_proxy));
         }
@@ -934,41 +1049,56 @@ impl Map {
         server: &Server,
         error: Option<String>,
     ) {
-        if let Some(controller) = self.0.get_mut(server) {
+        if let Some(controller) = self.controllers.get_mut(server) {
             let _ =
                 controller.try_send(Control::AuthenticationFailed { error });
         }
     }
 
     pub fn connect(&mut self, server: &Server) {
-        if let Some(controller) = self.0.get_mut(server) {
+        if let Some(controller) = self.controllers.get_mut(server) {
             let _ = controller.try_send(Control::Connect(false));
         }
     }
 
     pub fn disable_autoconnect(&mut self, server: &Server) {
-        if let Some(controller) = self.0.get_mut(server) {
+        if let Some(controller) = self.controllers.get_mut(server) {
             let _ = controller.try_send(Control::DisableAutoconnect);
         }
     }
 
+    pub fn network_changed(
+        &mut self,
+        available: bool,
+        addresses: &Arc<HashSet<IpAddr>>,
+    ) {
+        self.offline = !available;
+
+        for controller in self.controllers.values_mut() {
+            let _ = controller.try_send(Control::NetworkChanged {
+                available,
+                addresses: addresses.clone(),
+            });
+        }
+    }
+
     pub fn remove(&mut self, server: &Server) {
-        self.0.remove(server);
+        self.controllers.remove(server);
     }
 
     pub fn end(&mut self, server: &Server, reason: &Option<String>) {
-        if let Some(controller) = self.0.get_mut(server) {
+        if let Some(controller) = self.controllers.get_mut(server) {
             let _ = controller.try_send(Control::End(reason.clone()));
         }
 
-        self.0.remove(server);
+        self.controllers.remove(server);
     }
 
     pub fn exit(&mut self, reason: &Option<String>) -> HashSet<Server> {
-        for controller in self.0.values_mut() {
+        for controller in self.controllers.values_mut() {
             let _ = controller.try_send(Control::End(reason.clone()));
         }
 
-        self.0.keys().cloned().collect()
+        self.controllers.keys().cloned().collect()
     }
 }
