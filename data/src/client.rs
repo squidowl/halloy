@@ -1575,7 +1575,7 @@ impl Client {
                 }
 
                 return Ok(vec![Event::LoggedIn(
-                    chathistory_entry_server_time(message),
+                    chathistory_entry_server_time(&message),
                 )]);
             }
             Command::Numeric(RPL_LOGGEDOUT, _) => {
@@ -2032,10 +2032,17 @@ impl Client {
                         });
                     }
 
-                    return Ok(vec![Event::JoinedChannel(
-                        target_channel,
-                        chathistory_entry_server_time(message),
-                    )]);
+                    return Ok(vec![
+                        Event::JoinedChannel(
+                            target_channel,
+                            chathistory_entry_server_time(&message),
+                        ),
+                        Event::Single {
+                            message,
+                            our_nick: self.nickname().to_owned(),
+                            deduplicate: false,
+                        },
+                    ]);
                 } else if let Some(channel) =
                     self.chanmap.get_mut(&target_channel)
                 {
@@ -6673,5 +6680,37 @@ mod tests {
         );
 
         assert_eq!(channel_user_is_away(&client, "tester"), Some(false));
+    }
+
+    #[test]
+    fn own_join_is_recorded() {
+        let mut client = test_client("tester");
+
+        let events = client
+            .handle(
+                message::Encoded(proto::Message {
+                    tags: BTreeMap::default(),
+                    source: Some(proto::Source::User(proto::User {
+                        nickname: "tester".to_string(),
+                        username: Some("tester".to_string()),
+                        hostname: Some("example.test".to_string()),
+                    })),
+                    command: Command::JOIN("#test".to_string(), None),
+                }),
+                None,
+                &config::Config::default(),
+            )
+            .unwrap();
+
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, Event::JoinedChannel(_, _)))
+        );
+        assert!(events.iter().any(|event| matches!(
+            event,
+            Event::Single { message, .. }
+                if matches!(message.command, Command::JOIN(_, _))
+        )));
     }
 }

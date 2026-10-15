@@ -644,7 +644,7 @@ impl LabeledResponseContext {
 // If the resultant server_time is ahead of the time on the server, then
 // deduplication should take care of any duplicate messages we receive.
 pub fn chathistory_entry_server_time(
-    message: message::Encoded,
+    message: &message::Encoded,
 ) -> DateTime<Utc> {
     let (server_time, received_with_server_time) = message.server_time_or_now();
 
