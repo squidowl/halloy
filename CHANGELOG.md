@@ -10,6 +10,8 @@ Added:
 - SQLite history storage, with automatic migration of existing gzip history as buffers are used and loading of history in windows.
 - `buffer.close.query` option `"close-buffer"` (previous option `"close"` renamed to `"close-pane"`)
 - Highlight matches can be optionally named via the `name` property
+- When the network changes Halloy checks if any connections were lost and
+  reconnects right away. 
 
 Fixed:
 
@@ -21,6 +23,8 @@ Fixed:
 - Crash when right clicking a message in the server buffer
 - ZNC-service style nicks (e.g. `*status`, `*grep`, etc) are not automatically routed to the server buffer
 - Message drafts for sent messages sometimes being restored after restart (instead of being cleared)
+- Will no longer try to reconnect to servers on the internet if there is no
+  connection.
 
 Changed:
 
@@ -30,7 +34,7 @@ Changed:
 
 Thanks:
 
-- Contributions: @httpsterio, @oooo-ps
+- Contributions: @httpsterio, @oooo-ps, @furudean
 - Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768, @WinnerWind, @strafe
 - Feature requests: @ainola, @kalebris
 
