@@ -2641,37 +2641,7 @@ mod correct_viewport {
     #[derive(Debug, Default)]
     struct State {
         hit: Option<keyed::Hit>,
-        previous_corrections: [Option<Correction>; 3],
     }
-
-    impl State {
-        fn is_jitter_loop(&self, correction: Correction) -> bool {
-            self.previous_corrections[1] == Some(correction)
-                && self.previous_corrections[2].is_some()
-                && self.previous_corrections[2] == self.previous_corrections[0]
-        }
-
-        fn record_correction(&mut self, correction: Correction) {
-            self.previous_corrections[2] = self.previous_corrections[1];
-            self.previous_corrections[1] = self.previous_corrections[0];
-            self.previous_corrections[0] = Some(correction);
-        }
-    }
-
-    #[derive(Debug, Clone, Copy)]
-    struct Correction {
-        key: keyed::Key,
-        offset_y: f32,
-    }
-
-    impl PartialEq for Correction {
-        fn eq(&self, other: &Self) -> bool {
-            self.key == other.key
-                && (self.offset_y - other.offset_y).abs() <= f32::EPSILON
-        }
-    }
-
-    impl Eq for Correction {}
 
     fn corrected_offset(old: &keyed::Hit, new: &keyed::Hit) -> f32 {
         let within_row = (old.scrollable.bounds.y
@@ -2747,26 +2717,18 @@ mod correct_viewport {
                             if new.hit_bounds.y != old.hit_bounds.y || new.key != old.key {
                                 let new_offset = corrected_offset(old, &new);
 
-                                let correction = Correction {
-                                    key: old.key,
-                                    offset_y: new_offset,
-                                };
-
-                                if !state.is_jitter_loop(correction) {
-                                    state.record_correction(correction);
-                                    let mut operation = scrollable::scroll_to(
-                                        scrollable.clone(),
-                                        scrollable::AbsoluteOffset {
-                                            x: None,
-                                            y: Some(new_offset),
-                                        },
-                                        widget::operation::Animation::Instant,
-                                    );
-                                    inner
-                                        .as_widget_mut()
-                                        .operate(tree, layout, viewport, renderer, &mut operation);
-                                    operation.finish();
-                                }
+                                let mut operation = scrollable::scroll_to(
+                                    scrollable.clone(),
+                                    scrollable::AbsoluteOffset {
+                                        x: None,
+                                        y: Some(new_offset),
+                                    },
+                                    widget::operation::Animation::Instant,
+                                );
+                                inner
+                                    .as_widget_mut()
+                                    .operate(tree, layout, viewport, renderer, &mut operation);
+                                operation.finish();
                             }
                         }
                     }
