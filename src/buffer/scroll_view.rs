@@ -2657,19 +2657,18 @@ mod correct_viewport {
         hit: Option<keyed::Hit>,
         published: Option<keyed::Key>,
         scrolled_to: bool,
-        previous_corrections: [Option<Correction>; 2],
+        previous_corrections: [Option<Correction>; 3],
     }
 
     impl State {
-        fn is_recorded_correction(&self, correction: Correction) -> bool {
-            self.previous_corrections.iter().any(|maybe_correction| {
-                maybe_correction.is_some_and(|previous_correction| {
-                    previous_correction == correction
-                })
-            })
+        fn is_jitter_loop(&self, correction: Correction) -> bool {
+            self.previous_corrections[1] == Some(correction)
+                && self.previous_corrections[2].is_some()
+                && self.previous_corrections[2] == self.previous_corrections[0]
         }
 
         fn record_correction(&mut self, correction: Correction) {
+            self.previous_corrections[2] = self.previous_corrections[1];
             self.previous_corrections[1] = self.previous_corrections[0];
             self.previous_corrections[0] = Some(correction);
         }
@@ -2809,7 +2808,7 @@ mod correct_viewport {
                                     offset_y: new_offset,
                                 };
 
-                                if !state.is_recorded_correction(correction) {
+                                if !state.is_jitter_loop(correction) {
                                     state.record_correction(correction);
                                     let mut operation = scrollable::scroll_to(
                                         scrollable.clone(),
