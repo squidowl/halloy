@@ -1355,12 +1355,6 @@ impl State {
                     self.status = Status::Bottom;
                     self.last_scroll_offset = 0.0;
 
-                    if !matches!(self.limit, Limit::Bottom(_)) {
-                        self.limit = Limit::Bottom(self.limit.count());
-
-                        storage.set_model_limit(kind_ref.into(), self.limit);
-                    }
-
                     return (
                         Task::batch([
                             correct_viewport::scroll_to(
@@ -1376,23 +1370,6 @@ impl State {
                         scroll_to.state = ScrollToState::Scrolling;
                     }
                     self.status = Status::Unlocked;
-
-                    if !matches!(self.limit, Limit::Around(..)) {
-                        if let Some(model::View { old_messages, .. }) =
-                            models.view(kind_ref, &self.limit, config)
-                            && let Some(history_id) = old_messages
-                                .iter()
-                                .last()
-                                .map(|message| *message.history_id())
-                        {
-                            self.limit =
-                                Limit::Around(self.limit.count(), history_id);
-                        } else {
-                            self.limit = Limit::Top(self.limit.count());
-                        }
-
-                        storage.set_model_limit(kind_ref.into(), self.limit);
-                    }
 
                     return (
                         Task::batch([
@@ -2032,16 +2009,16 @@ impl State {
             });
         };
 
-        // Load a window of messages centered on the target.
-        self.limit = Limit::Around(self.limit.count(), history_id);
-
-        storage.set_model_limit(kind_ref.into(), self.limit);
-
         if !old_messages
             .iter()
             .chain(&new_messages)
             .any(|m| *m.history_id() == history_id)
         {
+            // Load a window of messages centered on the target.
+            self.limit = Limit::Around(self.limit.count(), history_id);
+
+            storage.set_model_limit(kind_ref.into(), self.limit);
+
             // The target message is not in the currently loaded history.  The
             // model limit has just been set to ensure the target message is in
             // the history when it loads, so set the pending scroll_to to scroll
