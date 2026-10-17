@@ -899,7 +899,7 @@ pub fn view<'a>(
             })
             .id(state.scrollable.clone()),
         state.scrollable.clone(),
-        matches!(state.status, Status::Unlocked),
+        matches!(state.status, Status::Unlocked) && state.scroll_to.is_none(),
         move |key, time| match (key, time) {
             (keyed::Key::Message(id), Some(time)) => models
                 .resolve_anchor(kind_ref, &id, &time, &config.buffer)
