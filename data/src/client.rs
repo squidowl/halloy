@@ -2472,13 +2472,12 @@ impl Client {
                     {
                         channel.topic.content =
                             Some(message::parse_fragments(text.clone()));
+                        channel.topic.raw = Some(text.clone());
                         channel.topic.who = message.user(casemapping);
                         channel.topic.time =
                             Some(message.server_time_or_now().0);
                     } else {
-                        channel.topic.content = None;
-                        channel.topic.who = None;
-                        channel.topic.time = None;
+                        channel.topic = Topic::default();
                     }
                 }
             }
@@ -2495,9 +2494,11 @@ impl Client {
                 {
                     let is_join_topic = channel.topic.content.is_none();
 
-                    channel.topic.content = Some(message::parse_fragments(
-                        ok!(args.get(2)).to_owned(),
-                    ));
+                    let raw = ok!(args.get(2));
+
+                    channel.topic.content =
+                        Some(message::parse_fragments(raw.to_owned()));
+                    channel.topic.raw = Some(raw.to_owned());
 
                     if is_join_topic {
                         if config
@@ -2573,9 +2574,7 @@ impl Client {
                         self.casemapping(),
                     )))
                 {
-                    channel.topic.content = None;
-                    channel.topic.who = None;
-                    channel.topic.time = None;
+                    channel.topic = Topic::default();
                 }
             }
             Command::Numeric(RPL_CHANNELMODEIS, args) => {
@@ -5963,6 +5962,7 @@ impl QueryState {
 #[derive(Default, Debug, Clone)]
 pub struct Topic {
     pub content: Option<message::Content>,
+    pub raw: Option<String>,
     pub who: Option<User>,
     pub time: Option<DateTime<Utc>>,
 }
