@@ -1043,6 +1043,7 @@ impl Buffer {
     pub fn scroll_to_message(
         &mut self,
         history_id: history::Id,
+        time: message::Time,
         models: &model::Manager,
         storage: &mut storage::Manager,
         config: &Config,
@@ -1055,6 +1056,7 @@ impl Buffer {
             scroll_view
                 .scroll_to_message(
                     history_id,
+                    time,
                     kind_ref,
                     models,
                     storage,

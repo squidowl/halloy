@@ -1832,13 +1832,14 @@ impl<'a> ChannelQueryLayout<'a> {
                 let server = self.server.clone();
                 let channel = channel.clone();
                 let history_id = reply_preview.history_id;
+                let time = reply_preview.time;
                 button(preview)
                     .style(theme::button::reply_preview)
                     .padding(0)
                     .on_press(Message::Link(message::Link::GoToMessage(
                         server,
                         channel,
-                        message::MessageLink::Message(history_id),
+                        message::MessageLink::Message(history_id, time),
                         None, // Currently unimportant, since the buffer will always be already open
                     )))
                     .into()

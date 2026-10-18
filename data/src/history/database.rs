@@ -758,7 +758,7 @@ impl Database {
         &self,
         kind: &Kind,
         highlight: Id,
-    ) -> Result<Option<Id>, Error> {
+    ) -> Result<Option<(Id, message::Time)>, Error> {
         let Id::Determined(id) = highlight else {
             return Ok(None);
         };
@@ -782,7 +782,7 @@ impl Database {
         }
         Ok(self
             .message(kind, *history_id)?
-            .map(|message| message.history_id))
+            .map(|message| (message.history_id, message.time)))
     }
 
     #[cfg(test)]

@@ -47,6 +47,13 @@ pub enum ScrollAnchor {
     Bottom,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ScrollToPosition {
+    #[default]
+    Top,
+    Bottom,
+}
+
 const HIGHLIGHT_HOLD_MS: u64 = 2000;
 const HIGHLIGHT_ALPHA_START: f32 = 1.0;
 const HOVER_HIGHLIGHT_ALPHA: f32 = 0.4;
@@ -1254,13 +1261,19 @@ impl State {
                 scrollable,
                 ..
             }) => {
-                let (animate, align) =
+                let (highlight, align, position) =
                     self.scroll_to.as_ref().map_or(
-                        (false, ScrollAnchor::default()),
-                        |scroll_to| (scroll_to.animate, scroll_to.align),
+                        (false, ScrollAnchor::default(), None),
+                        |scroll_to| {
+                            (
+                                scroll_to.highlight,
+                                scroll_to.align,
+                                scroll_to.position,
+                            )
+                        },
                     );
 
-                let fade_task = if animate {
+                let fade_task = if highlight {
                     if let keyed::Key::Message(history_id) = key {
                         self.highlight_generation += 1;
 
@@ -1314,7 +1327,9 @@ impl State {
                 let covers_viewport = content_top <= viewport_top
                     && content_bottom >= viewport_bottom;
 
-                if fully_within_inset_viewport || covers_viewport {
+                if (fully_within_inset_viewport || covers_viewport)
+                    && position.is_none()
+                {
                     self.scroll_to = None;
 
                     return (fade_task, None);
@@ -1330,22 +1345,32 @@ impl State {
                 // the message into view, except when scrolling to the backlog
                 // divider.
                 let aligned_y = match align {
-                    ScrollAnchor::Top => {
-                        if content_top < viewport_top_inset
-                            || matches!(key, keyed::Key::Divider)
-                        {
-                            content_top - inset
-                        } else {
+                    ScrollAnchor::Top => match position {
+                        Some(ScrollToPosition::Top) => content_top - inset,
+                        Some(ScrollToPosition::Bottom) => {
                             reveal_bottom + reverse_inset
                         }
-                    }
-                    ScrollAnchor::Bottom => {
-                        if content_bottom > viewport_bottom_inset {
-                            reveal_bottom + inset
-                        } else {
+                        None => {
+                            if content_top < viewport_top_inset {
+                                content_top - inset
+                            } else {
+                                reveal_bottom + reverse_inset
+                            }
+                        }
+                    },
+                    ScrollAnchor::Bottom => match position {
+                        Some(ScrollToPosition::Top) => {
                             content_top - reverse_inset
                         }
-                    }
+                        Some(ScrollToPosition::Bottom) => reveal_bottom + inset,
+                        None => {
+                            if content_bottom > viewport_bottom_inset {
+                                reveal_bottom + inset
+                            } else {
+                                content_top - reverse_inset
+                            }
+                        }
+                    },
                 };
 
                 let offset = aligned_y.max(0.0).min(max_offset);
@@ -1742,6 +1767,7 @@ impl State {
                 };
 
                 let scroll_to_history_id = *message_to_focus.history_id();
+                let scroll_to_time = *message_to_focus.time();
 
                 *focused_message = Some(message_to_focus);
 
@@ -1757,6 +1783,7 @@ impl State {
                 let task = if let Some(anchor) = anchor {
                     self.scroll_to_message(
                         scroll_to_history_id,
+                        scroll_to_time,
                         kind_ref,
                         models,
                         storage,
@@ -1975,16 +2002,18 @@ impl State {
     pub fn scroll_to_message(
         &mut self,
         history_id: history::Id,
+        time: message::Time,
         kind_ref: history::KindRef,
         models: &model::Manager,
         storage: &mut storage::Manager,
         config: &Config,
-        animate: bool,
+        highlight: bool,
         align: ScrollAnchor,
     ) -> Task<Message> {
         let message_scroll_to = ScrollTo {
             key: keyed::Key::Message(history_id),
-            animate,
+            highlight,
+            position: None,
             align,
             state: ScrollToState::Pending,
         };
@@ -2014,6 +2043,15 @@ impl State {
             .chain(&new_messages)
             .any(|m| *m.history_id() == history_id)
         {
+            let scroll_to_position =
+                if old_messages.iter().chain(&new_messages).last().is_some_and(
+                    |newest_message| *newest_message.time() <= time,
+                ) {
+                    ScrollToPosition::Bottom
+                } else {
+                    ScrollToPosition::Top
+                };
+
             // Load a window of messages centered on the target.
             self.limit = Limit::Around(self.limit.count(), history_id);
 
@@ -2023,6 +2061,10 @@ impl State {
             // model limit has just been set to ensure the target message is in
             // the history when it loads, so set the pending scroll_to to scroll
             // to the target message.
+            self.scroll_to = Some(ScrollTo {
+                position: Some(scroll_to_position),
+                ..message_scroll_to
+            });
             self.scroll_to = Some(message_scroll_to);
 
             return Task::perform(time::sleep(SCROLL_TO_TIMEOUT), move |()| {
@@ -2056,7 +2098,8 @@ impl State {
 
         let backlog_scroll_to = ScrollTo {
             key: keyed::Key::Divider,
-            animate: false,
+            highlight: false,
+            position: Some(ScrollToPosition::Top),
             align: ScrollAnchor::Top,
             state: ScrollToState::Pending,
         };
@@ -3057,8 +3100,9 @@ fn prefixes_width(
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct ScrollTo {
     key: keyed::Key,
-    animate: bool,
+    highlight: bool,
     align: ScrollAnchor,
+    position: Option<ScrollToPosition>,
     state: ScrollToState,
 }
 

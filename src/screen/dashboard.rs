@@ -2360,8 +2360,8 @@ impl Dashboard {
                     token: std::sync::Weak::new(),
                 };
                 match destination {
-                    message::MessageLink::Message(message) => {
-                        navigation.message = Some(message);
+                    message::MessageLink::Message(history_id, time) => {
+                        navigation.message = Some((history_id, time));
                         return (
                             self.go_to_message(
                                 navigation, clients, storage, config,
@@ -3168,15 +3168,21 @@ impl Dashboard {
             ));
         }
 
-        if let Some(message) = navigation.message
-            && message != history::Id::Undetermined
+        if let Some((history_id, time)) = navigation.message
+            && history_id != history::Id::Undetermined
             && let Some((window, pane, state)) =
                 self.panes.get_mut_by_buffer(&buffer)
         {
             tasks.push(
                 state
                     .buffer
-                    .scroll_to_message(message, &self.models, storage, config)
+                    .scroll_to_message(
+                        history_id,
+                        time,
+                        &self.models,
+                        storage,
+                        config,
+                    )
                     .map(move |message| {
                         Message::Pane(
                             window,

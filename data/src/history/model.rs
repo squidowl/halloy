@@ -27,7 +27,7 @@ pub enum Event {
 pub struct Navigation {
     pub server: Server,
     pub channel: target::Channel,
-    pub message: Option<Id>,
+    pub message: Option<(Id, message::Time)>,
     pub buffer_action: crate::dashboard::BufferAction,
     pub token: std::sync::Weak<()>,
 }

@@ -85,7 +85,7 @@ pub fn view<'a>(
         ) {
             message::MessageLink::Highlight(message.inner.history_id)
         } else {
-            message::MessageLink::Message(*history_id)
+            message::MessageLink::Message(*history_id, *message.time())
         };
 
         match &message.inner.source {

@@ -3857,7 +3857,7 @@ pub fn quit_text(
 
 #[derive(Debug, Clone, Copy)]
 pub enum MessageLink {
-    Message(history::Id),
+    Message(history::Id, message::Time),
     Highlight(history::Id),
 }
 
