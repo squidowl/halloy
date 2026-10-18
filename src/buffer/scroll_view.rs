@@ -84,6 +84,7 @@ pub enum Message {
     PendingScrollTo,
     FadeHighlight(history::Id, u64),
     HeightsCollected(Vec<(keyed::Row, f32)>),
+    AnchorChanged(Option<keyed::Anchor>),
     Reacted {
         msgid: message::Id,
         text: Cow<'static, str>,
@@ -385,11 +386,38 @@ pub fn view<'a>(
         .get(&keyed::Key::Divider)
         .map_or(0.0, |(_, height)| *height);
 
-    let (render_start, render_end) =
-        if state.scroll_to.is_some() || total <= render_budget {
-            (0, total)
-        } else {
-            let first_visible = match state.status {
+    let index_of = |key: keyed::Key| match key {
+        keyed::Key::Divider => Some(old_messages.len()),
+        keyed::Key::Message(history_id) => old_messages
+            .iter()
+            .chain(&new_messages)
+            .position(|message| *message.history_id() == history_id),
+        keyed::Key::Preview(..) => None,
+    };
+
+    let render_window = |index: usize| {
+        (
+            index.saturating_sub(buffer),
+            (index + visible + buffer).min(total),
+        )
+    };
+
+    let (render_start, render_end) = if total <= render_budget {
+        (0, total)
+    } else {
+        let anchor_index = state
+            .anchor
+            .filter(|_| matches!(state.status, Status::Unlocked))
+            .and_then(|anchor| match (anchor.key, anchor.time) {
+                (keyed::Key::Message(id), Some(time)) => models
+                    .resolve_anchor(kind_ref, &id, &time, &config.buffer)
+                    .map(keyed::Key::Message),
+                (key, _) => Some(key),
+            })
+            .and_then(index_of);
+
+        let first_visible =
+            anchor_index.unwrap_or_else(|| match state.status {
                 Status::Bottom => {
                     let offset = state.last_scroll_offset;
                     let mut acc = 0.0_f32;
@@ -430,13 +458,22 @@ pub fn view<'a>(
                     }
                     idx
                 }
-            };
+            });
 
-            (
-                first_visible.saturating_sub(buffer),
-                (first_visible + visible + buffer).min(total),
-            )
-        };
+        let (start, end) = render_window(first_visible);
+
+        match state
+            .scroll_to
+            .as_ref()
+            .and_then(|scroll_to| index_of(scroll_to.key))
+        {
+            Some(target) => {
+                let (target_start, target_end) = render_window(target);
+                (start.min(target_start), end.max(target_end))
+            }
+            None => (start, end),
+        }
+    };
 
     let old_start = render_start.min(old_messages.len());
     let old_end = render_end.min(old_messages.len());
@@ -915,6 +952,7 @@ pub struct State {
     limit: Limit,
     status: Status,
     last_scroll_offset: f32,
+    anchor: Option<keyed::Anchor>,
     height_cache: HashMap<keyed::Key, (Option<u64>, f32)>,
     scroll_to: Option<ScrollTo>,
     highlighted_message: Option<(history::Id, f32)>,
@@ -950,6 +988,7 @@ impl State {
             limit,
             status: Status::default(),
             last_scroll_offset: 0.0,
+            anchor: None,
             height_cache: HashMap::with_capacity(message_count),
             scroll_to: None,
             highlighted_message: None,
@@ -1214,13 +1253,10 @@ impl State {
                 ..
             }) => {
                 let (animate, align) =
-                    if let Some(ScrollTo { animate, align, .. }) =
-                        self.scroll_to.take()
-                    {
-                        (animate, align)
-                    } else {
-                        (false, ScrollAnchor::default())
-                    };
+                    self.scroll_to.as_ref().map_or(
+                        (false, ScrollAnchor::default()),
+                        |scroll_to| (scroll_to.animate, scroll_to.align),
+                    );
 
                 let fade_task = if animate {
                     if let keyed::Key::Message(history_id) = key {
@@ -1284,6 +1320,8 @@ impl State {
                     && content_bottom >= viewport_bottom;
 
                 if fully_within_inset_viewport || covers_viewport {
+                    self.scroll_to = None;
+
                     return (fade_task, None);
                 }
 
@@ -1318,6 +1356,7 @@ impl State {
                 let offset = aligned_y.max(0.0).min(max_offset);
 
                 if (offset - max_offset).abs() <= f32::EPSILON {
+                    self.scroll_to = None;
                     self.status = Status::Bottom;
                     self.last_scroll_offset = 0.0;
 
@@ -1338,6 +1377,9 @@ impl State {
                         None,
                     );
                 } else {
+                    if let Some(scroll_to) = &mut self.scroll_to {
+                        scroll_to.state = ScrollToState::Scrolling;
+                    }
                     self.status = Status::Unlocked;
 
                     if !matches!(self.limit, Limit::Around(..)) {
@@ -1533,6 +1575,15 @@ impl State {
                     }
                 }
             }
+            Message::AnchorChanged(anchor) => {
+                self.anchor = anchor;
+
+                if self.scroll_to.as_ref().is_some_and(|scroll_to| {
+                    matches!(scroll_to.state, ScrollToState::Scrolling)
+                }) {
+                    self.scroll_to = None;
+                }
+            }
             Message::HeightsCollected(heights) => {
                 for (row, height) in &heights {
                     self.height_cache.insert(row.key, (row.revision, *height));
@@ -1575,7 +1626,9 @@ impl State {
 
                 let event = preview_changed.then_some(Event::PreviewChanged);
 
-                if let Some(ScrollTo { key, state, .. }) = &mut self.scroll_to {
+                if let Some(ScrollTo { key, state, .. }) = &mut self.scroll_to
+                    && !matches!(state, ScrollToState::Scrolling)
+                {
                     if matches!(state, ScrollToState::Active) {
                         // Ideally we are never collecting heights while there
                         // is an active scroll_to, but if we are then we should
@@ -2008,65 +2061,15 @@ impl State {
             });
         };
 
-        // If the message is already rendered, skip the load and fire immediately.
-        if self
-            .height_cache
-            .contains_key(&keyed::Key::Message(history_id))
-        {
-            // cache real heights while fully rendered so the virtualized
-            // layout's doesn't drift from estimates as focus moves.
-            // without this, the error increases over time which leads to
-            // unpredictable scrolling.
-
-            // only do this when something is unmeasured — in steady state every
-            // height is already cached and re-collecting would be wasted work.
-            let needs_heights =
-                old_messages.iter().chain(&new_messages).any(|message| {
-                    !self.height_cache.contains_key(&keyed::Key::Message(
-                        *message.history_id(),
-                    ))
-                });
-
-            let (task, scroll_to_state) = if needs_heights {
-                (
-                    keyed::collect_heights(
-                        self.scrollable.clone(),
-                        self.limit.count(),
-                    )
-                    .map(Message::HeightsCollected),
-                    ScrollToState::Pending, // ScrollTo is pending heights collection
-                )
-            } else {
-                (
-                    keyed::find(
-                        self.scrollable.clone(),
-                        keyed::Key::Message(history_id),
-                    )
-                    .map(Message::ScrollTo),
-                    ScrollToState::Active, // ScrollTo right away
-                )
-            };
-
-            self.scroll_to = Some(ScrollTo {
-                key: keyed::Key::Message(history_id),
-                animate,
-                align,
-                state: scroll_to_state,
-            });
-
-            return task;
-        }
-
         self.scroll_to = Some(ScrollTo {
             key: keyed::Key::Message(history_id),
             animate,
             align,
-            state: ScrollToState::Pending,
+            state: ScrollToState::Active,
         });
 
-        Task::perform(time::sleep(SCROLL_TO_TIMEOUT), move |()| {
-            Message::PendingScrollTo
-        })
+        keyed::find(self.scrollable.clone(), keyed::Key::Message(history_id))
+            .map(Message::ScrollTo)
     }
 
     pub fn scroll_to_backlog(
@@ -2405,6 +2408,12 @@ pub mod keyed {
     }
 
     #[derive(Debug, Clone, Copy)]
+    pub struct Anchor {
+        pub key: Key,
+        pub time: Option<message::Time>,
+    }
+
+    #[derive(Debug, Clone, Copy)]
     pub struct Scrollable {
         pub bounds: Rectangle,
         pub content: Size,
@@ -2650,6 +2659,8 @@ mod correct_viewport {
     #[derive(Debug, Default)]
     struct State {
         hit: Option<keyed::Hit>,
+        published: Option<keyed::Key>,
+        scrolled_to: bool,
         previous_corrections: [Option<Correction>; 2],
     }
 
@@ -2682,6 +2693,46 @@ mod correct_viewport {
     }
 
     impl Eq for Correction {}
+
+    fn top_of_viewport(
+        inner: &mut Element<'_, Message>,
+        tree: &mut advanced::widget::Tree,
+        layout: advanced::Layout,
+        viewport: &Rectangle,
+        renderer: &Renderer,
+        scrollable: &iced::widget::Id,
+    ) -> Option<keyed::Hit> {
+        let hit = Arc::new(Mutex::new(None));
+
+        let mut operation = widget::operation::map(
+            keyed::TopOfViewport {
+                active: false,
+                scrollable_id: scrollable.clone(),
+                scrollable: None,
+                hit_bounds: None,
+            },
+            {
+                let hit = hit.clone();
+                move |result| {
+                    *hit.lock().unwrap() = Some(result);
+                }
+            },
+        );
+
+        inner.as_widget_mut().operate(
+            tree,
+            layout,
+            viewport,
+            renderer,
+            &mut operation,
+        );
+        operation.finish();
+        drop(operation);
+
+        Arc::into_inner(hit)
+            .and_then(|m| m.into_inner().ok())
+            .flatten()
+    }
 
     fn corrected_offset(old: &keyed::Hit, new: &keyed::Hit) -> f32 {
         let within_row = (old.scrollable.bounds.y
@@ -2818,33 +2869,26 @@ mod correct_viewport {
                     }
 
                     // Re-query top of viewport any-time we scroll
-                    if is_scrolled {
-                        let hit = Arc::new(Mutex::new(None));
-
-                        let mut operation = widget::operation::map(
-                            keyed::TopOfViewport {
-                                active: false,
-                                scrollable_id: scrollable.clone(),
-                                scrollable: None,
-                                hit_bounds: None,
-                            },
-                            {
-                                let hit = hit.clone();
-                                move |result| {
-                                    *hit.lock().unwrap() = Some(result);
-                                }
-                            },
+                    if is_scrolled || (is_redraw && state.hit.is_none()) {
+                        state.hit = top_of_viewport(
+                            inner,
+                            tree,
+                            layout,
+                            viewport,
+                            renderer,
+                            &scrollable,
                         );
+                    }
 
-                        inner
-                            .as_widget_mut()
-                            .operate(tree, layout, viewport, renderer, &mut operation);
-                        operation.finish();
-                        drop(operation);
-
-                        state.hit = Arc::into_inner(hit)
-                            .and_then(|m| m.into_inner().ok())
-                            .flatten();
+                    let key = state.hit.map(|hit| hit.key);
+                    if std::mem::take(&mut state.scrolled_to) || key != state.published {
+                        state.published = key;
+                        shell.publish(Message::AnchorChanged(state.hit.map(|hit| {
+                            keyed::Anchor {
+                                key: hit.key,
+                                time: hit.time,
+                            }
+                        })));
                     }
                 }
             })
@@ -2867,32 +2911,15 @@ mod correct_viewport {
                     );
 
                     if is_scroll_to {
-                        let hit = Arc::new(Mutex::new(None));
-
-                        let mut operation = widget::operation::map(
-                            keyed::TopOfViewport {
-                                active: false,
-                                scrollable_id: scrollable.clone(),
-                                scrollable: None,
-                                hit_bounds: None,
-                            },
-                            {
-                                let hit = hit.clone();
-                                move |result| {
-                                    *hit.lock().unwrap() = Some(result);
-                                }
-                            },
+                        state.hit = top_of_viewport(
+                            inner,
+                            tree,
+                            layout,
+                            viewport,
+                            renderer,
+                            &scrollable,
                         );
-
-                        inner
-                            .as_widget_mut()
-                            .operate(tree, layout, viewport, renderer, &mut operation);
-                        operation.finish();
-                        drop(operation);
-
-                        state.hit = Arc::into_inner(hit)
-                            .and_then(|m| m.into_inner().ok())
-                            .flatten();
+                        state.scrolled_to = true;
                     }
                 },
             )
@@ -3067,6 +3094,7 @@ struct ScrollTo {
 enum ScrollToState {
     Pending,
     Active,
+    Scrolling,
 }
 
 fn timestamp_width(
