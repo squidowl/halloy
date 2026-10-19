@@ -215,11 +215,11 @@ Overwrite nicklist width in pixels.
 width = 150
 ```
 
-## `scrollbar`
+#### `scrollbar`
 
 Scrollbar in nicklist
 
-### `hidden`
+##### `hidden` {#nicklist-scrollbar-hidden}
 
 Whether the scrollbar is hidden.
 
@@ -232,7 +232,7 @@ Whether the scrollbar is hidden.
 hidden = false
 ```
 
-### `width`
+##### `width` {#nicklist-scrollbar-width}
 
 Width of the nicklist scrollbar.
 
@@ -245,7 +245,7 @@ Width of the nicklist scrollbar.
 width = 5
 ```
 
-### `scroller_width`
+##### `scroller_width` {#nicklist-scrollbar-scroller-width}
 
 Width of the nicklist scrollbar scroller.
 
