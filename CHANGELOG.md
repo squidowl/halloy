@@ -2,7 +2,7 @@
 
 Added:
 
-- Added Gopher(+s) / Gemini protocol schemes (make links clickable)
+- Added Gopher(+s) / Gemini protocol schemes, fix IPv6 literals (make links clickable)
 - Added `buffer.text_input.upload_long_paste` to automatically use filehost in case pasted text is too long
 - Right-clickable text in the server buffer now offers a context menu
 - Pressing Tab after `/topic ` fills in the current channel topic for editing
