@@ -4732,6 +4732,14 @@ pub mod tests {
                     "http://127.0.0.1:8080/api".parse().unwrap(), "http://127.0.0.1:8080/api".to_string(),
                 )],
             ),
+            (
+                "This is an IPv6 URL: http://[::1]:3000/test-link. And this is not an IPv6 URL: http://[::1]:[3000]/test-not-link.",
+                vec![
+                    Fragment::Text("This is an IPv6 URL: ".into()),
+                    Fragment::Url("http://[::1]:3000/test-link".parse().unwrap(), "http://[::1]:3000/test-link".to_string()),
+                    Fragment::Text(". And this is not an IPv6 URL: http://[::1]:[3000]/test-not-link.".into()),
+                ],
+            ),
         ];
 
         for (text, expected) in tests {
