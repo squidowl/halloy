@@ -47,7 +47,7 @@ static URL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     RegexBuilder::new(concatcp!(
         r#"(?i)("#,
         r#"(?:https?|ircs?|wss?|gophers?|gemini):\/\/"#,
-        r#"[\p{Letter}\p{Number}\-@:%._+~#=]{1,256}"#,
+        r#"[\p{Letter}\p{Number}\-@:%._+~#=\[\]]{1,256}"#,
         r#"(?:\.[\p{Letter}\p{Number}]{1,63})?"#,
         r#"\b(?:"#,
         r#"["#,
@@ -4731,6 +4731,14 @@ pub mod tests {
                 vec![Fragment::Url(
                     "http://127.0.0.1:8080/api".parse().unwrap(), "http://127.0.0.1:8080/api".to_string(),
                 )],
+            ),
+            (
+                "This is an IPv6 URL: http://[::1]:3000/test-link. And this is not an IPv6 URL: http://[::1]:[3000]/test-not-link.",
+                vec![
+                    Fragment::Text("This is an IPv6 URL: ".into()),
+                    Fragment::Url("http://[::1]:3000/test-link".parse().unwrap(), "http://[::1]:3000/test-link".to_string()),
+                    Fragment::Text(". And this is not an IPv6 URL: http://[::1]:[3000]/test-not-link.".into()),
+                ],
             ),
         ];
 

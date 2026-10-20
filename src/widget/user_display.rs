@@ -392,8 +392,8 @@ impl UserDisplayData {
         if self.bot_icon || self.reroute_icon {
             row![
                 text_piece(self.left, font.clone()),
-                self.bot_icon.then(|| icon_piece('\u{1F916}')),
-                self.reroute_icon.then(|| icon_piece('\u{292E}')),
+                self.bot_icon.then(|| icon_piece('\u{E003}')),
+                self.reroute_icon.then(|| icon_piece('\u{E004}')),
                 self.right.map(|right| text_piece(right, font)),
             ]
             .spacing(theme::ICON_SPACE)

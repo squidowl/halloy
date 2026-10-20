@@ -38,6 +38,7 @@ pub struct Completion {
     words: Words,
     emojis: Emojis,
     paths: Paths,
+    topic: Option<String>,
 }
 
 impl Completion {
@@ -57,6 +58,7 @@ impl Completion {
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         channels: impl IntoIterator<Item = &'a target::Channel>,
         current_target: Option<&Target>,
+        topic: Option<&str>,
         server: &Server,
         is_connected: bool,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
@@ -81,6 +83,14 @@ impl Completion {
                 config,
             );
 
+            self.topic = topic_completion(
+                &self.commands,
+                input,
+                cursor_position,
+                current_target.and_then(Target::as_channel),
+                topic,
+            );
+
             // Disallow other completions when selecting a command
             if matches!(self.commands, Commands::Selecting { .. }) {
                 self.words = Words::default();
@@ -91,6 +101,7 @@ impl Completion {
             }
         } else {
             self.commands = Commands::default();
+            self.topic = None;
         }
 
         // If the text input has a selection, then don't show pickers
@@ -188,6 +199,7 @@ impl Completion {
             .tab(reverse)
             .or_else(|| self.emojis.tab(reverse, config))
             .or_else(|| self.paths.tab(reverse))
+            .or_else(|| self.topic.clone().map(Entry::Topic))
             .or_else(|| self.words.tab(reverse))
     }
 
@@ -282,6 +294,7 @@ pub enum Entry {
     Word { next: String, append_suffix: bool },
     Path(String),
     Emoji(String),
+    Topic(String),
 }
 
 impl Entry {
@@ -337,8 +350,40 @@ impl Entry {
                     )),
                 ]
             }
+            Entry::Topic(text) => {
+                vec![
+                    text_editor::Action::SelectAll,
+                    text_editor::Action::Edit(text_editor::Edit::Paste(
+                        std::sync::Arc::new(text.clone()),
+                    )),
+                ]
+            }
         }
     }
+}
+
+fn topic_completion(
+    commands: &Commands,
+    input: &str,
+    cursor_position: usize,
+    channel: Option<&target::Channel>,
+    topic: Option<&str>,
+) -> Option<String> {
+    let Commands::Selected { command, .. } = commands else {
+        return None;
+    };
+
+    if command.title != "TOPIC" || cursor_position != input.len() {
+        return None;
+    }
+
+    let (_, args) = input.split_once(' ')?;
+
+    if !args.trim().is_empty() {
+        return None;
+    }
+
+    Some(format!("/topic {} {}", channel?.as_str(), topic?))
 }
 
 #[derive(Debug, Clone, Default)]

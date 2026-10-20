@@ -1549,6 +1549,15 @@ impl State {
                                 clients
                                     .get_channel_users(buffer.server(), channel)
                             });
+                            let topic = buffer
+                                .channel()
+                                .and_then(|channel| {
+                                    clients.get_channel_topic(
+                                        buffer.server(),
+                                        channel,
+                                    )
+                                })
+                                .and_then(|topic| topic.raw.as_deref());
                             let last_seen = history.get_last_seen(buffer);
                             let filters =
                                 FilterChain::borrow(history.get_filters());
@@ -1569,6 +1578,7 @@ impl State {
                                 &last_seen,
                                 clients.get_channels(buffer.server()),
                                 current_target.as_ref(),
+                                topic,
                                 buffer.server(),
                                 is_connected,
                                 isupport,
@@ -2540,6 +2550,12 @@ impl State {
             let users = buffer.channel().and_then(|channel| {
                 clients.get_channel_users(buffer.server(), channel)
             });
+            let topic = buffer
+                .channel()
+                .and_then(|channel| {
+                    clients.get_channel_topic(buffer.server(), channel)
+                })
+                .and_then(|topic| topic.raw.as_deref());
             let last_seen = history.get_last_seen(buffer);
             let filters = FilterChain::borrow(history.get_filters());
             let is_connected = clients.get_server_is_connected(buffer.server());
@@ -2556,6 +2572,7 @@ impl State {
                 &last_seen,
                 clients.get_channels(buffer.server()),
                 current_target.as_ref(),
+                topic,
                 buffer.server(),
                 is_connected,
                 isupport,
