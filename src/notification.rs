@@ -568,18 +568,27 @@ impl Notifications {
                 default_notification_action,
             );
 
-            let sender = self.sender.clone();
+            #[cfg(target_os = "linux")]
+            {
+                let sender = self.sender.clone();
 
-            tokio::task::spawn(async move {
-                if let Some(action) = toast
-                    .show_and_wait_for_response(default_notification_action)
-                    .await
-                {
-                    let _ = sender
-                        .send(Event::NotificationResponse { action, buffer })
-                        .await;
-                }
-            });
+                tokio::task::spawn(async move {
+                    if let Some(action) = toast
+                        .show_and_wait_for_response(default_notification_action)
+                        .await
+                    {
+                        let _ = sender
+                            .send(Event::NotificationResponse {
+                                action,
+                                buffer,
+                            })
+                            .await;
+                    }
+                });
+            }
+
+            #[cfg(not(target_os = "linux"))]
+            toast.show();
         }
 
         if let Some(sound) = sound_name
