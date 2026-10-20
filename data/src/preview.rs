@@ -1,10 +1,10 @@
-use std::collections::{HashMap, hash_map};
 use std::io;
 use std::sync::{Arc, LazyLock, OnceLock};
 use std::time::Duration;
 
 use ::image::image_dimensions;
 use fancy_regex::Regex;
+use hashbrown::{DefaultHashBuilder, HashMap, hash_map};
 use log;
 use reqwest::header::{self, HeaderValue};
 use serde::{Deserialize, Serialize};
@@ -116,7 +116,10 @@ impl Collection {
         self.0.contains_key(url)
     }
 
-    pub fn entry(&mut self, url: Url) -> hash_map::Entry<'_, Url, State> {
+    pub fn entry(
+        &mut self,
+        url: Url,
+    ) -> hash_map::Entry<'_, Url, State, DefaultHashBuilder> {
         self.0.entry(url)
     }
 

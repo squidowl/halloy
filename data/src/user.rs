@@ -85,8 +85,8 @@ impl ChannelUsers {
         self.0.shift_remove(user)
     }
 
-    pub fn get_by_nick(&self, nick: NickRef) -> Option<&User> {
-        self.0.get(&nick)
+    pub fn get_by_nick(&self, nick: &Nick) -> Option<&User> {
+        self.0.get(nick)
     }
 
     #[must_use]
@@ -246,7 +246,11 @@ impl User {
         self.username.as_deref()
     }
 
-    pub fn nickname(&self) -> NickRef<'_> {
+    pub fn nickname(&self) -> &Nick {
+        &self.nickname
+    }
+
+    pub fn nickref(&self) -> NickRef<'_> {
         self.nickname.as_nickref()
     }
 
@@ -565,6 +569,12 @@ impl Hash for Nick {
     }
 }
 
+impl Equivalent<User> for Nick {
+    fn equivalent(&self, user: &User) -> bool {
+        self.eq(user.nickname())
+    }
+}
+
 impl fmt::Display for Nick {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.raw.fmt(f)
@@ -733,6 +743,12 @@ impl Eq for NickRef<'_> {}
 impl PartialEq<Nick> for NickRef<'_> {
     fn eq(&self, other: &Nick) -> bool {
         self.normalized.eq(other.normalized.as_str())
+    }
+}
+
+impl PartialEq<NickRef<'_>> for Nick {
+    fn eq(&self, other: &NickRef<'_>) -> bool {
+        self.normalized.eq(other.normalized)
     }
 }
 
@@ -1081,10 +1097,7 @@ mod tests {
         let channel_users: ChannelUsers =
             users.iter().map(|(_, u)| u).cloned().collect();
         for (nick, user) in users {
-            assert_eq!(
-                channel_users.get_by_nick(nick.as_nickref()),
-                Some(user)
-            );
+            assert_eq!(channel_users.get_by_nick(nick), Some(user));
         }
     }
 }
