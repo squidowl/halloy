@@ -8,6 +8,7 @@ Added:
 - Pressing Tab after `/topic ` fills in the current channel topic for editing
 - SQLite history storage, with automatic migration of existing gzip history as buffers are used and loading of history in windows.
 - `buffer.close.query` option `"close-buffer"` (previous option `"close"` renamed to `"close-pane"`)
+- Highlight matches can be optionally named via the `name` property
 
 Fixed:
 
@@ -30,7 +31,7 @@ Thanks:
 
 - Contributions: @httpsterio
 - Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768, @WinnerWind
-- Feature requests: @ainola
+- Feature requests: @ainola, @kalebris
 
 # 2026.9 (2026-09-29)
 
