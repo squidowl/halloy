@@ -23,7 +23,6 @@ use crate::time::Posix;
 use crate::{config, environment, message, server};
 
 const QUIT_REQUEST_TIMEOUT: Duration = Duration::from_millis(400);
-const NETWORK_RETRY_DELAY: Duration = Duration::from_secs(1);
 
 pub type Result<T = Update, E = Error> = std::result::Result<T, E>;
 
@@ -1011,7 +1010,7 @@ fn is_loopback(
 }
 
 fn network_retry() -> Interval {
-    interval_at(Duration::ZERO, NETWORK_RETRY_DELAY)
+    interval_at(Duration::ZERO, Duration::from_secs(1))
 }
 
 fn interval_at(delay: Duration, period: Duration) -> Interval {
