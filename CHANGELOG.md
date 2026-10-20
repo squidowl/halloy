@@ -10,8 +10,7 @@ Added:
 - SQLite history storage, with automatic migration of existing gzip history as buffers are used and loading of history in windows.
 - `buffer.close.query` option `"close-buffer"` (previous option `"close"` renamed to `"close-pane"`)
 - Highlight matches can be optionally named via the `name` property
-- When the network changes Halloy checks if any connections were lost and
-  reconnects right away. 
+- Lost connections taking minutes to detect after waking macOS from sleep
 
 Fixed:
 
