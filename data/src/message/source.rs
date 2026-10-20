@@ -37,18 +37,16 @@ pub enum Status {
 }
 
 pub mod server {
-    #![allow(deprecated)]
     use serde::{Deserialize, Serialize};
 
     use crate::isupport;
     use crate::user::Nick;
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-    #[serde(untagged)]
-    pub enum Server {
-        #[deprecated(note = "use Server::Details")]
-        Kind(Kind),
-        Details(Details),
+    pub struct Server {
+        pub kind: Kind,
+        pub nick: Option<Nick>,
+        pub change: Option<Change>,
     }
 
     impl Server {
@@ -57,44 +55,21 @@ pub mod server {
             nick: Option<Nick>,
             change: Option<Change>,
         ) -> Self {
-            Self::Details(Details { kind, nick, change })
-        }
-
-        pub fn kind(&self) -> Kind {
-            match self {
-                Server::Kind(kind) => *kind,
-                Server::Details(details) => details.kind,
-            }
-        }
-
-        pub fn nick(&self) -> Option<&Nick> {
-            match self {
-                Server::Kind(_) => None,
-                Server::Details(details) => details.nick.as_ref(),
-            }
-        }
-
-        pub fn change(&self) -> Option<&Change> {
-            match self {
-                Server::Kind(_) => None,
-                Server::Details(details) => details.change.as_ref(),
-            }
+            Self { kind, nick, change }
         }
 
         pub fn renormalize(&mut self, casemapping: isupport::CaseMap) {
-            if let Server::Details(Details { nick, change, .. }) = self {
-                if let Some(nick) = nick {
-                    nick.renormalize(casemapping);
-                }
+            if let Some(nick) = self.nick.as_mut() {
+                nick.renormalize(casemapping);
+            }
 
-                if let Some(Change::Nick(nick)) = change {
-                    nick.renormalize(casemapping);
-                }
+            if let Some(Change::Nick(nick)) = self.change.as_mut() {
+                nick.renormalize(casemapping);
             }
         }
 
         pub fn can_reference(&self) -> bool {
-            match self.kind() {
+            match self.kind {
                 Kind::Join
                 | Kind::Part
                 | Kind::Quit
@@ -195,12 +170,5 @@ pub mod server {
     pub enum Change {
         Nick(Nick),
         Host(String, String),
-    }
-
-    #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-    pub struct Details {
-        pub kind: Kind,
-        pub nick: Option<Nick>,
-        pub change: Option<Change>,
     }
 }
