@@ -76,6 +76,7 @@ pub enum Message {
     ImagePreview(Image),
     AnimatePreview(crate::widget::animated_image::hover::Request),
     ScrollTo(keyed::Hit),
+    ScrollToTop,
     RequestOlderChathistory,
     EnteringViewport(history::Id, Vec<url::Url>),
     ExitingViewport(history::Id),
@@ -1411,6 +1412,15 @@ impl State {
                     );
                 }
             }
+            Message::ScrollToTop => {
+                return (
+                    correct_viewport::scroll_to(
+                        self.scrollable.clone(),
+                        scrollable::AbsoluteOffset { x: 0.0, y: 0.0 },
+                    ),
+                    None,
+                );
+            }
             Message::Link(message::Link::ExpandMessage(
                 server_time,
                 history_id,
@@ -1951,7 +1961,16 @@ impl State {
             && let Limit::Top(count) = self.limit
             && count >= minimum_count
         {
-            return Task::none();
+            if self.last_scroll_offset == 0.0 {
+                return Task::none();
+            } else {
+                self.last_scroll_offset = 0.0;
+
+                return correct_viewport::scroll_to(
+                    self.scrollable.clone(),
+                    scrollable::AbsoluteOffset { x: 0.0, y: 0.0 },
+                );
+            }
         }
 
         self.status = Status::Unlocked;
@@ -1961,10 +1980,9 @@ impl State {
 
         storage.set_model_limit(kind_ref.into(), self.limit);
 
-        correct_viewport::scroll_to(
-            self.scrollable.clone(),
-            scrollable::AbsoluteOffset { x: 0.0, y: 0.0 },
-        )
+        Task::perform(time::sleep(SCROLL_TO_TIMEOUT), move |()| {
+            Message::ScrollToTop
+        })
     }
 
     pub fn scroll_to_end(
