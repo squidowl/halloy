@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::vec;
 
 use bytes::Bytes;
 use tokio::fs;
@@ -24,20 +25,26 @@ pub async fn connect<'a>(
             .dangerous()
             .with_custom_certificate_verifier(Arc::new(AcceptInvalidCerts))
     } else {
-        let mut roots = rustls::RootCertStore::empty();
-
-        for cert in rustls_native_certs::load_native_certs().certs {
-            let _ = roots.add(cert);
-        }
+        let mut extra_roots = vec![];
 
         if let Some(cert_path) = root_cert_path {
             let cert_bytes = fs::read(&cert_path).await?;
-            let certs = pki_types::CertificateDer::pem_slice_iter(&cert_bytes)
-                .collect::<Result<Vec<_>, _>>()?;
-            roots.add_parsable_certificates(certs);
-        }
+            extra_roots.extend(
+                pki_types::CertificateDer::pem_slice_iter(&cert_bytes)
+                    .collect::<Result<Vec<_>, _>>()?,
+            );
+        };
 
-        rustls::ClientConfig::builder().with_root_certificates(roots)
+        let builder = rustls::ClientConfig::builder();
+        let verifier =
+            rustls_platform_verifier::Verifier::new_with_extra_roots(
+                extra_roots,
+                builder.crypto_provider().clone(),
+            )?;
+
+        builder
+            .dangerous()
+            .with_custom_certificate_verifier(Arc::new(verifier))
     };
 
     let client_config = if let Some(cert_path) = client_cert_path {
