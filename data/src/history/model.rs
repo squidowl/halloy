@@ -363,7 +363,7 @@ impl Model {
         }
 
         let event = if matches!(self.pane, Pane::Closed)
-            && matches!(update.pane, Pane::Open { .. })
+            && !matches!(update.pane, Pane::Closed)
         {
             Some(Event::Opened(kind))
         } else {
