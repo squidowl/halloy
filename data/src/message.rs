@@ -1679,6 +1679,7 @@ pub fn parse_fragments_with_highlights(
     casemapping: isupport::CaseMap,
 ) -> (Content, Option<highlight::Kind>) {
     let mut highlight_kind = None;
+    let mut sounds = HashSet::new();
 
     let target_included = highlights.nickname.is_target_included(
         message_user,
@@ -1701,7 +1702,9 @@ pub fn parse_fragments_with_highlights(
         Fragment::User(user, raw)
             if target_included && is_our_nick(&user, &raw) =>
         {
-            highlight_kind.get_or_insert(highlight::Kind::Nick);
+            highlight_kind.get_or_insert_with(|| highlight::Kind::Nick {
+                sounds: Vec::new(),
+            });
             Fragment::HighlightNick(user, raw)
         }
         fragment => fragment,
@@ -1724,21 +1727,13 @@ pub fn parse_fragments_with_highlights(
                         &m.regex,
                         text,
                         |text| {
-                            let set_highlight_kind = match highlight_kind {
-                                None => true,
-                                Some(highlight::Kind::Match {
-                                    sound: None,
-                                    ..
-                                }) => m.sound.is_some(),
-                                _ => false,
-                            };
-
-                            if set_highlight_kind {
-                                highlight_kind = Some(highlight::Kind::Match {
+                            sounds.extend(m.sound.iter().cloned());
+                            highlight_kind.get_or_insert_with(|| {
+                                highlight::Kind::Match {
                                     matching: m.notification_name().to_owned(),
-                                    sound: m.sound.clone(),
-                                });
-                            }
+                                    sounds: Vec::new(),
+                                }
+                            });
 
                             Some(Fragment::HighlightMatch(text.to_owned()))
                         },
@@ -1751,6 +1746,14 @@ pub fn parse_fragments_with_highlights(
                 fragment => Either::Right(iter::once(fragment)),
             })
             .collect();
+    }
+
+    if let Some(
+        highlight::Kind::Nick { sounds: sound }
+        | highlight::Kind::Match { sounds: sound, .. },
+    ) = &mut highlight_kind
+    {
+        sound.extend(sounds);
     }
 
     (content_from_fragments(fragments), highlight_kind)
