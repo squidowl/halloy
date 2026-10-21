@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use chrono::{Datelike, Local, NaiveDate};
 use data::client::{self, ClientsContext};
 use data::config::actions::NicknameClickAction;
 use data::dashboard::BufferAction;
@@ -25,8 +26,9 @@ const DEBOUNCE: Duration = Duration::from_millis(200);
 pub enum Message {
     Input(String),
     Debounced(u64),
-    Results(u64, bool, Result<search::Page, search::Error>),
+    Results(u64, search::Range, Result<search::Page, search::Error>),
     LoadMore,
+    Scrolled(bool),
     Feed(scroll_view::Message),
 }
 
@@ -43,6 +45,7 @@ enum Status {
     Stale,
     Loading,
     Loaded,
+    Updating,
     Failed(String),
 }
 
@@ -50,6 +53,7 @@ enum Status {
 struct Hit {
     buffer: buffer::Upstream,
     kind: history::Kind,
+    date: NaiveDate,
     message: data::Message,
 }
 
@@ -57,10 +61,14 @@ struct Hit {
 pub struct Search {
     pub query: String,
     input_id: widget::Id,
+    scrollable_id: widget::Id,
     generation: u64,
     status: Status,
     hits: Vec<Hit>,
+    newest: Option<search::Cursor>,
     next: Option<search::Cursor>,
+    behind: bool,
+    scrolled: bool,
 }
 
 impl Search {
@@ -68,23 +76,34 @@ impl Search {
         let mut search = Self {
             query: String::new(),
             input_id: widget::Id::unique(),
+            scrollable_id: widget::Id::unique(),
             generation: 0,
             status: Status::Idle,
             hits: vec![],
+            newest: None,
             next: None,
+            behind: false,
+            scrolled: false,
         };
         search.set_query(query.unwrap_or_default());
         search
     }
 
     pub fn set_query(&mut self, query: String) {
+        self.hits.clear();
+        self.change_query(query);
+    }
+
+    fn change_query(&mut self, query: String) {
         self.query = query;
         self.generation += 1;
-        self.hits.clear();
+        self.newest = None;
         self.next = None;
+        self.behind = false;
         self.status = if search::Query::parse(&self.query).is_runnable() {
             Status::Stale
         } else {
+            self.hits.clear();
             Status::Idle
         };
     }
@@ -94,7 +113,16 @@ impl Search {
     }
 
     pub fn result_count(&self) -> Option<usize> {
-        matches!(self.status, Status::Loaded).then_some(self.hits.len())
+        self.is_loaded().then_some(self.hits.len())
+    }
+
+    fn is_loaded(&self) -> bool {
+        matches!(self.status, Status::Loaded | Status::Updating)
+    }
+
+    pub fn indexed(&mut self, storage: &storage::Manager) -> Task<Message> {
+        self.behind = true;
+        self.catch_up(storage)
     }
 
     pub fn update(
@@ -106,12 +134,9 @@ impl Search {
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::Input(query) => {
-                self.query = query;
-                self.generation += 1;
-                self.next = None;
+                self.change_query(query);
 
-                if search::Query::parse(&self.query).is_runnable() {
-                    self.status = Status::Stale;
+                if self.status == Status::Stale {
                     let generation = self.generation;
 
                     (
@@ -121,16 +146,13 @@ impl Search {
                         None,
                     )
                 } else {
-                    self.hits.clear();
-                    self.status = Status::Idle;
-
                     (Task::none(), None)
                 }
             }
             Message::Debounced(generation) => {
                 if generation == self.generation && self.status == Status::Stale
                 {
-                    (self.run(storage, None), None)
+                    (self.run(storage, search::Range::Latest), None)
                 } else {
                     (Task::none(), None)
                 }
@@ -139,41 +161,70 @@ impl Search {
                 if self.status == Status::Loaded
                     && let Some(next) = self.next
                 {
-                    (self.run(storage, Some(next)), None)
+                    (self.run(storage, search::Range::Before(next)), None)
                 } else {
                     (Task::none(), None)
                 }
             }
-            Message::Results(generation, append, result) => {
+            Message::Scrolled(scrolled) => {
+                self.scrolled = scrolled;
+                (self.catch_up(storage), None)
+            }
+            Message::Results(generation, range, result) => {
                 if generation != self.generation {
                     return (Task::none(), None);
                 }
 
-                match result {
-                    Ok(page) => {
-                        if !append {
-                            self.hits.clear();
-                        }
-                        let servers = clients
-                            .servers()
-                            .map(|server| (format!("{server:b}"), server))
-                            .collect::<Vec<_>>();
-                        self.hits.extend(
-                            page.hits.into_iter().filter_map(|hit| {
-                                resolve(hit, &servers, clients)
-                            }),
-                        );
-                        self.next = page.next;
-                        self.status = Status::Loaded;
-                    }
+                let page = match result {
+                    Ok(page) => page,
                     Err(error) => {
-                        self.hits.clear();
-                        self.next = None;
+                        log::warn!("search failed: {error}");
+                        if range == search::Range::Latest {
+                            self.hits.clear();
+                            self.next = None;
+                        }
                         self.status = Status::Failed(error.to_string());
+                        return (Task::none(), None);
                     }
-                }
+                };
 
-                (Task::none(), None)
+                let servers = clients
+                    .servers()
+                    .map(|server| (format!("{server:b}"), server))
+                    .collect::<Vec<_>>();
+                let hits = page
+                    .hits
+                    .into_iter()
+                    .filter_map(|hit| resolve(hit, &servers, clients));
+
+                let task = match range {
+                    search::Range::Before(_) => {
+                        self.hits.extend(hits);
+                        self.next = page.next;
+                        Task::none()
+                    }
+                    // Fewer than a page newer, so no gap to the current hits.
+                    search::Range::After(_) if page.next.is_none() => {
+                        self.hits.splice(0..0, hits);
+                        self.newest = page.newest.or(self.newest);
+                        Task::none()
+                    }
+                    search::Range::Latest | search::Range::After(_) => {
+                        self.hits.clear();
+                        self.hits.extend(hits);
+                        self.newest = page.newest;
+                        self.next = page.next;
+                        self.scrolled = false;
+                        operation::snap_to(
+                            self.scrollable_id.clone(),
+                            scrollable::RelativeOffset::START,
+                            operation::Animation::Instant,
+                        )
+                    }
+                };
+                self.status = Status::Loaded;
+
+                (Task::batch([task, self.catch_up(storage)]), None)
             }
             Message::Feed(message) => {
                 (Task::none(), feed_event(message, config))
@@ -181,19 +232,34 @@ impl Search {
         }
     }
 
+    fn catch_up(&mut self, storage: &storage::Manager) -> Task<Message> {
+        if self.behind && !self.scrolled && self.status == Status::Loaded {
+            self.behind = false;
+            let range = self
+                .newest
+                .map_or(search::Range::Latest, search::Range::After);
+            self.run(storage, range)
+        } else {
+            Task::none()
+        }
+    }
+
     fn run(
         &mut self,
         storage: &storage::Manager,
-        before: Option<search::Cursor>,
+        range: search::Range,
     ) -> Task<Message> {
-        self.status = Status::Loading;
+        self.status = if self.status == Status::Loaded {
+            Status::Updating
+        } else {
+            Status::Loading
+        };
 
         let generation = self.generation;
-        let append = before.is_some();
 
         Task::perform(
-            storage.search(search::Query::parse(&self.query), before),
-            move |result| Message::Results(generation, append, result),
+            storage.search(search::Query::parse(&self.query), range),
+            move |result| Message::Results(generation, range, result),
         )
     }
 
@@ -248,6 +314,7 @@ fn resolve(
 
     Some(Hit {
         kind: history::Kind::from(buffer.clone()),
+        date: hit.message.time.utc.with_timezone(&Local).date_naive(),
         buffer,
         message: hit.message,
     })
@@ -331,54 +398,70 @@ pub fn view<'a>(
     .padding(padding::horizontal(4))
     .width(Length::Fill);
 
-    let rows = state
-        .hits
-        .iter()
-        .filter(|hit| {
-            !filter_chain.filter_message_of_kind(&hit.message, &hit.kind)
-        })
-        .filter_map(|hit| {
-            message_feed::message_row(
-                &hit.message,
-                hit.buffer.clone(),
-                hit.buffer.as_server(),
-                hit.buffer.as_channel(),
-                message::MessageLink::Message(
-                    hit.message.history_id,
-                    hit.message.time,
-                ),
-                clients,
-                previews,
-                config,
-                theme,
-                channels_context,
-            )
-        })
-        .map(|row| row.map(Message::Feed))
-        .collect::<Vec<_>>();
+    let show_dates = config.buffer.date_separators.show;
+    let show_year = !has_year(&config.buffer.date_separators.format);
+    let this_year = Local::now().year();
+    let mut last_date = None;
+    let mut rows = vec![];
+
+    for hit in state.hits.iter().filter(|hit| {
+        !filter_chain.filter_message_of_kind(&hit.message, &hit.kind)
+    }) {
+        let Some(row) = message_feed::message_row(
+            &hit.message,
+            hit.buffer.clone(),
+            hit.buffer.as_server(),
+            hit.buffer.as_channel(),
+            message::MessageLink::Message(
+                hit.message.history_id,
+                hit.message.time,
+            ),
+            clients,
+            previews,
+            config,
+            theme,
+            channels_context,
+        ) else {
+            continue;
+        };
+
+        if show_dates && last_date != Some(hit.date) {
+            last_date = Some(hit.date);
+
+            let mut label = config.buffer.format_date_separator(&hit.date);
+            if show_year && hit.date.year() != this_year {
+                label = format!("{label}, {}", hit.date.year());
+            }
+
+            rows.push(scroll_view::date_separator(label, config, theme));
+        }
+
+        rows.push(row.map(Message::Feed));
+    }
 
     let body: Element<'a, Message> = if rows.is_empty() {
         let reason = match &state.status {
             Status::Idle => None,
             Status::Stale | Status::Loading => Some("...".to_string()),
-            Status::Loaded => Some("No messages found".to_string()),
+            Status::Loaded | Status::Updating => {
+                Some("No messages found".to_string())
+            }
             Status::Failed(error) => Some(error.clone()),
         };
 
         placeholder(reason, theme)
     } else {
-        let load_more = (state.has_more() && state.status == Status::Loaded)
-            .then(|| {
-                container(
-                    button(text("Load more"))
-                        .style(|theme, status| {
-                            theme::button::secondary(theme, status, false)
-                        })
-                        .on_press(Message::LoadMore),
-                )
-                .center_x(Length::Fill)
-                .padding(8)
-            });
+        let load_more = (state.has_more() && state.is_loaded()).then(|| {
+            container(
+                button(text("Load more"))
+                    .style(|theme, status| {
+                        theme::button::secondary(theme, status, false)
+                    })
+                    .on_press(Message::LoadMore),
+            )
+            .center_x(Length::Fill)
+            .padding(8)
+        });
 
         scrollable(
             column(rows)
@@ -391,6 +474,10 @@ pub fn view<'a>(
                 .width(config.pane.scrollbar.width)
                 .scroller_width(config.pane.scrollbar.scroller_width),
         ))
+        .on_scroll(|scroll| {
+            Message::Scrolled(scroll.viewport.absolute_offset().y > 0.0)
+        })
+        .id(state.scrollable_id.clone())
         .width(Length::Fill)
         .height(Length::Fill)
         .into()
@@ -402,6 +489,15 @@ pub fn view<'a>(
         .width(Length::Fill)
         .height(Length::Fill)
         .into()
+}
+
+fn has_year(format: &str) -> bool {
+    // Same month, day and weekday; only the year differs.
+    let date = |year| {
+        NaiveDate::from_ymd_opt(year, 1, 1)
+            .map(|date| date.format(format).to_string())
+    };
+    date(2001) != date(2007)
 }
 
 fn placeholder<'a>(

@@ -55,6 +55,7 @@ pub enum Event {
     Model(model::Message),
     Notification(Server, Notification),
     Client(client::Message),
+    Indexed,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -716,9 +717,9 @@ impl Manager {
     pub fn search(
         &self,
         query: search::Query,
-        before: Option<search::Cursor>,
+        range: search::Range,
     ) -> impl Future<Output = Result<search::Page, search::Error>> + use<> {
-        self.searcher.search(query, before)
+        self.searcher.search(query, range)
     }
 
     pub fn request_highlight_source(

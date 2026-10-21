@@ -294,7 +294,8 @@ impl Database {
         })
     }
 
-    pub fn index(&mut self, limit: usize) -> Result<bool, Error> {
+    /// Returns (more remain, any became searchable).
+    pub fn index(&mut self, limit: usize) -> Result<(bool, bool), Error> {
         let limit = i64::try_from(limit).unwrap_or(i64::MAX);
         let transaction = self.connection.transaction()?;
         let pending = transaction
@@ -334,11 +335,12 @@ impl Database {
             .query_map(params![self.indexed, remaining], indexable_row)?
             .collect::<Result<Vec<_>, _>>()?;
         if pending.is_empty() && new.is_empty() {
-            return Ok(false);
+            return Ok((false, false));
         }
         let more = remaining == 0 || new.len() as i64 == remaining;
         let indexed = new.last().map_or(self.indexed, |(id, ..)| *id);
         rows.extend(new);
+        let mut inserted = false;
         {
             let mut insert = transaction.prepare_cached(
                 "INSERT OR REPLACE INTO message_search(rowid, nick, text, message) VALUES (?1, ?2, ?3, ?4)",
@@ -363,13 +365,14 @@ impl Database {
                     stored.content.text(),
                     id,
                 ])?;
+                inserted = true;
             }
         }
         transaction
             .execute("UPDATE search_state SET indexed = ?1", [indexed])?;
         transaction.commit()?;
         self.indexed = indexed;
-        Ok(more)
+        Ok((more, inserted))
     }
 
     pub fn window(
@@ -789,10 +792,10 @@ impl Database {
     pub fn search(
         &self,
         query: &search::Query,
-        before: Option<search::Cursor>,
+        range: search::Range,
         limit: usize,
     ) -> Result<search::Page, Error> {
-        search(&self.connection, query, before, limit)
+        search(&self.connection, query, range, limit)
     }
 
     pub fn reference(
@@ -1602,16 +1605,23 @@ fn history_key(kind: &Kind) -> Result<String, serde_json::Error> {
 pub(super) fn search(
     connection: &Connection,
     query: &search::Query,
-    before: Option<search::Cursor>,
+    range: search::Range,
     limit: usize,
 ) -> Result<search::Page, Error> {
     let Some(fts) = query.fts() else {
         return Ok(search::Page {
             hits: vec![],
+            newest: None,
             next: None,
         });
     };
     let limit = i64::try_from(limit).unwrap_or(i64::MAX);
+    // Plain bounds (no `IS NULL OR`) let FTS5 seek to the rowid range.
+    let (before, after) = match range {
+        search::Range::Latest => (i64::MAX, i64::MIN),
+        search::Range::Before(cursor) => (cursor.key, i64::MIN),
+        search::Range::After(cursor) => (i64::MAX, cursor.key),
+    };
     let mut statement = connection.prepare_cached(
         "SELECT m.id, m.time, m.time_from_server, m.msgid, m.content,
                 h.server, h.target, json_extract(h.kind, '$[0]'), s.rowid
@@ -1620,44 +1630,41 @@ pub(super) fn search(
          JOIN history h ON h.id = m.history
          WHERE message_search MATCH ?1
            AND (?2 IS NULL OR h.target = ?2 COLLATE NOCASE)
-           AND (?3 IS NULL OR s.rowid < ?3)
+           AND s.rowid < ?3
+           AND s.rowid > ?4
            AND json_type(CAST(m.content AS TEXT), '$.redaction') IS NULL
          ORDER BY s.rowid DESC
-         LIMIT ?4",
+         LIMIT ?5",
     )?;
     let rows = statement
-        .query_map(
-            params![fts, query.within, before.map(|cursor| cursor.key), limit],
-            |row| {
-                let message = row_message(row)?;
-                let server: String = row.get(5)?;
-                let target: Option<String> = row.get(6)?;
-                let tag: String = row.get(7)?;
-                let buffer = match (tag.as_str(), target) {
-                    ("channel", Some(target)) => {
-                        search::Buffer::Channel(target)
-                    }
-                    ("query", Some(target)) => search::Buffer::Query(target),
-                    _ => search::Buffer::Server,
-                };
-                let key: i64 = row.get(8)?;
-                Ok((
-                    search::Hit {
-                        server,
-                        buffer,
-                        message,
-                    },
-                    key,
-                ))
-            },
-        )?
+        .query_map(params![fts, query.within, before, after, limit], |row| {
+            let message = row_message(row)?;
+            let server: String = row.get(5)?;
+            let target: Option<String> = row.get(6)?;
+            let tag: String = row.get(7)?;
+            let buffer = match (tag.as_str(), target) {
+                ("channel", Some(target)) => search::Buffer::Channel(target),
+                ("query", Some(target)) => search::Buffer::Query(target),
+                _ => search::Buffer::Server,
+            };
+            let key: i64 = row.get(8)?;
+            Ok((
+                search::Hit {
+                    server,
+                    buffer,
+                    message,
+                },
+                key,
+            ))
+        })?
         .collect::<Result<Vec<_>, _>>()?;
+    let newest = rows.first().map(|(_, key)| search::Cursor { key: *key });
     let next = (rows.len() as i64 == limit)
         .then(|| rows.last())
         .flatten()
         .map(|(_, key)| search::Cursor { key: *key });
     let hits = rows.into_iter().map(|(hit, _)| hit).collect();
-    Ok(search::Page { hits, next })
+    Ok(search::Page { hits, newest, next })
 }
 
 fn indexable_row(
@@ -1796,14 +1803,14 @@ mod tests {
             })
             .collect();
         write.commit().unwrap();
-        while database.index(10).unwrap() {}
+        while database.index(10).unwrap().0 {}
         stored
     }
 
     fn texts(database: &mut Database, query: &str) -> Vec<String> {
-        while database.index(10).unwrap() {}
+        while database.index(10).unwrap().0 {}
         database
-            .search(&Query::parse(query), None, 100)
+            .search(&Query::parse(query), search::Range::Latest, 100)
             .unwrap()
             .hits
             .into_iter()
@@ -1836,7 +1843,7 @@ mod tests {
         assert!(texts(&mut database, "nothing").is_empty());
 
         let page = database
-            .search(&Query::parse("chatter"), None, 100)
+            .search(&Query::parse("chatter"), search::Range::Latest, 100)
             .unwrap();
         let hit = &page.hits[0];
         assert_eq!(hit.server, "libera");
@@ -1883,7 +1890,9 @@ mod tests {
         );
         assert_eq!(texts(&mut database, "in:casper hello"), ["hello query"]);
 
-        let page = database.search(&Query::parse("query"), None, 100).unwrap();
+        let page = database
+            .search(&Query::parse("query"), search::Range::Latest, 100)
+            .unwrap();
         assert_eq!(page.hits[0].buffer, Buffer::Query("casper".to_string()));
     }
 
@@ -1905,7 +1914,9 @@ mod tests {
         );
 
         assert_eq!(texts(&mut database, "casper"), ["casper on the server"]);
-        let page = database.search(&Query::parse("casper"), None, 100).unwrap();
+        let page = database
+            .search(&Query::parse("casper"), search::Range::Latest, 100)
+            .unwrap();
         assert_eq!(page.hits[0].buffer, Buffer::Server);
     }
 
@@ -1982,7 +1993,40 @@ mod tests {
         write.store(history, &mut stored[0]).unwrap();
         write.commit().unwrap();
 
-        let page = database.search(&Query::parse("secret"), None, 100).unwrap();
+        let page = database
+            .search(&Query::parse("secret"), search::Range::Latest, 100)
+            .unwrap();
+        assert!(page.hits.is_empty());
+    }
+
+    #[test]
+    fn search_after_returns_only_newer_hits() {
+        let mut database = database();
+        let kind = channel("#halloy");
+        let query = Query::parse("news");
+        let text = |page: search::Page| {
+            page.hits
+                .into_iter()
+                .map(|hit| hit.message.content.text().into_owned())
+                .collect::<Vec<_>>()
+        };
+
+        store(&mut database, &kind, vec![message(1, "casper", "old news")]);
+        let newest = database
+            .search(&query, search::Range::Latest, 10)
+            .unwrap()
+            .newest
+            .unwrap();
+
+        store(&mut database, &kind, vec![message(2, "casper", "new news")]);
+        let page = database
+            .search(&query, search::Range::After(newest), 10)
+            .unwrap();
+        assert_eq!(text(page), ["new news"]);
+
+        let page = database
+            .search(&query, search::Range::Before(newest), 10)
+            .unwrap();
         assert!(page.hits.is_empty());
     }
 
@@ -1998,12 +2042,12 @@ mod tests {
 
         let query = Query::parse("paged");
         let mut seen = vec![];
-        let mut before = None;
+        let mut range = search::Range::Latest;
         loop {
-            let page = database.search(&query, before, 10).unwrap();
+            let page = database.search(&query, range, 10).unwrap();
             seen.extend(page.hits.iter().map(|hit| hit.message.history_id));
             match page.next {
-                Some(next) => before = Some(next),
+                Some(next) => range = search::Range::Before(next),
                 None => break,
             }
         }

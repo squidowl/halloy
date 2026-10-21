@@ -29,8 +29,9 @@ Open Search from the command bar, the user menu, the
 ("Search messages"), or with `/search [text]`.
 
 Search matches whole words, and the last word as you type it, so `rel` finds
-"release". Results are newest first; click the channel name on a result to jump
-to the message.
+"release". Results are newest first, and new matching messages are added at the
+top while the results are scrolled to the top. Click the channel name on a
+result to jump to the message.
 
 - `"exact phrase"` matches words next to each other.
 - `from:nick` only shows messages from `nick`.

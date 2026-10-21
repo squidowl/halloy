@@ -12,7 +12,7 @@ type Reply = oneshot::Sender<Result<search::Page, search::Error>>;
 
 struct Request {
     query: search::Query,
-    before: Option<search::Cursor>,
+    range: search::Range,
     reply: Reply,
 }
 
@@ -58,7 +58,7 @@ impl Searcher {
                         database::search(
                             connection,
                             &request.query,
-                            request.before,
+                            request.range,
                             search::PAGE_SIZE,
                         )
                         .map_err(|error| {
@@ -76,7 +76,7 @@ impl Searcher {
     pub fn search(
         &self,
         query: search::Query,
-        before: Option<search::Cursor>,
+        range: search::Range,
     ) -> impl Future<Output = Result<search::Page, search::Error>> + use<> {
         if let Ok(handle) = self.interrupt.lock()
             && let Some(handle) = handle.as_ref()
@@ -89,7 +89,7 @@ impl Searcher {
             .sender
             .send(Request {
                 query,
-                before,
+                range,
                 reply,
             })
             .is_ok();
@@ -180,10 +180,12 @@ mod tests {
         database.index(100).unwrap();
 
         let searcher = Searcher::start(Some(dir.path().to_path_buf()));
-        let page = futures::executor::block_on(
-            searcher.search(search::Query::parse("elsewhere"), None),
-        )
-        .unwrap();
+        let page =
+            futures::executor::block_on(searcher.search(
+                search::Query::parse("elsewhere"),
+                search::Range::Latest,
+            ))
+            .unwrap();
         assert_eq!(page.hits.len(), 1);
         assert!(page.next.is_none());
 

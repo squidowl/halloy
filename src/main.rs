@@ -1597,6 +1597,15 @@ impl Halloy {
                         storage::Event::Client(message) => {
                             self.update(Message::Client(message))
                         }
+                        storage::Event::Indexed => {
+                            if let Screen::Dashboard(_) = &self.screen {
+                                self.update(Message::Dashboard(
+                                    dashboard::Message::Indexed,
+                                ))
+                            } else {
+                                Task::none()
+                            }
+                        }
                     })
                     .collect::<Vec<Task<Message>>>();
 

@@ -95,6 +95,7 @@ pub enum Message {
     CancelFilehostUpload,
     ConfigReloadComplete,
     Model(model::Message),
+    Indexed,
 }
 
 #[derive(Debug)]
@@ -1528,6 +1529,28 @@ impl Dashboard {
             }
             Message::ConfigReloadComplete => {
                 self.reloading_config = false;
+            }
+            Message::Indexed => {
+                let tasks = self
+                    .panes
+                    .iter_mut()
+                    .filter_map(|(window, pane, state)| {
+                        let Buffer::Search(search) = &mut state.buffer else {
+                            return None;
+                        };
+                        Some(search.indexed(storage).map(move |message| {
+                            Message::Pane(
+                                window,
+                                pane::Message::Buffer(
+                                    pane,
+                                    buffer::Message::Search(message),
+                                ),
+                            )
+                        }))
+                    })
+                    .collect::<Vec<_>>();
+
+                return (Task::batch(tasks), None);
             }
             Message::Model(message) => {
                 let event = self
