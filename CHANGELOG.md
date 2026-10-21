@@ -31,11 +31,12 @@ Changed:
 - Default keybinds for focus movement on macOS changed from `⌥ + <arrow keys>` to `ctrl + <arrow keys>` to avoid conflicting with macOS by-word movement keybinds (`⌥ + ←` and `⌥ + →`)
 - Saved chat history is no longer limited to 10,000 messages per buffer
 - Use OS provided certificate verification service on Windows & macOS
+- Recent nick autocomplete keeps last-seen across nick changes, and sorts your own nick last
 - Your own join/part is shown in the channel buffer.
 
 Thanks:
 
-- Contributions: @httpsterio, @oooo-ps
+- Contributions: @httpsterio, @oooo-ps, @rtmongold
 - Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768, @WinnerWind, @strafe
 - Feature requests: @ainola, @kalebris, @sf302, @ToyKeeper
 - Contributions: @httpsterio

@@ -286,7 +286,23 @@ impl Manager {
                 self.monitored.push(kind.clone());
             }
             let storage = self.get_or_load_mut(kind.clone());
+
             for update in updates {
+                if let Update::Message(_, message) = update
+                    && let Source::Server(Some(source::Server {
+                        kind: source::server::Kind::ChangeNick,
+                        nick: Some(old_nick),
+                        change: Some(source::server::Change::Nick(new_nick)),
+                    })) = &message.inner.source
+                    && let Some(time) = storage.last_seen.remove(old_nick)
+                    && storage
+                        .last_seen
+                        .get(new_nick)
+                        .is_none_or(|seen| *seen < time)
+                {
+                    storage.last_seen.insert(new_nick.clone(), time);
+                }
+
                 let seen = match update {
                     Update::Message(_, message) => message
                         .inner
