@@ -1,37 +1,33 @@
-use std::collections::{HashMap, HashSet, VecDeque, hash_map};
+use std::collections::VecDeque;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{convert, slice};
 
-use chrono::{DateTime, Utc};
-use data::capabilities::{
-    LabeledResponseContext, MultilineBatchKind, MultilineLimits,
-    multiline_concat_lines,
+use chrono::Utc;
+use data::buffer::{
+    BufferContextSnapshot, BuffersContext, BuffersContextSnapshot,
 };
+use data::client::{self, ClientsContext};
 use data::config::buffer::{ScrollPosition, UsernameFormat};
 use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
-use data::history::ReadMarker;
-use data::history::filter::Filter;
-use data::history::manager::EchoEvent;
-use data::history::reroute::RerouteRules;
+use data::history::filter::FilterChain;
 use data::history::sidebar_buffers::SidebarBuffers;
-use data::isupport::{self, ChatHistorySubcommand, MessageReference};
-use data::message::{self, Broadcast};
+use data::history::{self, model, storage};
+use data::isupport::{self};
+use data::message::source::Status;
 use data::rate_limit::TokenPriority;
 use data::target::{self, Target};
-use data::user::Nick;
 use data::{
-    Config, Image, Notification, Server, User, Version, cache, client, command,
-    config, environment, file_transfer, history, preview, reaction, redaction,
-    server, server_icon, stream,
+    Config, Image, Notification, Server, User, Version, cache, command, config,
+    environment, file_transfer, message, preview, server, server_icon, stream,
 };
+use hashbrown::{HashMap, HashSet, hash_map};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{center, column, container, row, stack, text};
 use iced::{Length, Size, Task, Vector, clipboard, padding};
-use irc::proto;
 
 use self::command_bar::CommandBar;
 use self::modal::{reaction as reaction_modal, redaction as redaction_modal};
@@ -60,10 +56,8 @@ const SAVE_AFTER: Duration = Duration::from_secs(3);
 
 pub struct Dashboard {
     panes: Panes,
-    focus: Focus,
-    focus_history: VecDeque<pane_grid::Pane>,
     side_menu: Sidebar,
-    history: history::Manager,
+    models: model::Manager,
     last_changed: Option<Instant>,
     command_bar: Option<CommandBar>,
     command_bar_window: Option<window::Id>,
@@ -77,6 +71,7 @@ pub struct Dashboard {
     buffer_settings: dashboard::BufferSettings,
     pub filehost: filehost::Manager,
     reloading_config: bool,
+    pending_navigation: Option<Arc<()>>,
 }
 
 #[derive(Debug)]
@@ -84,7 +79,6 @@ pub enum Message {
     Pane(window::Id, pane::Message),
     Sidebar(sidebar::Message),
     SelectedText(Vec<(RangeInclusive<f32>, String)>, clipboard::ClipboardKind),
-    History(history::manager::Message),
     DashboardSaved(Result<(), data::dashboard::Error>),
     Task(command_bar::Message),
     Shortcut(shortcut::Command),
@@ -94,7 +88,6 @@ pub enum Message {
     ThemeEditor(theme_editor::Message),
     ConfigReloaded(Result<Config, config::Error>),
     ConfigEditorReloaded(Result<Config, config::Error>),
-    Client(client::Message),
     ServerIcon(server_icon::Message),
     LoadPreview((url::Url, Result<data::Preview, data::preview::LoadError>)),
     NewWindow(window::Id, Pane),
@@ -102,6 +95,8 @@ pub enum Message {
     ProceedWithFilehostUpload,
     CancelFilehostUpload,
     ConfigReloadComplete,
+    Model(model::Message),
+    Indexed,
 }
 
 #[derive(Debug)]
@@ -126,7 +121,6 @@ pub enum Event {
         has_credentials: bool,
         window: window::Id,
     },
-    EchoEvents(Server, Vec<EchoEvent>),
 }
 
 impl Dashboard {
@@ -139,19 +133,19 @@ impl Dashboard {
 
         let (sidebar, sidebar_task) = Sidebar::new(false);
 
-        let mut dashboard = Dashboard {
+        let dashboard = Dashboard {
             panes: Panes {
                 main_window: main_window.id,
                 main: main_panes,
                 popout: HashMap::new(),
+                focus: Focus {
+                    window: main_window.id,
+                    pane,
+                },
+                focus_history: VecDeque::new(),
             },
-            focus: Focus {
-                window: main_window.id,
-                pane,
-            },
-            focus_history: VecDeque::new(),
             side_menu: sidebar,
-            history: history::Manager::default(),
+            models: model::Manager::default(),
             last_changed: None,
             command_bar: None,
             command_bar_window: None,
@@ -165,22 +159,17 @@ impl Dashboard {
             buffer_settings: dashboard::BufferSettings::default(),
             filehost: filehost::Manager::new(),
             reloading_config: false,
+            pending_navigation: None,
         };
 
-        if config.buffer.text_input.persist {
-            dashboard
-                .history
-                .preload_drafts(data::input::load_drafts_sync());
-        }
-
-        let command = dashboard.track(None, config);
         let sidebar_task = sidebar_task.map(Message::Sidebar);
 
-        (dashboard, Task::batch(vec![command, sidebar_task]))
+        (dashboard, sidebar_task)
     }
 
     pub fn restore(
         mut dashboard: data::Dashboard,
+        storage: &mut storage::Manager,
         config: &Config,
         main_window: &Window,
     ) -> (Self, Task<Message>) {
@@ -198,24 +187,31 @@ impl Dashboard {
         }
 
         let (mut dashboard, task) =
-            Dashboard::from_data(dashboard, config, main_window);
+            Dashboard::from_data(dashboard, storage, config, main_window);
 
         if forget_buffers {
             dashboard.last_changed = Some(Instant::now());
         }
 
-        let tasks = Task::batch(vec![task, dashboard.track(None, config)]);
-
-        (dashboard, tasks)
+        (dashboard, task)
     }
 
-    pub fn init_filters(
+    pub fn buffers_context(&self) -> &dyn BuffersContext {
+        &self.panes
+    }
+
+    pub fn buffers_context_snapshot(&self) -> BuffersContextSnapshot {
+        self.panes.buffers_context_snapshot()
+    }
+
+    pub fn get_focused(&self) -> Option<(window::Id, pane_grid::Pane, &Pane)> {
+        self.panes.get_focused()
+    }
+
+    pub fn get_focused_mut(
         &mut self,
-        servers: &server::Map,
-        clients: &client::Map,
-    ) {
-        self.history
-            .set_filters(Filter::list_from_servers(servers, clients));
+    ) -> Option<(window::Id, pane_grid::Pane, &mut Pane)> {
+        self.panes.get_focused_mut()
     }
 
     pub fn update_channel_discoveries(
@@ -238,29 +234,8 @@ impl Dashboard {
         }
     }
 
-    pub fn update_filters(
-        &mut self,
-        servers: &server::Map,
-        clients: &client::Map,
-        buffer_config: &config::Buffer,
-    ) {
-        self.init_filters(servers, clients);
-
-        self.reprocess_history(clients, buffer_config);
-    }
-
     pub fn refresh_cache_limits(&mut self, config: &Config) {
         self.previews_cache = Arc::new(preview_cache(&config.preview));
-    }
-
-    pub fn set_reroute_rules(
-        &mut self,
-        servers: &server::Map,
-        clients: &client::Map,
-    ) {
-        let reroute_rules = self.get_reroute_rules_mut();
-
-        *reroute_rules = RerouteRules::from_server_map(servers, clients);
     }
 
     pub fn reload_visible_previews(
@@ -288,78 +263,18 @@ impl Dashboard {
         )
     }
 
-    pub fn reprocess_history(
-        &mut self,
-        clients: &client::Map,
-        buffer_config: &config::Buffer,
-    ) {
-        let open_pane_kinds: HashSet<history::Kind> = self
-            .panes
-            .iter()
-            .filter_map(|(_window_id, _grid_pane, pane)| {
-                if matches!(
-                    pane.buffer,
-                    Buffer::Channel(_)
-                        | Buffer::Server(_)
-                        | Buffer::Query(_)
-                        | Buffer::Highlights(_)
-                        | Buffer::ChannelMonitor(_)
-                ) {
-                    pane.buffer.data().and_then(history::Kind::from_buffer)
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        open_pane_kinds.into_iter().for_each(|kind| {
-            self.history.process_history(kind, clients, buffer_config);
-        });
-
-        // TODO: Reprocess unloaded history to determine/update metadata?
-        // Re-visit after history storage is transitioned to SQL.
-    }
-
-    pub fn renormalize_history(
-        &mut self,
-        server: &data::Server,
-        clients: &client::Map,
-    ) {
-        let open_pane_kinds: HashSet<history::Kind> = self
-            .panes
-            .iter()
-            .filter_map(|(_window_id, _grid_pane, pane)| {
-                if pane
-                    .buffer
-                    .server()
-                    .is_some_and(|buffer_server| buffer_server == *server)
-                    || matches!(
-                        pane.buffer,
-                        Buffer::Highlights(_) | Buffer::ChannelMonitor(_)
-                    )
-                {
-                    pane.buffer.data().and_then(history::Kind::from_buffer)
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        open_pane_kinds.into_iter().for_each(|kind| {
-            self.history.renormalize_messages(&kind, clients);
-        });
-    }
-
     pub fn update(
         &mut self,
         message: Message,
         clients: &mut client::Map,
         controllers: &mut stream::Map,
         servers: &server::Map,
+        storage: &mut storage::Manager,
         theme: &mut Theme,
         version: &Version,
         config: &Config,
         main_window: &Window,
+        focused_window: &Option<iced::window::Id>,
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::Pane(window, message) => {
@@ -387,9 +302,10 @@ impl Dashboard {
                         return (
                             self.close_pane(
                                 clients,
+                                storage,
                                 config,
-                                self.focus.window,
-                                self.focus.pane,
+                                self.panes.focus.window,
+                                self.panes.focus.pane,
                             ),
                             None,
                         );
@@ -398,11 +314,17 @@ impl Dashboard {
                         return (self.split_pane(axis), None);
                     }
                     pane::Message::Buffer(id, message) => {
+                        let buffers_context_snapshot =
+                            self.panes.buffers_context_snapshot();
+
                         if let Some(pane) = self.panes.get_mut(window, id) {
                             let (command, event) = pane.buffer.update(
                                 message,
                                 clients,
-                                &mut self.history,
+                                &buffers_context_snapshot,
+                                focused_window,
+                                &self.models,
+                                storage,
                                 &self.previews,
                                 &mut self.file_transfers,
                                 config,
@@ -426,7 +348,9 @@ impl Dashboard {
                                     event,
                                     clients,
                                     controllers,
+                                    storage,
                                     config,
+                                    focused_window,
                                 );
 
                             return (
@@ -436,7 +360,8 @@ impl Dashboard {
                         }
                     }
                     pane::Message::ToggleShowUserList => {
-                        if let Some((_, _, pane)) = self.get_focused_mut() {
+                        if let Some((_, _, pane)) = self.panes.get_focused_mut()
+                        {
                             if let Some(buffer) = pane.buffer.data() {
                                 let settings = self.buffer_settings.entry(
                                     &buffer,
@@ -450,7 +375,8 @@ impl Dashboard {
                         }
                     }
                     pane::Message::ToggleShowTopic => {
-                        if let Some((_, _, pane)) = self.get_focused_mut() {
+                        if let Some((_, _, pane)) = self.panes.get_focused_mut()
+                        {
                             if let Some(buffer) = pane.buffer.data() {
                                 let settings = self.buffer_settings.entry(
                                     &buffer,
@@ -468,18 +394,24 @@ impl Dashboard {
                     }
                     pane::Message::MaximizePane => self.maximize_pane(),
                     pane::Message::Popout => {
-                        return (self.popout_pane(clients, config), None);
+                        return (
+                            self.popout_pane(clients, storage, config),
+                            None,
+                        );
                     }
                     pane::Message::Merge => {
-                        return (self.merge_pane(clients, config), None);
+                        return (
+                            self.merge_pane(clients, storage, config),
+                            None,
+                        );
                     }
                     pane::Message::ScrollToBottom => {
-                        let Focus { window, pane } = self.focus;
+                        let Focus { window, pane } = self.panes.focus;
 
                         if let Some(state) = self.panes.get_mut(window, pane) {
-                            let mut task = state
+                            let task = state
                                 .buffer
-                                .scroll_to_end(config)
+                                .scroll_to_end(storage, config)
                                 .map(move |message| {
                                     Message::Pane(
                                         window,
@@ -487,60 +419,56 @@ impl Dashboard {
                                     )
                                 });
 
-                            if config.buffer.mark_as_read.on_scroll_to_bottom {
-                                task = task.chain(Task::done(Message::Pane(
-                                    window,
-                                    pane::Message::MarkAsRead,
-                                )));
+                            if config.buffer.mark_as_read.on_scroll_to_bottom
+                                && let Some(kind) = state
+                                    .buffer
+                                    .data()
+                                    .and_then(history::Kind::from_buffer)
+                            {
+                                storage.mark_as_read(kind);
                             }
 
                             return (task, None);
                         }
                     }
                     pane::Message::MarkAsRead => {
-                        if let Some((_, _, pane)) = self.get_focused_mut()
+                        if let Some((_, _, pane)) = self.panes.get_focused_mut()
                             && let Some(kind) = pane
                                 .buffer
                                 .data()
                                 .and_then(history::Kind::from_buffer)
                         {
-                            mark_as_read(
-                                kind,
-                                &mut self.history,
-                                clients,
-                                TokenPriority::User,
-                            );
+                            storage.mark_as_read(kind);
                         }
                     }
                     pane::Message::ClearBuffer => {
-                        if let Some((_, _, pane)) = self.get_focused_mut()
+                        if let Some((_, _, pane)) = self.panes.get_focused_mut()
                             && let Some(kind) = pane
                                 .buffer
                                 .data()
                                 .and_then(history::Kind::from_buffer)
                         {
-                            let task = self
-                                .history
-                                .clear_messages(
-                                    kind,
-                                    clients,
-                                    &config.buffer.server_messages,
-                                )
-                                .map_or_else(Task::none, |task| {
-                                    Task::perform(task, Message::History)
-                                });
+                            storage.clear_model(kind);
 
-                            return (task, None);
+                            return (Task::none(), None);
                         }
                     }
                     pane::Message::ContentResized(id, size) => {
                         if let Some(state) = self.panes.get_mut(window, id) {
                             state.size = size;
-                            state.buffer.update_pane_size(size, config);
+                            state.buffer.update_pane_size(
+                                size,
+                                &self.models,
+                                storage,
+                                config,
+                            );
                         }
                     }
                     pane::Message::Modal(id, message) => {
                         let (task, buffer_event) = {
+                            let buffers_context_snapshot =
+                                self.panes.buffers_context_snapshot();
+
                             let Some(pane) = self.panes.get_mut(window, id)
                             else {
                                 return (Task::none(), None);
@@ -572,7 +500,10 @@ impl Dashboard {
                                     let (command, event) = pane.buffer.update(
                                         buffer_message,
                                         clients,
-                                        &mut self.history,
+                                        &buffers_context_snapshot,
+                                        focused_window,
+                                        &self.models,
+                                        storage,
                                         &self.previews,
                                         &mut self.file_transfers,
                                         config,
@@ -641,7 +572,9 @@ impl Dashboard {
                                 event,
                                 clients,
                                 controllers,
+                                storage,
                                 config,
+                                focused_window,
                             );
 
                         return (
@@ -664,21 +597,22 @@ impl Dashboard {
                     return (command.map(Message::Sidebar), None);
                 };
 
-                let (event_task, event) = match event {
+                let (event_task, events) = match event {
                     sidebar::Event::CloseAllQueries(server, queries) => (
                         self.leave_all_queries(
-                            clients, config, server, queries,
+                            clients, storage, config, server, queries,
                         ),
                         None,
                     ),
                     sidebar::Event::QuitApplication => {
-                        (self.exit(clients, config), None)
+                        (Task::none(), Some(Event::Exit))
                     }
                     sidebar::Event::New(buffer) => (
                         self.open_buffer(
                             buffer,
                             BufferAction::NewPane,
                             clients,
+                            storage,
                             config,
                         ),
                         None,
@@ -688,6 +622,7 @@ impl Dashboard {
                             buffer,
                             BufferAction::NewWindow,
                             clients,
+                            storage,
                             config,
                         ),
                         None,
@@ -700,25 +635,28 @@ impl Dashboard {
                             buffer,
                             BufferAction::ReplacePane,
                             clients,
+                            storage,
                             config,
                         ),
                         None,
                     ),
-                    sidebar::Event::Close(window, pane) => {
-                        (self.close_pane(clients, config, window, pane), None)
-                    }
+                    sidebar::Event::Close(window, pane) => (
+                        self.close_pane(clients, storage, config, window, pane),
+                        None,
+                    ),
                     sidebar::Event::Swap(window, pane) => {
                         (self.swap_pane_with_focus(window, pane), None)
                     }
                     sidebar::Event::Detach(buffer) => {
-                        if let Some(target) = buffer.target() {
-                            let server = buffer.server();
-
+                        if let Some((server, target)) =
+                            buffer.into_server_target()
+                        {
                             (
                                 self.leave_server_target(
                                     clients,
+                                    storage,
                                     config,
-                                    server.clone(),
+                                    server,
                                     target,
                                     Some("detach".to_string()),
                                 ),
@@ -738,13 +676,18 @@ impl Dashboard {
                         (Task::none(), None)
                     }
                     sidebar::Event::Leave(buffer) => {
-                        self.leave_buffer(clients, config, buffer)
+                        self.leave_buffer(clients, storage, config, buffer)
                     }
                     sidebar::Event::ToggleCommandBar => (
                         self.toggle_command_bar(
                             servers,
                             clients,
-                            &closed_upstream_buffers(self, servers, clients),
+                            &closed_upstream_buffers(
+                                self,
+                                servers,
+                                clients,
+                                storage.get_sidebar_buffers(),
+                            ),
                             version,
                             config,
                             theme,
@@ -778,13 +721,14 @@ impl Dashboard {
                         }),
                     ),
                     sidebar::Event::MarkServerAsRead(server) => {
-                        mark_server_as_read(server, &mut self.history, clients);
+                        storage.mark_server_as_read(&server);
 
                         (Task::none(), None)
                     }
                     sidebar::Event::OpenChannelDiscovery(server) => {
-                        if let Some(pane) =
-                            self.panes.get(self.focus.window, self.focus.pane)
+                        if let Some(pane) = self
+                            .panes
+                            .get(self.panes.focus.window, self.panes.focus.pane)
                         {
                             Self::send_list_command_if_needed(
                                 &server, pane, clients,
@@ -799,6 +743,7 @@ impl Dashboard {
                                 .into(),
                                 config.actions.buffer.open_internal,
                                 clients,
+                                storage,
                                 config,
                             ),
                             None,
@@ -806,12 +751,7 @@ impl Dashboard {
                     }
                     sidebar::Event::MarkAsRead(buffer) => {
                         if let Some(kind) = history::Kind::from_buffer(buffer) {
-                            mark_as_read(
-                                kind,
-                                &mut self.history,
-                                clients,
-                                TokenPriority::User,
-                            );
+                            storage.mark_as_read(kind);
                         }
 
                         (Task::none(), None)
@@ -847,7 +787,7 @@ impl Dashboard {
                         event_task,
                         command.map(Message::Sidebar),
                     ]),
-                    event,
+                    events,
                 );
             }
             Message::SelectedText(contents, clipboard_kind) => {
@@ -894,125 +834,6 @@ impl Dashboard {
                     );
                 }
             }
-            Message::History(message) => {
-                if let Some(event) =
-                    self.history.update(message, clients, &config.buffer)
-                {
-                    match event {
-                        history::manager::Event::Loaded(kind) => {
-                            let buffer = kind.clone().into();
-
-                            if let Some((window, pane, state)) =
-                                self.panes.get_mut_by_buffer(&buffer)
-                            {
-                                if let Some(draft_reply) =
-                                    state.buffer.get_draft_reply()
-                                    && let Some(reply_preview) =
-                                        self.history.generate_reply_preview(
-                                            kind.clone(),
-                                            &draft_reply.id,
-                                            &draft_reply.server_time,
-                                        )
-                                {
-                                    state
-                                        .buffer
-                                        .set_reply_preview(reply_preview);
-                                }
-
-                                if state.buffer.has_scroll_to() {
-                                    return (
-                                        state
-                                            .buffer
-                                            .prepare_for_scroll_to(
-                                                &self.history,
-                                                config,
-                                            )
-                                            .map(move |message| {
-                                                Message::Pane(
-                                                    window,
-                                                    pane::Message::Buffer(
-                                                        pane, message,
-                                                    ),
-                                                )
-                                            }),
-                                        None,
-                                    );
-                                } else {
-                                    let task = if matches!(
-                                        kind,
-                                        history::Kind::ChannelMonitor
-                                    ) {
-                                        state.buffer.scroll_to_end(config)
-                                    } else {
-                                        match config
-                                            .buffer
-                                            .scroll_position_on_open
-                                        {
-                                            ScrollPosition::OldestUnread => {
-                                                state.buffer.scroll_to_backlog(
-                                                    &self.history,
-                                                    config,
-                                                )
-                                            }
-                                            ScrollPosition::Newest => {
-                                                Task::none()
-                                            }
-                                        }
-                                    };
-
-                                    return (
-                                        task.map(move |message| {
-                                            Message::Pane(
-                                                window,
-                                                pane::Message::Buffer(
-                                                    pane, message,
-                                                ),
-                                            )
-                                        }),
-                                        None,
-                                    );
-                                }
-                            }
-                        }
-                        history::manager::Event::Exited => {
-                            return (Task::none(), Some(Event::Exit));
-                        }
-                        history::manager::Event::SentMessageUpdated(
-                            kind,
-                            read_marker,
-                        ) => {
-                            if config.buffer.mark_as_read.on_message_sent
-                                && let (Some(server), Some(target)) =
-                                    (kind.server(), kind.target())
-                            {
-                                clients.send_markread(
-                                    server,
-                                    target,
-                                    read_marker,
-                                    TokenPriority::High,
-                                );
-                            }
-                        }
-                        history::manager::Event::ResendMessage(
-                            kind,
-                            message,
-                        ) => {
-                            return (
-                                self.resend_message(
-                                    clients, kind, message, config,
-                                ),
-                                None,
-                            );
-                        }
-                        history::manager::Event::EchoEvents(server, events) => {
-                            return (
-                                Task::none(),
-                                Some(Event::EchoEvents(server, events)),
-                            );
-                        }
-                    }
-                }
-            }
             Message::DashboardSaved(Ok(())) => {
                 log::debug!("dashboard saved");
             }
@@ -1037,6 +858,7 @@ impl Dashboard {
                             clients,
                             controllers,
                             servers,
+                            storage,
                             theme,
                             config,
                             main_window,
@@ -1049,7 +871,10 @@ impl Dashboard {
                                     servers,
                                     clients,
                                     &closed_upstream_buffers(
-                                        self, servers, clients,
+                                        self,
+                                        servers,
+                                        clients,
+                                        storage.get_sidebar_buffers(),
                                     ),
                                     version,
                                     config,
@@ -1065,7 +890,10 @@ impl Dashboard {
                                 servers,
                                 clients,
                                 &closed_upstream_buffers(
-                                    self, servers, clients,
+                                    self,
+                                    servers,
+                                    clients,
+                                    storage.get_sidebar_buffers(),
                                 ),
                                 version,
                                 config,
@@ -1082,7 +910,7 @@ impl Dashboard {
 
                 // Only works on main window / pane_grid
                 let mut move_focus = |direction: pane_grid::Direction| {
-                    let Focus { window, pane } = self.focus;
+                    let Focus { window, pane } = self.panes.focus;
 
                     if window == self.main_window()
                         && let Some(adjacent) =
@@ -1120,14 +948,17 @@ impl Dashboard {
                         );
                     }
                     CloseBuffer => {
-                        let Focus { window, pane } = self.focus;
+                        let Focus { window, pane } = self.panes.focus;
+
                         return (
-                            self.close_pane(clients, config, window, pane),
+                            self.close_pane(
+                                clients, storage, config, window, pane,
+                            ),
                             None,
                         );
                     }
                     MaximizeBuffer => {
-                        let Focus { window, pane } = self.focus;
+                        let Focus { window, pane } = self.panes.focus;
                         // Only main window has >1 pane to maximize
                         if window == self.main_window() {
                             self.panes.main.maximize(pane);
@@ -1140,7 +971,8 @@ impl Dashboard {
                         let cycle_buffers = self.side_menu.visible_buffers(
                             servers,
                             clients,
-                            &self.history,
+                            &self.models,
+                            storage.get_sidebar_buffers(),
                             &self.panes,
                             config,
                             self.buffer_settings.show_muted,
@@ -1149,7 +981,8 @@ impl Dashboard {
 
                         let open_buffers = open_buffers(self);
 
-                        if let Some((_, _, state)) = self.get_focused_mut()
+                        if let Some((_, _, state)) =
+                            self.panes.get_focused_mut()
                             && let Some(buffer) = cycle_next_buffer(
                                 state.buffer.data().as_ref(),
                                 cycle_buffers,
@@ -1161,6 +994,7 @@ impl Dashboard {
                                     buffer,
                                     BufferAction::ReplacePane,
                                     clients,
+                                    storage,
                                     config,
                                 ),
                                 None,
@@ -1171,7 +1005,8 @@ impl Dashboard {
                         let cycle_buffers = self.side_menu.visible_buffers(
                             servers,
                             clients,
-                            &self.history,
+                            &self.models,
+                            storage.get_sidebar_buffers(),
                             &self.panes,
                             config,
                             self.buffer_settings.show_muted,
@@ -1180,7 +1015,8 @@ impl Dashboard {
 
                         let open_buffers = open_buffers(self);
 
-                        if let Some((_, _, state)) = self.get_focused_mut()
+                        if let Some((_, _, state)) =
+                            self.panes.get_focused_mut()
                             && let Some(buffer) = cycle_previous_buffer(
                                 state.buffer.data().as_ref(),
                                 cycle_buffers,
@@ -1192,6 +1028,7 @@ impl Dashboard {
                                     buffer,
                                     BufferAction::ReplacePane,
                                     clients,
+                                    storage,
                                     config,
                                 ),
                                 None,
@@ -1199,15 +1036,19 @@ impl Dashboard {
                         }
                     }
                     LeaveBuffer => {
-                        if let Some((_, _, state)) = self.get_focused_mut()
+                        if let Some((_, _, state)) =
+                            self.panes.get_focused_mut()
                             && let Some(buffer) =
                                 state.buffer.upstream().cloned()
                         {
-                            return self.leave_buffer(clients, config, buffer);
+                            return self.leave_buffer(
+                                clients, storage, config, buffer,
+                            );
                         }
                     }
                     ToggleNicklist => {
-                        if let Some((_, _, pane)) = self.get_focused_mut() {
+                        if let Some((_, _, pane)) = self.panes.get_focused_mut()
+                        {
                             if let Some(buffer) = pane.buffer.data() {
                                 let settings = self.buffer_settings.entry(
                                     &buffer,
@@ -1221,7 +1062,8 @@ impl Dashboard {
                         }
                     }
                     ToggleTopic => {
-                        if let Some((_, _, pane)) = self.get_focused_mut() {
+                        if let Some((_, _, pane)) = self.panes.get_focused_mut()
+                        {
                             if let Some(buffer) = pane.buffer.data() {
                                 let settings = self.buffer_settings.entry(
                                     &buffer,
@@ -1246,7 +1088,10 @@ impl Dashboard {
                                 servers,
                                 clients,
                                 &closed_upstream_buffers(
-                                    self, servers, clients,
+                                    self,
+                                    servers,
+                                    clients,
+                                    storage.get_sidebar_buffers(),
                                 ),
                                 version,
                                 config,
@@ -1266,6 +1111,7 @@ impl Dashboard {
                             return (
                                 self.toggle_internal_buffer(
                                     clients,
+                                    storage,
                                     config,
                                     buffer::Internal::FileTransfers,
                                 ),
@@ -1277,6 +1123,7 @@ impl Dashboard {
                         return (
                             self.toggle_internal_buffer(
                                 clients,
+                                storage,
                                 config,
                                 buffer::Internal::Logs,
                             ),
@@ -1293,8 +1140,20 @@ impl Dashboard {
                         return (
                             self.toggle_internal_buffer(
                                 clients,
+                                storage,
                                 config,
                                 buffer::Internal::Highlights,
+                            ),
+                            None,
+                        );
+                    }
+                    Search => {
+                        return (
+                            self.toggle_internal_buffer(
+                                clients,
+                                storage,
+                                config,
+                                buffer::Internal::Search(None),
                             ),
                             None,
                         );
@@ -1306,11 +1165,11 @@ impl Dashboard {
                         );
                     }
                     QuitApplication => {
-                        return (self.exit(clients, config), None);
+                        return (Task::none(), Some(Event::Exit));
                     }
                     ScrollUpPage => {
                         return (
-                            self.get_focused_mut().map_or_else(
+                            self.panes.get_focused_mut().map_or_else(
                                 Task::none,
                                 |(window, pane, state)| {
                                     state.buffer.scroll_up_page().map(
@@ -1330,7 +1189,7 @@ impl Dashboard {
                     }
                     ScrollDownPage => {
                         return (
-                            self.get_focused_mut().map_or_else(
+                            self.panes.get_focused_mut().map_or_else(
                                 Task::none,
                                 |(window, pane, state)| {
                                     state.buffer.scroll_down_page().map(
@@ -1350,38 +1209,46 @@ impl Dashboard {
                     }
                     ScrollToTop => {
                         if config.buffer.chathistory.infinite_scroll
-                            && let Some((_, _, state)) = self.get_focused()
+                            && let Some((_, _, state)) =
+                                self.panes.get_focused()
                             && let Some(buffer) = state.buffer.data()
+                            && let Some(upstream) = buffer.upstream()
+                            && let Some(target) = upstream.target()
                         {
-                            self.request_older_chathistory(clients, &buffer);
+                            clients.request_older_chathistory(
+                                upstream.as_server(),
+                                target,
+                                TokenPriority::User,
+                                storage,
+                            );
                         }
 
                         return (
-                            self.get_focused_mut().map_or_else(
+                            self.panes.get_focused_mut().map_or_else(
                                 Task::none,
                                 |(window, id, pane)| {
-                                    pane.buffer.scroll_to_start(config).map(
-                                        move |message| {
+                                    pane.buffer
+                                        .scroll_to_start(storage, config)
+                                        .map(move |message| {
                                             Message::Pane(
                                                 window,
                                                 pane::Message::Buffer(
                                                     id, message,
                                                 ),
                                             )
-                                        },
-                                    )
+                                        })
                                 },
                             ),
                             None,
                         );
                     }
                     ScrollToBottom => {
-                        let task = self.get_focused_mut().map_or_else(
-                            Task::none,
+                        let task = self.panes.get_focused_mut().map_or(
+                            Task::none(),
                             |(window, pane, state)| {
-                                let mut task = state
+                                let task = state
                                     .buffer
-                                    .scroll_to_end(config)
+                                    .scroll_to_end(storage, config)
                                     .map(move |message| {
                                         Message::Pane(
                                             window,
@@ -1395,12 +1262,12 @@ impl Dashboard {
                                     .buffer
                                     .mark_as_read
                                     .on_scroll_to_bottom
+                                    && let Some(kind) = state
+                                        .buffer
+                                        .data()
+                                        .and_then(history::Kind::from_buffer)
                                 {
-                                    task =
-                                        task.chain(Task::done(Message::Pane(
-                                            window,
-                                            pane::Message::MarkAsRead,
-                                        )));
+                                    storage.mark_as_read(kind);
                                 }
 
                                 task
@@ -1414,7 +1281,8 @@ impl Dashboard {
                             self.side_menu.visible_buffers_with_has_unread(
                                 servers,
                                 clients,
-                                &self.history,
+                                &self.models,
+                                storage.get_sidebar_buffers(),
                                 &self.panes,
                                 config,
                                 self.buffer_settings.show_muted,
@@ -1427,7 +1295,8 @@ impl Dashboard {
 
                         let open_buffers = open_buffers(self);
 
-                        if let Some((_, _, state)) = self.get_focused_mut()
+                        if let Some((_, _, state)) =
+                            self.panes.get_focused_mut()
                             && let Some(buffer) = cycle_next_unread_buffer(
                                 state.buffer.data().as_ref(),
                                 cycle_buffers,
@@ -1439,6 +1308,7 @@ impl Dashboard {
                                     buffer.clone(),
                                     BufferAction::ReplacePane,
                                     clients,
+                                    storage,
                                     config,
                                 ),
                                 None,
@@ -1450,7 +1320,8 @@ impl Dashboard {
                             self.side_menu.visible_buffers_with_has_unread(
                                 servers,
                                 clients,
-                                &self.history,
+                                &self.models,
+                                storage.get_sidebar_buffers(),
                                 &self.panes,
                                 config,
                                 self.buffer_settings.show_muted,
@@ -1463,7 +1334,8 @@ impl Dashboard {
 
                         let open_buffers = open_buffers(self);
 
-                        if let Some((_, _, state)) = self.get_focused_mut()
+                        if let Some((_, _, state)) =
+                            self.panes.get_focused_mut()
                             && let Some(buffer) = cycle_previous_unread_buffer(
                                 state.buffer.data().as_ref(),
                                 cycle_buffers,
@@ -1475,6 +1347,7 @@ impl Dashboard {
                                     buffer.clone(),
                                     BufferAction::ReplacePane,
                                     clients,
+                                    storage,
                                     config,
                                 ),
                                 None,
@@ -1482,18 +1355,13 @@ impl Dashboard {
                         }
                     }
                     MarkAsRead => {
-                        if let Some((_, _, pane)) = self.get_focused_mut()
+                        if let Some((_, _, pane)) = self.panes.get_focused_mut()
                             && let Some(kind) = pane
                                 .buffer
                                 .data()
                                 .and_then(history::Kind::from_buffer)
                         {
-                            mark_as_read(
-                                kind,
-                                &mut self.history,
-                                clients,
-                                TokenPriority::User,
-                            );
+                            storage.mark_as_read(kind);
                         }
                     }
                     ConfigEditorSave => {
@@ -1505,6 +1373,7 @@ impl Dashboard {
                         return (
                             self.toggle_internal_buffer(
                                 clients,
+                                storage,
                                 config,
                                 buffer::Internal::ConfigEditor,
                             ),
@@ -1521,7 +1390,8 @@ impl Dashboard {
                         self.buffer_settings.show_muted = false;
                     }
                     FocusUp | FocusDown | FocusLeft | FocusRight => {
-                        if let Some((window, pane, state)) = self.get_focused()
+                        if let Some((window, pane, state)) =
+                            self.panes.get_focused()
                         {
                             let direction = match shortcut {
                                 FocusUp => FocusDirection::Up,
@@ -1574,9 +1444,10 @@ impl Dashboard {
                                 &server,
                                 &query,
                                 event,
-                                clients
-                                    .get_server_casemapping_or_default(&server),
+                                clients,
+                                storage,
                                 config,
+                                focused_window,
                             ),
                             None,
                         );
@@ -1585,16 +1456,14 @@ impl Dashboard {
             }
             Message::CloseContextMenu(window, any_closed) => {
                 if !any_closed {
-                    if let Some((_, _, state, history)) =
-                        self.get_focused_with_history_mut()
-                    {
+                    if let Some((_, _, state)) = self.get_focused_mut() {
                         if state.buffer.close_picker() {
                             return (Task::none(), None);
                         // We only want to call clear_draft_reply if
                         // close_picker does not return true.
                         } else if state
                             .buffer
-                            .clear_draft_reply(history, config)
+                            .clear_draft_reply(storage, config)
                         {
                             return (Task::none(), None);
                         }
@@ -1607,25 +1476,23 @@ impl Dashboard {
                 }
             }
             Message::ThemeEditor(message) => {
-                let mut editor_event = None;
-                let mut event = None;
                 let mut tasks = vec![];
+                let mut event = None;
 
                 if let Some(editor) = self.theme_editor.as_mut() {
-                    let (task, event) = editor.update(message, theme);
+                    let (editor_task, editor_event) =
+                        editor.update(message, theme);
 
-                    tasks.push(task.map(Message::ThemeEditor));
-                    editor_event = event;
-                }
+                    tasks.push(editor_task.map(Message::ThemeEditor));
 
-                if let Some(editor_event) = editor_event {
                     match editor_event {
-                        theme_editor::Event::Close => {
+                        Some(theme_editor::Event::Close) => {
                             tasks.push(self.close_theme_editor());
                         }
-                        theme_editor::Event::ReloadThemes => {
+                        Some(theme_editor::Event::ReloadThemes) => {
                             event = Some(Event::ReloadThemes);
                         }
+                        None => (),
                     }
                 }
 
@@ -1661,65 +1528,6 @@ impl Dashboard {
                     self.reloading_config = false;
                 }
             }
-            Message::Client(message) => match message {
-                client::Message::ChatHistoryRequest(server, subcommand) => {
-                    clients.send_chathistory_request(
-                        &server,
-                        subcommand,
-                        TokenPriority::High,
-                    );
-                }
-                client::Message::ChatHistoryTargetsTimestampUpdated(
-                    server,
-                    timestamp,
-                    Ok(()),
-                ) => {
-                    log::debug!(
-                        "updated targets timestamp for {server} to {timestamp}"
-                    );
-                }
-                client::Message::ChatHistoryTargetsTimestampUpdated(
-                    server,
-                    timestamp,
-                    Err(error),
-                ) => {
-                    log::warn!(
-                        "failed to update targets timestamp for {server} to {timestamp}: {error}"
-                    );
-                }
-                client::Message::RequestNewerChatHistory(
-                    server,
-                    target,
-                    server_time,
-                    allow_at,
-                ) => {
-                    let message_reference_types = clients
-                        .get_server_chathistory_message_reference_types(
-                            &server,
-                        );
-
-                    let message_reference =
-                        self.history.last_can_reference_before_or_at(
-                            server.clone(),
-                            target.clone(),
-                            server_time,
-                            allow_at,
-                            &message_reference_types,
-                        );
-
-                    let limit = clients.get_server_chathistory_limit(&server);
-
-                    clients.send_chathistory_request(
-                        &server,
-                        ChatHistorySubcommand::Latest(
-                            target,
-                            message_reference,
-                            limit,
-                        ),
-                        TokenPriority::High,
-                    );
-                }
-            },
             Message::LoadPreview((url, Ok(preview))) => {
                 log::trace!("Preview loaded for {url}");
                 if let hash_map::Entry::Occupied(mut entry) =
@@ -1747,10 +1555,13 @@ impl Dashboard {
 
                 return (self.focus_pane(window, pane), None);
             }
-            Message::Filehost(msg) => {
-                return (
-                    self.handle_filehost_message(msg, clients, config),
-                    None,
+            Message::Filehost(message) => {
+                return self.handle_filehost_message(
+                    message,
+                    clients,
+                    storage,
+                    config,
+                    focused_window,
                 );
             }
             Message::ProceedWithFilehostUpload => {
@@ -1767,6 +1578,75 @@ impl Dashboard {
             Message::ConfigReloadComplete => {
                 self.reloading_config = false;
             }
+            Message::Indexed => {
+                let tasks = self
+                    .panes
+                    .iter_mut()
+                    .filter_map(|(window, pane, state)| {
+                        let Buffer::Search(search) = &mut state.buffer else {
+                            return None;
+                        };
+                        Some(search.indexed(storage).map(move |message| {
+                            Message::Pane(
+                                window,
+                                pane::Message::Buffer(
+                                    pane,
+                                    buffer::Message::Search(message),
+                                ),
+                            )
+                        }))
+                    })
+                    .collect::<Vec<_>>();
+
+                return (Task::batch(tasks), None);
+            }
+            Message::Model(message) => {
+                let event = self
+                    .models
+                    .update(message, &config.buffer.server_messages.condense);
+
+                match event {
+                    Some(model::Event::Opened(kind)) => {
+                        if matches!(
+                            config.buffer.scroll_position_on_open,
+                            ScrollPosition::OldestUnread
+                        ) && let Some((window, pane, state)) =
+                            self.panes.get_mut_by_history_kind(&kind)
+                        {
+                            return (
+                                state
+                                    .buffer
+                                    .scroll_to_backlog(
+                                        &self.models,
+                                        storage,
+                                        config,
+                                    )
+                                    .map(move |message| {
+                                        Message::Pane(
+                                            window,
+                                            pane::Message::Buffer(
+                                                pane, message,
+                                            ),
+                                        )
+                                    }),
+                                None,
+                            );
+                        }
+                    }
+                    Some(model::Event::GoToMessage(navigation))
+                        if navigation.token.strong_count() != 0 =>
+                    {
+                        self.pending_navigation = None;
+                        return (
+                            self.go_to_message(
+                                navigation, clients, storage, config,
+                            ),
+                            None,
+                        );
+                    }
+                    Some(model::Event::GoToMessage(_)) | None => (),
+                }
+            }
         }
 
         (Task::none(), None)
@@ -1778,6 +1658,8 @@ impl Dashboard {
         servers: &'a server::Map,
         clients: &'a client::Map,
         version: &'a Version,
+        filter_chain: FilterChain,
+        sidebar_buffers: &'a SidebarBuffers,
         config: &'a Config,
         theme: &'a Theme,
     ) -> Element<'a, Message> {
@@ -1789,7 +1671,8 @@ impl Dashboard {
 
             let content = container(
                 PaneGrid::new(state, |id, pane, _maximized| {
-                    let is_focused = self.focus == Focus { window, pane: id };
+                    let is_focused =
+                        self.panes.focus == Focus { window, pane: id };
                     let buffer = pane.buffer.data();
                     let settings = buffer
                         .as_ref()
@@ -1803,9 +1686,10 @@ impl Dashboard {
                         self.typing_animation.as_ref(),
                         clients,
                         &self.file_transfers,
-                        &self.history,
+                        &self.models,
                         &self.previews,
                         &self.side_menu,
+                        filter_chain,
                         config,
                         theme,
                         settings,
@@ -1823,7 +1707,13 @@ impl Dashboard {
             let base = Element::new(content)
                 .map(move |message| Message::Pane(window, message));
             let base = self.with_command_bar_overlay(
-                base, window, servers, clients, version, config,
+                base,
+                window,
+                servers,
+                clients,
+                sidebar_buffers,
+                version,
+                config,
             );
 
             return self.with_keyboard_shortcuts(base, config);
@@ -1841,12 +1731,14 @@ impl Dashboard {
         servers: &'a server::Map,
         clients: &'a client::Map,
         version: &'a Version,
+        filter_chain: FilterChain,
+        sidebar_buffers: &'a SidebarBuffers,
         config: &'a Config,
         theme: &'a Theme,
     ) -> Element<'a, Message> {
         let pane_grid: Element<_> =
             PaneGrid::new(&self.panes.main, |id, pane, maximized| {
-                let is_focused = self.focus
+                let is_focused = self.panes.focus
                     == Focus {
                         window: self.main_window(),
                         pane: id,
@@ -1864,9 +1756,10 @@ impl Dashboard {
                     self.typing_animation.as_ref(),
                     clients,
                     &self.file_transfers,
-                    &self.history,
+                    &self.models,
                     &self.previews,
                     &self.side_menu,
+                    filter_chain,
                     config,
                     theme,
                     settings,
@@ -1909,9 +1802,9 @@ impl Dashboard {
             .view(
                 servers,
                 clients,
-                &self.history,
+                &self.models,
+                sidebar_buffers,
                 &self.panes,
-                self.focus,
                 &self.server_icons,
                 config,
                 &self.file_transfers,
@@ -1956,6 +1849,7 @@ impl Dashboard {
             self.main_window(),
             servers,
             clients,
+            sidebar_buffers,
             version,
             config,
         );
@@ -1969,6 +1863,7 @@ impl Dashboard {
         window: window::Id,
         servers: &'a server::Map,
         clients: &'a client::Map,
+        sidebar_buffers: &'a SidebarBuffers,
         version: &'a Version,
         config: &'a Config,
     ) -> Element<'a, Message> {
@@ -1985,9 +1880,10 @@ impl Dashboard {
                             &all_upstream_buffers(
                                 servers,
                                 clients,
-                                &self.history,
+                                &self.models,
+                                sidebar_buffers,
                             ),
-                            self.focus,
+                            self.panes.focus,
                             self.buffer_resize_action(),
                             version,
                             config,
@@ -2011,7 +1907,7 @@ impl Dashboard {
 
         let focused_target_info = self
             .panes
-            .get(self.focus.window, self.focus.pane)
+            .get(self.panes.focus.window, self.panes.focus.pane)
             .and_then(|pane| {
                 let target = pane.buffer.target()?;
                 let server = pane.buffer.server()?;
@@ -2069,9 +1965,11 @@ impl Dashboard {
         window: window::Id,
         id: pane_grid::Pane,
         event: buffer::Event,
-        clients: &mut data::client::Map,
+        clients: &mut client::Map,
         controllers: &mut stream::Map,
+        storage: &mut storage::Manager,
         config: &Config,
+        focused_window: &Option<iced::window::Id>,
     ) -> (Task<Message>, Option<Event>) {
         let Some(pane) = self.panes.get_mut(window, id) else {
             return (Task::none(), None);
@@ -2091,6 +1989,7 @@ impl Dashboard {
                         data::Buffer::Internal(buffer),
                         config.actions.buffer.open_internal,
                         clients,
+                        storage,
                         config,
                     ),
                     None,
@@ -2155,30 +2054,59 @@ impl Dashboard {
                             config.buffer.url.prompt_before_open,
                         ))
                     }
-                    buffer::context_menu::Event::HidePreview(hash, url) => {
-                        let kind = pane
-                            .buffer
-                            .data()
-                            .and_then(history::Kind::from_buffer);
+                    buffer::context_menu::Event::HidePreview(
+                        origin,
+                        history_id,
+                        time,
+                        url,
+                    ) => {
+                        let kind = origin.or_else(|| {
+                            pane.buffer
+                                .data()
+                                .and_then(history::Kind::from_buffer)
+                        });
                         let parsed = url::Url::parse(&url).ok();
 
                         if let (Some(kind), Some(url)) = (kind, parsed) {
-                            self.history.hide_preview(kind, hash, url);
+                            let history_update = storage::Update::HidePreview(
+                                kind, history_id, time, url,
+                            );
+
+                            storage.write(
+                                vec![history_update],
+                                clients,
+                                &self.panes,
+                                focused_window,
+                                config,
+                            );
                         }
 
                         None
                     }
-                    buffer::context_menu::Event::ShowPreview(hash, url) => {
-                        let kind = pane
-                            .buffer
-                            .data()
-                            .and_then(history::Kind::from_buffer);
+                    buffer::context_menu::Event::ShowPreview(
+                        origin,
+                        history_id,
+                        time,
+                        url,
+                    ) => {
+                        let kind = origin.or_else(|| {
+                            pane.buffer
+                                .data()
+                                .and_then(history::Kind::from_buffer)
+                        });
                         let parsed = url::Url::parse(&url).ok();
 
                         if let (Some(kind), Some(url)) = (kind, parsed) {
-                            self.history.show_preview(kind, hash, &url);
-                            tasks.push(
-                                self.reload_visible_previews(clients, config),
+                            let history_update = storage::Update::ShowPreview(
+                                kind, history_id, time, url,
+                            );
+
+                            storage.write(
+                                vec![history_update],
+                                clients,
+                                &self.panes,
+                                focused_window,
+                                config,
                             );
                         }
 
@@ -2256,6 +2184,22 @@ impl Dashboard {
 
                         None
                     }
+                    buffer::context_menu::Event::SearchMessages(nick) => {
+                        tasks.push(
+                            self.open_buffer(
+                                buffer::Internal::Search(Some(format!(
+                                    "from:{nick} "
+                                )))
+                                .into(),
+                                config.actions.buffer.open_internal,
+                                clients,
+                                storage,
+                                config,
+                            ),
+                        );
+
+                        None
+                    }
                     buffer::context_menu::Event::OpenTarget(
                         server,
                         target,
@@ -2265,6 +2209,7 @@ impl Dashboard {
                             server,
                             target,
                             clients,
+                            storage,
                             buffer_action,
                             config,
                             true,
@@ -2273,12 +2218,10 @@ impl Dashboard {
                         None
                     }
                     buffer::context_menu::Event::InsertNickname(nick) => {
-                        if let Some((_, _, pane, history)) =
-                            self.get_focused_with_history_mut()
-                        {
+                        if let Some((_, _, pane)) = self.get_focused_mut() {
                             pane.buffer.insert_user_to_input(
                                 nick,
-                                history,
+                                storage,
                                 &config.buffer.text_input.autocomplete,
                             );
                         }
@@ -2343,44 +2286,36 @@ impl Dashboard {
                         None
                     }
                     buffer::context_menu::Event::DeleteMessage(
-                        server_time,
-                        hash,
+                        time,
+                        history_id,
                     ) => {
-                        if let Some(kind) =
-                            pane.buffer.upstream().map(|buffer| {
-                                history::Kind::from_input_buffer(buffer.clone())
-                            })
-                            && let Some(future) = self.history.remove_message(
-                                kind,
-                                server_time,
-                                hash,
-                                false,
-                            )
-                        {
-                            tasks.push(
-                                Task::future(future).map(Message::History),
+                        if let Some(buffer) = pane.buffer.upstream() {
+                            let kind = history::Kind::from(buffer.clone());
+
+                            let history_update =
+                                storage::Update::Remove(kind, history_id, time);
+
+                            storage.write(
+                                vec![history_update],
+                                clients,
+                                &self.panes,
+                                focused_window,
+                                config,
                             );
                         }
 
                         None
                     }
                     buffer::context_menu::Event::ResendMessage(
-                        server_time,
-                        hash,
+                        time,
+                        history_id,
                     ) => {
-                        if let Some(kind) =
-                            pane.buffer.upstream().map(|buffer| {
-                                history::Kind::from_input_buffer(buffer.clone())
-                            })
-                            && let Some(future) = self.history.remove_message(
-                                kind,
-                                server_time,
-                                hash,
-                                true,
-                            )
-                        {
-                            tasks.push(
-                                Task::future(future).map(Message::History),
+                        if let Some(buffer) = pane.buffer.upstream() {
+                            clients.request_resend_message(
+                                buffer.clone(),
+                                history_id,
+                                time,
+                                storage,
                             );
                         }
 
@@ -2390,16 +2325,18 @@ impl Dashboard {
                         msgid,
                         server_time,
                     ) => {
-                        if let Some(kind) =
-                            pane.buffer.upstream().map(|buffer| {
-                                history::Kind::from_input_buffer(buffer.clone())
-                            })
-                            && let Some(server) = kind.server()
-                            && let Some(message) = self
-                                .history
-                                .find_message_by_id(&msgid, &kind, &server_time)
+                        if let Some(kind_ref) =
+                            pane.buffer.upstream().map(history::KindRef::from)
+                            && let Some(server) = kind_ref.as_server()
+                            && let Some(message) =
+                                self.models.find_message_by_id(
+                                    &msgid,
+                                    kind_ref,
+                                    &server_time,
+                                )
                         {
                             let selected_reactions = message
+                                .inner
                                 .selected_reactions(clients.nickname(server));
 
                             tasks.push(
@@ -2441,18 +2378,18 @@ impl Dashboard {
                         None
                     }
                     buffer::context_menu::Event::ExpandMessage(
-                        server_time,
-                        hash,
+                        time,
+                        history_id,
                     ) => {
-                        if let Some(kind) =
-                            pane.buffer.upstream().map(|buffer| {
-                                history::Kind::from_input_buffer(buffer.clone())
-                            })
+                        if let Some(kind) = pane
+                            .buffer
+                            .upstream()
+                            .map(|buffer| history::Kind::from(buffer.clone()))
                         {
-                            self.history.expand_message(
-                                kind,
-                                server_time,
-                                hash,
+                            self.models.expand_message(
+                                &kind,
+                                &history_id,
+                                &time,
                                 &config.buffer.server_messages.condense,
                             );
                         }
@@ -2460,18 +2397,18 @@ impl Dashboard {
                         None
                     }
                     buffer::context_menu::Event::ContractMessage(
-                        server_time,
-                        hash,
+                        time,
+                        history_id,
                     ) => {
-                        if let Some(kind) =
-                            pane.buffer.upstream().map(|buffer| {
-                                history::Kind::from_input_buffer(buffer.clone())
-                            })
+                        if let Some(kind) = pane
+                            .buffer
+                            .upstream()
+                            .map(|buffer| history::Kind::from(buffer.clone()))
                         {
-                            self.history.contract_message(
-                                kind,
-                                server_time,
-                                hash,
+                            self.models.contract_message(
+                                &kind,
+                                &history_id,
+                                &time,
                                 &config.buffer.server_messages.condense,
                             );
                         }
@@ -2490,6 +2427,7 @@ impl Dashboard {
                         server.clone(),
                         target,
                         clients,
+                        storage,
                         buffer_action,
                         config,
                         true,
@@ -2502,7 +2440,7 @@ impl Dashboard {
                 if let Some(server) = pane
                     .buffer
                     .upstream()
-                    .map(buffer::Upstream::server)
+                    .map(buffer::Upstream::as_server)
                     .cloned()
                 {
                     let mut tasks = vec![];
@@ -2510,6 +2448,7 @@ impl Dashboard {
                     for target in targets {
                         tasks.push(self.leave_server_target(
                             clients,
+                            storage,
                             config,
                             server.clone(),
                             target,
@@ -2520,51 +2459,52 @@ impl Dashboard {
                     return (Task::batch(tasks), None);
                 }
             }
-            buffer::Event::History(history_task) => {
-                return (history_task.map(Message::History), None);
-            }
             buffer::Event::GoToMessage(
-                server,
-                channel,
-                message,
+                upstream,
+                destination,
                 buffer_action,
             ) => {
-                let buffer = data::Buffer::Upstream(buffer::Upstream::Channel(
-                    server, channel,
-                ));
-
-                let mut tasks = vec![];
-
-                if self.panes.get_mut_by_buffer(&buffer).is_none() {
-                    tasks.push(self.open_buffer(
-                        buffer.clone(),
-                        buffer_action,
-                        clients,
-                        config,
-                    ));
+                self.pending_navigation = None;
+                let mut navigation = model::Navigation {
+                    buffer: upstream,
+                    message: None,
+                    buffer_action,
+                    token: std::sync::Weak::new(),
+                };
+                match destination {
+                    message::MessageLink::Message(history_id, time) => {
+                        navigation.message = Some((history_id, time));
+                        return (
+                            self.go_to_message(
+                                navigation, clients, storage, config,
+                            ),
+                            None,
+                        );
+                    }
+                    message::MessageLink::Highlight(highlight) => {
+                        let token = Arc::new(());
+                        navigation.token = Arc::downgrade(&token);
+                        self.pending_navigation = Some(token);
+                        storage.request_highlight_source(navigation, highlight);
+                    }
                 }
-
-                if let Some((window, pane, state)) =
-                    self.panes.get_mut_by_buffer(&buffer)
-                {
-                    tasks.push(
-                        state
-                            .buffer
-                            .scroll_to_message(message, &self.history, config)
-                            .map(move |message| {
-                                Message::Pane(
-                                    window,
-                                    pane::Message::Buffer(pane, message),
-                                )
-                            }),
-                    );
-                }
-
-                return (Task::batch(tasks), None);
             }
-            buffer::Event::RequestOlderChatHistory => {
-                if let Some(buffer) = pane.buffer.data() {
-                    self.request_older_chathistory(clients, &buffer);
+            buffer::Event::RequestOlderChathistory => {
+                if let Some((server, target)) =
+                    pane.buffer.upstream().and_then(|upstream| {
+                        upstream
+                            .target()
+                            .map(|target| (upstream.as_server(), target))
+                    })
+                {
+                    clients.request_older_chathistory(
+                        server,
+                        target,
+                        TokenPriority::User,
+                        storage,
+                    );
+
+                    return (Task::none(), None);
                 }
             }
             buffer::Event::PreviewChanged => {
@@ -2613,16 +2553,20 @@ impl Dashboard {
                     None,
                 );
             }
-            buffer::Event::HidePreview(kind, hash, url) => {
-                self.history.hide_preview(kind, hash, url);
+            buffer::Event::HidePreview(kind, history_id, time, url) => {
+                let history_update =
+                    storage::Update::HidePreview(kind, history_id, time, url);
+
+                storage.write(
+                    vec![history_update],
+                    clients,
+                    &self.panes,
+                    focused_window,
+                    config,
+                );
             }
             buffer::Event::MarkAsRead(kind) => {
-                mark_as_read(
-                    kind,
-                    &mut self.history,
-                    clients,
-                    TokenPriority::User,
-                );
+                storage.mark_as_read(kind);
             }
             buffer::Event::OpenUrl(url) => {
                 return (
@@ -2636,32 +2580,31 @@ impl Dashboard {
             buffer::Event::ImagePreview(image) => {
                 return (Task::none(), Some(Event::ImagePreview(image)));
             }
-            buffer::Event::ExpandMessage(server_time, hash) => {
+            buffer::Event::ExpandMessage(time, history_id) => {
                 if let Some(kind) =
                     pane.buffer.data().and_then(history::Kind::from_buffer)
                 {
-                    self.history.expand_message(
-                        kind,
-                        server_time,
-                        hash,
+                    self.models.expand_message(
+                        &kind,
+                        &history_id,
+                        &time,
                         &config.buffer.server_messages.condense,
                     );
                 }
             }
-            buffer::Event::ContractMessage(server_time, hash) => {
+            buffer::Event::ContractMessage(time, history_id) => {
                 if let Some(kind) =
                     pane.buffer.data().and_then(history::Kind::from_buffer)
                 {
-                    self.history.contract_message(
-                        kind,
-                        server_time,
-                        hash,
+                    self.models.contract_message(
+                        &kind,
+                        &history_id,
+                        &time,
                         &config.buffer.server_messages.condense,
                     );
                 }
             }
             buffer::Event::InputSent {
-                history_task,
                 open_buffers,
                 was_join_command,
             } => {
@@ -2670,7 +2613,7 @@ impl Dashboard {
                 if let Some(server) = pane
                     .buffer
                     .upstream()
-                    .map(buffer::Upstream::server)
+                    .map(buffer::Upstream::as_server)
                     .cloned()
                 {
                     for (target, buffer_action) in open_buffers {
@@ -2678,6 +2621,7 @@ impl Dashboard {
                             server.clone(),
                             target,
                             clients,
+                            storage,
                             buffer_action,
                             config,
                             !was_join_command,
@@ -2685,12 +2629,7 @@ impl Dashboard {
                     }
                 }
 
-                return (
-                    history_task
-                        .map(Message::History)
-                        .chain(Task::batch(tasks)),
-                    None,
-                );
+                return (Task::batch(tasks), None);
             }
             buffer::Event::SelectedServer(server) => {
                 Self::send_list_command_if_needed(&server, pane, clients);
@@ -2723,22 +2662,26 @@ impl Dashboard {
                 let Some(upload_url) =
                     clients.get_filehost(&server).map(String::from)
                 else {
-                    let casemapping =
-                        clients.get_server_casemapping_or_default(&server);
-                    let task = self.broadcast(
-                        &server,
-                        casemapping,
-                        config,
-                        Utc::now(),
-                        false,
-                        Broadcast::FilehostUploadFailed {
-                            error: format!(
-                                "no filehost configured for server {server}"
-                            ),
-                            target,
-                        },
+                    let history_update = storage::Update::Message(
+                        Some(server),
+                        message::Message::status(
+                            Status::Error,
+                            target.into(),
+                            "no filehost configured for server {server}"
+                                .to_string(),
+                            Utc::now(),
+                        ),
                     );
-                    return (task, None);
+
+                    storage.write(
+                        vec![history_update],
+                        clients,
+                        &self.panes,
+                        focused_window,
+                        config,
+                    );
+
+                    return (Task::none(), None);
                 };
 
                 let pending = filehost::PendingUpload {
@@ -2792,8 +2735,10 @@ impl Dashboard {
         &mut self,
         msg: filehost::Message,
         clients: &client::Map,
+        storage: &mut storage::Manager,
         config: &Config,
-    ) -> Task<Message> {
+        focused_window: &Option<iced::window::Id>,
+    ) -> (Task<Message>, Option<Event>) {
         match msg {
             filehost::Message::UploadDone {
                 window,
@@ -2816,10 +2761,13 @@ impl Dashboard {
                         buffer::server::Message::FilehostUploadDone { id, url },
                     ),
                 };
-                Task::done(Message::Pane(
-                    window,
-                    pane::Message::Buffer(pane_id, buf_msg),
-                ))
+                (
+                    Task::done(Message::Pane(
+                        window,
+                        pane::Message::Buffer(pane_id, buf_msg),
+                    )),
+                    None,
+                )
             }
             filehost::Message::UploadFailed {
                 window,
@@ -2829,19 +2777,6 @@ impl Dashboard {
                 id,
                 error,
             } => {
-                let casemapping =
-                    clients.get_server_casemapping_or_default(&server);
-                let history_task = self.broadcast(
-                    &server,
-                    casemapping,
-                    config,
-                    Utc::now(),
-                    false,
-                    Broadcast::FilehostUploadFailed {
-                        error,
-                        target: target.clone(),
-                    },
-                );
                 let decrement_msg = match &target {
                     Some(Target::Channel(_)) => buffer::Message::Channel(
                         buffer::channel::Message::FilehostUploadDone {
@@ -2862,17 +2797,38 @@ impl Dashboard {
                         },
                     ),
                 };
+
                 let decrement_task = Task::done(Message::Pane(
                     window,
                     pane::Message::Buffer(pane_id, decrement_msg),
                 ));
-                Task::batch(vec![history_task, decrement_task])
+
+                let history_update = storage::Update::Message(
+                    Some(server),
+                    message::Message::status(
+                        Status::Error,
+                        target.into(),
+                        format!("Upload failed: {error}"),
+                        Utc::now(),
+                    ),
+                );
+
+                storage.write(
+                    vec![history_update],
+                    clients,
+                    &self.panes,
+                    focused_window,
+                    config,
+                );
+
+                (decrement_task, None)
             }
-            filehost::Message::KnownSaved(Err(e)) => {
-                log::error!("failed to save known filehost URLs: {e}");
-                Task::none()
+            filehost::Message::KnownSaved(Err(error)) => {
+                log::error!("failed to save known filehost URLs: {error}");
+
+                (Task::none(), None)
             }
-            filehost::Message::KnownSaved(Ok(())) => Task::none(),
+            filehost::Message::KnownSaved(Ok(())) => (Task::none(), None),
         }
     }
 
@@ -2881,7 +2837,8 @@ impl Dashboard {
         window: window::Id,
         event: event::Event,
         servers: &server::Map,
-        clients: &mut data::client::Map,
+        clients: &mut client::Map,
+        sidebar_buffers: &SidebarBuffers,
         version: &Version,
         config: &Config,
         theme: &mut Theme,
@@ -2925,7 +2882,12 @@ impl Dashboard {
                     self.toggle_command_bar(
                         servers,
                         clients,
-                        &closed_upstream_buffers(self, servers, clients),
+                        &closed_upstream_buffers(
+                            self,
+                            servers,
+                            clients,
+                            sidebar_buffers,
+                        ),
                         version,
                         config,
                         theme,
@@ -3076,6 +3038,7 @@ impl Dashboard {
         clients: &mut client::Map,
         controllers: &mut stream::Map,
         servers: &server::Map,
+        storage: &mut storage::Manager,
         theme: &mut Theme,
         config: &Config,
         main_window: &Window,
@@ -3099,23 +3062,27 @@ impl Dashboard {
                     (self.new_pane(pane_grid::Axis::Vertical), None)
                 }
                 command_bar::Buffer::Close => {
-                    let Focus { window, pane } = self.focus;
-                    (self.close_pane(clients, config, window, pane), None)
+                    let Focus { window, pane } = self.panes.focus;
+                    (
+                        self.close_pane(clients, storage, config, window, pane),
+                        None,
+                    )
                 }
                 command_bar::Buffer::Replace(buffer) => (
                     self.open_buffer(
                         buffer,
                         BufferAction::ReplacePane,
                         clients,
+                        storage,
                         config,
                     ),
                     None,
                 ),
                 command_bar::Buffer::Popout => {
-                    (self.popout_pane(clients, config), None)
+                    (self.popout_pane(clients, storage, config), None)
                 }
                 command_bar::Buffer::Merge => {
-                    (self.merge_pane(clients, config), None)
+                    (self.merge_pane(clients, storage, config), None)
                 }
                 command_bar::Buffer::ShowMutedBuffers(show_muted_buffers) => {
                     self.buffer_settings.show_muted = show_muted_buffers;
@@ -3172,7 +3139,7 @@ impl Dashboard {
             command_bar::Command::Application(application) => match application
             {
                 command_bar::Application::Quit => {
-                    (self.exit(clients, config), None)
+                    (Task::none(), Some(Event::Exit))
                 }
                 command_bar::Application::ToggleFullscreen => {
                     (window::toggle_fullscreen(), Some(Event::ToggleFullscreen))
@@ -3229,7 +3196,8 @@ impl Dashboard {
 
     fn toggle_internal_buffer(
         &mut self,
-        clients: &mut data::client::Map,
+        clients: &mut client::Map,
+        storage: &mut storage::Manager,
         config: &Config,
         buffer: buffer::Internal,
     ) -> Task<Message> {
@@ -3239,12 +3207,13 @@ impl Dashboard {
         });
 
         if let Some((window, pane)) = open {
-            self.close_pane(clients, config, window, pane)
+            self.close_pane(clients, storage, config, window, pane)
         } else {
             self.open_buffer(
                 buffer.into(),
                 config.actions.buffer.open_internal,
                 clients,
+                storage,
                 config,
             )
         }
@@ -3253,7 +3222,7 @@ impl Dashboard {
     fn send_list_command_if_needed(
         server: &data::Server,
         pane: &Pane,
-        clients: &mut data::client::Map,
+        clients: &mut client::Map,
     ) {
         let is_needed = if clients.get_server_supports_list(server) {
             clients.get_channel_discovery_manager(server).is_none_or(
@@ -3273,7 +3242,7 @@ impl Dashboard {
     fn send_list_command(
         server: &data::Server,
         pane: &Pane,
-        clients: &mut data::client::Map,
+        clients: &mut client::Map,
     ) {
         let buffer = pane
             .buffer
@@ -3293,53 +3262,147 @@ impl Dashboard {
         }
     }
 
+    fn go_to_message(
+        &mut self,
+        navigation: model::Navigation,
+        clients: &mut client::Map,
+        storage: &mut storage::Manager,
+        config: &Config,
+    ) -> Task<Message> {
+        let buffer = data::Buffer::Upstream(navigation.buffer);
+
+        let mut tasks = vec![];
+
+        if self.panes.get_mut_by_buffer(&buffer).is_none() {
+            tasks.push(self.open_buffer(
+                buffer.clone(),
+                navigation.buffer_action,
+                clients,
+                storage,
+                config,
+            ));
+        }
+
+        if let Some((history_id, time)) = navigation.message
+            && history_id != history::Id::Undetermined
+            && let Some((window, pane, state)) =
+                self.panes.get_mut_by_buffer(&buffer)
+        {
+            tasks.push(
+                state
+                    .buffer
+                    .scroll_to_message(
+                        history_id,
+                        time,
+                        &self.models,
+                        storage,
+                        config,
+                    )
+                    .map(move |message| {
+                        Message::Pane(
+                            window,
+                            pane::Message::Buffer(pane, message),
+                        )
+                    }),
+            );
+        }
+
+        Task::batch(tasks)
+    }
+
     fn open_buffer(
         &mut self,
         buffer: data::Buffer,
         buffer_action: BufferAction,
-        clients: &mut data::client::Map,
+        clients: &mut client::Map,
+        storage: &mut storage::Manager,
         config: &Config,
     ) -> Task<Message> {
-        // TODO(pounce) reduce clones
-        let panes = self.panes.clone();
+        self.pending_navigation = None;
+
+        if let data::Buffer::Internal(buffer::Internal::Search(Some(query))) =
+            &buffer
+        {
+            let open =
+                self.panes.iter_mut().find_map(|(window, pane, state)| {
+                    let Buffer::Search(search) = &mut state.buffer else {
+                        return None;
+                    };
+                    search.set_query(query.clone());
+                    Some((window, pane))
+                });
+
+            if let Some((window, pane)) = open {
+                return self.focus_pane(window, pane);
+            }
+        }
+
+        let open_in = self.panes.iter().find_map(|(window, pane, state)| {
+            (state.buffer.data().as_ref() == Some(&buffer))
+                .then_some((window, pane))
+        });
 
         self.last_changed = Some(Instant::now());
 
-        match buffer.upstream() {
-            Some(buffer::Upstream::Channel(server, channel)) => {
-                clients.prioritize_who_poll(server, channel);
-            }
-            Some(buffer::Upstream::Query(server, query)) => {
-                let user = User::from(Nick::from(query));
+        if let Some(upstream) = buffer.upstream() {
+            match upstream {
+                buffer::Upstream::Channel(server, channel) => {
+                    clients.prioritize_who_poll(server, channel);
+                }
+                buffer::Upstream::Query(server, query) => {
+                    storage.show_in_sidebar(
+                        history::Kind::Query(server.clone(), query.clone()),
+                        true,
+                    );
 
-                clients.add_monitored_user_automated(server, &user);
+                    clients.add_query(server, query.clone());
+                }
+                buffer::Upstream::Server(..) => (),
             }
-            Some(buffer::Upstream::Server(..)) | None => (),
+        } else if let Some(internal) = buffer.internal() {
+            match internal {
+                buffer::Internal::ChannelMonitor => {
+                    if open_in.is_none() {
+                        storage.reload_channel_monitor(
+                            clients,
+                            &config.channel_monitor,
+                        );
+                    }
+                }
+                buffer::Internal::FileTransfers
+                | buffer::Internal::Logs
+                | buffer::Internal::Highlights
+                | buffer::Internal::ChannelDiscovery(_)
+                | buffer::Internal::ConfigEditor
+                | buffer::Internal::Search(_) => (),
+            }
         }
 
         match buffer_action {
             BufferAction::ReplacePane => {
                 // If buffer already is open, we swap it with focused pane.
-                for (window, id, pane) in panes.iter() {
-                    if pane.buffer.data().as_ref() == Some(&buffer) {
-                        if window != self.focus.window || id != self.focus.pane
-                        {
-                            return self.swap_pane_with_focus(window, id);
-                        } else {
-                            return Task::none();
-                        }
+                if let Some((window, pane)) = open_in {
+                    if window != self.panes.focus.window
+                        || pane != self.panes.focus.pane
+                    {
+                        return self.swap_pane_with_focus(window, pane);
+                    } else {
+                        return Task::none();
                     }
                 }
 
-                let Focus { window, pane } = self.focus;
+                let Focus { window, pane } = self.panes.focus;
 
                 if let Some(state) = self.panes.get_mut(window, pane) {
-                    mark_as_read_on_buffer_close(
-                        &state.buffer,
-                        &mut self.history,
-                        clients,
-                        config,
-                    );
+                    if config.buffer.mark_as_read.on_buffer_close.mark_as_read(
+                        state.buffer.is_scrolled_to_bottom().is_some_and(
+                            |is_scrolled_to_bottom| is_scrolled_to_bottom,
+                        ),
+                    ) && let Some(kind) =
+                        state.buffer.data().and_then(history::Kind::from_buffer)
+                    {
+                        storage.mark_as_read(kind);
+                    }
 
                     if let Some(buffer::Upstream::Channel(server, channel)) =
                         state.buffer.upstream()
@@ -3347,12 +3410,16 @@ impl Dashboard {
                         clients.deprioritize_who_poll(server, channel);
                     }
 
-                    state.buffer = Buffer::from_data(
-                        buffer,
+                    Dashboard::close_buffer(
+                        &state.buffer,
                         clients,
-                        &self.history,
-                        state.size,
+                        storage,
                         config,
+                        true,
+                    );
+
+                    state.buffer = Buffer::from_data(
+                        buffer, clients, storage, state.size, config,
                     );
                     self.last_changed = Some(Instant::now());
 
@@ -3367,31 +3434,38 @@ impl Dashboard {
             }
             BufferAction::NewPane => {
                 // If buffer already is open, we focus it.
-                for (window, id, pane) in panes.iter() {
-                    if pane.buffer.data().as_ref() == Some(&buffer) {
-                        self.focus = Focus { window, pane: id };
+                if let Some((window, pane)) = open_in {
+                    self.panes.focus = Focus { window, pane };
 
-                        return self.focus_pane(window, id);
-                    }
+                    return self.focus_pane(window, pane);
                 }
 
                 // If we only have one pane, and its empty, we replace it.
                 if self.panes.len() == 1 {
-                    for (id, pane) in panes.main.iter() {
-                        if matches!(pane.buffer, Buffer::Empty) {
-                            self.panes.main.panes.entry(*id).and_modify(|p| {
-                                p.buffer = Buffer::from_data(
-                                    buffer.clone(),
-                                    clients,
-                                    &self.history,
-                                    p.size,
-                                    config,
-                                );
-                            });
-                            self.last_changed = Some(Instant::now());
+                    let pane = self
+                        .panes
+                        .main
+                        .iter()
+                        .next()
+                        .and_then(|(pane, state)| {
+                            matches!(state.buffer, Buffer::Empty)
+                                .then_some(pane)
+                        })
+                        .copied();
 
-                            return self.focus_pane(self.main_window(), *id);
-                        }
+                    if let Some(pane) = pane {
+                        self.panes.main.panes.entry(pane).and_modify(|p| {
+                            p.buffer = Buffer::from_data(
+                                buffer.clone(),
+                                clients,
+                                storage,
+                                p.size,
+                                config,
+                            );
+                        });
+                        self.last_changed = Some(Instant::now());
+
+                        return self.focus_pane(self.main_window(), pane);
                     }
                 }
 
@@ -3416,11 +3490,11 @@ impl Dashboard {
                         )
                     {
                         (*pane, pane_state)
-                    } else if self.focus.window == self.main_window()
+                    } else if self.panes.focus.window == self.main_window()
                         && let Some(pane_state) =
-                            self.panes.main.panes.get(&self.focus.pane)
+                            self.panes.main.panes.get(&self.panes.focus.pane)
                     {
-                        (self.focus.pane, pane_state)
+                        (self.panes.focus.pane, pane_state)
                     } else if let Some((pane, pane_state)) =
                         self.panes.main.panes.iter().last()
                     {
@@ -3456,7 +3530,7 @@ impl Dashboard {
                     Pane::new(Buffer::from_data(
                         buffer,
                         clients,
-                        &self.history,
+                        storage,
                         pane_to_split_state.size,
                         config,
                     )),
@@ -3473,7 +3547,7 @@ impl Dashboard {
                     let pane = Pane::new(Buffer::from_data(
                         buffer.clone(),
                         clients,
-                        &self.history,
+                        storage,
                         Size::default(),
                         config,
                     ));
@@ -3505,7 +3579,8 @@ impl Dashboard {
 
     pub fn leave_all_queries(
         &mut self,
-        clients: &mut data::client::Map,
+        clients: &mut client::Map,
+        storage: &mut storage::Manager,
         config: &Config,
         server: Server,
         queries: Vec<target::Query>,
@@ -3513,10 +3588,14 @@ impl Dashboard {
         let tasks: Vec<Task<Message>> = queries
             .into_iter()
             .map(|query| {
-                let buffer =
-                    buffer::Upstream::Query(server.clone(), query.clone());
-
-                self.leave_buffer(clients, config, buffer).0
+                self.leave_server_target(
+                    clients,
+                    storage,
+                    config,
+                    server.clone(),
+                    query.clone().into_target(),
+                    None,
+                )
             })
             .collect();
 
@@ -3525,616 +3604,134 @@ impl Dashboard {
 
     pub fn leave_buffer(
         &mut self,
-        clients: &mut data::client::Map,
+        clients: &mut client::Map,
+        storage: &mut storage::Manager,
         config: &Config,
         buffer: buffer::Upstream,
     ) -> (Task<Message>, Option<Event>) {
-        let open = self.panes.iter().find_map(|(window, pane, state)| {
-            (state.buffer.upstream() == Some(&buffer)).then_some((window, pane))
-        });
+        match buffer {
+            buffer::Upstream::Server(server) => {
+                let open =
+                    self.panes.iter().find_map(|(window, pane, state)| {
+                        state
+                            .buffer
+                            .upstream()
+                            .is_some_and(|buffer| {
+                                if let buffer::Upstream::Server(buffer_server) =
+                                    buffer
+                                {
+                                    *buffer_server == server
+                                } else {
+                                    false
+                                }
+                            })
+                            .then_some((window, pane))
+                    });
 
-        let mut tasks = vec![];
+                // Close pane
+                let task = if let Some((window, pane)) = open {
+                    self.close_pane(clients, storage, config, window, pane)
+                } else {
+                    Task::none()
+                };
 
-        // Close pane
-        if let Some((window, pane)) = open {
-            tasks.push(self.close_pane(clients, config, window, pane));
-        }
-
-        match buffer.clone() {
-            buffer::Upstream::Server(server) => (
-                Task::batch(tasks),
-                Some(Event::QuitServer(
+                let event = Some(Event::QuitServer(
                     server,
                     config.buffer.commands.quit.default_reason.clone(),
-                )),
+                ));
+
+                (task, event)
+            }
+            buffer::Upstream::Channel(server, channel) => (
+                self.leave_server_target(
+                    clients,
+                    storage,
+                    config,
+                    server,
+                    Target::Channel(channel),
+                    None,
+                ),
+                None,
             ),
-            buffer::Upstream::Channel(server, channel) => {
-                // Send part & close history file
-                let command = command::Irc::Part(
-                    channel.to_string(),
-                    config.buffer.commands.part.default_reason.clone(),
-                );
-                let input = data::Input::from_command(buffer.clone(), command);
-
-                if clients.contains_channel(&server, &channel)
-                    && let Some(encoded) = input.encoded()
-                {
-                    clients.send_from_buffer(
-                        &buffer,
-                        encoded,
-                        TokenPriority::High,
-                    );
-                }
-
-                tasks.push(
-                    self.history
-                        .close(
-                            history::Kind::Channel(server, channel),
-                            clients,
-                            &config.buffer.server_messages,
-                        )
-                        .map_or_else(Task::none, |task| {
-                            Task::perform(task, Message::History)
-                        }),
-                );
-
-                (Task::batch(tasks), None)
-            }
-            buffer::Upstream::Query(server, nick) => {
-                if let Some(client) = clients.client_mut(&server)
-                    && let user = User::from(Nick::from(&nick))
-                    && client.is_monitored_user_automated(&user)
-                {
-                    client.remove_monitored_user(&user);
-                }
-
-                tasks.push(
-                    self.history
-                        .close(
-                            history::Kind::Query(server, nick),
-                            clients,
-                            &config.buffer.server_messages,
-                        )
-                        .map_or_else(Task::none, |task| {
-                            Task::perform(task, Message::History)
-                        }),
-                );
-
-                // No PART to send, just close history
-                (Task::batch(tasks), None)
-            }
+            buffer::Upstream::Query(server, query) => (
+                self.leave_server_target(
+                    clients,
+                    storage,
+                    config,
+                    server,
+                    Target::Query(query),
+                    None,
+                ),
+                None,
+            ),
         }
     }
 
     pub fn leave_server_target(
         &mut self,
-        clients: &mut data::client::Map,
+        clients: &mut client::Map,
+        storage: &mut storage::Manager,
         config: &Config,
         server: Server,
         target: Target,
         reason: Option<String>,
     ) -> Task<Message> {
         let open = self.panes.iter().find_map(|(window, pane, state)| {
-            (state.buffer.server() == Some(server.clone())
-                && state.buffer.target() == Some(target.clone()))
+            (state.buffer.server().as_ref() == Some(&server)
+                && state.buffer.target().as_ref() == Some(&target))
             .then_some((window, pane))
         });
 
-        let mut tasks = vec![];
-
-        // Close pane
-        if let Some((window, pane)) = open {
-            tasks.push(self.close_pane(clients, config, window, pane));
-        }
-
-        match target {
+        let kind = match target {
             Target::Channel(channel) => {
-                let buffer = data::buffer::Upstream::Channel(
-                    server.clone(),
-                    channel.clone(),
+                // Send part & close history file
+                let command = command::Irc::Part(
+                    channel.to_string(),
+                    reason.or(config
+                        .buffer
+                        .commands
+                        .part
+                        .default_reason
+                        .clone()),
                 );
 
-                // Send part & close history file
-                let command = command::Irc::Part(channel.to_string(), reason);
-                let input = data::Input::from_command(buffer.clone(), command);
+                let buffer =
+                    buffer::Upstream::Channel(server.clone(), channel.clone());
+
+                let input = data::Input::from_command(buffer, command);
 
                 if clients.contains_channel(&server, &channel)
                     && let Some(encoded) = input.encoded()
                 {
                     clients.send_from_buffer(
-                        &buffer,
+                        &input.buffer,
                         encoded,
-                        TokenPriority::User,
+                        TokenPriority::High,
                     );
                 }
 
-                tasks.push(
-                    self.history
-                        .close(
-                            history::Kind::Channel(server, channel),
-                            clients,
-                            &config.buffer.server_messages,
-                        )
-                        .map_or_else(Task::none, |task| {
-                            Task::perform(task, Message::History)
-                        }),
-                );
-
-                Task::batch(tasks)
+                history::Kind::Channel(server, channel)
             }
-            Target::Query(nick) => {
-                tasks.push(
-                    self.history
-                        .close(
-                            history::Kind::Query(server, nick),
-                            clients,
-                            &config.buffer.server_messages,
-                        )
-                        .map_or_else(Task::none, |task| {
-                            Task::perform(task, Message::History)
-                        }),
-                );
+            Target::Query(query) => {
+                // No PART to send, just remove query.
+                clients.remove_query(&server, &query);
 
-                // No PART to send, just close history
-                Task::batch(tasks)
+                history::Kind::Query(server, query)
             }
-        }
-    }
-
-    pub fn record_message(
-        &mut self,
-        server: &Server,
-        casemapping: isupport::CaseMap,
-        message: data::Message,
-        labeled_response_context: Option<LabeledResponseContext>,
-        config: &Config,
-    ) -> Task<Message> {
-        let tasks = self.history.record_message(
-            server,
-            casemapping,
-            message,
-            labeled_response_context,
-            config,
-        );
-
-        Task::batch(
-            tasks
-                .into_iter()
-                .map(|task| Task::perform(task, Message::History)),
-        )
-    }
-
-    pub fn resend_message(
-        &mut self,
-        clients: &mut client::Map,
-        kind: history::Kind,
-        message: data::Message,
-        config: &Config,
-    ) -> Task<Message> {
-        if let Some(buffer) = data::Buffer::from(kind).upstream()
-            && let Some(user) = clients
-                .nickname(buffer.server())
-                .map(|nick| User::from(nick.to_owned()))
-            && let Some(command) = message.command
-        {
-            let multiline = if let Some((target, text, batch_kind)) =
-                match &command {
-                    data::command::Irc::Msg(target, text) => {
-                        Some((target, text, MultilineBatchKind::PRIVMSG))
-                    }
-                    data::command::Irc::Notice(target, text) => {
-                        Some((target, text, MultilineBatchKind::NOTICE))
-                    }
-                    _ => None,
-                } {
-                if text.lines().count() > 1 {
-                    true
-                } else if clients
-                    .get_multiline_limits(buffer.server())
-                    .is_some()
-                {
-                    let multiline_concat_bytes = MultilineLimits::concat_bytes(
-                        clients.get_relay_bytes(buffer.server()),
-                        batch_kind,
-                        target,
-                    );
-
-                    multiline_concat_lines(multiline_concat_bytes, text).len()
-                        > 1
-                } else {
-                    false
-                }
-            } else {
-                false
-            };
-            let reply_id = message.reply_to.as_ref();
-
-            let (user, channel_users) =
-                if let buffer::Upstream::Channel(server, channel) = &buffer {
-                    (
-                        clients
-                            .resolve_user_attributes(server, channel, &user)
-                            .cloned()
-                            .unwrap_or(user),
-                        clients.get_channel_users(server, channel),
-                    )
-                } else {
-                    (user, None)
-                };
-            let chantypes =
-                clients.get_server_chantypes_or_default(buffer.server());
-            let statusmsg =
-                clients.get_server_statusmsg_or_default(buffer.server());
-            let casemapping =
-                clients.get_server_casemapping_or_default(buffer.server());
-            let supports_echoes =
-                clients.get_server_supports_echoes(buffer.server());
-
-            // The command stored with each sent message is expected to
-            // correspond to a single message (i.e. it is not a multi-target
-            // command; if the original command was multi-target, then it was
-            // split into single-target commands).
-            if let Some(message) = command
-                .messages(
-                    user,
-                    channel_users,
-                    buffer.server(),
-                    chantypes,
-                    statusmsg,
-                    casemapping,
-                    supports_echoes,
-                    self.history.get_reroute_rules(),
-                    Some(buffer),
-                )
-                .and_then(|messages| messages.into_iter().next())
-                && let Some(mut encoded) = proto::Command::try_from(command)
-                    .ok()
-                    .map(proto::Message::from)
-                    .map(message::Encoded::from)
-            {
-                let labeled_response_context = if multiline {
-                    clients.send_multiline_batch_from_buffer(
-                        buffer,
-                        vec![encoded],
-                        TokenPriority::User,
-                        reply_id,
-                    )
-                } else {
-                    encoded.set_reply_to(reply_id);
-
-                    clients.send_from_buffer(
-                        buffer,
-                        encoded,
-                        TokenPriority::User,
-                    )
-                };
-
-                return Task::batch(
-                    self.history
-                        .record_input_message(
-                            message,
-                            labeled_response_context.clone(),
-                            buffer.server(),
-                            casemapping,
-                            config,
-                        )
-                        .into_iter()
-                        .map(Task::future),
-                )
-                .map(Message::History);
-            }
-        }
-
-        Task::none()
-    }
-
-    pub fn track_channel_monitor_channel(
-        &mut self,
-        server: &Server,
-        channel: &target::Channel,
-        clients: &client::Map,
-        config: &config::ChannelMonitor,
-    ) -> Task<Message> {
-        self.history
-            .track_channel_monitor_channel(server, channel, clients, config)
-            .map_or_else(Task::none, |task| {
-                Task::perform(task, Message::History)
-            })
-    }
-
-    pub fn reload_channel_monitor(
-        &mut self,
-        clients: &client::Map,
-        config: &config::ChannelMonitor,
-    ) -> Task<Message> {
-        self.history
-            .reload_channel_monitor(clients, config)
-            .map_or_else(Task::none, |task| {
-                Task::perform(task, Message::History)
-            })
-    }
-
-    pub fn record_reaction(
-        &mut self,
-        server: &Server,
-        reaction: reaction::Context,
-        notification_enabled: bool,
-        labeled_response_context: Option<LabeledResponseContext>,
-    ) -> Task<Message> {
-        let future = self.history.record_reaction(
-            server,
-            reaction,
-            notification_enabled,
-            labeled_response_context,
-        );
-        if let Some(f) = future {
-            Task::perform(f, Message::History)
-        } else {
-            Task::none()
-        }
-    }
-
-    pub fn redact_message(
-        &mut self,
-        server: &Server,
-        redaction: redaction::Context,
-        display_redacted: bool,
-    ) {
-        self.history
-            .redact_message(server, redaction, display_redacted);
-    }
-
-    pub fn is_focused_and_at_bottom(&self, kind: &history::Kind) -> bool {
-        let Some((kind_window, kind_pane)) =
-            self.panes.iter().find_map(|(window, _, state)| {
-                state
-                    .buffer
-                    .data()
-                    .and_then(history::Kind::from_buffer)
-                    .is_some_and(|pane_kind| pane_kind == *kind)
-                    .then_some((window, state))
-            })
-        else {
-            return false;
         };
 
-        if kind_pane
-            .buffer
-            .is_scrolled_to_bottom()
-            .is_none_or(|is_scrolled_to_bottom| !is_scrolled_to_bottom)
-        {
-            return false;
-        }
+        storage
+            .get_sidebar_buffers_mut()
+            .forget_closed_channel(&kind, clients);
 
-        self.get_focused()
-            .is_some_and(|(focused_window, _, focused_pane)| {
-                let is_focused_window = kind_window == focused_window;
-
-                let focused_kind = focused_pane
-                    .buffer
-                    .data()
-                    .and_then(history::Kind::from_buffer);
-                let is_focused_pane = focused_kind.as_ref() == Some(kind);
-
-                is_focused_window && is_focused_pane
-            })
-    }
-
-    pub fn is_open_and_at_bottom(&self, kind: &history::Kind) -> bool {
-        let Some((kind_window, kind_pane)) =
-            self.panes.iter_visible().find_map(|(window, _, state)| {
-                state
-                    .buffer
-                    .data()
-                    .and_then(history::Kind::from_buffer)
-                    .is_some_and(|pane_kind| pane_kind == *kind)
-                    .then_some((window, state))
-            })
-        else {
-            return false;
-        };
-
-        if kind_pane
-            .buffer
-            .is_scrolled_to_bottom()
-            .is_none_or(|is_scrolled_to_bottom| !is_scrolled_to_bottom)
-        {
-            return false;
-        }
-
-        self.get_focused()
-            .is_some_and(|(focused_window, _, _)| kind_window == focused_window)
-    }
-
-    pub fn block_and_record_message(
-        &mut self,
-        server: &Server,
-        casemapping: isupport::CaseMap,
-        message: data::Message,
-        labeled_response_context: Option<LabeledResponseContext>,
-        config: &Config,
-    ) -> Task<Message> {
-        let tasks = self.history.block_and_record_message(
-            server,
-            casemapping,
-            message,
-            labeled_response_context,
-            config,
-        );
-
-        Task::batch(
-            tasks
-                .into_iter()
-                .map(|task| Task::perform(task, Message::History)),
-        )
-    }
-
-    pub fn record_log(
-        &mut self,
-        record: data::log::Record,
-        server_messages_config: &config::buffer::ServerMessages,
-    ) -> Task<Message> {
-        if let Some(task) =
-            self.history.record_log(record, server_messages_config)
-        {
-            Task::perform(task, Message::History)
+        // Close pane
+        if let Some((window, pane)) = open {
+            self.close_pane(clients, storage, config, window, pane)
         } else {
+            storage.show_in_sidebar(kind, false);
+
             Task::none()
         }
-    }
-
-    pub fn record_highlight(
-        &mut self,
-        message: data::Message,
-        server_messages_config: &config::buffer::ServerMessages,
-    ) -> Task<Message> {
-        self.history
-            .record_highlight(message, server_messages_config)
-            .map_or_else(Task::none, |task| {
-                Task::perform(task, Message::History)
-            })
-    }
-
-    pub fn get_oldest_message_reference(
-        &self,
-        server: &Server,
-        target: Target,
-        message_reference_types: &[isupport::MessageReferenceType],
-    ) -> Option<MessageReference> {
-        if let Some(first_can_reference) = self
-            .history
-            .first_can_reference(server.clone(), target.clone())
-        {
-            for message_reference_type in message_reference_types {
-                match message_reference_type {
-                    isupport::MessageReferenceType::MessageId => {
-                        if let Some(id) = &first_can_reference.id {
-                            return Some(MessageReference::MessageId(
-                                id.clone(),
-                            ));
-                        }
-                    }
-                    isupport::MessageReferenceType::Timestamp => {
-                        return Some(MessageReference::Timestamp(
-                            first_can_reference.server_time,
-                        ));
-                    }
-                }
-            }
-        }
-
-        None
-    }
-
-    pub fn request_older_chathistory(
-        &self,
-        clients: &mut data::client::Map,
-        buffer: &data::Buffer,
-    ) {
-        let Some(upstream) = buffer.upstream() else {
-            return;
-        };
-
-        let server = upstream.server();
-
-        if clients.get_server_supports_chathistory(server)
-            && let Some(target) = upstream.target()
-        {
-            if clients.get_chathistory_exhausted(server, &target) {
-                return;
-            }
-
-            let message_reference_types =
-                clients.get_server_chathistory_message_reference_types(server);
-
-            let first_can_reference = self.get_oldest_message_reference(
-                server,
-                target.clone(),
-                &message_reference_types,
-            );
-
-            let subcommand =
-                if let Some(first_can_reference) = first_can_reference {
-                    ChatHistorySubcommand::Before(
-                        target,
-                        first_can_reference,
-                        clients.get_server_chathistory_limit(server),
-                    )
-                } else {
-                    ChatHistorySubcommand::Latest(
-                        target,
-                        first_can_reference,
-                        clients.get_server_chathistory_limit(server),
-                    )
-                };
-
-            clients.send_chathistory_request(
-                server,
-                subcommand,
-                TokenPriority::User,
-            );
-        }
-    }
-
-    pub fn broadcast(
-        &mut self,
-        server: &Server,
-        casemapping: isupport::CaseMap,
-        config: &Config,
-        server_time: DateTime<Utc>,
-        received_with_server_time: bool,
-        broadcast: Broadcast,
-    ) -> Task<Message> {
-        Task::batch(
-            self.history
-                .broadcast(
-                    server,
-                    casemapping,
-                    broadcast,
-                    config,
-                    server_time,
-                    received_with_server_time,
-                )
-                .into_iter()
-                .map(|task| Task::perform(task, Message::History)),
-        )
-    }
-
-    pub fn block_message(
-        &self,
-        message: &mut data::Message,
-        kind: &history::Kind,
-        server: &Server,
-        casemapping: isupport::CaseMap,
-        buffer_config: &config::Buffer,
-    ) {
-        self.history.block_message(
-            message,
-            kind,
-            server,
-            casemapping,
-            buffer_config,
-        );
-    }
-
-    pub fn update_read_marker(
-        &mut self,
-        kind: impl Into<history::Kind> + 'static,
-        read_marker: ReadMarker,
-    ) -> Task<Message> {
-        if let Some(task) = self.history.update_read_marker(kind, read_marker) {
-            Task::perform(task, Message::History)
-        } else {
-            Task::none()
-        }
-    }
-
-    pub fn update_display_read_marker(
-        &mut self,
-        kind: impl Into<history::Kind> + 'static,
-        read_marker: ReadMarker,
-    ) {
-        self.history.update_display_read_marker(kind, read_marker);
     }
 
     pub fn remove_server_icon(
@@ -4195,114 +3792,8 @@ impl Dashboard {
         }))
     }
 
-    pub fn mark_as_read(
-        &mut self,
-        kind: history::Kind,
-        clients: &mut client::Map,
-    ) {
-        mark_as_read(kind, &mut self.history, clients, TokenPriority::High);
-    }
-
-    pub fn load_metadata_and_request_newer_chathistory(
-        &mut self,
-        clients: &data::client::Map,
-        server: Server,
-        target: Target,
-        server_time: DateTime<Utc>,
-        allow_at: bool,
-    ) -> Task<Message> {
-        let command = self
-            .history
-            .load_metadata(server.clone(), target.clone())
-            .map_or(Task::none(), |task| Task::perform(task, Message::History));
-
-        if clients.get_server_supports_chathistory(&server) {
-            command.chain(Task::done(Message::Client(
-                data::client::Message::RequestNewerChatHistory(
-                    server,
-                    target,
-                    server_time,
-                    allow_at,
-                ),
-            )))
-        } else {
-            command
-        }
-    }
-
-    pub fn load_chathistory_targets_timestamp(
-        &self,
-        clients: &data::client::Map,
-        server: &Server,
-        server_time: DateTime<Utc>,
-    ) -> Option<Task<Message>> {
-        clients
-            .load_chathistory_targets_timestamp(server, server_time)
-            .map(|task| Task::perform(task, Message::Client))
-    }
-
-    pub fn overwrite_chathistory_targets_timestamp(
-        &self,
-        clients: &data::client::Map,
-        server: &Server,
-        timestamp: DateTime<Utc>,
-    ) -> Option<Task<Message>> {
-        clients
-            .overwrite_chathistory_targets_timestamp(server, timestamp)
-            .map(|task| Task::perform(task, Message::Client))
-    }
-
-    pub fn get_focused(&self) -> Option<(window::Id, pane_grid::Pane, &Pane)> {
-        let Focus { window, pane } = self.focus;
-        self.panes
-            .get(window, pane)
-            .map(|state| (window, pane, state))
-    }
-
-    pub fn focused_upstream_buffer(&self) -> Option<&data::buffer::Upstream> {
-        self.get_focused()
-            .and_then(|(_, _, pane)| pane.buffer.upstream())
-    }
-
-    fn get_focused_mut(
-        &mut self,
-    ) -> Option<(window::Id, pane_grid::Pane, &mut Pane)> {
-        let Focus { window, pane } = self.focus;
-        self.panes
-            .get_mut(window, pane)
-            .map(|state| (window, pane, state))
-    }
-
-    fn get_focused_with_history_mut(
-        &mut self,
-    ) -> Option<(
-        window::Id,
-        pane_grid::Pane,
-        &mut Pane,
-        &mut history::Manager,
-    )> {
-        let Focus { window, pane } = self.focus;
-        self.panes
-            .get_mut(window, pane)
-            .map(|state| (window, pane, state, &mut self.history))
-    }
-
-    pub fn get_unique_queries(&self, server: &Server) -> Vec<&target::Query> {
-        self.history.get_unique_queries(server)
-    }
-
-    pub fn get_sidebar_buffers_mut(&mut self) -> &mut SidebarBuffers {
-        self.history.get_sidebar_buffers_mut()
-    }
-
-    pub fn add_to_sidebar(&mut self, server: Server, query: target::Query) {
-        let kind = history::Kind::Query(server, query);
-
-        self.history.open(kind);
-    }
-
     fn exit_focus_mode_task(&self) -> Option<Task<Message>> {
-        let (window, pane, state) = self.get_focused()?;
+        let (window, pane, state) = self.panes.get_focused()?;
 
         if !state.buffer.in_focus_mode() {
             return None;
@@ -4316,8 +3807,9 @@ impl Dashboard {
         )))
     }
 
+    /// Focus the window & pane recorded as focused.
     pub fn refocus_pane(&mut self) -> Task<Message> {
-        let Focus { window, pane } = self.focus;
+        let Focus { window, pane } = self.panes.focus;
 
         return self
             .panes
@@ -4340,25 +3832,26 @@ impl Dashboard {
         window: window::Id,
         pane: pane_grid::Pane,
     ) -> Task<Message> {
-        if (self.focus != Focus { window, pane })
-            || self.focus_history.is_empty()
+        self.pending_navigation = None;
+        if (self.panes.focus != Focus { window, pane })
+            || self.panes.focus_history.is_empty()
         {
             // Clear focus mode on the buffer losing focus
-            let old_focus = self.focus;
+            let old_focus = self.panes.focus;
             if let Some(state) =
                 self.panes.get_mut(old_focus.window, old_focus.pane)
             {
                 state.buffer.clear_focus_mode();
             }
 
-            self.focus = Focus { window, pane };
+            self.panes.focus = Focus { window, pane };
 
             self.last_changed = Some(Instant::now());
 
             if window == self.main_window() {
-                self.focus_history.push_front(pane);
+                self.panes.focus_history.push_front(pane);
 
-                self.focus_history.truncate(FOCUS_HISTORY_LEN);
+                self.panes.focus_history.truncate(FOCUS_HISTORY_LEN);
 
                 if self.is_pane_maximized() {
                     self.panes.main.restore();
@@ -4380,9 +3873,9 @@ impl Dashboard {
     }
 
     pub fn focus_window_pane(&mut self, window: window::Id) -> Task<Message> {
-        if self.focus.window == window {
+        if self.panes.focus.window == window {
             Task::none()
-        } else if let Some(pane) = self.focus_history.front()
+        } else if let Some(pane) = self.panes.focus_history.front()
             && window == self.main_window()
         {
             self.focus_pane(window, *pane)
@@ -4400,8 +3893,8 @@ impl Dashboard {
     fn maximize_pane(&mut self) {
         if self.is_pane_maximized() {
             self.panes.main.restore();
-        } else if self.focus.window == self.main_window() {
-            self.panes.main.maximize(self.focus.pane);
+        } else if self.panes.focus.window == self.main_window() {
+            self.panes.main.maximize(self.panes.focus.pane);
         }
     }
 
@@ -4410,7 +3903,7 @@ impl Dashboard {
     }
 
     fn new_pane(&mut self, axis: pane_grid::Axis) -> Task<Message> {
-        if self.focus.window == self.main_window() {
+        if self.panes.focus.window == self.main_window() {
             // If there is any focused pane on main window, split it
             return self.split_pane(axis);
         } else {
@@ -4439,10 +3932,10 @@ impl Dashboard {
     }
 
     fn split_pane(&mut self, axis: pane_grid::Axis) -> Task<Message> {
-        if self.focus.window == self.main_window() {
+        if self.panes.focus.window == self.main_window() {
             let result = self.panes.main.split(
                 axis,
-                self.focus.pane,
+                self.panes.focus.pane,
                 Pane::new(Buffer::Empty),
             );
             self.last_changed = Some(Instant::now());
@@ -4468,7 +3961,8 @@ impl Dashboard {
 
     fn close_pane(
         &mut self,
-        clients: &mut data::client::Map,
+        clients: &mut client::Map,
+        storage: &mut storage::Manager,
         config: &Config,
         window: window::Id,
         pane: pane_grid::Pane,
@@ -4476,46 +3970,23 @@ impl Dashboard {
         let mut tasks = vec![];
 
         if let Some(state) = self.panes.get(window, pane) {
-            mark_as_read_on_buffer_close(
+            Dashboard::close_buffer(
                 &state.buffer,
-                &mut self.history,
                 clients,
+                storage,
                 config,
+                false,
             );
-
-            if let Some(buffer::Upstream::Channel(server, channel)) =
-                state.buffer.upstream()
-            {
-                clients.deprioritize_who_poll(server, channel);
-            }
-
-            if config.buffer.close.query.close()
-                && let Some(history::Kind::Query(server, nick)) =
-                    state.buffer.data().and_then(history::Kind::from_buffer)
-            {
-                tasks.push(
-                    self.history
-                        .close(
-                            history::Kind::Query(server, nick),
-                            clients,
-                            &config.buffer.server_messages,
-                        )
-                        .map_or_else(Task::none, |task| {
-                            Task::perform(task, Message::History)
-                        }),
-                );
-            }
         }
 
         self.last_changed = Some(Instant::now());
 
         if window == self.main_window() {
-            self.focus_history.retain(|p| *p != pane);
+            self.panes.focus_history.retain(|p| *p != pane);
 
             if let Some((_, sibling)) = self.panes.main.close(pane) {
-                if (Focus { window, pane } == self.focus) {
+                if (Focus { window, pane } == self.panes.focus) {
                     tasks.push(self.focus_pane(self.main_window(), sibling));
-                    return Task::batch(tasks);
                 }
             } else if let Some(pane) = self.panes.main.get_mut(pane) {
                 pane.buffer = Buffer::Empty;
@@ -4529,20 +4000,62 @@ impl Dashboard {
                 window::close(window)
                     .chain(self.focus_window(self.main_window())),
             );
-            return Task::batch(tasks);
         }
 
         Task::batch(tasks)
     }
 
+    fn close_buffer(
+        buffer: &Buffer,
+        clients: &mut client::Map,
+        storage: &mut storage::Manager,
+        config: &Config,
+        replaced: bool,
+    ) {
+        if let Some(kind) = buffer.data().and_then(history::Kind::from_buffer) {
+            let is_scrolled_to_bottom = buffer
+                .is_scrolled_to_bottom()
+                .is_some_and(|is_scrolled_to_bottom| is_scrolled_to_bottom);
+
+            let hide_in_sidebar = match &kind {
+                history::Kind::Query(server, query) => {
+                    if config.buffer.close.query.close(replaced) {
+                        clients.remove_query(server, query);
+                        true
+                    } else {
+                        !clients.contains_query(server, query)
+                    }
+                }
+                history::Kind::Channel(server, channel) => {
+                    !clients.contains_channel(server, channel)
+                }
+                _ => false,
+            };
+
+            storage.close_model(
+                kind,
+                is_scrolled_to_bottom,
+                hide_in_sidebar,
+                config,
+            );
+        }
+
+        if let Some(buffer::Upstream::Channel(server, channel)) =
+            buffer.upstream()
+        {
+            clients.deprioritize_who_poll(server, channel);
+        }
+    }
+
     fn popout_pane(
         &mut self,
-        clients: &mut data::client::Map,
+        clients: &mut client::Map,
+        storage: &mut storage::Manager,
         config: &Config,
     ) -> Task<Message> {
-        let Focus { pane, .. } = self.focus;
+        let Focus { pane, .. } = self.panes.focus;
 
-        self.focus_history.retain(|p| *p != pane);
+        self.panes.focus_history.retain(|p| *p != pane);
 
         if let Some((pane, _)) = self.panes.main.close(pane)
             && let Some(buffer) = pane.buffer.data()
@@ -4551,6 +4064,7 @@ impl Dashboard {
                 buffer,
                 BufferAction::NewWindow,
                 clients,
+                storage,
                 config,
             );
         }
@@ -4560,10 +4074,11 @@ impl Dashboard {
 
     fn merge_pane(
         &mut self,
-        clients: &mut data::client::Map,
+        clients: &mut client::Map,
+        storage: &mut storage::Manager,
         config: &Config,
     ) -> Task<Message> {
-        let Focus { window, pane } = self.focus;
+        let Focus { window, pane } = self.panes.focus;
 
         if let Some(pane) = self
             .panes
@@ -4576,6 +4091,7 @@ impl Dashboard {
                     buffer,
                     BufferAction::NewPane,
                     clients,
+                    storage,
                     config,
                 ),
                 None => self.new_pane(pane_grid::Axis::Horizontal),
@@ -4600,7 +4116,7 @@ impl Dashboard {
         let Focus {
             window: to_window,
             pane: to_pane,
-        } = self.focus;
+        } = self.panes.focus;
 
         if from_window == self.main_window() && to_window == self.main_window()
         {
@@ -4627,58 +4143,18 @@ impl Dashboard {
         }
     }
 
-    pub fn track(
-        &mut self,
-        clients: Option<&data::client::Map>,
-        config: &Config,
-    ) -> Task<Message> {
-        let resources = self.panes.resources().collect();
-
-        Task::batch(
-            self.history
-                .track(
-                    resources,
-                    clients,
-                    &config.channel_monitor,
-                    &config.buffer.server_messages,
-                )
-                .into_iter()
-                .map(|fut| Task::perform(fut, Message::History))
-                .collect::<Vec<_>>(),
-        )
-    }
-
     pub fn tick(
         &mut self,
         now: Instant,
-        clients: &data::client::Map,
+        clients: &client::Map,
+        storage: &mut storage::Manager,
         config: &Config,
     ) -> Task<Message> {
         if !self.has_typing_activity(clients) {
             self.typing_animation = None;
         }
 
-        let history_ticks = Task::batch(
-            self.history
-                .tick(now.into(), clients, &config.buffer.server_messages)
-                .into_iter()
-                .map(|task| Task::perform(task, Message::History))
-                .collect::<Vec<_>>(),
-        );
-
-        let draft_save = config
-            .buffer
-            .text_input
-            .persist
-            .then(|| {
-                self.history
-                    .maybe_save_drafts(now.into())
-                    .map(|fut| Task::perform(fut, Message::History))
-            })
-            .flatten();
-
-        if self
-            .history
+        if storage
             .update_saved_buffers(clients, config.sidebar.remember_buffers)
         {
             self.last_changed = Some(now);
@@ -4687,33 +4163,23 @@ impl Dashboard {
         if let Some(last_changed) = self.last_changed
             && now.duration_since(last_changed) >= SAVE_AFTER
         {
-            let dashboard = data::Dashboard::from(&*self);
+            let dashboard = data::Dashboard {
+                buffers: storage.saved_buffers(),
+                ..data::Dashboard::from(&*self)
+            };
 
             self.last_changed = None;
 
-            return Task::batch(
-                [
-                    Task::perform(dashboard.save(), Message::DashboardSaved),
-                    history_ticks,
-                ]
-                .into_iter()
-                .chain(draft_save)
-                .collect::<Vec<_>>(),
-            );
+            return Task::perform(dashboard.save(), Message::DashboardSaved);
         }
 
-        Task::batch(
-            [history_ticks]
-                .into_iter()
-                .chain(draft_save)
-                .collect::<Vec<_>>(),
-        )
+        Task::none()
     }
 
     pub fn animation_tick(
         &mut self,
         now: Instant,
-        clients: &data::client::Map,
+        clients: &client::Map,
     ) -> Task<Message> {
         if self.has_typing_activity(clients) {
             buffer::typing::advance(&mut self.typing_animation, now);
@@ -4734,13 +4200,13 @@ impl Dashboard {
         theme: &mut Theme,
     ) -> Task<Message> {
         match self.command_bar_window {
-            Some(window) if window == self.focus.window => {
+            Some(window) if window == self.panes.focus.window => {
                 // Remove theme preview
                 *theme = theme.selected();
 
                 self.close_command_bar();
                 // Refocus the pane so text input gets refocused
-                let Focus { window, pane } = self.focus;
+                let Focus { window, pane } = self.panes.focus;
                 self.focus_pane(window, pane)
             }
             Some(_) => {
@@ -4769,7 +4235,7 @@ impl Dashboard {
         version: &Version,
         config: &Config,
     ) -> Task<Message> {
-        self.command_bar_window = Some(self.focus.window);
+        self.command_bar_window = Some(self.panes.focus.window);
 
         let command_bar = CommandBar::new(
             servers,
@@ -4777,7 +4243,7 @@ impl Dashboard {
             buffers,
             version,
             config,
-            self.focus,
+            self.panes.focus,
             self.buffer_resize_action(),
             self.main_window(),
             self.buffer_settings.show_muted,
@@ -4796,8 +4262,8 @@ impl Dashboard {
     }
 
     fn buffer_resize_action(&self) -> data::buffer::Resize {
-        let can_resize_buffer =
-            self.focus.window == self.main_window() && self.panes.len() > 1;
+        let can_resize_buffer = self.panes.focus.window == self.main_window()
+            && self.panes.len() > 1;
         data::buffer::Resize::action(
             can_resize_buffer,
             self.is_pane_maximized(),
@@ -4809,8 +4275,11 @@ impl Dashboard {
         server: &Server,
         casemapping: isupport::CaseMap,
         request: file_transfer::ReceiveRequest,
+        clients: &dyn ClientsContext,
+        storage: &mut storage::Manager,
         config: &Config,
         notifications: &mut Notifications,
+        focused_window: &Option<iced::window::Id>,
     ) -> Option<Task<Message>> {
         if !config.file_transfer.enabled {
             log::info!(
@@ -4844,8 +4313,10 @@ impl Dashboard {
             server,
             &query,
             event,
-            casemapping,
+            clients,
+            storage,
             config,
+            focused_window,
         );
 
         Some(task)
@@ -4856,138 +4327,85 @@ impl Dashboard {
         server: &Server,
         query: &target::Query,
         event: file_transfer::manager::Event,
-        casemapping: isupport::CaseMap,
+        clients: &dyn ClientsContext,
+        storage: &mut storage::Manager,
         config: &Config,
+        focused_window: &Option<iced::window::Id>,
     ) -> Task<Message> {
-        let mut tasks = vec![];
-
         match event {
             file_transfer::manager::Event::NewTransfer(transfer, task) => {
-                match transfer.direction {
+                let message_with_context = match transfer.direction {
                     file_transfer::Direction::Received => {
-                        tasks.push(self.record_message(
-                            server,
-                            casemapping,
-                            data::Message::file_transfer_request_received(
-                                &transfer.remote_user,
-                                query,
-                                &transfer.filename,
-                            ),
-                            None,
-                            config,
-                        ));
+                        data::Message::file_transfer_request_received(
+                            &transfer.remote_user,
+                            query,
+                            &transfer.filename,
+                        )
                     }
                     file_transfer::Direction::Sent => {
-                        tasks.push(self.record_message(
-                            server,
-                            casemapping,
-                            data::Message::file_transfer_request_sent(
-                                &transfer.remote_user,
-                                query,
-                                &transfer.filename,
-                            ),
-                            None,
-                            config,
-                        ));
+                        data::Message::file_transfer_request_sent(
+                            &transfer.remote_user,
+                            query,
+                            &transfer.filename,
+                        )
                     }
-                }
+                };
 
-                tasks.push(Task::run(task, Message::FileTransfer));
+                let history_update = storage::Update::Message(
+                    Some(server.clone()),
+                    message_with_context,
+                );
+
+                storage.write(
+                    vec![history_update],
+                    clients,
+                    &self.panes,
+                    focused_window,
+                    config,
+                );
+
+                Task::run(task, Message::FileTransfer)
             }
         }
-
-        Task::batch(tasks)
     }
 
     fn from_data(
         data: data::Dashboard,
+        storage: &mut storage::Manager,
         config: &Config,
         main_window: &Window,
     ) -> (Self, Task<Message>) {
-        use pane_grid::Configuration;
+        let panes = Panes::new(
+            Panes::configuration(
+                data.pane,
+                &client::Map::default(),
+                storage,
+                config,
+            ),
+            &data.focus_buffer,
+            main_window,
+        );
 
-        fn configuration(
-            pane: data::Pane,
-            clients: &data::client::Map,
-            history: &history::Manager,
-            config: &Config,
-        ) -> Configuration<Pane> {
-            match pane {
-                data::Pane::Split { axis, ratio, a, b } => {
-                    Configuration::Split {
-                        axis: match axis {
-                            data::pane::Axis::Horizontal => {
-                                pane_grid::Axis::Horizontal
-                            }
-                            data::pane::Axis::Vertical => {
-                                pane_grid::Axis::Vertical
-                            }
-                        },
-                        ratio,
-                        a: Box::new(configuration(
-                            *a, clients, history, config,
-                        )),
-                        b: Box::new(configuration(
-                            *b, clients, history, config,
-                        )),
-                    }
-                }
-                data::Pane::Buffer { buffer } => {
-                    Configuration::Pane(Pane::new(Buffer::from_data(
-                        buffer,
-                        clients,
-                        history,
-                        Size::default(),
-                        config,
-                    )))
-                }
-                data::Pane::Empty => {
-                    Configuration::Pane(Pane::new(Buffer::empty()))
-                }
+        for (_, _, pane) in panes.iter() {
+            if let Some(buffer::Upstream::Query(server, query)) = pane
+                .buffer
+                .data()
+                .as_ref()
+                .and_then(|buffer| buffer.upstream())
+            {
+                storage.show_in_sidebar(
+                    history::Kind::Query(server.clone(), query.clone()),
+                    true,
+                );
             }
         }
-
-        let mut history = history::Manager::default();
-        if config.buffer.text_input.persist {
-            history.preload_drafts(data::input::load_drafts_sync());
-        }
-
-        let panes = Panes {
-            main_window: main_window.id,
-            main: pane_grid::State::with_configuration(configuration(
-                data.pane,
-                &data::client::Map::default(),
-                &history,
-                config,
-            )),
-            popout: HashMap::new(),
-        };
-
-        let focus = panes
-            .iter()
-            // This should never fail
-            .find_map(|(window, pane, state)| {
-                (state.buffer.data() == data.focus_buffer)
-                    .then_some(Focus { window, pane })
-            })
-            // But if somehow it does, we just focus the "first" pane from the main window
-            .unwrap_or_else(|| {
-                let (_, pane) = pane_grid::State::new(());
-
-                Focus {
-                    window: main_window.id,
-                    pane,
-                }
-            });
 
         let (sidebar, sidebar_task) = Sidebar::new(data.sidebar.is_hidden());
 
         let mut dashboard = Self {
             panes,
-            focus,
-            focus_history: VecDeque::from([focus.pane]),
             side_menu: sidebar,
-            history,
+            models: model::Manager::default(),
             last_changed: None,
             command_bar: None,
             command_bar_window: None,
@@ -5001,24 +4419,19 @@ impl Dashboard {
             buffer_settings: data.buffer_settings.clone(),
             filehost: filehost::Manager::new(),
             reloading_config: false,
+            pending_navigation: None,
         };
 
         let mut tasks = vec![sidebar_task.map(Message::Sidebar)];
 
-        tasks.extend(
-            dashboard
-                .history
-                .restore_saved_buffers(data.buffers, &config.servers)
-                .into_iter()
-                .map(|task| Task::perform(task, Message::History)),
-        );
+        storage.restore_saved_buffers(data.buffers, &config.servers);
 
         for pane in data.popout_panes {
             // Popouts are only a single pane
-            let Configuration::Pane(pane) = configuration(
+            let pane_grid::Configuration::Pane(pane) = Panes::configuration(
                 pane,
-                &data::client::Map::default(),
-                &dashboard.history,
+                &client::Map::default(),
+                storage,
                 config,
             ) else {
                 continue;
@@ -5028,32 +4441,20 @@ impl Dashboard {
                 tasks.push(dashboard.open_buffer(
                     buffer,
                     BufferAction::NewWindow,
-                    &mut data::client::Map::default(),
+                    &mut client::Map::default(),
+                    storage,
                     config,
                 ));
             }
         }
 
-        let tasks = Task::batch(tasks)
-            .chain(dashboard.focus_pane(focus.window, focus.pane));
+        let tasks = Task::batch(tasks).chain(dashboard.refocus_pane());
 
         (dashboard, tasks)
     }
 
-    pub fn history(&self) -> &history::Manager {
-        &self.history
-    }
-
-    pub fn get_filters_mut(&mut self) -> &mut Vec<Filter> {
-        self.history.get_filters_mut()
-    }
-
-    pub fn get_filters(&self) -> &[Filter] {
-        self.history.get_filters()
-    }
-
     pub fn handle_file_drop(&mut self, path: PathBuf) -> Task<Message> {
-        let Focus { window, pane } = self.focus;
+        let Focus { window, pane } = self.panes.focus;
 
         let Some(pane_state) = self.panes.get(window, pane) else {
             return Task::none();
@@ -5079,18 +4480,11 @@ impl Dashboard {
         }
     }
 
-    pub fn get_reroute_rules(&self) -> &RerouteRules {
-        self.history.get_reroute_rules()
-    }
-
-    pub fn get_reroute_rules_mut(&mut self) -> &mut RerouteRules {
-        self.history.get_reroute_rules_mut()
-    }
-
     pub fn handle_notification_event(
         &mut self,
         event: notification::Event,
-        clients: &mut data::client::Map,
+        clients: &mut client::Map,
+        storage: &mut storage::Manager,
         config: &Config,
     ) -> Task<Message> {
         match event {
@@ -5108,7 +4502,7 @@ impl Dashboard {
                 {
                     window
                 } else {
-                    self.focus.window
+                    self.panes.focus.window
                 };
 
                 let activate_application = iced::window::request_user_attention(
@@ -5125,6 +4519,7 @@ impl Dashboard {
                                 buffer,
                                 config.actions.notification.open_buffer,
                                 clients,
+                                storage,
                                 config,
                             ))
                         } else {
@@ -5140,7 +4535,7 @@ impl Dashboard {
                 {
                     window
                 } else {
-                    self.focus.window
+                    self.panes.focus.window
                 };
 
                 iced::window::request_user_attention(
@@ -5233,70 +4628,35 @@ impl Dashboard {
 
     pub fn exit(
         &mut self,
-        clients: &mut data::client::Map,
+        clients: &client::Map,
+        storage: &mut storage::Manager,
         config: &Config,
     ) -> Task<Message> {
-        if config.buffer.mark_as_read.on_application_exit {
-            self.history.kinds()
-        } else {
-            self.panes
-                .iter()
-                .filter_map(|(_, _, state)| {
-                    if config
-                        .buffer
-                        .mark_as_read
-                        .on_buffer_close
-                        .mark_as_read(state.buffer.is_scrolled_to_bottom())
-                    {
-                        state.buffer.data().and_then(history::Kind::from_buffer)
-                    } else {
-                        None
-                    }
-                })
-                .collect()
-        }
-        .into_iter()
-        .for_each(|kind| {
-            mark_as_read(kind, &mut self.history, clients, TokenPriority::High);
-        });
-
-        if self
-            .history
+        if storage
             .update_saved_buffers(clients, config.sidebar.remember_buffers)
         {
             self.last_changed = Some(Instant::now());
         }
 
-        let history = self
-            .history
-            .exit(clients, config.buffer.server_messages.clone());
         let last_changed = self.last_changed.take();
-        let dashboard = data::Dashboard::from(&*self);
+        let dashboard = data::Dashboard {
+            buffers: storage.saved_buffers(),
+            ..data::Dashboard::from(&*self)
+        };
 
-        Task::perform(
-            async move {
-                if last_changed.is_some() {
-                    match dashboard.save().await {
-                        Ok(()) => {
-                            log::debug!("dashboard saved");
-                        }
-                        Err(error) => {
-                            log::warn!("error saving dashboard: {error}");
-                        }
-                    }
-                }
-
-                history.await
-            },
-            Message::History,
-        )
+        if last_changed.is_some() {
+            Task::perform(dashboard.save(), Message::DashboardSaved)
+        } else {
+            Task::none()
+        }
     }
 
     pub fn open_target(
         &mut self,
         server: Server,
         target: Target,
-        clients: &mut data::client::Map,
+        clients: &mut client::Map,
+        storage: &mut storage::Manager,
         buffer_action: BufferAction,
         config: &Config,
         join_channel_if_not_joined: bool,
@@ -5313,14 +4673,26 @@ impl Dashboard {
                     server, channel,
                 ));
 
-                self.open_buffer(buffer, buffer_action, clients, config)
+                self.open_buffer(
+                    buffer,
+                    buffer_action,
+                    clients,
+                    storage,
+                    config,
+                )
             }
             Target::Query(query) => {
                 let buffer = data::Buffer::Upstream(buffer::Upstream::Query(
                     server, query,
                 ));
 
-                self.open_buffer(buffer, buffer_action, clients, config)
+                self.open_buffer(
+                    buffer,
+                    buffer_action,
+                    clients,
+                    storage,
+                    config,
+                )
             }
         }
     }
@@ -5355,14 +4727,7 @@ impl Dashboard {
         &mut self,
         kind: &history::Kind,
     ) -> Option<window::Id> {
-        self.panes.iter().find_map(|(window_id, _, state)| {
-            state
-                .buffer
-                .data()
-                .and_then(history::Kind::from_buffer)
-                .is_some_and(|pane_kind| pane_kind == *kind)
-                .then_some(window_id)
-        })
+        self.panes.find_window_with(kind)
     }
 
     pub fn find_window_with_server(
@@ -5388,6 +4753,7 @@ impl Dashboard {
         &mut self,
         server: &Server,
         clients: &client::Map,
+        storage: &storage::Manager,
         config: &Config,
     ) {
         for buffer in self.panes.iter_mut().filter_map(|(_, _, state)| {
@@ -5397,11 +4763,8 @@ impl Dashboard {
                 .is_some_and(|pane_server| pane_server == *server)
                 .then_some(&mut state.buffer)
         }) {
-            buffer.process_input_completion_and_notice(
-                clients,
-                &self.history,
-                config,
-            );
+            buffer
+                .process_input_completion_and_notice(clients, storage, config);
         }
     }
 
@@ -5470,7 +4833,8 @@ impl Dashboard {
 
     pub fn focused_buffer_name(&self, w: window::Id) -> Option<String> {
         if w == self.main_window() {
-            self.focus_history
+            self.panes
+                .focus_history
                 .front()
                 .and_then(|pane| self.panes.get(w, *pane))
                 .filter(|pane| !matches!(pane.buffer, Buffer::Empty))
@@ -5491,7 +4855,7 @@ impl Dashboard {
         self.panes
             .iter()
             .find(|(window, pane, _)| {
-                self.focus
+                self.panes.focus
                     == Focus {
                         window: *window,
                         pane: *pane,
@@ -5555,7 +4919,7 @@ impl Dashboard {
         only_if_focused: bool,
     ) -> Option<Task<Message>> {
         let config_editor = if only_if_focused {
-            let Focus { window, pane } = self.focus;
+            let Focus { window, pane } = self.panes.focus;
 
             self.panes
                 .get(window, pane)
@@ -5623,48 +4987,6 @@ impl ChannelsContext for Dashboard {
     }
 }
 
-fn mark_server_as_read(
-    server: Server,
-    history: &mut history::Manager,
-    clients: &mut data::client::Map,
-) {
-    for kind in history.server_kinds(server) {
-        mark_as_read(kind, history, clients, TokenPriority::User);
-    }
-}
-
-fn mark_as_read(
-    kind: history::Kind,
-    history: &mut history::Manager,
-    clients: &mut data::client::Map,
-    priority: TokenPriority,
-) {
-    let read_marker = history.mark_as_read(&kind);
-
-    if let (Some(server), Some(target), Some(read_marker)) =
-        (kind.server(), kind.target(), read_marker)
-    {
-        clients.send_markread(server, target, read_marker, priority);
-    }
-}
-
-fn mark_as_read_on_buffer_close(
-    buffer: &Buffer,
-    history: &mut history::Manager,
-    clients: &mut data::client::Map,
-    config: &Config,
-) {
-    if config
-        .buffer
-        .mark_as_read
-        .on_buffer_close
-        .mark_as_read(buffer.is_scrolled_to_bottom())
-        && let Some(kind) = buffer.data().and_then(history::Kind::from_buffer)
-    {
-        mark_as_read(kind, history, clients, TokenPriority::High);
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Focus {
     pub window: window::Id,
@@ -5701,7 +5023,7 @@ impl<'a> From<&'a Dashboard> for data::Dashboard {
         }
 
         let layout = dashboard.panes.main.layout().clone();
-        let focus = dashboard.focus;
+        let focus = dashboard.panes.focus;
 
         data::Dashboard {
             pane: from_layout(&dashboard.panes.main, layout),
@@ -5722,7 +5044,7 @@ impl<'a> From<&'a Dashboard> for data::Dashboard {
             } else {
                 data::dashboard::Sidebar::Visible
             },
-            buffers: dashboard.history.saved_buffers(),
+            buffers: vec![],
         }
     }
 }
@@ -5732,9 +5054,86 @@ pub struct Panes {
     main_window: window::Id,
     main: pane_grid::State<Pane>,
     popout: HashMap<window::Id, pane_grid::State<Pane>>,
+    focus: Focus,
+    focus_history: VecDeque<pane_grid::Pane>,
 }
 
 impl Panes {
+    fn new(
+        configuration: pane_grid::Configuration<Pane>,
+        focus_buffer: &Option<data::Buffer>,
+        main_window: &Window,
+    ) -> Self {
+        let main = pane_grid::State::with_configuration(configuration);
+
+        let focus = main
+            .iter()
+            // This should never fail
+            .find_map(|(pane, state)| {
+                (state.buffer.data() == *focus_buffer).then_some(Focus {
+                    window: main_window.id,
+                    pane: *pane,
+                })
+            })
+            // But if somehow it does, we just focus the "first" pane from the main window
+            .unwrap_or_else(|| {
+                let (_, pane) = pane_grid::State::new(());
+
+                Focus {
+                    window: main_window.id,
+                    pane,
+                }
+            });
+
+        Self {
+            main_window: main_window.id,
+            main,
+            // Pop-outs are handled after the Dashboard is created, in order to utilize
+            popout: HashMap::new(),
+            focus,
+            focus_history: VecDeque::from([focus.pane]),
+        }
+    }
+
+    fn configuration(
+        pane: data::Pane,
+        clients: &client::Map,
+        storage: &mut storage::Manager,
+        config: &Config,
+    ) -> pane_grid::Configuration<Pane> {
+        match pane {
+            data::Pane::Split { axis, ratio, a, b } => {
+                pane_grid::Configuration::Split {
+                    axis: match axis {
+                        data::pane::Axis::Horizontal => {
+                            pane_grid::Axis::Horizontal
+                        }
+                        data::pane::Axis::Vertical => pane_grid::Axis::Vertical,
+                    },
+                    ratio,
+                    a: Box::new(Panes::configuration(
+                        *a, clients, storage, config,
+                    )),
+                    b: Box::new(Panes::configuration(
+                        *b, clients, storage, config,
+                    )),
+                }
+            }
+            data::Pane::Buffer { buffer } => {
+                pane_grid::Configuration::Pane(Pane::new(Buffer::from_data(
+                    buffer,
+                    clients,
+                    storage,
+                    Size::default(),
+                    config,
+                )))
+            }
+            data::Pane::Empty => {
+                pane_grid::Configuration::Pane(Pane::new(Buffer::empty()))
+            }
+        }
+    }
+
     fn len(&self) -> usize {
         self.main.panes.len() + self.popout.len()
     }
@@ -5745,6 +5144,19 @@ impl Panes {
         } else {
             self.popout.get(&window).and_then(|panes| panes.get(pane))
         }
+    }
+
+    fn get_focused(&self) -> Option<(window::Id, pane_grid::Pane, &Pane)> {
+        let Focus { window, pane } = self.focus;
+        self.get(window, pane).map(|state| (window, pane, state))
+    }
+
+    fn get_focused_mut(
+        &mut self,
+    ) -> Option<(window::Id, pane_grid::Pane, &mut Pane)> {
+        let Focus { window, pane } = self.focus;
+        self.get_mut(window, pane)
+            .map(|state| (window, pane, state))
     }
 
     fn get_mut(
@@ -5776,6 +5188,19 @@ impl Panes {
     ) -> Option<(window::Id, pane_grid::Pane, &mut Pane)> {
         self.iter_mut().find(|(_, _, state)| {
             state.buffer.data().is_some_and(|b| b == *buffer)
+        })
+    }
+
+    fn get_mut_by_history_kind(
+        &mut self,
+        kind: &history::Kind,
+    ) -> Option<(window::Id, pane_grid::Pane, &mut Pane)> {
+        self.iter_mut().find(|(_, _, state)| {
+            state
+                .buffer
+                .data()
+                .and_then(history::Kind::from_buffer)
+                .is_some_and(|pane_kind| pane_kind == *kind)
         })
     }
 
@@ -5822,26 +5247,72 @@ impl Panes {
             }))
     }
 
-    fn resources(&self) -> impl Iterator<Item = data::history::Resource> + '_ {
-        self.main.panes.values().filter_map(Pane::resource).chain(
-            self.popout.values().flat_map(|state| {
-                state.panes.values().filter_map(Pane::resource)
-            }),
-        )
+    fn buffers_context_snapshot(&self) -> BuffersContextSnapshot {
+        let Focus {
+            window: focus_window,
+            pane: focus_pane,
+        } = self.focus;
+
+        BuffersContextSnapshot {
+            buffers: self
+                .iter_visible()
+                .filter_map(|(window, pane, state)| {
+                    if let Some(kind) =
+                        state.buffer.data().and_then(history::Kind::from_buffer)
+                    {
+                        let is_scrolled_to_bottom =
+                            state.buffer.is_scrolled_to_bottom().is_some_and(
+                                |is_scrolled_to_bottom| is_scrolled_to_bottom,
+                            );
+
+                        let buffer_context_snapshot =
+                            if window == focus_window && pane == focus_pane {
+                                let upstream = state
+                                    .buffer
+                                    .data()
+                                    .and_then(data::Buffer::into_upstream);
+
+                                BufferContextSnapshot::Focused {
+                                    is_scrolled_to_bottom,
+                                    upstream,
+                                    window,
+                                }
+                            } else {
+                                let in_focused_window = window == focus_window;
+
+                                BufferContextSnapshot::Open {
+                                    in_focused_window,
+                                    is_scrolled_to_bottom,
+                                    window,
+                                }
+                            };
+
+                        Some((kind, buffer_context_snapshot))
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+        }
     }
 }
 
 fn all_upstream_buffers(
     servers: &server::Map,
     clients: &client::Map,
-    history: &history::Manager,
+    models: &model::Manager,
+    sidebar_buffers: &SidebarBuffers,
 ) -> Vec<buffer::Upstream> {
     clients
         .iter()
         .flat_map(|(server, _)| {
             let config = servers.get(server);
-            let targets =
-                history.sidebar_targets(server, clients, config.as_deref());
+            let targets = sidebar_buffers.sidebar_targets(
+                server,
+                clients,
+                models,
+                config.as_deref(),
+            );
 
             std::iter::once(buffer::Upstream::Server(server.clone()))
                 .chain(targets.channels.into_iter().map(|(channel, _)| {
@@ -5875,10 +5346,11 @@ fn closed_upstream_buffers(
     dashboard: &Dashboard,
     servers: &server::Map,
     clients: &client::Map,
+    sidebar_buffers: &SidebarBuffers,
 ) -> Vec<buffer::Upstream> {
     let open_buffers = open_upstream_buffers(dashboard);
 
-    all_upstream_buffers(servers, clients, &dashboard.history)
+    all_upstream_buffers(servers, clients, &dashboard.models, sidebar_buffers)
         .into_iter()
         .filter(|buffer| !open_buffers.contains(buffer))
         .collect()
@@ -6016,4 +5488,164 @@ fn preview_cache(config: &config::Preview) -> cache::FileCache {
         config.request.image_cache.max_size_bytes(),
         config.request.image_cache.trim_interval,
     )
+}
+
+impl BuffersContext for Panes {
+    fn is_focused(&self, kind: &history::Kind) -> bool {
+        let Some((kind_window, _)) =
+            self.iter().find_map(|(window, _, state)| {
+                state
+                    .buffer
+                    .data()
+                    .and_then(history::Kind::from_buffer)
+                    .is_some_and(|pane_kind| pane_kind == *kind)
+                    .then_some((window, state))
+            })
+        else {
+            return false;
+        };
+
+        self.get_focused()
+            .is_some_and(|(focused_window, _, focused_pane)| {
+                let is_focused_window = kind_window == focused_window;
+
+                let focused_kind = focused_pane
+                    .buffer
+                    .data()
+                    .and_then(history::Kind::from_buffer);
+                let is_focused_pane = focused_kind.as_ref() == Some(kind);
+
+                is_focused_window && is_focused_pane
+            })
+    }
+
+    fn is_focused_and_at_bottom(&self, kind: &history::Kind) -> bool {
+        let Some((kind_window, kind_pane)) =
+            self.iter().find_map(|(window, _, state)| {
+                state
+                    .buffer
+                    .data()
+                    .and_then(history::Kind::from_buffer)
+                    .is_some_and(|pane_kind| pane_kind == *kind)
+                    .then_some((window, state))
+            })
+        else {
+            return false;
+        };
+
+        if kind_pane
+            .buffer
+            .is_scrolled_to_bottom()
+            .is_none_or(|is_scrolled_to_bottom| !is_scrolled_to_bottom)
+        {
+            return false;
+        }
+
+        self.get_focused()
+            .is_some_and(|(focused_window, _, focused_pane)| {
+                let is_focused_window = kind_window == focused_window;
+
+                let focused_kind = focused_pane
+                    .buffer
+                    .data()
+                    .and_then(history::Kind::from_buffer);
+                let is_focused_pane = focused_kind.as_ref() == Some(kind);
+
+                is_focused_window && is_focused_pane
+            })
+    }
+
+    fn is_open_in_focused_window(&self, kind: &history::Kind) -> bool {
+        let Some(kind_window) =
+            self.iter_visible().find_map(|(window, _, state)| {
+                state
+                    .buffer
+                    .data()
+                    .and_then(history::Kind::from_buffer)
+                    .is_some_and(|pane_kind| pane_kind == *kind)
+                    .then_some(window)
+            })
+        else {
+            return false;
+        };
+
+        self.get_focused()
+            .is_some_and(|(focused_window, _, _)| kind_window == focused_window)
+    }
+
+    fn is_open_and_at_bottom_in_focused_window(
+        &self,
+        kind: &history::Kind,
+    ) -> bool {
+        let Some((kind_window, kind_pane)) =
+            self.iter_visible().find_map(|(window, _, state)| {
+                state
+                    .buffer
+                    .data()
+                    .and_then(history::Kind::from_buffer)
+                    .is_some_and(|pane_kind| pane_kind == *kind)
+                    .then_some((window, state))
+            })
+        else {
+            return false;
+        };
+
+        if kind_pane
+            .buffer
+            .is_scrolled_to_bottom()
+            .is_none_or(|is_scrolled_to_bottom| !is_scrolled_to_bottom)
+        {
+            return false;
+        }
+
+        self.get_focused()
+            .is_some_and(|(focused_window, _, _)| kind_window == focused_window)
+    }
+
+    fn is_open(&self, kind: &history::Kind) -> bool {
+        self.iter_visible().any(|(_, _, state)| {
+            state
+                .buffer
+                .data()
+                .and_then(history::Kind::from_buffer)
+                .is_some_and(|pane_kind| pane_kind == *kind)
+        })
+    }
+
+    fn is_open_and_at_bottom(&self, kind: &history::Kind) -> bool {
+        let Some(kind_pane) = self.iter_visible().find_map(|(_, _, state)| {
+            state
+                .buffer
+                .data()
+                .and_then(history::Kind::from_buffer)
+                .is_some_and(|pane_kind| pane_kind == *kind)
+                .then_some(state)
+        }) else {
+            return false;
+        };
+
+        kind_pane
+            .buffer
+            .is_scrolled_to_bottom()
+            .is_some_and(|is_scrolled_to_bottom| is_scrolled_to_bottom)
+    }
+
+    fn focused_upstream_buffer(&self) -> Option<&data::buffer::Upstream> {
+        self.get_focused()
+            .and_then(|(_, _, pane)| pane.buffer.upstream())
+    }
+
+    fn find_window_with(
+        &self,
+        kind: &history::Kind,
+    ) -> Option<iced::window::Id> {
+        self.iter().find_map(|(window_id, _, state)| {
+            state
+                .buffer
+                .data()
+                .and_then(history::Kind::from_buffer)
+                .is_some_and(|pane_kind| pane_kind == *kind)
+                .then_some(window_id)
+        })
+    }
 }

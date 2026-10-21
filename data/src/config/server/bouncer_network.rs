@@ -1,7 +1,6 @@
 //! Per-network settings for a bouncer.
 
-use std::collections::HashMap;
-
+use hashbrown::HashMap;
 use serde::Deserialize;
 
 use super::{

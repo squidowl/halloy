@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::thread;
 
 use chrono::{DateTime, TimeDelta, Utc};
@@ -8,6 +7,7 @@ use data::config::actions::NotificationAction;
 use data::config::notification;
 use data::user::Nick;
 use data::{Config, Notification, Server, User, list_format};
+use hashbrown::HashMap;
 use iced::Task;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
@@ -568,18 +568,27 @@ impl Notifications {
                 default_notification_action,
             );
 
-            let sender = self.sender.clone();
+            #[cfg(target_os = "linux")]
+            {
+                let sender = self.sender.clone();
 
-            tokio::task::spawn(async move {
-                if let Some(action) = toast
-                    .show_and_wait_for_response(default_notification_action)
-                    .await
-                {
-                    let _ = sender
-                        .send(Event::NotificationResponse { action, buffer })
-                        .await;
-                }
-            });
+                tokio::task::spawn(async move {
+                    if let Some(action) = toast
+                        .show_and_wait_for_response(default_notification_action)
+                        .await
+                    {
+                        let _ = sender
+                            .send(Event::NotificationResponse {
+                                action,
+                                buffer,
+                            })
+                            .await;
+                    }
+                });
+            }
+
+            #[cfg(not(target_os = "linux"))]
+            toast.show();
         }
 
         if let Some(sound) = sound_name

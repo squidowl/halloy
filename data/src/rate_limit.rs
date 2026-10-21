@@ -190,7 +190,7 @@ impl<T> TokenBucket<T> {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum TokenPriority {
     Low,  // Polls & other automated messages for retrieving metadata
     High, // Most automated messages

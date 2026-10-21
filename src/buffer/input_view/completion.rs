@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 use std::cmp::Ordering;
-use std::collections::HashMap;
 use std::ops::RangeInclusive;
 use std::sync::LazyLock;
 use std::{fmt, iter};
@@ -14,8 +13,9 @@ use data::history::filter::FilterChain;
 use data::isupport::{self, find_target_limit};
 use data::server::Server;
 use data::target::{self, Target};
-use data::user::{ChannelUsers, Nick, NickRef};
+use data::user::{ChannelUsers, Nick};
 use data::{Config, command, mode};
+use hashbrown::HashMap;
 use iced::Length;
 use iced::widget::text::Shaping;
 use iced::widget::{button, column, container, row, text_editor, tooltip};
@@ -38,6 +38,7 @@ pub struct Completion {
     words: Words,
     emojis: Emojis,
     paths: Paths,
+    topic: Option<String>,
 }
 
 impl Completion {
@@ -51,12 +52,13 @@ impl Completion {
         input: &str,
         cursor_position: usize,
         cursor_is_selection: bool,
-        our_nickname: Option<NickRef>,
+        our_nickname: Option<&Nick>,
         users: Option<&ChannelUsers>,
         filters: FilterChain,
-        last_seen: &HashMap<Nick, DateTime<Utc>>,
+        last_seen: Option<&HashMap<Nick, DateTime<Utc>>>,
         channels: impl IntoIterator<Item = &'a target::Channel>,
         current_target: Option<&Target>,
+        topic: Option<&str>,
         server: &Server,
         is_connected: bool,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
@@ -81,6 +83,14 @@ impl Completion {
                 config,
             );
 
+            self.topic = topic_completion(
+                &self.commands,
+                input,
+                cursor_position,
+                current_target.and_then(Target::as_channel),
+                topic,
+            );
+
             // Disallow other completions when selecting a command
             if matches!(self.commands, Commands::Selecting { .. }) {
                 self.words = Words::default();
@@ -91,6 +101,7 @@ impl Completion {
             }
         } else {
             self.commands = Commands::default();
+            self.topic = None;
         }
 
         // If the text input has a selection, then don't show pickers
@@ -188,6 +199,7 @@ impl Completion {
             .tab(reverse)
             .or_else(|| self.emojis.tab(reverse, config))
             .or_else(|| self.paths.tab(reverse))
+            .or_else(|| self.topic.clone().map(Entry::Topic))
             .or_else(|| self.words.tab(reverse))
     }
 
@@ -282,6 +294,7 @@ pub enum Entry {
     Word { next: String, append_suffix: bool },
     Path(String),
     Emoji(String),
+    Topic(String),
 }
 
 impl Entry {
@@ -337,8 +350,40 @@ impl Entry {
                     )),
                 ]
             }
+            Entry::Topic(text) => {
+                vec![
+                    text_editor::Action::SelectAll,
+                    text_editor::Action::Edit(text_editor::Edit::Paste(
+                        std::sync::Arc::new(text.clone()),
+                    )),
+                ]
+            }
         }
     }
+}
+
+fn topic_completion(
+    commands: &Commands,
+    input: &str,
+    cursor_position: usize,
+    channel: Option<&target::Channel>,
+    topic: Option<&str>,
+) -> Option<String> {
+    let Commands::Selected { command, .. } = commands else {
+        return None;
+    };
+
+    if command.title != "TOPIC" || cursor_position != input.len() {
+        return None;
+    }
+
+    let (_, args) = input.split_once(' ')?;
+
+    if !args.trim().is_empty() {
+        return None;
+    }
+
+    Some(format!("/topic {} {}", channel?.as_str(), topic?))
 }
 
 #[derive(Debug, Clone, Default)]
@@ -361,7 +406,7 @@ impl Commands {
         input: &str,
         cursor_position: usize,
         cursor_is_selection: bool,
-        our_nickname: Option<NickRef>,
+        our_nickname: Option<&Nick>,
         channels: impl IntoIterator<Item = &'a target::Channel>,
         current_target: Option<&Target>,
         server: &Server,
@@ -827,7 +872,7 @@ impl Commands {
 }
 
 fn connected_command_list<'a>(
-    our_nickname: Option<NickRef>,
+    our_nickname: Option<&Nick>,
     channels: impl IntoIterator<Item = &'a target::Channel>,
     current_target: Option<&Target>,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
@@ -1138,7 +1183,7 @@ fn connected_command_list<'a>(
 
             let default = current_target
                 .map(Target::to_string)
-                .or(our_nickname.map(|nickname| nickname.to_string()));
+                .or(our_nickname.map(ToString::to_string));
 
             let mut tooltip = String::from("a channel or user");
 
@@ -1249,6 +1294,8 @@ fn connected_command_list<'a>(
                 subcommands: None,
             }
         },
+        // SEARCH
+        search_command(),
         // EXEC
         exec_command(),
         // CLEAR
@@ -1492,6 +1539,8 @@ fn disconnected_command_list(server: &Server) -> Vec<Command> {
     vec![
         // EXEC
         exec_command(),
+        // SEARCH
+        search_command(),
         // CONNECT
         {
             Command {
@@ -1516,6 +1565,21 @@ fn disconnected_command_list(server: &Server) -> Vec<Command> {
             }
         },
     ]
+}
+
+fn search_command() -> Command {
+    Command {
+        title: "SEARCH".into(),
+        args: vec![Argument {
+            text: "query".into(),
+            kind: ArgumentKind::Optional { skipped: false },
+            tooltip: Some(
+                "words to search for; from:nick and in:#channel narrow the search"
+                    .to_string(),
+            ),
+        }],
+        subcommands: None,
+    }
 }
 
 fn exec_command() -> Command {
@@ -1685,6 +1749,7 @@ impl Command {
             "clear" => Cow::Borrowed("Clears the buffer"),
             "cleartopic" => Cow::Borrowed("Clear the topic of a channel"),
             "sysinfo" => Cow::Borrowed("Send system information"),
+            "search" => Cow::Borrowed("Search messages in all buffers"),
             "detach" => Cow::Borrowed(
                 "Hide the channel, leaving the bouncer's connection to the channel active",
             ),
@@ -1981,7 +2046,7 @@ impl Words {
         casemapping: isupport::CaseMap,
         users: Option<&ChannelUsers>,
         filters: FilterChain,
-        last_seen: &HashMap<Nick, DateTime<Utc>>,
+        last_seen: Option<&HashMap<Nick, DateTime<Utc>>>,
         channels: impl IntoIterator<Item = &'a target::Channel>,
         current_target: Option<&Target>,
         server: &Server,
@@ -2019,7 +2084,7 @@ impl Words {
         filters: FilterChain,
         current_channel: Option<&target::Channel>,
         server: &Server,
-        last_seen: &HashMap<Nick, DateTime<Utc>>,
+        last_seen: Option<&HashMap<Nick, DateTime<Utc>>>,
         config: &Config,
     ) {
         let autocomplete = &config.buffer.text_input.autocomplete;
@@ -2041,33 +2106,35 @@ impl Words {
             })
             .sorted_by(|a, b| {
                 if matches!(autocomplete.order_by, OrderBy::Recent) {
-                    if let Some(a_last_seen) =
-                        last_seen.get(&a.nickname().to_owned())
+                    if let Some(a_last_seen) = last_seen
+                        .and_then(|last_seen| last_seen.get(a.nickname()))
                     {
-                        if let Some(b_last_seen) =
-                            last_seen.get(&b.nickname().to_owned())
+                        if let Some(b_last_seen) = last_seen
+                            .and_then(|last_seen| last_seen.get(b.nickname()))
                         {
                             b_last_seen.cmp(a_last_seen)
                         } else {
                             Ordering::Less
                         }
-                    } else if last_seen.get(&b.nickname().to_owned()).is_some()
+                    } else if last_seen
+                        .and_then(|last_seen| last_seen.get(b.nickname()))
+                        .is_some()
                     {
                         Ordering::Greater
                     } else {
                         match autocomplete.sort_direction {
                             SortDirection::Asc => {
-                                a.nickname().cmp(&b.nickname())
+                                a.nickname().cmp(b.nickname())
                             }
                             SortDirection::Desc => {
-                                b.nickname().cmp(&a.nickname())
+                                b.nickname().cmp(a.nickname())
                             }
                         }
                     }
                 } else {
                     match autocomplete.sort_direction {
-                        SortDirection::Asc => a.nickname().cmp(&b.nickname()),
-                        SortDirection::Desc => b.nickname().cmp(&a.nickname()),
+                        SortDirection::Asc => a.nickname().cmp(b.nickname()),
+                        SortDirection::Desc => b.nickname().cmp(a.nickname()),
                     }
                 }
             })

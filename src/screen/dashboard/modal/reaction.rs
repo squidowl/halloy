@@ -1,7 +1,7 @@
 use std::borrow::Cow;
-use std::collections::HashSet;
 
 use data::{Config, message};
+use hashbrown::HashSet;
 use iced::widget::{
     Scrollable, button, column, container, operation, scrollable, text_input,
 };
@@ -156,6 +156,7 @@ pub fn view<'a>(state: &'a State, config: &'a Config) -> Element<'a, Message> {
             } else {
                 theme::scrollable::primary
             })
+            .smooth_scroll(config.runtime.smooth_scrolling)
             .width(Length::Fill)
             .height(Length::Fill)
             .into()

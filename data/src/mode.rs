@@ -380,7 +380,7 @@ fn takes_arg(
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashMap;
+    use hashbrown::HashMap;
 
     use super::*;
 

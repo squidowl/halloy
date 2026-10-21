@@ -2,8 +2,16 @@
 
 Added:
 
+- Added Gopher(+s) / Gemini protocol schemes (make links clickable)
+- Added support for IPv6 literal links
 - Added `buffer.text_input.upload_long_paste` to automatically use filehost in case pasted text is too long
 - Right-clickable text in the server buffer now offers a context menu
+- Pressing Tab after `/topic ` fills in the current channel topic for editing
+- SQLite history storage, with automatic migration of existing gzip history as buffers are used and loading of history in windows.
+- `buffer.close.query` option `"close-buffer"` (previous option `"close"` renamed to `"close-pane"`)
+- Highlight matches can be optionally named via the `name` property
+- Search buffer to search messages across all servers, channels and queries, opened from the command bar, sidebar menu, a nickname's context menu, the `search` key binding or `/search`
+- Setting `runtime.smooth_scrolling` to control whether smooth scrolling is used
 - Added `sidebar.remember_buffers`. When enabled, buffers that were in the
   sidebar during the last session will be restored in a disconnected state.
 - Disconnected channels are styled differently than connected channels
@@ -16,18 +24,24 @@ Fixed:
 - Colored emojis are now preferred over outline ones
 - Send a message with enter when autocomplete tooltip is not visible (i.e. don't have to press enter twice when just autocompleted a nickname)
 - Crash when right clicking a message in the server buffer
+- ZNC-service style nicks (e.g. `*status`, `*grep`, etc) are not automatically routed to the server buffer
+- Message drafts for sent messages sometimes being restored after restart (instead of being cleared)
+- Scroll position being lost when showing the typing indicator with `buffer.typing.style = "popped"`
 
 Changed:
 
 - Default keybinds for focus movement on macOS changed from `⌥ + <arrow keys>` to `ctrl + <arrow keys>` to avoid conflicting with macOS by-word movement keybinds (`⌥ + ←` and `⌥ + →`)
+- Saved chat history is no longer limited to 10,000 messages per buffer
+- Use OS provided certificate verification service on Windows & macOS
+- Your own join/part is shown in the channel buffer.
 - Being kicked from a channel no longer closes the buffer.
 - Disconnecting from a server no longer removes its channels and queries from the sidebar.
 
 Thanks:
 
-- Contributions: @httpsterio, @furudean
-- Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768
-- Feature requests: @ainola
+- Contributions: @httpsterio, @oooo-ps, @furudean
+- Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768, @WinnerWind, @strafe
+- Feature requests: @ainola, @kalebris, @sf302
 
 # 2026.9 (2026-09-29)
 

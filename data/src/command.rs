@@ -1,9 +1,9 @@
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::str::FromStr;
 
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, Utc};
 use fancy_regex::Regex;
+use hashbrown::HashMap;
 use irc::proto::{self, tags};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -17,7 +17,7 @@ use crate::isupport::{
     self, find_target_limit, format_optional_message_reference,
 };
 use crate::message::{self, formatting};
-use crate::user::{ChannelUsers, NickRef};
+use crate::user::{ChannelUsers, Nick};
 use crate::{Config, Message, Server, Target, Url, User, ctcp, target};
 
 pub mod alias;
@@ -48,6 +48,7 @@ pub enum Internal {
     Reconnect,
     Upload(String),
     Exec(String),
+    Search(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -123,15 +124,14 @@ impl Irc {
         reroute_rules: &RerouteRules,
         focused_buffer: Option<&buffer::Upstream>,
     ) -> Option<Vec<Message>> {
-        let to_message_target = |target: &str, source| {
+        let to_message_target = |target: &str| {
             if target == "*" {
-                return message::Target::Server { source };
+                return message::Target::Server;
             }
 
             if target.starts_with('$') {
                 message::Target::Query {
                     query: target::Query::from(user.clone()),
-                    source,
                 }
             } else {
                 let target =
@@ -140,12 +140,10 @@ impl Irc {
                 match &target {
                     Target::Channel(channel) => message::Target::Channel {
                         channel: channel.clone(),
-                        source,
                     },
 
                     Target::Query(query) => message::Target::Query {
                         query: query.clone(),
-                        source,
                     },
                 }
             }
@@ -156,10 +154,7 @@ impl Irc {
                 targets
                     .split(',')
                     .map(|target| {
-                        let message_target = to_message_target(
-                            target,
-                            message::Source::User(user.clone()),
-                        );
+                        let message_target = to_message_target(target);
 
                         let message_target =
                             message::reroute_private_message_target(
@@ -171,6 +166,7 @@ impl Irc {
                             .unwrap_or(message_target);
 
                         Message::sent(
+                            message::Source::User(user.clone()),
                             message_target,
                             message::parse_fragments_with_users(
                                 text.clone(),
@@ -189,10 +185,7 @@ impl Irc {
                 targets
                     .split(',')
                     .map(|target| {
-                        let message_target = to_message_target(
-                            target,
-                            message::Source::User(user.clone()),
-                        );
+                        let message_target = to_message_target(target);
 
                         let message_target =
                             message::reroute_private_notice_target(
@@ -204,6 +197,7 @@ impl Irc {
                             .unwrap_or(message_target);
 
                         Message::sent(
+                            message::Source::User(user.clone()),
                             message_target,
                             message::parse_fragments_with_users(
                                 text.clone(),
@@ -219,10 +213,7 @@ impl Irc {
                     .collect(),
             ),
             Irc::Me(target, action) => {
-                let message_target = to_message_target(
-                    target,
-                    message::Source::Action(Some(user.clone())),
-                );
+                let message_target = to_message_target(target);
 
                 let message_target = message::reroute_private_message_target(
                     &message_target,
@@ -233,6 +224,7 @@ impl Irc {
                 .unwrap_or(message_target);
 
                 Some(vec![Message::sent(
+                    message::Source::Action(Some(user.clone())),
                     message_target,
                     message::action_text(
                         &user,
@@ -288,6 +280,7 @@ pub enum Kind {
     Upload,
     MassMessage,
     Exec,
+    Search,
     Raw,
 }
 
@@ -335,6 +328,7 @@ impl FromStr for Kind {
             "upload" => Ok(Kind::Upload),
             "massmessage" | "mm" => Ok(Kind::MassMessage),
             "exec" => Ok(Kind::Exec),
+            "search" => Ok(Kind::Search),
             _ => Err(()),
         }
     }
@@ -343,7 +337,7 @@ impl FromStr for Kind {
 pub fn parse(
     s: &str,
     buffer: Option<&buffer::Upstream>,
-    our_nickname: Option<NickRef>,
+    our_nickname: Option<&Nick>,
     auto_format: AutoFormat,
     is_connected: bool,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
@@ -409,7 +403,7 @@ fn parse_command(
     args: Vec<&str>,
     raw: &str,
     buffer: Option<&buffer::Upstream>,
-    our_nickname: Option<NickRef>,
+    our_nickname: Option<&Nick>,
     auto_format: AutoFormat,
     is_connected: bool,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
@@ -915,8 +909,7 @@ fn parse_command(
                         .or(buffer
                             .and_then(Upstream::target)
                             .map(|buffer_target| buffer_target.to_string()))
-                        .or(our_nickname
-                            .map(|our_nickname| our_nickname.to_string()))
+                        .or(our_nickname.map(ToString::to_string))
                     else {
                         return Err(Error::IncorrectArgCount {
                             min: 1,
@@ -1017,7 +1010,7 @@ fn parse_command(
                         Some(Warning::CannotConfirmAvailability {
                             command: "setname",
                             context: buffer.map_or(String::new(), |buffer| {
-                                format!(" on {}", buffer.server())
+                                format!(" on {}", buffer.as_server())
                             }),
                         }),
                     ))
@@ -1146,7 +1139,7 @@ fn parse_command(
                     Err(Error::CommandNotAvailable {
                         command: "massmessage",
                         context: buffer.map_or(String::new(), |buffer| {
-                            format!(" on {}", buffer.server())
+                            format!(" on {}", buffer.as_server())
                         }),
                     })
                 }
@@ -1203,7 +1196,7 @@ fn parse_command(
                     return Err(Error::CommandNotAvailable {
                         command: "chathistory",
                         context: buffer.map_or(String::new(), |buffer| {
-                            format!(" on {}", buffer.server())
+                            format!(" on {}", buffer.as_server())
                         }),
                     });
                 }
@@ -1529,7 +1522,7 @@ fn parse_command(
                     Err(Error::CommandNotAvailable {
                         command: "monitor",
                         context: buffer.map_or(String::new(), |buffer| {
-                            format!(" on {}", buffer.server())
+                            format!(" on {}", buffer.as_server())
                         }),
                     })
                 }
@@ -1571,12 +1564,15 @@ fn parse_command(
             Kind::SysInfo => validated::<0, 0, false>(args, |_, _| {
                 Ok(Command::Internal(Internal::SysInfo))
             }),
+            Kind::Search => {
+                Ok(Command::Internal(Internal::Search(raw.trim().to_string())))
+            }
             Kind::Detach => {
                 if !features.detach {
                     return Err(Error::CommandNotAvailable {
                         command: "detach",
                         context: buffer.map_or(String::new(), |buffer| {
-                            format!(" on {}", buffer.server())
+                            format!(" on {}", buffer.as_server())
                         }),
                     });
                 }
@@ -1735,7 +1731,7 @@ fn parse_command(
                     Err(Error::CommandNotAvailable {
                         command: "upload",
                         context: buffer.map_or(String::new(), |buffer| {
-                            format!(" on {}", buffer.server())
+                            format!(" on {}", buffer.as_server())
                         }),
                     })
                 }
@@ -2207,7 +2203,8 @@ mod tests {
     #[test]
     fn validate_mode_string() {
         use std::borrow::Cow;
-        use std::collections::HashMap;
+
+        use hashbrown::HashMap;
 
         let mut isupport: HashMap<isupport::Kind, isupport::Parameter> =
             HashMap::new();

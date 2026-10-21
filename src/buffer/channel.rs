@@ -1,11 +1,13 @@
-use chrono::{DateTime, Utc};
+use data::buffer::{self, BuffersContext};
+use data::client::{self, ClientsContext};
 use data::dashboard::BufferAction;
 use data::history::filter::FilterChain;
+use data::history::{self, model, storage};
 use data::preview::{self, Previews};
 use data::server::Server;
 use data::target::{self, Target};
 use data::user::{ChannelUsers, Nick};
-use data::{Config, Image, Preview, User, buffer, client, history, message};
+use data::{Config, Image, Preview, User, message};
 use iced::widget::{column, container, row, stack};
 use iced::{Length, Size, Task, padding};
 
@@ -33,18 +35,16 @@ pub enum Event {
     OpenServer(String),
     Reconnect(Server),
     LeaveBuffers(Vec<Target>, Option<String>),
-    History(Task<history::manager::Message>),
-    RequestOlderChatHistory,
+    RequestOlderChathistory,
     PreviewChanged,
-    HidePreview(history::Kind, message::Hash, url::Url),
+    HidePreview(history::Kind, history::Id, message::Time, url::Url),
     MarkAsRead(history::Kind),
     OpenUrl(String),
     ImagePreview(Image),
-    ExpandMessage(DateTime<Utc>, message::Hash),
-    ContractMessage(DateTime<Utc>, message::Hash),
-    GoToMessage(Server, target::Channel, message::Hash, BufferAction),
+    ExpandMessage(message::Time, history::Id),
+    ContractMessage(message::Time, history::Id),
+    GoToMessage(buffer::Upstream, message::MessageLink, BufferAction),
     InputSent {
-        history_task: Task<history::manager::Message>,
         open_buffers: Vec<(Target, BufferAction)>,
         was_join_command: bool,
     },
@@ -61,8 +61,9 @@ pub fn view<'a>(
     state: &'a Channel,
     typing_animation: Option<&'a typing::Animation>,
     clients: &'a data::client::Map,
-    history: &'a history::Manager,
+    models: &'a model::Manager,
     previews: &'a preview::Collection,
+    filter_chain: FilterChain,
     settings: Option<&'a buffer::Settings>,
     config: &'a Config,
     theme: &'a Theme,
@@ -88,17 +89,14 @@ pub fn view<'a>(
                     .confirm_message_delivery
                     .is_target_channel_included(channel, server, casemapping)
             });
-    let our_nick: Option<data::user::NickRef<'_>> =
-        clients.nickname(&state.server);
+    let our_nick = clients.nickname(&state.server);
 
-    let our_user = our_nick
-        .map(|our_nick| User::from(Nick::from(our_nick)))
-        .and_then(|user| {
-            clients.resolve_user_attributes(&state.server, channel, &user)
-        });
+    let our_user = our_nick.cloned().map(User::from).and_then(|user| {
+        clients.resolve_user_attributes(&state.server, channel, &user)
+    });
     let show_typing = clients.get_server_show_typing(server);
     let typing_style = config.buffer.typing.style;
-    let typing_text = state.typing_text(clients, history);
+    let typing_text = state.typing_text(clients, filter_chain);
     let has_typing_text = typing_text.is_some();
 
     let users = clients.get_channel_users(&state.server, channel);
@@ -108,7 +106,7 @@ pub fn view<'a>(
 
     let previews = Previews::new(
         previews,
-        channel.as_target_ref(),
+        channel.as_targetref(),
         server,
         &config.preview,
         casemapping,
@@ -135,15 +133,14 @@ pub fn view<'a>(
             channel,
             our_user,
         },
-        history,
     };
 
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
             state.message_focus.focused(),
-            scroll_view::Kind::Channel(&state.server, channel),
-            history,
+            history::KindRef::Channel(&state.server, channel),
+            models,
             Some(previews),
             Some(|preview: &Preview, source: &message::Source| {
                 preview.visible_for_source(
@@ -213,7 +210,8 @@ pub fn view<'a>(
     let channel_state = clients.channel_state(server, channel);
     let our_nick_user = our_nick
         .filter(|_| our_user.is_none())
-        .map(|our_nick| User::from(Nick::from(our_nick)));
+        .cloned()
+        .map(User::from);
 
     let text_input = show_text_input.then(|| {
         input_view::view(
@@ -262,7 +260,7 @@ pub fn view<'a>(
             .height(Length::Fill)
             .into()
         } else {
-            column![column![content].height(Length::Fill), text_input]
+            column![stack![content].height(Length::Fill), text_input]
                 .height(Length::Fill)
                 .into()
         };
@@ -288,24 +286,27 @@ impl Channel {
         server: Server,
         target: target::Channel,
         clients: &data::client::Map,
-        history: &history::Manager,
+        storage: &mut storage::Manager,
         pane_size: Size,
         config: &Config,
     ) -> Self {
         let buffer = buffer::Upstream::Channel(server.clone(), target.clone());
+        let kind = history::Kind::from_upstream_buffer(buffer.clone());
 
         Self {
             input_view: input_view::State::new(
-                history.input(&buffer),
+                storage.input(&buffer),
                 &buffer,
                 clients,
-                history,
+                storage,
                 config,
             ),
             buffer,
             server,
             target,
-            scroll_view: scroll_view::State::new(pane_size, config),
+            scroll_view: scroll_view::State::new(
+                pane_size, kind, storage, config,
+            ),
             message_focus: message_focus::Manager::new(),
         }
     }
@@ -314,7 +315,10 @@ impl Channel {
         &mut self,
         message: Message,
         clients: &mut data::client::Map,
-        history: &mut history::Manager,
+        buffers_context: &dyn BuffersContext,
+        focused_window: &Option<iced::window::Id>,
+        models: &model::Manager,
+        storage: &mut storage::Manager,
         previews: &preview::Collection,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
@@ -324,10 +328,13 @@ impl Channel {
                     message,
                     self.message_focus.focused_mut(),
                     config.buffer.chathistory.infinite_scroll,
-                    scroll_view::Kind::Channel(&self.server, &self.target),
+                    history::KindRef::Channel(&self.server, &self.target),
                     Some(&self.buffer),
-                    history,
                     clients,
+                    buffers_context,
+                    focused_window,
+                    models,
+                    storage,
                     previews,
                     config,
                 );
@@ -335,7 +342,7 @@ impl Channel {
                 if let Some(scroll_view::Event::ContextMenu(
                     context_menu::Event::Reply {
                         msgid,
-                        server_time,
+                        time,
                         to_nick,
                     },
                 )) = event
@@ -343,13 +350,16 @@ impl Channel {
                     let (reply_task, _) = self.input_view.update(
                         input_view::Message::SetDraftReply {
                             msgid: msgid.clone(),
-                            server_time,
+                            time,
                             to_nick: to_nick.clone(),
                         },
                         self.message_focus.is_focused(),
                         &self.buffer,
                         clients,
-                        history,
+                        buffers_context,
+                        focused_window,
+                        models,
+                        storage,
                         config,
                     );
 
@@ -360,7 +370,7 @@ impl Channel {
                         ]),
                         Some(Event::ContextMenu(context_menu::Event::Reply {
                             msgid,
-                            server_time,
+                            time,
                             to_nick,
                         })),
                     );
@@ -373,12 +383,15 @@ impl Channel {
                             &mut self.scroll_view,
                             &mut self.input_view,
                             &self.buffer,
-                            scroll_view::Kind::Channel(
+                            history::KindRef::Channel(
                                 &self.server,
                                 &self.target,
                             ),
                             clients,
-                            history,
+                            buffers_context,
+                            focused_window,
+                            models,
+                            storage,
                             previews,
                             config,
                         )
@@ -406,25 +419,26 @@ impl Channel {
                         vec![(target, buffer_action)],
                     )),
                     scroll_view::Event::GoToMessage(
-                        server,
-                        channel,
-                        hash,
+                        buffer,
+                        history_id,
                         buffer_action,
                     ) => Some(Event::GoToMessage(
-                        server,
-                        channel,
-                        hash,
+                        buffer,
+                        history_id,
                         buffer_action,
                     )),
-                    scroll_view::Event::RequestOlderChatHistory => {
-                        Some(Event::RequestOlderChatHistory)
+                    scroll_view::Event::RequestOlderChathistory => {
+                        Some(Event::RequestOlderChathistory)
                     }
                     scroll_view::Event::PreviewChanged => {
                         Some(Event::PreviewChanged)
                     }
-                    scroll_view::Event::HidePreview(kind, hash, url) => {
-                        Some(Event::HidePreview(kind, hash, url))
-                    }
+                    scroll_view::Event::HidePreview(
+                        kind,
+                        history_id,
+                        time,
+                        url,
+                    ) => Some(Event::HidePreview(kind, history_id, time, url)),
                     scroll_view::Event::MarkAsRead => {
                         history::Kind::from_buffer(data::Buffer::Upstream(
                             self.buffer.clone(),
@@ -437,11 +451,11 @@ impl Channel {
                     scroll_view::Event::ImagePreview(image) => {
                         Some(Event::ImagePreview(image))
                     }
-                    scroll_view::Event::ExpandMessage(server_time, hash) => {
-                        Some(Event::ExpandMessage(server_time, hash))
+                    scroll_view::Event::ExpandMessage(time, history_id) => {
+                        Some(Event::ExpandMessage(time, history_id))
                     }
-                    scroll_view::Event::ContractMessage(server_time, hash) => {
-                        Some(Event::ContractMessage(server_time, hash))
+                    scroll_view::Event::ContractMessage(time, history_id) => {
+                        Some(Event::ContractMessage(time, history_id))
                     }
                     scroll_view::Event::ExitFocus(_)
                     | scroll_view::Event::FocusAction(_)
@@ -457,28 +471,36 @@ impl Channel {
                     was_focused,
                     &self.buffer,
                     clients,
-                    history,
+                    buffers_context,
+                    focused_window,
+                    models,
+                    storage,
                     config,
                 );
                 let command = command.map(Message::InputView);
 
                 match event {
                     Some(input_view::Event::InputSent {
-                        history_task,
                         open_buffers,
                         was_join_command,
                     }) => {
                         let command = Task::batch(vec![
                             command,
                             self.scroll_view
-                                .scroll_to_end(config)
+                                .scroll_to_end(
+                                    history::KindRef::Channel(
+                                        &self.server,
+                                        &self.target,
+                                    ),
+                                    storage,
+                                    config,
+                                )
                                 .map(Message::ScrollView),
                         ]);
 
                         (
                             command,
                             Some(Event::InputSent {
-                                history_task,
                                 open_buffers,
                                 was_join_command,
                             }),
@@ -492,9 +514,6 @@ impl Channel {
                         targets,
                         reason,
                     }) => (command, Some(Event::LeaveBuffers(targets, reason))),
-                    Some(input_view::Event::Cleared { history_task }) => {
-                        (command, Some(Event::History(history_task)))
-                    }
                     Some(input_view::Event::OpenInternalBuffer(buffer)) => {
                         (command, Some(Event::OpenInternalBuffer(buffer)))
                     }
@@ -531,12 +550,15 @@ impl Channel {
                                 &mut self.scroll_view,
                                 &mut self.input_view,
                                 &self.buffer,
-                                scroll_view::Kind::Channel(
+                                history::KindRef::Channel(
                                     &self.server,
                                     &self.target,
                                 ),
                                 clients,
-                                history,
+                                buffers_context,
+                                focused_window,
+                                models,
+                                storage,
                                 previews,
                                 config,
                             );
@@ -562,7 +584,10 @@ impl Channel {
                     false,
                     &self.buffer,
                     clients,
-                    history,
+                    buffers_context,
+                    focused_window,
+                    models,
+                    storage,
                     config,
                 );
                 (task.map(Message::InputView), None)
@@ -573,7 +598,10 @@ impl Channel {
                     false,
                     &self.buffer,
                     clients,
-                    history,
+                    buffers_context,
+                    focused_window,
+                    models,
+                    storage,
                     config,
                 );
                 (
@@ -633,7 +661,7 @@ impl Channel {
     fn typing_text(
         &self,
         clients: &data::client::Map,
-        history: &history::Manager,
+        filter_chain: FilterChain,
     ) -> Option<String> {
         let server = &self.server;
         let channel = &self.target;
@@ -642,15 +670,12 @@ impl Channel {
         typing::typing_text(
             clients.get_server_show_typing(server),
             clients.get_server_supports_typing(server),
-            clients
-                .nickname(server)
-                .as_ref()
-                .map(data::user::NickRef::as_str),
+            clients.nickname(server).map(Nick::as_str),
             &typing::visible_nicks(
                 &clients.get_channel_typing_users(server, channel),
                 Some(channel),
                 server,
-                FilterChain::borrow(history.get_filters()),
+                filter_chain,
                 casemapping,
             ),
             casemapping,
@@ -817,6 +842,7 @@ mod nick_list {
             } else {
                 theme::scrollable::primary
             })
+            .smooth_scroll(config.runtime.smooth_scrolling)
             .into()
     }
 }

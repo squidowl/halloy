@@ -1,15 +1,15 @@
-use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 
 use futures::StreamExt;
 use futures::stream::{self, BoxStream};
+use hashbrown::HashMap;
 use tokio::time;
 
 use crate::capabilities::Capabilities;
 use crate::features::Features;
-use crate::user::NickRef;
+use crate::user::Nick;
 use crate::{Command, Target, command, config, isupport, message};
 
 #[derive(Debug)]
@@ -40,7 +40,7 @@ impl fmt::Debug for Stream {
 
 pub fn on_connect(
     server_config: Arc<config::Server>,
-    our_nickname: NickRef,
+    our_nickname: &Nick,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
     capabilities: &Capabilities,
     features: &Features,
@@ -103,10 +103,11 @@ pub fn on_connect(
                                 None
                             }
                             // We don't handle hop, clear-buffer, sysinfo,
-                            // channel_discovery, connect, or reconnect when
-                            // called on connection.
+                            // channel_discovery, search, connect, or reconnect
+                            // when called on connection.
                             command::Internal::ClearBuffer
                             | command::Internal::ChannelDiscovery
+                            | command::Internal::Search(_)
                             | command::Internal::Connect(_)
                             | command::Internal::Exec(_)
                             | command::Internal::Hop(_, _)

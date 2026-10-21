@@ -1,7 +1,14 @@
-use std::collections::{HashMap, HashSet};
+use hashbrown::{HashMap, HashSet};
 
+use super::model;
 use crate::target::{self, Target};
-use crate::{Server, client, history};
+use crate::{Server, client, config, history};
+
+#[derive(Debug, Default)]
+pub struct SidebarTargets<'a> {
+    pub channels: Vec<(&'a target::Channel, client::ChannelState)>,
+    pub queries: Vec<&'a target::Query>,
+}
 
 #[derive(Debug, Default)]
 struct Buffers {
@@ -40,6 +47,34 @@ impl SidebarBuffers {
         server: &Server,
     ) -> impl Iterator<Item = &target::Channel> {
         self.disconnected.get(server).into_iter().flatten()
+    }
+
+    pub fn sidebar_targets<'a>(
+        &'a self,
+        server: &Server,
+        clients: &'a client::Map,
+        models: &'a model::Manager,
+        config: Option<&config::Server>,
+    ) -> SidebarTargets<'a> {
+        let disconnected = self.disconnected_channels(server);
+
+        let channels = match (clients.client(server), config) {
+            (Some(client), _) => client
+                .sidebar_channels(disconnected)
+                .map(|channel| (channel, client.channel_state(channel)))
+                .collect(),
+            (None, Some(config)) => {
+                client::offline_sidebar_channels(config, disconnected)
+                    .map(|channel| (channel, client::ChannelState::Offline))
+                    .collect()
+            }
+            (None, None) => return SidebarTargets::default(),
+        };
+
+        SidebarTargets {
+            channels,
+            queries: models.visible_server_queries(server),
+        }
     }
 
     pub fn mark_channel_disconnected(

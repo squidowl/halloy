@@ -106,19 +106,19 @@ where
 
     let (text, font_size, line_height) = match marker {
         Marker::Dot => (
-            "\u{2022}",
+            "\u{E000}",
             font_size * font::MESSAGE_MARKER_FONT_SCALE,
             LineHeight::Relative(
                 cfg_line_height / font::MESSAGE_MARKER_FONT_SCALE,
             ),
         ),
         Marker::Expand => (
-            "\u{003E}",
+            "\u{E001}",
             font_size * 0.75,
             LineHeight::Relative(1.75 * line_height_ratio),
         ),
         Marker::Contract => (
-            "\u{0076}",
+            "\u{E002}",
             font_size * 0.75,
             LineHeight::Relative(1.75 * line_height_ratio),
         ),
@@ -147,7 +147,7 @@ where
 }
 
 pub fn color_dot<'a, M>(color: Color) -> Element<'a, M> {
-    selectable_text(String::from("\u{F111}"))
+    selectable_text(String::from("\u{E017}"))
         .line_height(LineHeight::Relative(1.0))
         .font(*font::ICON)
         .style(move |theme| theme::selectable_text::color_dot(theme, color))

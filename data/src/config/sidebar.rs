@@ -225,7 +225,7 @@ impl UnreadIndicator {
                 self.include.as_ref(),
                 self.exclude.as_ref(),
                 None,
-                target.as_target_ref(),
+                target.as_targetref(),
                 server,
                 casemapping,
             )
@@ -313,7 +313,7 @@ impl HighlightIndicator {
                 self.include.as_ref(),
                 self.exclude.as_ref(),
                 None,
-                target.as_target_ref(),
+                target.as_targetref(),
                 server,
                 casemapping,
             )
@@ -420,4 +420,5 @@ pub enum InternalBuffer {
     ChannelMonitor,
     Highlights,
     Logs,
+    Search,
 }
