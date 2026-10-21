@@ -10,6 +10,7 @@ Added:
 - SQLite history storage, with automatic migration of existing gzip history as buffers are used and loading of history in windows.
 - `buffer.close.query` option `"close-buffer"` (previous option `"close"` renamed to `"close-pane"`)
 - Highlight matches can be optionally named via the `name` property
+- Search buffer to search messages across all servers, channels and queries, opened from the command bar, sidebar menu, a nickname's context menu, the `search` key binding or `/search`
 
 Fixed:
 

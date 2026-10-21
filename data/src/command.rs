@@ -48,6 +48,7 @@ pub enum Internal {
     Reconnect,
     Upload(String),
     Exec(String),
+    Search(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -279,6 +280,7 @@ pub enum Kind {
     Upload,
     MassMessage,
     Exec,
+    Search,
     Raw,
 }
 
@@ -326,6 +328,7 @@ impl FromStr for Kind {
             "upload" => Ok(Kind::Upload),
             "massmessage" | "mm" => Ok(Kind::MassMessage),
             "exec" => Ok(Kind::Exec),
+            "search" => Ok(Kind::Search),
             _ => Err(()),
         }
     }
@@ -1561,6 +1564,9 @@ fn parse_command(
             Kind::SysInfo => validated::<0, 0, false>(args, |_, _| {
                 Ok(Command::Internal(Internal::SysInfo))
             }),
+            Kind::Search => {
+                Ok(Command::Internal(Internal::Search(raw.trim().to_string())))
+            }
             Kind::Detach => {
                 if !features.detach {
                     return Err(Error::CommandNotAvailable {
