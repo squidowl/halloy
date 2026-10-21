@@ -3977,13 +3977,11 @@ impl Dashboard {
                 .is_some_and(|is_scrolled_to_bottom| is_scrolled_to_bottom);
 
             let hide_in_sidebar = match &kind {
-                history::Kind::Query(server, query) => {
-                    if config.buffer.close.query.close(replaced) {
-                        clients.remove_query(server, query);
-                        true
-                    } else {
-                        !clients.contains_query(server, query)
-                    }
+                history::Kind::Query(server, query)
+                    if config.buffer.close.query.close(replaced) =>
+                {
+                    clients.remove_query(server, query);
+                    true
                 }
                 _ => false,
             };
