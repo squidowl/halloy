@@ -6,6 +6,34 @@ use serde::{Deserialize, Deserializer};
 
 use crate::Config;
 
+pub fn deserialize_string_or_vec<'de, D>(
+    deserializer: D,
+) -> Result<Vec<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Inner {
+        String(String),
+        Vec(Vec<String>),
+    }
+
+    let vec = match Inner::deserialize(deserializer)? {
+        Inner::String(sound) => vec![sound],
+        Inner::Vec(sounds) => sounds,
+    };
+
+    if vec.iter().any(std::string::String::is_empty) {
+        return Err(serde::de::Error::invalid_value(
+            serde::de::Unexpected::Str(""),
+            &"non-empty string",
+        ));
+    }
+
+    Ok(vec)
+}
+
 pub fn deserialize_path_buf_with_path_transformations<'de, D>(
     deserializer: D,
 ) -> Result<PathBuf, D::Error>

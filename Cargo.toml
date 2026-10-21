@@ -183,6 +183,11 @@ codegen-units = 1
 [profile.ci]
 inherits = "dev"
 opt-level = 0
+debug = false
+
+# Don't optimize dependencies in CI.
+[profile.ci.package."*"]
+opt-level = 0
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

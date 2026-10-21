@@ -1679,6 +1679,7 @@ pub fn parse_fragments_with_highlights(
     casemapping: isupport::CaseMap,
 ) -> (Content, Option<highlight::Kind>) {
     let mut highlight_kind = None;
+    let mut sounds = HashSet::new();
 
     let target_included = highlights.nickname.is_target_included(
         message_user,
@@ -1701,7 +1702,9 @@ pub fn parse_fragments_with_highlights(
         Fragment::User(user, raw)
             if target_included && is_our_nick(&user, &raw) =>
         {
-            highlight_kind.get_or_insert(highlight::Kind::Nick);
+            highlight_kind.get_or_insert_with(|| highlight::Kind::Nick {
+                sounds: Vec::new(),
+            });
             Fragment::HighlightNick(user, raw)
         }
         fragment => fragment,
@@ -1724,21 +1727,13 @@ pub fn parse_fragments_with_highlights(
                         &m.regex,
                         text,
                         |text| {
-                            let set_highlight_kind = match highlight_kind {
-                                None => true,
-                                Some(highlight::Kind::Match {
-                                    sound: None,
-                                    ..
-                                }) => m.sound.is_some(),
-                                _ => false,
-                            };
-
-                            if set_highlight_kind {
-                                highlight_kind = Some(highlight::Kind::Match {
+                            sounds.extend(m.sound.iter().cloned());
+                            highlight_kind.get_or_insert_with(|| {
+                                highlight::Kind::Match {
                                     matching: m.notification_name().to_owned(),
-                                    sound: m.sound.clone(),
-                                });
-                            }
+                                    sounds: Vec::new(),
+                                }
+                            });
 
                             Some(Fragment::HighlightMatch(text.to_owned()))
                         },
@@ -1751,6 +1746,14 @@ pub fn parse_fragments_with_highlights(
                 fragment => Either::Right(iter::once(fragment)),
             })
             .collect();
+    }
+
+    if let Some(
+        highlight::Kind::Nick { sounds: sound }
+        | highlight::Kind::Match { sounds: sound, .. },
+    ) = &mut highlight_kind
+    {
+        sound.extend(sounds);
     }
 
     (content_from_fragments(fragments), highlight_kind)
@@ -2924,25 +2927,23 @@ fn content<'a>(
             .and_then(|channel| resolve_attributes(&raw_user, &channel))
             .unwrap_or(raw_user);
 
-            (*user.nickname() != our_nick).then(|| {
-                (
-                    parse_fragments_with_user(
-                        format!(
-                            "{} {} has joined the channel",
-                            config.display.direction_arrows.right,
-                            user.formatted(
-                                config
-                                    .buffer
-                                    .server_messages
-                                    .username_format(Some(Kind::Join))
-                            )
-                        ),
-                        &user,
-                        casemapping,
+            Some((
+                parse_fragments_with_user(
+                    format!(
+                        "{} {} has joined the channel",
+                        config.display.direction_arrows.right,
+                        user.formatted(
+                            config
+                                .buffer
+                                .server_messages
+                                .username_format(Some(Kind::Join))
+                        )
                     ),
-                    None,
-                )
-            })
+                    &user,
+                    casemapping,
+                ),
+                None,
+            ))
         }
         Command::NICK(new_nick) => {
             let old_user = message.user(casemapping)?;
@@ -3851,7 +3852,7 @@ pub enum Link {
     Channel(Server, target::Channel, Option<BufferAction>),
     Url(String),
     User(Server, User),
-    GoToMessage(Server, target::Channel, MessageLink, Option<BufferAction>),
+    GoToMessage(buffer::Upstream, MessageLink, Option<BufferAction>),
     ExpandMessage(message::Time, history::Id, Option<LinkContext>),
     ContractMessage(message::Time, history::Id, Option<LinkContext>),
 }
@@ -3870,9 +3871,15 @@ impl Link {
             | Link::ContractMessage(_, _, link_context) => {
                 *link_context = match other {
                     Link::Channel(server, channel, _)
-                    | Link::GoToMessage(server, channel, _, _) => Some(
-                        LinkContext::Channel(server.clone(), channel.clone()),
-                    ),
+                    | Link::GoToMessage(
+                        buffer::Upstream::Channel(server, channel),
+                        _,
+                        _,
+                    ) => Some(LinkContext::Channel(
+                        server.clone(),
+                        channel.clone(),
+                    )),
+                    Link::GoToMessage(..) => None,
                     Link::Url(url) => Some(LinkContext::Url(url.clone())),
                     Link::User(_, user) => {
                         Some(LinkContext::User(user.clone()))
@@ -4835,5 +4842,25 @@ mod tests {
         ));
         assert!(matches!(message_with_context.inner.target, Target::Server));
         assert_eq!(message_with_context.inner.text(), "maintenance window");
+    }
+
+    #[test]
+    fn own_join_has_content() {
+        let server = Server {
+            name: "Test Server".into(),
+            network: None,
+        };
+
+        let message_with_context = message_with_context_from_irc_message(
+            ":our_nick!o@localhost JOIN #halloy\r\n",
+            &server,
+        );
+
+        assert!(
+            message_with_context
+                .inner
+                .text()
+                .contains("our_nick has joined the channel")
+        );
     }
 }

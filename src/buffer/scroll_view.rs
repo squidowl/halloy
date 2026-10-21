@@ -127,7 +127,7 @@ pub struct VisibleMessageRange {
 pub enum Event {
     ContextMenu(context_menu::Event),
     OpenBuffer(Server, Target, BufferAction),
-    GoToMessage(Server, target::Channel, message::MessageLink, BufferAction),
+    GoToMessage(buffer::Upstream, message::MessageLink, BufferAction),
     RequestOlderChathistory,
     PreviewChanged,
     HidePreview(history::Kind, history::Id, message::Time, url::Url),
@@ -764,41 +764,20 @@ pub fn view<'a>(
                         }
                     };
 
-                    let content = if is_new_day
-                        && config.buffer.date_separators.show
-                    {
-                        column![
-                            row![
-                                container(
-                                    rule::horizontal(1)
-                                        .style(theme::rule::date)
-                                )
-                                .width(Length::Fill)
-                                .padding(padding::right(6)),
-                                text(
-                                    config.buffer.format_date_separator(&date)
-                                )
-                                .size(divider_font_size)
-                                .style(theme::text::date_separator)
-                                .font_maybe(
-                                    theme::font_style::secondary(theme)
-                                        .map(font::get)
+                    let content =
+                        if is_new_day && config.buffer.date_separators.show {
+                            column![
+                                date_separator(
+                                    config.buffer.format_date_separator(&date),
+                                    config,
+                                    theme,
                                 ),
-                                container(
-                                    rule::horizontal(1)
-                                        .style(theme::rule::date)
-                                )
-                                .width(Length::Fill)
-                                .padding(padding::left(6))
+                                element
                             ]
-                            .padding(2)
-                            .align_y(iced::Alignment::Center),
+                            .into()
+                        } else {
                             element
-                        ]
-                        .into()
-                    } else {
-                        element
-                    };
+                        };
 
                     Some(keyed::message(message, content))
                 })
@@ -934,6 +913,7 @@ pub fn view<'a>(
             } else {
                 theme::scrollable::primary
             })
+            .smooth_scroll(config.runtime.smooth_scrolling)
             .on_scroll(move |scroll| Message::Scrolled {
                 limit,
                 visible_message_range,
@@ -1241,16 +1221,14 @@ impl State {
                 return (Task::none(), event);
             }
             Message::Link(message::Link::GoToMessage(
-                server,
-                channel,
+                buffer,
                 message,
                 buffer_action,
             )) => {
                 return (
                     Task::none(),
                     Some(Event::GoToMessage(
-                        server,
-                        channel,
+                        buffer,
                         message,
                         buffer_action.unwrap_or_default(),
                     )),
@@ -2331,6 +2309,30 @@ fn accepts_scroll(
             Limit::Bottom(_) => !more_newer,
             Limit::Around(..) | Limit::Backlog(_) => true,
         }
+}
+
+pub fn date_separator<'a, M: 'a>(
+    label: String,
+    config: &Config,
+    theme: &Theme,
+) -> Element<'a, M> {
+    let font_size = config.font.size.map_or(theme::TEXT_SIZE, f32::from) - 1.0;
+
+    row![
+        container(rule::horizontal(1).style(theme::rule::date))
+            .width(Length::Fill)
+            .padding(padding::right(6)),
+        text(label)
+            .size(font_size)
+            .style(theme::text::date_separator)
+            .font_maybe(theme::font_style::secondary(theme).map(font::get)),
+        container(rule::horizontal(1).style(theme::rule::date))
+            .width(Length::Fill)
+            .padding(padding::left(6))
+    ]
+    .padding(2)
+    .align_y(iced::Alignment::Center)
+    .into()
 }
 
 fn step_messages(height: f32, config: &Config) -> usize {

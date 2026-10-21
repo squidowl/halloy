@@ -1295,6 +1295,8 @@ fn connected_command_list<'a>(
                 subcommands: None,
             }
         },
+        // SEARCH
+        search_command(),
         // EXEC
         exec_command(),
         // CLEAR
@@ -1538,6 +1540,8 @@ fn disconnected_command_list(server: &Server) -> Vec<Command> {
     vec![
         // EXEC
         exec_command(),
+        // SEARCH
+        search_command(),
         // CONNECT
         {
             Command {
@@ -1562,6 +1566,21 @@ fn disconnected_command_list(server: &Server) -> Vec<Command> {
             }
         },
     ]
+}
+
+fn search_command() -> Command {
+    Command {
+        title: "SEARCH".into(),
+        args: vec![Argument {
+            text: "query".into(),
+            kind: ArgumentKind::Optional { skipped: false },
+            tooltip: Some(
+                "words to search for; from:nick and in:#channel narrow the search"
+                    .to_string(),
+            ),
+        }],
+        subcommands: None,
+    }
 }
 
 fn exec_command() -> Command {
@@ -1731,6 +1750,7 @@ impl Command {
             "clear" => Cow::Borrowed("Clears the buffer"),
             "cleartopic" => Cow::Borrowed("Clear the topic of a channel"),
             "sysinfo" => Cow::Borrowed("Send system information"),
+            "search" => Cow::Borrowed("Search messages in all buffers"),
             "detach" => Cow::Borrowed(
                 "Hide the channel, leaving the bouncer's connection to the channel active",
             ),

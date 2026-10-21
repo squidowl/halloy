@@ -55,13 +55,9 @@ impl Command {
                 lookup.server.clone(),
                 lookup.target.clone(),
             )],
-            Self::HighlightSource(navigation, _) => vec![
-                Kind::Highlights,
-                Kind::Channel(
-                    navigation.server.clone(),
-                    navigation.channel.clone(),
-                ),
-            ],
+            Self::HighlightSource(navigation, _) => {
+                vec![Kind::Highlights, Kind::from(navigation.buffer.clone())]
+            }
             Self::Resend(lookup) => vec![Kind::from(lookup.buffer.clone())],
             Self::Exit(histories, _) => {
                 histories.iter().map(|(kind, _)| kind.clone()).collect()
@@ -125,6 +121,7 @@ impl Worker {
                 failure: None,
                 index_backlog: true,
                 index_failed: false,
+                indexed_unannounced: false,
                 server_messages_config,
             };
             match state.open() {
@@ -211,6 +208,7 @@ struct State {
     failure: Option<String>,
     index_backlog: bool,
     index_failed: bool,
+    indexed_unannounced: bool,
     server_messages_config: config::buffer::ServerMessages,
 }
 
@@ -223,7 +221,14 @@ impl State {
             return;
         };
         match database.index(INDEX_BATCH) {
-            Ok(more) => self.index_backlog = more,
+            Ok((more, inserted)) => {
+                self.index_backlog = more;
+                self.indexed_unannounced |= inserted;
+                if self.indexed_unannounced && !more {
+                    self.indexed_unannounced = false;
+                    let _ = self.events.send(vec![Event::Indexed]);
+                }
+            }
             Err(error) => {
                 log::warn!("search indexing stopped: {error}");
                 self.index_failed = true;
@@ -484,10 +489,7 @@ impl State {
                 if navigation.token.strong_count() == 0 {
                     return;
                 }
-                let kind = Kind::Channel(
-                    navigation.server.clone(),
-                    navigation.channel.clone(),
-                );
+                let kind = Kind::from(navigation.buffer.clone());
                 match database.highlight_source(&kind, highlight) {
                     Ok(message) => navigation.message = message,
                     Err(error) => self.fail(string(error)),

@@ -95,6 +95,7 @@ pub enum Message {
     CancelFilehostUpload,
     ConfigReloadComplete,
     Model(model::Message),
+    Indexed,
 }
 
 #[derive(Debug)]
@@ -1100,6 +1101,17 @@ impl Dashboard {
                             None,
                         );
                     }
+                    Search => {
+                        return (
+                            self.toggle_internal_buffer(
+                                clients,
+                                storage,
+                                config,
+                                buffer::Internal::Search(None),
+                            ),
+                            None,
+                        );
+                    }
                     ToggleFullscreen => {
                         return (
                             window::toggle_fullscreen(),
@@ -1517,6 +1529,28 @@ impl Dashboard {
             }
             Message::ConfigReloadComplete => {
                 self.reloading_config = false;
+            }
+            Message::Indexed => {
+                let tasks = self
+                    .panes
+                    .iter_mut()
+                    .filter_map(|(window, pane, state)| {
+                        let Buffer::Search(search) = &mut state.buffer else {
+                            return None;
+                        };
+                        Some(search.indexed(storage).map(move |message| {
+                            Message::Pane(
+                                window,
+                                pane::Message::Buffer(
+                                    pane,
+                                    buffer::Message::Search(message),
+                                ),
+                            )
+                        }))
+                    })
+                    .collect::<Vec<_>>();
+
+                return (Task::batch(tasks), None);
             }
             Message::Model(message) => {
                 let event = self
@@ -2086,6 +2120,22 @@ impl Dashboard {
 
                         None
                     }
+                    buffer::context_menu::Event::SearchMessages(nick) => {
+                        tasks.push(
+                            self.open_buffer(
+                                buffer::Internal::Search(Some(format!(
+                                    "from:{nick} "
+                                )))
+                                .into(),
+                                config.actions.buffer.open_internal,
+                                clients,
+                                storage,
+                                config,
+                            ),
+                        );
+
+                        None
+                    }
                     buffer::context_menu::Event::OpenTarget(
                         server,
                         target,
@@ -2346,15 +2396,13 @@ impl Dashboard {
                 }
             }
             buffer::Event::GoToMessage(
-                server,
-                channel,
+                upstream,
                 destination,
                 buffer_action,
             ) => {
                 self.pending_navigation = None;
                 let mut navigation = model::Navigation {
-                    server,
-                    channel,
+                    buffer: upstream,
                     message: None,
                     buffer_action,
                     token: std::sync::Weak::new(),
@@ -3151,10 +3199,7 @@ impl Dashboard {
         storage: &mut storage::Manager,
         config: &Config,
     ) -> Task<Message> {
-        let buffer = data::Buffer::Upstream(buffer::Upstream::Channel(
-            navigation.server,
-            navigation.channel,
-        ));
+        let buffer = data::Buffer::Upstream(navigation.buffer);
 
         let mut tasks = vec![];
 
@@ -3204,6 +3249,24 @@ impl Dashboard {
         config: &Config,
     ) -> Task<Message> {
         self.pending_navigation = None;
+
+        if let data::Buffer::Internal(buffer::Internal::Search(Some(query))) =
+            &buffer
+        {
+            let open =
+                self.panes.iter_mut().find_map(|(window, pane, state)| {
+                    let Buffer::Search(search) = &mut state.buffer else {
+                        return None;
+                    };
+                    search.set_query(query.clone());
+                    Some((window, pane))
+                });
+
+            if let Some((window, pane)) = open {
+                return self.focus_pane(window, pane);
+            }
+        }
+
         let open_in = self.panes.iter().find_map(|(window, pane, state)| {
             (state.buffer.data().as_ref() == Some(&buffer))
                 .then_some((window, pane))
@@ -3240,7 +3303,8 @@ impl Dashboard {
                 | buffer::Internal::Logs
                 | buffer::Internal::Highlights
                 | buffer::Internal::ChannelDiscovery(_)
-                | buffer::Internal::ConfigEditor => (),
+                | buffer::Internal::ConfigEditor
+                | buffer::Internal::Search(_) => (),
             }
         }
 
