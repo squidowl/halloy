@@ -6,7 +6,6 @@ use data::config::server::SidebarVisibility;
 use data::config::sidebar::{InternalBuffer, PrimaryIcon};
 use data::config::{self, Config, sidebar};
 use data::dashboard::{BufferAction, BufferFocusedAction};
-use data::history::sidebar_buffers::SidebarBuffers;
 use data::history::{self, model};
 use data::{
     Image, Version, buffer, file_transfer, isupport, server, server_icon,
@@ -122,7 +121,6 @@ impl Sidebar {
         servers: &server::Map,
         clients: &data::client::Map,
         models: &model::Manager,
-        sidebar_buffers: &SidebarBuffers,
         panes: &Panes,
         config: &Config,
         show_muted_buffers: bool,
@@ -132,7 +130,6 @@ impl Sidebar {
             servers,
             clients,
             models,
-            sidebar_buffers,
             panes,
             config,
             show_muted_buffers,
@@ -159,7 +156,6 @@ impl Sidebar {
         servers: &server::Map,
         clients: &data::client::Map,
         models: &model::Manager,
-        sidebar_buffers: &SidebarBuffers,
         panes: &Panes,
         config: &Config,
         show_muted_buffers: bool,
@@ -169,7 +165,6 @@ impl Sidebar {
             servers,
             clients,
             models,
-            sidebar_buffers,
             panes,
             config,
             show_muted_buffers,
@@ -206,7 +201,6 @@ impl Sidebar {
         servers: &server::Map,
         clients: &data::client::Map,
         models: &model::Manager,
-        sidebar_buffers: &SidebarBuffers,
         panes: &Panes,
         config: &Config,
         show_muted_buffers: bool,
@@ -257,10 +251,9 @@ impl Sidebar {
                 casemapping,
             )?;
 
-            let targets = sidebar_buffers.sidebar_targets(
+            let targets = models.sidebar_targets(
                 server,
                 clients,
-                models,
                 server_config.as_deref(),
             );
 
@@ -802,7 +795,6 @@ impl Sidebar {
         servers: &server::Map,
         clients: &data::client::Map,
         models: &'a model::Manager,
-        sidebar_buffers: &SidebarBuffers,
         panes: &'a Panes,
         server_icons: &'a server_icon::Manager,
         config: &'a Config,
@@ -832,7 +824,6 @@ impl Sidebar {
                 servers,
                 clients,
                 models,
-                sidebar_buffers,
                 panes,
                 config,
                 show_muted_buffers,

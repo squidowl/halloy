@@ -2325,15 +2325,13 @@ impl State {
                                     target.as_channel() != Some(*channel)
                                 })
                             {
-                                storage
-                                    .get_sidebar_buffers_mut()
-                                    .forget_closed_channel(
-                                        &history::Kind::Channel(
-                                            buffer.as_server().clone(),
-                                            channel.clone(),
-                                        ),
-                                        clients,
-                                    );
+                                storage.show_in_sidebar(
+                                    history::Kind::Channel(
+                                        buffer.as_server().clone(),
+                                        channel.clone(),
+                                    ),
+                                    false,
+                                );
                             }
 
                             Event::OpenBuffers {

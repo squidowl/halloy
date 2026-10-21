@@ -133,7 +133,6 @@ pub enum Event {
     BouncerNetwork(Server, Arc<config::Server>),
     BouncerNetworksListed(Vec<Server>),
     ShowInSidebar(Target),
-    LeftChannel(target::Channel),
     AuthenticationFailed(Option<String>),
     UpdateIcon,
 }
@@ -1255,8 +1254,6 @@ impl Client {
             };
         }
 
-        let mut left_channel = None;
-
         if !self.pending_joins.is_empty() {
             self.resolve_failed_join(&message.command);
         }
@@ -2022,12 +2019,9 @@ impl Client {
                         self.casemapping(),
                     ));
 
-                    let parted =
-                        self.chanmap.shift_remove(&target_channel).is_some();
+                    self.chanmap.shift_remove(&target_channel);
 
                     self.who_queue.parted_channel(&target_channel);
-
-                    left_channel = parted.then_some(target_channel);
                 } else if let Some(channel) =
                     self.chanmap.get_mut(&context!(target::Channel::parse(
                         channel,
@@ -2157,15 +2151,14 @@ impl Client {
                     if casemapping.normalize(victim)
                         == self.nickname().as_normalized_str()
                     {
-                        let kicked =
-                            self.chanmap.shift_remove(&channel).is_some();
+                        self.chanmap.shift_remove(&channel);
 
                         let kicker = ok!(message.user(casemapping));
 
-                        let mut events = vec![Event::Broadcast(
+                        return Ok(vec![Event::Broadcast(
                             broadcast::BroadcastWithContext {
                                 in_channels: broadcast::Channels::Vec(vec![
-                                    channel.clone(),
+                                    channel,
                                 ]),
                                 in_server: true,
                                 in_queries: broadcast::Queries::None,
@@ -2176,13 +2169,7 @@ impl Client {
                                 },
                                 time: message.time(),
                             },
-                        )];
-
-                        if kicked {
-                            events.push(Event::LeftChannel(channel));
-                        }
-
-                        return Ok(events);
+                        )]);
                     } else if let Some(channel) = self.chanmap.get_mut(&channel)
                     {
                         channel.users.remove(&User::from(Nick::from_str(
@@ -3714,7 +3701,6 @@ impl Client {
             })
             .into_iter()
             .map(Event::Message)
-            .chain(left_channel.map(Event::LeftChannel))
             .collect())
     }
 
@@ -4786,7 +4772,7 @@ impl Client {
 
     pub fn sidebar_channels<'a>(
         &'a self,
-        disconnected: impl Iterator<Item = &'a target::Channel>,
+        shown: impl Iterator<Item = &'a target::Channel>,
     ) -> impl Iterator<Item = &'a target::Channel> {
         let order = ChannelOrder::new(
             &self.config,
@@ -4794,11 +4780,13 @@ impl Client {
             self.casemapping(),
         );
 
-        let disconnected = disconnected.sorted_by(|a, b| order.compare(a, b));
+        let unjoined = shown
+            .filter(|channel| !self.chanmap.contains_key(*channel))
+            .sorted_by(|a, b| order.compare(a, b));
 
         self.chanmap
             .keys()
-            .merge_by(disconnected, move |a, b| order.compare(a, b).is_le())
+            .merge_by(unjoined, move |a, b| order.compare(a, b).is_le())
     }
 
     pub fn is_joined(&self, channel: &target::Channel) -> bool {

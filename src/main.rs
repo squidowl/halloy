@@ -880,20 +880,11 @@ impl Halloy {
                     sent_time,
                     autoconnect,
                 } => {
-                    let Screen::Dashboard(dashboard) = &mut self.screen else {
-                        self.clients.disconnected(server.clone(), autoconnect);
+                    self.clients.disconnected(server.clone(), autoconnect);
 
+                    let Screen::Dashboard(dashboard) = &mut self.screen else {
                         return Task::none();
                     };
-
-                    self.storage
-                        .get_sidebar_buffers_mut()
-                        .mark_server_channels_disconnected(
-                            &server,
-                            &self.clients,
-                        );
-
-                    self.clients.disconnected(server.clone(), autoconnect);
 
                     dashboard.process_server_inputs_completion_and_notice(
                         &server,
@@ -1122,7 +1113,6 @@ impl Halloy {
                             event,
                             &self.servers,
                             &mut self.clients,
-                            self.storage.get_sidebar_buffers(),
                             &self.version,
                             &self.config,
                             &mut self.theme,
@@ -1693,7 +1683,6 @@ impl Halloy {
                         &self.clients,
                         &self.version,
                         FilterChain::borrow(self.storage.get_filters()),
-                        self.storage.get_sidebar_buffers(),
                         &self.config,
                         &self.theme,
                     )
@@ -1746,7 +1735,6 @@ impl Halloy {
                         &self.clients,
                         &self.version,
                         FilterChain::borrow(self.storage.get_filters()),
-                        self.storage.get_sidebar_buffers(),
                         &self.config,
                         &self.theme,
                     )
@@ -1961,9 +1949,7 @@ impl Halloy {
                     .map(|(server, _)| server)
                     .chain(&removed_bouncer_networks)
                 {
-                    self.storage
-                        .get_sidebar_buffers_mut()
-                        .forget_server(server);
+                    self.storage.forget_sidebar_buffers(server);
                 }
 
                 self.storage.reload_configuration(
@@ -2072,9 +2058,7 @@ impl Halloy {
 
                     self.clients.remove(&bouncer_network);
 
-                    self.storage
-                        .get_sidebar_buffers_mut()
-                        .forget_server(&bouncer_network);
+                    self.storage.forget_sidebar_buffers(&bouncer_network);
                 }
 
                 self.controllers.end(
@@ -2086,9 +2070,7 @@ impl Halloy {
 
                 self.clients.remove(&server);
 
-                self.storage
-                    .get_sidebar_buffers_mut()
-                    .forget_server(&server);
+                self.storage.forget_sidebar_buffers(&server);
 
                 Task::none()
             }
@@ -2195,11 +2177,6 @@ fn handle_client_events(
                     read_marker,
                 ));
             }
-            Event::LeftChannel(channel) => {
-                storage
-                    .get_sidebar_buffers_mut()
-                    .mark_channel_disconnected(server.clone(), channel);
-            }
             Event::MonitoredOnline(users) => {
                 let kind = history::Kind::Server(server.clone());
                 let message_window = dashboard.find_window_with_history(&kind);
@@ -2263,17 +2240,9 @@ fn handle_client_events(
                 );
             }
             Event::BouncerNetworksListed(listed) => {
-                storage
-                    .get_sidebar_buffers_mut()
-                    .forget_unlisted_bouncer_networks(server, &listed);
+                storage.forget_unlisted_bouncer_networks(server, &listed);
             }
             Event::ShowInSidebar(target) => {
-                if let Target::Channel(channel) = &target {
-                    storage
-                        .get_sidebar_buffers_mut()
-                        .mark_channel_joined(server, channel);
-                }
-
                 let kind = history::Kind::from_target(server.clone(), target);
 
                 storage_updates

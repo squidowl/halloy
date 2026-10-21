@@ -14,7 +14,6 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use super::filter::{Filter, FilterChain};
 use super::reroute::RerouteRules;
-use super::sidebar_buffers::SidebarBuffers;
 use super::{
     Id, Kind, Metadata, ReadMarker, Request, database, model, search,
     smart_filter_internal_message, smart_filter_message, smart_filter_repeat,
@@ -90,7 +89,7 @@ pub struct Manager {
     monitored: Vec<Kind>,
     failure: Option<String>,
     exiting: bool,
-    sidebar_buffers: SidebarBuffers,
+    saved_buffers: HashSet<Kind>,
 }
 
 impl Manager {
@@ -116,7 +115,7 @@ impl Manager {
                 monitored: vec![],
                 failure: None,
                 exiting: false,
-                sidebar_buffers: SidebarBuffers::default(),
+                saved_buffers: HashSet::new(),
             },
             Task::stream(UnboundedReceiverStream::new(event_receiver)),
         )
@@ -140,7 +139,7 @@ impl Manager {
             monitored: vec![],
             failure: None,
             exiting: false,
-            sidebar_buffers: SidebarBuffers::default(),
+            saved_buffers: HashSet::new(),
         }
     }
 
@@ -771,7 +770,6 @@ impl Manager {
 
     pub fn exit(&mut self, buffers: &dyn BuffersContext, config: &Config) {
         self.exiting = true;
-        self.sidebar_buffers.exit();
         let histories = self
             .storage
             .keys()
@@ -805,23 +803,32 @@ impl Manager {
         clients: &client::Map,
         remember_buffers: bool,
     ) -> bool {
-        self.sidebar_buffers.update_saved(
-            sidebar_queries(&self.storage),
-            clients,
-            remember_buffers,
-        )
+        if self.exiting {
+            return false;
+        }
+
+        let buffers = if remember_buffers {
+            sidebar_buffers(&self.storage, clients)
+        } else {
+            HashSet::new()
+        };
+
+        if buffers == self.saved_buffers {
+            return false;
+        }
+
+        self.saved_buffers = buffers;
+
+        true
     }
 
     pub fn saved_buffers(&self) -> Vec<(Server, Target)> {
-        self.sidebar_buffers.to_vec()
-    }
-
-    pub fn get_sidebar_buffers(&self) -> &SidebarBuffers {
-        &self.sidebar_buffers
-    }
-
-    pub fn get_sidebar_buffers_mut(&mut self) -> &mut SidebarBuffers {
-        &mut self.sidebar_buffers
+        self.saved_buffers
+            .iter()
+            .filter_map(|kind| {
+                Some((kind.as_server()?.clone(), kind.target()?))
+            })
+            .collect()
     }
 
     pub fn restore_saved_buffers(
@@ -840,23 +847,45 @@ impl Manager {
                 continue;
             }
 
-            // load metadata so unread state shows in the sidebar
-            match &target {
-                Target::Channel(channel) => {
-                    self.get_or_load_mut(Kind::Channel(
-                        server.clone(),
-                        channel.clone(),
-                    ));
-                }
-                Target::Query(query) => {
-                    self.show_in_sidebar(
-                        Kind::Query(server.clone(), query.clone()),
-                        true,
-                    );
-                }
-            }
+            let kind = Kind::from_target(server, target);
 
-            self.sidebar_buffers.restore(server, target);
+            // load metadata so unread state shows in the sidebar
+            self.show_in_sidebar(kind.clone(), true);
+
+            self.saved_buffers.insert(kind);
+        }
+    }
+
+    pub fn forget_sidebar_buffers(&mut self, server: &Server) {
+        self.hide_in_sidebar(|shown| shown == server);
+    }
+
+    pub fn forget_unlisted_bouncer_networks(
+        &mut self,
+        parent: &Server,
+        listed: &[Server],
+    ) {
+        self.hide_in_sidebar(|shown| {
+            shown.parent().as_ref() == Some(parent) && !listed.contains(shown)
+        });
+    }
+
+    fn hide_in_sidebar(&mut self, servers: impl Fn(&Server) -> bool) {
+        let kinds = self
+            .storage
+            .iter()
+            .filter_map(|(kind, storage)| match kind {
+                Kind::Channel(server, _) | Kind::Query(server, _)
+                    if storage.show_in_sidebar && servers(server) =>
+                {
+                    Some(kind.clone())
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        for kind in kinds {
+            self.show_in_sidebar(kind, false);
         }
     }
 
@@ -1108,15 +1137,26 @@ impl Manager {
     }
 }
 
-fn sidebar_queries(
+fn sidebar_buffers(
     storage: &HashMap<Kind, Storage>,
-) -> impl Iterator<Item = (&Server, &target::Query)> + Clone {
-    storage.iter().filter_map(|(kind, storage)| match kind {
-        Kind::Query(server, query) if storage.show_in_sidebar => {
-            Some((server, query))
-        }
-        _ => None,
-    })
+    clients: &client::Map,
+) -> HashSet<Kind> {
+    let shown = storage
+        .iter()
+        .filter(|(kind, storage)| {
+            matches!(kind, Kind::Channel(..) | Kind::Query(..))
+                && storage.show_in_sidebar
+        })
+        .map(|(kind, _)| kind.clone());
+
+    // joined channels show before their join is committed to storage
+    let joined = clients.connected_servers().flat_map(|server| {
+        clients
+            .get_channels(server)
+            .map(|channel| Kind::Channel(server.clone(), channel.clone()))
+    });
+
+    shown.chain(joined).collect()
 }
 
 #[derive(Debug)]

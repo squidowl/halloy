@@ -21,7 +21,6 @@ pub mod metadata;
 pub mod model;
 pub mod reroute;
 pub mod search;
-pub mod sidebar_buffers;
 pub mod storage;
 
 #[derive(

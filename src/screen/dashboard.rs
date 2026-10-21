@@ -14,7 +14,6 @@ use data::config::buffer::{ScrollPosition, UsernameFormat};
 use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
 use data::history::filter::FilterChain;
-use data::history::sidebar_buffers::SidebarBuffers;
 use data::history::{self, model, storage};
 use data::isupport::{self};
 use data::message::source::Status;
@@ -682,12 +681,7 @@ impl Dashboard {
                         self.toggle_command_bar(
                             servers,
                             clients,
-                            &closed_upstream_buffers(
-                                self,
-                                servers,
-                                clients,
-                                storage.get_sidebar_buffers(),
-                            ),
+                            &closed_upstream_buffers(self, servers, clients),
                             version,
                             config,
                             theme,
@@ -871,10 +865,7 @@ impl Dashboard {
                                     servers,
                                     clients,
                                     &closed_upstream_buffers(
-                                        self,
-                                        servers,
-                                        clients,
-                                        storage.get_sidebar_buffers(),
+                                        self, servers, clients,
                                     ),
                                     version,
                                     config,
@@ -890,10 +881,7 @@ impl Dashboard {
                                 servers,
                                 clients,
                                 &closed_upstream_buffers(
-                                    self,
-                                    servers,
-                                    clients,
-                                    storage.get_sidebar_buffers(),
+                                    self, servers, clients,
                                 ),
                                 version,
                                 config,
@@ -972,7 +960,6 @@ impl Dashboard {
                             servers,
                             clients,
                             &self.models,
-                            storage.get_sidebar_buffers(),
                             &self.panes,
                             config,
                             self.buffer_settings.show_muted,
@@ -1006,7 +993,6 @@ impl Dashboard {
                             servers,
                             clients,
                             &self.models,
-                            storage.get_sidebar_buffers(),
                             &self.panes,
                             config,
                             self.buffer_settings.show_muted,
@@ -1088,10 +1074,7 @@ impl Dashboard {
                                 servers,
                                 clients,
                                 &closed_upstream_buffers(
-                                    self,
-                                    servers,
-                                    clients,
-                                    storage.get_sidebar_buffers(),
+                                    self, servers, clients,
                                 ),
                                 version,
                                 config,
@@ -1282,7 +1265,6 @@ impl Dashboard {
                                 servers,
                                 clients,
                                 &self.models,
-                                storage.get_sidebar_buffers(),
                                 &self.panes,
                                 config,
                                 self.buffer_settings.show_muted,
@@ -1321,7 +1303,6 @@ impl Dashboard {
                                 servers,
                                 clients,
                                 &self.models,
-                                storage.get_sidebar_buffers(),
                                 &self.panes,
                                 config,
                                 self.buffer_settings.show_muted,
@@ -1659,7 +1640,6 @@ impl Dashboard {
         clients: &'a client::Map,
         version: &'a Version,
         filter_chain: FilterChain,
-        sidebar_buffers: &'a SidebarBuffers,
         config: &'a Config,
         theme: &'a Theme,
     ) -> Element<'a, Message> {
@@ -1707,13 +1687,7 @@ impl Dashboard {
             let base = Element::new(content)
                 .map(move |message| Message::Pane(window, message));
             let base = self.with_command_bar_overlay(
-                base,
-                window,
-                servers,
-                clients,
-                sidebar_buffers,
-                version,
-                config,
+                base, window, servers, clients, version, config,
             );
 
             return self.with_keyboard_shortcuts(base, config);
@@ -1732,7 +1706,6 @@ impl Dashboard {
         clients: &'a client::Map,
         version: &'a Version,
         filter_chain: FilterChain,
-        sidebar_buffers: &'a SidebarBuffers,
         config: &'a Config,
         theme: &'a Theme,
     ) -> Element<'a, Message> {
@@ -1803,7 +1776,6 @@ impl Dashboard {
                 servers,
                 clients,
                 &self.models,
-                sidebar_buffers,
                 &self.panes,
                 &self.server_icons,
                 config,
@@ -1849,7 +1821,6 @@ impl Dashboard {
             self.main_window(),
             servers,
             clients,
-            sidebar_buffers,
             version,
             config,
         );
@@ -1863,7 +1834,6 @@ impl Dashboard {
         window: window::Id,
         servers: &'a server::Map,
         clients: &'a client::Map,
-        sidebar_buffers: &'a SidebarBuffers,
         version: &'a Version,
         config: &'a Config,
     ) -> Element<'a, Message> {
@@ -1881,7 +1851,6 @@ impl Dashboard {
                                 servers,
                                 clients,
                                 &self.models,
-                                sidebar_buffers,
                             ),
                             self.panes.focus,
                             self.buffer_resize_action(),
@@ -2838,7 +2807,6 @@ impl Dashboard {
         event: event::Event,
         servers: &server::Map,
         clients: &mut client::Map,
-        sidebar_buffers: &SidebarBuffers,
         version: &Version,
         config: &Config,
         theme: &mut Theme,
@@ -2882,12 +2850,7 @@ impl Dashboard {
                     self.toggle_command_bar(
                         servers,
                         clients,
-                        &closed_upstream_buffers(
-                            self,
-                            servers,
-                            clients,
-                            sidebar_buffers,
-                        ),
+                        &closed_upstream_buffers(self, servers, clients),
                         version,
                         config,
                         theme,
@@ -3720,16 +3683,12 @@ impl Dashboard {
             }
         };
 
-        storage
-            .get_sidebar_buffers_mut()
-            .forget_closed_channel(&kind, clients);
+        storage.show_in_sidebar(kind, false);
 
         // Close pane
         if let Some((window, pane)) = open {
             self.close_pane(clients, storage, config, window, pane)
         } else {
-            storage.show_in_sidebar(kind, false);
-
             Task::none()
         }
     }
@@ -4025,9 +3984,6 @@ impl Dashboard {
                     } else {
                         !clients.contains_query(server, query)
                     }
-                }
-                history::Kind::Channel(server, channel) => {
-                    !clients.contains_channel(server, channel)
                 }
                 _ => false,
             };
@@ -5301,18 +5257,13 @@ fn all_upstream_buffers(
     servers: &server::Map,
     clients: &client::Map,
     models: &model::Manager,
-    sidebar_buffers: &SidebarBuffers,
 ) -> Vec<buffer::Upstream> {
     clients
         .iter()
         .flat_map(|(server, _)| {
             let config = servers.get(server);
-            let targets = sidebar_buffers.sidebar_targets(
-                server,
-                clients,
-                models,
-                config.as_deref(),
-            );
+            let targets =
+                models.sidebar_targets(server, clients, config.as_deref());
 
             std::iter::once(buffer::Upstream::Server(server.clone()))
                 .chain(targets.channels.into_iter().map(|(channel, _)| {
@@ -5346,11 +5297,10 @@ fn closed_upstream_buffers(
     dashboard: &Dashboard,
     servers: &server::Map,
     clients: &client::Map,
-    sidebar_buffers: &SidebarBuffers,
 ) -> Vec<buffer::Upstream> {
     let open_buffers = open_upstream_buffers(dashboard);
 
-    all_upstream_buffers(servers, clients, &dashboard.models, sidebar_buffers)
+    all_upstream_buffers(servers, clients, &dashboard.models)
         .into_iter()
         .filter(|buffer| !open_buffers.contains(buffer))
         .collect()
