@@ -19,6 +19,7 @@ pub enum Message {
 pub fn view<'a>(
     _state: &FileTransfers,
     file_transfers: &'a file_transfer::Manager,
+    config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
     if file_transfers.is_empty() {
@@ -53,7 +54,8 @@ pub fn view<'a>(
             .direction(scrollable::Direction::Vertical(
                 scrollable::Scrollbar::new().width(1).scroller_width(1),
             ))
-            .style(theme::scrollable::hidden),
+            .style(theme::scrollable::hidden)
+            .smooth_scroll(config.runtime.smooth_scrolling),
     )
     .width(Length::Fill)
     .height(Length::Fill)
