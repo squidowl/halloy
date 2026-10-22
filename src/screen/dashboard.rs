@@ -1415,7 +1415,7 @@ impl Dashboard {
                         // close_picker does not return true.
                         } else if state
                             .buffer
-                            .clear_draft_reply(storage, config)
+                            .clear_draft_reply(clients, storage, config)
                         {
                             return (Task::none(), None);
                         }
@@ -2157,7 +2157,9 @@ impl Dashboard {
                         if let Some((_, _, pane)) = self.get_focused_mut() {
                             pane.buffer.insert_user_to_input(
                                 nick,
+                                clients,
                                 storage,
+                                config,
                                 &config.buffer.text_input.autocomplete,
                             );
                         }

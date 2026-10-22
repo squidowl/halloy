@@ -13,6 +13,14 @@ Added:
 - Search buffer to search messages across all servers, channels and queries, opened from the command bar, sidebar menu, a nickname's context menu, the `search` key binding or `/search`
 - Setting `runtime.smooth_scrolling` to control whether smooth scrolling is used
 - Notification and highlights matches `sound` property now accept an array of sounds, in which case they'll be picked at random
+- Spellcheck for the message input (`buffer.text_input.spellcheck`)
+  - Uses the platform spellchecker; optional `locale`
+  - Skips channel names and known nicks
+  - Solid underline for misspellings (`underline = true` by default)
+  - <kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd> cycles suggestions when
+    autocomplete does not apply (`suggestions = true`)
+- Theme style `text.spellcheck_misspelled`
+  (default: `text.error` in italic when unset; optional `underline_color`)
 
 Fixed:
 
