@@ -4,7 +4,8 @@
     "runtime-version": "26.08",
     "sdk": "org.freedesktop.Sdk",
     "sdk-extensions" : [
-        "org.freedesktop.Sdk.Extension.rust-stable"
+        "org.freedesktop.Sdk.Extension.rust-stable",
+        "org.freedesktop.Sdk.Extension.llvm22"
     ],
     "command": "halloy",
     "finish-args": [
@@ -17,7 +18,8 @@
         "--talk-name=org.freedesktop.Notifications"
     ],
     "build-options": {
-        "append-path" : "/usr/lib/sdk/rust-stable/bin"
+        "append-path" : "/usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/llvm22/bin",
+        "prepend-ld-library-path" : "/usr/lib/sdk/llvm22/lib"
     },
     "modules": [
         {
