@@ -286,6 +286,32 @@ Action when clicking a user/query buffer in the sidebar. If unset, it falls back
 query = "new-window"
 ```
 
+### `server`
+
+Action when clicking a server buffer in the sidebar. If unset, it falls back to the value of `buffer`.
+
+```toml
+# Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: not set (falls back to `buffer`)
+
+[actions.sidebar]
+server = "new-pane"
+```
+
+### `internal`
+
+Action when clicking an internal buffer in the sidebar. If unset, it falls back to the value of `buffer`.
+
+```toml
+# Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: not set (falls back to `buffer`)
+
+[actions.sidebar]
+internal = "new-pane"
+```
+
 ### `focused_buffer`
 
 Action when clicking a focused buffer in the sidebar. `"close-pane"` will close the focused pane.
