@@ -260,14 +260,16 @@ pub trait BuffersContext {
         &self,
         kind: &history::Kind,
     ) -> Option<iced::window::Id>;
+
+    fn open_pane_server_queries(&self, server: &Server) -> Vec<&target::Query>;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BuffersContextSnapshot {
     pub buffers: HashMap<history::Kind, BufferContextSnapshot>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BufferContextSnapshot {
     Focused {
         is_scrolled_to_bottom: bool,
@@ -383,6 +385,21 @@ impl BuffersContext for BuffersContextSnapshot {
             BufferContextSnapshot::Focused { window, .. } => *window,
             BufferContextSnapshot::Open { window, .. } => *window,
         })
+    }
+
+    fn open_pane_server_queries(&self, server: &Server) -> Vec<&target::Query> {
+        self.buffers
+            .keys()
+            .filter_map(|kind| {
+                if let history::Kind::Query(kind_server, query) = kind
+                    && kind_server == server
+                {
+                    Some(query)
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
 
