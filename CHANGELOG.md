@@ -37,7 +37,7 @@ Changed:
 Thanks:
 
 - Contributions: @httpsterio, @oooo-ps, @rtmongold
-- Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768, @WinnerWind, @strafe
+- Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768, @WinnerWind, @strafe, wwWraith
 - Feature requests: @ainola, @kalebris, @sf302, @ToyKeeper
 - Contributions: @httpsterio
 
