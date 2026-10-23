@@ -252,9 +252,8 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                                     ))
                             }
                             data::message::Fragment::User(user, text) => {
-                                if data::message::is_excluded_nickname(
-                                    user.nickname(),
-                                    &config.buffer.nickname.exclude,
+                                if config.buffer.nickname.is_excluded(
+                                    user.nickname().as_nickref(),
                                     casemapping,
                                 ) {
                                     span(text)
@@ -296,9 +295,8 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                                 user,
                                 text,
                             ) => {
-                                if data::message::is_excluded_nickname(
-                                    user.nickname(),
-                                    &config.buffer.nickname.exclude,
+                                if config.buffer.nickname.is_excluded(
+                                    user.nickname().as_nickref(),
                                     casemapping,
                                 ) {
                                     span(text)
