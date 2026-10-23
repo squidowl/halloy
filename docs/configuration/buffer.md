@@ -888,15 +888,18 @@ color = "#98C379"
 
 Nicknames to exclude from message text detection. Excluded nicknames still
 render normally as message senders, but mentions in message text are shown as
-plain text instead of clickable nickname links. Matching uses the server's
-casemapping.
+plain text instead of clickable nickname links. This is an opt-in list;
+Halloy does not try to guess common words.
+
+Matching is casemapping-aware, not case-sensitive: under ASCII/RFC1459,
+`exclude = ["she"]` matches `she`, `She`, and `SHE`.
 
 ```toml
 # Type: array of strings
 # Default: []
 
 [buffer.nickname]
-exclude = ["A"]
+exclude = ["A", "she", "chat"]
 ```
 
 ### `offline`
