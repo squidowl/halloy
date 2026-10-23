@@ -1848,6 +1848,7 @@ pub fn parse_fragments_with_highlights(
     highlights: &Highlights,
     server: &Server,
     casemapping: isupport::CaseMap,
+    exclude: &[String],
 ) -> (Content, Option<highlight::Kind>) {
     let mut highlight_kind = None;
     let mut sounds = HashSet::new();
@@ -1868,6 +1869,7 @@ pub fn parse_fragments_with_highlights(
         text,
         UserLookup::Channel(channel_users),
         casemapping,
+        exclude,
     )
     .map(|fragment| match fragment {
         Fragment::User(user, raw)
@@ -1944,6 +1946,7 @@ pub fn parse_fragments_with_user(
         text,
         UserLookup::User(user),
         casemapping,
+        &[],
     )
     .collect();
 
@@ -1955,10 +1958,20 @@ pub fn parse_fragments_with_users(
     channel_users: Option<&ChannelUsers>,
     casemapping: isupport::CaseMap,
 ) -> Content {
+    parse_fragments_with_users_excluding(text, channel_users, casemapping, &[])
+}
+
+pub fn parse_fragments_with_users_excluding(
+    text: String,
+    channel_users: Option<&ChannelUsers>,
+    casemapping: isupport::CaseMap,
+    exclude: &[String],
+) -> Content {
     let fragments = parse_fragments_with_users_inner(
         text,
         UserLookup::Channel(channel_users),
         casemapping,
+        exclude,
     )
     .collect();
 
@@ -1979,11 +1992,23 @@ fn content_from_fragments(mut fragments: Vec<Fragment>) -> Content {
     Content::Fragments(fragments)
 }
 
-fn parse_fragments_with_users_inner(
-    text: String,
-    users: UserLookup<'_>,
+fn is_excluded_nickname(
+    nick: &Nick,
+    exclude: &[String],
     casemapping: isupport::CaseMap,
-) -> impl Iterator<Item = Fragment> + use<'_> {
+) -> bool {
+    exclude.iter().any(|excluded| {
+        Nick::from_str(excluded, casemapping).as_normalized_str()
+            == nick.as_normalized_str()
+    })
+}
+
+fn parse_fragments_with_users_inner<'a>(
+    text: String,
+    users: UserLookup<'a>,
+    casemapping: isupport::CaseMap,
+    exclude: &'a [String],
+) -> impl Iterator<Item = Fragment> + use<'a> {
     let has_users = match users {
         UserLookup::Channel(channel_users) => {
             channel_users.is_some_and(|users| !users.is_empty())
@@ -2002,6 +2027,9 @@ fn parse_fragments_with_users_inner(
                     text,
                     |text| {
                         let nick = Nick::from_str(text, casemapping);
+                        if is_excluded_nickname(&nick, exclude, casemapping) {
+                            return None;
+                        }
                         let user = match users {
                             UserLookup::Channel(channel_users) => {
                                 channel_users?.get_by_nick(&nick)
@@ -3215,10 +3243,11 @@ fn content<'a>(
                 .and_then(|channel| channel_users(&channel));
 
                 Some((
-                    parse_fragments_with_users(
+                    parse_fragments_with_users_excluding(
                         format!("{} sets mode {modes}{args}", user.nickname()),
                         channel_users,
                         casemapping,
+                        &config.buffer.nickname.exclude,
                     ),
                     None,
                 ))
@@ -3244,13 +3273,14 @@ fn content<'a>(
                         .collect::<ChannelUsers>();
 
                 Some((
-                    parse_fragments_with_users(
+                    parse_fragments_with_users_excluding(
                         format!(
                             "{} sets {target} mode {modes}{args}",
                             raw_user.nickname()
                         ),
                         Some(&channel_users),
                         casemapping,
+                        &config.buffer.nickname.exclude,
                     ),
                     None,
                 ))
@@ -3281,6 +3311,7 @@ fn content<'a>(
                     &config.highlights,
                     server,
                     casemapping,
+                    &config.buffer.nickname.exclude,
                 )
             {
                 return Some(action);
@@ -3311,10 +3342,11 @@ fn content<'a>(
                 .is_some_and(|user| user.nickname() == our_nick)
             {
                 Some((
-                    parse_fragments_with_users(
+                    parse_fragments_with_users_excluding(
                         text.clone(),
                         channel_users,
                         casemapping,
+                        &config.buffer.nickname.exclude,
                     ),
                     None,
                 ))
@@ -3328,6 +3360,7 @@ fn content<'a>(
                     &config.highlights,
                     server,
                     casemapping,
+                    &config.buffer.nickname.exclude,
                 ))
             }
         }
@@ -3577,7 +3610,7 @@ fn content<'a>(
             let targets = monitored_targets_text(target_usernames)?;
 
             Some((
-                parse_fragments_with_users(
+                parse_fragments_with_users_excluding(
                     match numeric {
                         RPL_MONONLINE => format!("Monitored {targets} online"),
                         RPL_MONOFFLINE => {
@@ -3590,6 +3623,7 @@ fn content<'a>(
                     },
                     Some(&target_users),
                     casemapping,
+                    &config.buffer.nickname.exclude,
                 ),
                 None,
             ))
@@ -3806,6 +3840,7 @@ fn parse_action(
     highlights: &Highlights,
     server: &Server,
     casemapping: isupport::CaseMap,
+    exclude: &[String],
 ) -> Option<(Content, Option<highlight::Kind>)> {
     if !is_action(text) {
         return None;
@@ -3815,7 +3850,13 @@ fn parse_action(
 
     if user.nickname() == our_nick {
         Some((
-            action_text(user, query.params, channel_users, casemapping),
+            action_text_excluding(
+                user,
+                query.params,
+                channel_users,
+                casemapping,
+                exclude,
+            ),
             None,
         ))
     } else {
@@ -3828,6 +3869,7 @@ fn parse_action(
             highlights,
             server,
             casemapping,
+            exclude,
         ))
     }
 }
@@ -3838,13 +3880,28 @@ pub fn action_text(
     channel_users: Option<&ChannelUsers>,
     casemapping: isupport::CaseMap,
 ) -> Content {
+    action_text_excluding(user, action, channel_users, casemapping, &[])
+}
+
+pub fn action_text_excluding(
+    user: &User,
+    action: Option<&str>,
+    channel_users: Option<&ChannelUsers>,
+    casemapping: isupport::CaseMap,
+    exclude: &[String],
+) -> Content {
     let text = if let Some(action) = action {
         format!("{} {action}", user.nickname())
     } else {
         user.nickname().to_string()
     };
 
-    parse_fragments_with_users(text, channel_users, casemapping)
+    parse_fragments_with_users_excluding(
+        text,
+        channel_users,
+        casemapping,
+        exclude,
+    )
 }
 
 pub fn action_text_with_highlights(
@@ -3856,6 +3913,7 @@ pub fn action_text_with_highlights(
     highlights: &Highlights,
     server: &Server,
     casemapping: isupport::CaseMap,
+    exclude: &[String],
 ) -> (Content, Option<highlight::Kind>) {
     let text = if let Some(action) = action {
         format!("{} {action}", user.nickname())
@@ -3872,6 +3930,7 @@ pub fn action_text_with_highlights(
         highlights,
         server,
         casemapping,
+        exclude,
     )
 }
 
@@ -4138,7 +4197,7 @@ mod tests {
 
     use super::{
         parse_fragments, parse_fragments_with_highlights,
-        parse_fragments_with_users,
+        parse_fragments_with_users, parse_fragments_with_users_excluding,
     };
     use crate::config::Highlights;
     use crate::config::buffer::{Condensation, CondensationFormat};
@@ -4884,6 +4943,40 @@ mod tests {
     }
 
     #[test]
+    fn fragments_with_users_excluding_nicknames() {
+        use hashbrown::HashMap;
+
+        let isupport = HashMap::<isupport::Kind, isupport::Parameter>::new();
+        let casemapping = isupport::get_casemapping_or_default(&isupport);
+
+        let channel_users = [User::from(Nick::from_str("A", casemapping))]
+            .into_iter()
+            .collect::<ChannelUsers>();
+
+        assert_eq!(
+            parse_fragments_with_users(
+                "a".into(),
+                Some(&channel_users),
+                casemapping,
+            ),
+            Content::Fragments(vec![Fragment::User(
+                User::from(Nick::from_str("A", casemapping)),
+                "a".into(),
+            )])
+        );
+
+        assert_eq!(
+            parse_fragments_with_users_excluding(
+                "a".into(),
+                Some(&channel_users),
+                casemapping,
+                &["A".into()],
+            ),
+            Content::Plain("a".into())
+        );
+    }
+
+    #[test]
     fn fragments_with_highlights_parsing() {
         use hashbrown::HashMap;
 
@@ -4992,6 +5085,7 @@ mod tests {
                     highlights,
                     &server,
                     casemapping,
+                    &[],
                 )
             {
                 if let Some(expected) = expected {
