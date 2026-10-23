@@ -837,15 +837,11 @@ impl Halloy {
                         task.map(Message::Modal)
                     }
                     Some(dashboard::Event::Remove(server)) => {
-                        let bouncer_networks: Vec<_> = self
-                            .servers
-                            .get_bouncer_networks(&server)
-                            .cloned()
-                            .collect();
-
-                        for bouncer_network in bouncer_networks {
+                        for bouncer_network in
+                            self.servers.get_bouncer_networks(&server)
+                        {
                             self.controllers.end(
-                                &bouncer_network,
+                                bouncer_network,
                                 &self
                                     .config
                                     .buffer
