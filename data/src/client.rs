@@ -55,6 +55,7 @@ const MODE_REQUEST_DELAY: Duration = Duration::from_millis(600);
 const MODE_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 const TYPING_TIMEOUT: Duration = Duration::from_secs(6);
 const JOIN_TIMEOUT: Duration = Duration::from_secs(10);
+pub const BURST_PING_TOKEN: &str = "halloy-burst";
 // Upper bound on concurrently open IRCv3 batches. A server opens a batch with
 // `BATCH +<ref>` and must close it with `BATCH -<ref>`; without a ceiling a
 // malicious or buggy server could open batches without ever closing them and
@@ -191,6 +192,7 @@ pub struct Client {
     notification_blackout: NotificationBlackout,
     registration_required_channels: Vec<target::Channel>,
     pending_joins: HashMap<target::Channel, Instant>,
+    join_burst: Option<Instant>,
     bouncer_network_listing: Option<Vec<Server>>,
     isupport: HashMap<isupport::Kind, isupport::Parameter>,
     who_queue: who_queue::WhoQueue,
@@ -263,6 +265,7 @@ impl Client {
             ),
             registration_required_channels: vec![],
             pending_joins: HashMap::new(),
+            join_burst: None,
             bouncer_network_listing: None,
             isupport: HashMap::new(),
             who_queue: who_queue::WhoQueue::new(&config),
@@ -1259,6 +1262,11 @@ impl Client {
         }
 
         match &message.command {
+            Command::PONG(_, Some(token)) if token == BURST_PING_TOKEN => {
+                self.join_burst = None;
+
+                return Ok(vec![]);
+            }
             Command::BATCH(batch, params) => {
                 let mut chars = batch.chars();
                 let symbol = ok!(chars.next());
@@ -3456,6 +3464,14 @@ impl Client {
                     }
                 }
 
+                // replies come back in order, so this PONG follows the join burst
+                self.join_burst = Some(Instant::now());
+                self.send(
+                    None,
+                    command!("PING", BURST_PING_TOKEN).into(),
+                    TokenPriority::High,
+                );
+
                 if !self.config.monitor.is_empty() {
                     if let Some(isupport::Parameter::MONITOR(monitor_limit)) =
                         self.isupport.get(&isupport::Kind::MONITOR)
@@ -4806,9 +4822,13 @@ impl Client {
     }
 
     fn is_join_pending(&self, channel: &target::Channel) -> bool {
-        self.pending_joins
-            .get(channel)
+        self.join_burst
             .is_some_and(|sent_at| sent_at.elapsed() < JOIN_TIMEOUT)
+            || self.registration_required_channels.contains(channel)
+            || self
+                .pending_joins
+                .get(channel)
+                .is_some_and(|sent_at| sent_at.elapsed() < JOIN_TIMEOUT)
     }
 
     fn channel_users_received(&mut self, target_channel: target::Channel) {
