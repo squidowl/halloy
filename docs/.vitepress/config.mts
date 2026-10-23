@@ -70,6 +70,7 @@ const configurationItems = [
     link: "/configuration/check-for-update-on-launch",
   },
   { text: "Commands", link: "/commands" },
+  { text: "Config Editor", link: "/configuration/config-editor" },
   {
     text: "Context Menu",
     link: "/configuration/context-menu",
