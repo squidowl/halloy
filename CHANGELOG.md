@@ -13,6 +13,7 @@ Added:
 - Search buffer to search messages across all servers, channels and queries, opened from the command bar, sidebar menu, a nickname's context menu, the `search` key binding or `/search`
 - Setting `runtime.smooth_scrolling` to control whether smooth scrolling is used
 - Notification and highlights matches `sound` property now accept an array of sounds, in which case they'll be picked at random
+- Sidebar typing indicators for queries
 
 Fixed:
 

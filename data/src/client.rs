@@ -4784,6 +4784,14 @@ impl Client {
             .is_some_and(|updated_at| !is_typing_expired(updated_at))
     }
 
+    pub fn has_any_query_typing_users(&self) -> bool {
+        self.querymap.values().any(|query_state| {
+            query_state
+                .typing
+                .is_some_and(|updated_at| !is_typing_expired(updated_at))
+        })
+    }
+
     fn user_channels(&self, nick: &Nick) -> Vec<target::Channel> {
         self.chanmap
             .iter()
@@ -5283,6 +5291,7 @@ impl NotificationBlackout {
         }
     }
 }
+
 #[derive(Debug, Clone)]
 pub enum Context {
     Buffer(buffer::Upstream),
