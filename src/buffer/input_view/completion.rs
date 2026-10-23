@@ -141,6 +141,7 @@ impl Completion {
                 cursor_position,
                 casemapping,
                 users,
+                our_nickname,
                 filters,
                 last_seen,
                 channels.iter().copied(),
@@ -1294,6 +1295,8 @@ fn connected_command_list<'a>(
                 subcommands: None,
             }
         },
+        // SEARCH
+        search_command(),
         // EXEC
         exec_command(),
         // CLEAR
@@ -1537,6 +1540,8 @@ fn disconnected_command_list(server: &Server) -> Vec<Command> {
     vec![
         // EXEC
         exec_command(),
+        // SEARCH
+        search_command(),
         // CONNECT
         {
             Command {
@@ -1561,6 +1566,21 @@ fn disconnected_command_list(server: &Server) -> Vec<Command> {
             }
         },
     ]
+}
+
+fn search_command() -> Command {
+    Command {
+        title: "SEARCH".into(),
+        args: vec![Argument {
+            text: "query".into(),
+            kind: ArgumentKind::Optional { skipped: false },
+            tooltip: Some(
+                "words to search for; from:nick and in:#channel narrow the search"
+                    .to_string(),
+            ),
+        }],
+        subcommands: None,
+    }
 }
 
 fn exec_command() -> Command {
@@ -1730,6 +1750,7 @@ impl Command {
             "clear" => Cow::Borrowed("Clears the buffer"),
             "cleartopic" => Cow::Borrowed("Clear the topic of a channel"),
             "sysinfo" => Cow::Borrowed("Send system information"),
+            "search" => Cow::Borrowed("Search messages in all buffers"),
             "detach" => Cow::Borrowed(
                 "Hide the channel, leaving the bouncer's connection to the channel active",
             ),
@@ -2025,6 +2046,7 @@ impl Words {
         cursor_position: usize,
         casemapping: isupport::CaseMap,
         users: Option<&ChannelUsers>,
+        our_nickname: Option<&Nick>,
         filters: FilterChain,
         last_seen: Option<&HashMap<Nick, DateTime<Utc>>>,
         channels: impl IntoIterator<Item = &'a target::Channel>,
@@ -2046,6 +2068,7 @@ impl Words {
                 cursor_position,
                 casemapping,
                 users,
+                our_nickname,
                 filters,
                 current_target.and_then(Target::as_channel),
                 server,
@@ -2061,6 +2084,7 @@ impl Words {
         cursor_position: usize,
         casemapping: isupport::CaseMap,
         users: Option<&ChannelUsers>,
+        our_nickname: Option<&Nick>,
         filters: FilterChain,
         current_channel: Option<&target::Channel>,
         server: &Server,
@@ -2085,36 +2109,57 @@ impl Words {
                     && user.as_normalized_str().starts_with(&nick)
             })
             .sorted_by(|a, b| {
-                if matches!(autocomplete.order_by, OrderBy::Recent) {
-                    if let Some(a_last_seen) = last_seen
-                        .and_then(|last_seen| last_seen.get(a.nickname()))
-                    {
-                        if let Some(b_last_seen) = last_seen
-                            .and_then(|last_seen| last_seen.get(b.nickname()))
-                        {
-                            b_last_seen.cmp(a_last_seen)
+                let a_is_self =
+                    our_nickname.is_some_and(|nick| a.nickname() == nick);
+                let b_is_self =
+                    our_nickname.is_some_and(|nick| b.nickname() == nick);
+
+                match (a_is_self, b_is_self) {
+                    (true, false) => Ordering::Greater,
+                    (false, true) => Ordering::Less,
+                    _ => {
+                        if matches!(autocomplete.order_by, OrderBy::Recent) {
+                            if let Some(a_last_seen) =
+                                last_seen.and_then(|last_seen| {
+                                    last_seen.get(a.nickname())
+                                })
+                            {
+                                if let Some(b_last_seen) =
+                                    last_seen.and_then(|last_seen| {
+                                        last_seen.get(b.nickname())
+                                    })
+                                {
+                                    b_last_seen.cmp(a_last_seen)
+                                } else {
+                                    Ordering::Less
+                                }
+                            } else if last_seen
+                                .and_then(|last_seen| {
+                                    last_seen.get(b.nickname())
+                                })
+                                .is_some()
+                            {
+                                Ordering::Greater
+                            } else {
+                                match autocomplete.sort_direction {
+                                    SortDirection::Asc => {
+                                        a.nickname().cmp(b.nickname())
+                                    }
+                                    SortDirection::Desc => {
+                                        b.nickname().cmp(a.nickname())
+                                    }
+                                }
+                            }
                         } else {
-                            Ordering::Less
-                        }
-                    } else if last_seen
-                        .and_then(|last_seen| last_seen.get(b.nickname()))
-                        .is_some()
-                    {
-                        Ordering::Greater
-                    } else {
-                        match autocomplete.sort_direction {
-                            SortDirection::Asc => {
-                                a.nickname().cmp(b.nickname())
-                            }
-                            SortDirection::Desc => {
-                                b.nickname().cmp(a.nickname())
+                            match autocomplete.sort_direction {
+                                SortDirection::Asc => {
+                                    a.nickname().cmp(b.nickname())
+                                }
+                                SortDirection::Desc => {
+                                    b.nickname().cmp(a.nickname())
+                                }
                             }
                         }
-                    }
-                } else {
-                    match autocomplete.sort_direction {
-                        SortDirection::Asc => a.nickname().cmp(b.nickname()),
-                        SortDirection::Desc => b.nickname().cmp(a.nickname()),
                     }
                 }
             })

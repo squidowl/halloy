@@ -407,7 +407,7 @@ impl Capabilities {
 
         if let Some(request) = self.create_request(
             "draft/message-redaction",
-            &[],
+            &["message-tags"],
             available,
             config,
         ) {
@@ -429,15 +429,6 @@ impl Capabilities {
         if let Some(request) =
             self.create_request("extended-monitor", &[], available, config)
         {
-            requested.push(request);
-        }
-
-        if let Some(request) = self.create_request(
-            "draft/message-redaction",
-            &[],
-            available,
-            config,
-        ) {
             requested.push(request);
         }
 

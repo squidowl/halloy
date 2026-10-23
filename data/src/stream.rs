@@ -456,50 +456,10 @@ async fn _run(
                             *network_probe = false;
                         }
                         proto::Command::ERROR(error) => {
-                            let autoconnect = !quit_requested.is_some();
-                            connection_attempt = 0;
-
-                            if quit_requested.is_some() {
-                                let _ = sender.unbounded_send(
-                                    Update::Disconnected {
-                                        server: server.clone(),
-                                        is_initial,
-                                        error: None,
-                                        sent_time: Utc::now(),
-                                        autoconnect,
-                                    },
-                                );
-
-                                // If QUIT was requested, then ERROR is
-                                // a valid acknowledgement
-                                // https://modern.ircdocs.horse/#quit-message
-                                state = State::Disconnected {
-                                    autoconnect,
-                                    retry: interval_at(
-                                        config.reconnect_delay,
-                                        config.reconnect_delay,
-                                    ),
-                                };
-                            } else {
-                                log::info!("[{server}] disconnected: {error}");
-
-                                let _ = sender.unbounded_send(
-                                    Update::Disconnected {
-                                        server: server.clone(),
-                                        is_initial,
-                                        error: Some(error),
-                                        sent_time: Utc::now(),
-                                        autoconnect,
-                                    },
-                                );
-                                state = State::Disconnected {
-                                    autoconnect,
-                                    retry: interval_at(
-                                        config.reconnect_delay,
-                                        config.reconnect_delay,
-                                    ),
-                                };
-                            }
+                            // If QUIT was requested, then ERROR is
+                            // a valid acknowledgement
+                            // https://modern.ircdocs.horse/#quit-message
+                            connection_error = Some(error);
                         }
                         _ => {
                             batch.messages.push(message.into());
@@ -574,25 +534,7 @@ async fn _run(
                                     "[{server}] failed to send websocket ping: {e}"
                                 );
 
-                                let autoconnect = quit_requested.is_none();
-                                connection_attempt = 0;
-
-                                let _ = sender.unbounded_send(
-                                    Update::Disconnected {
-                                        server: server.clone(),
-                                        is_initial,
-                                        error: Some(e.to_string()),
-                                        sent_time: Utc::now(),
-                                        autoconnect,
-                                    },
-                                );
-                                state = State::Disconnected {
-                                    autoconnect,
-                                    retry: interval_at(
-                                        config.reconnect_delay,
-                                        config.reconnect_delay,
-                                    ),
-                                };
+                                connection_error = Some(e.to_string());
                             }
                         }
                     }
@@ -726,6 +668,18 @@ async fn _run(
 
                 if let Some(error) = connection_error {
                     log::info!("[{server}] disconnected: {error}");
+
+                    // flush batched messages so they are processed before
+                    // the client state changes to disconnected
+                    if let State::Connected { batch, .. } = &mut state
+                        && !batch.messages.is_empty()
+                    {
+                        let _ =
+                            sender.unbounded_send(Update::MessagesReceived(
+                                server.clone(),
+                                std::mem::take(&mut batch.messages),
+                            ));
+                    }
 
                     connection_attempt = 0;
 

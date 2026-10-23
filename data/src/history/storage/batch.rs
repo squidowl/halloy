@@ -224,6 +224,7 @@ impl Batch {
                         notification,
                         reply_notification,
                     } => {
+                        let is_our_sent = message.inner.is_sent();
                         let reply_is_ours = if let Some(id) =
                             &message.inner.reply_to
                         {
@@ -248,7 +249,7 @@ impl Batch {
                         } {
                             notifications.push(notification.clone());
                         }
-                        let update_display_read_marker = stored.is_sent()
+                        let update_display_read_marker = is_our_sent
                             && self.buffer.mark_as_read.on_message_sent;
                         let update_read_marker = replaced_sent
                             && self.buffer.mark_as_read.on_message_sent;
@@ -265,6 +266,9 @@ impl Batch {
                                 update_read_marker,
                             },
                         );
+                        if is_our_sent {
+                            result.show_in_sidebar = Some(true);
+                        }
                     }
                     Prepared::Reaction(reaction, notify) => {
                         if let Some(stored) = write.reaction(
@@ -622,10 +626,12 @@ fn notifications(
     let text = message.inner.text().into_owned();
     if let Some(channel) = message.inner.target.as_channel() {
         if let Some(highlight) = &message.highlight {
-            let (description, sound) = match highlight {
-                highlight::Kind::Nick => ("highlighted you".to_string(), None),
-                highlight::Kind::Match { matching, sound } => {
-                    (format!("matched highlight {matching}"), sound.clone())
+            let (description, sounds) = match highlight {
+                highlight::Kind::Nick { sounds } => {
+                    ("highlighted you".to_string(), sounds.clone())
+                }
+                highlight::Kind::Match { matching, sounds } => {
+                    (format!("matched highlight {matching}"), sounds.clone())
                 }
             };
             return (
@@ -635,7 +641,7 @@ fn notifications(
                     casemapping,
                     message: text,
                     description,
-                    sound,
+                    sounds,
                 }),
                 None,
             );

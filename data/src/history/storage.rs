@@ -55,6 +55,7 @@ pub enum Event {
     Model(model::Message),
     Notification(Server, Notification),
     Client(client::Message),
+    Indexed,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -285,7 +286,23 @@ impl Manager {
                 self.monitored.push(kind.clone());
             }
             let storage = self.get_or_load_mut(kind.clone());
+
             for update in updates {
+                if let Update::Message(_, message) = update
+                    && let Source::Server(Some(source::Server {
+                        kind: source::server::Kind::ChangeNick,
+                        nick: Some(old_nick),
+                        change: Some(source::server::Change::Nick(new_nick)),
+                    })) = &message.inner.source
+                    && let Some(time) = storage.last_seen.remove(old_nick)
+                    && storage
+                        .last_seen
+                        .get(new_nick)
+                        .is_none_or(|seen| *seen < time)
+                {
+                    storage.last_seen.insert(new_nick.clone(), time);
+                }
+
                 let seen = match update {
                     Update::Message(_, message) => message
                         .inner
@@ -716,9 +733,9 @@ impl Manager {
     pub fn search(
         &self,
         query: search::Query,
-        before: Option<search::Cursor>,
+        range: search::Range,
     ) -> impl Future<Output = Result<search::Page, search::Error>> + use<> {
-        self.searcher.search(query, before)
+        self.searcher.search(query, range)
     }
 
     pub fn request_highlight_source(

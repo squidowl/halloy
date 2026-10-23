@@ -156,6 +156,7 @@ pub fn view<'a>(state: &'a State, config: &'a Config) -> Element<'a, Message> {
             } else {
                 theme::scrollable::primary
             })
+            .smooth_scroll(config.runtime.smooth_scrolling)
             .width(Length::Fill)
             .height(Length::Fill)
             .into()

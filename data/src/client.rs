@@ -1831,6 +1831,8 @@ impl Client {
                 let new_nick =
                     Nick::from_str(nick.as_str(), self.casemapping());
 
+                let channels = self.user_channels(old_user.nickname());
+
                 self.chanmap.values_mut().for_each(|channel| {
                     if let Some(user) = channel.users.take(&old_user) {
                         channel
@@ -1841,9 +1843,7 @@ impl Client {
 
                 return Ok(vec![Event::Broadcast(
                     broadcast::BroadcastWithContext {
-                        in_channels: broadcast::Channels::Vec(
-                            self.user_channels(old_user.nickname()),
-                        ),
+                        in_channels: broadcast::Channels::Vec(channels),
                         in_server: ourself,
                         in_queries: if ourself {
                             broadcast::Queries::All
@@ -2019,7 +2019,18 @@ impl Client {
                         );
                     }
 
-                    return Ok(vec![Event::ShowInSidebar(target)]);
+                    let mut events = vec![Event::ShowInSidebar(target)];
+
+                    if let Some(message_with_context) = self.process_message(
+                        message,
+                        storage,
+                        buffers_context,
+                        config,
+                    ) {
+                        events.push(Event::Message(message_with_context));
+                    }
+
+                    return Ok(events);
                 } else if let Some(channel) =
                     self.chanmap.get_mut(&target_channel)
                 {
@@ -6278,5 +6289,45 @@ mod tests {
         );
 
         assert_eq!(channel_user_is_away(&client, "tester"), Some(false));
+    }
+
+    #[test]
+    fn own_join_is_recorded() {
+        let mut client = test_client("tester");
+        let mut history = storage::Manager::test();
+        let buffers_context = BuffersContextSnapshot::empty();
+        let config = config::Config::default();
+
+        let events = client
+            .handle(
+                message::Encoded(proto::Message {
+                    tags: BTreeMap::default(),
+                    source: Some(proto::Source::User(proto::User {
+                        nickname: "tester".to_string(),
+                        username: Some("tester".to_string()),
+                        hostname: Some("example.test".to_string()),
+                    })),
+                    command: Command::JOIN("#test".to_string(), None),
+                }),
+                None,
+                &mut history,
+                &buffers_context,
+                &config,
+            )
+            .unwrap();
+
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, Event::ShowInSidebar(_)))
+        );
+        assert!(events.iter().any(|event| matches!(
+            event,
+            Event::Message(message_with_context)
+                if message_with_context
+                    .inner
+                    .text()
+                    .contains("has joined the channel")
+        )));
     }
 }

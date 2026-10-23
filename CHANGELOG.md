@@ -11,6 +11,9 @@ Added:
 - `buffer.close.query` option `"close-buffer"` (previous option `"close"` renamed to `"close-pane"`)
 - Highlight matches can be optionally named via the `name` property
 - Lost connections taking minutes to detect after waking macOS from sleep
+- Search buffer to search messages across all servers, channels and queries, opened from the command bar, sidebar menu, a nickname's context menu, the `search` key binding or `/search`
+- Setting `runtime.smooth_scrolling` to control whether smooth scrolling is used
+- Notification and highlights matches `sound` property now accept an array of sounds, in which case they'll be picked at random
 
 Fixed:
 
@@ -24,18 +27,22 @@ Fixed:
 - Message drafts for sent messages sometimes being restored after restart (instead of being cleared)
 - Will no longer try to reconnect to servers on the internet if there is no
   connection.
+- Scroll position being lost when showing the typing indicator with `buffer.typing.style = "popped"`
 
 Changed:
 
 - Default keybinds for focus movement on macOS changed from `⌥ + <arrow keys>` to `ctrl + <arrow keys>` to avoid conflicting with macOS by-word movement keybinds (`⌥ + ←` and `⌥ + →`)
 - Saved chat history is no longer limited to 10,000 messages per buffer
 - Use OS provided certificate verification service on Windows & macOS
+- Recent nick autocomplete keeps last-seen across nick changes, and sorts your own nick last
+- Your own join/part is shown in the channel buffer.
 
 Thanks:
 
-- Contributions: @httpsterio, @oooo-ps, @furudean
-- Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768, @WinnerWind, @strafe
-- Feature requests: @ainola, @kalebris
+- Contributions: @httpsterio, @oooo-ps, @rtmongold, @furudean
+- Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768, @WinnerWind, @strafe, wwWraith
+- Feature requests: @ainola, @kalebris, @sf302, @ToyKeeper
+- Contributions: @httpsterio
 
 # 2026.9 (2026-09-29)
 
