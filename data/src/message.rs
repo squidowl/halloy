@@ -926,49 +926,75 @@ impl Summary {
 
     fn into_fragments(self) -> Vec<Fragment> {
         let mut fragments = vec![];
-        let mut push = |count, singular, plural, kind| {
+        let mut push = |count,
+                        singular_target: &str,
+                        plural_target: &str,
+                        singular_action,
+                        plural_action,
+                        kind| {
             if count > 0 {
-                if !fragments.is_empty() {
-                    fragments.push(Fragment::Text(String::from(", ")));
-                }
-                let text = if count == 1 { singular } else { plural };
+                let mut text = if !fragments.is_empty() {
+                    format!(", {count} ")
+                } else {
+                    format!("{count} ")
+                };
+
+                if count == 1 {
+                    if !singular_target.is_empty() {
+                        text.push_str(singular_target);
+                        text.push(' ');
+                    }
+                } else if !plural_target.is_empty() {
+                    text.push_str(plural_target);
+                    text.push(' ');
+                };
+
+                fragments.push(Fragment::Text(text));
+
                 fragments.push(Fragment::Condensed {
-                    text: format!("{count} {text}"),
+                    text: String::from(if count == 1 {
+                        singular_action
+                    } else {
+                        plural_action
+                    }),
                     source: source::Server::new(kind, None, None),
                 });
             }
         };
 
-        push(
-            self.joins,
-            "user has joined",
-            "users have joined",
-            Kind::Join,
-        );
-        push(self.parts, "user has left", "users have left", Kind::Part);
-        push(self.quits, "user has quit", "users have quit", Kind::Quit);
+        push(self.joins, "user", "users", "joined", "joined", Kind::Join);
+        push(self.parts, "user", "users", "left", "left", Kind::Part);
+        push(self.quits, "user", "users", "quit", "quit", Kind::Quit);
         push(
             self.kicks,
-            "user has been kicked",
-            "users have been kicked",
+            "user",
+            "users",
+            "was kicked",
+            "were kicked",
             Kind::Kick,
         );
         push(
             self.nick_changes,
-            "nick has changed",
-            "nicks have changed",
+            "",
+            "",
+            "nick changed",
+            "nicks changed",
             Kind::ChangeNick,
         );
         push(
             self.popped_in,
-            "user has popped in",
-            "users have popped in",
+            "user",
+            "users",
+            "popped in",
+            "popped in",
             Kind::Join,
         );
         push(
             self.nipped_out,
-            "user has nipped out",
-            "users have nipped out",
+            "user",
+            "users",
+            "nipped out",
+            "nipped out",
             Kind::Part,
         );
 
