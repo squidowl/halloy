@@ -16,6 +16,7 @@ use tokio_stream::wrappers::ReadDirStream;
 pub use self::actions::Actions;
 pub use self::buffer::Buffer;
 pub use self::channel_monitor::ChannelMonitor;
+pub use self::config_editor::ConfigEditor;
 pub use self::context_menu::ContextMenu;
 pub use self::ctcp::Ctcp;
 pub use self::display::Display;
@@ -47,6 +48,7 @@ use crate::{Theme, environment};
 pub mod actions;
 pub mod buffer;
 pub mod channel_monitor;
+pub mod config_editor;
 pub mod context_menu;
 pub mod ctcp;
 pub mod display;
@@ -99,6 +101,7 @@ pub struct Config {
     pub runtime: Runtime,
     pub check_for_update_on_launch: bool,
     pub metadata: Metadata,
+    pub config_editor: ConfigEditor,
 }
 
 impl Default for Config {
@@ -130,6 +133,7 @@ impl Default for Config {
             runtime: Runtime::default(),
             check_for_update_on_launch: true,
             metadata: Metadata::default(),
+            config_editor: ConfigEditor::default(),
         }
     }
 }
@@ -497,6 +501,7 @@ impl Config {
             pub runtime: Runtime,
             pub check_for_update_on_launch: bool,
             pub metadata: Metadata,
+            pub config_editor: ConfigEditor,
         }
 
         impl Default for Configuration {
@@ -528,6 +533,7 @@ impl Config {
                     runtime: Runtime::default(),
                     check_for_update_on_launch: true,
                     metadata: Metadata::default(),
+                    config_editor: ConfigEditor::default(),
                 }
             }
         }
@@ -573,6 +579,7 @@ impl Config {
             runtime,
             check_for_update_on_launch,
             metadata,
+            config_editor,
         } = serde_ignored::deserialize(config, |ignored| {
             log::warn!("[config.toml] Ignoring unknown setting: {ignored}");
         })
@@ -628,6 +635,7 @@ impl Config {
             runtime,
             check_for_update_on_launch,
             metadata,
+            config_editor,
         })
     }
 
