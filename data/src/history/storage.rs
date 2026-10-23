@@ -847,6 +847,12 @@ impl Manager {
                 continue;
             }
 
+            // bouncer manages its own channel state
+            if server.network.is_some() && matches!(target, Target::Channel(_))
+            {
+                continue;
+            }
+
             let kind = Kind::from_target(server, target);
 
             // load metadata so unread state shows in the sidebar
