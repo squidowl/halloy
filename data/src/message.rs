@@ -4704,6 +4704,23 @@ mod tests {
             ),
             Content::Plain("a".into())
         );
+
+        let common_words = ["She", "Night", "Chat"]
+            .into_iter()
+            .map(|nick| User::from(Nick::from_str(nick, casemapping)))
+            .collect::<ChannelUsers>();
+        let text =
+            "She didn't go out last night, instead we stayed in for a chat.";
+
+        assert_eq!(
+            parse_fragments_with_users_excluding(
+                text.into(),
+                Some(&common_words),
+                casemapping,
+                &["she".into(), "night".into(), "chat".into()],
+            ),
+            Content::Plain(text.into())
+        );
     }
 
     #[test]
