@@ -4220,26 +4220,27 @@ mod tests {
         assert_eq!(
             fragments,
             &vec![
+                Fragment::Text("2 users ".into()),
                 Fragment::Condensed {
-                    text: "2 users have joined".into(),
+                    text: "joined".into(),
                     source: crate::message::source::Server::new(
                         Kind::Join,
                         None,
                         None,
                     ),
                 },
-                Fragment::Text(", ".into()),
+                Fragment::Text(", 1 user ".into()),
                 Fragment::Condensed {
-                    text: "1 user has popped in".into(),
+                    text: "popped in".into(),
                     source: crate::message::source::Server::new(
                         Kind::Join,
                         None,
                         None,
                     ),
                 },
-                Fragment::Text(", ".into()),
+                Fragment::Text(", 1 user ".into()),
                 Fragment::Condensed {
-                    text: "1 user has nipped out".into(),
+                    text: "nipped out".into(),
                     source: crate::message::source::Server::new(
                         Kind::Part,
                         None,
