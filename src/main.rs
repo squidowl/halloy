@@ -1619,6 +1619,7 @@ impl Halloy {
                                 lookup,
                                 message.map(|message| *message),
                                 self.storage.get_reroute_rules(),
+                                &self.config.buffer.nickname.exclude,
                             );
                             if !updates.is_empty() {
                                 self.storage.write(

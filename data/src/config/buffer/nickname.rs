@@ -23,6 +23,7 @@ pub struct Nickname {
     pub shown_status: ShownStatus,
     pub truncate: Option<u16>,
     pub hide_consecutive: HideConsecutive,
+    pub exclude: Vec<String>,
 }
 
 impl Default for Nickname {
@@ -39,6 +40,7 @@ impl Default for Nickname {
             shown_status: ShownStatus::default(),
             truncate: None,
             hide_consecutive: HideConsecutive::default(),
+            exclude: vec![],
         }
     }
 }
@@ -261,4 +263,15 @@ pub enum ShownStatus {
     #[default]
     Current,
     Historical,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Nickname;
+
+    #[test]
+    fn deserializes_excluded_nicknames() {
+        let nickname: Nickname = toml::from_str("exclude = [\"A\"]").unwrap();
+        assert_eq!(nickname.exclude, vec!["A"]);
+    }
 }

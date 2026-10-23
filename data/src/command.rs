@@ -123,6 +123,7 @@ impl Irc {
         supports_echoes: bool,
         reroute_rules: &RerouteRules,
         focused_buffer: Option<&buffer::Upstream>,
+        exclude: &[String],
     ) -> Option<Vec<Message>> {
         let to_message_target = |target: &str| {
             if target == "*" {
@@ -168,10 +169,11 @@ impl Irc {
                         Message::sent(
                             message::Source::User(user.clone()),
                             message_target,
-                            message::parse_fragments_with_users(
+                            message::parse_fragments_with_users_excluding(
                                 text.clone(),
                                 channel_users,
                                 casemapping,
+                                exclude,
                             ),
                             supports_echoes.then_some(Irc::Msg(
                                 target.to_string(),
@@ -199,10 +201,11 @@ impl Irc {
                         Message::sent(
                             message::Source::User(user.clone()),
                             message_target,
-                            message::parse_fragments_with_users(
+                            message::parse_fragments_with_users_excluding(
                                 text.clone(),
                                 channel_users,
                                 casemapping,
+                                exclude,
                             ),
                             supports_echoes.then_some(Irc::Notice(
                                 target.to_string(),
@@ -231,6 +234,7 @@ impl Irc {
                         Some(action),
                         channel_users,
                         casemapping,
+                        exclude,
                     ),
                     supports_echoes.then_some(self.clone()),
                 )])
