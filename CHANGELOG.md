@@ -18,7 +18,7 @@ Added:
 - Sidebar typing indicators for queries
 - `buffer.close.query` option `"close-buffer"` (previous option `"close"` renamed to `"close-pane"`)
 - Setting `runtime.smooth_scrolling` to control whether smooth scrolling is used
-- `buffer.nickname.exclude` to prevent configured nicknames from being detected and linked in message text
+- `buffer.nickname.exclude` to prevent configured nicknames from being detected and linked in message text, including existing history
 
 Fixed:
 
