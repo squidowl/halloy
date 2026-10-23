@@ -884,6 +884,21 @@ regex = '''^\[.*\]$'''
 color = "#98C379"
 ```
 
+### `exclude`
+
+Nicknames to exclude from message text detection. Excluded nicknames still
+render normally as message senders, but mentions in message text are shown as
+plain text instead of clickable nickname links. Matching uses the server's
+casemapping.
+
+```toml
+# Type: array of strings
+# Default: []
+
+[buffer.nickname]
+exclude = ["A"]
+```
+
 ### `offline`
 
 Controls the color of offline nicknames. Can combine a color source with dimming (same alpha options as [`away`](#away)). The "(Offline)" label is independent of this setting.
