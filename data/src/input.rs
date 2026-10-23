@@ -303,6 +303,7 @@ impl Input {
         casemapping: isupport::CaseMap,
         supports_echoes: bool,
         reroute_rules: &RerouteRules,
+        exclude: &[String],
     ) -> Option<Vec<Message>> {
         self.content.command(&self.buffer).and_then(|command| {
             command.messages(
@@ -315,6 +316,7 @@ impl Input {
                 supports_echoes,
                 reroute_rules,
                 Some(&self.buffer),
+                exclude,
             )
         })
     }

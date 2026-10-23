@@ -973,6 +973,7 @@ impl Client {
         lookup: ResendLookup,
         message: Option<message::Message>,
         reroute_rules: &RerouteRules,
+        exclude: &[String],
     ) -> Vec<storage::Update> {
         let kind = history::Kind::from(lookup.buffer.clone());
         let key = (kind.clone(), lookup.history_id);
@@ -997,6 +998,7 @@ impl Client {
             &message,
             TokenPriority::User,
             reroute_rules,
+            exclude,
         ) else {
             return vec![];
         };
@@ -1012,6 +1014,7 @@ impl Client {
         message: &message::Message,
         priority: TokenPriority,
         reroute_rules: &RerouteRules,
+        exclude: &[String],
     ) -> Option<message::MessageWithContext> {
         message.as_command().and_then(|command| {
             let multiline = if let Some((target, text, batch_kind)) =
@@ -1074,6 +1077,7 @@ impl Client {
                     self.capabilities.acknowledged(Capability::EchoMessage),
                     reroute_rules,
                     Some(buffer),
+                    exclude,
                 )
                 .and_then(|messages| messages.into_iter().next())
                 && let Some(mut encoded) =

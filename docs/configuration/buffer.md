@@ -884,6 +884,25 @@ regex = '''^\[.*\]$'''
 color = "#98C379"
 ```
 
+### `exclude`
+
+Nicknames to exclude from message text detection. Excluded nicknames still
+render normally as message senders, but mentions in message text are shown as
+plain text instead of clickable nickname links. This applies to existing
+history as well as new messages. This is an opt-in list; Halloy does not try to
+guess common words.
+
+Matching is casemapping-aware, not case-sensitive: under ASCII/RFC1459,
+`exclude = ["she"]` matches `she`, `She`, and `SHE`.
+
+```toml
+# Type: array of strings
+# Default: []
+
+[buffer.nickname]
+exclude = ["A", "she", "chat"]
+```
+
 ### `offline`
 
 Controls the color of offline nicknames. Can combine a color source with dimming (same alpha options as [`away`](#away)). The "(Offline)" label is independent of this setting.

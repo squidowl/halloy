@@ -1995,6 +1995,7 @@ impl State {
                         casemapping,
                         supports_echoes,
                         storage.get_reroute_rules(),
+                        &config.buffer.nickname.exclude,
                     )
                 })
                 .flatten()
@@ -2442,6 +2443,7 @@ impl State {
                 casemapping,
                 supports_echoes,
                 storage.get_reroute_rules(),
+                &config.buffer.nickname.exclude,
             ) {
                 for mut message in messages {
                     if let Some(input::DraftReply { id: reply_id, .. }) =

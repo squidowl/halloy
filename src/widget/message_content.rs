@@ -252,46 +252,88 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                                     ))
                             }
                             data::message::Fragment::User(user, text) => {
-                                let color = color_from_user(user);
+                                if config.buffer.nickname.is_excluded(
+                                    user.nickname().as_nickref(),
+                                    casemapping,
+                                ) {
+                                    span(text)
+                                        .font_maybe(
+                                            theme
+                                                .styles()
+                                                .text
+                                                .primary
+                                                .font_style
+                                                .map(font::get),
+                                        )
+                                        .color(transform_color(
+                                            theme.styles().text.primary.color,
+                                        ))
+                                        .border_maybe(focus_border)
+                                        .background_maybe(focus_background)
+                                } else {
+                                    let color = color_from_user(user);
 
-                                span(text)
-                                    .font_maybe(
-                                        theme
-                                            .styles()
-                                            .buffer
-                                            .nickname
-                                            .font_style
-                                            .map(font::get),
-                                    )
-                                    .color(transform_color(color))
-                                    .border_maybe(focus_border)
-                                    .background_maybe(focus_background)
-                                    .link(message::Link::User(
-                                        server.clone(),
-                                        user.clone(),
-                                    ))
+                                    span(text)
+                                        .font_maybe(
+                                            theme
+                                                .styles()
+                                                .buffer
+                                                .nickname
+                                                .font_style
+                                                .map(font::get),
+                                        )
+                                        .color(transform_color(color))
+                                        .border_maybe(focus_border)
+                                        .background_maybe(focus_background)
+                                        .link(message::Link::User(
+                                            server.clone(),
+                                            user.clone(),
+                                        ))
+                                }
                             }
                             data::message::Fragment::HighlightNick(
                                 user,
                                 text,
                             ) => {
-                                let color = color_from_user(user);
+                                if config.buffer.nickname.is_excluded(
+                                    user.nickname().as_nickref(),
+                                    casemapping,
+                                ) {
+                                    span(text)
+                                        .font_maybe(
+                                            theme
+                                                .styles()
+                                                .text
+                                                .primary
+                                                .font_style
+                                                .map(font::get),
+                                        )
+                                        .color(transform_color(
+                                            theme.styles().text.primary.color,
+                                        ))
+                                        .border_maybe(focus_border)
+                                        .background_maybe(focus_background)
+                                } else {
+                                    let color = color_from_user(user);
 
-                                span(text)
-                                    .font_maybe(
-                                        theme
-                                            .styles()
-                                            .buffer
-                                            .nickname
-                                            .font_style
-                                            .map(font::get),
-                                    )
-                                    .color(transform_color(color))
-                                    .background(theme.styles().buffer.highlight)
-                                    .link(message::Link::User(
-                                        server.clone(),
-                                        user.clone(),
-                                    ))
+                                    span(text)
+                                        .font_maybe(
+                                            theme
+                                                .styles()
+                                                .buffer
+                                                .nickname
+                                                .font_style
+                                                .map(font::get),
+                                        )
+                                        .color(transform_color(color))
+                                        .background(
+                                            theme.styles().buffer.highlight,
+                                        )
+                                        .link(message::Link::User(
+                                            server.clone(),
+                                            user.clone(),
+                                        ))
+                                }
                             }
                             data::message::Fragment::HighlightMatch(text) => {
                                 span(text.as_str())
