@@ -76,7 +76,7 @@ jobs:
           # Intel macOS is cross-checked on Apple Silicon (as shipped in the universal binary).
           targets: ${{ matrix.target.target == 'macos' && 'x86_64-apple-darwin' || '' }}
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: debug-${{ matrix.target.target }}
           # PR caches can't be restored by other branches and evict main's
@@ -90,7 +90,7 @@ jobs:
         if: matrix.target.target == 'macos'
         run: cargo clippy --locked --profile ci --workspace --all-targets --target x86_64-apple-darwin -- -D warnings
 
-      - uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2
+      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2
         with:
           tool: cargo-nextest
       - name: Test
