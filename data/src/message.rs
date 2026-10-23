@@ -1821,7 +1821,7 @@ fn content_from_fragments(mut fragments: Vec<Fragment>) -> Content {
     Content::Fragments(fragments)
 }
 
-fn is_excluded_nickname(
+pub fn is_excluded_nickname(
     nick: &Nick,
     exclude: &[String],
     casemapping: isupport::CaseMap,
