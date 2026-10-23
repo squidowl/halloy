@@ -880,6 +880,7 @@ struct Summary {
     quits: usize,
     kicks: usize,
     nick_changes: usize,
+    host_changes: usize,
     popped_in: usize,
     nipped_out: usize,
 }
@@ -919,6 +920,7 @@ impl Summary {
                 Kind::Quit => self.quits += 1,
                 Kind::Kick => self.kicks += 1,
                 Kind::ChangeNick => self.nick_changes += 1,
+                Kind::ChangeHost => self.host_changes += 1,
                 _ => (),
             }
         }
@@ -980,6 +982,14 @@ impl Summary {
             "nick changed",
             "nicks changed",
             Kind::ChangeNick,
+        );
+        push(
+            self.host_changes,
+            "user",
+            "users",
+            "changed host",
+            "changed host",
+            Kind::ChangeHost,
         );
         push(
             self.popped_in,
