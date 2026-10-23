@@ -1059,7 +1059,7 @@ Control if server message type is enabled;  if set to `false` then the received 
 ```toml
 # Type: boolean
 # Values: true, false
-# Default: true (except for join_topic, which is "drop")
+# Default: true (except for join_topic, which is "drop", and change_host, which is false)
 
 [buffer.server_messages.<server_message>]
 enabled = true

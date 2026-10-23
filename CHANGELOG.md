@@ -34,6 +34,7 @@ Changed:
 - Use OS provided certificate verification service on Windows & macOS
 - Recent nick autocomplete keeps last-seen across nick changes, and sorts your own nick last
 - Your own join/part is shown in the channel buffer.
+- `buffer.server_messages.change_host.enabled` is now `false` by default
 
 Thanks:
 
