@@ -4104,6 +4104,8 @@ impl PartialOrd for MessageReferences {
 
 #[cfg(test)]
 mod tests {
+    use hashbrown::HashSet;
+
     use super::{
         parse_fragments, parse_fragments_with_highlights,
         parse_fragments_with_users,
@@ -4144,7 +4146,7 @@ mod tests {
             .into_iter()
             .map(|(nick, kind)| {
                 MessageDisplay::from(Message {
-                    history_id: Default::default(),
+                    history_id: crate::history::Id::default(),
                     time: Time::client("1970-01-01T00:00:00Z".parse().unwrap()),
                     direction: Direction::Received { is_echo: false },
                     source: Source::Server(Some(
@@ -4168,7 +4170,7 @@ mod tests {
                     id: None,
                     reply_to: None,
                     relayed_by: None,
-                    hidden_urls: Default::default(),
+                    hidden_urls: HashSet::default(),
                     reactions: vec![],
                     rerouted_from: None,
                     redaction: None,
