@@ -381,6 +381,30 @@ pub fn view<'a>(
                 return Some(binding);
             }
 
+            if matches!(
+                key_press.key.as_ref(),
+                iced::keyboard::Key::Named(iced::keyboard::key::Named::Tab)
+            ) && !key_press.modifiers.shift()
+                && !key_press.modifiers.control()
+                && !key_press.modifiers.alt()
+                && !key_press.modifiers.logo()
+            {
+                return Some(match config.config_editor.indent {
+                    data::config::config_editor::Indent::Tab => {
+                        text_editor::Binding::Insert('\t')
+                    }
+                    data::config::config_editor::Indent::Spaces(n) => {
+                        text_editor::Binding::Sequence(
+                            std::iter::repeat_n(
+                                text_editor::Binding::Insert(' '),
+                                n,
+                            )
+                            .collect(),
+                        )
+                    }
+                });
+            }
+
             text_editor::Binding::from_key_press(key_press)
         })
         .highlight_with::<ConfigParser>(
