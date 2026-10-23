@@ -25,6 +25,7 @@ pub use self::with_context::MessageWithContext;
 use crate::buffer::BuffersContext;
 use crate::capabilities::LabeledResponseContext;
 use crate::client::Destination;
+use crate::config::buffer::nickname::is_excluded_nickname;
 use crate::config::buffer::{CondensationFormat, UsernameFormat};
 use crate::config::{self, Highlights};
 use crate::dashboard::BufferAction;
@@ -1790,7 +1791,7 @@ pub fn parse_fragments_with_users(
     parse_fragments_with_users_excluding(text, channel_users, casemapping, &[])
 }
 
-pub fn parse_fragments_with_users_excluding(
+pub(crate) fn parse_fragments_with_users_excluding(
     text: String,
     channel_users: Option<&ChannelUsers>,
     casemapping: isupport::CaseMap,
@@ -1821,17 +1822,6 @@ fn content_from_fragments(mut fragments: Vec<Fragment>) -> Content {
     Content::Fragments(fragments)
 }
 
-pub fn is_excluded_nickname(
-    nick: &Nick,
-    exclude: &[String],
-    casemapping: isupport::CaseMap,
-) -> bool {
-    exclude.iter().any(|excluded| {
-        Nick::from_str(excluded, casemapping).as_normalized_str()
-            == nick.as_normalized_str()
-    })
-}
-
 fn parse_fragments_with_users_inner<'a>(
     text: String,
     users: UserLookup<'a>,
@@ -1856,9 +1846,6 @@ fn parse_fragments_with_users_inner<'a>(
                     text,
                     |text| {
                         let nick = Nick::from_str(text, casemapping);
-                        if is_excluded_nickname(&nick, exclude, casemapping) {
-                            return None;
-                        }
                         let user = match users {
                             UserLookup::Channel(channel_users) => {
                                 channel_users?.get_by_nick(&nick)
@@ -1867,6 +1854,13 @@ fn parse_fragments_with_users_inner<'a>(
                                 (*user.nickname() == nick).then_some(user)
                             }
                         }?;
+                        if is_excluded_nickname(
+                            nick.as_nickref(),
+                            exclude,
+                            casemapping,
+                        ) {
+                            return None;
+                        }
                         Some(Fragment::User(user.clone(), text.to_owned()))
                     },
                     |(re_match, text)| {

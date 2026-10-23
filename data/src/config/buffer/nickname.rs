@@ -7,6 +7,8 @@ use crate::buffer::{Alignment, Brackets, Color};
 use crate::config::buffer::{
     AccessLevelFormat, Alpha, Dimmed, HideConsecutive,
 };
+use crate::isupport::CaseMap;
+use crate::user::{Nick, NickRef};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
@@ -52,6 +54,25 @@ impl Nickname {
             .find(|rule| rule.is_match(nickname))
             .map(|rule| rule.color)
     }
+
+    pub fn is_excluded(
+        &self,
+        nickname: NickRef<'_>,
+        casemapping: CaseMap,
+    ) -> bool {
+        is_excluded_nickname(nickname, &self.exclude, casemapping)
+    }
+}
+
+pub(crate) fn is_excluded_nickname(
+    nickname: NickRef<'_>,
+    exclude: &[String],
+    casemapping: CaseMap,
+) -> bool {
+    exclude.iter().any(|excluded| {
+        Nick::from_str(excluded, casemapping).as_normalized_str()
+            == nickname.as_normalized_str()
+    })
 }
 
 #[derive(Debug, Clone)]
@@ -268,10 +289,31 @@ pub enum ShownStatus {
 #[cfg(test)]
 mod tests {
     use super::Nickname;
+    use crate::isupport::CaseMap;
+    use crate::user::Nick;
 
     #[test]
     fn deserializes_excluded_nicknames() {
         let nickname: Nickname = toml::from_str("exclude = [\"A\"]").unwrap();
         assert_eq!(nickname.exclude, vec!["A"]);
+    }
+
+    #[test]
+    fn matches_excluded_nicknames_case_insensitively() {
+        let nickname: Nickname = toml::from_str("exclude = [\"she\"]").unwrap();
+        let casemapping = CaseMap::ASCII;
+
+        assert!(nickname.is_excluded(
+            Nick::from_str("She", casemapping).as_nickref(),
+            casemapping,
+        ));
+        assert!(nickname.is_excluded(
+            Nick::from_str("SHE", casemapping).as_nickref(),
+            casemapping,
+        ));
+        assert!(!nickname.is_excluded(
+            Nick::from_str("chat", casemapping).as_nickref(),
+            casemapping,
+        ));
     }
 }
