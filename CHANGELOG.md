@@ -5,6 +5,8 @@ Added:
 - `sidebar.restore_on_launch` can restore queries and/or channels that were in the sidebar during the last session
 - `buffer.text_input.auto_format` can be set to token-only formatting or a limited set of markdown features (in addition to the existing: markdown-only formatting, all formatting, and no formatting options)
 - Sidebar typing indicators for channels
+- `sidebar.wrap` to wrap top/bottom sidebar buffers into multiple rows
+- Horizontal sidebars can be scrolled with the mouse wheel without holding Shift
 
 Fixed:
 
@@ -52,8 +54,6 @@ Added:
 - Setting `runtime.smooth_scrolling` to control whether smooth scrolling is used
 - Setting `servers.<name>.who_poll_in_flight_limit` to control the number of WHO requests sent at once when cap `no-implicit-names` acked
 - Update to Unicode 18.0 emojis
-- `sidebar.wrap` to wrap top/bottom sidebar buffers into multiple rows
-- Horizontal sidebars can be scrolled with the mouse wheel without holding Shift
 
 Fixed:
 
