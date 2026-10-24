@@ -1,6 +1,5 @@
 use futures::{SinkExt, StreamExt};
 use iced::Subscription;
-use zbus::zvariant::OwnedFd;
 
 use super::Event;
 
@@ -10,14 +9,6 @@ use super::Event;
     default_path = "/org/freedesktop/login1"
 )]
 trait Manager {
-    fn inhibit(
-        &self,
-        what: &str,
-        who: &str,
-        why: &str,
-        mode: &str,
-    ) -> zbus::Result<OwnedFd>;
-
     #[zbus(signal)]
     fn prepare_for_sleep(&self, start: bool) -> zbus::Result<()>;
 }
@@ -39,10 +30,6 @@ async fn watch(
     let manager = ManagerProxy::new(&connection).await?;
     let mut signals = manager.receive_prepare_for_sleep().await?;
 
-    // logind delays sleep until this lock is released, which gives the
-    // suspending event time to land before the process freezes
-    let mut _lock = inhibit(&manager).await;
-
     while let Some(signal) = signals.next().await {
         let suspending = signal.args()?.start;
         let event = if suspending {
@@ -54,23 +41,7 @@ async fn watch(
         if output.send(event).await.is_err() {
             break;
         }
-
-        _lock = if suspending {
-            None
-        } else {
-            inhibit(&manager).await
-        };
     }
 
     Ok(())
-}
-
-async fn inhibit(manager: &ManagerProxy<'_>) -> Option<OwnedFd> {
-    manager
-        .inhibit("sleep", "Halloy", "Pause IRC connections", "delay")
-        .await
-        .inspect_err(|error| {
-            log::debug!("sleep inhibitor unavailable: {error}");
-        })
-        .ok()
 }
