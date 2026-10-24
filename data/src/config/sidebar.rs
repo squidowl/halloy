@@ -20,6 +20,7 @@ pub struct Sidebar {
     #[serde(deserialize_with = "deserialize_highlight_indicator")]
     pub highlight_indicator: HighlightIndicator,
     pub position: Position,
+    pub wrap: bool,
     pub order_by: OrderBy,
     pub scrollbar: Scrollbar,
     #[serde(alias = "font_size")]
