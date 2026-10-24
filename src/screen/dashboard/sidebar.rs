@@ -14,8 +14,8 @@ use data::{
 use iced::Length::Shrink;
 use iced::widget::text::{Ellipsis, LineHeight, Shaping, Wrapping};
 use iced::widget::{
-    Column, Row, Scrollable, Space, button, column, container, pane_grid, row,
-    rule, scrollable, space, stack,
+    Column, Row, Scrollable, Space, button, column, container, mouse_area,
+    operation, pane_grid, row, rule, scrollable, space, stack,
 };
 use iced::{
     Alignment, Border, ContentFit, Length, Padding, Task, mouse, padding,
@@ -62,6 +62,7 @@ pub enum Message {
     SystemInformation(iced::system::Information),
     ShowMutedBuffers(bool),
     SetServerVisibility(Server, SidebarVisibility),
+    ScrollSidebar(mouse::ScrollDelta),
 }
 
 #[derive(Debug, Clone)]
@@ -100,6 +101,26 @@ pub struct Sidebar {
     pub hidden: bool,
     collapse: collapse::State,
     system_information: Option<iced::system::Information>,
+    scrollable: iced::widget::Id,
+}
+
+fn horizontal_scroll_delta(delta: mouse::ScrollDelta) -> f32 {
+    match delta {
+        mouse::ScrollDelta::Lines { x, y } => {
+            if y.abs() >= x.abs() {
+                -y * 120.0
+            } else {
+                -x * 120.0
+            }
+        }
+        mouse::ScrollDelta::Pixels { x, y } => {
+            if y.abs() >= x.abs() {
+                -y
+            } else {
+                -x
+            }
+        }
+    }
 }
 
 impl Sidebar {
@@ -109,6 +130,7 @@ impl Sidebar {
                 hidden,
                 collapse: collapse::State::default(),
                 system_information: None,
+                scrollable: iced::widget::Id::unique(),
             },
             iced::system::information().map(Message::SystemInformation),
         )
@@ -512,6 +534,17 @@ impl Sidebar {
                 self.collapse.set(server, visibility);
                 (context_menu::close(convert::identity).discard(), None)
             }
+            Message::ScrollSidebar(delta) => (
+                operation::scroll_by(
+                    self.scrollable.clone(),
+                    scrollable::AbsoluteOffset {
+                        x: horizontal_scroll_delta(delta),
+                        y: 0.0,
+                    },
+                    operation::Animation::Auto,
+                ),
+                None,
+            ),
         }
     }
 
@@ -981,28 +1014,37 @@ impl Sidebar {
                     container(content)
                 }
                 sidebar::Position::Top | sidebar::Position::Bottom => {
-                    // Add buffers to a row.
-                    let buffers = row![
-                        Scrollable::new(
-                            Row::with_children(buffers)
-                                .spacing(2)
-                                .align_y(Alignment::Center)
+                    let buffer_row = Row::with_children(buffers)
+                        .spacing(2)
+                        .align_y(Alignment::Center);
+
+                    let buffers: Element<'_, Message> = if config.sidebar.wrap {
+                        buffer_row.wrap().vertical_spacing(2.0).into()
+                    } else {
+                        mouse_area(
+                            Scrollable::new(buffer_row)
+                                .id(self.scrollable.clone())
+                                .direction(scrollable::Direction::Horizontal(
+                                    scrollable::Scrollbar::default()
+                                        .width(config.sidebar.scrollbar.width)
+                                        .scroller_width(
+                                            config
+                                                .sidebar
+                                                .scrollbar
+                                                .scroller_width,
+                                        )
+                                        .spacing(4),
+                                ))
+                                .style(if config.sidebar.scrollbar.hidden {
+                                    theme::scrollable::hidden
+                                } else {
+                                    theme::scrollable::primary
+                                })
+                                .smooth_scroll(config.runtime.smooth_scrolling),
                         )
-                        .direction(scrollable::Direction::Horizontal(
-                            scrollable::Scrollbar::default()
-                                .width(config.sidebar.scrollbar.width)
-                                .scroller_width(
-                                    config.sidebar.scrollbar.scroller_width
-                                )
-                                .spacing(4)
-                        ))
-                        .style(if config.sidebar.scrollbar.hidden {
-                            theme::scrollable::hidden
-                        } else {
-                            theme::scrollable::primary
-                        })
-                        .smooth_scroll(config.runtime.smooth_scrolling)
-                    ];
+                        .on_scroll(Message::ScrollSidebar)
+                        .into()
+                    };
 
                     // Wrap buffers in a row with user_menu_button
                     let content = row![
@@ -2496,4 +2538,26 @@ impl Dimensions {
 enum ConnectionStatus {
     Connected { registration_complete: bool },
     Disconnected { autoconnect: bool, connecting: bool },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::horizontal_scroll_delta;
+    use iced::mouse::ScrollDelta;
+
+    #[test]
+    fn maps_vertical_wheel_to_horizontal() {
+        assert_eq!(
+            horizontal_scroll_delta(ScrollDelta::Lines { x: 0.0, y: -1.0 }),
+            120.0
+        );
+        assert_eq!(
+            horizontal_scroll_delta(ScrollDelta::Lines { x: 0.0, y: 1.0 }),
+            -120.0
+        );
+        assert_eq!(
+            horizontal_scroll_delta(ScrollDelta::Pixels { x: 0.0, y: -10.0 }),
+            10.0
+        );
+    }
 }
