@@ -2908,6 +2908,7 @@ dependencies = [
  "url",
  "uuid",
  "windows_exe_info",
+ "zbus",
 ]
 
 [[package]]

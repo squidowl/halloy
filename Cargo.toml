@@ -164,6 +164,9 @@ objc2-foundation = { version = "0.3.2", default-features = false, features = [
     "NSURL",
 ] }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus = { version = "5.14.0", default-features = false, features = ["tokio"] }
+
 [target.'cfg(windows)'.build-dependencies]
 embed-resource = "3.0.2"
 windows_exe_info = "0.4"

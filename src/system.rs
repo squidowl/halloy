@@ -4,6 +4,8 @@ use std::sync::Arc;
 use hashbrown::HashSet;
 use iced::Subscription;
 
+#[cfg(target_os = "linux")]
+mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
 mod network;
@@ -40,7 +42,12 @@ fn power_events() -> Subscription<Event> {
     macos::events()
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "linux")]
+fn power_events() -> Subscription<Event> {
+    linux::events()
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 fn power_events() -> Subscription<Event> {
     Subscription::none()
 }
