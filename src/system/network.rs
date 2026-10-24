@@ -45,6 +45,11 @@ pub fn events() -> Subscription<Event> {
             loop {
                 let mut update = watch.changed().await;
 
+                // network updates may burst, so we coalesce them over a period
+                // to avoid needless network probes down the line. 
+                //
+                // from limited testing on mac, 1-5 requests can occur over
+                // ~450ms.
                 while let Ok(next) = tokio::time::timeout(
                     Duration::from_secs(1),
                     watch.changed(),
