@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use hashbrown::HashMap;
+use hashbrown::{HashMap, HashSet};
 use indexmap::IndexMap;
 use irc::connection;
 use serde::{Deserialize, Deserializer};
@@ -434,33 +434,28 @@ impl Muteable {
 
 #[derive(Debug, Default)]
 pub struct Muted {
-    channels: HashMap<String, bool>,
-    queries: HashMap<String, bool>,
+    channels: HashSet<String>,
+    queries: HashSet<String>,
 }
 
 impl Muted {
     pub fn channel(&self, channel: &target::Channel) -> bool {
-        self.channels
-            .get(channel.as_normalized_str())
-            .is_some_and(|mute| *mute)
+        self.channels.contains(channel.as_normalized_str())
     }
 
     pub fn query(&self, query: &target::Query) -> bool {
-        self.queries
-            .get(query.as_normalized_str())
-            .is_some_and(|mute| *mute)
+        self.queries.contains(query.as_normalized_str())
     }
 }
 
 fn muted_names(
     muteables: &[Muteable],
     casemapping: isupport::CaseMap,
-) -> HashMap<String, bool> {
-    // reversed so the first entry for a name wins
+) -> HashSet<String> {
     muteables
         .iter()
-        .rev()
-        .map(|muteable| (casemapping.normalize(&muteable.name), muteable.mute))
+        .filter(|muteable| muteable.mute)
+        .map(|muteable| casemapping.normalize(&muteable.name))
         .collect()
 }
 
