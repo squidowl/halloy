@@ -52,6 +52,8 @@ Added:
 - Setting `runtime.smooth_scrolling` to control whether smooth scrolling is used
 - Setting `servers.<name>.who_poll_in_flight_limit` to control the number of WHO requests sent at once when cap `no-implicit-names` acked
 - Update to Unicode 18.0 emojis
+- `sidebar.wrap` to wrap top/bottom sidebar buffers into multiple rows
+- Horizontal sidebars can be scrolled with the mouse wheel without holding Shift
 
 Fixed:
 

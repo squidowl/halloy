@@ -61,6 +61,22 @@ Sidebar position within the application window.
 position = "left"
 ```
 
+## `wrap`
+
+Wrap horizontal sidebar buffers onto multiple rows instead of using a single
+horizontally scrolling row. Only applies when `position` is `"top"` or
+`"bottom"`. The sidebar grows in height as needed.
+
+```toml
+# Type: bool
+# Values: true, false
+# Default: false
+
+[sidebar]
+position = "top"
+wrap = true
+```
+
 ## `max_width`
 
 Specify sidebar max width in pixels. Only used if `position` is `"left"` or `"right"`.
