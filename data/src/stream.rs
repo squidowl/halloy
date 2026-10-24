@@ -293,14 +293,13 @@ async fn _run(
                         )
                         .await
                         {
-                            future::Either::Left((result, _)) => {
-                                result.map_err(|e| match e {
+                            future::Either::Left((result, _)) => result
+                                .map_err(|e| match e {
                                     connection::Error::Tls(e) => {
                                         format!("a TLS error occurred: {e}")
                                     }
                                     _ => e.to_string(),
-                                })
-                            }
+                                }),
                             future::Either::Right(((), _)) => {
                                 Err("network changed".to_string())
                             }
@@ -347,12 +346,7 @@ async fn _run(
                                     "[{server}] connection failed: {error}"
                                 );
 
-                                // the period doubles until it reaches reconnect_delay
-                                let period = retry.period();
-                                *retry = interval_at(
-                                    period,
-                                    (period * 2).min(config.reconnect_delay),
-                                );
+                                retry.reset();
 
                                 if config.max_connection_attempts.is_some_and(
                                     |max_attempts| {
@@ -1003,7 +997,7 @@ fn network_retry(
         reconnect_delay.saturating_sub(at.elapsed())
     });
 
-    interval_at(delay, Duration::from_secs(1))
+    interval_at(delay, reconnect_delay)
 }
 
 fn interval_at(delay: Duration, period: Duration) -> Interval {
