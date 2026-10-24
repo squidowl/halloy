@@ -18,6 +18,8 @@ Added:
 - Sidebar typing indicators for queries
 - `buffer.close.query` option `"close-buffer"` (previous option `"close"` renamed to `"close-pane"`)
 - Setting `runtime.smooth_scrolling` to control whether smooth scrolling is used
+- `sidebar.wrap` to wrap top/bottom sidebar buffers into multiple rows
+- Horizontal sidebars can be scrolled with the mouse wheel without holding Shift
 
 Fixed:
 

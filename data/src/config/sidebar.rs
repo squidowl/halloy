@@ -21,6 +21,7 @@ pub struct Sidebar {
     pub highlight_indicator: HighlightIndicator,
     pub typing_indicator: TypingIndicator,
     pub position: Position,
+    pub wrap: bool,
     pub order_by: OrderBy,
     pub scrollbar: Scrollbar,
     #[serde(alias = "font_size")]
