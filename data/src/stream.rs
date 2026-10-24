@@ -324,9 +324,11 @@ async fn _run(
                                     "[{server}] connection failed: {error}"
                                 );
 
+                                // the period doubles until it reaches reconnect_delay
+                                let period = retry.period();
                                 *retry = interval_at(
-                                    config.reconnect_delay,
-                                    config.reconnect_delay,
+                                    period,
+                                    (period * 2).min(config.reconnect_delay),
                                 );
 
                                 if config.max_connection_attempts.is_some_and(
@@ -973,12 +975,12 @@ fn network_retry(
     last_connected: Option<Instant>,
     reconnect_delay: Duration,
 ) -> Interval {
-    // at most one connection per reconnect_delay reaches the server
+    // delay reconnects that follow a recent successful connection
     let delay = last_connected.map_or(Duration::ZERO, |at| {
         reconnect_delay.saturating_sub(at.elapsed())
     });
 
-    interval_at(delay, reconnect_delay)
+    interval_at(delay, Duration::from_secs(1))
 }
 
 fn interval_at(delay: Duration, period: Duration) -> Interval {
