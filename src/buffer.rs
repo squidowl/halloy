@@ -1128,6 +1128,7 @@ impl Buffer {
         models: &model::Manager,
         storage: &mut storage::Manager,
         config: &Config,
+        highlight: bool,
     ) -> Task<Message> {
         if let Some((scroll_view, kind_ref)) =
             self.scroll_view_mut_with_kind_ref()
@@ -1135,7 +1136,7 @@ impl Buffer {
             let kind = history::Kind::from(kind_ref);
 
             scroll_view
-                .scroll_to_backlog(kind_ref, models, storage, config)
+                .scroll_to_backlog(kind_ref, models, storage, config, highlight)
                 .map(move |message| {
                     map_scroll_view_message(kind.clone(), message)
                 })

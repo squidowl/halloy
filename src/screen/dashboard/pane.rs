@@ -27,6 +27,7 @@ pub enum Message {
     Popout,
     Merge,
     ScrollToBottom,
+    ScrollToBacklog,
     MarkAsRead,
     ClearBuffer,
     ContentResized(pane_grid::Pane, Size),
@@ -510,6 +511,50 @@ impl TitleBar {
                         theme,
                     );
                     Some(scroll_to_bottom_button_with_tooltip)
+                } else {
+                    None
+                }
+            },
+            {
+                if maybe_buffer_kind.is_some() {
+                    let can_scroll_to_backlog = !(buffer
+                        .is_scrolled_to_bottom()
+                        .unwrap_or_default()
+                        && has_unread
+                        && config.buffer.backlog_separator.hide_when_all_read);
+                    let scroll_to_backlog_button =
+                        button(center(icon::scroll_to_backlog()))
+                            .padding(5)
+                            .width(22)
+                            .height(22)
+                            .on_press_maybe(
+                                can_scroll_to_backlog
+                                    .then_some(Message::ScrollToBacklog),
+                            )
+                            .style(|theme, status| {
+                                theme::button::secondary(theme, status, false)
+                            });
+
+                    let scroll_to_backlog_button_with_tooltip = tooltip(
+                        scroll_to_backlog_button,
+                        show_tooltips.then_some(if can_scroll_to_backlog {
+                            match config.keyboard.scroll_to_backlog.primary() {
+                                Some(
+                                    keybind @ data::shortcut::KeyBind::Bind {
+                                        ..
+                                    },
+                                ) => {
+                                    format!("Scroll to backlog ({keybind})")
+                                }
+                                _ => "Scroll to backlog".to_string(),
+                            }
+                        } else {
+                            "No messages backlog".to_string()
+                        }),
+                        tooltip::Position::Bottom,
+                        theme,
+                    );
+                    Some(scroll_to_backlog_button_with_tooltip)
                 } else {
                     None
                 }
