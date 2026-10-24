@@ -25,6 +25,8 @@ Fixed:
 - Crash when right clicking a message in the server buffer
 - ZNC-service style nicks (e.g. `*status`, `*grep`, etc) are not automatically routed to the server buffer
 - Message drafts for sent messages sometimes being restored after restart (instead of being cleared)
+- Lost connections taking minutes to detect after changing networks, or after waking from sleep on macOS and Linux
+- Reconnect attempts running out, and autoconnect turning off, while there is no network connection
 - Scroll position being lost when showing the typing indicator with `buffer.typing.style = "popped"`
 
 Changed:
@@ -38,7 +40,7 @@ Changed:
 
 Thanks:
 
-- Contributions: @httpsterio, @oooo-ps, @rtmongold
+- Contributions: @httpsterio, @oooo-ps, @rtmongold, @furudean
 - Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768, @WinnerWind, @strafe, wwWraith
 - Feature requests: @ainola, @kalebris, @sf302, @ToyKeeper
 - Contributions: @httpsterio, @TehPeGaSuS
