@@ -158,6 +158,7 @@ async fn _run(
 
     let mut attempts_exhausted = false;
     let mut network_available = true;
+    let mut last_connected: Option<Instant> = None;
 
     let mut state = State::Disconnected {
         autoconnect: config.autoconnect,
@@ -234,7 +235,10 @@ async fn _run(
                             *autoconnect = true;
                             attempts_exhausted = false;
                             connection_attempt = 0;
-                            *retry = network_retry();
+                            *retry = network_retry(
+                                last_connected,
+                                config.reconnect_delay,
+                            );
                         }
                     }
                     Some(Control::DisableAutoconnect) => {
@@ -274,6 +278,8 @@ async fn _run(
                         {
                             Ok((stream, client)) => {
                                 log::info!("[{server}] connected");
+
+                                last_connected = Some(Instant::now());
 
                                 let _ =
                                     sender.unbounded_send(Update::Connected {
@@ -318,12 +324,9 @@ async fn _run(
                                     "[{server}] connection failed: {error}"
                                 );
 
-                                // the period doubles until it reaches reconnect_delay,
-                                // so retries after a network change back off
-                                let period = retry.period();
                                 *retry = interval_at(
-                                    period,
-                                    (period * 2).min(config.reconnect_delay),
+                                    config.reconnect_delay,
+                                    config.reconnect_delay,
                                 );
 
                                 if config.max_connection_attempts.is_some_and(
@@ -695,7 +698,10 @@ async fn _run(
                     state = State::Disconnected {
                         autoconnect,
                         retry: if network_lost {
-                            network_retry()
+                            network_retry(
+                                last_connected,
+                                config.reconnect_delay,
+                            )
                         } else {
                             interval_at(
                                 config.reconnect_delay,
@@ -963,8 +969,16 @@ fn is_loopback(
                 .is_ok_and(|ip| ip.is_loopback()))
 }
 
-fn network_retry() -> Interval {
-    interval_at(Duration::ZERO, Duration::from_secs(1))
+fn network_retry(
+    last_connected: Option<Instant>,
+    reconnect_delay: Duration,
+) -> Interval {
+    // at most one connection per reconnect_delay reaches the server
+    let delay = last_connected.map_or(Duration::ZERO, |at| {
+        reconnect_delay.saturating_sub(at.elapsed())
+    });
+
+    interval_at(delay, reconnect_delay)
 }
 
 fn interval_at(delay: Duration, period: Duration) -> Interval {
