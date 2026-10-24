@@ -191,7 +191,6 @@ pub struct Client {
     chathistory_targets_request: Option<ChathistoryRequest>,
     notification_blackout: NotificationBlackout,
     registration_required_channels: Vec<target::Channel>,
-    pending_joins: HashMap<target::Channel, Instant>,
     join_burst: Option<Instant>,
     bouncer_network_listing: Option<Vec<Server>>,
     isupport: HashMap<isupport::Kind, isupport::Parameter>,
@@ -264,7 +263,6 @@ impl Client {
                 Instant::now(),
             ),
             registration_required_channels: vec![],
-            pending_joins: HashMap::new(),
             join_burst: None,
             bouncer_network_listing: None,
             isupport: HashMap::new(),
@@ -583,65 +581,14 @@ impl Client {
         }
     }
 
-    // join stays pending till server sends our join back or an error
-    fn track_pending_joins(&mut self, channels: &str) {
-        if self.registration_step != RegistrationStep::Complete {
-            return;
-        }
-
-        for channel in channels.split(',') {
-            if let Ok(channel) = target::Channel::parse(
-                channel,
-                self.chantypes(),
-                self.statusmsg(),
-                self.casemapping(),
-            ) && !self.chanmap.contains_key(&channel)
-            {
-                self.pending_joins.insert(channel, Instant::now());
-            }
-        }
-    }
-
-    fn resolve_failed_join(&mut self, command: &Command) {
-        let (code, args) = match command {
-            Command::Numeric(numeric, args) => (*numeric as u16, args),
-            Command::Unknown(tag, args) => {
-                let Ok(code) = tag.parse::<u16>() else {
-                    return;
-                };
-
-                (code, args)
-            }
-            Command::FAIL(command, _, context, _) if command == "JOIN" => {
-                if let Some(channel) =
-                    context.as_ref().and_then(|context| context.first())
-                    && let Ok(channel) = target::Channel::parse(
-                        channel,
-                        self.chantypes(),
-                        self.statusmsg(),
-                        self.casemapping(),
-                    )
-                {
-                    self.pending_joins.remove(&channel);
-                }
-
-                return;
-            }
-            _ => return,
-        };
-
-        // error replies put channel after our nick
-        if (400..600).contains(&code)
-            && let Some(channel) = args.get(1)
-            && let Ok(channel) = target::Channel::parse(
-                channel,
-                self.chantypes(),
-                self.statusmsg(),
-                self.casemapping(),
-            )
-        {
-            self.pending_joins.remove(&channel);
-        }
+    // replies come back in order, so this PONG follows the joins sent before it
+    fn send_join_burst_ping(&mut self) {
+        self.join_burst = Some(Instant::now());
+        self.send(
+            None,
+            command!("PING", BURST_PING_TOKEN).into(),
+            TokenPriority::High,
+        );
     }
 
     fn start_reroute(&self, command: &Command) -> bool {
@@ -752,10 +699,6 @@ impl Client {
             self.set_labeled_response_context(buffer, &mut message);
 
         let mut restore_automated_monitored_users: Vec<String> = vec![];
-
-        if let Command::JOIN(channels, _) = &message.command {
-            self.track_pending_joins(channels);
-        }
 
         if matches!(priority, TokenPriority::User) {
             match &message.command {
@@ -1257,10 +1200,6 @@ impl Client {
             };
         }
 
-        if !self.pending_joins.is_empty() {
-            self.resolve_failed_join(&message.command);
-        }
-
         match &message.command {
             Command::PONG(_, Some(token)) if token == BURST_PING_TOKEN => {
                 self.join_burst = None;
@@ -1624,6 +1563,7 @@ impl Client {
                     }
 
                     self.registration_required_channels.clear();
+                    self.send_join_burst_ping();
                 }
 
                 if !self.capabilities.acknowledged(Capability::AccountNotify) {
@@ -2054,8 +1994,6 @@ impl Client {
                 ));
 
                 if user.nickname() == self.nickname() {
-                    self.pending_joins.remove(&target_channel);
-
                     let casemapping = self.casemapping();
                     let chantypes = self.chantypes().to_vec();
                     let _ = self.chanmap.insert_sorted_by(
@@ -2484,6 +2422,7 @@ impl Client {
                         }
 
                         self.registration_required_channels.clear();
+                        self.send_join_burst_ping();
                     }
                 }
             }
@@ -2972,6 +2911,7 @@ impl Client {
                     }
 
                     self.registration_required_channels.clear();
+                    self.send_join_burst_ping();
                 }
             }
             Command::CHGHOST(new_username, new_hostname) => {
@@ -3464,13 +3404,7 @@ impl Client {
                     }
                 }
 
-                // replies come back in order, so this PONG follows the join burst
-                self.join_burst = Some(Instant::now());
-                self.send(
-                    None,
-                    command!("PING", BURST_PING_TOKEN).into(),
-                    TokenPriority::High,
-                );
+                self.send_join_burst_ping();
 
                 if !self.config.monitor.is_empty() {
                     if let Some(isupport::Parameter::MONITOR(monitor_limit)) =
@@ -4825,10 +4759,6 @@ impl Client {
         self.join_burst
             .is_some_and(|sent_at| sent_at.elapsed() < JOIN_TIMEOUT)
             || self.registration_required_channels.contains(channel)
-            || self
-                .pending_joins
-                .get(channel)
-                .is_some_and(|sent_at| sent_at.elapsed() < JOIN_TIMEOUT)
     }
 
     fn channel_users_received(&mut self, target_channel: target::Channel) {
@@ -5057,8 +4987,6 @@ impl Client {
         self.chanmap
             .values_mut()
             .for_each(|channel| prune_expired_typing(&mut channel.typing));
-        self.pending_joins
-            .retain(|_, sent_at| now.duration_since(*sent_at) < JOIN_TIMEOUT);
 
         for (message, priority) in self.who_queue.tick(
             &self.server,

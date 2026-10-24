@@ -178,21 +178,7 @@ impl Dashboard {
             dashboard.focus_buffer = None;
         }
 
-        let forget_buffers =
-            !config.sidebar.remember_buffers && !dashboard.buffers.is_empty();
-
-        if forget_buffers {
-            dashboard.buffers.clear();
-        }
-
-        let (mut dashboard, task) =
-            Dashboard::from_data(dashboard, storage, config, main_window);
-
-        if forget_buffers {
-            dashboard.last_changed = Some(Instant::now());
-        }
-
-        (dashboard, task)
+        Dashboard::from_data(dashboard, storage, config, main_window)
     }
 
     pub fn buffers_context(&self) -> &dyn BuffersContext {
@@ -4378,7 +4364,9 @@ impl Dashboard {
 
         let mut tasks = vec![sidebar_task.map(Message::Sidebar)];
 
-        storage.restore_saved_buffers(data.buffers, &config.servers);
+        if config.sidebar.remember_buffers {
+            storage.restore_saved_buffers(data.buffers, &config.servers);
+        }
 
         for pane in data.popout_panes {
             // Popouts are only a single pane
