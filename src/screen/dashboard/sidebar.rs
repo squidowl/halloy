@@ -888,7 +888,7 @@ impl Sidebar {
 
             let mut buffers = vec![];
 
-            if config.sidebar.position.is_horizontal() {
+            if config.sidebar.position.is_horizontal() && !config.sidebar.wrap {
                 buffers.push(space::horizontal().width(4).into());
             }
 
