@@ -14,6 +14,7 @@ Added:
 - Setting `runtime.smooth_scrolling` to control whether smooth scrolling is used
 - Notification and highlights matches `sound` property now accept an array of sounds, in which case they'll be picked at random
 - Condensed message gained support for summary via `buffer.server_messages.condense.format = "summary"`
+- Pane title bar button and shortcut to scroll to the backlog divider
 
 Fixed:
 

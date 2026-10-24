@@ -148,6 +148,12 @@ pub fn scroll_to_bottom<'a>() -> Text<'a> {
     to_text('\u{E016}')
 }
 
+pub fn scroll_to_backlog<'a>() -> TextColorSvg<'a, Theme> {
+    text_color_svg(svg::Handle::from_memory(
+        include_bytes!("../assets/fontello/typicons-rewind.svg").as_slice(),
+    ))
+}
+
 pub fn share<'a>() -> Text<'a> {
     to_text('\u{E010}')
 }
