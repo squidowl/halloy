@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::io;
 use std::net::IpAddr;
 use std::path::PathBuf;
+use std::pin::{Pin, pin};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -143,7 +144,8 @@ async fn _run(
 ) -> Never {
     let server::Entry { server, mut config } = server;
 
-    let (controller, mut control) = mpsc::channel(20);
+    let (controller, control) = mpsc::channel(20);
+    let mut control = control.peekable();
 
     let _ = sender.unbounded_send(Update::Controller {
         server: server.clone(),
@@ -265,7 +267,7 @@ async fn _run(
                             sent_time: Utc::now(),
                         });
 
-                        match connect(
+                        let attempt = pin!(connect(
                             server.clone(),
                             config.clone(),
                             config
@@ -273,9 +275,38 @@ async fn _run(
                                 .as_ref()
                                 .or(default_proxy.as_ref())
                                 .cloned(),
+                        ));
+
+                        // a network change aborts an attempt that may be stuck
+                        // on the old network. peeking leaves the change queued,
+                        // so it still resets retry on the next loop
+                        let network_changed = pin!(async {
+                            match Pin::new(&mut control).peek().await {
+                                Some(Control::NetworkChanged { .. }) => (),
+                                _ => future::pending().await,
+                            }
+                        });
+
+                        let result = match future::select(
+                            attempt,
+                            network_changed,
                         )
                         .await
                         {
+                            future::Either::Left((result, _)) => {
+                                result.map_err(|e| match e {
+                                    connection::Error::Tls(e) => {
+                                        format!("a TLS error occurred: {e}")
+                                    }
+                                    _ => e.to_string(),
+                                })
+                            }
+                            future::Either::Right(((), _)) => {
+                                Err("network changed".to_string())
+                            }
+                        };
+
+                        match result {
                             Ok((stream, client)) => {
                                 log::info!("[{server}] connected");
 
@@ -311,15 +342,7 @@ async fn _run(
                                     quit_requested: None,
                                 };
                             }
-                            Err(e) => {
-                                let error = match e {
-                                    // unwrap Tls-specific error enums to access more error info
-                                    connection::Error::Tls(e) => {
-                                        format!("a TLS error occurred: {e}")
-                                    }
-                                    _ => e.to_string(),
-                                };
-
+                            Err(error) => {
                                 log::info!(
                                     "[{server}] connection failed: {error}"
                                 );
