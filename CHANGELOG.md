@@ -16,6 +16,7 @@ Added:
 - Condensed message gained support for summary via `buffer.server_messages.condense.format = "summary"`
 - Pressing Tab in the config editor inserts an indent, set by `config_editor.indent` (`"tab"` by default, or a positive integer from 1 to 8)
 - Sidebar typing indicators for queries
+- Pane title bar button and shortcut to scroll to the backlog divider
 
 Fixed:
 
