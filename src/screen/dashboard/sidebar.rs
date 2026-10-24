@@ -14,7 +14,7 @@ use data::{
 use iced::Length::Shrink;
 use iced::widget::text::{Ellipsis, LineHeight, Shaping, Wrapping};
 use iced::widget::{
-    Column, Row, Scrollable, Space, button, column, container, mouse_area,
+    Column, Id, Row, Scrollable, Space, button, column, container, mouse_area,
     operation, pane_grid, row, rule, scrollable, space, stack,
 };
 use iced::{
@@ -101,16 +101,19 @@ pub struct Sidebar {
     pub hidden: bool,
     collapse: collapse::State,
     system_information: Option<iced::system::Information>,
-    scrollable: iced::widget::Id,
+    scrollable: Id,
 }
+
+// Matches iced's wheel-to-pixel conversion.
+const WHEEL_PX_PER_LINE: f32 = 120.0;
 
 fn horizontal_scroll_delta(delta: mouse::ScrollDelta) -> f32 {
     match delta {
         mouse::ScrollDelta::Lines { x, y } => {
             if y.abs() >= x.abs() {
-                -y * 120.0
+                -y * WHEEL_PX_PER_LINE
             } else {
-                -x * 120.0
+                -x * WHEEL_PX_PER_LINE
             }
         }
         mouse::ScrollDelta::Pixels { x, y } => {
@@ -130,7 +133,7 @@ impl Sidebar {
                 hidden,
                 collapse: collapse::State::default(),
                 system_information: None,
-                scrollable: iced::widget::Id::unique(),
+                scrollable: Id::unique(),
             },
             iced::system::information().map(Message::SystemInformation),
         )
@@ -888,10 +891,6 @@ impl Sidebar {
 
             let mut buffers = vec![];
 
-            if config.sidebar.position.is_horizontal() && !config.sidebar.wrap {
-                buffers.push(space::horizontal().width(4).into());
-            }
-
             for (index, sidebar_buffer_group) in
                 sidebar_buffer_groups.into_iter().enumerate()
             {
@@ -1073,10 +1072,12 @@ impl Sidebar {
                     .right(6)
             }
             sidebar::Position::Top => {
-                padding::top(8 + platform_specific_padding).right(6)
+                padding::top(8 + platform_specific_padding)
+                    .left(config.pane.gap.outer)
+                    .right(6)
             }
             sidebar::Position::Bottom => padding::bottom(8)
-                .left(6)
+                .left(config.pane.gap.outer)
                 .right(6)
                 .top(platform_specific_padding),
         };
@@ -2542,18 +2543,18 @@ enum ConnectionStatus {
 
 #[cfg(test)]
 mod tests {
-    use super::horizontal_scroll_delta;
+    use super::{WHEEL_PX_PER_LINE, horizontal_scroll_delta};
     use iced::mouse::ScrollDelta;
 
     #[test]
     fn maps_vertical_wheel_to_horizontal() {
         assert_eq!(
             horizontal_scroll_delta(ScrollDelta::Lines { x: 0.0, y: -1.0 }),
-            120.0
+            WHEEL_PX_PER_LINE
         );
         assert_eq!(
             horizontal_scroll_delta(ScrollDelta::Lines { x: 0.0, y: 1.0 }),
-            -120.0
+            -WHEEL_PX_PER_LINE
         );
         assert_eq!(
             horizontal_scroll_delta(ScrollDelta::Pixels { x: 0.0, y: -10.0 }),
