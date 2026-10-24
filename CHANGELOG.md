@@ -10,7 +10,6 @@ Added:
 - SQLite history storage, with automatic migration of existing gzip history as buffers are used and loading of history in windows.
 - `buffer.close.query` option `"close-buffer"` (previous option `"close"` renamed to `"close-pane"`)
 - Highlight matches can be optionally named via the `name` property
-- Lost connections taking minutes to detect after waking macOS from sleep
 - Search buffer to search messages across all servers, channels and queries, opened from the command bar, sidebar menu, a nickname's context menu, the `search` key binding or `/search`
 - Setting `runtime.smooth_scrolling` to control whether smooth scrolling is used
 - Notification and highlights matches `sound` property now accept an array of sounds, in which case they'll be picked at random
@@ -25,8 +24,8 @@ Fixed:
 - Crash when right clicking a message in the server buffer
 - ZNC-service style nicks (e.g. `*status`, `*grep`, etc) are not automatically routed to the server buffer
 - Message drafts for sent messages sometimes being restored after restart (instead of being cleared)
-- Will no longer try to reconnect to servers on the internet if there is no
-  connection.
+- Lost connections taking minutes to detect after changing networks, or after waking from sleep on macOS and Linux
+- Reconnect attempts running out, and autoconnect turning off, while there is no network connection
 - Scroll position being lost when showing the typing indicator with `buffer.typing.style = "popped"`
 
 Changed:
