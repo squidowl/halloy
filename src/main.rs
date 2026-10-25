@@ -849,17 +849,12 @@ impl Halloy {
                                     .quit
                                     .default_reason,
                             );
-
-                            self.storage
-                                .forget_sidebar_buffers(bouncer_network);
                         }
 
                         self.controllers.end(
                             &server,
                             &self.config.buffer.commands.quit.default_reason,
                         );
-
-                        self.storage.forget_sidebar_buffers(&server);
 
                         Task::none()
                     }
@@ -1122,6 +1117,10 @@ impl Halloy {
                     self.controllers.remove(&server);
                     self.servers.remove(&server);
                     self.clients.remove(&server);
+
+                    if let Screen::Dashboard(_) = &self.screen {
+                        self.storage.forget_sidebar_buffers(&server);
+                    }
 
                     if let Screen::Exit {
                         pending_server_removals,
