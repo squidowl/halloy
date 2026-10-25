@@ -33,14 +33,15 @@ Changed:
 - Saved chat history is no longer limited to 10,000 messages per buffer
 - Use OS provided certificate verification service on Windows & macOS
 - Recent nick autocomplete keeps last-seen across nick changes, and sorts your own nick last
-- Your own join/part is shown in the channel buffer.
+- Your own join/part is shown in the channel buffer
 - `buffer.server_messages.change_host.enabled` is now `false` by default
+- Dismissable input text tooltips for IRC commands
 
 Thanks:
 
 - Contributions: @httpsterio, @oooo-ps, @rtmongold
 - Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768, @WinnerWind, @strafe, wwWraith
-- Feature requests: @ainola, @kalebris, @sf302, @ToyKeeper
+- Feature requests: @ainola, @kalebris, @sf302, @ToyKeeper, @sebbu2
 - Contributions: @httpsterio, @TehPeGaSuS
 
 # 2026.9 (2026-09-29)

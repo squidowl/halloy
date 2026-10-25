@@ -271,7 +271,9 @@ impl Completion {
     }
 
     pub fn close_picker(&mut self) -> bool {
-        if matches!(self.commands, Commands::Selecting { .. }) {
+        if matches!(self.commands, Commands::Selecting { .. })
+            || matches!(self.commands, Commands::Selected { .. })
+        {
             self.commands = Commands::Idle;
 
             return true;
