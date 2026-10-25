@@ -1408,7 +1408,20 @@ impl Dashboard {
             }
             Message::CloseContextMenu(window, any_closed) => {
                 if !any_closed {
-                    if let Some((_, _, state)) = self.get_focused_mut() {
+                    if let Some((window, pane, state)) = self.get_focused_mut()
+                    {
+                        if state.buffer.in_focus_mode()
+                            && let Some(msg) =
+                                state.buffer.exit_focus_mode_message()
+                        {
+                            return (
+                                Task::done(Message::Pane(
+                                    window,
+                                    pane::Message::Buffer(pane, msg),
+                                )),
+                                None,
+                            );
+                        }
                         if state.buffer.close_picker() {
                             return (Task::none(), None);
                         // We only want to call clear_draft_reply if
