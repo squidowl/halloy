@@ -277,31 +277,31 @@ async fn _run(
                                 .cloned(),
                         ));
 
-                        // a network change aborts an attempt that may be stuck
-                        // on the old network. peeking leaves the change queued,
-                        // so it still resets retry on the next loop
-                        let network_changed = pin!(async {
-                            match Pin::new(&mut control).peek().await {
-                                Some(Control::NetworkChanged { .. }) => (),
-                                _ => future::pending().await,
+                        // any control message aborts an attempt that may be
+                        // stuck on the old network. peeking leaves the message
+                        // queued, so it is still handled on the next loop
+                        let control_pending = pin!(async {
+                            if Pin::new(&mut control).peek().await.is_none() {
+                                future::pending::<()>().await;
                             }
                         });
 
                         let result = match future::select(
                             attempt,
-                            network_changed,
+                            control_pending,
                         )
                         .await
                         {
                             future::Either::Left((result, _)) => result
                                 .map_err(|e| match e {
+                                    // unwrap Tls-specific error enums to access more error info
                                     connection::Error::Tls(e) => {
                                         format!("a TLS error occurred: {e}")
                                     }
                                     _ => e.to_string(),
                                 }),
                             future::Either::Right(((), _)) => {
-                                Err("network changed".to_string())
+                                Err("connection interrupted".to_string())
                             }
                         };
 
@@ -368,13 +368,19 @@ async fn _run(
                             }
                         }
                     }
+                    Some(Control::Resumed) => {
+                        // the retry timer paused during sleep
+                        if *autoconnect {
+                            *retry = network_retry(
+                                last_connected,
+                                config.reconnect_delay,
+                            );
+                        }
+                    }
                     Some(Control::End(_)) => {
                         state = State::End;
                     }
-                    Some(
-                        Control::AuthenticationFailed { .. } | Control::Resumed,
-                    )
-                    | None => (),
+                    Some(Control::AuthenticationFailed { .. }) | None => (),
                 }
             }
             State::Connected {
