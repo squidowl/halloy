@@ -27,6 +27,7 @@ Fixed:
 - Message drafts for sent messages sometimes being restored after restart (instead of being cleared)
 - Lost connections taking minutes to detect after changing networks, or after waking from sleep on macOS and Linux
 - Reconnect attempts running out, and autoconnect turning off, while there is no network connection
+- Connections closed by the server not being detected until the next ping timeout
 - Scroll position being lost when showing the typing indicator with `buffer.typing.style = "popped"`
 
 Changed:
