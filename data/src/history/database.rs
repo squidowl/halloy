@@ -900,6 +900,21 @@ impl Write<'_> {
         normalize(&mut incoming.inner, casemapping);
         incoming.inner.time.utc = incoming.inner.time.utc.trunc_subsecs(6);
         let history = self.history(kind)?;
+        // Clamp sent messages to the latest stored message, so that they don't
+        // get inserted in "the past" when the server's clock is ahead of ours.
+        if incoming.inner.is_sent()
+            && let Some(latest) = self
+                .transaction
+                .prepare_cached(
+                    "SELECT time FROM message WHERE history = ?1 ORDER BY time DESC LIMIT 1",
+                )?
+                .query_row([history], |row| row.get::<_, i64>(0))
+                .optional()?
+            && latest > incoming.inner.time.utc.timestamp_micros()
+        {
+            incoming.inner.time.utc = DateTime::from_timestamp_micros(latest)
+                .ok_or(rusqlite::Error::IntegralValueOutOfRange(0, latest))?;
+        }
         let fuzz = chrono::Duration::seconds(
             if incoming.inner.is_echo()
                 && incoming.labeled_response_context.is_none()
@@ -957,12 +972,19 @@ impl Write<'_> {
                 .labeled_response_context
                 .as_ref()
                 .map_or(time, |context| context.time.utc);
+            let label = incoming
+                .labeled_response_context
+                .as_ref()
+                .map(|context| &*context.label_as_id);
             self.transaction.prepare_cached(
                 "SELECT id, time, time_from_server, msgid, content FROM message
                  WHERE history = ?1 AND time >= ?2 AND time < ?3
                  UNION ALL
                  SELECT id, time, time_from_server, msgid, content FROM message
                  WHERE history = ?1 AND time >= ?4 AND time < ?5 AND (time < ?2 OR time >= ?3)
+                 UNION ALL
+                 SELECT id, time, time_from_server, msgid, content FROM message INDEXED BY message_msgid
+                 WHERE history = ?1 AND msgid = ?6 AND time >= ?5 AND (time < ?2 OR time >= ?3)
                  ORDER BY time, id",
             )?
             .query_map(
@@ -971,7 +993,8 @@ impl Write<'_> {
                     (time - fuzz).timestamp_micros(),
                     (time + fuzz).timestamp_micros(),
                     (label_time - fuzz).timestamp_micros(),
-                    (label_time + fuzz).timestamp_micros()
+                    (label_time + fuzz).timestamp_micros(),
+                    label,
                 ],
                 row_message,
             )?
