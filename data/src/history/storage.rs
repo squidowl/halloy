@@ -1723,13 +1723,13 @@ pub(super) fn reconcile_message(
 
 /// The content of JOIN, PART, and QUIT messages may be dependent on how
 /// the user attributes are resolved.  Match those messages based on Nick
-/// alone (covered by comparing target components) to avoid false negatives.
+/// alone (covered by comparing sources) to avoid false negatives.
 fn has_matching_content(
     message: &message::Message,
     other: &message::Message,
     use_echo_cmp: bool,
 ) -> bool {
-    if message.target == other.target {
+    if message.target == other.target && message.source == other.source {
         if let message::Source::Server(Some(source)) = &message.source {
             match source.kind {
                 message::source::server::Kind::Join
