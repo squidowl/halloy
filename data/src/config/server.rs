@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use hashbrown::HashMap;
+use hashbrown::{HashMap, HashSet};
 use indexmap::IndexMap;
 use irc::connection;
 use serde::{Deserialize, Deserializer};
@@ -197,6 +197,13 @@ impl Server {
             use_websocket,
             dangerously_accept_invalid_certs: false,
             ..Default::default()
+        }
+    }
+
+    pub fn muted(&self, casemapping: isupport::CaseMap) -> Muted {
+        Muted {
+            channels: muted_names(&self.channels, casemapping),
+            queries: muted_names(&self.queries, casemapping),
         }
     }
 
@@ -423,6 +430,33 @@ impl Muteable {
             ..Self::default()
         }
     }
+}
+
+#[derive(Debug, Default)]
+pub struct Muted {
+    channels: HashSet<String>,
+    queries: HashSet<String>,
+}
+
+impl Muted {
+    pub fn channel(&self, channel: &target::Channel) -> bool {
+        self.channels.contains(channel.as_normalized_str())
+    }
+
+    pub fn query(&self, query: &target::Query) -> bool {
+        self.queries.contains(query.as_normalized_str())
+    }
+}
+
+fn muted_names(
+    muteables: &[Muteable],
+    casemapping: isupport::CaseMap,
+) -> HashSet<String> {
+    muteables
+        .iter()
+        .filter(|muteable| muteable.mute)
+        .map(|muteable| casemapping.normalize(&muteable.name))
+        .collect()
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Deserialize)]

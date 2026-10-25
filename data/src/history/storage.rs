@@ -89,6 +89,7 @@ pub struct Manager {
     monitored: Vec<Kind>,
     failure: Option<String>,
     exiting: bool,
+    saved_buffers: HashSet<Kind>,
 }
 
 impl Manager {
@@ -114,6 +115,7 @@ impl Manager {
                 monitored: vec![],
                 failure: None,
                 exiting: false,
+                saved_buffers: HashSet::new(),
             },
             Task::stream(UnboundedReceiverStream::new(event_receiver)),
         )
@@ -137,6 +139,7 @@ impl Manager {
             monitored: vec![],
             failure: None,
             exiting: false,
+            saved_buffers: HashSet::new(),
         }
     }
 
@@ -810,6 +813,104 @@ impl Manager {
         });
     }
 
+    /// true if saved buffers changed
+    pub fn update_saved_buffers(
+        &mut self,
+        clients: &client::Map,
+        remember_buffers: bool,
+    ) -> bool {
+        if self.exiting {
+            return false;
+        }
+
+        let buffers = if remember_buffers {
+            sidebar_buffers(&self.storage, clients)
+        } else {
+            HashSet::new()
+        };
+
+        if buffers == self.saved_buffers {
+            return false;
+        }
+
+        self.saved_buffers = buffers;
+
+        true
+    }
+
+    pub fn saved_buffers(&self) -> Vec<(Server, Target)> {
+        self.saved_buffers
+            .iter()
+            .filter_map(|kind| {
+                Some((kind.as_server()?.clone(), kind.target()?))
+            })
+            .collect()
+    }
+
+    pub fn restore_saved_buffers(
+        &mut self,
+        buffers: Vec<(Server, Target)>,
+        servers: &server::ConfigMap,
+    ) {
+        for (server, target) in buffers {
+            let Some(config) = servers.get(&server.name) else {
+                continue;
+            };
+
+            if server.network.as_ref().is_some_and(|network| {
+                config.bouncer_network_config(network).is_none()
+            }) {
+                continue;
+            }
+
+            // bouncer manages its own channel state
+            if server.network.is_some() && matches!(target, Target::Channel(_))
+            {
+                continue;
+            }
+
+            let kind = Kind::from_target(server, target);
+
+            // load metadata so unread state shows in the sidebar
+            self.show_in_sidebar(kind.clone(), true);
+
+            self.saved_buffers.insert(kind);
+        }
+    }
+
+    pub fn forget_sidebar_buffers(&mut self, server: &Server) {
+        self.hide_in_sidebar(|shown| shown == server);
+    }
+
+    pub fn forget_unlisted_bouncer_networks(
+        &mut self,
+        parent: &Server,
+        listed: &[Server],
+    ) {
+        self.hide_in_sidebar(|shown| {
+            shown.parent().as_ref() == Some(parent) && !listed.contains(shown)
+        });
+    }
+
+    fn hide_in_sidebar(&mut self, servers: impl Fn(&Server) -> bool) {
+        let kinds = self
+            .storage
+            .iter()
+            .filter_map(|(kind, storage)| match kind {
+                Kind::Channel(server, _) | Kind::Query(server, _)
+                    if storage.show_in_sidebar && servers(server) =>
+                {
+                    Some(kind.clone())
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        for kind in kinds {
+            self.show_in_sidebar(kind, false);
+        }
+    }
+
     pub fn get_filters(&self) -> &[Filter] {
         &self.filters
     }
@@ -1056,6 +1157,28 @@ impl Manager {
         }
         self.refresh(&Kind::ChannelMonitor);
     }
+}
+
+fn sidebar_buffers(
+    storage: &HashMap<Kind, Storage>,
+    clients: &client::Map,
+) -> HashSet<Kind> {
+    let shown = storage
+        .iter()
+        .filter(|(kind, storage)| {
+            matches!(kind, Kind::Channel(..) | Kind::Query(..))
+                && storage.show_in_sidebar
+        })
+        .map(|(kind, _)| kind.clone());
+
+    // joined channels show before their join is committed to storage
+    let joined = clients.connected_servers().flat_map(|server| {
+        clients
+            .get_channels(server)
+            .map(|channel| Kind::Channel(server.clone(), channel.clone()))
+    });
+
+    shown.chain(joined).collect()
 }
 
 #[derive(Debug)]

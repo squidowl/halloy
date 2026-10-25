@@ -1118,6 +1118,10 @@ impl Halloy {
                     self.servers.remove(&server);
                     self.clients.remove(&server);
 
+                    if let Screen::Dashboard(_) = &self.screen {
+                        self.storage.forget_sidebar_buffers(&server);
+                    }
+
                     if let Screen::Exit {
                         pending_server_removals,
                         buffers_context,
@@ -1192,13 +1196,19 @@ impl Halloy {
 
                 self.storage.tick(now, &self.config);
 
-                let dashboard_tasks = if let Screen::Dashboard(dashboard) =
-                    &mut self.screen
-                {
-                    dashboard.tick(now, &self.clients).map(Message::Dashboard)
-                } else {
-                    Task::none()
-                };
+                let dashboard_tasks =
+                    if let Screen::Dashboard(dashboard) = &mut self.screen {
+                        dashboard
+                            .tick(
+                                now,
+                                &self.clients,
+                                &mut self.storage,
+                                &self.config,
+                            )
+                            .map(Message::Dashboard)
+                    } else {
+                        Task::none()
+                    };
 
                 Task::batch(vec![dashboard_tasks])
             }
@@ -1929,6 +1939,8 @@ impl Halloy {
                     })
                     .collect::<Vec<_>>();
 
+                let mut removed_bouncer_networks = vec![];
+
                 for (server, config) in updated.servers.iter() {
                     let server = server.clone().into();
 
@@ -1961,6 +1973,7 @@ impl Halloy {
                                 );
                                 self.servers.remove(&bouncer_network);
                                 self.clients.remove(&bouncer_network);
+                                removed_bouncer_networks.push(bouncer_network);
 
                                 continue;
                             };
@@ -2000,9 +2013,9 @@ impl Halloy {
 
                 self.config = updated;
 
-                for (server, _) in removed_servers {
+                for (server, _) in &removed_servers {
                     self.controllers.end(
-                        &server,
+                        server,
                         &self
                             .config
                             .buffer
@@ -2011,6 +2024,16 @@ impl Halloy {
                             .default_reason
                             .clone(),
                     );
+
+                    self.clients.remove(server);
+                }
+
+                for server in removed_servers
+                    .iter()
+                    .map(|(server, _)| server)
+                    .chain(&removed_bouncer_networks)
+                {
+                    self.storage.forget_sidebar_buffers(server);
                 }
 
                 self.storage.reload_configuration(
@@ -2106,7 +2129,9 @@ impl Halloy {
 
         let dashboard_save_task =
             if let Screen::Dashboard(dashboard) = &mut self.screen {
-                dashboard.exit().map(|task| task.map(Message::Dashboard))
+                dashboard
+                    .exit(&self.clients, &mut self.storage, &self.config)
+                    .map(|task| task.map(Message::Dashboard))
             } else {
                 None
             };
@@ -2256,6 +2281,9 @@ fn handle_client_events(
                             .map(Message::Dashboard),
                     );
                 }
+            }
+            Event::BouncerNetworksListed(listed) => {
+                storage.forget_unlisted_bouncer_networks(server, &listed);
             }
             Event::ShowInSidebar(target) => {
                 let kind = history::Kind::from_target(server.clone(), target);

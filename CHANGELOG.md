@@ -14,6 +14,9 @@ Added:
 - Setting `runtime.smooth_scrolling` to control whether smooth scrolling is used
 - Notification and highlights matches `sound` property now accept an array of sounds, in which case they'll be picked at random
 - Condensed message gained support for summary via `buffer.server_messages.condense.format = "summary"`
+- Added `sidebar.remember_buffers`. When enabled, buffers that were in the
+  sidebar during the last session will be restored in a disconnected state.
+- Disconnected channels are styled differently than connected channels
 
 Fixed:
 
@@ -35,10 +38,12 @@ Changed:
 - Recent nick autocomplete keeps last-seen across nick changes, and sorts your own nick last
 - Your own join/part is shown in the channel buffer.
 - `buffer.server_messages.change_host.enabled` is now `false` by default
+- Being kicked from a channel no longer closes the buffer.
+- Disconnecting from a server no longer removes its channels and queries from the sidebar.
 
 Thanks:
 
-- Contributions: @httpsterio, @oooo-ps, @rtmongold
+- Contributions: @httpsterio, @oooo-ps, @rtmongold, @furudean
 - Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768, @WinnerWind, @strafe, wwWraith
 - Feature requests: @ainola, @kalebris, @sf302, @ToyKeeper
 - Contributions: @httpsterio, @TehPeGaSuS

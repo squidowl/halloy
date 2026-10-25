@@ -207,10 +207,17 @@ pub fn view<'a>(
 
     let filehost_url = clients.get_filehost(server);
 
-    let text_input = show_text_input.then(move || {
+    let channel_state = clients.channel_state(server, channel);
+    let our_nick_user = our_nick
+        .filter(|_| our_user.is_none())
+        .cloned()
+        .map(User::from);
+
+    let text_input = show_text_input.then(|| {
         input_view::view(
             &state.input_view,
-            our_user,
+            our_user.or(our_nick_user.as_ref()),
+            Some(channel_state),
             users,
             &state.server,
             registry,
