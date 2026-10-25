@@ -153,6 +153,8 @@ async fn _run(
         retry: interval_at(Duration::ZERO, config.reconnect_delay),
     };
 
+    let mut end_when_disconnected = false;
+
     // Notify app of initial disconnected state
     let _ = sender.unbounded_send(Update::Disconnected {
         server: server.clone(),
@@ -165,6 +167,11 @@ async fn _run(
     loop {
         match &mut state {
             State::Disconnected { autoconnect, retry } => {
+                if end_when_disconnected {
+                    state = State::End;
+                    continue;
+                }
+
                 let selection = {
                     if *autoconnect {
                         stream::select(
@@ -592,12 +599,16 @@ async fn _run(
                             };
                         }
                         Control::End(reason) => {
-                            let _ = stream
-                                .connection
-                                .send(Command::QUIT(reason).into())
-                                .await;
+                            if quit_requested.is_none() {
+                                let _ = stream
+                                    .connection
+                                    .send(Command::QUIT(reason).into())
+                                    .await;
 
-                            state = State::End;
+                                *quit_requested = Some(Instant::now());
+                            }
+
+                            end_when_disconnected = true;
                         }
                     },
                 }
@@ -908,8 +919,6 @@ impl Map {
         if let Some(controller) = self.0.get_mut(server) {
             let _ = controller.try_send(Control::End(reason.clone()));
         }
-
-        self.0.remove(server);
     }
 
     pub fn connected(&self) -> HashSet<Server> {
