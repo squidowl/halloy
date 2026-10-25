@@ -12,6 +12,8 @@ Added:
 - Highlight matches can be optionally named via the `name` property
 - Search buffer to search messages across all servers, channels and queries, opened from the command bar, sidebar menu, a nickname's context menu, the `search` key binding or `/search`
 - Setting `runtime.smooth_scrolling` to control whether smooth scrolling is used
+- Notification and highlights matches `sound` property now accept an array of sounds, in which case they'll be picked at random
+- Condensed message gained support for summary via `buffer.server_messages.condense.format = "summary"`
 - Added `sidebar.remember_buffers`. When enabled, buffers that were in the
   sidebar during the last session will be restored in a disconnected state.
 - Disconnected channels are styled differently than connected channels
@@ -33,15 +35,18 @@ Changed:
 - Default keybinds for focus movement on macOS changed from `⌥ + <arrow keys>` to `ctrl + <arrow keys>` to avoid conflicting with macOS by-word movement keybinds (`⌥ + ←` and `⌥ + →`)
 - Saved chat history is no longer limited to 10,000 messages per buffer
 - Use OS provided certificate verification service on Windows & macOS
+- Recent nick autocomplete keeps last-seen across nick changes, and sorts your own nick last
 - Your own join/part is shown in the channel buffer.
+- `buffer.server_messages.change_host.enabled` is now `false` by default
 - Being kicked from a channel no longer closes the buffer.
 - Disconnecting from a server no longer removes its channels and queries from the sidebar.
 
 Thanks:
 
-- Contributions: @httpsterio, @oooo-ps, @furudean
-- Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768, @WinnerWind, @strafe
-- Feature requests: @ainola, @kalebris, @sf302
+- Contributions: @httpsterio, @oooo-ps, @rtmongold, @furudean
+- Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768, @WinnerWind, @strafe, wwWraith
+- Feature requests: @ainola, @kalebris, @sf302, @ToyKeeper
+- Contributions: @httpsterio, @TehPeGaSuS
 
 # 2026.9 (2026-09-29)
 

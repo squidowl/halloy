@@ -626,10 +626,12 @@ fn notifications(
     let text = message.inner.text().into_owned();
     if let Some(channel) = message.inner.target.as_channel() {
         if let Some(highlight) = &message.highlight {
-            let (description, sound) = match highlight {
-                highlight::Kind::Nick => ("highlighted you".to_string(), None),
-                highlight::Kind::Match { matching, sound } => {
-                    (format!("matched highlight {matching}"), sound.clone())
+            let (description, sounds) = match highlight {
+                highlight::Kind::Nick { sounds } => {
+                    ("highlighted you".to_string(), sounds.clone())
+                }
+                highlight::Kind::Match { matching, sounds } => {
+                    (format!("matched highlight {matching}"), sounds.clone())
                 }
             };
             return (
@@ -639,7 +641,7 @@ fn notifications(
                     casemapping,
                     message: text,
                     description,
-                    sound,
+                    sounds,
                 }),
                 None,
             );

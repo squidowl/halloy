@@ -1862,6 +1862,8 @@ impl Client {
                 let new_nick =
                     Nick::from_str(nick.as_str(), self.casemapping());
 
+                let channels = self.user_channels(old_user.nickname());
+
                 self.chanmap.values_mut().for_each(|channel| {
                     if let Some(user) = channel.users.take(&old_user) {
                         channel
@@ -1872,9 +1874,7 @@ impl Client {
 
                 return Ok(vec![Event::Broadcast(
                     broadcast::BroadcastWithContext {
-                        in_channels: broadcast::Channels::Vec(
-                            self.user_channels(old_user.nickname()),
-                        ),
+                        in_channels: broadcast::Channels::Vec(channels),
                         in_server: ourself,
                         in_queries: if ourself {
                             broadcast::Queries::All

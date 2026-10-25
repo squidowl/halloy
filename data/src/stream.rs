@@ -153,6 +153,8 @@ async fn _run(
         retry: interval_at(Duration::ZERO, config.reconnect_delay),
     };
 
+    let mut end_when_disconnected = false;
+
     // Notify app of initial disconnected state
     let _ = sender.unbounded_send(Update::Disconnected {
         server: server.clone(),
@@ -165,6 +167,11 @@ async fn _run(
     loop {
         match &mut state {
             State::Disconnected { autoconnect, retry } => {
+                if end_when_disconnected {
+                    state = State::End;
+                    continue;
+                }
+
                 let selection = {
                     if *autoconnect {
                         stream::select(
@@ -371,6 +378,35 @@ async fn _run(
                     select.next().await.expect("Connected select")
                 };
 
+                let mut disconnect = |error: Option<String>| -> State {
+                    if !batch.messages.is_empty() {
+                        let _ =
+                            sender.unbounded_send(Update::MessagesReceived(
+                                server.clone(),
+                                std::mem::take(&mut batch.messages),
+                            ));
+                    }
+
+                    let autoconnect = !quit_requested.is_some();
+                    connection_attempt = 0;
+
+                    let _ = sender.unbounded_send(Update::Disconnected {
+                        server: server.clone(),
+                        is_initial,
+                        error,
+                        sent_time: Utc::now(),
+                        autoconnect,
+                    });
+
+                    State::Disconnected {
+                        autoconnect,
+                        retry: interval_at(
+                            config.reconnect_delay,
+                            config.reconnect_delay,
+                        ),
+                    }
+                };
+
                 match input {
                     Input::IrcMessage(Ok(Ok(message))) => match message.command
                     {
@@ -392,50 +428,18 @@ async fn _run(
                             *ping_timeout = None;
                         }
                         proto::Command::ERROR(error) => {
-                            let autoconnect = !quit_requested.is_some();
-                            connection_attempt = 0;
-
-                            if quit_requested.is_some() {
-                                let _ = sender.unbounded_send(
-                                    Update::Disconnected {
-                                        server: server.clone(),
-                                        is_initial,
-                                        error: None,
-                                        sent_time: Utc::now(),
-                                        autoconnect,
-                                    },
-                                );
-
+                            let error = if quit_requested.is_some() {
                                 // If QUIT was requested, then ERROR is
                                 // a valid acknowledgement
                                 // https://modern.ircdocs.horse/#quit-message
-                                state = State::Disconnected {
-                                    autoconnect,
-                                    retry: interval_at(
-                                        config.reconnect_delay,
-                                        config.reconnect_delay,
-                                    ),
-                                };
+                                None
                             } else {
                                 log::info!("[{server}] disconnected: {error}");
 
-                                let _ = sender.unbounded_send(
-                                    Update::Disconnected {
-                                        server: server.clone(),
-                                        is_initial,
-                                        error: Some(error),
-                                        sent_time: Utc::now(),
-                                        autoconnect,
-                                    },
-                                );
-                                state = State::Disconnected {
-                                    autoconnect,
-                                    retry: interval_at(
-                                        config.reconnect_delay,
-                                        config.reconnect_delay,
-                                    ),
-                                };
-                            }
+                                Some(error)
+                            };
+
+                            state = disconnect(error);
                         }
                         _ => {
                             batch.messages.push(message.into());
@@ -447,23 +451,7 @@ async fn _run(
                     Input::IrcMessage(Err(e)) => {
                         log::info!("[{server}] disconnected: {e}");
 
-                        let autoconnect = quit_requested.is_none();
-                        connection_attempt = 0;
-
-                        let _ = sender.unbounded_send(Update::Disconnected {
-                            server: server.clone(),
-                            is_initial,
-                            error: Some(e.to_string()),
-                            sent_time: Utc::now(),
-                            autoconnect,
-                        });
-                        state = State::Disconnected {
-                            autoconnect,
-                            retry: interval_at(
-                                config.reconnect_delay,
-                                config.reconnect_delay,
-                            ),
-                        };
+                        state = disconnect(Some(e.to_string()));
                     }
                     Input::Batch(messages) => {
                         let _ = sender.unbounded_send(
@@ -502,23 +490,7 @@ async fn _run(
                     Input::PingTimeout => {
                         log::info!("[{server}] ping timeout");
 
-                        let autoconnect = quit_requested.is_none();
-                        connection_attempt = 0;
-
-                        let _ = sender.unbounded_send(Update::Disconnected {
-                            server: server.clone(),
-                            is_initial,
-                            error: Some("ping timeout".into()),
-                            sent_time: Utc::now(),
-                            autoconnect,
-                        });
-                        state = State::Disconnected {
-                            autoconnect,
-                            retry: interval_at(
-                                config.reconnect_delay,
-                                config.reconnect_delay,
-                            ),
-                        };
+                        state = disconnect(Some("ping timeout".into()));
                     }
                     Input::WebSocketPing => {
                         let now = Posix::now().as_nanos().to_string();
@@ -535,25 +507,7 @@ async fn _run(
                                     "[{server}] failed to send websocket ping: {e}"
                                 );
 
-                                let autoconnect = quit_requested.is_none();
-                                connection_attempt = 0;
-
-                                let _ = sender.unbounded_send(
-                                    Update::Disconnected {
-                                        server: server.clone(),
-                                        is_initial,
-                                        error: Some(e.to_string()),
-                                        sent_time: Utc::now(),
-                                        autoconnect,
-                                    },
-                                );
-                                state = State::Disconnected {
-                                    autoconnect,
-                                    retry: interval_at(
-                                        config.reconnect_delay,
-                                        config.reconnect_delay,
-                                    ),
-                                };
+                                state = disconnect(Some(e.to_string()));
                             }
                         }
                     }
@@ -650,12 +604,16 @@ async fn _run(
                             };
                         }
                         Control::End(reason) => {
-                            let _ = stream
-                                .connection
-                                .send(Command::QUIT(reason).into())
-                                .await;
+                            if quit_requested.is_none() {
+                                let _ = stream
+                                    .connection
+                                    .send(Command::QUIT(reason).into())
+                                    .await;
 
-                            state = State::End;
+                                *quit_requested = Some(Instant::now());
+                            }
+
+                            end_when_disconnected = true;
                         }
                     },
                 }
@@ -966,8 +924,6 @@ impl Map {
         if let Some(controller) = self.0.get_mut(server) {
             let _ = controller.try_send(Control::End(reason.clone()));
         }
-
-        self.0.remove(server);
     }
 
     pub fn connected(&self) -> HashSet<Server> {

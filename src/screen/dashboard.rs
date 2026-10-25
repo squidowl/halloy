@@ -4573,7 +4573,7 @@ impl Dashboard {
         clients: &client::Map,
         storage: &mut storage::Manager,
         config: &Config,
-    ) -> Task<Message> {
+    ) -> Option<Task<Message>> {
         if storage
             .update_saved_buffers(clients, config.sidebar.remember_buffers)
         {
@@ -4586,11 +4586,9 @@ impl Dashboard {
             ..data::Dashboard::from(&*self)
         };
 
-        if last_changed.is_some() {
-            Task::perform(dashboard.save(), Message::DashboardSaved)
-        } else {
-            Task::none()
-        }
+        last_changed
+            .is_some()
+            .then_some(Task::perform(dashboard.save(), Message::DashboardSaved))
     }
 
     pub fn open_target(
@@ -4837,23 +4835,6 @@ impl Dashboard {
             .any(|(open_server, open_channel)| {
                 *open_server == server && *open_channel == channel
             })
-    }
-
-    pub fn open_pane_server_queries(
-        &self,
-        server: &Server,
-    ) -> Vec<&target::Query> {
-        self.panes
-            .iter()
-            .filter_map(|(_, _, pane)| match pane.buffer.upstream() {
-                Some(buffer::Upstream::Query(buffer_server, query))
-                    if buffer_server == server =>
-                {
-                    Some(query)
-                }
-                _ => None,
-            })
-            .collect()
     }
 
     fn save_config_editor(
@@ -5583,5 +5564,18 @@ impl BuffersContext for Panes {
                 .is_some_and(|pane_kind| pane_kind == *kind)
                 .then_some(window_id)
         })
+    }
+
+    fn open_pane_server_queries(&self, server: &Server) -> Vec<&target::Query> {
+        self.iter()
+            .filter_map(|(_, _, pane)| match pane.buffer.upstream() {
+                Some(buffer::Upstream::Query(buffer_server, query))
+                    if buffer_server == server =>
+                {
+                    Some(query)
+                }
+                _ => None,
+            })
+            .collect()
     }
 }

@@ -428,8 +428,11 @@ pub enum Screen {
     Help(screen::Help),
     Welcome(screen::Welcome),
     Exit {
-        servers_pending_exit: HashSet<Server>,
-        history_pending_exit: bool,
+        pending_window_settings_save: bool,
+        pending_dashboard_save: bool,
+        pending_server_removals: HashSet<Server>,
+        buffers_context: BuffersContextSnapshot,
+        pending_history_exit: bool,
     },
 }
 
@@ -437,6 +440,9 @@ impl Screen {
     fn buffers_context(&self) -> &dyn BuffersContext {
         match self {
             Screen::Dashboard(dashboard) => dashboard.buffers_context(),
+            Screen::Exit {
+                buffers_context, ..
+            } => buffers_context,
             _ => &*EMPTY_BUFFERS_CONTEXT,
         }
     }
@@ -446,6 +452,9 @@ impl Screen {
             Screen::Dashboard(dashboard) => {
                 dashboard.buffers_context_snapshot()
             }
+            Screen::Exit {
+                buffers_context, ..
+            } => buffers_context.clone(),
             _ => BuffersContextSnapshot::empty(),
         }
     }
@@ -700,6 +709,26 @@ impl Halloy {
             }
             Message::Dashboard(message) => {
                 let Screen::Dashboard(dashboard) = &mut self.screen else {
+                    if let Screen::Exit {
+                        pending_window_settings_save,
+                        pending_dashboard_save,
+                        pending_history_exit,
+                        ..
+                    } = &mut self.screen
+                        && matches!(
+                            message,
+                            dashboard::Message::DashboardSaved(_)
+                        )
+                    {
+                        *pending_dashboard_save = false;
+
+                        if !*pending_window_settings_save
+                            && !*pending_history_exit
+                        {
+                            return iced::exit();
+                        }
+                    }
+
                     return Task::none();
                 };
 
@@ -808,7 +837,31 @@ impl Halloy {
                         task.map(Message::Modal)
                     }
                     Some(dashboard::Event::Remove(server)) => {
-                        self.remove(server)
+                        for bouncer_network in
+                            self.servers.get_bouncer_networks(&server)
+                        {
+                            self.controllers.end(
+                                bouncer_network,
+                                &self
+                                    .config
+                                    .buffer
+                                    .commands
+                                    .quit
+                                    .default_reason,
+                            );
+
+                            self.storage
+                                .forget_sidebar_buffers(bouncer_network);
+                        }
+
+                        self.controllers.end(
+                            &server,
+                            &self.config.buffer.commands.quit.default_reason,
+                        );
+
+                        self.storage.forget_sidebar_buffers(&server);
+
+                        Task::none()
                     }
                     Some(dashboard::Event::PromptBeforeFileUpload {
                         upload_url,
@@ -1065,7 +1118,26 @@ impl Halloy {
                 stream::Update::MessagesReceived(server, messages) => {
                     self.handle_messages_received(server, messages)
                 }
-                stream::Update::Remove(server) => self.remove(server),
+                stream::Update::Remove(server) => {
+                    self.controllers.remove(&server);
+                    self.servers.remove(&server);
+                    self.clients.remove(&server);
+
+                    if let Screen::Exit {
+                        pending_server_removals,
+                        buffers_context,
+                        ..
+                    } = &mut self.screen
+                    {
+                        pending_server_removals.remove(&server);
+
+                        if pending_server_removals.is_empty() {
+                            self.storage.exit(buffers_context, &self.config);
+                        }
+                    }
+
+                    Task::none()
+                }
                 stream::Update::Controller { server, controller } => {
                     self.controllers.insert(server, controller);
 
@@ -1082,22 +1154,18 @@ impl Halloy {
                         false,
                     );
 
-                    if let Screen::Dashboard(dashboard) = &mut self.screen {
-                        return handle_client_events(
-                            &server,
-                            events,
-                            dashboard,
-                            &mut self.clients,
-                            &mut self.storage,
-                            &self.config,
-                            &mut self.notifications,
-                            &mut self.servers,
-                            &mut self.controllers,
-                            &self.focused_window,
-                        );
-                    }
-
-                    Task::none()
+                    handle_client_events(
+                        &server,
+                        events,
+                        &mut self.screen,
+                        &mut self.clients,
+                        &mut self.storage,
+                        &self.config,
+                        &mut self.notifications,
+                        &mut self.servers,
+                        &mut self.controllers,
+                        &self.focused_window,
+                    )
                 }
                 stream::Update::AutoconnectDisabled { server } => {
                     self.clients.autoconnect_disabled(&server);
@@ -1231,26 +1299,22 @@ impl Halloy {
                                         true,
                                     );
 
-                                    if let Screen::Dashboard(dashboard) =
-                                        &mut self.screen
-                                    {
-                                        let commands = handle_client_events(
-                                            &server,
-                                            events,
-                                            dashboard,
-                                            &mut self.clients,
-                                            &mut self.storage,
-                                            &self.config,
-                                            &mut self.notifications,
-                                            &mut self.servers,
-                                            &mut self.controllers,
-                                            &self.focused_window,
-                                        );
+                                    let commands = handle_client_events(
+                                        &server,
+                                        events,
+                                        &mut self.screen,
+                                        &mut self.clients,
+                                        &mut self.storage,
+                                        &self.config,
+                                        &mut self.notifications,
+                                        &mut self.servers,
+                                        &mut self.controllers,
+                                        &self.focused_window,
+                                    );
 
-                                        return command
-                                            .map(Message::Modal)
-                                            .chain(commands);
-                                    }
+                                    return command
+                                        .map(Message::Modal)
+                                        .chain(commands);
                                 } else {
                                     self.servers
                                         .insert(server, Arc::new(config));
@@ -1409,6 +1473,20 @@ impl Halloy {
                     log::error!("window settings failed to save: {err:?}");
                 }
 
+                if let Screen::Exit {
+                    pending_window_settings_save,
+                    pending_dashboard_save,
+                    pending_history_exit,
+                    ..
+                } = &mut self.screen
+                {
+                    *pending_window_settings_save = false;
+
+                    if !*pending_dashboard_save && !*pending_history_exit {
+                        return iced::exit();
+                    }
+                }
+
                 Task::none()
             }
             Message::AppearanceChange(mode) => {
@@ -1564,26 +1642,30 @@ impl Halloy {
 
                             if is_exit_message {
                                 if let Screen::Exit {
-                                    history_pending_exit,
-                                    servers_pending_exit,
+                                    pending_window_settings_save,
+                                    pending_dashboard_save,
+                                    pending_history_exit,
+                                    ..
                                 } = &mut self.screen
                                 {
-                                    *history_pending_exit = false;
+                                    *pending_history_exit = false;
 
-                                    if servers_pending_exit.is_empty() {
+                                    if !*pending_window_settings_save
+                                        && !*pending_dashboard_save
+                                    {
                                         return iced::exit();
                                     }
                                 } else {
-                                    log::debug!("history exited without exit state initialized as expected");
+                                    log::error!(
+                                        "history exited without exit state"
+                                    );
                                 }
                             }
 
                             Task::none()
-                        },
+                        }
                         storage::Event::Model(message) => {
-                            if let Screen::Dashboard(_) =
-                                &mut self.screen
-                            {
+                            if let Screen::Dashboard(_) = &mut self.screen {
                                 self.update(Message::Dashboard(
                                     dashboard::Message::Model(message),
                                 ))
@@ -1594,7 +1676,9 @@ impl Halloy {
                         storage::Event::Notification(server, notification) => {
                             if matches!(self.screen, Screen::Dashboard(_)) {
                                 self.notifications.notify(
-                                    &self.config, &notification, &server,
+                                    &self.config,
+                                    &notification,
+                                    &server,
                                 );
                             }
 
@@ -1891,6 +1975,7 @@ impl Halloy {
                                 self.servers.remove(&bouncer_network);
                                 self.clients.remove(&bouncer_network);
                                 removed_bouncer_networks.push(bouncer_network);
+
                                 continue;
                             };
 
@@ -2021,14 +2106,10 @@ impl Halloy {
             }
         }
 
-        let Screen::Dashboard(dashboard) = &mut self.screen else {
-            return Task::none();
-        };
-
         handle_client_events(
             &server,
             all_events,
-            dashboard,
+            &mut self.screen,
             &mut self.clients,
             &mut self.storage,
             &self.config,
@@ -2039,57 +2120,6 @@ impl Halloy {
         )
     }
 
-    fn remove(&mut self, server: Server) -> Task<Message> {
-        match &mut self.screen {
-            Screen::Dashboard(_) => {
-                let bouncer_networks: Vec<_> = self
-                    .servers
-                    .get_bouncer_networks(&server)
-                    .cloned()
-                    .collect();
-
-                for bouncer_network in bouncer_networks {
-                    self.controllers.end(
-                        &bouncer_network,
-                        &self.config.buffer.commands.quit.default_reason,
-                    );
-
-                    self.servers.remove(&bouncer_network);
-
-                    self.clients.remove(&bouncer_network);
-
-                    self.storage.forget_sidebar_buffers(&bouncer_network);
-                }
-
-                self.controllers.end(
-                    &server,
-                    &self.config.buffer.commands.quit.default_reason,
-                );
-
-                self.servers.remove(&server);
-
-                self.clients.remove(&server);
-
-                self.storage.forget_sidebar_buffers(&server);
-
-                Task::none()
-            }
-            Screen::Exit {
-                servers_pending_exit,
-                history_pending_exit,
-            } => {
-                servers_pending_exit.remove(&server);
-
-                if servers_pending_exit.is_empty() && !*history_pending_exit {
-                    iced::exit()
-                } else {
-                    Task::none()
-                }
-            }
-            _ => Task::none(),
-        }
-    }
-
     fn exit(&mut self) -> Task<Message> {
         if let Screen::Exit { .. } = &self.screen {
             // Already exiting.
@@ -2098,24 +2128,30 @@ impl Halloy {
 
         let mut exit_tasks = vec![self.save_main_window_settings()];
 
-        if let Screen::Dashboard(dashboard) = &mut self.screen {
-            exit_tasks.push(
+        let dashboard_save_task =
+            if let Screen::Dashboard(dashboard) = &mut self.screen {
                 dashboard
                     .exit(&self.clients, &mut self.storage, &self.config)
-                    .map(Message::Dashboard),
-            );
-        }
+                    .map(|task| task.map(Message::Dashboard))
+            } else {
+                None
+            };
 
-        let servers_pending_exit = self.controllers.connected();
+        let pending_server_removals = self.controllers.connected();
 
         let buffers_context = self.screen.buffers_context_snapshot();
 
         self.screen = Screen::Exit {
-            servers_pending_exit,
-            history_pending_exit: true,
+            pending_window_settings_save: true,
+            pending_dashboard_save: dashboard_save_task.is_some(),
+            pending_server_removals,
+            buffers_context,
+            pending_history_exit: true,
         };
 
-        self.storage.exit(&buffers_context, &self.config);
+        if let Some(dashboard_save_task) = dashboard_save_task {
+            exit_tasks.push(dashboard_save_task);
+        }
 
         self.controllers
             .exit(&self.config.buffer.commands.quit.default_reason);
@@ -2127,7 +2163,7 @@ impl Halloy {
 fn handle_client_events(
     server: &Server,
     events: Vec<data::client::Event>,
-    dashboard: &mut screen::Dashboard,
+    screen: &mut Screen,
     clients: &mut client::Map,
     storage: &mut storage::Manager,
     config: &Config,
@@ -2158,16 +2194,18 @@ fn handle_client_events(
                 ));
             }
             Event::FileTransferRequest(request) => {
-                if let Some(command) = dashboard.receive_file_transfer(
-                    server,
-                    casemapping,
-                    request,
-                    clients,
-                    storage,
-                    config,
-                    notifications,
-                    focused_window,
-                ) {
+                if let Screen::Dashboard(dashboard) = screen
+                    && let Some(command) = dashboard.receive_file_transfer(
+                        server,
+                        casemapping,
+                        request,
+                        clients,
+                        storage,
+                        config,
+                        notifications,
+                        focused_window,
+                    )
+                {
                     commands.push(command.map(Message::Dashboard));
                 }
             }
@@ -2179,7 +2217,8 @@ fn handle_client_events(
             }
             Event::MonitoredOnline(users) => {
                 let kind = history::Kind::Server(server.clone());
-                let message_window = dashboard.find_window_with_history(&kind);
+                let message_window =
+                    screen.buffers_context().find_window_with(&kind);
 
                 if message_window.is_none() || *focused_window != message_window
                 {
@@ -2192,7 +2231,8 @@ fn handle_client_events(
             }
             Event::MonitoredOffline(users) => {
                 let kind = history::Kind::Server(server.clone());
-                let message_window = dashboard.find_window_with_history(&kind);
+                let message_window =
+                    screen.buffers_context().find_window_with(&kind);
 
                 if message_window.is_none() || *focused_window != message_window
                 {
@@ -2205,7 +2245,9 @@ fn handle_client_events(
             }
             Event::OnConnect(on_connect) => {
                 let server = server.clone();
-                for query in dashboard.open_pane_server_queries(&server) {
+                for query in
+                    screen.buffers_context().open_pane_server_queries(&server)
+                {
                     if let Some(client) = clients.client_mut(&server) {
                         let user = User::from(Nick::from(query));
                         client.add_monitored_user_automated(&user);
@@ -2219,7 +2261,7 @@ fn handle_client_events(
                 handle_isupport_param(
                     server,
                     param,
-                    dashboard,
+                    screen,
                     clients,
                     storage,
                     config,
@@ -2233,11 +2275,13 @@ fn handle_client_events(
 
                 storage.set_reroute_rules(servers, clients);
 
-                commands.push(
-                    dashboard
-                        .request_override_server_icons(servers)
-                        .map(Message::Dashboard),
-                );
+                if let Screen::Dashboard(dashboard) = screen {
+                    commands.push(
+                        dashboard
+                            .request_override_server_icons(servers)
+                            .map(Message::Dashboard),
+                    );
+                }
             }
             Event::BouncerNetworksListed(listed) => {
                 storage.forget_unlisted_bouncer_networks(server, &listed);
@@ -2266,18 +2310,22 @@ fn handle_client_events(
                     redaction,
                 ));
             }
-            Event::UpdateIcon => commands.push(
-                dashboard
-                    .request_server_icon(clients, server)
-                    .map(Message::Dashboard),
-            ),
+            Event::UpdateIcon => {
+                if let Screen::Dashboard(dashboard) = screen {
+                    commands.push(
+                        dashboard
+                            .request_server_icon(clients, server)
+                            .map(Message::Dashboard),
+                    );
+                }
+            }
         }
     }
 
     storage.write(
         storage_updates,
         clients,
-        dashboard.buffers_context(),
+        screen.buffers_context(),
         focused_window,
         config,
     );
@@ -2288,7 +2336,7 @@ fn handle_client_events(
 fn handle_isupport_param(
     server: &Server,
     param: data::isupport::Parameter,
-    dashboard: &mut screen::Dashboard,
+    screen: &mut Screen,
     clients: &mut client::Map,
     storage: &mut storage::Manager,
     config: &Config,
@@ -2342,13 +2390,19 @@ fn handle_isupport_param(
             }
         }
         data::isupport::Parameter::SAFELIST => {
-            dashboard.update_channel_discoveries(clients, server);
+            if let Screen::Dashboard(dashboard) = screen {
+                dashboard.update_channel_discoveries(clients, server);
+            };
         }
-        data::isupport::Parameter::ICON(_) => commands.push(
-            dashboard
-                .request_server_icon(clients, server)
-                .map(Message::Dashboard),
-        ),
+        data::isupport::Parameter::ICON(_) => {
+            if let Screen::Dashboard(dashboard) = screen {
+                commands.push(
+                    dashboard
+                        .request_server_icon(clients, server)
+                        .map(Message::Dashboard),
+                );
+            }
+        }
         _ => (),
     }
 }

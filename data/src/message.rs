@@ -873,6 +873,145 @@ impl Message {
     }
 }
 
+#[derive(Default)]
+struct Summary {
+    joins: usize,
+    parts: usize,
+    quits: usize,
+    kicks: usize,
+    nick_changes: usize,
+    host_changes: usize,
+    popped_in: usize,
+    nipped_out: usize,
+}
+
+impl Summary {
+    fn add(&mut self, fragments: &[Fragment]) {
+        let mut events = fragments
+            .iter()
+            .filter_map(|fragment| {
+                if let Fragment::Condensed { source, .. } = fragment {
+                    Some(&source.kind)
+                } else {
+                    None
+                }
+            })
+            .peekable();
+
+        while let Some(kind) = events.next() {
+            match kind {
+                Kind::Join
+                    if matches!(
+                        events.peek(),
+                        Some(Kind::Part | Kind::Quit)
+                    ) =>
+                {
+                    self.popped_in += 1;
+                    events.next();
+                }
+                Kind::Part | Kind::Quit
+                    if matches!(events.peek(), Some(Kind::Join)) =>
+                {
+                    self.nipped_out += 1;
+                    events.next();
+                }
+                Kind::Join => self.joins += 1,
+                Kind::Part => self.parts += 1,
+                Kind::Quit => self.quits += 1,
+                Kind::Kick => self.kicks += 1,
+                Kind::ChangeNick => self.nick_changes += 1,
+                Kind::ChangeHost => self.host_changes += 1,
+                _ => (),
+            }
+        }
+    }
+
+    fn into_fragments(self) -> Vec<Fragment> {
+        let mut fragments = vec![];
+        let mut push = |count,
+                        singular_target: &str,
+                        plural_target: &str,
+                        singular_action,
+                        plural_action,
+                        kind| {
+            if count > 0 {
+                let mut text = if !fragments.is_empty() {
+                    format!(", {count} ")
+                } else {
+                    format!("{count} ")
+                };
+
+                if count == 1 {
+                    if !singular_target.is_empty() {
+                        text.push_str(singular_target);
+                        text.push(' ');
+                    }
+                } else if !plural_target.is_empty() {
+                    text.push_str(plural_target);
+                    text.push(' ');
+                };
+
+                fragments.push(Fragment::Text(text));
+
+                fragments.push(Fragment::Condensed {
+                    text: String::from(if count == 1 {
+                        singular_action
+                    } else {
+                        plural_action
+                    }),
+                    source: source::Server::new(kind, None, None),
+                });
+            }
+        };
+
+        push(self.joins, "user", "users", "joined", "joined", Kind::Join);
+        push(self.parts, "user", "users", "left", "left", Kind::Part);
+        push(self.quits, "user", "users", "quit", "quit", Kind::Quit);
+        push(
+            self.kicks,
+            "user",
+            "users",
+            "was kicked",
+            "were kicked",
+            Kind::Kick,
+        );
+        push(
+            self.nick_changes,
+            "",
+            "",
+            "nick changed",
+            "nicks changed",
+            Kind::ChangeNick,
+        );
+        push(
+            self.host_changes,
+            "user",
+            "users",
+            "changed host",
+            "changed host",
+            Kind::ChangeHost,
+        );
+        push(
+            self.popped_in,
+            "user",
+            "users",
+            "popped in",
+            "popped in",
+            Kind::Join,
+        );
+        push(
+            self.nipped_out,
+            "user",
+            "users",
+            "nipped out",
+            "nipped out",
+            Kind::Part,
+        );
+
+        fragments
+    }
+}
+
 pub fn condense(
     messages: &[&MessageDisplay],
     condense: &config::buffer::Condensation,
@@ -1016,18 +1155,42 @@ pub fn condense(
             }
         });
 
-        let mut condensed_fragments: Vec<Fragment> = condensed_fragments
+        let is_summary = matches!(condense.format, CondensationFormat::Summary);
+
+        // Summary re-uses the detailed format.
+        let summary_format = config::buffer::Condensation {
+            format: CondensationFormat::Detailed,
+            ..condense.clone()
+        };
+
+        let condense = if is_summary {
+            &summary_format
+        } else {
+            condense
+        };
+
+        let condensed_groups = condensed_fragments
             .into_iter()
             .filter_map(|(_, nick_fragments)| {
                 filter_associated_fragments(nick_fragments, condense)
             })
-            .flat_map(|nick_fragments| {
+            .map(|nick_fragments| {
                 condense_associated_fragments(nick_fragments, condense)
-            })
-            .collect();
-        condensed_fragments.pop(); // Remove trailing whitespace fragment
+            });
 
-        if let Some(max) = condense.max {
+        let mut condensed_fragments = if is_summary {
+            let mut summary = Summary::default();
+            for fragments in condensed_groups {
+                summary.add(&fragments);
+            }
+            summary.into_fragments()
+        } else {
+            let mut fragments: Vec<_> = condensed_groups.flatten().collect();
+            fragments.pop(); // Remove trailing whitespace fragment
+            fragments
+        };
+
+        if let Some(max) = condense.max.filter(|_| !is_summary) {
             let max = max as usize;
             let total_groups = condensed_fragments
                 .iter()
@@ -1679,6 +1842,7 @@ pub fn parse_fragments_with_highlights(
     casemapping: isupport::CaseMap,
 ) -> (Content, Option<highlight::Kind>) {
     let mut highlight_kind = None;
+    let mut sounds = HashSet::new();
 
     let target_included = highlights.nickname.is_target_included(
         message_user,
@@ -1701,7 +1865,9 @@ pub fn parse_fragments_with_highlights(
         Fragment::User(user, raw)
             if target_included && is_our_nick(&user, &raw) =>
         {
-            highlight_kind.get_or_insert(highlight::Kind::Nick);
+            highlight_kind.get_or_insert_with(|| highlight::Kind::Nick {
+                sounds: Vec::new(),
+            });
             Fragment::HighlightNick(user, raw)
         }
         fragment => fragment,
@@ -1724,21 +1890,13 @@ pub fn parse_fragments_with_highlights(
                         &m.regex,
                         text,
                         |text| {
-                            let set_highlight_kind = match highlight_kind {
-                                None => true,
-                                Some(highlight::Kind::Match {
-                                    sound: None,
-                                    ..
-                                }) => m.sound.is_some(),
-                                _ => false,
-                            };
-
-                            if set_highlight_kind {
-                                highlight_kind = Some(highlight::Kind::Match {
+                            sounds.extend(m.sound.iter().cloned());
+                            highlight_kind.get_or_insert_with(|| {
+                                highlight::Kind::Match {
                                     matching: m.notification_name().to_owned(),
-                                    sound: m.sound.clone(),
-                                });
-                            }
+                                    sounds: Vec::new(),
+                                }
+                            });
 
                             Some(Fragment::HighlightMatch(text.to_owned()))
                         },
@@ -1751,6 +1909,14 @@ pub fn parse_fragments_with_highlights(
                 fragment => Either::Right(iter::once(fragment)),
             })
             .collect();
+    }
+
+    if let Some(
+        highlight::Kind::Nick { sounds: sound }
+        | highlight::Kind::Match { sounds: sound, .. },
+    ) = &mut highlight_kind
+    {
+        sound.extend(sounds);
     }
 
     (content_from_fragments(fragments), highlight_kind)
@@ -3974,22 +4140,126 @@ impl PartialOrd for MessageReferences {
 
 #[cfg(test)]
 mod tests {
+    use hashbrown::HashSet;
+
     use super::{
         parse_fragments, parse_fragments_with_highlights,
         parse_fragments_with_users,
     };
     use crate::config::Highlights;
+    use crate::config::buffer::{Condensation, CondensationFormat};
     use crate::config::highlights::Nickname;
     use crate::config::inclusivities::Inclusivities;
     use crate::history::reroute::RerouteRules;
     use crate::message::formatting::Color;
     use crate::message::{
-        self, Content, Formatting, Fragment, Message, MessageWithContext,
-        Source, Target,
+        self, Content, Direction, Formatting, Fragment, Message,
+        MessageDisplay, MessageWithContext, Source, Target, Time,
     };
     use crate::server::{Server, ServerName};
     use crate::user::{ChannelUsers, Nick, User};
     use crate::{isupport, target};
+
+    #[test]
+    fn summary_reduces_repeated_presence_changes() {
+        use crate::message::source::server::Kind;
+
+        let events = [
+            // luca joins, leaves, and joins again => 1 user has joined
+            ("luca", Kind::Join),
+            ("luca", Kind::Part),
+            ("luca", Kind::Join),
+            // alice joins, bob joins, then alice leaves => 1 user has joined, 1 user has popped in
+            ("alice", Kind::Join),
+            ("bob", Kind::Join),
+            ("alice", Kind::Part),
+            // eve leaves, then joins again => 1 user has nipped out
+            ("eve", Kind::Part),
+            ("eve", Kind::Join),
+        ];
+
+        let messages: Vec<_> = events
+            .into_iter()
+            .map(|(nick, kind)| {
+                MessageDisplay::from(Message {
+                    history_id: crate::history::Id::default(),
+                    time: Time::client("1970-01-01T00:00:00Z".parse().unwrap()),
+                    direction: Direction::Received { is_echo: false },
+                    source: Source::Server(Some(
+                        crate::message::source::Server::new(
+                            kind,
+                            Some(Nick::from_str(
+                                nick,
+                                isupport::CaseMap::default(),
+                            )),
+                            None,
+                        ),
+                    )),
+                    target: Target::Channel {
+                        channel: target::Channel::from_str(
+                            "#test",
+                            &['#'],
+                            isupport::CaseMap::default(),
+                        ),
+                    },
+                    content: Content::Plain(format!("{nick}: {kind:?}")),
+                    id: None,
+                    reply_to: None,
+                    relayed_by: None,
+                    hidden_urls: HashSet::default(),
+                    reactions: vec![],
+                    rerouted_from: None,
+                    redaction: None,
+                })
+            })
+            .collect();
+
+        let config = Condensation {
+            format: CondensationFormat::Summary,
+            ..Condensation::default()
+        };
+
+        let message_refs: Vec<&MessageDisplay> = messages.iter().collect();
+        let condensed = super::condense(&message_refs, &config)
+            .expect("the events should produce a condensed message");
+
+        let Content::Fragments(fragments) = &condensed.inner.content else {
+            panic!("expected summary fragments");
+        };
+
+        assert_eq!(
+            fragments,
+            &vec![
+                Fragment::Text("2 users ".into()),
+                Fragment::Condensed {
+                    text: "joined".into(),
+                    source: crate::message::source::Server::new(
+                        Kind::Join,
+                        None,
+                        None,
+                    ),
+                },
+                Fragment::Text(", 1 user ".into()),
+                Fragment::Condensed {
+                    text: "popped in".into(),
+                    source: crate::message::source::Server::new(
+                        Kind::Join,
+                        None,
+                        None,
+                    ),
+                },
+                Fragment::Text(", 1 user ".into()),
+                Fragment::Condensed {
+                    text: "nipped out".into(),
+                    source: crate::message::source::Server::new(
+                        Kind::Part,
+                        None,
+                        None,
+                    ),
+                }
+            ],
+        );
+    }
 
     #[test]
     fn special_targets() {

@@ -485,7 +485,10 @@ impl Default for ServerMessages {
             join: ServerMessage::default(),
             part: ServerMessage::default(),
             quit: ServerMessage::default(),
-            change_host: ServerMessage::default(),
+            change_host: ServerMessage {
+                enabled: Some(ServerMessageEnabled::Disabled),
+                ..ServerMessage::default()
+            },
             change_mode: ServerMessage::default(),
             change_nick: ServerMessage::default(),
             monitored_online: ServerMessage::default(),
@@ -805,6 +808,7 @@ pub enum CondensationFormat {
     Brief,
     Detailed,
     Full,
+    Summary,
 }
 
 #[derive(Debug, Default, Clone, Deserialize)]
