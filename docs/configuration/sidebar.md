@@ -473,36 +473,37 @@ exclude = "*"
 include = { channels = ["#halloy"] }
 ```
 
-## `query_typing_indicator`
+## `typing_indicator`
 
 Show typing indicator for query buffers (direct messages) in sidebars.
 Requires typing indicators to be enabled, either [globally](/configuration/buffer#show-1) or at the [server level](/configuration/servers#show).
 
 ### `show`
 
-Change which sidebar rotation to display the typing indicators for. To disable the sidebar indicator use `"none"`.
+Change if sidebar typing indicators are shown. To disable use `"none"`.
 
-Due to space constraints, by default, the indicator is only enabled for vertical sidebars. Use `"all"` to display the indicator for horizontal sidebars.
+Default behavior depends on [`sidebar.position`](/configuration/sidebar#position):
+enabled for vertical sidebars and disabled for horizontal sidebars.
 
 ```toml
 # Type: string
-# Values: "all", "vertical", "none"
-# Default: "vertical"
+# Values: "queries", "none"
+# Default: "queries" when sidebar.position = "left" or "right", "none" when sidebar.position = "top" or "bottom"
 
-[sidebar.query_typing_indicator]
-show = "all"
+[sidebar.typing_indicator]
+show = "queries"
 ```
 
 ### `scale_factor`
 
-Change the size of the query typing indicator. Multiplies the [sidebar secondary font size](/configuration/sidebar#secondary_font_size) by `scale_factor`.
+Change the size of the sidebar typing indicator. Multiplies the [sidebar secondary font size](/configuration/sidebar#secondary_font_size) by `scale_factor`.
 
 ```toml
 # Type: float
 # Values: 0.01 .. 1.0
 # Default: 0.75
 
-[sidebar.query_typing_indicator]
+[sidebar.typing_indicator]
 scale_factor = 0.5
 ```
 

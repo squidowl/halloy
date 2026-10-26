@@ -1656,8 +1656,7 @@ fn upstream_buffer_button<'a>(
 
         typing::animate::<_>(
             *typing_animation,
-            font_size
-                * f32::from(config.sidebar.query_typing_indicator.scale_factor),
+            font_size * f32::from(config.sidebar.typing_indicator.scale_factor),
             &config.buffer.typing.animation,
             theme.styles().text.secondary.color,
         )

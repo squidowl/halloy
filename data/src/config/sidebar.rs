@@ -19,7 +19,7 @@ pub struct Sidebar {
     pub unread_indicator: UnreadIndicator,
     #[serde(deserialize_with = "deserialize_highlight_indicator")]
     pub highlight_indicator: HighlightIndicator,
-    pub query_typing_indicator: QueryTypingIndicator,
+    pub typing_indicator: TypingIndicator,
     pub position: Position,
     pub order_by: OrderBy,
     pub scrollbar: Scrollbar,
@@ -45,7 +45,7 @@ pub struct Sidebar {
 
 impl Sidebar {
     pub fn can_show_typing(&self) -> bool {
-        self.query_typing_indicator
+        self.typing_indicator
             .can_show(self.position.is_horizontal())
     }
 }
@@ -369,28 +369,26 @@ where
 
 #[derive(Debug, Clone, Deserialize, Default)]
 #[serde(default)]
-pub struct QueryTypingIndicator {
-    pub show: QueryTypingIndicatorShow,
+pub struct TypingIndicator {
+    pub show: Option<TypingIndicatorShow>,
     pub scale_factor: ScaleFactor,
 }
 
-impl QueryTypingIndicator {
-    pub fn can_show(&self, is_horizontal: bool) -> bool {
-        match self.show {
-            QueryTypingIndicatorShow::All => true,
-            QueryTypingIndicatorShow::Vertical => !is_horizontal,
-            QueryTypingIndicatorShow::None => false,
-        }
-    }
+#[derive(Debug, Clone, Deserialize, Default, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+pub enum TypingIndicatorShow {
+    #[default]
+    Queries,
+    None,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Default)]
-#[serde(rename_all = "kebab-case")]
-pub enum QueryTypingIndicatorShow {
-    All,
-    #[default]
-    Vertical,
-    None,
+impl TypingIndicator {
+    pub fn can_show(&self, is_horizontal: bool) -> bool {
+        match &self.show {
+            Some(show) => *show != TypingIndicatorShow::None,
+            None => !is_horizontal,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
