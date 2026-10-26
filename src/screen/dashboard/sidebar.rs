@@ -1647,14 +1647,16 @@ fn upstream_buffer_button<'a>(
             )))
         }
     } else if is_query_with_typing {
+        // TODO: scale on `sidebar.query_typing_indicator.font_size` or
+        // similar
+        let font_size = config
+            .sidebar
+            .secondary_font_size
+            .map_or(theme::TEXT_SIZE, f32::from);
+
         typing::animate::<_>(
             *typing_animation,
-            config
-                .buffer
-                .typing
-                .font_size
-                .or(config.sidebar.secondary_font_size)
-                .map_or(theme::TEXT_SIZE, f32::from)
+            font_size
                 * f32::from(config.sidebar.query_typing_indicator.scale_factor),
             &config.buffer.typing.animation,
             theme.styles().text.secondary.color,
@@ -2364,6 +2366,16 @@ fn sidebar_icon<'a>(
         u32,
         f32,
     ) = if let Some(icon) = icon {
+        let icon_height = if matches!(icon, BufferIcon::Element(_)) {
+            config
+                .sidebar
+                .secondary_font_size
+                .or(config.font.size)
+                .map_or(theme::TEXT_SIZE as u32, u32::from)
+        } else {
+            dimensions.icon_size
+        };
+
         let icon: Element<'a, Message> = match icon {
             BufferIcon::Icon(Icon::Upstream(server_icon)) => container(
                 image::from_data(server_icon, true, ContentFit::Contain),
@@ -2377,7 +2389,7 @@ fn sidebar_icon<'a>(
                 .into(),
             BufferIcon::Element(element) => container(element)
                 .width(dimensions.icon_size)
-                .height(dimensions.icon_size)
+                .height(icon_height)
                 .align_x(iced::alignment::Horizontal::Center)
                 .align_y(iced::alignment::Vertical::Center)
                 .into(),
@@ -2422,7 +2434,7 @@ fn sidebar_icon<'a>(
                 ]
                 .into(),
             ),
-            dimensions.icon_size,
+            icon_height,
             dimensions
                 .max_indicator_size()
                 .saturating_sub(dimensions.icon_badge_size) as f32
@@ -2437,18 +2449,17 @@ fn sidebar_icon<'a>(
                         .content_fit(ContentFit::Contain),
                 )
                 .width(indicator_size)
-                .height(sidebar_icon_size(config, indicator_size))
-                .align_y(iced::alignment::Vertical::Center)
+                .height(indicator_size)
                 .into(),
             ),
-            sidebar_icon_size(config, indicator_size),
+            indicator_size,
             dimensions
                 .max_indicator_size()
                 .saturating_sub(indicator_size) as f32
                 / 2.0,
         )
     } else {
-        (None, sidebar_icon_size(config, 1), 0.0)
+        (None, 1, 0.0)
     };
 
     if config.sidebar.position.is_horizontal() {
@@ -2474,16 +2485,6 @@ fn sidebar_icon<'a>(
             ]
             .into_iter(),
         )
-    }
-}
-
-fn sidebar_icon_size(config: &Config, icon_size: u32) -> u32 {
-    let dimensions = Dimensions::from(&config.sidebar);
-    if config.can_show_any_typing() && config.sidebar.can_show_typing() {
-        // use max_icon_size if query typing is enabled for uniform height
-        dimensions.max_icon_size()
-    } else {
-        icon_size
     }
 }
 

@@ -495,7 +495,7 @@ show = "all"
 
 ### `scale_factor`
 
-Change the size of the query typing indicator. Multiplies the [typing indicator font size](/configuration/buffer#font_size) by `scale_factor`.
+Change the size of the query typing indicator. Multiplies the [sidebar secondary font size](/configuration/sidebar#secondary_font_size) by `scale_factor`.
 
 ```toml
 # Type: float
