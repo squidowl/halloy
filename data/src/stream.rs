@@ -110,7 +110,7 @@ pub enum Control {
     Connect(bool),
     DisableAutoconnect,
     NetworkChanged {
-        available: bool,
+        routable: bool,
         addresses: Arc<HashSet<IpAddr>>,
     },
     Resumed,
@@ -159,7 +159,7 @@ async fn _run(
     let mut connection_attempt = 0;
 
     let mut attempts_exhausted = false;
-    let mut network_available = true;
+    let mut has_routable_address = true;
     let mut last_connected: Option<Instant> = None;
 
     let mut state = State::Disconnected {
@@ -188,9 +188,9 @@ async fn _run(
 
                 let selection = {
                     if *autoconnect
-                        && (network_available
-                            // loopback servers stay reachable while the network is down
-                            || is_loopback(&config, default_proxy.as_ref()))
+                        && (has_routable_address
+                            // local servers may still be reachable
+                            || is_local(&config, default_proxy.as_ref()))
                     {
                         stream::select(
                             (&mut control).boxed(),
@@ -233,10 +233,10 @@ async fn _run(
                             attempts_exhausted = false;
                         }
                     }
-                    Some(Control::NetworkChanged { available, .. }) => {
-                        network_available = available;
+                    Some(Control::NetworkChanged { routable, .. }) => {
+                        has_routable_address = routable;
 
-                        if available && (*autoconnect || attempts_exhausted) {
+                        if routable && (*autoconnect || attempts_exhausted) {
                             log::info!(
                                 "[{server}] network changed, reconnecting"
                             );
@@ -615,10 +615,10 @@ async fn _run(
                         }
                         Control::Connect(_) | Control::DisableAutoconnect => (),
                         Control::NetworkChanged {
-                            available,
+                            routable,
                             addresses,
                         } => {
-                            network_available = available;
+                            has_routable_address = routable;
 
                             if stream
                                 .connection
@@ -992,17 +992,22 @@ impl futures::Stream for Batch {
     }
 }
 
-fn is_loopback(
+fn is_local(
     config: &config::Server,
     default_proxy: Option<&config::Proxy>,
 ) -> bool {
+    let host = config.server.trim_end_matches('.');
+
     config.proxy.is_none()
         && default_proxy.is_none()
-        && (config.server.eq_ignore_ascii_case("localhost")
-            || config
-                .server
-                .parse::<IpAddr>()
-                .is_ok_and(|ip| ip.is_loopback()))
+        && (host.eq_ignore_ascii_case("localhost")
+            || host.to_ascii_lowercase().ends_with(".local")
+            || host.parse::<IpAddr>().is_ok_and(|ip| match ip {
+                IpAddr::V4(ip) => ip.is_loopback() || ip.is_link_local(),
+                IpAddr::V6(ip) => {
+                    ip.is_loopback() || ip.is_unicast_link_local()
+                }
+            }))
 }
 
 fn network_retry(
@@ -1026,7 +1031,7 @@ fn interval_at(delay: Duration, period: Duration) -> Interval {
 #[derive(Debug, Default)]
 pub struct Map {
     controllers: BTreeMap<Server, mpsc::Sender<Control>>,
-    offline: bool,
+    no_routable_address: bool,
 }
 
 impl Map {
@@ -1035,9 +1040,9 @@ impl Map {
         server: Server,
         mut controller: mpsc::Sender<Control>,
     ) {
-        if self.offline {
+        if self.no_routable_address {
             let _ = controller.try_send(Control::NetworkChanged {
-                available: false,
+                routable: false,
                 addresses: Arc::default(),
             });
         }
@@ -1082,14 +1087,14 @@ impl Map {
 
     pub fn network_changed(
         &mut self,
-        available: bool,
+        routable: bool,
         addresses: &Arc<HashSet<IpAddr>>,
     ) {
-        self.offline = !available;
+        self.no_routable_address = !routable;
 
         for controller in self.controllers.values_mut() {
             let _ = controller.try_send(Control::NetworkChanged {
-                available,
+                routable,
                 addresses: addresses.clone(),
             });
         }

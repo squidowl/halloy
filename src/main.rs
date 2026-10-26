@@ -922,10 +922,10 @@ impl Halloy {
                 Task::none()
             }
             Message::System(system::Event::NetworkChanged {
-                available,
+                routable,
                 addresses,
             }) => {
-                self.controllers.network_changed(available, &addresses);
+                self.controllers.network_changed(routable, &addresses);
                 Task::none()
             }
             Message::Stream(update) => match update {

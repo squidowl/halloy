@@ -26,14 +26,14 @@ pub fn events() -> Subscription<Event> {
             let mut routable = routable_addresses(&initial);
 
             if routable.is_empty() {
-                log::info!("network unavailable");
+                log::info!("no routable address");
             }
 
-            // streams assume the network is up until told otherwise
+            // streams assume a routable address until told otherwise
             if routable.is_empty()
                 && output
                     .send(Event::NetworkChanged {
-                        available: false,
+                        routable: false,
                         addresses: Arc::new(initial),
                     })
                     .await
@@ -68,16 +68,16 @@ pub fn events() -> Subscription<Event> {
                 }
 
                 routable = next_routable;
-                let available = !routable.is_empty();
+                let has_routable_address = !routable.is_empty();
 
-                if available {
+                if has_routable_address {
                     log::info!("network changed: {routable:?}");
                 } else {
-                    log::info!("network unavailable");
+                    log::info!("no routable address");
                 }
 
                 let event = Event::NetworkChanged {
-                    available,
+                    routable: has_routable_address,
                     addresses: Arc::new(addresses),
                 };
 

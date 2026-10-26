@@ -15,7 +15,7 @@ pub enum Event {
     Suspending,
     Resumed,
     NetworkChanged {
-        available: bool,
+        routable: bool,
         addresses: Arc<HashSet<IpAddr>>,
     },
 }
