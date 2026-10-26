@@ -2130,6 +2130,16 @@ impl Halloy {
         self.controllers
             .exit(&self.config.buffer.commands.quit.default_reason);
 
+        if let Screen::Exit {
+            pending_server_removals,
+            buffers_context,
+            ..
+        } = &self.screen
+            && pending_server_removals.is_empty()
+        {
+            self.storage.exit(buffers_context, &self.config);
+        }
+
         Task::batch(exit_tasks)
     }
 }
