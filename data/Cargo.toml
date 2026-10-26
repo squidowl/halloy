@@ -83,9 +83,7 @@ apple-native-keyring-store = { version = "1", default-features = false, features
 ] }
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
-zbus-secret-service-keyring-store = { version = "1", features = [
-    "rt-tokio-crypto-rust",
-] }
+portal-secret-service-keyring-store = { git = "https://github.com/luca020400/portal-secret-service-keyring-store" }
 
 [target.'cfg(windows)'.dependencies]
 windows-native-keyring-store = { version = "1", default-features = false }

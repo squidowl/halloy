@@ -227,8 +227,7 @@ impl ConfigMap {
                     });
                 }
 
-                let password = config::keyring::get_password(&key)
-                    .await?
+                let password = config::keyring::get_password(&key)?
                     .ok_or_else(|| Error::MissingKeyringPasswordEntry {
                         label: "Server password".to_string(),
                         context: format!("server `{server}`"),
@@ -288,8 +287,7 @@ impl ConfigMap {
                     });
                 }
 
-                let password = config::keyring::get_password(&key)
-                    .await?
+                let password = config::keyring::get_password(&key)?
                     .ok_or_else(|| Error::MissingKeyringPasswordEntry {
                         label: "NickServ password".to_string(),
                         context: format!("server `{server}`"),
@@ -312,8 +310,7 @@ impl ConfigMap {
                     });
                 }
 
-                let password = config::keyring::get_password(&key)
-                    .await?
+                let password = config::keyring::get_password(&key)?
                     .ok_or_else(|| Error::MissingKeyringPasswordEntry {
                         label: format!("Channel key {channel}"),
                         context: format!("server `{server}`"),
