@@ -14,6 +14,8 @@ Added:
 - Setting `runtime.smooth_scrolling` to control whether smooth scrolling is used
 - Notification and highlights matches `sound` property now accept an array of sounds, in which case they'll be picked at random
 - Condensed message gained support for summary via `buffer.server_messages.condense.format = "summary"`
+- `sidebar.wrap` to wrap top/bottom sidebar buffers into multiple rows
+- Horizontal sidebars can be scrolled with the mouse wheel without holding Shift
 
 Fixed:
 
