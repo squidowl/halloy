@@ -3321,8 +3321,10 @@ impl Client {
                         .map(ToString::to_string)
                         .collect::<Vec<String>>();
 
-                    if let Some(limits) = self.capabilities.metadata_limits() {
-                        requested.truncate(limits.max_subs);
+                    if let Some(max_subs) =
+                        self.capabilities.metadata_max_subs()
+                    {
+                        requested.truncate(max_subs);
                     }
 
                     log::debug!(
