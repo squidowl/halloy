@@ -19,6 +19,7 @@ pub enum Message {
     Save,
     Refresh,
     Kill(text_editor_key_bindings::Kill, bool),
+    Indent(usize),
     OpenDirectory,
     OpenConfigFile,
     Saved(String, Result<(), String>),
@@ -166,6 +167,18 @@ impl ConfigEditor {
                 if is_edit {
                     self.dirty = self.is_dirty();
                 }
+
+                (Task::none(), None)
+            }
+            Message::Indent(n) => {
+                self.content.perform(text_editor::Action::Edit(
+                    text_editor::Edit::Paste(std::sync::Arc::new(
+                        " ".repeat(n),
+                    )),
+                ));
+
+                self.error = None;
+                self.dirty = self.is_dirty();
 
                 (Task::none(), None)
             }
@@ -379,6 +392,24 @@ pub fn view<'a>(
                 |kill| text_editor::Binding::Custom(Message::Kill(kill, false)),
             ) {
                 return Some(binding);
+            }
+
+            if matches!(
+                key_press.key.as_ref(),
+                iced::keyboard::Key::Named(iced::keyboard::key::Named::Tab)
+            ) && !key_press.modifiers.shift()
+                && !key_press.modifiers.control()
+                && !key_press.modifiers.alt()
+                && !key_press.modifiers.logo()
+            {
+                return Some(match config.config_editor.indent {
+                    data::config::config_editor::Indent::Tab => {
+                        text_editor::Binding::Insert('\t')
+                    }
+                    data::config::config_editor::Indent::Spaces(n) => {
+                        text_editor::Binding::Custom(Message::Indent(n))
+                    }
+                });
             }
 
             text_editor::Binding::from_key_press(key_press)

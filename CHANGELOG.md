@@ -14,6 +14,7 @@ Added:
 - Setting `runtime.smooth_scrolling` to control whether smooth scrolling is used
 - Notification and highlights matches `sound` property now accept an array of sounds, in which case they'll be picked at random
 - Condensed message gained support for summary via `buffer.server_messages.condense.format = "summary"`
+- Pressing Tab in the config editor inserts an indent, set by `config_editor.indent` (`"tab"` by default, or a positive integer from 1 to 8)
 
 Fixed:
 
@@ -41,7 +42,7 @@ Thanks:
 
 - Contributions: @httpsterio, @oooo-ps, @rtmongold
 - Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768, @WinnerWind, @strafe, wwWraith
-- Feature requests: @ainola, @kalebris, @sf302, @ToyKeeper, @sebbu2
+- Feature requests: @ainola, @kalebris, @sf302, @ToyKeeper, @sebbu2, @TheDcoder
 - Contributions: @httpsterio, @TehPeGaSuS
 
 # 2026.9 (2026-09-29)
