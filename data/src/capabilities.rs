@@ -130,7 +130,7 @@ impl FromStr for MultilineLimits {
 
 #[derive(Debug, Clone, Copy)]
 pub struct MetadataLimits {
-    pub max_subs: usize,
+    pub max_subs: Option<usize>,
 }
 
 impl FromStr for MetadataLimits {
@@ -145,13 +145,8 @@ impl FromStr for MetadataLimits {
         Ok(MetadataLimits {
             max_subs: dictionary
                 .get("max-subs")
-                .ok_or_else(|| {
-                    CapParseError::MissingKey(
-                        "max-subs".to_owned(),
-                        s.to_owned(),
-                    )
-                })?
-                .parse::<usize>()?,
+                .map(|s| s.parse())
+                .transpose()?,
         })
     }
 }
@@ -615,6 +610,10 @@ impl Capabilities {
         } else {
             None
         }
+    }
+
+    pub fn metadata_max_subs(&self) -> Option<usize> {
+        self.metadata_limits().and_then(|l| l.max_subs)
     }
 
     pub fn contains_multiline_limits(&self) -> bool {
