@@ -13,7 +13,7 @@ use crate::widget::{self, Element};
 use crate::{Theme, font, icon, theme};
 
 const DOT_COUNT: usize = 3;
-pub const DOT_SIDEBAR_SPACING: u32 = 2;
+pub const DOT_SIDEBAR_SPACING: u32 = 1;
 const DOT_BASE_OPACITY: f32 = 0.35;
 const DOT_PEAK_OPACITY: f32 = 1.0;
 const DOT_DURATION: Duration = Duration::from_millis(520);
