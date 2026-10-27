@@ -42,7 +42,7 @@ Changed:
 
 Thanks:
 
-- Contributions: @httpsterio, @oooo-ps, @rtmongold
+- Contributions: @httpsterio, @oooo-ps, @rtmongold, @furudean
 - Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768, @WinnerWind, @strafe, wwWraith
 - Feature requests: @ainola, @kalebris, @sf302, @ToyKeeper, @sebbu2, @TheDcoder
 - Contributions: @httpsterio, @TehPeGaSuS
