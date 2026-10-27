@@ -43,10 +43,9 @@ Changed:
 
 Thanks:
 
-- Contributions: @httpsterio, @oooo-ps, @rtmongold, @furudean, @xcfrg
+- Contributions: @httpsterio, @oooo-ps, @rtmongold, @furudean, @xcfrg, @TehPeGaSuS
 - Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768, @WinnerWind, @strafe, wwWraith
 - Feature requests: @ainola, @kalebris, @sf302, @ToyKeeper, @sebbu2, @TheDcoder
-- Contributions: @httpsterio, @TehPeGaSuS
 
 # 2026.9 (2026-09-29)
 
