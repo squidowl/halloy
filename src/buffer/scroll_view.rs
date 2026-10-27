@@ -76,6 +76,7 @@ pub enum Message {
     ImagePreview(Image),
     AnimatePreview(crate::widget::animated_image::hover::Request),
     ScrollTo(keyed::Hit),
+    ScrollToMissed(keyed::Key),
     ScrollToTop,
     RequestOlderChathistory,
     EnteringViewport(history::Id, Vec<url::Url>),
@@ -1391,6 +1392,32 @@ impl State {
                     );
                 }
             }
+            Message::ScrollToMissed(key) => {
+                if let Some(scroll_to) = &mut self.scroll_to
+                    && scroll_to.key == key
+                    && matches!(scroll_to.state, ScrollToState::Active)
+                {
+                    if models
+                        .view(kind_ref, &self.limit, config)
+                        .is_none_or(|view| view.loading)
+                    {
+                        // not rendered until history loads, try again
+                        scroll_to.state = ScrollToState::Pending;
+
+                        return (
+                            Task::perform(
+                                time::sleep(SCROLL_TO_TIMEOUT),
+                                move |()| Message::PendingScrollTo,
+                            ),
+                            None,
+                        );
+                    }
+
+                    // target never shows up (eg hidden backlog divider), drop
+                    // it or every scroll gets ignored
+                    self.scroll_to = None;
+                }
+            }
             Message::ScrollToTop => {
                 return (
                     correct_viewport::scroll_to(
@@ -1529,8 +1556,8 @@ impl State {
                 {
                     *state = ScrollToState::Active;
 
-                    let scroll_to = keyed::find(self.scrollable.clone(), *key)
-                        .map(Message::ScrollTo);
+                    let scroll_to =
+                        find_scroll_to(self.scrollable.clone(), *key);
 
                     return (scroll_to, None);
                 }
@@ -1624,8 +1651,8 @@ impl State {
 
                     *state = ScrollToState::Active;
 
-                    let scroll_to = keyed::find(self.scrollable.clone(), *key)
-                        .map(Message::ScrollTo);
+                    let scroll_to =
+                        find_scroll_to(self.scrollable.clone(), *key);
 
                     return (scroll_to, event);
                 }
@@ -2071,8 +2098,7 @@ impl State {
             ..message_scroll_to
         });
 
-        keyed::find(self.scrollable.clone(), keyed::Key::Message(history_id))
-            .map(Message::ScrollTo)
+        find_scroll_to(self.scrollable.clone(), keyed::Key::Message(history_id))
     }
 
     pub fn scroll_to_backlog(
@@ -2116,8 +2142,7 @@ impl State {
                 ..backlog_scroll_to
             });
 
-            keyed::find(self.scrollable.clone(), keyed::Key::Divider)
-                .map(Message::ScrollTo)
+            find_scroll_to(self.scrollable.clone(), keyed::Key::Divider)
         } else {
             // Load a window of messages centered on the backlog divider.
             self.limit = Limit::Backlog(self.limit.count());
@@ -2298,6 +2323,12 @@ impl Status {
     }
 }
 
+fn find_scroll_to(scrollable: widget::Id, key: keyed::Key) -> Task<Message> {
+    keyed::find(scrollable, key).map(move |hit| {
+        hit.map_or(Message::ScrollToMissed(key), Message::ScrollTo)
+    })
+}
+
 fn accepts_scroll(
     requested: Limit,
     rendered: Limit,
@@ -2463,7 +2494,7 @@ pub mod keyed {
         }
     }
 
-    pub fn find(scrollable: widget::Id, key: Key) -> Task<Hit> {
+    pub fn find(scrollable: widget::Id, key: Key) -> Task<Option<Hit>> {
         widget::operate(Find {
             active: false,
             scrollable_id: scrollable,
@@ -2484,7 +2515,7 @@ pub mod keyed {
         pub time: Option<message::Time>,
     }
 
-    impl Operation<Hit> for Find {
+    impl Operation<Option<Hit>> for Find {
         fn scrollable(
             &mut self,
             id: Option<&widget::Id>,
@@ -2507,7 +2538,7 @@ pub mod keyed {
 
         fn traverse(
             &mut self,
-            operate: &mut dyn FnMut(&mut dyn Operation<Hit>),
+            operate: &mut dyn FnMut(&mut dyn Operation<Option<Hit>>),
         ) {
             operate(self);
         }
@@ -2527,18 +2558,18 @@ pub mod keyed {
             }
         }
 
-        fn finish(&self) -> widget::operation::Outcome<Hit> {
-            match self.scrollable.zip(self.hit_bounds).map(
-                |(scrollable, hit_bounds)| Hit {
-                    key: self.key,
-                    time: self.time,
-                    scrollable,
-                    hit_bounds,
-                },
-            ) {
-                Some(hit) => widget::operation::Outcome::Some(hit),
-                None => widget::operation::Outcome::None,
-            }
+        fn finish(&self) -> widget::operation::Outcome<Option<Hit>> {
+            // report misses too so a stuck scroll_to can be dropped
+            widget::operation::Outcome::Some(
+                self.scrollable.zip(self.hit_bounds).map(
+                    |(scrollable, hit_bounds)| Hit {
+                        key: self.key,
+                        time: self.time,
+                        scrollable,
+                        hit_bounds,
+                    },
+                ),
+            )
         }
     }
 
@@ -2837,6 +2868,7 @@ mod correct_viewport {
 
                         if let Some(new) = Arc::into_inner(hit)
                             .and_then(|m| m.into_inner().ok())
+                            .flatten()
                             .flatten()
                         {
                             // Something shifted this, let's put it back to the
