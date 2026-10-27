@@ -654,6 +654,15 @@ impl Map {
             .is_some_and(|client| client.has_channel_typing_users(channel))
     }
 
+    pub fn has_any_channel_typing(&self) -> bool {
+        self.states()
+            .filter_map(|state| match state {
+                State::Ready(client) => Some(client),
+                _ => None,
+            })
+            .any(Client::has_any_channel_typing_users)
+    }
+
     pub fn has_query_typing_users(
         &self,
         server: &Server,

@@ -4776,6 +4776,15 @@ impl Client {
         })
     }
 
+    pub fn has_any_channel_typing_users(&self) -> bool {
+        self.chanmap.values().any(|channel| {
+            channel
+                .typing
+                .values()
+                .any(|updated_at| !is_typing_expired(*updated_at))
+        })
+    }
+
     pub fn query_typing_users(&self, query: &target::Query) -> Vec<String> {
         self.querymap
             .get(query)

@@ -44,9 +44,9 @@ pub struct Sidebar {
 }
 
 impl Sidebar {
-    pub fn can_show_typing(&self) -> bool {
+    pub fn can_show_typing(&self, buffer: TypingIndicatorBuffer) -> bool {
         self.typing_indicator
-            .can_show(self.position.is_horizontal())
+            .can_show(self.position.is_horizontal(), buffer)
     }
 }
 
@@ -387,16 +387,35 @@ impl Default for TypingIndicator {
 #[derive(Debug, Clone, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum TypingIndicatorShow {
+    ChannelsAndQueries,
     #[default]
     Queries,
     None,
 }
 
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+pub enum TypingIndicatorBuffer {
+    Channel,
+    Query,
+}
+
 impl TypingIndicator {
-    pub fn can_show(&self, is_horizontal: bool) -> bool {
+    pub fn can_show(
+        &self,
+        is_horizontal: bool,
+        buffer: TypingIndicatorBuffer,
+    ) -> bool {
         match &self.show {
-            Some(show) => *show != TypingIndicatorShow::None,
-            None => !is_horizontal,
+            Some(show) => match buffer {
+                TypingIndicatorBuffer::Channel => {
+                    *show == TypingIndicatorShow::ChannelsAndQueries
+                }
+                TypingIndicatorBuffer::Query => {
+                    *show != TypingIndicatorShow::None
+                }
+            },
+            None => !is_horizontal && buffer == TypingIndicatorBuffer::Query,
         }
     }
 }

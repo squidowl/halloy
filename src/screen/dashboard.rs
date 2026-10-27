@@ -11,6 +11,7 @@ use data::buffer::{
 };
 use data::client::{self, ClientsContext};
 use data::config::buffer::{ScrollPosition, UsernameFormat};
+use data::config::sidebar::TypingIndicatorBuffer;
 use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
 use data::history::filter::FilterChain;
@@ -4672,8 +4673,14 @@ impl Dashboard {
             .iter()
             .any(|(_, _, pane)| pane.buffer.has_typing_activity(clients))
             || (config.can_show_any_typing()
-                && config.sidebar.can_show_typing()
-                && clients.has_any_query_typing())
+                && (config
+                    .sidebar
+                    .can_show_typing(TypingIndicatorBuffer::Channel)
+                    && clients.has_any_channel_typing())
+                || (config
+                    .sidebar
+                    .can_show_typing(TypingIndicatorBuffer::Query)
+                    && clients.has_any_query_typing()))
     }
 
     pub fn has_typing_activity_in_focused_window(
