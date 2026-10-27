@@ -39,10 +39,11 @@ Changed:
 - Your own join/part is shown in the channel buffer
 - `buffer.server_messages.change_host.enabled` is now `false` by default
 - Dismissable input text tooltips for IRC commands
+- Links open faster on Windows
 
 Thanks:
 
-- Contributions: @httpsterio, @oooo-ps, @rtmongold, @furudean
+- Contributions: @httpsterio, @oooo-ps, @rtmongold, @furudean, @xcfrg
 - Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768, @WinnerWind, @strafe, wwWraith
 - Feature requests: @ainola, @kalebris, @sf302, @ToyKeeper, @sebbu2, @TheDcoder
 - Contributions: @httpsterio, @TehPeGaSuS
