@@ -387,7 +387,8 @@ impl Default for TypingIndicator {
 #[derive(Debug, Clone, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum TypingIndicatorShow {
-    ChannelsAndQueries,
+    All,
+    Channels,
     #[default]
     Queries,
     None,
@@ -407,13 +408,16 @@ impl TypingIndicator {
         buffer: TypingIndicatorBuffer,
     ) -> bool {
         match &self.show {
-            Some(show) => match buffer {
-                TypingIndicatorBuffer::Channel => {
-                    *show == TypingIndicatorShow::ChannelsAndQueries
-                }
-                TypingIndicatorBuffer::Query => {
-                    *show != TypingIndicatorShow::None
-                }
+            Some(show) => match show {
+                TypingIndicatorShow::All => true,
+                _ => match buffer {
+                    TypingIndicatorBuffer::Channel => {
+                        *show == TypingIndicatorShow::Channels
+                    }
+                    TypingIndicatorBuffer::Query => {
+                        *show == TypingIndicatorShow::Queries
+                    }
+                },
             },
             None => !is_horizontal && buffer == TypingIndicatorBuffer::Query,
         }
