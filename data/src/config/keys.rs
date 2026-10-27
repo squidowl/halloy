@@ -39,6 +39,7 @@ pub struct Keyboard {
     pub scroll_down_page: KeyBinds,
     pub scroll_to_top: KeyBinds,
     pub scroll_to_bottom: KeyBinds,
+    pub scroll_to_backlog: KeyBinds,
     pub cycle_next_unread_buffer: KeyBinds,
     pub cycle_previous_unread_buffer: KeyBinds,
     pub mark_as_read: KeyBinds,
@@ -89,6 +90,7 @@ impl Default for Keyboard {
             scroll_down_page: KeyBind::scroll_down_page().into(),
             scroll_to_top: KeyBind::scroll_to_top().into(),
             scroll_to_bottom: KeyBind::scroll_to_bottom().into(),
+            scroll_to_backlog: KeyBind::scroll_to_backlog().into(),
             cycle_next_unread_buffer: KeyBind::cycle_next_unread_buffer()
                 .into(),
             cycle_previous_unread_buffer:
@@ -145,6 +147,7 @@ impl Keyboard {
                     ScrollDownPage => &self.scroll_down_page,
                     ScrollToTop => &self.scroll_to_top,
                     ScrollToBottom => &self.scroll_to_bottom,
+                    ScrollToBacklog => &self.scroll_to_backlog,
                     Highlights => &self.highlights,
                     Search => &self.search,
                     CycleNextUnreadBuffer => &self.cycle_next_unread_buffer,

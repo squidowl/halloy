@@ -416,6 +416,28 @@ impl Dashboard {
                             return (task, None);
                         }
                     }
+                    pane::Message::ScrollToBacklog => {
+                        let Focus { window, pane } = self.panes.focus;
+
+                        if let Some(state) = self.panes.get_mut(window, pane) {
+                            let task = state
+                                .buffer
+                                .scroll_to_backlog(
+                                    &self.models,
+                                    storage,
+                                    config,
+                                    true,
+                                )
+                                .map(move |message| {
+                                    Message::Pane(
+                                        window,
+                                        pane::Message::Buffer(pane, message),
+                                    )
+                                });
+
+                            return (task, None);
+                        }
+                    }
                     pane::Message::MarkAsRead => {
                         if let Some((_, _, pane)) = self.panes.get_focused_mut()
                             && let Some(kind) = pane
@@ -1230,6 +1252,31 @@ impl Dashboard {
 
                         return (task, None);
                     }
+                    ScrollToBacklog => {
+                        let task = self.panes.get_focused_mut().map_or(
+                            Task::none(),
+                            |(window, pane, state)| {
+                                state
+                                    .buffer
+                                    .scroll_to_backlog(
+                                        &self.models,
+                                        storage,
+                                        config,
+                                        true,
+                                    )
+                                    .map(move |message| {
+                                        Message::Pane(
+                                            window,
+                                            pane::Message::Buffer(
+                                                pane, message,
+                                            ),
+                                        )
+                                    })
+                            },
+                        );
+
+                        return (task, None);
+                    }
                     CycleNextUnreadBuffer => {
                         let cycle_buffers =
                             self.side_menu.visible_buffers_with_has_unread(
@@ -1585,6 +1632,7 @@ impl Dashboard {
                                         &self.models,
                                         storage,
                                         config,
+                                        false,
                                     )
                                     .map(move |message| {
                                         Message::Pane(
