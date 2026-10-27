@@ -475,23 +475,26 @@ include = { channels = ["#halloy"] }
 
 ## `typing_indicator`
 
-Show typing indicator for query buffers (direct messages) in sidebars.
+Show typing indicator for channel & query buffers in the sidebar.
 Requires typing indicators to be enabled, either [globally](/configuration/buffer#show-1) or at the [server level](/configuration/servers#show).
 
 ### `show`
 
-Change if sidebar typing indicators are shown. To disable use `"none"`.
+Change how sidebar typing indicators are shown. To disable use `"none"`.
 
-Default behavior depends on [`sidebar.position`](/configuration/sidebar#position):
+Default is enabled for only queries and behavior depends on [`sidebar.position`](/configuration/sidebar#position):
 enabled for vertical sidebars and disabled for horizontal sidebars.
+
+To enable for both channels and queries, use `"channels-and-queries"`.
+Highlight indicators take precedence over channel typing indicators.
 
 ```toml
 # Type: string
-# Values: "queries", "none"
+# Values: "channels-and-queries", "queries", "none"
 # Default: "queries" when sidebar.position = "left" or "right", "none" when sidebar.position = "top" or "bottom"
 
 [sidebar.typing_indicator]
-show = "queries"
+show = "channels-and-queries"
 ```
 
 ### `icon_height`
