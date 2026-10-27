@@ -663,6 +663,15 @@ impl Map {
             .is_some_and(|client| client.has_query_typing_users(query))
     }
 
+    pub fn has_any_query_typing(&self) -> bool {
+        self.states()
+            .filter_map(|state| match state {
+                State::Ready(client) => Some(client),
+                _ => None,
+            })
+            .any(Client::has_any_query_typing_users)
+    }
+
     pub fn get_server_chathistory_limit(&self, server: &Server) -> u16 {
         self.client(server)
             .map_or(CLIENT_CHATHISTORY_LIMIT, |client| {
@@ -832,6 +841,10 @@ impl Map {
 
     pub fn servers(&self) -> impl Iterator<Item = &Server> {
         self.0.keys()
+    }
+
+    pub fn states(&self) -> impl Iterator<Item = &State> {
+        self.0.values()
     }
 
     pub fn iter(&self) -> std::collections::btree_map::Iter<'_, Server, State> {

@@ -1192,20 +1192,21 @@ impl Halloy {
 
                 self.storage.tick(now, &self.config);
 
-                let dashboard_tasks = if let Screen::Dashboard(dashboard) =
-                    &mut self.screen
-                {
-                    dashboard.tick(now, &self.clients).map(Message::Dashboard)
-                } else {
-                    Task::none()
-                };
+                let dashboard_tasks =
+                    if let Screen::Dashboard(dashboard) = &mut self.screen {
+                        dashboard
+                            .tick(now, &self.clients, &self.config)
+                            .map(Message::Dashboard)
+                    } else {
+                        Task::none()
+                    };
 
                 Task::batch(vec![dashboard_tasks])
             }
             Message::AnimationTick(now) => {
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
                     dashboard
-                        .animation_tick(now, &self.clients)
+                        .animation_tick(now, &self.clients, &self.config)
                         .map(Message::Dashboard)
                 } else {
                     Task::none()
@@ -1867,11 +1868,13 @@ impl Halloy {
         ];
 
         if self.config.buffer.typing.animation.enabled
-            && matches!(
+            && (matches!(
                 &self.screen,
                 Screen::Dashboard(dashboard)
             if dashboard.has_typing_activity_in_focused_window(&self.clients, self.focused_window)
-            )
+            ) || (self.config.can_show_any_typing()
+                && self.config.sidebar.can_show_typing()
+                && self.clients.has_any_query_typing()))
         {
             subscriptions.push(
                 iced::time::every(Duration::from_millis(50))
