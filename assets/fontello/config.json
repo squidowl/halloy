@@ -169,6 +169,12 @@
       "css": "eraser",
       "code": 57369,
       "src": "fontawesome"
+    },
+    {
+      "uid": "745f12abe1472d14f8f658de7e5aba66",
+      "css": "angle-double-left",
+      "code": 57376,
+      "src": "fontawesome"
     }
   ]
 }
