@@ -485,16 +485,16 @@ Change how sidebar typing indicators are shown. To disable use `"none"`.
 Default is enabled for only queries and behavior depends on [`sidebar.position`](/configuration/sidebar#position):
 enabled for vertical sidebars and disabled for horizontal sidebars.
 
-To enable for both channels and queries, use `"channels-and-queries"`.
+To enable for both channels and queries, use `"all"`.
 Highlight indicators take precedence over channel typing indicators.
 
 ```toml
 # Type: string
-# Values: "channels-and-queries", "queries", "none"
+# Values: "all", "channels", "queries", "none"
 # Default: "queries" when sidebar.position = "left" or "right", "none" when sidebar.position = "top" or "bottom"
 
 [sidebar.typing_indicator]
-show = "channels-and-queries"
+show = "all"
 ```
 
 ### `icon_height`
