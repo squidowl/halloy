@@ -13,6 +13,7 @@ use crate::widget::{self, Element};
 use crate::{Theme, font, icon, theme};
 
 const DOT_COUNT: usize = 3;
+pub const DOT_SIDEBAR_SPACING: u32 = 2;
 const DOT_BASE_OPACITY: f32 = 0.35;
 const DOT_PEAK_OPACITY: f32 = 1.0;
 const DOT_DURATION: Duration = Duration::from_millis(520);
@@ -102,7 +103,7 @@ pub fn view<'a, Message: 'a>(
                 .style(theme::text::secondary)
                 .font_maybe(secondary_font.clone());
 
-            let indicator = animate(
+            let indicator = animate_for_buffer(
                 animation,
                 font_size,
                 animation_config,
@@ -129,7 +130,7 @@ pub fn view<'a, Message: 'a>(
     typing
 }
 
-pub fn animate<'a, Message: 'a>(
+pub fn animate_for_buffer<'a, Message: 'a>(
     animation: Option<&Animation>,
     font_size: f32,
     animation_config: &data::config::buffer::Animation,
@@ -156,6 +157,39 @@ pub fn animate<'a, Message: 'a>(
             }))
             .spacing(4),
         )
+        .into(),
+    )
+}
+
+pub fn animate_for_sidebar<'a, Message: 'a>(
+    animation: Option<&Animation>,
+    dot_height: u32,
+    animation_config: &data::config::buffer::Animation,
+    dot_color: Color,
+) -> Option<Element<'a, Message>> {
+    if !animation_config.enabled {
+        return None;
+    }
+
+    let dot_opacities = animation
+        .map_or_else(|| [DOT_BASE_OPACITY; DOT_COUNT], Animation::opacities);
+
+    Some(
+        row((0..DOT_COUNT).zip(dot_opacities).map(|(_, opacity)| {
+            let color = Color {
+                a: dot_color.a * opacity,
+                ..dot_color
+            };
+
+            icon::circle()
+                .style(move |_| iced::widget::text::Style {
+                    color: Some(color),
+                })
+                .height(dot_height)
+                .into()
+        }))
+        .spacing(DOT_SIDEBAR_SPACING)
+        .align_y(iced::Alignment::Center)
         .into(),
     )
 }

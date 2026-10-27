@@ -367,11 +367,21 @@ where
         .deserialize(deserializer)
 }
 
-#[derive(Debug, Clone, Deserialize, Default)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct TypingIndicator {
     pub show: Option<TypingIndicatorShow>,
-    pub scale_factor: ScaleFactor,
+    #[serde(deserialize_with = "deserialize_u32_positive_integer")]
+    pub icon_height: u32,
+}
+
+impl Default for TypingIndicator {
+    fn default() -> Self {
+        Self {
+            show: None,
+            icon_height: 6,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Default, PartialEq)]
@@ -388,27 +398,6 @@ impl TypingIndicator {
             Some(show) => *show != TypingIndicatorShow::None,
             None => !is_horizontal,
         }
-    }
-}
-
-#[derive(Debug, Clone, Copy, Deserialize)]
-pub struct ScaleFactor(f32);
-
-impl Default for ScaleFactor {
-    fn default() -> Self {
-        Self(0.75)
-    }
-}
-
-impl From<f32> for ScaleFactor {
-    fn from(value: f32) -> Self {
-        ScaleFactor(value.clamp(0.01, 1.0))
-    }
-}
-
-impl From<ScaleFactor> for f32 {
-    fn from(value: ScaleFactor) -> Self {
-        value.0
     }
 }
 
