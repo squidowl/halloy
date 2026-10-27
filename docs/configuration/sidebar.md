@@ -494,17 +494,17 @@ enabled for vertical sidebars and disabled for horizontal sidebars.
 show = "queries"
 ```
 
-### `scale_factor`
+### `icon_height`
 
-Change the size of the sidebar typing indicator. Multiplies the [sidebar secondary font size](/configuration/sidebar#secondary_font_size) by `scale_factor`.
+Change the sidebar typing indicator's icon height.
 
 ```toml
-# Type: float
-# Values: 0.01 .. 1.0
-# Default: 0.75
+# Type: number 
+# Values: any positive number 
+# Default: 4
 
 [sidebar.typing_indicator]
-scale_factor = 0.5
+icon_height = 6
 ```
 
 ## `user_menu`

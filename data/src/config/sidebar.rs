@@ -379,7 +379,7 @@ impl Default for TypingIndicator {
     fn default() -> Self {
         Self {
             show: None,
-            icon_height: 6,
+            icon_height: 4,
         }
     }
 }
