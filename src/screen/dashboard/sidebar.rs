@@ -3,7 +3,9 @@ use std::{convert, iter};
 use data::buffer::{Buffer, BufferRef};
 use data::client::{self, ClientsContext};
 use data::config::server::SidebarVisibility;
-use data::config::sidebar::{InternalBuffer, PrimaryIcon};
+use data::config::sidebar::{
+    InternalBuffer, PrimaryIcon, TypingIndicatorBuffer,
+};
 use data::config::{self, Config, sidebar};
 use data::dashboard::{BufferAction, BufferFocusedAction};
 use data::history::{self, model};
@@ -1600,14 +1602,30 @@ fn upstream_buffer_button<'a>(
     let show_highlight_title =
         indicators.highlight && config.sidebar.highlight_indicator.title;
 
-    let is_query_with_typing = if config.sidebar.can_show_typing()
-        && let buffer::Upstream::Query(server, query) = &buffer
+    let is_channel_with_typing = if !show_highlight_icon
+        && config.sidebar.typing_indicator.can_show(
+            config.sidebar.position.is_horizontal(),
+            TypingIndicatorBuffer::Channel,
+        )
+        && let buffer::Upstream::Channel(server, channel) = &buffer
     {
         clients.get_server_show_typing(server)
-            && clients.has_query_typing_users(server, query)
+            && clients.has_channel_typing_users(server, channel)
     } else {
         false
     };
+
+    let is_query_with_typing =
+        if config.sidebar.typing_indicator.can_show(
+            config.sidebar.position.is_horizontal(),
+            TypingIndicatorBuffer::Query,
+        ) && let buffer::Upstream::Query(server, query) = &buffer
+        {
+            clients.get_server_show_typing(server)
+                && clients.has_query_typing_users(server, query)
+        } else {
+            false
+        };
 
     let buffer_title_style = if show_highlight_title {
         theme::text::highlight_indicator
@@ -1646,7 +1664,7 @@ fn upstream_buffer_button<'a>(
                 },
             )))
         }
-    } else if is_query_with_typing {
+    } else if is_channel_with_typing || is_query_with_typing {
         typing::animate_for_sidebar::<_>(
             *typing_animation,
             config.sidebar.typing_indicator.icon_height,
@@ -2519,18 +2537,22 @@ impl From<&config::sidebar::Sidebar> for Dimensions {
             0
         };
 
-        let (typing_indicator_width, typing_indicator_height) = if config
-            .typing_indicator
-            .can_show(config.position.is_horizontal())
-        {
-            (
-                3 * config.typing_indicator.icon_height
-                    + 2 * typing::DOT_SIDEBAR_SPACING,
-                config.typing_indicator.icon_height,
-            )
-        } else {
-            (0, 0)
-        };
+        let (typing_indicator_width, typing_indicator_height) =
+            if config.typing_indicator.can_show(
+                config.position.is_horizontal(),
+                TypingIndicatorBuffer::Channel,
+            ) || config.typing_indicator.can_show(
+                config.position.is_horizontal(),
+                TypingIndicatorBuffer::Query,
+            ) {
+                (
+                    3 * config.typing_indicator.icon_height
+                        + 2 * typing::DOT_SIDEBAR_SPACING,
+                    config.typing_indicator.icon_height,
+                )
+            } else {
+                (0, 0)
+            };
 
         Self {
             icon_size,

@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- Sidebar typing indicators for channels
+
 # 2026.10 (2026-11-03)
 
 Added:
