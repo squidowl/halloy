@@ -104,7 +104,7 @@ signal-hook = "0.3.18"
 notify-rust = { version = "4.18", features = [ "images" ] }
 fern = "0.7.1"
 unicode-segmentation = "1.6"
-open = "5.0.1"
+open = { version = "5.4.4", features = ["shellexecute-on-windows"] }
 bytesize = "2.0.1"
 rodio = "0.22.0"
 humantime = "2.2.0"
