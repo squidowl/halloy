@@ -1144,14 +1144,10 @@ pub fn condense(
                         }
                     })
             {
-                if let Some(nick_fragments) =
-                    condensed_fragments.get_mut(&associated_nick)
-                {
-                    nick_fragments.push(nick_fragment);
-                } else {
-                    condensed_fragments
-                        .insert(associated_nick, vec![nick_fragment]);
-                }
+                condensed_fragments
+                    .entry(associated_nick)
+                    .or_default()
+                    .push(nick_fragment);
             }
         });
 
