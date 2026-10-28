@@ -99,6 +99,7 @@ percent-encoding = { workspace = true }
 data = { version = "0.1.0", path = "data" }
 ipc = { version = "0.1.0", path = "ipc" }
 irc = { version = "0.1.0", path = "irc" }
+spellkit = "0.4"
 
 signal-hook = "0.3.18"
 notify-rust = { version = "4.18", features = [ "images" ] }
@@ -168,9 +169,9 @@ embed-resource = "3.0.2"
 windows_exe_info = "0.4"
 
 [patch.crates-io]
-iced = { git = "https://github.com/squidowl/iced", rev = "138b1d0ddc86e108f7d4f25765afca126a8dc166" }
-iced_core = { git = "https://github.com/squidowl/iced", rev = "138b1d0ddc86e108f7d4f25765afca126a8dc166" }
-iced_wgpu = { git = "https://github.com/squidowl/iced", rev = "138b1d0ddc86e108f7d4f25765afca126a8dc166" }
+iced = { git = "https://github.com/squidowl/iced", rev = "41673dbb9399789134755379202142d23d41f705" }
+iced_core = { git = "https://github.com/squidowl/iced", rev = "41673dbb9399789134755379202142d23d41f705" }
+iced_wgpu = { git = "https://github.com/squidowl/iced", rev = "41673dbb9399789134755379202142d23d41f705" }
 
 [patch."https://github.com/hecrj/cosmic-text.git"]
 cosmic-text = { git = "https://github.com/squidowl/cosmic-text", rev = "f959ab5f753a911ce3c3649c22494b07da5d5340" }

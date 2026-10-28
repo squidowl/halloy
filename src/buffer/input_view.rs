@@ -1,9 +1,12 @@
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::convert;
+use std::ops::Range;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use data::appearance::theme::FontStyle;
 use data::buffer::{self, BuffersContext, Upstream};
 use data::capabilities::{
     MultilineBatchKind, MultilineLimits, multiline_concat_lines,
@@ -23,6 +26,7 @@ use iced::Length::Fit;
 use iced::advanced::widget::Tree;
 use iced::advanced::{Layout, Shell, mouse};
 use iced::keyboard::{Key, key};
+use iced::widget::text::highlighter::{Style, Underline};
 use iced::widget::text::{self, Shaping, Wrapping};
 use iced::widget::{
     self, Space, button, center, column, container, mouse_area, operation, row,
@@ -47,6 +51,22 @@ use crate::{Theme, font, theme};
 
 mod completion;
 mod exec;
+
+// Platform spellchecker is not `Send`; keep one instance per UI thread.
+thread_local! {
+    static SPELL_CHECKER: RefCell<Option<SpellCheckerSlot>> =
+        const { RefCell::new(None) };
+}
+
+enum SpellCheckerSlot {
+    Ready {
+        locale: Option<String>,
+        checker: spellkit::Checker,
+    },
+    Failed {
+        locale: Option<String>,
+    },
+}
 
 const TYPING_REFRESH_INTERVAL: Duration = Duration::from_secs(4);
 
@@ -336,6 +356,22 @@ pub fn view<'a>(
                 _ => text_editor::Binding::from_key_press(key_press),
             }
         });
+
+    let text_input = text_input.highlight_with::<SpellHighlighter>(
+        SpellSettings {
+            errors_by_line: spell_errors_by_line(
+                &state.input_content.text(),
+                &state.spell_errors,
+                line_col_to_byte(
+                    &state.input_content,
+                    state.input_content.cursor().position.line,
+                    state.input_content.cursor().position.index,
+                ),
+                config.buffer.text_input.spellcheck.underline,
+            ),
+        },
+        spell_highlight,
+    );
 
     let text_input = decorate(text_input).update(
         move |_state: &mut State,
@@ -711,6 +747,8 @@ pub struct State {
     upload_abort_handles: Vec<futures::future::AbortHandle>,
     draft_reply: Option<input::DraftReply>,
     reply_preview: Option<message::ReplyPreview>,
+    spell_errors: Vec<SpellError>,
+    spell_suggestions: Option<SpellSuggestionSession>,
 }
 
 impl Default for State {
@@ -730,6 +768,8 @@ impl Default for State {
             upload_abort_handles: Vec::new(),
             draft_reply: None,
             reply_preview: None,
+            spell_errors: Vec::new(),
+            spell_suggestions: None,
         }
     }
 }
@@ -759,8 +799,241 @@ impl State {
         };
 
         state.process_completion_and_notice(buffer, clients, storage, config);
+        state.refresh_spell_errors(buffer, clients, config);
 
         state
+    }
+
+    fn refresh_spell_errors(
+        &mut self,
+        buffer: &buffer::Upstream,
+        clients: &client::Map,
+        config: &Config,
+    ) {
+        self.spell_errors.clear();
+        let spell = &config.buffer.text_input.spellcheck;
+        if !spell.enabled {
+            self.spell_suggestions = None;
+            SPELL_CHECKER.with(|slot| {
+                *slot.borrow_mut() = None;
+            });
+            return;
+        }
+
+        let chantypes =
+            clients.get_server_chantypes_or_default(buffer.as_server());
+        let casemapping =
+            clients.get_server_casemapping_or_default(buffer.as_server());
+        let own_nick = clients.nickname(buffer.as_server());
+        let channel_users = match buffer {
+            buffer::Upstream::Channel(server, channel) => {
+                clients.get_channel_users(server, channel)
+            }
+            _ => None,
+        };
+        let query_peer = match buffer {
+            buffer::Upstream::Query(_, query) => {
+                Some(query.as_normalized_str())
+            }
+            _ => None,
+        };
+
+        let locale = spell.locale.clone();
+        let text = self.input_content.text();
+        SPELL_CHECKER.with(|slot| {
+            {
+                let mut slot = slot.borrow_mut();
+                let needs_new = match slot.as_ref() {
+                    None => true,
+                    Some(SpellCheckerSlot::Ready {
+                        locale: cached, ..
+                    })
+                    | Some(SpellCheckerSlot::Failed { locale: cached }) => {
+                        cached != &locale
+                    }
+                };
+                if needs_new {
+                    let result = match locale.as_deref() {
+                        Some(locale) => spellkit::Checker::with_locale(locale),
+                        None => spellkit::Checker::new(),
+                    };
+                    match result {
+                        Ok(checker) => {
+                            *slot = Some(SpellCheckerSlot::Ready {
+                                locale,
+                                checker,
+                            });
+                        }
+                        Err(err) => {
+                            self.spell_suggestions = None;
+                            log::warn!("spellcheck unavailable: {err}");
+                            *slot = Some(SpellCheckerSlot::Failed { locale });
+                            return;
+                        }
+                    }
+                }
+            }
+            let slot = slot.borrow();
+            let Some(SpellCheckerSlot::Ready { checker, .. }) = slot.as_ref()
+            else {
+                return;
+            };
+            for err in checker.check(&text) {
+                if is_spellcheck_ignored(err.text(), &spell.ignore) {
+                    continue;
+                }
+                if is_irc_spell_skip(
+                    &text,
+                    err.start(),
+                    err.text(),
+                    chantypes,
+                    casemapping,
+                    own_nick,
+                    channel_users,
+                    query_peer,
+                ) {
+                    continue;
+                }
+                self.spell_errors.push(SpellError {
+                    start: err.start(),
+                    end: err.end(),
+                });
+            }
+        });
+    }
+
+    fn after_text_mutation(
+        &mut self,
+        buffer: &buffer::Upstream,
+        clients: &client::Map,
+        config: &Config,
+    ) {
+        self.spell_suggestions = None;
+        self.refresh_spell_errors(buffer, clients, config);
+    }
+
+    fn clear_spell_suggestions_if_left(&mut self) {
+        let Some(session) = self.spell_suggestions.as_ref() else {
+            return;
+        };
+        let text = self.input_content.text();
+        let pos = self.input_content.cursor().position;
+        let cursor_byte =
+            line_col_to_byte(&self.input_content, pos.line, pos.index);
+        if !spell_cursor_targets_range(
+            &text,
+            cursor_byte,
+            session.start,
+            session.end,
+        ) {
+            self.spell_suggestions = None;
+        }
+    }
+
+    fn cycle_spell_suggestions(
+        &mut self,
+        reverse: bool,
+        buffer: &buffer::Upstream,
+        clients: &client::Map,
+        storage: &mut storage::Manager,
+        config: &Config,
+    ) -> bool {
+        if !config.buffer.text_input.spellcheck.enabled
+            || !config.buffer.text_input.spellcheck.suggestions
+        {
+            self.spell_suggestions = None;
+            return false;
+        }
+
+        let text = self.input_content.text();
+        let pos = self.input_content.cursor().position;
+        let cursor_byte =
+            line_col_to_byte(&self.input_content, pos.line, pos.index);
+
+        let in_session = self.spell_suggestions.as_ref().is_some_and(|s| {
+            spell_cursor_targets_range(&text, cursor_byte, s.start, s.end)
+        });
+
+        if !in_session {
+            let Some(err) =
+                spell_error_for_cursor(&text, cursor_byte, &self.spell_errors)
+            else {
+                self.spell_suggestions = None;
+                return false;
+            };
+
+            let start = err.start;
+            let end = err.end;
+            let original = text[start..end].to_string();
+            let suggestions =
+                SPELL_CHECKER.with(|slot| match slot.borrow().as_ref() {
+                    Some(SpellCheckerSlot::Ready { checker, .. }) => {
+                        checker.suggest(&original)
+                    }
+                    _ => Vec::new(),
+                });
+            if suggestions.is_empty() {
+                self.spell_suggestions = None;
+                return false;
+            }
+
+            let index = suggestions.len();
+            self.spell_suggestions = Some(SpellSuggestionSession {
+                start,
+                end,
+                original,
+                suggestions,
+                index,
+            });
+        }
+        let session = self.spell_suggestions.as_mut().unwrap();
+        let count = session.suggestions.len() + 1;
+        session.index = if reverse {
+            (session.index + count - 1) % count
+        } else {
+            (session.index + 1) % count
+        };
+
+        let replacement = if session.index < session.suggestions.len() {
+            session.suggestions[session.index].clone()
+        } else {
+            session.original.clone()
+        };
+
+        let start = session.start;
+        let end = session.end;
+        let old = &text[start..end];
+        let char_start =
+            UnicodeSegmentation::graphemes(&text[..start], true).count();
+        let char_len = UnicodeSegmentation::graphemes(old, true).count();
+        let replaced =
+            format!("{}{}{}", &text[..start], replacement, &text[end..]);
+        let delta = UnicodeSegmentation::graphemes(replacement.as_str(), true)
+            .count() as i64
+            - char_len as i64;
+
+        let cursor = adjust_cursor(
+            &self.input_content,
+            &replaced,
+            char_start,
+            char_len,
+            delta,
+        );
+        self.input_content = text_editor::Content::with_text(&replaced);
+        self.input_content.move_to(cursor);
+
+        if let Some(session) = self.spell_suggestions.as_mut() {
+            session.end = start + replacement.len();
+        }
+
+        storage.record_draft(RawInput {
+            buffer: buffer.clone(),
+            text: self.input_content.text(),
+            reply: self.draft_reply.clone(),
+        });
+        self.refresh_spell_errors(buffer, clients, config);
+
+        true
     }
 
     pub fn draft_reply(&self) -> Option<&input::DraftReply> {
@@ -970,7 +1243,9 @@ impl State {
                         config,
                     );
 
-                    self.on_completion(buffer, storage, actions, true)
+                    self.on_completion(
+                        buffer, clients, storage, config, actions, true,
+                    )
                 // IRCv3 draft/multiline forbids messages consisting
                 // entirely of blank lines, so we will take that as an
                 // IRC norm and require the same
@@ -1039,6 +1314,8 @@ impl State {
                         self.input_content.text().clone(),
                     );
                     self.input_content = text_editor::Content::new();
+                    self.spell_suggestions = None;
+                    self.spell_errors.clear();
                     self.reset_typing();
 
                     let lines = self
@@ -1079,8 +1356,9 @@ impl State {
                         config,
                     );
 
-                    let result =
-                        self.on_completion(buffer, storage, actions, true);
+                    let result = self.on_completion(
+                        buffer, clients, storage, config, actions, true,
+                    );
 
                     // If there is only one tab candidate process the completion immediately.
                     if self
@@ -1094,6 +1372,9 @@ impl State {
                     }
                     result
                 } else {
+                    let _ = self.cycle_spell_suggestions(
+                        reverse, buffer, clients, storage, config,
+                    );
                     (Task::none(), None)
                 }
             }
@@ -1112,8 +1393,9 @@ impl State {
                         config,
                     );
 
-                    let result =
-                        self.on_completion(buffer, storage, actions, true);
+                    let result = self.on_completion(
+                        buffer, clients, storage, config, actions, true,
+                    );
                     self.process_completion_and_notice(
                         buffer, clients, storage, config,
                     );
@@ -1216,10 +1498,20 @@ impl State {
                     (Task::none(), None)
                 }
             }
-            // Capture escape so that closing context menu or commands/emojis
-            // picker does not defocus input.  Escape actions are handled by
-            // `Dashboard::handle_event` to allow global state to be considered.
-            Message::Escape => (Task::none(), None),
+            // Capture escape so that closing context menu or commands/emojis picker
+            // does not defocus input. Also exits message selection mode if active.
+            Message::Escape => {
+                if in_focus_mode {
+                    return (Task::none(), Some(Event::ExitFocus));
+                }
+                if self.close_picker() {
+                    return (Task::none(), None);
+                }
+                if self.clear_draft_reply(buffer, clients, storage, config) {
+                    return (self.focus(), None);
+                }
+                (Task::none(), None)
+            }
             Message::SendCommand { buffer, command } => {
                 let input = data::Input::from_command(buffer.clone(), command)
                     .encoded();
@@ -1304,7 +1596,7 @@ impl State {
                         self.input_content.perform(text_editor::Action::Edit(
                             text_editor::Edit::Delete,
                         ));
-
+                        self.after_text_mutation(buffer, clients, config);
                         clipboard::write(selection.to_string()).discard()
                     } else {
                         Task::none()
@@ -1495,11 +1787,12 @@ impl State {
                     );
                 }
 
+                self.after_text_mutation(buffer, clients, config);
                 (self.focus(), None)
             }
             Message::ClearDraftReply => {
-                let _ = self.clear_draft_reply(buffer, storage, config);
-
+                let _ =
+                    self.clear_draft_reply(buffer, clients, storage, config);
                 (self.focus(), None)
             }
             Message::FilehostUploadDone { id, url } => {
@@ -1517,7 +1810,7 @@ impl State {
                     text: self.input_content.text(),
                     reply: self.draft_reply.clone(),
                 });
-
+                self.after_text_mutation(buffer, clients, config);
                 (Task::none(), None)
             }
             Message::Kill(kill, save_to_clipboard) => {
@@ -1527,7 +1820,7 @@ impl State {
                     save_to_clipboard,
                     config.buffer.text_input.kill_to_clipboard,
                 );
-
+                self.after_text_mutation(buffer, clients, config);
                 (task, None)
             }
             Message::Action(action) => {
@@ -1541,6 +1834,8 @@ impl State {
 
                 match &action {
                     text_editor::Action::Edit(_) => {
+                        self.after_text_mutation(buffer, clients, config);
+
                         self.parse_lines_and_maybe_send_typing_status(
                             buffer, clients, config,
                         );
@@ -1629,6 +1924,8 @@ impl State {
                     | text_editor::Action::SelectWord
                     | text_editor::Action::SelectLine
                     | text_editor::Action::SelectAll => {
+                        self.clear_spell_suggestions_if_left();
+                        self.refresh_spell_errors(buffer, clients, config);
                         self.process_completion_and_notice(
                             buffer, clients, storage, config,
                         );
@@ -2577,7 +2874,9 @@ impl State {
     fn on_completion(
         &mut self,
         buffer: &buffer::Upstream,
+        clients: &client::Map,
         storage: &mut storage::Manager,
+        config: &Config,
         actions: Vec<text_editor::Action>,
         record_draft: bool,
     ) -> (Task<Message>, Option<Event>) {
@@ -2593,6 +2892,7 @@ impl State {
             });
         }
 
+        self.after_text_mutation(buffer, clients, config);
         (Task::none(), None)
     }
 
@@ -2624,6 +2924,7 @@ impl State {
 
         // Cursor movement above does not always trigger an Action::Move
         self.process_completion_and_notice(buffer, clients, storage, config);
+        self.after_text_mutation(buffer, clients, config);
 
         (Task::none(), None)
     }
@@ -2650,6 +2951,8 @@ impl State {
         &mut self,
         nick: Nick,
         buffer: buffer::Upstream,
+        clients: &client::Map,
+        config: &Config,
         storage: &mut storage::Manager,
         autocomplete: &Autocomplete,
     ) {
@@ -2705,6 +3008,8 @@ impl State {
             text_editor::Edit::Paste(std::sync::Arc::new(insert_text)),
         ));
 
+        self.after_text_mutation(&buffer, clients, config);
+
         storage.record_draft(RawInput {
             buffer,
             text: self.input_content.text(),
@@ -2719,6 +3024,7 @@ impl State {
     pub fn clear_draft_reply(
         &mut self,
         buffer: &buffer::Upstream,
+        clients: &client::Map,
         storage: &mut storage::Manager,
         config: &Config,
     ) -> bool {
@@ -2758,6 +3064,7 @@ impl State {
                 reply: None,
             });
 
+            self.after_text_mutation(buffer, clients, config);
             true
         } else {
             false
@@ -3091,6 +3398,161 @@ fn line_index_to_char(
     pos
 }
 
+/// Absolute UTF-8 byte offset for a `(line, index)` cursor position.
+fn line_col_to_byte(
+    content: &text_editor::Content,
+    line: usize,
+    col: usize,
+) -> usize {
+    let text = content.text();
+    let mut offset = 0;
+    for (i, l) in text.split('\n').enumerate() {
+        if i == line {
+            return offset + col.min(l.len());
+        }
+        offset += l.len() + 1;
+    }
+    text.len()
+}
+
+fn is_spell_word_char(c: char) -> bool {
+    c.is_alphanumeric() || c == '\''
+}
+
+// Word run under/before the caret (alphanumeric / apostrophe, same as spellkit).
+// Caret at the end of a word counts as still in that word (so it stays unmarked).
+fn spell_word_bounds_at(text: &str, byte: usize) -> Option<(usize, usize)> {
+    let byte = byte.min(text.len());
+    let anchor = if byte > 0
+        && text[..byte]
+            .chars()
+            .next_back()
+            .is_some_and(is_spell_word_char)
+    {
+        byte - text[..byte].chars().next_back().map_or(0, char::len_utf8)
+    } else if byte < text.len()
+        && text[byte..].chars().next().is_some_and(is_spell_word_char)
+    {
+        byte
+    } else {
+        return None;
+    };
+
+    let mut start = anchor;
+    while start > 0 {
+        let Some(c) = text[..start].chars().next_back() else {
+            break;
+        };
+        if !is_spell_word_char(c) {
+            break;
+        }
+        start -= c.len_utf8();
+    }
+
+    let mut end = anchor;
+    for c in text[anchor..].chars() {
+        if !is_spell_word_char(c) {
+            break;
+        }
+        end += c.len_utf8();
+    }
+
+    (start < end).then_some((start, end))
+}
+
+fn should_hide_spell_highlight(
+    text: &str,
+    error: &SpellError,
+    open_word: Option<(usize, usize)>,
+) -> bool {
+    let Some((open_start, open_end)) = open_word else {
+        return false;
+    };
+    if error.start >= open_end || error.end <= open_start {
+        return false;
+    }
+    !spell_word_terminated(text, open_end)
+}
+
+fn spell_word_terminated(text: &str, word_end: usize) -> bool {
+    word_end < text.len()
+        && text[word_end..]
+            .chars()
+            .next()
+            .is_some_and(|c| !is_spell_word_char(c))
+}
+
+/// True when caret is inside `[start, end]` or in the non-word gap immediately after
+/// that range (before the next word starts) — enables Tab after `"typo "`.
+fn spell_cursor_targets_range(
+    text: &str,
+    cursor: usize,
+    start: usize,
+    end: usize,
+) -> bool {
+    if cursor >= start && cursor <= end {
+        return true;
+    }
+    if cursor < end || end > text.len() || start > end {
+        return false;
+    }
+    text[end..cursor.min(text.len())]
+        .chars()
+        .all(|c| !is_spell_word_char(c))
+}
+
+fn spell_error_for_cursor<'a>(
+    text: &str,
+    cursor: usize,
+    errors: &'a [SpellError],
+) -> Option<&'a SpellError> {
+    errors
+        .iter()
+        .filter(|e| spell_cursor_targets_range(text, cursor, e.start, e.end))
+        .max_by_key(|e| e.end)
+}
+
+fn is_spellcheck_ignored(word: &str, ignore: &[String]) -> bool {
+    ignore.iter().any(|w| w.eq_ignore_ascii_case(word))
+}
+
+fn is_irc_spell_skip(
+    text: &str,
+    start: usize,
+    word: &str,
+    chantypes: &[char],
+    casemapping: data::isupport::CaseMap,
+    own_nick: Option<&Nick>,
+    channel_users: Option<&ChannelUsers>,
+    query_peer_normalized: Option<&str>,
+) -> bool {
+    // "#channel" → spellkit word is "channel"; prefix sits just before `start`
+    if start > 0
+        && text[..start]
+            .chars()
+            .next_back()
+            .is_some_and(|c| chantypes.contains(&c))
+    {
+        return true;
+    }
+
+    let nick = Nick::from_str(word, casemapping);
+
+    if own_nick.is_some_and(|own| own == &nick) {
+        return true;
+    }
+    if channel_users.is_some_and(|users| users.get_by_nick(&nick).is_some()) {
+        return true;
+    }
+    if query_peer_normalized
+        .is_some_and(|peer| peer == nick.as_normalized_str())
+    {
+        return true;
+    }
+
+    false
+}
+
 /// Converts a flat grapheme-cluster offset back to a `(line, index)` position.
 ///
 /// `start_pos` is the number of grapheme clusters from the start of `text`.
@@ -3277,6 +3739,157 @@ fn reset_undo_history(content: &mut text_editor::Content) {
 
     *content = text_editor::Content::with_text(&text);
     content.move_to(cursor);
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct SpellSettings {
+    errors_by_line: Vec<Vec<(usize, usize, SpellHighlight)>>,
+}
+
+#[derive(Debug, Clone)]
+struct SpellError {
+    start: usize,
+    end: usize,
+}
+
+#[derive(Debug, Clone)]
+struct SpellSuggestionSession {
+    start: usize,
+    end: usize,
+    original: String,
+    suggestions: Vec<String>,
+    index: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SpellHighlight {
+    Misspelled { underline: bool },
+}
+
+fn spell_highlight(highlight: SpellHighlight, theme: &Theme) -> Style {
+    let styles = theme.styles();
+    match highlight {
+        SpellHighlight::Misspelled { underline } => {
+            let font_style = styles
+                .text
+                .spellcheck_misspelled
+                .font_style
+                .unwrap_or(FontStyle::Normal);
+            let color = styles
+                .text
+                .spellcheck_misspelled
+                .color
+                .unwrap_or(styles.text.primary.color);
+            let underline_color =
+                styles.text.spellcheck_misspelled.underline_color.unwrap_or(
+                    styles
+                        .text
+                        .spellcheck_misspelled
+                        .color
+                        .unwrap_or(styles.text.error.color),
+                );
+
+            Style {
+                color: Some(color),
+                style: Some(match font_style {
+                    FontStyle::Normal | FontStyle::Bold => {
+                        iced::font::Style::Normal
+                    }
+                    FontStyle::Italic | FontStyle::ItalicBold => {
+                        iced::font::Style::Italic
+                    }
+                }),
+                underline: underline.then_some(Underline::Single),
+                underline_color: underline.then_some(underline_color),
+                ..Style::default()
+            }
+        }
+    }
+}
+
+fn spell_errors_by_line(
+    text: &str,
+    errors: &[SpellError],
+    cursor_byte: usize,
+    underline: bool,
+) -> Vec<Vec<(usize, usize, SpellHighlight)>> {
+    let open_word = spell_word_bounds_at(text, cursor_byte);
+    let mut by_line = Vec::new();
+    let mut line_start = 0usize;
+
+    for line in text.split('\n') {
+        let line_end = line_start + line.len();
+        let mut line_errors = Vec::new();
+
+        for error in errors {
+            if should_hide_spell_highlight(text, error, open_word) {
+                continue;
+            }
+            if error.end > line_start && error.start < line_end {
+                let local_start =
+                    error.start.saturating_sub(line_start).min(line.len());
+                let local_end =
+                    error.end.saturating_sub(line_start).min(line.len());
+                if local_start < local_end {
+                    line_errors.push((
+                        local_start,
+                        local_end,
+                        SpellHighlight::Misspelled { underline },
+                    ));
+                }
+            }
+        }
+
+        by_line.push(line_errors);
+        line_start = line_end + 1; // skip '\n'
+    }
+
+    by_line
+}
+
+struct SpellHighlighter {
+    current_line: usize,
+    errors_by_line: Vec<Vec<(usize, usize, SpellHighlight)>>,
+}
+
+impl text::Parser for SpellHighlighter {
+    type Settings = SpellSettings;
+    type Output = SpellHighlight;
+    type Iterator<'a> =
+        Box<dyn Iterator<Item = (Range<usize>, Self::Output)> + 'a>;
+
+    fn new(settings: &Self::Settings) -> Self {
+        Self {
+            current_line: 0,
+            errors_by_line: settings.errors_by_line.clone(),
+        }
+    }
+
+    fn update(&mut self, settings: &Self::Settings) {
+        self.errors_by_line = settings.errors_by_line.clone();
+        self.current_line = 0;
+    }
+
+    fn change_line(&mut self, line: usize) {
+        self.current_line = line;
+    }
+
+    fn parse_line(&mut self, _line: &str) -> Self::Iterator<'_> {
+        let i = self.current_line;
+        self.current_line += 1;
+
+        let errors = self.errors_by_line.get(i).cloned().unwrap_or_default();
+
+        Box::new(
+            errors
+                .into_iter()
+                .map(|(start, end, highlight)| (start..end, highlight)),
+        )
+    }
+
+    fn current_line(&self) -> usize {
+        self.current_line
+    }
 }
 
 #[cfg(test)]
@@ -3505,5 +4118,60 @@ mod tests {
                 "text: {ghost_prefix}{ghost}{ghost_suffix} url: {url} motion: {motion}"
             );
         }
+    }
+
+    #[test]
+    fn spell_word_bounds_at_end_of_word() {
+        assert_eq!(spell_word_bounds_at("hello ", 5), Some((0, 5)));
+    }
+
+    const MISSPELLED: &str = "worng"; // spellchecker:disable-line
+
+    #[test]
+    fn spell_word_terminated_after_space() {
+        assert!(spell_word_terminated(&format!("{MISSPELLED} next"), 5));
+        assert!(!spell_word_terminated(MISSPELLED, 5));
+        assert!(spell_word_terminated(&format!("{MISSPELLED},"), 5));
+    }
+
+    #[test]
+    fn should_hide_only_in_progress_open_word() {
+        let err = SpellError { start: 0, end: 5 };
+        // incomplete at start - show
+        assert!(should_hide_spell_highlight(MISSPELLED, &err, Some((0, 5))));
+        // completed word, click back in - show
+        assert!(!should_hide_spell_highlight(
+            &format!("{MISSPELLED} next"),
+            &err,
+            Some((0, 5)),
+        ));
+        // caret after word - typo still shown
+        assert!(!should_hide_spell_highlight(
+            &format!("{MISSPELLED} next"),
+            &err,
+            Some((6, 10)),
+        ));
+    }
+
+    #[test]
+    fn is_irc_spell_skip_channel_name() {
+        assert!(is_irc_spell_skip(
+            "#halloy",
+            1,
+            "halloy",
+            &['#'],
+            data::isupport::CaseMap::default(),
+            None,
+            None,
+            None,
+        ));
+    }
+
+    #[test]
+    fn is_spellcheck_ignored_case_insensitive() {
+        let ignore = vec!["http".into(), "Halloy".into()];
+        assert!(is_spellcheck_ignored("HTTP", &ignore));
+        assert!(is_spellcheck_ignored("halloy", &ignore));
+        assert!(!is_spellcheck_ignored("https", &ignore));
     }
 }

@@ -6,3 +6,4 @@ libxkbcommon-dev
 libfontconfig1-dev
 libasound2-dev
 libx11-xcb-dev
+libhunspell-dev
