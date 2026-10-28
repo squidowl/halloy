@@ -46,6 +46,7 @@ pub enum Message {
     Failed(String),
     Unrecorded(batch::Batch),
     DraftsSaved(Result<usize, Error>),
+    MarkedReadOnExit(Result<(), String>),
     Exited(Result<(), String>, Option<Result<usize, Error>>),
 }
 
@@ -542,6 +543,13 @@ impl Manager {
                 }
                 self.input_storage.saved();
             }
+            Message::MarkedReadOnExit(result) => {
+                if let Err(error) = result {
+                    log::error!(
+                        "marking read on application exit failed: {error}"
+                    );
+                }
+            }
             Message::Exited(result, input_result) => {
                 if let Err(error) = result {
                     log::error!("history shutdown failed: {error}");
@@ -641,6 +649,27 @@ impl Manager {
         for kind in kinds {
             self.mark_as_read(kind);
         }
+    }
+
+    pub fn mark_as_read_on_exit(
+        &mut self,
+        buffers: &dyn BuffersContext,
+        config: &Config,
+    ) {
+        let kinds = self
+            .storage
+            .keys()
+            .filter(|kind| {
+                config.buffer.mark_as_read.on_application_exit
+                    || config
+                        .buffer
+                        .mark_as_read
+                        .on_buffer_close
+                        .mark_as_read(buffers.is_open_and_at_bottom(kind))
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        self.worker.send(worker::Command::MarkReadOnExit(kinds));
     }
 
     pub fn set_model_limit(&mut self, kind: Kind, limit: message::Limit) {
@@ -781,23 +810,8 @@ impl Manager {
         }
     }
 
-    pub fn exit(&mut self, buffers: &dyn BuffersContext, config: &Config) {
+    pub fn exit(&mut self, config: &Config) {
         self.exiting = true;
-        let histories = self
-            .storage
-            .keys()
-            .map(|kind| {
-                (
-                    kind.clone(),
-                    config.buffer.mark_as_read.on_application_exit
-                        || config
-                            .buffer
-                            .mark_as_read
-                            .on_buffer_close
-                            .mark_as_read(buffers.is_open_and_at_bottom(kind)),
-                )
-            })
-            .collect();
         let save = self.input_storage.save(config);
         let worker = self.worker.clone();
         tokio::task::spawn(async move {
@@ -806,7 +820,7 @@ impl Manager {
             } else {
                 None
             };
-            worker.send(worker::Command::Exit(histories, result));
+            worker.send(worker::Command::Exit(result));
         });
     }
 
