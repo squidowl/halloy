@@ -16,7 +16,7 @@ shown, file transfer options are presented in menus, etc).
 enabled = true
 ```
 
-## `save_directory`
+## `save_directory` {#save-directory}
 
 Default directory to save files in. If not set, user will see a file dialog. [^1]
 
@@ -28,6 +28,16 @@ Default directory to save files in. If not set, user will see a file dialog. [^1
 [file_transfer]
 save_directory = "/Users/halloy/Downloads"
 ```
+
+::: tip
+Flatpak users will need to grant access to the specified `save_directory` path:
+
+```bash
+flatpak override --user --filesystem=~/Downloads org.squidowl.halloy
+```
+
+For more Flatpak tips, see this [guide](../guides/flatpak-tips#filesystem-access-for-file-transfers).
+:::
 
 ## `passive`
 

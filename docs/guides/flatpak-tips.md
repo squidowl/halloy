@@ -32,6 +32,16 @@ Halloy access to the system keyring. You can do this by running:
 flatpak override --user --talk-name=org.freedesktop.secrets org.squidowl.halloy
 ```
 
+## Filesystem access for file transfers
+
+If you want to save file transfers to your specified [`save_directory`](/configuration/file-transfer#save-directory), you'll
+need to grant Flatpak access to the folder:
+
+
+```bash
+flatpak override --user --filesystem=~/Downloads org.squidowl.halloy
+```
+
 ## Configuration in `$HOME` paths
 
 When using Flatpak, the location of your Halloy data is `~/.var/app/org.squidowl.halloy`.
