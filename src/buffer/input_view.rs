@@ -82,7 +82,7 @@ pub enum Event {
         upload_ids: Vec<u32>,
         abort_registrations: Vec<futures::future::AbortRegistration>,
     },
-    NavigateFocus(FocusDirection),
+    NavigateFocus(FocusDirection, bool),
     ExitFocus,
     FocusAction(FocusAction),
 }
@@ -130,7 +130,7 @@ pub enum Message {
         to_nick: Nick,
     },
     ClearDraftReply,
-    NavigateFocus(FocusDirection),
+    NavigateFocus(FocusDirection, bool),
     ExitFocus,
     FocusAction(FocusAction),
 }
@@ -1412,8 +1412,8 @@ impl State {
                 self.spinner_hovered = hovered;
                 (Task::none(), None)
             }
-            Message::NavigateFocus(direction) => {
-                (Task::none(), Some(Event::NavigateFocus(direction)))
+            Message::NavigateFocus(direction, repeat) => {
+                (Task::none(), Some(Event::NavigateFocus(direction, repeat)))
             }
             Message::ExitFocus => (self.focus(), Some(Event::ExitFocus)),
             Message::FocusAction(action) => {

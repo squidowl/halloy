@@ -1348,16 +1348,17 @@ impl Buffer {
     pub fn focus_navigate_message(
         &self,
         direction: FocusDirection,
+        repeat: bool,
     ) -> Option<Message> {
         match self {
             Buffer::Channel(_) => {
                 Some(Message::Channel(channel::Message::InputView(
-                    input_view::Message::NavigateFocus(direction),
+                    input_view::Message::NavigateFocus(direction, repeat),
                 )))
             }
             Buffer::Query(_) => {
                 Some(Message::Query(query::Message::InputView(
-                    input_view::Message::NavigateFocus(direction),
+                    input_view::Message::NavigateFocus(direction, repeat),
                 )))
             }
             _ => None,
