@@ -1475,8 +1475,12 @@ fn filter_associated_fragments(
 
         let changeless_chain_len = longest_changeless_chain_len(&fragments);
 
-        (changeless_chain_len < fragments.len())
-            .then_some(fragments.drain(changeless_chain_len..).collect())
+        if changeless_chain_len == fragments.len() {
+            None
+        } else {
+            fragments.drain(..changeless_chain_len);
+            Some(fragments)
+        }
     } else {
         Some(fragments)
     }
