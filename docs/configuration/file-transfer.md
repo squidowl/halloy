@@ -16,9 +16,9 @@ shown, file transfer options are presented in menus, etc).
 enabled = true
 ```
 
-## `save_directory`
+## `save_directory` {#save-directory}
 
-Default directory to save files in. If not set, user will see a file dialog. [^1]
+Default directory to save files in. If not set, user will see a file dialog. [^1] [^2]
 
 ```toml
 # Type: string
@@ -28,6 +28,16 @@ Default directory to save files in. If not set, user will see a file dialog. [^1
 [file_transfer]
 save_directory = "/Users/halloy/Downloads"
 ```
+
+::: tip
+Flatpak users will need to grant access to the specified `save_directory` path:
+
+```bash
+flatpak override --user --filesystem=~/Downloads org.squidowl.halloy
+```
+
+For more Flatpak tips, see this [guide](../guides/flatpak-tips#filesystem-access-for-file-transfers).
+:::
 
 ## `passive`
 
@@ -179,3 +189,7 @@ Last port in port range to bind to.
 [file_transfer.server]
 bind_port_last = 5000
 ```
+
+[^1]: Windows path strings should usually be specified as literal strings (e.g. `'C:\Users\Default\'`), otherwise directory separators will need to be escaped (e.g. `"C:\\Users\\Default\\"`).
+
+[^2]: Relative paths are prefixed with the config directory (i.e. if you have your config.toml in `/home/me/.config/halloy/config.toml`, path `.passwd/libera` will be converted to `/home/me/.config/halloy/.passwd/libera`).
