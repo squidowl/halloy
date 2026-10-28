@@ -1466,6 +1466,87 @@ If enabled, saves unsent messages on disk.
 persist = true
 ```
 
+### `spellcheck`
+
+Spellcheck for the message input. Misspelled words are highlighted using the theme's `text.spellcheck_misspelled` style (see [Custom themes](/guides/custom-themes)), including a solid underline when `underline` is enabled.
+
+When that style is unset, misspelled words use `text.primary` with normal weight; the underline uses `text.error` (or `underline_color` when set).
+
+Halloy uses the platform spellchecker (system APIs on Windows and macOS; Hunspell dictionaries on other Unix-like systems). If no dictionary is available, spellcheck does nothing (a warning may be logged).
+
+Words are not marked as misspelled when they are:
+
+- a channel name (text after a channel prefix such as `#`)
+- your own nick
+- a nick present in the current channel
+- the peer nick in a query
+- listed in `ignore` (case-insensitive)
+
+#### `enabled`
+
+Enable spellcheck in the text input.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[buffer.text_input.spellcheck]
+enabled = true
+```
+
+#### `suggestions`
+
+When enabled, place the caret in a misspelled word and press <kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd> to cycle replacement suggestions (then back to the original spelling). Nickname and command autocomplete still take priority: spell suggestions run only when autocomplete does not produce a candidate.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.text_input.spellcheck]
+suggestions = true
+```
+
+#### `underline`
+
+Underline color: `spellcheck_misspelled.underline_color`, else the misspelled text color if set, else `text.error`.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.text_input.spellcheck]
+underline = true
+```
+
+#### `locale`
+
+Dictionary locale for the spellchecker. When unset, the system/default locale is used.
+
+```toml
+# Type: string
+# Values: locale id string (e.g. "en-US"), or omit
+# Default: unset (system/default)
+
+[buffer.text_input.spellcheck]
+locale = "en-US"
+```
+
+#### `ignore`
+
+Words to never mark as misspelled. Matching is case-insensitive and exact (whole word from the spellchecker), not substring.
+
+```toml
+# Type: array of strings
+# Values: array of strings
+# Default: []
+
+[buffer.text_input.spellcheck]
+ignore = ["http", "https", "irc", "ircs", "halloy"]
+```
+
 ### `autocomplete`
 
 Customize autocomplete.
