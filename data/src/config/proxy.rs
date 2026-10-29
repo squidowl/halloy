@@ -38,30 +38,24 @@ impl Proxy {
                 password,
                 password_keyring,
                 ..
-            } => {
-                set_password(
-                    password,
-                    password_keyring,
-                    default_key("http"),
-                    "HTTP proxy password",
-                    context,
-                )
-                .await
-            }
+            } => set_password(
+                password,
+                password_keyring,
+                default_key("http"),
+                "HTTP proxy password",
+                context,
+            ),
             Proxy::Socks5 {
                 password,
                 password_keyring,
                 ..
-            } => {
-                set_password(
-                    password,
-                    password_keyring,
-                    default_key("socks5"),
-                    "SOCKS5 proxy password",
-                    context,
-                )
-                .await
-            }
+            } => set_password(
+                password,
+                password_keyring,
+                default_key("socks5"),
+                "SOCKS5 proxy password",
+                context,
+            ),
             #[cfg(feature = "tor")]
             Proxy::Tor => Ok(()),
         }
@@ -179,7 +173,7 @@ pub enum BuildError {
     Reqwest(#[from] reqwest::Error),
 }
 
-async fn set_password(
+fn set_password(
     password: &mut Option<String>,
     password_keyring: &keyring::Password,
     default_key: String,
@@ -197,7 +191,7 @@ async fn set_password(
         });
     }
 
-    let pass = keyring::get_password(&key).await?.ok_or_else(|| {
+    let pass = keyring::get_password(&key)?.ok_or_else(|| {
         config::Error::MissingKeyringPasswordEntry {
             label: label.to_string(),
             context: context.to_string(),
