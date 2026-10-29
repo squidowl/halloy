@@ -1522,14 +1522,11 @@ fn longest_changeless_chain_len<'a>(fragments: &'a [Fragment]) -> usize {
             if let Some((initial, current)) = states.get_mut(&nick)
                 && *current != new_state
             {
-                let was_mismatched = *initial != *current;
-                let is_mismatched = *initial != new_state;
-
                 *current = new_state;
 
-                if was_mismatched && !is_mismatched {
+                if *current == *initial {
                     *mismatched -= 1;
-                } else if !was_mismatched && is_mismatched {
+                } else {
                     *mismatched += 1;
                 }
             }
