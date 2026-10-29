@@ -17,6 +17,15 @@ Added:
 - Pressing Tab in the config editor inserts an indent, set by `config_editor.indent` (`"tab"` by default, or a positive integer from 1 to 8)
 - Sidebar typing indicators for queries
 - Pane title bar button and shortcut to scroll to the backlog divider
+- Spellcheck for the message input (`buffer.text_input.spellcheck`)
+  - Uses the platform spellchecker; optional `locale`
+  - Skips channel names and known nicks
+  - Solid underline for misspellings (`underline = true` by default)
+  - <kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd> cycles suggestions when
+    autocomplete does not apply (`suggestions = true`)
+  - Optional `ignore` list of words exempt from spellcheck (case-insensitive)
+- Theme style `text.spellcheck_misspelled`
+  (default when unset: `text.primary` + normal, underline `text.error`; optional `underline_color`)
 
 Fixed:
 
