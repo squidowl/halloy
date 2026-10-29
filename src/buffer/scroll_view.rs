@@ -102,7 +102,7 @@ pub enum Message {
         msgid: message::Id,
         text: Cow<'static, str>,
     },
-    NavigateFocus(FocusDirection),
+    NavigateFocus(FocusDirection, bool),
     #[allow(clippy::enum_variant_names)]
     ActivateFocusedMessage,
     OpenFocusMenu,
@@ -1687,7 +1687,7 @@ impl State {
                     );
                 }
             }
-            Message::NavigateFocus(direction) => {
+            Message::NavigateFocus(direction, repeat) => {
                 let Some(model::View {
                     old_messages,
                     new_messages,
@@ -1743,7 +1743,20 @@ impl State {
                         }
                     },
                     FocusDirection::Down => match focused_message.as_ref() {
-                        None => None,
+                        None => {
+                            if repeat {
+                                None
+                            } else {
+                                all.iter()
+                                    .find(|message| {
+                                        self.visible_messages
+                                            .contains(message.history_id())
+                                    })
+                                    .map(|message| {
+                                        FocusedMessage::new(message, config)
+                                    })
+                            }
+                        }
                         Some(fm) => {
                             let Some(focused_position) = all
                                 .iter()
