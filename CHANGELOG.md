@@ -6,6 +6,7 @@ Added:
 - Added support for IPv6 literal links
 - Added `buffer.text_input.upload_long_paste` to automatically use filehost in case pasted text is too long
 - Right-clickable text in the server buffer now offers a context menu
+- Added a macOS Window menu for native window tiling (Fill, Center, Move & Resize)
 - Pressing Tab after `/topic ` fills in the current channel topic for editing
 - SQLite history storage, with automatic migration of existing gzip history as buffers are used and loading of history in windows.
 - `buffer.close.query` option `"close-buffer"` (previous option `"close"` renamed to `"close-pane"`)
@@ -20,6 +21,7 @@ Added:
 
 Fixed:
 
+- Double-clicking empty titlebar space on macOS now zooms or minimizes the window based on system settings
 - Closing Halloy hangs while a toast notification is pending on Windows
 - Normalize short frame delays (`<=10ms`) to `100ms` for animated gifs
 - Config editor crash when caret is outside the window bounds

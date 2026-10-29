@@ -489,6 +489,8 @@ pub enum Message {
     System(system::Event),
     History(Vec<storage::Event>),
     Client(client::Message),
+    #[cfg(target_os = "macos")]
+    TitlebarClick(bool),
 }
 
 impl Halloy {
@@ -1325,6 +1327,11 @@ impl Halloy {
 
                 Task::none()
             }
+            #[cfg(target_os = "macos")]
+            Message::TitlebarClick(ignored) => {
+                window::macos::handle_click(ignored);
+                Task::none()
+            }
             Message::Window(id, event) => {
                 if matches!(event, window::Event::CloseRequested)
                     && matches!(&self.modal, Some(Modal::ImagePreview { window, .. }) if *window == id)
@@ -1391,6 +1398,9 @@ impl Halloy {
                         }
                         window::Event::Opened { position, size } => {
                             self.main_window.opened(position, size);
+
+                            #[cfg(target_os = "macos")]
+                            window::macos::setup();
                         }
                         window::Event::CloseRequested => {
                             return self.exit();
@@ -1903,6 +1913,9 @@ impl Halloy {
             tick,
             streams,
         ];
+
+        #[cfg(target_os = "macos")]
+        subscriptions.push(window::macos::clicks().map(Message::TitlebarClick));
 
         if self.config.buffer.typing.animation.enabled
             && (matches!(
