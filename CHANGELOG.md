@@ -29,6 +29,7 @@ Fixed:
 - ZNC-service style nicks (e.g. `*status`, `*grep`, etc) are not automatically routed to the server buffer
 - Message drafts for sent messages sometimes being restored after restart (instead of being cleared)
 - Scroll position being lost when showing the typing indicator with `buffer.typing.style = "popped"`
+- Sent messages no longer briefly appear above the latest received messages when the server clock is ahead
 
 Changed:
 

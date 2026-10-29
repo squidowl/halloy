@@ -1636,14 +1636,11 @@ pub(super) fn reconcile_message(
 
     if let Some(labeled_response_context) = &message.labeled_response_context {
         let start = labeled_response_context.time.utc - fuzz_seconds;
-        let end = labeled_response_context.time.utc + fuzz_seconds;
 
         let start_index =
             messages.partition_point(|stored| stored.time.utc < start);
-        let end_index =
-            messages.partition_point(|stored| stored.time.utc < end);
 
-        if let Some(index) = messages[start_index..end_index]
+        if let Some(index) = messages[start_index..]
             .iter()
             .enumerate()
             .find_map(|(slice_index, stored)| {
@@ -1740,13 +1737,13 @@ pub(super) fn reconcile_message(
 
 /// The content of JOIN, PART, and QUIT messages may be dependent on how
 /// the user attributes are resolved.  Match those messages based on Nick
-/// alone (covered by comparing target components) to avoid false negatives.
+/// alone (covered by comparing sources) to avoid false negatives.
 fn has_matching_content(
     message: &message::Message,
     other: &message::Message,
     use_echo_cmp: bool,
 ) -> bool {
-    if message.target == other.target {
+    if message.target == other.target && message.source == other.source {
         if let message::Source::Server(Some(source)) = &message.source {
             match source.kind {
                 message::source::server::Kind::Join
