@@ -1144,14 +1144,10 @@ pub fn condense(
                         }
                     })
             {
-                if let Some(nick_fragments) =
-                    condensed_fragments.get_mut(&associated_nick)
-                {
-                    nick_fragments.push(nick_fragment);
-                } else {
-                    condensed_fragments
-                        .insert(associated_nick, vec![nick_fragment]);
-                }
+                condensed_fragments
+                    .entry(associated_nick)
+                    .or_default()
+                    .push(nick_fragment);
             }
         });
 
@@ -1479,35 +1475,38 @@ fn filter_associated_fragments(
 
         let changeless_chain_len = longest_changeless_chain_len(&fragments);
 
-        (changeless_chain_len < fragments.len())
-            .then_some(fragments.drain(changeless_chain_len..).collect())
+        if changeless_chain_len == fragments.len() {
+            None
+        } else {
+            fragments.drain(..changeless_chain_len);
+            Some(fragments)
+        }
     } else {
         Some(fragments)
     }
 }
 
 /// Finds the longest chain of condensable fragments and returns its length.
-fn longest_changeless_chain_len(fragments: &[Fragment]) -> usize {
-    let mut nick_initial_state: HashMap<NickRef, bool> = HashMap::new();
+fn longest_changeless_chain_len<'a>(fragments: &'a [Fragment]) -> usize {
+    // NickRef -> (initial_state, current_state)
+    let mut states: HashMap<NickRef, (bool, bool)> = HashMap::new();
 
-    for fragment in fragments.iter() {
+    for fragment in fragments {
         if let Fragment::Condensed { source, .. } = fragment
             && let Some(nick) = source.nick.as_ref().map(NickRef::from)
         {
             match source.kind {
                 Kind::Join => {
-                    nick_initial_state.entry(nick).or_insert(false);
+                    states.entry(nick).or_insert((false, false));
                 }
                 Kind::Part | Kind::Quit | Kind::Kick => {
-                    nick_initial_state.entry(nick).or_insert(true);
+                    states.entry(nick).or_insert((true, true));
                 }
                 Kind::ChangeNick => {
                     if let Some(Change::Nick(new_nick)) = source.change.as_ref()
                     {
-                        nick_initial_state.entry(nick).or_insert(true);
-                        nick_initial_state
-                            .entry(new_nick.into())
-                            .or_insert(false);
+                        states.entry(nick).or_insert((true, true));
+                        states.entry(new_nick.into()).or_insert((false, false));
                     }
                 }
                 _ => (),
@@ -1515,9 +1514,23 @@ fn longest_changeless_chain_len(fragments: &[Fragment]) -> usize {
         }
     }
 
+    let mut mismatched = 0;
     let mut changeless_chain_len = 0;
 
-    let mut nick_state: HashMap<NickRef, bool> = HashMap::new();
+    let mut set_state =
+        |nick: NickRef<'a>, new_state: bool, mismatched: &mut usize| {
+            if let Some((initial, current)) = states.get_mut(&nick)
+                && *current != new_state
+            {
+                *current = new_state;
+
+                if *current == *initial {
+                    *mismatched -= 1;
+                } else {
+                    *mismatched += 1;
+                }
+            }
+        };
 
     for (index, fragment) in fragments.iter().enumerate() {
         if let Fragment::Condensed { source, .. } = fragment
@@ -1525,27 +1538,23 @@ fn longest_changeless_chain_len(fragments: &[Fragment]) -> usize {
         {
             match source.kind {
                 Kind::Join => {
-                    nick_state.insert(nick.into(), true);
+                    set_state(nick.into(), true, &mut mismatched);
                 }
                 Kind::Part | Kind::Quit | Kind::Kick => {
-                    nick_state.insert(nick.into(), false);
+                    set_state(nick.into(), false, &mut mismatched);
                 }
                 Kind::ChangeNick => {
                     if let Some(Change::Nick(new_nick)) = source.change.as_ref()
                     {
-                        nick_state.insert(nick.into(), false);
-                        nick_state.insert(new_nick.into(), true);
+                        set_state(nick.into(), false, &mut mismatched);
+                        set_state(new_nick.into(), true, &mut mismatched);
                     }
                 }
                 _ => (),
             }
         }
 
-        if nick_state.iter().all(|(nick, state)| {
-            nick_initial_state
-                .get(nick)
-                .is_some_and(|initial_state| state == initial_state)
-        }) {
+        if mismatched == 0 {
             changeless_chain_len = index + 1;
         }
     }
