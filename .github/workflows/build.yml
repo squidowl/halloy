@@ -90,7 +90,7 @@ jobs:
         if: matrix.target.target == 'macos'
         run: cargo clippy --locked --profile ci --workspace --all-targets --target x86_64-apple-darwin -- -D warnings
 
-      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2
+      - uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2
         with:
           tool: cargo-nextest
       - name: Test
