@@ -194,7 +194,7 @@ fn measure_width(text: &str, size: f32) -> f32 {
         font: PRIMARY.clone().into(),
         align_x: text::Alignment::Right,
         align_y: alignment::Vertical::Top,
-        shaping: text::Shaping::Auto,
+        shaping: text::Shaping::default(),
         wrapping: text::Wrapping::default(),
         ellipsis: text::Ellipsis::default(),
         hint_factor: None,

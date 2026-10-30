@@ -41,7 +41,7 @@ where
         Text {
             fragment: fragment.into_fragment(),
             format: Format {
-                shaping: text::Shaping::Auto,
+                shaping: text::Shaping::default(),
                 wrapping: Wrapping::WordOrGlyph,
                 line_height: None,
                 ..Format::default()

@@ -17,7 +17,6 @@ use data::user::{ChannelUsers, Nick};
 use data::{Config, command, mode};
 use hashbrown::HashMap;
 use iced::Length;
-use iced::widget::text::Shaping;
 use iced::widget::{button, column, container, row, text_editor, tooltip};
 use irc::proto;
 use itertools::{Either, Itertools};
@@ -3592,8 +3591,7 @@ impl Emojis {
                             )
                             .unwrap_or(" "),
                             shortcode
-                        ))
-                        .shaping(Shaping::Auto);
+                        ));
 
                         Element::from(
                             button(content)
