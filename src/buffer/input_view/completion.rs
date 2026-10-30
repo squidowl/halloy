@@ -3593,7 +3593,7 @@ impl Emojis {
                             .unwrap_or(" "),
                             shortcode
                         ))
-                        .shaping(Shaping::Advanced);
+                        .shaping(Shaping::Auto);
 
                         Element::from(
                             button(content)

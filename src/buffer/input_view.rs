@@ -376,7 +376,7 @@ pub fn view<'a>(
                             title,
                             keybind.map(|kb| {
                                 text(format!("({kb})"))
-                                    .shaping(Shaping::Advanced)
+                                    .shaping(Shaping::Auto)
                                     .size(theme::TEXT_SIZE - 2.0)
                                     .style(theme::text::secondary)
                                     .font_maybe(

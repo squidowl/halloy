@@ -21,7 +21,7 @@ pub fn preview_card_parts<'a, M: 'a>(
     } = preview;
 
     let title = text(title)
-        .shaping(text::Shaping::Advanced)
+        .shaping(text::Shaping::Auto)
         .style(theme::text::primary)
         .font_maybe(theme::font_style::primary(theme).map(font::get))
         .into();
@@ -31,7 +31,7 @@ pub fn preview_card_parts<'a, M: 'a>(
         .map(|description| {
             container(
                 text(description)
-                    .shaping(text::Shaping::Advanced)
+                    .shaping(text::Shaping::Auto)
                     .wrapping(text::Wrapping::WordOrGlyph)
                     .style(theme::text::secondary)
                     .font_maybe(

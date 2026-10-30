@@ -64,7 +64,7 @@ where
                 reaction_text,
                 max_reaction_display as usize,
             ))
-            .shaping(iced::widget::text::Shaping::Advanced)
+            .shaping(iced::widget::text::Shaping::Auto)
             .size(emoji_size)
             .style(theme::text::primary);
             let mut button_content = row![emoji];
@@ -160,7 +160,7 @@ where
             if hidden_count > 0 {
                 tooltip_nicks.push(
                     text(format!("and {hidden_count} others…"))
-                        .shaping(iced::widget::text::Shaping::Advanced)
+                        .shaping(iced::widget::text::Shaping::Auto)
                         .style(theme::text::secondary)
                         .into(),
                 );
@@ -181,7 +181,7 @@ where
 
             let tooltip_content = row![
                 text(reaction_text)
-                    .shaping(iced::widget::text::Shaping::Advanced)
+                    .shaping(iced::widget::text::Shaping::Auto)
                     .size(tooltip_emoji_size)
                     .line_height(LineHeight::Relative(1.0))
                     .style(theme::text::primary),

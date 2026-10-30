@@ -896,7 +896,7 @@ fn query_title<'a>(
         .font_maybe(
             theme::font_style::nickname(theme, user_is_offline).map(font::get),
         )
-        .shaping(text::Shaping::Advanced)
+        .shaping(text::Shaping::Auto)
         .wrapping(Wrapping::None)
         .ellipsis(text::Ellipsis::End);
 
@@ -951,7 +951,7 @@ fn query_title<'a>(
             .font_maybe(
                 theme::font_style::buffer_title_bar(theme).map(font::get)
             )
-            .shaping(text::Shaping::Advanced)
+            .shaping(text::Shaping::Auto)
             .wrapping(Wrapping::None)
             .ellipsis(text::Ellipsis::End),
     ]

@@ -41,7 +41,7 @@ where
         Text {
             fragment: fragment.into_fragment(),
             format: Format {
-                shaping: crate::font::shaping(),
+                shaping: text::Shaping::Auto,
                 wrapping: Wrapping::WordOrGlyph,
                 line_height: None,
                 ..Format::default()
@@ -506,7 +506,7 @@ impl Interaction {
 //     let size = size.unwrap_or_else(|| renderer.default_size());
 //     let font = font.unwrap_or_else(|| renderer.default_font());
 
-//     renderer.measure_width(&value.to_string(), size, font, text::Shaping::Advanced)
+//     renderer.measure_width(&value.to_string(), size, font, text::Shaping::Auto)
 // }
 
 pub fn selected<Message: Send + 'static>(
