@@ -1746,7 +1746,7 @@ fn has_matching_content(
     other: &message::Message,
     use_echo_cmp: bool,
 ) -> bool {
-    if message.target == other.target && message.source == other.source {
+    if message.source == other.source {
         if let message::Source::Server(Some(source)) = &message.source {
             match source.kind {
                 message::source::server::Kind::Join
