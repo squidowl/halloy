@@ -211,6 +211,8 @@ Changed:
 - More than one Halloy log file can be saved (configurable, defaults to 4);  accordingly there is not a singular log file `<data_dir>/halloy/halloy.log`, instead log files are placed in `<data_dir>/halloy/logs/`
 - Set window icon also on Linux for X11
 - Windows release artifacts are signed using SignPath
+- Default to implicit NAMES
+- Lower WHO queue's inflight limit from `64` to `8` for `no-implicit-names`
 
 Thanks:
 
