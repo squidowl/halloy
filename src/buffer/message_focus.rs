@@ -92,11 +92,11 @@ impl Manager {
         Option<context_menu::Event>,
     ) {
         match event {
-            input_view::Event::NavigateFocus(direction) => {
+            input_view::Event::NavigateFocus(direction, repeat) => {
                 let was_in_mode = self.focused_message.is_some();
 
                 let (scroll_task, scroll_event) = scroll_view.update(
-                    scroll_view::Message::NavigateFocus(direction),
+                    scroll_view::Message::NavigateFocus(direction, repeat),
                     &mut self.focused_message,
                     config.buffer.chathistory.infinite_scroll,
                     kind_ref,

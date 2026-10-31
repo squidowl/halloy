@@ -10,7 +10,7 @@ use super::{Element, Renderer, decorate};
 pub fn shortcut<'a, Message>(
     base: impl Into<Element<'a, Message>>,
     shortcuts: Vec<data::Shortcut>,
-    on_press: impl Fn(Command) -> Message + 'a,
+    on_press: impl Fn(Command, bool) -> Message + 'a,
 ) -> Element<'a, Message>
 where
     Message: 'a,
@@ -32,6 +32,7 @@ where
                         physical_key,
                         modifiers,
                         text,
+                        repeat,
                         ..
                     }) => {
                         // Treat numpad keys as character keys when numlock is
@@ -51,7 +52,7 @@ where
                             .iter()
                             .find_map(|shortcut| shortcut.execute(&key_bind))
                         {
-                            shell.publish((on_press)(command));
+                            shell.publish((on_press)(command, *repeat));
                             shell.capture_event();
                             return;
                         }

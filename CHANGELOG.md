@@ -17,6 +17,7 @@ Added:
 - Pressing Tab in the config editor inserts an indent, set by `config_editor.indent` (`"tab"` by default, or a positive integer from 1 to 8)
 - Sidebar typing indicators for queries
 - Pane title bar button and shortcut to scroll to the backlog divider
+- Focus mode can be entered with `focus_down`, focusing the top-most visible message in the buffer
 
 Fixed:
 
@@ -45,7 +46,7 @@ Thanks:
 
 - Contributions: @httpsterio, @oooo-ps, @rtmongold, @furudean, @xcfrg, @TehPeGaSuS
 - Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768, @WinnerWind, @strafe, wwWraith
-- Feature requests: @ainola, @kalebris, @sf302, @ToyKeeper, @sebbu2, @TheDcoder
+- Feature requests: @ainola, @kalebris, @sf302, @ToyKeeper, @sebbu2, @TheDcoder, @furudean
 
 # 2026.9 (2026-09-29)
 

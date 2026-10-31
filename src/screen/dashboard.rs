@@ -80,7 +80,7 @@ pub enum Message {
     SelectedText(Vec<(RangeInclusive<f32>, String)>, clipboard::ClipboardKind),
     DashboardSaved(Result<(), data::dashboard::Error>),
     Task(command_bar::Message),
-    Shortcut(shortcut::Command),
+    Shortcut(shortcut::Command, bool),
     FileTransfer(file_transfer::task::Update),
     SendFileSelected(Server, User, Option<PathBuf>),
     CloseContextMenu(window::Id, bool),
@@ -888,7 +888,7 @@ impl Dashboard {
                     None => {}
                 }
             }
-            Message::Shortcut(shortcut) => {
+            Message::Shortcut(shortcut, repeat) => {
                 use shortcut::Command::*;
 
                 // Only works on main window / pane_grid
@@ -1400,8 +1400,9 @@ impl Dashboard {
                                 _ => unreachable!(),
                             };
 
-                            if let Some(message) =
-                                state.buffer.focus_navigate_message(direction)
+                            if let Some(message) = state
+                                .buffer
+                                .focus_navigate_message(direction, repeat)
                             {
                                 return (
                                     Task::done(message).map(move |message| {
@@ -2941,7 +2942,7 @@ impl Dashboard {
                     )
                 })
             }
-            Key(key_bind) => {
+            Key(key_bind, repeat) => {
                 use data::shortcut::FocusCommand;
 
                 let Some((window, pane, state)) = self.get_focused() else {
@@ -2973,7 +2974,7 @@ impl Dashboard {
                             _ => unreachable!(),
                         };
 
-                        state.buffer.focus_navigate_message(direction)
+                        state.buffer.focus_navigate_message(direction, repeat)
                     }
                     FocusCommand::Activate | FocusCommand::ActivateAlt
                         if !in_focus =>

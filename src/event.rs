@@ -9,7 +9,7 @@ pub enum Event {
     ResetFocus,
     UpdatePrimaryClipboard,
     /// An ignored key press for the dashboard to match on
-    Key(KeyBind),
+    Key(KeyBind, bool),
 }
 
 pub fn events() -> Subscription<(window::Id, Event)> {
@@ -52,10 +52,12 @@ fn filtered_events(
         iced::Event::Keyboard(keyboard::Event::KeyPressed {
             key,
             modifiers,
+            repeat,
             ..
-        }) if ignored(status) => {
-            Some(Event::Key(KeyBind::from((key.clone(), *modifiers))))
-        }
+        }) if ignored(status) => Some(Event::Key(
+            KeyBind::from((key.clone(), *modifiers)),
+            *repeat,
+        )),
         _ => None,
     };
 
