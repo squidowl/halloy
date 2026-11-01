@@ -628,11 +628,11 @@ pub struct LabeledResponseContext {
 }
 
 impl LabeledResponseContext {
-    pub fn new(message: &message::Encoded, label: &str) -> Self {
+    pub fn new(time: message::Time, label: &str) -> Self {
         Self {
             // Prefix ':' to ensure it cannot match any valid message id
             label_as_id: format!(":label={label}").into(),
-            time: message.time(),
+            time,
         }
     }
 }
