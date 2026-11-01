@@ -23,7 +23,7 @@ use iced::Length::Fit;
 use iced::advanced::widget::Tree;
 use iced::advanced::{Layout, Shell, mouse};
 use iced::keyboard::{Key, key};
-use iced::widget::text::{self, Shaping, Wrapping};
+use iced::widget::text::{self, Wrapping};
 use iced::widget::{
     self, Space, button, center, column, container, mouse_area, operation, row,
     rule, text_editor,
@@ -376,7 +376,6 @@ pub fn view<'a>(
                             title,
                             keybind.map(|kb| {
                                 text(format!("({kb})"))
-                                    .shaping(Shaping::Advanced)
                                     .size(theme::TEXT_SIZE - 2.0)
                                     .style(theme::text::secondary)
                                     .font_maybe(
