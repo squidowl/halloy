@@ -88,28 +88,7 @@ pub fn server_proxy_password_key(server: &str, kind: &str) -> String {
     format!("servers.{server}.proxy.{kind}.password")
 }
 
-pub async fn get_password(key: &str) -> Result<Option<String>, Error> {
-    let key = key.to_string();
-    let task_key = key.clone();
-
-    tokio::task::spawn_blocking(move || get_password_blocking(&task_key))
-        .await
-        .map_err(|error| keyring_error(key, error))?
-}
-
-pub async fn set_password(key: &str, password: &str) -> Result<(), Error> {
-    let key = key.to_string();
-    let password = password.to_string();
-    let task_key = key.clone();
-
-    tokio::task::spawn_blocking(move || {
-        set_password_blocking(&task_key, &password)
-    })
-    .await
-    .map_err(|error| keyring_error(key, error))?
-}
-
-fn get_password_blocking(key: &str) -> Result<Option<String>, Error> {
+pub fn get_password(key: &str) -> Result<Option<String>, Error> {
     #[cfg(windows)]
     validate_key(key)?;
     ensure_default_store().map_err(|error| keyring_error(key, error))?;
@@ -124,7 +103,7 @@ fn get_password_blocking(key: &str) -> Result<Option<String>, Error> {
     }
 }
 
-fn set_password_blocking(key: &str, password: &str) -> Result<(), Error> {
+pub fn set_password(key: &str, password: &str) -> Result<(), Error> {
     #[cfg(windows)]
     validate_key(key)?;
     ensure_default_store().map_err(|error| keyring_error(key, error))?;
@@ -182,7 +161,7 @@ fn set_platform_default_store() -> keyring_core::Result<()> {
 
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
 fn set_platform_default_store() -> keyring_core::Result<()> {
-    use zbus_secret_service_keyring_store::Store;
+    use portal_secret_service_keyring_store::Store;
 
     keyring_core::set_default_store(Store::new()?);
     Ok(())

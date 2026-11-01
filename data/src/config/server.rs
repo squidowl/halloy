@@ -536,13 +536,13 @@ impl Sasl {
                 };
 
                 let pass =
-                    config::keyring::get_password(&key).await?.ok_or_else(
-                        || config::Error::MissingKeyringPasswordEntry {
+                    config::keyring::get_password(&key)?.ok_or_else(|| {
+                        config::Error::MissingKeyringPasswordEntry {
                             label: label.to_string(),
                             context: context.clone(),
                             key: key.clone(),
-                        },
-                    )?;
+                        }
+                    })?;
 
                 *password = Some(pass);
             }
