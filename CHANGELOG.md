@@ -2,45 +2,47 @@
 
 Added:
 
+- SQLite history storage, with automatic migration of existing gzip history as buffers are used and loading of history in windows.
+- Search buffer to search messages across all servers, channels and queries, opened from the command bar, sidebar menu, a nickname's context menu, the `search` key binding or `/search`
+- Added `buffer.text_input.upload_long_paste` to automatically use filehost in case pasted text is too long
+- Pane title bar button and shortcut to scroll to the backlog divider
+- Condensed message gained support for summary via `buffer.server_messages.condense.format = "summary"`
+- Pressing Tab after `/topic ` fills in the current channel topic for editing
+- Highlight matches can be optionally named via the `name` property
+- Notification and highlights matches `sound` property now accept an array of sounds, in which case they'll be picked at random
+- Right-clickable text in the server buffer now offers a context menu
 - Added Gopher(+s) / Gemini protocol schemes (make links clickable)
 - Added support for IPv6 literal links
-- Added `buffer.text_input.upload_long_paste` to automatically use filehost in case pasted text is too long
-- Right-clickable text in the server buffer now offers a context menu
-- Pressing Tab after `/topic ` fills in the current channel topic for editing
-- SQLite history storage, with automatic migration of existing gzip history as buffers are used and loading of history in windows.
-- `buffer.close.query` option `"close-buffer"` (previous option `"close"` renamed to `"close-pane"`)
-- Highlight matches can be optionally named via the `name` property
-- Search buffer to search messages across all servers, channels and queries, opened from the command bar, sidebar menu, a nickname's context menu, the `search` key binding or `/search`
-- Setting `runtime.smooth_scrolling` to control whether smooth scrolling is used
-- Notification and highlights matches `sound` property now accept an array of sounds, in which case they'll be picked at random
-- Condensed message gained support for summary via `buffer.server_messages.condense.format = "summary"`
+- Focus mode can be entered with `focus_down`, focusing the top-most visible message in the buffer
 - Pressing Tab in the config editor inserts an indent, set by `config_editor.indent` (`"tab"` by default, or a positive integer from 1 to 8)
 - Sidebar typing indicators for queries
-- Pane title bar button and shortcut to scroll to the backlog divider
-- Focus mode can be entered with `focus_down`, focusing the top-most visible message in the buffer
+- `buffer.close.query` option `"close-buffer"` (previous option `"close"` renamed to `"close-pane"`)
+- Setting `runtime.smooth_scrolling` to control whether smooth scrolling is used
 
 Fixed:
 
-- Closing Halloy hangs while a toast notification is pending on Windows
-- Normalize short frame delays (`<=10ms`) to `100ms` for animated gifs
-- Config editor crash when caret is outside the window bounds
 - Colored emojis are now preferred over outline ones
-- Send a message with enter when autocomplete tooltip is not visible (i.e. don't have to press enter twice when just autocompleted a nickname)
+- Closing Halloy hangs while a toast notification is pending on Windows
 - Crash when right clicking a message in the server buffer
-- ZNC-service style nicks (e.g. `*status`, `*grep`, etc) are not automatically routed to the server buffer
-- Message drafts for sent messages sometimes being restored after restart (instead of being cleared)
+- Config editor crash when caret is outside the window bounds
 - Scroll position being lost when showing the typing indicator with `buffer.typing.style = "popped"`
+- Send a message with enter when autocomplete tooltip is not visible (i.e. don't have to press enter twice when just autocompleted a nickname)
+- Message drafts for sent messages sometimes being restored after restart (instead of being cleared)
+- ZNC-service style nicks (e.g. `*status`, `*grep`, etc) are not automatically routed to the server buffer
+- Normalize short frame delays (`<=10ms`) to `100ms` for animated gifs
 
 Changed:
 
-- Default keybinds for focus movement on macOS changed from `⌥ + <arrow keys>` to `ctrl + <arrow keys>` to avoid conflicting with macOS by-word movement keybinds (`⌥ + ←` and `⌥ + →`)
 - Saved chat history is no longer limited to 10,000 messages per buffer
 - Use OS provided certificate verification service on Windows & macOS
-- Recent nick autocomplete keeps last-seen across nick changes, and sorts your own nick last
 - Your own join/part is shown in the channel buffer
 - `buffer.server_messages.change_host.enabled` is now `false` by default
-- Dismissable input text tooltips for IRC commands
+- Recent nick autocomplete keeps last-seen across nick changes, and sorts your own nick last
+- Default keybinds for focus movement on macOS changed from `⌥ + <arrow keys>` to `ctrl + <arrow keys>` to avoid conflicting with macOS by-word movement keybinds (`⌥ + ←` and `⌥ + →`)
+- Tooltips for IRC commands can be dismissed with Esc
 - Links open faster on Windows
+- By default, the `no-implicit-names` IRCv3 capability is added to `servers.<name>.do_not_request`
+- Further limit number of WHO requests sent when `no-implicit-names` is enabled
 
 Thanks:
 
@@ -211,8 +213,6 @@ Changed:
 - More than one Halloy log file can be saved (configurable, defaults to 4);  accordingly there is not a singular log file `<data_dir>/halloy/halloy.log`, instead log files are placed in `<data_dir>/halloy/logs/`
 - Set window icon also on Linux for X11
 - Windows release artifacts are signed using SignPath
-- Default to implicit NAMES
-- Lower WHO queue's inflight limit from `64` to `8` for `no-implicit-names`
 
 Thanks:
 
