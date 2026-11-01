@@ -172,6 +172,7 @@ pub struct Client {
     querymap: IndexMap<target::Query, QueryState>,
     labels: HashMap<String, Context>,
     batches: HashMap<String, Batch>,
+    latest_server_time: Option<DateTime<Utc>>,
     reroute_responses_to: Option<buffer::Upstream>,
     logged_in: bool,
     away: bool,
@@ -241,6 +242,7 @@ impl Client {
             querymap: IndexMap::default(),
             labels: HashMap::new(),
             batches: HashMap::new(),
+            latest_server_time: None,
             reroute_responses_to: None,
             logged_in: false,
             away: false,
@@ -650,8 +652,17 @@ impl Client {
             if self.capabilities.acknowledged(Capability::LabeledResponse) {
                 let label = generate_label();
 
+                // Sent messages are stamped no earlier than the latest message
+                // received from the server, so that they are not sorted above
+                // already-received messages when the server's clock is ahead
+                let now = Utc::now();
+                let time = message::Time::client(
+                    self.latest_server_time
+                        .map_or(now, |latest| latest.max(now)),
+                );
+
                 let context =
-                    Context::new(message, buffer.clone(), Some(&label));
+                    Context::new(message, buffer.clone(), Some(&label), time);
 
                 let labeled_response_context =
                     context.labeled_response_context().cloned();
@@ -1121,6 +1132,11 @@ impl Client {
         config: &config::Config,
     ) -> Result<Vec<Event>> {
         log::trace!("[{}] Message received => {:?}", self.server, *message);
+
+        if let Some(server_time) = message.server_time() {
+            self.latest_server_time =
+                self.latest_server_time.max(Some(server_time));
+        }
 
         let stop_reroute = self.stop_reroute(&message);
 
@@ -5311,14 +5327,13 @@ impl Context {
         message: &message::Encoded,
         buffer: buffer::Upstream,
         label: Option<&str>,
+        time: message::Time,
     ) -> Self {
         match &message.command {
             Command::PRIVMSG(_, _) | Command::NOTICE(_, _) => {
                 Self::PrivmsgOrNotice(
                     buffer,
-                    label.map(|label| {
-                        LabeledResponseContext::new(message, label)
-                    }),
+                    label.map(|label| LabeledResponseContext::new(time, label)),
                 )
             }
             Command::BATCH(_, params)
@@ -5328,9 +5343,7 @@ impl Context {
             {
                 Self::PrivmsgOrNotice(
                     buffer,
-                    label.map(|label| {
-                        LabeledResponseContext::new(message, label)
-                    }),
+                    label.map(|label| LabeledResponseContext::new(time, label)),
                 )
             }
             _ => Self::Buffer(buffer),
