@@ -383,7 +383,7 @@ impl Default for Server {
             filehost: Filehost::default(),
             metadata: HashMap::default(),
             icon: Icon::default(),
-            do_not_request: vec![],
+            do_not_request: vec![Capability::NoImplicitNames],
             irc_protocol_log: IrcProtocolLog::default(),
             sidebar_visibility: SidebarVisibility::Expanded,
             networks: Arc::default(),
