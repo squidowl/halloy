@@ -44,7 +44,7 @@ iced = { workspace = true, features = [
 nom = { workspace = true }
 percent-encoding = { workspace = true }
 keyring-core = "1"
-rusqlite = { version = "0.38", features = ["bundled"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
 
 equivalent = "1.0"
 base64 = "0.23.0"
@@ -61,12 +61,12 @@ serde_ignored = "0.1"
 serde-untagged = "0.1"
 sha2 = "0.11.0"
 toml = { version = "1.1.4", features = ["preserve_order"] }
-fancy-regex = "0.19"
+fancy-regex = "0.20"
 walkdir = "2.5.0"
 derive_more = { version = "2.0.1", features = ["full"] }
 image = "0.25.10"
 gif = "0.14.1"
-html-escape = "0.2.13"
+html-escape = "0.3.0"
 display-info = "0.5.9"
 infer = "0.22"
 sys-locale = "0.3"
