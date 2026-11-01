@@ -47,8 +47,8 @@ Changed:
 Thanks:
 
 - Contributions: @httpsterio, @oooo-ps, @rtmongold, @furudean, @xcfrg, @TehPeGaSuS, @kasper93
-- Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768, @WinnerWind, @strafe, wwWraith
-- Feature requests: @ainola, @kalebris, @sf302, @ToyKeeper, @sebbu2, @TheDcoder, @furudean
+- Bug reports: @0xS3raph, @httpsterio, tbo, @marcelo4768, @WinnerWind, @strafe, wwWraith, @ncfavier, @Fastidious, @Anonymous1157, @furudean
+- Feature requests: @ainola, @kalebris, @sf302, @ToyKeeper, @sebbu2, @TheDcoder, @furudean, @WavyEbuilder, @sepsol, @TehPeGaSuS
 
 # 2026.9 (2026-09-29)
 
