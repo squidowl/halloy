@@ -202,11 +202,17 @@ impl Map {
         lookup: super::ResendLookup,
         message: Option<message::Message>,
         reroute_rules: &RerouteRules,
+        exclude: &[String],
     ) -> Vec<storage::Update> {
         self.client_mut(lookup.buffer.as_server()).map_or_else(
             Vec::new,
             |client| {
-                client.resend_message_ready(lookup, message, reroute_rules)
+                client.resend_message_ready(
+                    lookup,
+                    message,
+                    reroute_rules,
+                    exclude,
+                )
             },
         )
     }
