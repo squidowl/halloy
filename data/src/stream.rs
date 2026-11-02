@@ -123,6 +123,14 @@ struct Stream {
     receiver: mpsc::Receiver<proto::Message>,
 }
 
+enum ConnectionStatus {
+    Alive,
+    Closed {
+        error: Option<String>,
+        network_lost: bool,
+    },
+}
+
 pub fn run(
     server: server::Entry,
     proxy: Option<config::Proxy>,
@@ -467,9 +475,7 @@ async fn _run(
                     ping_time.reset();
                 }
 
-                let autoconnect = quit_requested.is_none();
-                let mut connection_error: Option<String> = None;
-                let mut network_lost = false;
+                let mut status = ConnectionStatus::Alive;
 
                 match input {
                     Input::IrcMessage(Ok(Ok(message))) => match message.command
@@ -480,7 +486,10 @@ async fn _run(
                                 .send(command!("PONG", token))
                                 .await
                             {
-                                connection_error = Some(e.to_string());
+                                status = ConnectionStatus::Closed {
+                                    error: Some(e.to_string()),
+                                    network_lost: false,
+                                };
                             }
                         }
                         proto::Command::PONG(_, token) => {
@@ -494,7 +503,13 @@ async fn _run(
                             // If QUIT was requested, then ERROR is
                             // a valid acknowledgement
                             // https://modern.ircdocs.horse/#quit-message
-                            connection_error = Some(error);
+                            let error =
+                                quit_requested.is_none().then_some(error);
+
+                            status = ConnectionStatus::Closed {
+                                error,
+                                network_lost: false,
+                            };
                         }
                         _ => {
                             batch.messages.push(message.into());
@@ -504,7 +519,10 @@ async fn _run(
                         log::warn!("message decoding failed: {e}");
                     }
                     Input::IrcMessage(Err(e)) => {
-                        connection_error = Some(e.to_string());
+                        status = ConnectionStatus::Closed {
+                            error: Some(e.to_string()),
+                            network_lost: false,
+                        };
                     }
                     Input::Batch(messages) => {
                         let _ = sender.unbounded_send(
@@ -525,7 +543,10 @@ async fn _run(
                         } else if let Err(e) =
                             stream.connection.send(message).await
                         {
-                            connection_error = Some(e.to_string());
+                            status = ConnectionStatus::Closed {
+                                error: Some(e.to_string()),
+                                network_lost: false,
+                            };
                         }
                     }
                     Input::Ping => {
@@ -535,7 +556,10 @@ async fn _run(
                         if let Err(e) =
                             stream.connection.send(command!("PING", now)).await
                         {
-                            connection_error = Some(e.to_string());
+                            status = ConnectionStatus::Closed {
+                                error: Some(e.to_string()),
+                                network_lost: false,
+                            };
                         }
 
                         if ping_timeout.is_none() {
@@ -546,13 +570,13 @@ async fn _run(
                         }
                     }
                     Input::PingTimeout => {
-                        connection_error = Some("ping timeout".into());
-
-                        // a network change most likely broke the connection,
-                        // so reconnect now instead of after reconnect_delay
-                        if *network_probe {
-                            network_lost = true;
-                        }
+                        // If *network_probe is true, then a network change most
+                        // likely broke the connection, so reconnect now instead
+                        // of after reconnect_delay
+                        status = ConnectionStatus::Closed {
+                            error: Some("ping timeout".into()),
+                            network_lost: *network_probe,
+                        };
                     }
                     Input::WebSocketPing => {
                         let now = Posix::now().as_nanos().to_string();
@@ -569,7 +593,10 @@ async fn _run(
                                     "[{server}] failed to send websocket ping: {e}"
                                 );
 
-                                connection_error = Some(e.to_string());
+                                status = ConnectionStatus::Closed {
+                                    error: Some(e.to_string()),
+                                    network_lost: false,
+                                };
                             }
                         }
                     }
@@ -625,9 +652,12 @@ async fn _run(
                                 .local_ip()
                                 .is_some_and(|ip| !addresses.contains(&ip))
                             {
-                                connection_error =
-                                    Some("network changed".into());
-                                network_lost = true;
+                                status = ConnectionStatus::Closed {
+                                    error: Some(
+                                        "network interface changed".to_string(),
+                                    ),
+                                    network_lost: true,
+                                };
                             } else {
                                 // ping now to find out if the connection survived
                                 *network_probe = true;
@@ -705,14 +735,25 @@ async fn _run(
                     },
                 }
 
-                if let Some(error) = connection_error {
-                    log::info!("[{server}] disconnected: {error}");
+                if let State::Connected {
+                    batch,
+                    quit_requested,
+                    ..
+                } = &mut state
+                    && let ConnectionStatus::Closed {
+                        error,
+                        network_lost,
+                    } = status
+                {
+                    if let Some(error) = &error {
+                        log::info!("[{server}] disconnected: {error}");
+                    } else {
+                        log::info!("[{server}] disconnected");
+                    }
 
                     // flush batched messages so they are processed before
                     // the client state changes to disconnected
-                    if let State::Connected { batch, .. } = &mut state
-                        && !batch.messages.is_empty()
-                    {
+                    if !batch.messages.is_empty() {
                         let _ =
                             sender.unbounded_send(Update::MessagesReceived(
                                 server.clone(),
@@ -722,12 +763,12 @@ async fn _run(
 
                     connection_attempt = 0;
 
-                    // autoconnect is off only after QUIT, where the server
-                    // closing the connection is expected
+                    let autoconnect = quit_requested.is_none();
+
                     let _ = sender.unbounded_send(Update::Disconnected {
                         server: server.clone(),
                         is_initial,
-                        error: autoconnect.then_some(error),
+                        error,
                         sent_time: Utc::now(),
                         autoconnect,
                     });
