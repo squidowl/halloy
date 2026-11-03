@@ -1,6 +1,6 @@
 use std::sync::{OnceLock, mpsc};
 use std::time::{Duration, Instant};
-use std::{env, mem, thread};
+use std::{env, mem, panic, thread};
 
 use chrono::Utc;
 use data::config;
@@ -37,6 +37,13 @@ pub fn setup(
     dispatch.apply()?;
 
     update_max_level(pane_level);
+
+    let default_hook = panic::take_hook();
+    panic::set_hook(Box::new(move |info| {
+        log::error!(target: "panic", "{info}");
+        log::logger().flush();
+        default_hook(info);
+    }));
 
     Ok(pane_receiver)
 }
