@@ -1222,9 +1222,29 @@ WHO poll interval (in seconds) for servers without [away-notify](https://ircv3.n
 who_poll_interval = 2
 ```
 
-### `do_not_request`
+### `who_poll_in_flight_limit` {#who-poll-in-flight-limit}
 
-[IRCv3 capabilities](https://ircv3.net/irc/) to **not** request from the server.  All [supported IRCv3 capabilities](/index.md#ircv3-capabilities) that are available are requested by default.
+When `no-implicit-names` is requested from and acknowledged by the server, this setting controls the number of automated `WHO` requests that will be sent simultaneously.  Otherwise, this setting is ignored and only one automated `WHO` request will be active at a time.  By default, `no-implicit-names` is [not requested from servers](#do-not-request).
+
+```toml
+# Type: integer
+# Values: 1 .. 64
+# Default: 8
+
+[servers.<name>]
+do_not_request = []
+who_poll_in_flight_limit = 1
+```
+
+:::warning
+Using a value higher than `1` on some networks (e.g. Libera) can result in a temporary ban if you're batch joining several highly populated channels.
+:::
+
+### `do_not_request` {#do-not-request}
+
+[IRCv3 capabilities](https://ircv3.net/irc/) to **not** request from the server.
+
+With the exception of `no-implicit-names`, all [supported IRCv3 capabilities](/index.md#ircv3-capabilities) that are available are requested by default.
 
 ```toml
 # Type: array of strings
@@ -1232,8 +1252,22 @@ who_poll_interval = 2
 # Default: ["no-implicit-names"]
 
 [servers.<name>]
-do_not_request = [ "labeled-response" ]
+do_not_request = ["no-implicit-names", "labeled-response"]
 ```
+
+:::info
+To request `no-implicit-names` from the server, leave it out of `do_not_request`.
+
+```toml
+# Example: Requests `no-implicit-names` but not `labeled-response`.
+[servers.<name>]
+do_not_request = ["labeled-response"]
+```
+:::
+
+:::warning
+When enabling `no-implicit-names` channel nick lists will need to be populated by `WHO` requests.  Some networks may require lower values for [`who_poll_in_flight_limit`](../configuration/servers#who-poll-in-flight-limit) as well.
+:::
 
 ## `networks`
 

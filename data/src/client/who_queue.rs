@@ -107,7 +107,7 @@ impl WhoQueue {
         joined_channels: impl Iterator<Item = &'a Channel>,
     ) {
         if capabilities.acknowledged(Capability::NoImplicitNames) {
-            self.in_flight_limit = 8;
+            self.in_flight_limit = config.who_poll_in_flight_limit;
         } else {
             self.in_flight_limit = 1;
         }
