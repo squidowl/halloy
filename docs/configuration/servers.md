@@ -1224,17 +1224,15 @@ who_poll_interval = 2
 
 ### `who_poll_in_flight_limit` {#who-poll-in-flight-limit}
 
-By default, `no-implicit-names` is disabled and `who_poll_in_flight_limit` is immutable and set to `1`.
-
-When `no-implicit-names` is enabled, this option controls the number of `WHO` poll requests that can be sent simultaneously.
+When `no-implicit-names` is requested from and acknowledged by the server, this setting controls the number of automated `WHO` requests that will be sent simultaneously.  Otherwise, this setting is ignored and only one automated `WHO` request will be active at a time.  By default, `no-implicit-names` is [not requested from servers](#do-not-request).
 
 ```toml
 # Type: integer
 # Values: 1 .. 64
-# Default: 1 or 8 if `no-implicit-names` is enabled
+# Default: 8
 
 [servers.<name>]
-do_not_request = ["labeled-response"] # enables `no-implicit-names`
+do_not_request = []
 who_poll_in_flight_limit = 1
 ```
 
@@ -1242,7 +1240,7 @@ who_poll_in_flight_limit = 1
 Using a value higher than `1` on some networks (e.g. Libera) can result in a temporary ban if you're batch joining several highly populated channels.
 :::
 
-### `do_not_request`
+### `do_not_request` {#do-not-request}
 
 [IRCv3 capabilities](https://ircv3.net/irc/) to **not** request from the server.
 
@@ -1256,6 +1254,16 @@ With the exception of `no-implicit-names`, all [supported IRCv3 capabilities](/i
 [servers.<name>]
 do_not_request = ["no-implicit-names", "labeled-response"]
 ```
+
+:::info
+To request `no-implicit-names` from the server, leave it out of `do_not_request`.
+
+```toml
+# Example: Requests `no-implicit-names` but not `labeled-response`.
+[servers.<name>]
+do_not_request = ["labeled-response"]
+```
+:::
 
 :::warning
 When enabling `no-implicit-names` channel nick lists will need to be populated by `WHO` requests.  Some networks may require lower values for [`who_poll_in_flight_limit`](../configuration/servers#who-poll-in-flight-limit) as well.
