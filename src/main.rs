@@ -919,6 +919,14 @@ impl Halloy {
             Message::System(system::Event::Resumed) => {
                 log::info!("system resumed");
                 self.power = system::State::Awake;
+                self.controllers.resumed();
+                Task::none()
+            }
+            Message::System(system::Event::NetworkChanged {
+                routable,
+                addresses,
+            }) => {
+                self.controllers.network_changed(routable, &addresses);
                 Task::none()
             }
             Message::Stream(update) => match update {

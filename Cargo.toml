@@ -114,6 +114,7 @@ rfd = { version = "0.15.2", default-features = false, features = [
     "tokio",
 ] }
 uuid = { version = "1.23", features = ["v7"] }
+netwatcher = { version = "0.8.0", features = ["tokio"] }
 mundy = { version = "0.1.9", default-features = false, features = [
     "color-scheme",
     "tokio",
@@ -162,6 +163,9 @@ objc2-foundation = { version = "0.3.2", default-features = false, features = [
     "NSString",
     "NSURL",
 ] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus = { version = "5.14.0", default-features = false, features = ["tokio"] }
 
 [target.'cfg(windows)'.build-dependencies]
 embed-resource = "3.0.2"

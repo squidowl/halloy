@@ -30,6 +30,9 @@ Fixed:
 - Message drafts for sent messages sometimes being restored after restart (instead of being cleared)
 - ZNC-service style nicks (e.g. `*status`, `*grep`, etc) are not automatically routed to the server buffer
 - Normalize short frame delays (`<=10ms`) to `100ms` for animated gifs
+- Lost connections taking minutes to detect after changing networks, or after waking from sleep on macOS and Linux
+- Reconnect attempts running out, and autoconnect turning off, while there is no network connection
+- Connections closed by the server not being detected until the next ping timeout
 
 Changed:
 
