@@ -1970,13 +1970,6 @@ impl Halloy {
                 let runtime_task = (self.config.runtime != updated.runtime)
                     .then(|| configure_runtime(updated.runtime));
 
-                let removed_servers = self
-                    .servers
-                    .extract_if(|server, _| {
-                        !updated.servers.contains(&server.name)
-                    })
-                    .collect::<Vec<_>>();
-
                 for (server, config) in updated.servers.iter() {
                     let server = server.clone().into();
 
@@ -2007,8 +2000,6 @@ impl Halloy {
                                         .quit
                                         .default_reason,
                                 );
-                                self.servers.remove(&bouncer_network);
-                                self.clients.remove(&bouncer_network);
 
                                 continue;
                             };
@@ -2046,11 +2037,13 @@ impl Halloy {
                 // Load new notification sounds.
                 self.notifications.update(&updated);
 
-                self.config = updated;
-
-                for (server, _) in removed_servers {
+                for server in self
+                    .servers
+                    .keys()
+                    .filter(|server| !updated.servers.contains(&server.name))
+                {
                     self.controllers.end(
-                        &server,
+                        server,
                         &self
                             .config
                             .buffer
@@ -2060,6 +2053,8 @@ impl Halloy {
                             .clone(),
                     );
                 }
+
+                self.config = updated;
 
                 self.storage.reload_configuration(
                     &self.servers,
