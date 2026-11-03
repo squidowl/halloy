@@ -29,7 +29,7 @@ pub fn data_dir() -> PathBuf {
 }
 
 pub fn cache_dir() -> PathBuf {
-    dirs_next::cache_dir()
+    dirs::cache_dir()
         .expect("expected valid cache dir")
         .join("halloy")
 }
@@ -69,7 +69,7 @@ fn platform_specific_config_dir() -> PathBuf {
     }
     #[cfg(not(target_os = "macos"))]
     {
-        dirs_next::config_dir()
+        dirs::config_dir()
             .expect("expected valid config dir")
             .join("halloy")
     }
@@ -101,7 +101,7 @@ fn platform_specific_data_dir() -> PathBuf {
     }
     #[cfg(not(target_os = "macos"))]
     {
-        dirs_next::data_dir()
+        dirs::data_dir()
             .expect("expected valid data dir")
             .join("halloy")
     }

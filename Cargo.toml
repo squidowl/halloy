@@ -57,6 +57,7 @@ iced = { version = "0.15.0-dev", default-features = false }
 nom = "8.0"
 percent-encoding = "2.3.2"
 image = "0.25.10"
+dirs = "7.0.0"
 
 [dependencies]
 hashbrown = { workspace = true }
@@ -79,7 +80,7 @@ uptime_lib = { workspace = true }
 nucleo-matcher = { workspace = true }
 reqwest = { workspace = true }
 const_format = { workspace = true }
-dirs-next = "2.0.0"
+dirs = { workspace = true }
 image = { workspace = true }
 iced = { workspace = true, features = [
     "wgpu",

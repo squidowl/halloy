@@ -72,7 +72,7 @@ fn transform_path(path_buf: PathBuf) -> PathBuf {
     if let Some(first_component) = components.next() {
         match first_component {
             path::Component::Normal(os_str) if os_str == "~" => {
-                if let Some(home_dir) = dirs_next::home_dir() {
+                if let Some(home_dir) = dirs::home_dir() {
                     expanded_path_buf.push(home_dir);
                 } else {
                     expanded_path_buf.push(first_component);

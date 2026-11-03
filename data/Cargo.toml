@@ -44,12 +44,12 @@ iced = { workspace = true, features = [
 nom = { workspace = true }
 percent-encoding = { workspace = true }
 image = { workspace = true }
+dirs = { workspace = true }
 keyring-core = "1"
 rusqlite = { version = "0.40", features = ["bundled"] }
 
 equivalent = "1.0"
 base64 = "0.23.0"
-dirs-next = "2.0.0"
 xdg = "3.0.0"
 flate2 = "1.0"
 hex = "0.4.3"
