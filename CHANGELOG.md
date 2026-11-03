@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2026.10 (2026-11-03)
+
 Added:
 
 - SQLite history storage, with automatic migration of existing gzip history as buffers are used and loading of history in windows.
