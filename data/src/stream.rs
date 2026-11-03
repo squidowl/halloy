@@ -510,8 +510,6 @@ async fn _run(
                                 error,
                                 network_lost: false,
                             };
-
-                            shutdown(&mut stream.connection).await;
                         }
                         _ => {
                             batch.messages.push(message.into());
@@ -744,6 +742,7 @@ async fn _run(
                 }
 
                 if let State::Connected {
+                    stream,
                     batch,
                     quit_requested,
                     ..
@@ -753,6 +752,10 @@ async fn _run(
                         network_lost,
                     } = status
                 {
+                    if !network_lost {
+                        shutdown(&mut stream.connection).await;
+                    }
+
                     if let Some(error) = &error {
                         log::info!("[{server}] disconnected: {error}");
                     } else {
