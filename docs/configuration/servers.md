@@ -1238,7 +1238,7 @@ do_not_request = ["no-implicit-names", "labeled-response"]
 ```
 
 :::warning
-When enabling `no-implicit-names`, consider if your network requires lower values for [`no_implicit_names.who_flight_limit`](../configuration/servers#who-flight-limit) as well.
+When enabling `no-implicit-names` channel nick lists will need to be populated by `WHO` requests.  Some networks may require lower values for [`who_flight_limit`](../configuration/servers#who-flight-limit).
 :::
 
 ### `no_implicit_names`
