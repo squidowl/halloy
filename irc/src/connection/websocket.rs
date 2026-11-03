@@ -7,7 +7,8 @@ use bytes::BytesMut;
 use futures::{Sink, SinkExt, Stream, StreamExt};
 use tokio_rustls::client::TlsStream;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
-use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
+use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
+use tokio_tungstenite::tungstenite::protocol::{CloseFrame, WebSocketConfig};
 use tokio_tungstenite::tungstenite::{self, Message, Utf8Bytes, http};
 use tokio_tungstenite::{WebSocketStream, client_async_with_config};
 use tokio_util::codec::{Decoder, Encoder};
@@ -88,8 +89,28 @@ impl<Codec> WebSocketConnection<Codec> {
         })
     }
 
-    pub async fn shutdown(mut self) -> Result<(), Error> {
-        self.stream.close(None).await?;
+    pub async fn shutdown(&mut self) -> Result<(), Error> {
+        let close = CloseFrame {
+            code: CloseCode::Normal,
+            reason: Utf8Bytes::default(),
+        };
+
+        match self.stream.close(Some(close)).await {
+            Ok(())
+            | Err(
+                tungstenite::Error::ConnectionClosed
+                | tungstenite::Error::AlreadyClosed
+                | tungstenite::Error::Protocol(
+                    tungstenite::error::ProtocolError::SendAfterClosing,
+                ),
+            ) => {}
+            Err(error) => return Err(error.into()),
+        }
+
+        while let Some(message) = self.stream.next().await {
+            message?;
+        }
+
         Ok(())
     }
 
@@ -140,9 +161,6 @@ where
                 }
                 Poll::Ready(Some(Ok(Message::Binary(bytes)))) => {
                     this.push_crlf_line(&bytes);
-                }
-                Poll::Ready(Some(Ok(Message::Close(_)))) => {
-                    return Poll::Ready(None);
                 }
                 Poll::Ready(Some(Ok(_))) => {}
                 Poll::Ready(Some(Err(error))) => {

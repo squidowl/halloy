@@ -34,6 +34,7 @@ Fixed:
 - Lost connections taking minutes to detect after changing networks, or after waking from sleep on macOS and Linux
 - Reconnect attempts running out, and autoconnect turning off, while there is no network connection
 - Connections closed by the server not being detected until the next ping timeout
+- WebSocket connections not being closed cleanly on disconnect
 
 Changed:
 

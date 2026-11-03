@@ -611,6 +611,8 @@ async fn _run(
                                 &config,
                                 default_proxy.as_ref(),
                             ) {
+                                shutdown(&mut stream.connection).await;
+
                                 connection_attempt = 0;
                                 let _ = sender.unbounded_send(
                                     Update::Disconnected {
@@ -670,6 +672,8 @@ async fn _run(
                             ping_time.reset_immediately();
                         }
                         Control::AuthenticationFailed { error } => {
+                            shutdown(&mut stream.connection).await;
+
                             let autoconnect = config.autoconnect
                                 && config.max_connection_attempts.is_none_or(
                                     |max_attempt| {
@@ -697,6 +701,8 @@ async fn _run(
                             error,
                             disable_autoconnect,
                         } => {
+                            shutdown(&mut stream.connection).await;
+
                             let autoconnect = if disable_autoconnect {
                                 false
                             } else {
@@ -736,6 +742,7 @@ async fn _run(
                 }
 
                 if let State::Connected {
+                    stream,
                     batch,
                     quit_requested,
                     ..
@@ -745,6 +752,10 @@ async fn _run(
                         network_lost,
                     } = status
                 {
+                    if !network_lost {
+                        shutdown(&mut stream.connection).await;
+                    }
+
                     if let Some(error) = &error {
                         log::info!("[{server}] disconnected: {error}");
                     } else {
@@ -796,6 +807,10 @@ async fn _run(
             }
         }
     }
+}
+
+async fn shutdown(connection: &mut Connection<irc::Codec>) {
+    let _ = time::timeout(QUIT_REQUEST_TIMEOUT, connection.shutdown()).await;
 }
 
 async fn connect(
