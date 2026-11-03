@@ -386,10 +386,10 @@ mod tests {
     #[test]
     fn home_from_tilde_expansion() {
         let tests = [
-            ("~", dirs_next::home_dir().expect("expected valid home dir")),
+            ("~", dirs::home_dir().expect("expected valid home dir")),
             (
                 "~/.config/halloy/",
-                dirs_next::home_dir()
+                dirs::home_dir()
                     .expect("expected valid home dir")
                     .join(".config/halloy"),
             ),
@@ -403,13 +403,10 @@ mod tests {
     #[test]
     fn home_from_home_environment_variable() {
         let tests = [
-            (
-                "$HOME",
-                dirs_next::home_dir().expect("expected valid home dir"),
-            ),
+            ("$HOME", dirs::home_dir().expect("expected valid home dir")),
             (
                 "$HOME/.config/halloy/",
-                dirs_next::home_dir()
+                dirs::home_dir()
                     .expect("expected valid home dir")
                     .join(".config/halloy"),
             ),
@@ -425,15 +422,15 @@ mod tests {
         let tests = [
             (
                 "%AppData%",
-                dirs_next::data_dir().expect("expected valid data dir"),
+                dirs::data_dir().expect("expected valid data dir"),
             ),
             (
                 "%appdata%", // Should be case-insensitive
-                dirs_next::data_dir().expect("expected valid data dir"),
+                dirs::data_dir().expect("expected valid data dir"),
             ),
             (
                 "%AppData%/.config/halloy/",
-                dirs_next::data_dir()
+                dirs::data_dir()
                     .expect("expected valid data dir")
                     .join(".config/halloy"),
             ),

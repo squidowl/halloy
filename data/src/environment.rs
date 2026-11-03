@@ -62,7 +62,7 @@ fn platform_specific_config_dir() -> PathBuf {
         // 1. XDG config dir (~/.config/halloy)
         // 2. User config directory (~/Library/Application Support/halloy)
         xdg_config_dir().unwrap_or_else(|| {
-            dirs_next::config_dir()
+            dirs::config_dir()
                 .expect("expected valid config dir")
                 .join("halloy")
         })
@@ -94,7 +94,7 @@ fn platform_specific_data_dir() -> PathBuf {
         // 1. XDG data dir (~/.local/share/halloy)
         // 2. User data directory (~/Library/Application Support/halloy)
         xdg_data_dir().unwrap_or_else(|| {
-            dirs_next::data_dir()
+            dirs::data_dir()
                 .expect("expected valid data dir")
                 .join("halloy")
         })
