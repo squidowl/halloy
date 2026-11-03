@@ -148,6 +148,9 @@ pub struct Server {
     /// WHO poll interval for servers without away-notify.
     #[serde(deserialize_with = "deserialize_who_poll_interval")]
     pub who_poll_interval: Duration,
+    /// Maximum number of WHO polls in flight at once.
+    #[serde(deserialize_with = "deserialize_who_poll_in_flight_limit")]
+    pub who_poll_in_flight_limit: usize,
     /// A list of nicknames to monitor (if MONITOR is supported by the server).
     pub monitor: Vec<String>,
     /// Whether to automatically make chathistory requests on the user's behalf
@@ -169,8 +172,6 @@ pub struct Server {
     pub icon: Icon,
     /// A list of capabilities not to request from the server (even if present).
     pub do_not_request: Vec<Capability>,
-    /// Config options for cap `no-implicit-names`
-    pub no_implicit_names: NoImplicitNames,
     /// Whether & how to log all IRC protocol messages
     pub irc_protocol_log: IrcProtocolLog,
     pub sidebar_visibility: SidebarVisibility,
@@ -374,6 +375,7 @@ impl Default for Server {
             on_connect: Vec::default(),
             who_poll_enabled: true,
             who_poll_interval: Duration::from_secs(2),
+            who_poll_in_flight_limit: 8,
             monitor: Vec::default(),
             automated_chathistory: true,
             anti_flood: AntiFlood::default(),
@@ -389,7 +391,6 @@ impl Default for Server {
             irc_protocol_log: IrcProtocolLog::default(),
             sidebar_visibility: SidebarVisibility::Expanded,
             networks: Arc::default(),
-            no_implicit_names: NoImplicitNames::default(),
         }
     }
 }
@@ -851,6 +852,24 @@ where
     }
 }
 
+fn deserialize_who_poll_in_flight_limit<'de, D>(
+    deserializer: D,
+) -> Result<usize, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let limit: usize = Deserialize::deserialize(deserializer)?;
+
+    if !(1..=64).contains(&limit) {
+        Err(serde::de::Error::invalid_value(
+            serde::de::Unexpected::Unsigned(limit as u64),
+            &"integer in the range 1 .. 64",
+        ))
+    } else {
+        Ok(limit)
+    }
+}
+
 fn deserialize_duration_from_secs<'de, D>(
     deserializer: D,
 ) -> Result<Duration, D::Error>
@@ -866,42 +885,6 @@ where
         ))
     } else {
         Ok(Duration::from_secs(seconds))
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(default)]
-pub struct NoImplicitNames {
-    /// Maximum number of WHO polls in flight at once.
-    #[serde(
-        deserialize_with = "deserialize_no_implicit_names_who_flight_limit"
-    )]
-    pub who_flight_limit: usize,
-}
-
-impl Default for NoImplicitNames {
-    fn default() -> Self {
-        Self {
-            who_flight_limit: 8,
-        }
-    }
-}
-
-fn deserialize_no_implicit_names_who_flight_limit<'de, D>(
-    deserializer: D,
-) -> Result<usize, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let limit: usize = Deserialize::deserialize(deserializer)?;
-
-    if !(1..=64).contains(&limit) {
-        Err(serde::de::Error::invalid_value(
-            serde::de::Unexpected::Unsigned(limit as u64),
-            &"integer in the range 1 .. 64",
-        ))
-    } else {
-        Ok(limit)
     }
 }
 

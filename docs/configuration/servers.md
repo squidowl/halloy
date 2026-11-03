@@ -1222,6 +1222,26 @@ WHO poll interval (in seconds) for servers without [away-notify](https://ircv3.n
 who_poll_interval = 2
 ```
 
+### `who_poll_in_flight_limit` {#who-poll-in-flight-limit}
+
+By default, `no-implicit-names` is disabled and `who_poll_in_flight_limit` is immutable and set to `1`.
+
+When `no-implicit-names` is enabled, this option controls the number of `WHO` poll requests that can be sent simultaneously.
+
+```toml
+# Type: integer
+# Values: 1 .. 64
+# Default: 1 or 8 if `no-implicit-names` is enabled
+
+[servers.<name>]
+do_not_request = ["labeled-response"] # enables `no-implicit-names`
+who_poll_in_flight_limit = 1
+```
+
+:::warning
+Using a value higher than `1` on some networks (e.g. Libera) can result in a temporary ban if you're batch joining several highly populated channels.
+:::
+
 ### `do_not_request`
 
 [IRCv3 capabilities](https://ircv3.net/irc/) to **not** request from the server.
@@ -1238,29 +1258,7 @@ do_not_request = ["no-implicit-names", "labeled-response"]
 ```
 
 :::warning
-When enabling `no-implicit-names` channel nick lists will need to be populated by `WHO` requests.  Some networks may require lower values for [`who_flight_limit`](../configuration/servers#who-flight-limit).
-:::
-
-### `no_implicit_names`
-
-Settings available when the `no-implicit-names` capability is acknowledged by the server.
-
-#### `who_flight_limit` {#who-flight-limit}
-
-Control the number of `WHO` poll requests sent at once.
-
-```toml
-# Type: integer
-# Values: 1 .. 64
-# Default: 8
-
-[servers.<name>]
-do_not_request = ["labeled-response"] # enables `no-implicit-names`
-no_implicit_names.who_flight_limit = 1
-```
-
-:::warning
-Using a value higher than `1` on some networks (e.g. Libera) can result in a temporary ban if you're batch joining several highly populated channels.
+When enabling `no-implicit-names` channel nick lists will need to be populated by `WHO` requests.  Some networks may require lower values for [`who_poll_in_flight_limit`](../configuration/servers#who-poll-in-flight-limit) as well.
 :::
 
 ## `networks`
