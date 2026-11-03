@@ -73,6 +73,7 @@ impl FromStr for Capability {
             "draft/message-redaction" => Ok(Self::MessageRedaction),
             "multi-prefix" => Ok(Self::MultiPrefix),
             "draft/metadata-2" => Ok(Self::Metadata),
+            "draft/metadata-3" => Ok(Self::Metadata),
             "no-implicit-names" => Ok(Self::NoImplicitNames),
             // TODO(quaff): remove `draft/no-implicit-names` support when ergo & soju have both been upgraded
             "draft/no-implicit-names" => Ok(Self::NoImplicitNames),
@@ -129,7 +130,7 @@ impl FromStr for MultilineLimits {
 
 #[derive(Debug, Clone, Copy)]
 pub struct MetadataLimits {
-    pub max_subs: usize,
+    pub max_subs: Option<usize>,
 }
 
 impl FromStr for MetadataLimits {
@@ -144,13 +145,8 @@ impl FromStr for MetadataLimits {
         Ok(MetadataLimits {
             max_subs: dictionary
                 .get("max-subs")
-                .ok_or_else(|| {
-                    CapParseError::MissingKey(
-                        "max-subs".to_owned(),
-                        s.to_owned(),
-                    )
-                })?
-                .parse::<usize>()?,
+                .map(|s| s.parse())
+                .transpose()?,
         })
     }
 }
@@ -536,8 +532,11 @@ impl Capabilities {
             requested.push(request);
         }
 
-        if let Some(request) =
-            self.create_request("draft/metadata-2", &[], available, config)
+        if let Some(request) = self
+            .create_request("draft/metadata-3", &[], available, config)
+            .or_else(|| {
+                self.create_request("draft/metadata-2", &[], available, config)
+            })
         {
             requested.push(request);
         }
@@ -601,12 +600,20 @@ impl Capabilities {
     }
 
     pub fn metadata_limits(&self) -> Option<MetadataLimits> {
-        self.acknowledged(Capability::Metadata)
-            .then(|| {
-                MetadataLimits::from_str(self.listed.get("draft/metadata-2")?)
-                    .ok()
-            })
-            .flatten()
+        if self.acknowledged(Capability::Metadata) {
+            MetadataLimits::from_str(
+                self.listed
+                    .get("draft/metadata-3")
+                    .or_else(|| self.listed.get("draft/metadata-2"))?,
+            )
+            .ok()
+        } else {
+            None
+        }
+    }
+
+    pub fn metadata_max_subs(&self) -> Option<usize> {
+        self.metadata_limits().and_then(|l| l.max_subs)
     }
 
     pub fn contains_multiline_limits(&self) -> bool {

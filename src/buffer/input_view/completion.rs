@@ -271,16 +271,19 @@ impl Completion {
     }
 
     pub fn close_picker(&mut self) -> bool {
-        if matches!(self.commands, Commands::Selecting { .. }) {
-            self.commands = Commands::Idle;
-
-            return true;
-        } else if matches!(self.emojis, Emojis::Selecting { .. }) {
+        // Close pickers in from top to bottom, as shown in `view`.
+        if matches!(self.emojis, Emojis::Selecting { .. }) {
             self.emojis = Emojis::Idle;
 
             return true;
         } else if matches!(self.words, Words::Selecting { .. }) {
             self.words = Words::Idle;
+
+            return true;
+        } else if matches!(self.commands, Commands::Selecting { .. })
+            || matches!(self.commands, Commands::Selected { .. })
+        {
+            self.commands = Commands::Idle;
 
             return true;
         }

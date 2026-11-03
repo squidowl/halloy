@@ -3321,8 +3321,10 @@ impl Client {
                         .map(ToString::to_string)
                         .collect::<Vec<String>>();
 
-                    if let Some(limits) = self.capabilities.metadata_limits() {
-                        requested.truncate(limits.max_subs);
+                    if let Some(max_subs) =
+                        self.capabilities.metadata_max_subs()
+                    {
+                        requested.truncate(max_subs);
                     }
 
                     log::debug!(
@@ -4790,6 +4792,14 @@ impl Client {
             .is_some_and(|updated_at| !is_typing_expired(updated_at))
     }
 
+    pub fn has_any_query_typing_users(&self) -> bool {
+        self.querymap.values().any(|query_state| {
+            query_state
+                .typing
+                .is_some_and(|updated_at| !is_typing_expired(updated_at))
+        })
+    }
+
     fn user_channels(&self, nick: &Nick) -> Vec<target::Channel> {
         self.chanmap
             .iter()
@@ -5289,6 +5299,7 @@ impl NotificationBlackout {
         }
     }
 }
+
 #[derive(Debug, Clone)]
 pub enum Context {
     Buffer(buffer::Upstream),

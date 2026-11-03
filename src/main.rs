@@ -430,6 +430,7 @@ pub enum Screen {
     Exit {
         pending_window_settings_save: bool,
         pending_dashboard_save: bool,
+        pending_marked_read_on_exit: bool,
         pending_server_removals: HashSet<Server>,
         buffers_context: BuffersContextSnapshot,
         pending_history_exit: bool,
@@ -1128,14 +1129,13 @@ impl Halloy {
 
                     if let Screen::Exit {
                         pending_server_removals,
-                        buffers_context,
                         ..
                     } = &mut self.screen
                     {
                         pending_server_removals.remove(&server);
 
                         if pending_server_removals.is_empty() {
-                            self.storage.exit(buffers_context, &self.config);
+                            self.storage.exit(&self.config);
                         }
                     }
 
@@ -1200,20 +1200,21 @@ impl Halloy {
 
                 self.storage.tick(now, &self.config);
 
-                let dashboard_tasks = if let Screen::Dashboard(dashboard) =
-                    &mut self.screen
-                {
-                    dashboard.tick(now, &self.clients).map(Message::Dashboard)
-                } else {
-                    Task::none()
-                };
+                let dashboard_tasks =
+                    if let Screen::Dashboard(dashboard) = &mut self.screen {
+                        dashboard
+                            .tick(now, &self.clients, &self.config)
+                            .map(Message::Dashboard)
+                    } else {
+                        Task::none()
+                    };
 
                 Task::batch(vec![dashboard_tasks])
             }
             Message::AnimationTick(now) => {
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
                     dashboard
-                        .animation_tick(now, &self.clients)
+                        .animation_tick(now, &self.clients, &self.config)
                         .map(Message::Dashboard)
                 } else {
                     Task::none()
@@ -1627,8 +1628,20 @@ impl Halloy {
                     .into_iter()
                     .map(|event| match event {
                         storage::Event::History(message) => {
-                            let is_exit_message =
-                                matches!(message, storage::Message::Exited(..));
+                            enum ExitMessage {
+                                MarkedReadOnExit,
+                                Exited,
+                            }
+
+                            let exit_message = match message {
+                                storage::Message::MarkedReadOnExit(..) => {
+                                    Some(ExitMessage::MarkedReadOnExit)
+                                }
+                                storage::Message::Exited(..) => {
+                                    Some(ExitMessage::Exited)
+                                }
+                                _ => None,
+                            };
 
                             self.storage.update(
                                 message,
@@ -1637,20 +1650,45 @@ impl Halloy {
                                 &self.config,
                             );
 
-                            if is_exit_message {
+                            if let Some(exit_message) = exit_message {
                                 if let Screen::Exit {
                                     pending_window_settings_save,
                                     pending_dashboard_save,
+                                    pending_marked_read_on_exit,
+                                    pending_server_removals,
                                     pending_history_exit,
                                     ..
                                 } = &mut self.screen
                                 {
-                                    *pending_history_exit = false;
+                                    match exit_message {
+                                        ExitMessage::MarkedReadOnExit => {
+                                            *pending_marked_read_on_exit =
+                                                false;
 
-                                    if !*pending_window_settings_save
-                                        && !*pending_dashboard_save
-                                    {
-                                        return iced::exit();
+                                            self.controllers.exit(
+                                                &self
+                                                    .config
+                                                    .buffer
+                                                    .commands
+                                                    .quit
+                                                    .default_reason,
+                                            );
+
+                                            if pending_server_removals
+                                                .is_empty()
+                                            {
+                                                self.storage.exit(&self.config);
+                                            }
+                                        }
+                                        ExitMessage::Exited => {
+                                            *pending_history_exit = false;
+
+                                            if !*pending_window_settings_save
+                                                && !*pending_dashboard_save
+                                            {
+                                                return iced::exit();
+                                            }
+                                        }
                                     }
                                 } else {
                                     log::error!(
@@ -1875,11 +1913,13 @@ impl Halloy {
         ];
 
         if self.config.buffer.typing.animation.enabled
-            && matches!(
+            && (matches!(
                 &self.screen,
                 Screen::Dashboard(dashboard)
             if dashboard.has_typing_activity_in_focused_window(&self.clients, self.focused_window)
-            )
+            ) || (self.config.can_show_any_typing()
+                && self.config.sidebar.can_show_typing()
+                && self.clients.has_any_query_typing()))
         {
             subscriptions.push(
                 iced::time::every(Duration::from_millis(50))
@@ -2126,6 +2166,7 @@ impl Halloy {
         self.screen = Screen::Exit {
             pending_window_settings_save: true,
             pending_dashboard_save: dashboard_save_task.is_some(),
+            pending_marked_read_on_exit: true,
             pending_server_removals,
             buffers_context,
             pending_history_exit: true,
@@ -2135,8 +2176,21 @@ impl Halloy {
             exit_tasks.push(dashboard_save_task);
         }
 
-        self.controllers
-            .exit(&self.config.buffer.commands.quit.default_reason);
+        // Exiting contains this chain, started here:
+        // - Mark as read (storage.mark_as_read_on_exit); performed first, while
+        //   clients are still connected, so MARKREADs are sent to servers
+        //   before QUITs are sent to servers
+        // - Quit all servers (controllers.exit); performed before history is
+        //   exited so servers are given a chance to respond and responses may
+        //   be saved to history (e.g. if the server ACKs the QUIT with a QUIT)
+        // - Exit history (storage.exit)
+        if let Screen::Exit {
+            buffers_context, ..
+        } = &self.screen
+        {
+            self.storage
+                .mark_as_read_on_exit(buffers_context, &self.config);
+        }
 
         Task::batch(exit_tasks)
     }

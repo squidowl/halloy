@@ -80,7 +80,7 @@ pub enum Message {
     SelectedText(Vec<(RangeInclusive<f32>, String)>, clipboard::ClipboardKind),
     DashboardSaved(Result<(), data::dashboard::Error>),
     Task(command_bar::Message),
-    Shortcut(shortcut::Command),
+    Shortcut(shortcut::Command, bool),
     FileTransfer(file_transfer::task::Update),
     SendFileSelected(Server, User, Option<PathBuf>),
     CloseContextMenu(window::Id, bool),
@@ -412,6 +412,28 @@ impl Dashboard {
                             {
                                 storage.mark_as_read(kind);
                             }
+
+                            return (task, None);
+                        }
+                    }
+                    pane::Message::ScrollToBacklog => {
+                        let Focus { window, pane } = self.panes.focus;
+
+                        if let Some(state) = self.panes.get_mut(window, pane) {
+                            let task = state
+                                .buffer
+                                .scroll_to_backlog(
+                                    &self.models,
+                                    storage,
+                                    config,
+                                    true,
+                                )
+                                .map(move |message| {
+                                    Message::Pane(
+                                        window,
+                                        pane::Message::Buffer(pane, message),
+                                    )
+                                });
 
                             return (task, None);
                         }
@@ -866,7 +888,7 @@ impl Dashboard {
                     None => {}
                 }
             }
-            Message::Shortcut(shortcut) => {
+            Message::Shortcut(shortcut, repeat) => {
                 use shortcut::Command::*;
 
                 // Only works on main window / pane_grid
@@ -1230,6 +1252,31 @@ impl Dashboard {
 
                         return (task, None);
                     }
+                    ScrollToBacklog => {
+                        let task = self.panes.get_focused_mut().map_or(
+                            Task::none(),
+                            |(window, pane, state)| {
+                                state
+                                    .buffer
+                                    .scroll_to_backlog(
+                                        &self.models,
+                                        storage,
+                                        config,
+                                        true,
+                                    )
+                                    .map(move |message| {
+                                        Message::Pane(
+                                            window,
+                                            pane::Message::Buffer(
+                                                pane, message,
+                                            ),
+                                        )
+                                    })
+                            },
+                        );
+
+                        return (task, None);
+                    }
                     CycleNextUnreadBuffer => {
                         let cycle_buffers =
                             self.side_menu.visible_buffers_with_has_unread(
@@ -1353,8 +1400,9 @@ impl Dashboard {
                                 _ => unreachable!(),
                             };
 
-                            if let Some(message) =
-                                state.buffer.focus_navigate_message(direction)
+                            if let Some(message) = state
+                                .buffer
+                                .focus_navigate_message(direction, repeat)
                             {
                                 return (
                                     Task::done(message).map(move |message| {
@@ -1408,7 +1456,20 @@ impl Dashboard {
             }
             Message::CloseContextMenu(window, any_closed) => {
                 if !any_closed {
-                    if let Some((_, _, state)) = self.get_focused_mut() {
+                    if let Some((window, pane, state)) = self.get_focused_mut()
+                    {
+                        if state.buffer.in_focus_mode()
+                            && let Some(msg) =
+                                state.buffer.exit_focus_mode_message()
+                        {
+                            return (
+                                Task::done(Message::Pane(
+                                    window,
+                                    pane::Message::Buffer(pane, msg),
+                                )),
+                                None,
+                            );
+                        }
                         if state.buffer.close_picker() {
                             return (Task::none(), None);
                         // We only want to call clear_draft_reply if
@@ -1572,6 +1633,7 @@ impl Dashboard {
                                         &self.models,
                                         storage,
                                         config,
+                                        false,
                                     )
                                     .map(move |message| {
                                         Message::Pane(
@@ -1754,6 +1816,7 @@ impl Dashboard {
                 version,
                 theme,
                 self.buffer_settings.show_muted,
+                self.typing_animation.as_ref(),
             )
             .map(|e| e.map(Message::Sidebar));
 
@@ -2879,7 +2942,7 @@ impl Dashboard {
                     )
                 })
             }
-            Key(key_bind) => {
+            Key(key_bind, repeat) => {
                 use data::shortcut::FocusCommand;
 
                 let Some((window, pane, state)) = self.get_focused() else {
@@ -2911,7 +2974,7 @@ impl Dashboard {
                             _ => unreachable!(),
                         };
 
-                        state.buffer.focus_navigate_message(direction)
+                        state.buffer.focus_navigate_message(direction, repeat)
                     }
                     FocusCommand::Activate | FocusCommand::ActivateAlt
                         if !in_focus =>
@@ -4071,8 +4134,9 @@ impl Dashboard {
         &mut self,
         now: Instant,
         clients: &client::Map,
+        config: &Config,
     ) -> Task<Message> {
-        if !self.has_typing_activity(clients) {
+        if !self.has_typing_activity(clients, config) {
             self.typing_animation = None;
         }
 
@@ -4093,8 +4157,9 @@ impl Dashboard {
         &mut self,
         now: Instant,
         clients: &client::Map,
+        config: &Config,
     ) -> Task<Message> {
-        if self.has_typing_activity(clients) {
+        if self.has_typing_activity(clients, config) {
             buffer::typing::advance(&mut self.typing_animation, now);
         } else {
             self.typing_animation = None;
@@ -4599,10 +4664,17 @@ impl Dashboard {
         })
     }
 
-    pub fn has_typing_activity(&self, clients: &client::Map) -> bool {
+    pub fn has_typing_activity(
+        &self,
+        clients: &client::Map,
+        config: &Config,
+    ) -> bool {
         self.panes
             .iter()
             .any(|(_, _, pane)| pane.buffer.has_typing_activity(clients))
+            || (config.can_show_any_typing()
+                && config.sidebar.can_show_typing()
+                && clients.has_any_query_typing())
     }
 
     pub fn has_typing_activity_in_focused_window(

@@ -36,7 +36,7 @@ use crate::widget::user_display::UserDisplay;
 use crate::widget::{Element, notify_visibility};
 use crate::{Theme, buffer, font, theme};
 
-const SCROLL_TO_TIMEOUT: Duration = Duration::from_millis(200);
+const SCROLL_TO_TIMEOUT: Duration = Duration::from_millis(300);
 /// Pages of off-screen messages to keep rendered above and below the viewport
 const BUFFER_PAGES: usize = 3;
 
@@ -76,6 +76,7 @@ pub enum Message {
     ImagePreview(Image),
     AnimatePreview(crate::widget::animated_image::hover::Request),
     ScrollTo(keyed::Hit),
+    ScrollToMissed(keyed::Key),
     ScrollToTop,
     RequestOlderChathistory,
     EnteringViewport(history::Id, Vec<url::Url>),
@@ -90,7 +91,7 @@ pub enum Message {
     MarkAsRead,
     ContentResized(Size),
     PendingScrollTo,
-    FadeHighlight(history::Id, u64),
+    FadeHighlight(keyed::Key, u64),
     HeightsCollected(Vec<(keyed::Row, f32)>),
     AnchorChanged(Option<keyed::Anchor>),
     Reacted {
@@ -101,7 +102,7 @@ pub enum Message {
         msgid: message::Id,
         text: Cow<'static, str>,
     },
-    NavigateFocus(FocusDirection),
+    NavigateFocus(FocusDirection, bool),
     #[allow(clippy::enum_variant_names)]
     ActivateFocusedMessage,
     OpenFocusMenu,
@@ -713,16 +714,17 @@ pub fn view<'a>(
                         focus_outline(
                             container(element).width(Length::Fill).into(),
                         )
-                    } else if let Some((history_id, alpha)) =
-                        state.highlighted_message
+                    } else if let Some((
+                        keyed::Key::Message(history_id)
+                        | keyed::Key::Preview(history_id, _),
+                        alpha,
+                    )) = state.highlighted
                         && history_id == *message.history_id()
                     {
                         container(element)
                             .width(Length::Fill)
                             .style(move |theme| {
-                                theme::container::highlighted_message(
-                                    theme, alpha,
-                                )
+                                theme::container::highlighted(theme, alpha)
                             })
                             .into()
                     } else if state.hover_highlighted_message
@@ -731,7 +733,7 @@ pub fn view<'a>(
                         container(element)
                             .width(Length::Fill)
                             .style(move |theme| {
-                                theme::container::highlighted_message(
+                                theme::container::highlighted(
                                     theme,
                                     HOVER_HIGHLIGHT_ALPHA,
                                 )
@@ -834,8 +836,8 @@ pub fn view<'a>(
         }
     };
 
-    let divider = show_backlog_divider.then(|| {
-        match &config.buffer.backlog_separator.text {
+    let divider: Option<Element<Message>> = show_backlog_divider.then(|| {
+        let divider = match &config.buffer.backlog_separator.text {
             data::buffer::BacklogText::Hidden => row![
                 container(rule::horizontal(1).style(theme::rule::backlog))
                     .padding([2, 0])
@@ -859,6 +861,15 @@ pub fn view<'a>(
             ]
             .padding(2)
             .align_y(iced::Alignment::Center),
+        };
+
+        if let Some((keyed::Key::Divider, alpha)) = state.highlighted {
+            container(divider)
+                .width(Length::Fill)
+                .style(move |theme| theme::container::highlighted(theme, alpha))
+                .into()
+        } else {
+            divider.into()
         }
     });
 
@@ -945,7 +956,7 @@ pub struct State {
     anchor: Option<keyed::Anchor>,
     height_cache: HashMap<keyed::Key, (Option<u64>, f32)>,
     scroll_to: Option<ScrollTo>,
-    highlighted_message: Option<(history::Id, f32)>,
+    highlighted: Option<(keyed::Key, f32)>,
     hover_highlighted_message: Option<history::Id>,
     highlight_generation: u64,
     visible_url_messages: HashMap<history::Id, Vec<url::Url>>,
@@ -981,7 +992,7 @@ impl State {
             anchor: None,
             height_cache: HashMap::with_capacity(message_count),
             scroll_to: None,
-            highlighted_message: None,
+            highlighted: None,
             hover_highlighted_message: None,
             highlight_generation: 0,
 
@@ -1253,25 +1264,16 @@ impl State {
                     );
 
                 let fade_task = if highlight {
-                    if let keyed::Key::Message(history_id) = key {
-                        self.highlight_generation += 1;
+                    self.highlight_generation += 1;
 
-                        let generation = self.highlight_generation;
+                    let generation = self.highlight_generation;
 
-                        self.highlighted_message =
-                            Some((history_id, HIGHLIGHT_ALPHA_START));
+                    self.highlighted = Some((key, HIGHLIGHT_ALPHA_START));
 
-                        Task::perform(
-                            time::sleep(Duration::from_millis(
-                                HIGHLIGHT_HOLD_MS,
-                            )),
-                            move |()| {
-                                Message::FadeHighlight(history_id, generation)
-                            },
-                        )
-                    } else {
-                        Task::none()
-                    }
+                    Task::perform(
+                        time::sleep(Duration::from_millis(HIGHLIGHT_HOLD_MS)),
+                        move |()| Message::FadeHighlight(key, generation),
+                    )
                 } else {
                     Task::none()
                 };
@@ -1388,6 +1390,32 @@ impl State {
                         ]),
                         None,
                     );
+                }
+            }
+            Message::ScrollToMissed(key) => {
+                if let Some(scroll_to) = &mut self.scroll_to
+                    && scroll_to.key == key
+                    && matches!(scroll_to.state, ScrollToState::Active)
+                {
+                    if models
+                        .view(kind_ref, &self.limit, config)
+                        .is_none_or(|view| view.loading)
+                    {
+                        // not rendered until history loads, try again
+                        scroll_to.state = ScrollToState::Pending;
+
+                        return (
+                            Task::perform(
+                                time::sleep(SCROLL_TO_TIMEOUT),
+                                move |()| Message::PendingScrollTo,
+                            ),
+                            None,
+                        );
+                    }
+
+                    // target never shows up (eg hidden backlog divider), drop
+                    // it or every scroll gets ignored
+                    self.scroll_to = None;
                 }
             }
             Message::ScrollToTop => {
@@ -1528,21 +1556,20 @@ impl State {
                 {
                     *state = ScrollToState::Active;
 
-                    let scroll_to = keyed::find(self.scrollable.clone(), *key)
-                        .map(Message::ScrollTo);
+                    let scroll_to =
+                        find_scroll_to(self.scrollable.clone(), *key);
 
                     return (scroll_to, None);
                 }
             }
-            Message::FadeHighlight(history_id, generation) => {
-                if let Some((current_history_id, alpha)) =
-                    &mut self.highlighted_message
-                    && *current_history_id == history_id
+            Message::FadeHighlight(key, generation) => {
+                if let Some((current_key, alpha)) = &mut self.highlighted
+                    && *current_key == key
                     && generation == self.highlight_generation
                 {
                     *alpha -= HIGHLIGHT_ALPHA_STEP;
                     if *alpha <= 0.0 {
-                        self.highlighted_message = None;
+                        self.highlighted = None;
                     } else {
                         return (
                             Task::perform(
@@ -1550,9 +1577,7 @@ impl State {
                                     HIGHLIGHT_ALPHA_TICK_MS,
                                 )),
                                 move |()| {
-                                    Message::FadeHighlight(
-                                        history_id, generation,
-                                    )
+                                    Message::FadeHighlight(key, generation)
                                 },
                             ),
                             None,
@@ -1626,8 +1651,8 @@ impl State {
 
                     *state = ScrollToState::Active;
 
-                    let scroll_to = keyed::find(self.scrollable.clone(), *key)
-                        .map(Message::ScrollTo);
+                    let scroll_to =
+                        find_scroll_to(self.scrollable.clone(), *key);
 
                     return (scroll_to, event);
                 }
@@ -1662,7 +1687,7 @@ impl State {
                     );
                 }
             }
-            Message::NavigateFocus(direction) => {
+            Message::NavigateFocus(direction, repeat) => {
                 let Some(model::View {
                     old_messages,
                     new_messages,
@@ -1718,7 +1743,20 @@ impl State {
                         }
                     },
                     FocusDirection::Down => match focused_message.as_ref() {
-                        None => None,
+                        None => {
+                            if repeat {
+                                None
+                            } else {
+                                all.iter()
+                                    .find(|message| {
+                                        self.visible_messages
+                                            .contains(message.history_id())
+                                    })
+                                    .map(|message| {
+                                        FocusedMessage::new(message, config)
+                                    })
+                            }
+                        }
                         Some(fm) => {
                             let Some(focused_position) = all
                                 .iter()
@@ -2073,8 +2111,7 @@ impl State {
             ..message_scroll_to
         });
 
-        keyed::find(self.scrollable.clone(), keyed::Key::Message(history_id))
-            .map(Message::ScrollTo)
+        find_scroll_to(self.scrollable.clone(), keyed::Key::Message(history_id))
     }
 
     pub fn scroll_to_backlog(
@@ -2083,6 +2120,7 @@ impl State {
         models: &model::Manager,
         storage: &mut storage::Manager,
         config: &Config,
+        highlight: bool,
     ) -> Task<Message> {
         if self.scroll_to.is_some() {
             // A scroll_to is already pending, just make sure it will be
@@ -2094,41 +2132,42 @@ impl State {
 
         let backlog_scroll_to = ScrollTo {
             key: keyed::Key::Divider,
-            highlight: false,
+            highlight,
             position: Some(ScrollToPosition::Top),
             align: ScrollAnchor::Top,
             state: ScrollToState::Pending,
         };
 
-        let (old_messages, new_messages) = if let Some(model::View {
+        if let Some(model::View {
             old_messages,
             new_messages,
+            has_more_older_messages,
+            has_more_newer_messages,
             loading,
             ..
-        }) =
-            models.view(kind_ref, &self.limit, config)
+        }) = models.view(kind_ref, &self.limit, config)
             && !loading
+            && (!old_messages.is_empty() || !has_more_older_messages)
+            && (!new_messages.is_empty() || !has_more_newer_messages)
         {
-            (old_messages, new_messages)
+            self.scroll_to = Some(ScrollTo {
+                state: ScrollToState::Active,
+                ..backlog_scroll_to
+            });
+
+            find_scroll_to(self.scrollable.clone(), keyed::Key::Divider)
         } else {
+            // Load a window of messages centered on the backlog divider.
+            self.limit = Limit::Backlog(self.limit.count());
+
+            storage.set_model_limit(kind_ref.into(), self.limit);
+
             self.scroll_to = Some(backlog_scroll_to);
 
-            return Task::perform(time::sleep(SCROLL_TO_TIMEOUT), move |()| {
+            Task::perform(time::sleep(SCROLL_TO_TIMEOUT), move |()| {
                 Message::PendingScrollTo
-            });
-        };
-
-        if old_messages.is_empty() {
-            return self.scroll_to_start(kind_ref, storage, config);
-        } else if new_messages.is_empty() {
-            return self.scroll_to_end(kind_ref, storage, config);
+            })
         }
-
-        self.scroll_to = Some(backlog_scroll_to);
-
-        Task::perform(time::sleep(SCROLL_TO_TIMEOUT), move |()| {
-            Message::PendingScrollTo
-        })
     }
 
     pub fn has_scroll_to(&self) -> bool {
@@ -2297,6 +2336,12 @@ impl Status {
     }
 }
 
+fn find_scroll_to(scrollable: widget::Id, key: keyed::Key) -> Task<Message> {
+    keyed::find(scrollable, key).map(move |hit| {
+        hit.map_or(Message::ScrollToMissed(key), Message::ScrollTo)
+    })
+}
+
 fn accepts_scroll(
     requested: Limit,
     rendered: Limit,
@@ -2462,7 +2507,7 @@ pub mod keyed {
         }
     }
 
-    pub fn find(scrollable: widget::Id, key: Key) -> Task<Hit> {
+    pub fn find(scrollable: widget::Id, key: Key) -> Task<Option<Hit>> {
         widget::operate(Find {
             active: false,
             scrollable_id: scrollable,
@@ -2483,7 +2528,7 @@ pub mod keyed {
         pub time: Option<message::Time>,
     }
 
-    impl Operation<Hit> for Find {
+    impl Operation<Option<Hit>> for Find {
         fn scrollable(
             &mut self,
             id: Option<&widget::Id>,
@@ -2506,7 +2551,7 @@ pub mod keyed {
 
         fn traverse(
             &mut self,
-            operate: &mut dyn FnMut(&mut dyn Operation<Hit>),
+            operate: &mut dyn FnMut(&mut dyn Operation<Option<Hit>>),
         ) {
             operate(self);
         }
@@ -2526,18 +2571,18 @@ pub mod keyed {
             }
         }
 
-        fn finish(&self) -> widget::operation::Outcome<Hit> {
-            match self.scrollable.zip(self.hit_bounds).map(
-                |(scrollable, hit_bounds)| Hit {
-                    key: self.key,
-                    time: self.time,
-                    scrollable,
-                    hit_bounds,
-                },
-            ) {
-                Some(hit) => widget::operation::Outcome::Some(hit),
-                None => widget::operation::Outcome::None,
-            }
+        fn finish(&self) -> widget::operation::Outcome<Option<Hit>> {
+            // report misses too so a stuck scroll_to can be dropped
+            widget::operation::Outcome::Some(
+                self.scrollable.zip(self.hit_bounds).map(
+                    |(scrollable, hit_bounds)| Hit {
+                        key: self.key,
+                        time: self.time,
+                        scrollable,
+                        hit_bounds,
+                    },
+                ),
+            )
         }
     }
 
@@ -2836,6 +2881,7 @@ mod correct_viewport {
 
                         if let Some(new) = Arc::into_inner(hit)
                             .and_then(|m| m.into_inner().ok())
+                            .flatten()
                             .flatten()
                         {
                             // Something shifted this, let's put it back to the

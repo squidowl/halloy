@@ -82,7 +82,7 @@ pub enum Event {
         upload_ids: Vec<u32>,
         abort_registrations: Vec<futures::future::AbortRegistration>,
     },
-    NavigateFocus(FocusDirection),
+    NavigateFocus(FocusDirection, bool),
     ExitFocus,
     FocusAction(FocusAction),
 }
@@ -130,7 +130,7 @@ pub enum Message {
         to_nick: Nick,
     },
     ClearDraftReply,
-    NavigateFocus(FocusDirection),
+    NavigateFocus(FocusDirection, bool),
     ExitFocus,
     FocusAction(FocusAction),
 }
@@ -1216,20 +1216,10 @@ impl State {
                     (Task::none(), None)
                 }
             }
-            // Capture escape so that closing context menu or commands/emojis picker
-            // does not defocus input. Also exits message selection mode if active.
-            Message::Escape => {
-                if in_focus_mode {
-                    return (Task::none(), Some(Event::ExitFocus));
-                }
-                if self.close_picker() {
-                    return (Task::none(), None);
-                }
-                if self.clear_draft_reply(buffer, storage, config) {
-                    return (self.focus(), None);
-                }
-                (Task::none(), None)
-            }
+            // Capture escape so that closing context menu or commands/emojis
+            // picker does not defocus input.  Escape actions are handled by
+            // `Dashboard::handle_event` to allow global state to be considered.
+            Message::Escape => (Task::none(), None),
             Message::SendCommand { buffer, command } => {
                 let input = data::Input::from_command(buffer.clone(), command)
                     .encoded();
@@ -1422,8 +1412,8 @@ impl State {
                 self.spinner_hovered = hovered;
                 (Task::none(), None)
             }
-            Message::NavigateFocus(direction) => {
-                (Task::none(), Some(Event::NavigateFocus(direction)))
+            Message::NavigateFocus(direction, repeat) => {
+                (Task::none(), Some(Event::NavigateFocus(direction, repeat)))
             }
             Message::ExitFocus => (self.focus(), Some(Event::ExitFocus)),
             Message::FocusAction(action) => {

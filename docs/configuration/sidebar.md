@@ -4,7 +4,7 @@ Sidebar settings for Halloy.
 
 ## `primary_font_size`
 
-Configure the font size used for server and internal buffer titles.  If not set, then [`sidebar.secondary_font_size`](./sidebar#secondary_font_size) will be used.
+Configure the font size used for server and internal buffer titles. If not set, then [`sidebar.secondary_font_size`](./sidebar#secondary_font_size) will be used.
 
 ```toml
 # Type: integer
@@ -37,7 +37,7 @@ primary_icon = "hidden"
 
 ## `secondary_font_size`
 
-Configure the font size used for buffers in the sidebar.  If not set, then [`font.size`](./font#size) will be used.
+Configure the font size used for buffers in the sidebar. If not set, then [`font.size`](./font#size) will be used.
 
 ```toml
 # Type: integer
@@ -318,7 +318,6 @@ Show unread message indicators on buffers that have an open pane.
 show_on_open_buffers = false
 ```
 
-
 ### `query_as_highlight`
 
 Treat unread messages in query (direct message) buffers as highlights for
@@ -474,6 +473,40 @@ exclude = "*"
 include = { channels = ["#halloy"] }
 ```
 
+## `typing_indicator`
+
+Show typing indicator for query buffers (direct messages) in sidebars.
+Requires typing indicators to be enabled, either [globally](/configuration/buffer#show-1) or at the [server level](/configuration/servers#show).
+
+### `show`
+
+Change if sidebar typing indicators are shown. To disable use `"none"`.
+
+Default behavior depends on [`sidebar.position`](/configuration/sidebar#position):
+enabled for vertical sidebars and disabled for horizontal sidebars.
+
+```toml
+# Type: string
+# Values: "queries", "none"
+# Default: "queries" when sidebar.position = "left" or "right", "none" when sidebar.position = "top" or "bottom"
+
+[sidebar.typing_indicator]
+show = "queries"
+```
+
+### `icon_height`
+
+Change the sidebar typing indicator's icon height.
+
+```toml
+# Type: number 
+# Values: any positive number 
+# Default: 4
+
+[sidebar.typing_indicator]
+icon_height = 6
+```
+
 ## `user_menu`
 
 User menu in sidebar settings.
@@ -498,7 +531,7 @@ Adjust padding for sidebar
 ### `buffer`
 
 Controls padding for buffer buttons (server, channels, queries) in the sidebar
-The value is an array where the first value is vertical padding and the second is horizontal padding. 
+The value is an array where the first value is vertical padding and the second is horizontal padding.
 
 ```toml
 # Type: array
