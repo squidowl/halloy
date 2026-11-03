@@ -18,6 +18,7 @@ Added:
 - Sidebar typing indicators for queries
 - `buffer.close.query` option `"close-buffer"` (previous option `"close"` renamed to `"close-pane"`)
 - Setting `runtime.smooth_scrolling` to control whether smooth scrolling is used
+- Setting `servers.<name>.no_implicit_names.who_flight_limit` to control the number of WHO requests sent at once when cap `no-implicit-names` acked
 - Update to Unicode 18.0 emojis
 
 Fixed:

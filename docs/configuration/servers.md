@@ -1224,7 +1224,9 @@ who_poll_interval = 2
 
 ### `do_not_request`
 
-[IRCv3 capabilities](https://ircv3.net/irc/) to **not** request from the server.  All [supported IRCv3 capabilities](/index.md#ircv3-capabilities) that are available are requested by default.
+[IRCv3 capabilities](https://ircv3.net/irc/) to **not** request from the server.
+
+With the exception of `no-implicit-names`, all [supported IRCv3 capabilities](/index.md#ircv3-capabilities) that are available are requested by default.
 
 ```toml
 # Type: array of strings
@@ -1232,8 +1234,34 @@ who_poll_interval = 2
 # Default: ["no-implicit-names"]
 
 [servers.<name>]
-do_not_request = [ "labeled-response" ]
+do_not_request = ["no-implicit-names", "labeled-response"]
 ```
+
+:::warning
+When enabling `no-implicit-names`, consider if your network requires lower values for [`no_implicit_names.who_flight_limit`](../configuration/servers#who-flight-limit) as well.
+:::
+
+### `no_implicit_names`
+
+Settings available when the `no-implicit-names` capability is acknowledged by the server.
+
+#### `who_flight_limit` {#who-flight-limit}
+
+Control the number of `WHO` poll requests sent at once.
+
+```toml
+# Type: integer
+# Values: 1 .. 64
+# Default: 8
+
+[servers.<name>]
+do_not_request = ["labeled-response"] # enables `no-implicit-names`
+no_implicit_names.who_flight_limit = 1
+```
+
+:::warning
+Using a value higher than `1` on some networks (e.g. Libera) can result in a temporary ban if you're batch joining several highly populated channels.
+:::
 
 ## `networks`
 
