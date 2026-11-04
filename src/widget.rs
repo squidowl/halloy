@@ -130,6 +130,7 @@ where
         .font(*font::ICON)
         .style(style)
         .size(font_size)
+        .shaping(text::Shaping::Basic)
         .into();
 
     if let Some(on_press) = on_press {

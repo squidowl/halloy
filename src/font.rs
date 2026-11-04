@@ -81,18 +81,6 @@ pub fn line_height(config: &config::Font) -> LineHeight {
         .unwrap_or_default()
 }
 
-pub fn shaping() -> iced::advanced::text::Shaping {
-    #[cfg(debug_assertions)]
-    {
-        iced::advanced::text::Shaping::Basic
-    }
-
-    #[cfg(not(debug_assertions))]
-    {
-        iced::advanced::text::Shaping::Advanced
-    }
-}
-
 fn default_font() -> iced::Font {
     #[cfg(feature = "iosevka-font")]
     {
@@ -206,7 +194,7 @@ fn measure_width(text: &str, size: f32) -> f32 {
         font: PRIMARY.clone().into(),
         align_x: text::Alignment::Right,
         align_y: alignment::Vertical::Top,
-        shaping: text::Shaping::Basic,
+        shaping: text::Shaping::default(),
         wrapping: text::Wrapping::default(),
         ellipsis: text::Ellipsis::default(),
         hint_factor: None,
