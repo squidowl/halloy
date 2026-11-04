@@ -1,5 +1,14 @@
 # Unreleased
 
+Added:
+
+- Spellcheck for the message input (`buffer.text_input.spellcheck`)
+- Theme style `text.spellcheck_misspelled`
+
+Thanks:
+
+- Contributions: @rtmongold
+
 # 2026.10 (2026-11-03)
 
 Added:
