@@ -1,5 +1,9 @@
 # Unreleased
 
+Changed:
+
+- Use portal based secrets on Linux and FreeBSD
+
 # 2026.10 (2026-11-03)
 
 Added:

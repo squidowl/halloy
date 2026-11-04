@@ -22,16 +22,6 @@ Your mileage may vary, but turning off Wayland like this may cause UI issues.
 
 You can follow our [issue here](https://github.com/flathub/org.squidowl.halloy/issues/52).
 
-## Keyring access
-
-To access keyrings while running in Flatpak, you will need to manually grant your install of
-Halloy access to the system keyring. You can do this by running:
-
-
-```bash
-flatpak override --user --talk-name=org.freedesktop.secrets org.squidowl.halloy
-```
-
 ## Filesystem access for file transfers
 
 If you want to save file transfers to your specified [`file_transfers.save_directory`](/configuration/file-transfer#save-directory), you'll
