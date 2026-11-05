@@ -148,6 +148,9 @@ pub struct Server {
     /// WHO poll interval for servers without away-notify.
     #[serde(deserialize_with = "deserialize_who_poll_interval")]
     pub who_poll_interval: Duration,
+    /// Maximum number of WHO polls in flight at once.
+    #[serde(deserialize_with = "deserialize_who_poll_in_flight_limit")]
+    pub who_poll_in_flight_limit: usize,
     /// A list of nicknames to monitor (if MONITOR is supported by the server).
     pub monitor: Vec<String>,
     /// Whether to automatically make chathistory requests on the user's behalf
@@ -379,6 +382,7 @@ impl Default for Server {
             on_connect: Vec::default(),
             who_poll_enabled: true,
             who_poll_interval: Duration::from_secs(2),
+            who_poll_in_flight_limit: 8,
             monitor: Vec::default(),
             automated_chathistory: true,
             anti_flood: AntiFlood::default(),
@@ -390,7 +394,7 @@ impl Default for Server {
             filehost: Filehost::default(),
             metadata: HashMap::default(),
             icon: Icon::default(),
-            do_not_request: vec![],
+            do_not_request: vec![Capability::NoImplicitNames],
             irc_protocol_log: IrcProtocolLog::default(),
             sidebar_visibility: SidebarVisibility::Expanded,
             networks: Arc::default(),
@@ -879,6 +883,24 @@ where
         ))
     } else {
         Ok(Duration::from_secs(seconds))
+    }
+}
+
+fn deserialize_who_poll_in_flight_limit<'de, D>(
+    deserializer: D,
+) -> Result<usize, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let limit: usize = Deserialize::deserialize(deserializer)?;
+
+    if !(1..=64).contains(&limit) {
+        Err(serde::de::Error::invalid_value(
+            serde::de::Unexpected::Unsigned(limit as u64),
+            &"integer in the range 1 .. 64",
+        ))
+    } else {
+        Ok(limit)
     }
 }
 

@@ -136,19 +136,27 @@ impl<Codec> Connection<Codec> {
         }
     }
 
-    pub async fn shutdown(self) -> Result<(), Error> {
+    pub async fn shutdown(&mut self) -> Result<(), Error> {
         match self {
             Connection::Tls(framed) => {
-                framed.into_inner().shutdown().await?;
+                framed.get_mut().shutdown().await?;
             }
             Connection::Unsecured(framed) => {
-                framed.into_inner().shutdown().await?;
+                framed.get_mut().shutdown().await?;
             }
             Connection::WebSocket(websocket) => {
                 websocket.shutdown().await?;
             }
         }
         Ok(())
+    }
+
+    pub fn local_ip(&self) -> Option<IpAddr> {
+        match self {
+            Connection::Tls(framed) => framed.get_ref().get_ref().0.local_ip(),
+            Connection::Unsecured(framed) => framed.get_ref().local_ip(),
+            Connection::WebSocket(websocket) => websocket.local_ip(),
+        }
     }
 
     /// The connection must be dropped if the send times out
@@ -242,6 +250,18 @@ where
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<(), Self::Error>> {
         delegate!(self.get_mut(), poll_close_unpin(cx))
+    }
+}
+
+impl IrcStream {
+    fn local_ip(&self) -> Option<IpAddr> {
+        match self {
+            IrcStream::Tcp(stream) => {
+                stream.local_addr().ok().map(|addr| addr.ip())
+            }
+            #[cfg(feature = "tor")]
+            IrcStream::Tor(_) => None,
+        }
     }
 }
 

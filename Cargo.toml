@@ -104,7 +104,7 @@ signal-hook = "0.3.18"
 notify-rust = { version = "4.18", features = [ "images" ] }
 fern = "0.7.1"
 unicode-segmentation = "1.6"
-open = "5.0.1"
+open = { version = "5.4.4", features = ["shellexecute-on-windows"] }
 bytesize = "2.0.1"
 rodio = "0.22.0"
 humantime = "2.2.0"
@@ -114,6 +114,7 @@ rfd = { version = "0.15.2", default-features = false, features = [
     "tokio",
 ] }
 uuid = { version = "1.23", features = ["v7"] }
+netwatcher = { version = "0.8.0", features = ["tokio"] }
 mundy = { version = "0.1.9", default-features = false, features = [
     "color-scheme",
     "tokio",
@@ -163,6 +164,9 @@ objc2-foundation = { version = "0.3.2", default-features = false, features = [
     "NSURL",
 ] }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus = { version = "5.14.0", default-features = false, features = ["tokio"] }
+
 [target.'cfg(windows)'.build-dependencies]
 embed-resource = "3.0.2"
 windows_exe_info = "0.4"
@@ -173,7 +177,7 @@ iced_core = { git = "https://github.com/squidowl/iced", rev = "138b1d0ddc86e108f
 iced_wgpu = { git = "https://github.com/squidowl/iced", rev = "138b1d0ddc86e108f7d4f25765afca126a8dc166" }
 
 [patch."https://github.com/hecrj/cosmic-text.git"]
-cosmic-text = { git = "https://github.com/squidowl/cosmic-text", rev = "c791410aa6f8e2f90ce3bf6d1f244a0afbca1d9f" }
+cosmic-text = { git = "https://github.com/squidowl/cosmic-text", rev = "f959ab5f753a911ce3c3649c22494b07da5d5340" }
 
 [profile.packaging]
 inherits = "release"

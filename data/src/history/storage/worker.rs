@@ -28,7 +28,8 @@ pub(super) enum Command {
     Resend(client::ResendLookup),
     HighlightSource(crate::history::model::Navigation, crate::history::Id),
     MarkRead(Kind, Option<ReadMarker>, bool),
-    Exit(Vec<(Kind, bool)>, Option<Result<usize, Error>>),
+    MarkReadOnExit(Vec<Kind>),
+    Exit(Option<Result<usize, Error>>),
     Imported(
         Kind,
         Result<(Vec<message::Message>, Metadata), legacy::Error>,
@@ -59,9 +60,8 @@ impl Command {
                 vec![Kind::Highlights, Kind::from(navigation.buffer.clone())]
             }
             Self::Resend(lookup) => vec![Kind::from(lookup.buffer.clone())],
-            Self::Exit(histories, _) => {
-                histories.iter().map(|(kind, _)| kind.clone()).collect()
-            }
+            Self::MarkReadOnExit(kinds) => kinds.clone(),
+            Self::Exit(_) => vec![],
         }
     }
 }
@@ -535,39 +535,39 @@ impl State {
                     Err(error) => self.fail(error),
                 }
             }
-            Command::Exit(histories, input_saved) => {
+            Command::MarkReadOnExit(kinds) => {
                 let result = retry(|| {
                     let mut transaction = database.transaction()?;
                     let mut committed = vec![];
-                    for (kind, mark_latest) in &histories {
-                        if *mark_latest {
-                            let previous =
-                                transaction.get_metadata(kind)?.read_marker;
-                            let metadata = transaction.mark_as_read(kind)?;
-                            let advanced = metadata.read_marker > previous;
-                            committed.push(marked(
-                                kind.clone(),
-                                metadata,
-                                advanced,
-                            ));
-                        }
+                    for kind in &kinds {
+                        let previous =
+                            transaction.get_metadata(kind)?.read_marker;
+                        let metadata = transaction.mark_as_read(kind)?;
+                        let advanced = metadata.read_marker > previous;
+                        committed.push(marked(
+                            kind.clone(),
+                            metadata,
+                            advanced,
+                        ));
                     }
                     transaction.commit()?;
                     Ok(committed)
                 });
                 let (result, mut events) = match result {
-                    Ok(committed) => (
-                        database.shutdown().map_err(string),
-                        committed_events(committed),
-                    ),
+                    Ok(committed) => (Ok(()), committed_events(committed)),
                     Err(error) => (Err(error), vec![]),
                 };
+                events.push(Event::History(Message::MarkedReadOnExit(result)));
+                let _ = self.events.send(events);
+            }
+            Command::Exit(input_saved) => {
+                let result = database.shutdown().map_err(string);
                 if let Err(error) = &result {
                     self.fail(error.clone());
                 }
-                events
-                    .push(Event::History(Message::Exited(result, input_saved)));
-                let _ = self.events.send(events);
+                let _ = self.events.send(vec![Event::History(
+                    Message::Exited(result, input_saved),
+                )]);
             }
             Command::Imported(..) => {
                 unreachable!("import completions bypass pending operations")
@@ -638,7 +638,7 @@ fn reject(events: &Events, command: Command, error: &str) {
         Command::Resend(lookup) => {
             Event::Client(client::Message::ResendMessage(lookup, None))
         }
-        Command::Exit(_, input_saved) => {
+        Command::Exit(input_saved) => {
             Event::History(Message::Exited(Err(error.to_string()), input_saved))
         }
         _ => return,

@@ -454,7 +454,7 @@ impl Query {
                         }),
                     ),
                     Some(
-                        event @ (input_view::Event::NavigateFocus(_)
+                        event @ (input_view::Event::NavigateFocus(..)
                         | input_view::Event::ExitFocus
                         | input_view::Event::FocusAction(_)),
                     ) => {

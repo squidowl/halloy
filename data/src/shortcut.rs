@@ -158,6 +158,7 @@ pub enum Command {
     ScrollDownPage,
     ScrollToTop,
     ScrollToBottom,
+    ScrollToBacklog,
     CycleNextUnreadBuffer,
     CyclePreviousUnreadBuffer,
     MarkAsRead,
@@ -444,6 +445,7 @@ impl KeyBind {
     // Don't use HOME / END since text input is always focused
     default!(scroll_to_top, ArrowUp, COMMAND);
     default!(scroll_to_bottom, ArrowDown, COMMAND);
+    default!(scroll_to_backlog, PageUp, COMMAND);
     default!(cycle_next_unread_buffer, "`", CTRL);
     default!(cycle_previous_unread_buffer, "`", CTRL | SHIFT);
     // Command + m is minimize in macOS

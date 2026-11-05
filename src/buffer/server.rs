@@ -554,7 +554,7 @@ impl Server {
                         }),
                     ),
                     Some(
-                        input_view::Event::NavigateFocus(_)
+                        input_view::Event::NavigateFocus(..)
                         | input_view::Event::ExitFocus
                         | input_view::Event::FocusAction(_),
                     )

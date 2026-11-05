@@ -23,7 +23,7 @@ use iced::Length::Fit;
 use iced::advanced::widget::Tree;
 use iced::advanced::{Layout, Shell, mouse};
 use iced::keyboard::{Key, key};
-use iced::widget::text::{self, Shaping, Wrapping};
+use iced::widget::text::{self, Wrapping};
 use iced::widget::{
     self, Space, button, center, column, container, mouse_area, operation, row,
     rule, text_editor,
@@ -82,7 +82,7 @@ pub enum Event {
         upload_ids: Vec<u32>,
         abort_registrations: Vec<futures::future::AbortRegistration>,
     },
-    NavigateFocus(FocusDirection),
+    NavigateFocus(FocusDirection, bool),
     ExitFocus,
     FocusAction(FocusAction),
 }
@@ -131,7 +131,7 @@ pub enum Message {
     },
     ClearDraftReply,
     JoinChannel,
-    NavigateFocus(FocusDirection),
+    NavigateFocus(FocusDirection, bool),
     ExitFocus,
     FocusAction(FocusAction),
 }
@@ -378,7 +378,6 @@ pub fn view<'a>(
                             title,
                             keybind.map(|kb| {
                                 text(format!("({kb})"))
-                                    .shaping(Shaping::Advanced)
                                     .size(theme::TEXT_SIZE - 2.0)
                                     .style(theme::text::secondary)
                                     .font_maybe(
@@ -1262,20 +1261,10 @@ impl State {
                     (Task::none(), None)
                 }
             }
-            // Capture escape so that closing context menu or commands/emojis picker
-            // does not defocus input. Also exits message selection mode if active.
-            Message::Escape => {
-                if in_focus_mode {
-                    return (Task::none(), Some(Event::ExitFocus));
-                }
-                if self.close_picker() {
-                    return (Task::none(), None);
-                }
-                if self.clear_draft_reply(buffer, storage, config) {
-                    return (self.focus(), None);
-                }
-                (Task::none(), None)
-            }
+            // Capture escape so that closing context menu or commands/emojis
+            // picker does not defocus input.  Escape actions are handled by
+            // `Dashboard::handle_event` to allow global state to be considered.
+            Message::Escape => (Task::none(), None),
             Message::SendCommand { buffer, command } => {
                 let input = data::Input::from_command(buffer.clone(), command)
                     .encoded();
@@ -1468,8 +1457,8 @@ impl State {
                 self.spinner_hovered = hovered;
                 (Task::none(), None)
             }
-            Message::NavigateFocus(direction) => {
-                (Task::none(), Some(Event::NavigateFocus(direction)))
+            Message::NavigateFocus(direction, repeat) => {
+                (Task::none(), Some(Event::NavigateFocus(direction, repeat)))
             }
             Message::ExitFocus => (self.focus(), Some(Event::ExitFocus)),
             Message::FocusAction(action) => {

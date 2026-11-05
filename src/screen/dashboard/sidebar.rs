@@ -12,7 +12,7 @@ use data::{
     target,
 };
 use iced::Length::Shrink;
-use iced::widget::text::{Ellipsis, LineHeight, Shaping, Wrapping};
+use iced::widget::text::{Ellipsis, LineHeight, Wrapping};
 use iced::widget::{
     Column, Row, Scrollable, Space, button, column, container, pane_grid, row,
     rule, scrollable, space, stack,
@@ -23,6 +23,7 @@ use iced::{
 use itertools::Either;
 
 use super::{Focus, Panes, Server};
+use crate::buffer::typing;
 use crate::widget::text_color_svg::TextColorSvg;
 use crate::widget::{
     Element, Text, TextExt, context_menu, double_pass, image, text,
@@ -538,10 +539,10 @@ impl Sidebar {
 
         let base = button(
             sidebar_icon(
-                Some(Icon::Internal(icon)),
+                config,
+                Some(BufferIcon::Icon(Icon::Internal(icon))),
                 badge,
                 dimensions,
-                config.sidebar.position.is_horizontal(),
             )
             .into_iter()
             .next(),
@@ -585,7 +586,6 @@ impl Sidebar {
                                         },
                                     ) => Some(
                                         text(format!("({kb})"))
-                                            .shaping(Shaping::Advanced)
                                             .size(key_bind_font_size)
                                             .style(theme::text::secondary)
                                             .font_maybe(
@@ -793,7 +793,7 @@ impl Sidebar {
     pub fn view<'a>(
         &'a self,
         servers: &server::Map,
-        clients: &data::client::Map,
+        clients: &'a data::client::Map,
         models: &'a model::Manager,
         panes: &'a Panes,
         server_icons: &'a server_icon::Manager,
@@ -802,6 +802,7 @@ impl Sidebar {
         version: &'a Version,
         theme: &'a Theme,
         show_muted_buffers: bool,
+        typing_animation: Option<&'a typing::Animation>,
     ) -> Option<Element<'a, Message>> {
         if self.hidden {
             return None;
@@ -886,6 +887,7 @@ impl Sidebar {
                                     has_collapsible_buffers,
                                 server_has_unread,
                                 supports_detach,
+                                clients,
                                 casemapping,
                                 server_icon_enabled,
                                 server_sidebar_visibility,
@@ -893,6 +895,7 @@ impl Sidebar {
                                 width,
                                 theme,
                                 collapse: &self.collapse,
+                                typing_animation,
                             };
 
                             buffers.push(upstream_buffer_button(context));
@@ -1420,6 +1423,7 @@ struct UpstreamButtonContext<'a> {
     server_has_collapsible_buffers: bool,
     server_has_unread: bool,
     supports_detach: bool,
+    clients: &'a data::client::Map,
     casemapping: isupport::CaseMap,
     server_icon_enabled: bool,
     server_sidebar_visibility: SidebarVisibility,
@@ -1427,6 +1431,7 @@ struct UpstreamButtonContext<'a> {
     width: Length,
     theme: &'a Theme,
     collapse: &'a collapse::State,
+    typing_animation: Option<&'a typing::Animation>,
 }
 
 fn upstream_buffer_title<'a>(
@@ -1452,7 +1457,6 @@ fn upstream_buffer_title<'a>(
                         .size(font_size)
                         .style(title_style)
                         .font_maybe(title_font.clone())
-                        .shaping(Shaping::Advanced)
                         .wrapping(Wrapping::None)
                         .ellipsis(Ellipsis::End)
                         .into(),
@@ -1462,7 +1466,6 @@ fn upstream_buffer_title<'a>(
                         .size(font_size)
                         .style(theme::text::secondary)
                         .font_maybe(title_font)
-                        .shaping(Shaping::Advanced)
                         .wrapping(Wrapping::None)
                         .ellipsis(Ellipsis::End)
                         .into(),
@@ -1474,7 +1477,6 @@ fn upstream_buffer_title<'a>(
                         .size(font_size)
                         .style(title_style)
                         .font_maybe(title_font)
-                        .shaping(Shaping::Advanced)
                         .wrapping(Wrapping::None)
                         .ellipsis(Ellipsis::End)
                         .into(),
@@ -1501,7 +1503,6 @@ fn upstream_buffer_title<'a>(
                     )
                     .style(title_style)
                     .font_maybe(title_font)
-                    .shaping(Shaping::Advanced)
                     .wrapping(Wrapping::None)
                     .ellipsis(Ellipsis::End)
                     .into(),
@@ -1520,13 +1521,17 @@ fn upstream_buffer_title<'a>(
                     )
                     .style(title_style)
                     .font_maybe(title_font)
-                    .shaping(Shaping::Advanced)
                     .wrapping(Wrapping::None)
                     .ellipsis(Ellipsis::End)
                     .into(),
             ]
         }
     }
+}
+
+enum BufferIcon<'a> {
+    Icon(Icon<'a>),
+    Typing(Element<'a, Message>),
 }
 
 fn upstream_buffer_button<'a>(
@@ -1542,6 +1547,7 @@ fn upstream_buffer_button<'a>(
         channel_state,
         connection_status,
         server_has_collapsible_buffers,
+        clients,
         casemapping,
         server_icon_enabled,
         server_sidebar_visibility,
@@ -1549,6 +1555,7 @@ fn upstream_buffer_button<'a>(
         width,
         theme,
         collapse,
+        typing_animation,
         ..
     } = &context;
 
@@ -1580,6 +1587,15 @@ fn upstream_buffer_button<'a>(
     let show_highlight_title =
         indicators.highlight && config.sidebar.highlight_indicator.title;
 
+    let is_query_with_typing = if config.sidebar.can_show_typing()
+        && let buffer::Upstream::Query(server, query) = &buffer
+    {
+        clients.get_server_show_typing(server)
+            && clients.has_query_typing_users(server, query)
+    } else {
+        false
+    };
+
     let buffer_title_style = if show_highlight_title {
         theme::text::highlight_indicator
     } else if show_unread_title {
@@ -1610,14 +1626,24 @@ fn upstream_buffer_button<'a>(
         if *server_icon_enabled
             && let Some(server_icon) = server_icons.get(server)
         {
-            Some(Icon::Upstream(server_icon))
+            Some(BufferIcon::Icon(Icon::Upstream(server_icon)))
         } else {
-            Some(Icon::Internal(if server.is_bouncer_network() {
-                icon::link()
-            } else {
-                icon::connected()
-            }))
+            Some(BufferIcon::Icon(Icon::Internal(
+                if server.is_bouncer_network() {
+                    icon::link()
+                } else {
+                    icon::connected()
+                },
+            )))
         }
+    } else if is_query_with_typing {
+        typing::animate_for_sidebar::<_>(
+            *typing_animation,
+            config.sidebar.typing_indicator.icon_height,
+            &config.buffer.typing.animation,
+            theme.styles().text.secondary.color,
+        )
+        .map(BufferIcon::Typing)
     } else {
         None
     };
@@ -1668,22 +1694,17 @@ fn upstream_buffer_button<'a>(
         None
     };
 
-    let sidebar_icon_height = if icon.is_some() {
-        dimensions
+    let sidebar_icon_height = match icon {
+        Some(BufferIcon::Icon(_)) => dimensions
             .icon_size
-            .max(indicator.as_ref().map_or(0, |_| dimensions.icon_badge_size))
-    } else {
-        indicator.as_ref().map_or(1, |(_, size)| *size)
+            .max(indicator.as_ref().map_or(0, |_| dimensions.icon_badge_size)),
+        Some(BufferIcon::Typing(_)) => dimensions.typing_indicator_height,
+        None => indicator.as_ref().map_or(1, |(_, size)| *size),
     };
 
     let mut content = row![].align_y(iced::Alignment::Center);
 
-    content = content.extend(sidebar_icon(
-        icon,
-        indicator,
-        dimensions,
-        config.sidebar.position.is_horizontal(),
-    ));
+    content = content.extend(sidebar_icon(config, icon, indicator, dimensions));
 
     content = content.extend(upstream_buffer_title(
         config,
@@ -2153,10 +2174,10 @@ fn internal_buffer_button<'a>(
     let mut content = row![].align_y(iced::Alignment::Center);
 
     content = content.extend(sidebar_icon(
-        icon.map(Icon::Internal),
+        config,
+        icon.map(|icon| BufferIcon::Icon(Icon::Internal(icon))),
         badge,
         dimensions,
-        config.sidebar.position.is_horizontal(),
     ));
 
     content = content.push(
@@ -2172,7 +2193,6 @@ fn internal_buffer_button<'a>(
             )
             .style(theme::text::primary)
             .font_maybe(theme::font_style::primary(theme).map(font::get))
-            .shaping(Shaping::Advanced)
             .wrapping(Wrapping::None)
             .ellipsis(Ellipsis::End),
     );
@@ -2326,94 +2346,116 @@ enum Icon<'a> {
 }
 
 fn sidebar_icon<'a>(
-    icon: Option<Icon<'a>>,
+    config: &'a Config,
+    icon: Option<BufferIcon<'a>>,
     indicator: Option<(TextColorSvg<'a, Theme>, u32)>,
     dimensions: Dimensions,
-    sidebar_is_horizontal: bool,
 ) -> impl IntoIterator<Item = Element<'a, Message>> {
     let (icon, icon_height, icon_left_spacing): (
         Option<Element<'a, Message>>,
         u32,
         f32,
-    ) = if let Some(icon) = icon {
-        let icon: Element<'a, Message> = container(match icon {
-            Icon::Upstream(server_icon) => {
-                image::from_data(server_icon, true, ContentFit::Contain)
-            }
-            Icon::Internal(icon) => icon.into(),
-        })
-        .width(dimensions.icon_size)
-        .height(dimensions.icon_size)
-        .into();
+    ) = match icon {
+        Some(BufferIcon::Icon(icon)) => {
+            let icon: Element<'a, Message> = match icon {
+                Icon::Upstream(server_icon) => container(image::from_data(
+                    server_icon,
+                    true,
+                    ContentFit::Contain,
+                ))
+                .width(dimensions.icon_size)
+                .height(dimensions.icon_size)
+                .into(),
+                Icon::Internal(icon) => container(icon)
+                    .width(dimensions.icon_size)
+                    .height(dimensions.icon_size)
+                    .into(),
+            };
 
-        let badge: Option<Element<'a, Message>> =
-            indicator.map(move |(indicator, _)| {
-                container(
-                    indicator
-                        .width(Length::Shrink)
-                        .content_fit(ContentFit::Contain),
-                )
-                .style(move |theme: &Theme| container::Style {
-                    text_color: None,
-                    background: Some(
-                        theme.styles().buttons.primary.background.into(),
-                    ),
-                    border: Border {
-                        radius: dimensions.icon_badge_size.into(),
-                        ..Border::default()
-                    },
-                    ..container::Style::default()
-                })
-                .width(dimensions.icon_badge_size)
-                .height(dimensions.icon_badge_size)
-                .padding(dimensions.icon_badge_padding as f32)
-                .into()
-            });
+            let badge: Option<Element<'a, Message>> =
+                indicator.map(move |(indicator, _)| {
+                    container(
+                        indicator
+                            .width(Length::Shrink)
+                            .content_fit(ContentFit::Contain),
+                    )
+                    .style(move |theme: &Theme| container::Style {
+                        text_color: None,
+                        background: Some(
+                            theme.styles().buttons.primary.background.into(),
+                        ),
+                        border: Border {
+                            radius: dimensions.icon_badge_size.into(),
+                            ..Border::default()
+                        },
+                        ..container::Style::default()
+                    })
+                    .width(dimensions.icon_badge_size)
+                    .height(dimensions.icon_badge_size)
+                    .padding(dimensions.icon_badge_padding as f32)
+                    .into()
+                });
 
-        (
-            Some(
-                stack![
-                    row![
-                        Space::new().width(dimensions.icon_badge_padding),
-                        column![
-                            Space::new().height(dimensions.icon_badge_padding),
-                            icon
+            (
+                Some(
+                    stack![
+                        row![
+                            Space::new().width(dimensions.icon_badge_padding),
+                            column![
+                                Space::new()
+                                    .height(dimensions.icon_badge_padding),
+                                icon
+                            ]
                         ]
+                        .align_y(iced::Alignment::Center),
+                        badge,
                     ]
-                    .align_y(iced::Alignment::Center),
-                    badge,
-                ]
-                .into(),
-            ),
-            dimensions.icon_size,
+                    .into(),
+                ),
+                dimensions.icon_size,
+                dimensions
+                    .max_indicator_size()
+                    .saturating_sub(dimensions.icon_badge_size)
+                    as f32
+                    / 2.0,
+            )
+        }
+        Some(BufferIcon::Typing(typing_indicator)) => (
+            Some(typing_indicator),
+            dimensions.typing_indicator_height,
             dimensions
                 .max_indicator_size()
-                .saturating_sub(dimensions.icon_badge_size) as f32
+                .saturating_sub(dimensions.typing_indicator_width)
+                as f32
                 / 2.0,
-        )
-    } else if let Some((indicator, indicator_size)) = indicator {
-        (
-            Some(
-                container(
-                    indicator
-                        .width(Length::Shrink)
-                        .content_fit(ContentFit::Contain),
+        ),
+        None => {
+            if let Some((indicator, indicator_size)) = indicator {
+                (
+                    Some(
+                        container(
+                            indicator
+                                .width(Length::Shrink)
+                                .content_fit(ContentFit::Contain),
+                        )
+                        .width(indicator_size)
+                        .height(indicator_size)
+                        .into(),
+                    ),
+                    indicator_size,
+                    dimensions
+                        .max_indicator_size()
+                        .saturating_sub(indicator_size)
+                        as f32
+                        / 2.0,
                 )
-                .width(indicator_size)
-                .height(indicator_size)
-                .into(),
-            ),
-            indicator_size,
-            dimensions
-                .max_indicator_size()
-                .saturating_sub(indicator_size) as f32
-                / 2.0,
-        )
-    } else {
-        (None, 1, 0.0)
+            } else {
+                (None, 1, 0.0)
+            }
+        }
     };
 
-    if sidebar_is_horizontal {
+    if config.sidebar.position.is_horizontal() {
         if let Some(icon) = icon {
             Either::Left(vec![icon, Space::new().width(8).into()].into_iter())
         } else {
@@ -2424,7 +2466,7 @@ fn sidebar_icon<'a>(
             vec![
                 stack![
                     Space::new()
-                        .width(dimensions.max_icon_size())
+                        .width(dimensions.max_icon_width())
                         .height(icon_height),
                     icon.map(|icon| row![
                         Space::new().width(icon_left_spacing),
@@ -2446,6 +2488,8 @@ struct Dimensions {
     icon_badge_padding: u32,
     unread_indicator_size: u32,
     highlight_indicator_size: u32,
+    typing_indicator_width: u32,
+    typing_indicator_height: u32,
 }
 
 impl From<&config::sidebar::Sidebar> for Dimensions {
@@ -2475,12 +2519,27 @@ impl From<&config::sidebar::Sidebar> for Dimensions {
             0
         };
 
+        let (typing_indicator_width, typing_indicator_height) = if config
+            .typing_indicator
+            .can_show(config.position.is_horizontal())
+        {
+            (
+                3 * config.typing_indicator.icon_height
+                    + 2 * typing::DOT_SIDEBAR_SPACING,
+                config.typing_indicator.icon_height,
+            )
+        } else {
+            (0, 0)
+        };
+
         Self {
             icon_size,
             icon_badge_size,
             icon_badge_padding,
             unread_indicator_size,
             highlight_indicator_size,
+            typing_indicator_width,
+            typing_indicator_height,
         }
     }
 }
@@ -2490,12 +2549,14 @@ impl Dimensions {
         self.icon_badge_size
             .max(self.unread_indicator_size)
             .max(self.highlight_indicator_size)
+            .max(self.typing_indicator_height)
     }
 
-    fn max_icon_size(&self) -> u32 {
+    fn max_icon_width(&self) -> u32 {
         self.icon_size
             .max(self.unread_indicator_size)
             .max(self.highlight_indicator_size)
+            .max(self.typing_indicator_width)
     }
 }
 
