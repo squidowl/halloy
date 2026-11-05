@@ -21,6 +21,7 @@ use super::{
 use crate::buffer::{self, BuffersContext};
 use crate::client::ClientsContext;
 use crate::config::buffer::OnMessage;
+use crate::config::sidebar::RestoreOnLaunch;
 use crate::message::{self, Searchable, Source, Temporal, broadcast, source};
 use crate::target::{self, Target};
 use crate::user::Nick;
@@ -831,17 +832,14 @@ impl Manager {
     pub fn update_saved_buffers(
         &mut self,
         clients: &client::Map,
-        remember_buffers: bool,
+        restore_on_launch: RestoreOnLaunch,
     ) -> bool {
         if self.exiting {
             return false;
         }
 
-        let buffers = if remember_buffers {
-            sidebar_buffers(&self.storage, clients)
-        } else {
-            HashSet::new()
-        };
+        let buffers =
+            sidebar_buffers(&self.storage, clients, restore_on_launch);
 
         if buffers == self.saved_buffers {
             return false;
@@ -865,8 +863,18 @@ impl Manager {
         &mut self,
         buffers: Vec<(Server, Target)>,
         servers: &server::ConfigMap,
+        restore_on_launch: RestoreOnLaunch,
     ) {
         for (server, target) in buffers {
+            let restore = match target {
+                Target::Channel(_) => restore_on_launch.includes_channels(),
+                Target::Query(_) => restore_on_launch.includes_queries(),
+            };
+
+            if !restore {
+                continue;
+            }
+
             let Some(config) = servers.get(&server.name) else {
                 continue;
             };
@@ -1176,21 +1184,33 @@ impl Manager {
 fn sidebar_buffers(
     storage: &HashMap<Kind, Storage>,
     clients: &client::Map,
+    restore_on_launch: RestoreOnLaunch,
 ) -> HashSet<Kind> {
+    let include_channels = restore_on_launch.includes_channels();
+    let include_queries = restore_on_launch.includes_queries();
+
     let shown = storage
         .iter()
         .filter(|(kind, storage)| {
-            matches!(kind, Kind::Channel(..) | Kind::Query(..))
-                && storage.show_in_sidebar
+            let included = match kind {
+                Kind::Channel(..) => include_channels,
+                Kind::Query(..) => include_queries,
+                _ => false,
+            };
+
+            included && storage.show_in_sidebar
         })
         .map(|(kind, _)| kind.clone());
 
     // joined channels show before their join is committed to storage
-    let joined = clients.connected_servers().flat_map(|server| {
-        clients
-            .get_channels(server)
-            .map(|channel| Kind::Channel(server.clone(), channel.clone()))
-    });
+    let joined = clients
+        .connected_servers()
+        .filter(|_| include_channels)
+        .flat_map(|server| {
+            clients
+                .get_channels(server)
+                .map(|channel| Kind::Channel(server.clone(), channel.clone()))
+        });
 
     shown.chain(joined).collect()
 }

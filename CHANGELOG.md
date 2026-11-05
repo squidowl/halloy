@@ -2,8 +2,7 @@
 
 Added:
 
-- Added `sidebar.remember_buffers`. When enabled, buffers that were in the
-  sidebar during the last session will be restored in a disconnected state.
+- Added `sidebar.restore_on_launch`. This setting can restore queries and/or channels that were in the sidebar during the last session.
 
 Changed:
 

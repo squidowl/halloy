@@ -4158,7 +4158,7 @@ impl Dashboard {
         }
 
         if storage
-            .update_saved_buffers(clients, config.sidebar.remember_buffers)
+            .update_saved_buffers(clients, config.sidebar.restore_on_launch)
         {
             self.last_changed = Some(now);
         }
@@ -4428,9 +4428,11 @@ impl Dashboard {
 
         let mut tasks = vec![sidebar_task.map(Message::Sidebar)];
 
-        if config.sidebar.remember_buffers {
-            storage.restore_saved_buffers(data.buffers, &config.servers);
-        }
+        storage.restore_saved_buffers(
+            data.buffers,
+            &config.servers,
+            config.sidebar.restore_on_launch,
+        );
 
         for pane in data.popout_panes {
             // Popouts are only a single pane
@@ -4639,7 +4641,7 @@ impl Dashboard {
         config: &Config,
     ) -> Option<Task<Message>> {
         if storage
-            .update_saved_buffers(clients, config.sidebar.remember_buffers)
+            .update_saved_buffers(clients, config.sidebar.restore_on_launch)
         {
             self.last_changed = Some(Instant::now());
         }
