@@ -700,11 +700,14 @@ fn join_banner<'a>(config: &'a Config) -> Element<'a, Message> {
         rule::horizontal(1.0).style(theme::rule::primary),
         container(
             row![
-                text("You have left this channel")
-                    .size(font_size - 1.0)
-                    .line_height(1.0)
-                    .style(theme::text::primary)
-                    .width(Length::Fill),
+                container(
+                    text("You have left this channel")
+                        .size(font_size - 1.0)
+                        .line_height(1.0)
+                        .style(theme::text::primary),
+                )
+                .padding([4, 0])
+                .width(Length::Fill),
                 button(text("Join").size(font_size - 1.0).line_height(1.0))
                     .padding(5)
                     .style(|theme, status| {
