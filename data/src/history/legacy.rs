@@ -1,13 +1,13 @@
 use std::path::Path;
 use std::{fs, io};
 
-use chrono::{DateTime, Utc};
 use hashbrown::HashSet;
+use jiff::Timestamp;
 use serde::Deserialize;
 
-use super::{Id, Kind, Metadata};
+use super::{Id, Kind, Metadata, ReadMarker};
 use crate::message::{self, Content, MessageReferences, Source, Time};
-use crate::serde::{deserialize_date_time_utc_or_epoch, fail_as_none};
+use crate::serde::{deserialize_timestamp_or_epoch, fail_as_none};
 use crate::user::Nick;
 use crate::{
     Server, command, compression, config, isupport, reaction, redaction, target,
@@ -15,17 +15,8 @@ use crate::{
 
 pub fn exists(data_dir: &Path, kind: &Kind) -> Result<bool, io::Error> {
     let (name, metadata_name) = names(kind);
-    let development = data_dir.join("msdb");
     let released = data_dir.join("history");
     // A missing archive is normal; inaccessible paths must still fail migration.
-    if !name.contains('\0')
-        && (development.join(format!("{name}.json.gz")).try_exists()?
-            || development
-                .join(format!("{metadata_name}.json"))
-                .try_exists()?)
-    {
-        return Ok(true);
-    }
     Ok(released
         .join(format!("{}.json.gz", seahash::hash(name.as_bytes())))
         .try_exists()?
@@ -68,53 +59,6 @@ pub fn load(
     server_messages_config: &config::buffer::ServerMessages,
 ) -> Result<(Vec<message::Message>, Metadata), Error> {
     let (name, metadata_name) = names(kind);
-    let development = data_dir.join("msdb");
-    // Bouncer identities contain a NUL separator valid only before hashing.
-    let (messages, metadata) = if name.contains('\0') {
-        (None, None)
-    } else {
-        (
-            read_optional(&development.join(format!("{name}.json.gz")))?,
-            read_optional(&development.join(format!("{metadata_name}.json")))?,
-        )
-    };
-    if messages.is_some() || metadata.is_some() {
-        let mut messages: Vec<message::Message> = messages
-            .map(|bytes| compression::decompress(&bytes))
-            .transpose()?
-            .unwrap_or_default();
-        for message in &mut messages {
-            message.history_id = Id::Undetermined;
-            if let message::Target::Highlights { history_id, .. }
-            | message::Target::ChannelMonitor { history_id, .. } =
-                &mut message.target
-            {
-                *history_id = Id::Undetermined;
-            }
-        }
-        let mut metadata: Metadata = metadata
-            .map(|bytes| serde_json::from_slice(&bytes))
-            .transpose()?
-            .unwrap_or_default();
-        // Experimental msdb metadata may contain references from rerouted PMs.
-        metadata.latest_chathistory_references = messages
-            .iter()
-            .filter(|message| {
-                !message.is_rerouted()
-                    && message.can_reference(&[
-                        isupport::MessageReferenceType::MessageId,
-                        isupport::MessageReferenceType::Timestamp,
-                    ])
-            })
-            .max_by_key(|message| message.time)
-            .map(|message| (message.time, message.references()));
-        merge_message_metadata(
-            &mut metadata,
-            &messages,
-            server_messages_config,
-        );
-        return Ok((messages, metadata));
-    }
     let released = data_dir.join("history");
     let messages = read_optional(
         &released.join(format!("{}.json.gz", seahash::hash(name.as_bytes()))),
@@ -131,9 +75,10 @@ pub fn load(
     .unwrap_or_default();
     let mut metadata = Metadata {
         read_marker: metadata.read_marker,
-        latest: messages.iter().map(|message| message.time.utc).max(),
+        latest: messages.iter().map(|message| message.time.stamp).max(),
         latest_triggers_unread: metadata.last_triggers_unread,
         latest_triggers_highlight: metadata.last_triggers_highlight,
+
         latest_chathistory_references: metadata.chathistory_references.map(
             |references| {
                 (
@@ -165,7 +110,7 @@ pub fn load(
         metadata.latest_chathistory_references = Some((
             message.time,
             MessageReferences {
-                timestamp: Some(message.time.utc),
+                timestamp: Some(message.time.stamp),
                 id: message.id.clone(),
             },
         ));
@@ -179,15 +124,16 @@ fn merge_message_metadata(
     server_messages_config: &config::buffer::ServerMessages,
 ) {
     for message in messages {
-        metadata.latest = metadata.latest.max(Some(message.time.utc));
+        metadata.latest = metadata.latest.max(Some(message.time.stamp));
         if message.triggers_unread(server_messages_config) {
-            metadata.latest_triggers_unread =
-                metadata.latest_triggers_unread.max(Some(message.time.utc));
+            metadata.latest_triggers_unread = metadata
+                .latest_triggers_unread
+                .max(Some(message.time.stamp));
         }
         if message.triggers_highlight() {
             metadata.latest_triggers_highlight = metadata
                 .latest_triggers_highlight
-                .max(Some(message.time.utc));
+                .max(Some(message.time.stamp));
         }
     }
 }
@@ -207,21 +153,21 @@ fn decode(bytes: &[u8]) -> Result<Vec<message::Message>, Error> {
 
 #[derive(Deserialize, Default)]
 struct ReleasedMetadata {
-    read_marker: Option<super::ReadMarker>,
-    last_triggers_unread: Option<DateTime<Utc>>,
-    last_triggers_highlight: Option<DateTime<Utc>>,
+    read_marker: Option<ReadMarker>,
+    last_triggers_unread: Option<Timestamp>,
+    last_triggers_highlight: Option<Timestamp>,
     chathistory_references: Option<ReleasedReferences>,
 }
 
 #[derive(Deserialize)]
 struct ReleasedReferences {
-    timestamp: DateTime<Utc>,
+    timestamp: Timestamp,
     id: Option<message::Id>,
 }
 
 #[derive(Deserialize)]
 struct Message {
-    server_time: DateTime<Utc>,
+    server_time: Timestamp,
     direction: Direction,
     target: Target,
     #[serde(default, deserialize_with = "fail_as_none")]
@@ -254,7 +200,7 @@ impl Message {
         message::Message {
             history_id: Id::Undetermined,
             time: Time {
-                utc: self.server_time,
+                stamp: self.server_time,
                 source: if self.received_with_server_time {
                     message::time::Source::Server
                 } else {
@@ -417,8 +363,8 @@ struct Reaction {
     unreact: bool,
     #[serde(default, deserialize_with = "fail_as_none")]
     id: Option<message::Id>,
-    #[serde(default, deserialize_with = "deserialize_date_time_utc_or_epoch")]
-    server_time: DateTime<Utc>,
+    #[serde(default, deserialize_with = "deserialize_timestamp_or_epoch")]
+    server_time: Timestamp,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -471,7 +417,7 @@ mod tests {
         assert_eq!(message.content.text(), "see https://halloy.chat");
         assert_eq!(message.reactions.len(), 2);
         let reaction = &message.reactions[0];
-        assert_eq!(reaction.time.utc.to_rfc3339(), "2026-01-02T03:04:05+00:00");
+        assert_eq!(reaction.time.stamp.to_string(), "2026-01-02T03:04:05Z");
         assert!(matches!(
             reaction.time.source,
             message::time::Source::Client
@@ -479,7 +425,7 @@ mod tests {
         assert_eq!(reaction.text, "👍");
         assert!(reaction.id.is_some());
         assert!(!reaction.unreact);
-        assert_eq!(message.reactions[1].time.utc, DateTime::UNIX_EPOCH);
+        assert_eq!(message.reactions[1].time.stamp, Timestamp::UNIX_EPOCH);
         assert!(message.reactions[1].id.is_none());
         assert!(message.reactions[1].unreact);
         assert!(message.reply_to.is_some());

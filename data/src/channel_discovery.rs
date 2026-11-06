@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 
-use chrono::{DateTime, Utc};
 use hashbrown::HashMap;
+use jiff::{SignedDuration, Timestamp};
 use nucleo_matcher::pattern::{AtomKind, CaseMatching, Normalization, Pattern};
 use nucleo_matcher::{Config, Matcher, Utf32Str};
 
@@ -17,9 +17,9 @@ pub struct Manager {
 
 #[derive(Clone, Debug)]
 pub enum Status {
-    Requested(DateTime<Utc>),
-    Receiving(DateTime<Utc>),
-    Updated(DateTime<Utc>),
+    Requested(Timestamp),
+    Receiving(Timestamp),
+    Updated(Timestamp),
 }
 
 impl Manager {
@@ -56,12 +56,12 @@ impl Manager {
     pub fn needs_refetch(&self) -> bool {
         self.status.as_ref().is_some_and(|status| match status {
             Status::Requested(activity) | Status::Receiving(activity) => {
-                Utc::now().signed_duration_since(activity)
-                    > chrono::Duration::minutes(2)
+                Timestamp::now().duration_since(*activity)
+                    > SignedDuration::from_mins(2)
             }
             Status::Updated(last_updated) => {
-                Utc::now().signed_duration_since(last_updated)
-                    > chrono::Duration::minutes(5)
+                Timestamp::now().duration_since(*last_updated)
+                    > SignedDuration::from_mins(5)
             }
         })
     }

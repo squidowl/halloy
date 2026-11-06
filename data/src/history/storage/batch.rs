@@ -1,6 +1,6 @@
-use chrono::{DateTime, Utc};
 use hashbrown::{HashMap, HashSet};
 use indexmap::IndexMap;
+use jiff::Timestamp;
 
 use super::{Error, Event, Update};
 use crate::buffer::BuffersContext;
@@ -20,7 +20,7 @@ pub struct Batch {
     histories: Vec<HistoryBatch>,
     filters: Vec<Filter>,
     buffer: config::Buffer,
-    captured_at: DateTime<Utc>,
+    captured_at: Timestamp,
 }
 
 #[derive(Debug)]
@@ -81,7 +81,7 @@ pub struct Committed {
     pub metadata: Metadata,
     pub display_read_marker: Option<ReadMarker>,
     pub show_in_sidebar: Option<bool>,
-    pub admitted_latest: Option<DateTime<Utc>>,
+    pub admitted_latest: Option<Timestamp>,
     pub events: Vec<Event>,
 }
 
@@ -192,7 +192,7 @@ impl Batch {
             histories,
             filters: filters.to_vec(),
             buffer: config.buffer.clone(),
-            captured_at: Utc::now(),
+            captured_at: Timestamp::now(),
         }
     }
 
@@ -409,8 +409,9 @@ impl Batch {
                             &stored,
                             server_messages_config,
                         );
-                        monitor.admitted_latest =
-                            monitor.admitted_latest.max(Some(stored.time.utc));
+                        monitor.admitted_latest = monitor
+                            .admitted_latest
+                            .max(Some(stored.time.stamp));
                         if update_display_read_marker || update_read_marker {
                             monitor.display_read_marker = monitor
                                 .display_read_marker
@@ -430,7 +431,7 @@ impl Batch {
                     server_messages_config,
                 );
                 result.admitted_latest =
-                    result.admitted_latest.max(Some(stored.time.utc));
+                    result.admitted_latest.max(Some(stored.time.stamp));
                 if stored.triggers_unread(server_messages_config) {
                     show_marker =
                         show_marker.max(Some(ReadMarker::from(&stored)));
@@ -598,15 +599,16 @@ fn update_metadata(
     message: &message::Message,
     server_messages_config: &config::buffer::ServerMessages,
 ) {
-    metadata.latest = metadata.latest.max(Some(message.time.utc));
+    metadata.latest = metadata.latest.max(Some(message.time.stamp));
     if message.triggers_unread(server_messages_config) {
-        metadata.latest_triggers_unread =
-            metadata.latest_triggers_unread.max(Some(message.time.utc));
+        metadata.latest_triggers_unread = metadata
+            .latest_triggers_unread
+            .max(Some(message.time.stamp));
     }
     if message.triggers_highlight() {
         metadata.latest_triggers_highlight = metadata
             .latest_triggers_highlight
-            .max(Some(message.time.utc));
+            .max(Some(message.time.stamp));
     }
 }
 

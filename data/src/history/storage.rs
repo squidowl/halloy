@@ -5,10 +5,11 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{fs, io};
 
-use chrono::{self, DateTime, Local, NaiveDate, Utc};
 use hashbrown::{HashMap, HashSet, hash_map};
 use iced::Task;
 use itertools::Itertools;
+use jiff::civil::Date;
+use jiff::{SignedDuration, Timestamp};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
@@ -62,7 +63,7 @@ pub enum Event {
 #[derive(Debug, Clone, Copy)]
 pub enum ReferenceQuery {
     Oldest,
-    Before(DateTime<Utc>),
+    Before(Timestamp),
 }
 
 #[derive(Debug)]
@@ -305,15 +306,17 @@ impl Manager {
                 }
 
                 let seen = match update {
-                    Update::Message(_, message) => message
-                        .inner
-                        .user()
-                        .map(|user| (user.nickname(), message.inner.time.utc)),
-                    Update::Reaction(_, reaction) => {
-                        Some((&reaction.inner.sender, reaction.inner.time.utc))
+                    Update::Message(_, message) => {
+                        message.inner.user().map(|user| {
+                            (user.nickname(), message.inner.time.stamp)
+                        })
                     }
+                    Update::Reaction(_, reaction) => Some((
+                        &reaction.inner.sender,
+                        reaction.inner.time.stamp,
+                    )),
                     Update::Redaction(_, redaction) => {
-                        Some((&redaction.inner.from, redaction.time.utc))
+                        Some((&redaction.inner.from, redaction.time.stamp))
                     }
                     _ => None,
                 };
@@ -719,7 +722,7 @@ impl Manager {
     pub fn last_received_chathistory_targets(
         &self,
         server: &Server,
-    ) -> Option<DateTime<Utc>> {
+    ) -> Option<Timestamp> {
         let path = chathistory_targets_path(server).ok()?;
 
         let bytes = fs::read(path).ok()?;
@@ -730,7 +733,7 @@ impl Manager {
     pub fn update_last_received_chathistory_targets(
         &self,
         server: &Server,
-        timestamp: DateTime<Utc>,
+        timestamp: Timestamp,
     ) {
         match write_chathistory_targets_timestamp(server, timestamp) {
             Ok(()) => {
@@ -1038,7 +1041,7 @@ impl Manager {
     pub fn get_last_seen(
         &self,
         buffer: &buffer::Upstream,
-    ) -> Option<&HashMap<Nick, DateTime<Utc>>> {
+    ) -> Option<&HashMap<Nick, Timestamp>> {
         let kind = Kind::from(buffer.clone());
 
         self.storage
@@ -1076,13 +1079,13 @@ impl Manager {
 pub struct Storage {
     kind: Kind,
     show_in_sidebar: bool,
-    latest: Option<DateTime<Utc>>,
-    latest_triggers_unread: Option<DateTime<Utc>>,
-    latest_triggers_highlight: Option<DateTime<Utc>>,
+    latest: Option<Timestamp>,
+    latest_triggers_unread: Option<Timestamp>,
+    latest_triggers_highlight: Option<Timestamp>,
     display_read_marker: Option<ReadMarker>,
     read_marker: Option<ReadMarker>,
     read_cache: ReadCache,
-    last_seen: HashMap<Nick, DateTime<Utc>>,
+    last_seen: HashMap<Nick, Timestamp>,
     auto_read: Option<ReadMarker>,
     importing: bool,
 }
@@ -1373,10 +1376,10 @@ fn block_messages(
     clients_context: &dyn ClientsContext,
     buffer_config: &config::Buffer,
 ) {
-    let current_time = Utc::now();
+    let current_time = Timestamp::now();
 
-    let mut last_seen = HashMap::<Nick, DateTime<Utc>>::new();
-    let mut last_away = HashMap::<Nick, DateTime<Utc>>::new();
+    let mut last_seen = HashMap::<Nick, Timestamp>::new();
+    let mut last_away = HashMap::<Nick, Timestamp>::new();
 
     messages.iter_mut().for_each(|message| {
         message.blocked = false;
@@ -1428,7 +1431,7 @@ fn block_messages(
                                 if !message.blocked {
                                     last_away.insert(
                                         nick.clone(),
-                                        message.time().utc,
+                                        message.time().stamp,
                                     );
                                 }
                             }
@@ -1445,7 +1448,7 @@ fn block_messages(
                 Source::User(message_user) => {
                     last_seen.insert(
                         message_user.nickname().to_owned(),
-                        message.time().utc,
+                        message.time().stamp,
                     );
                 }
                 Source::Internal(source::Internal::Status(status)) => {
@@ -1477,7 +1480,7 @@ fn condense_messages(
 ) {
     #[derive(PartialEq)]
     enum CondensationKey {
-        Condensable(NaiveDate),
+        Condensable(Date),
         Singular,
     }
 
@@ -1489,9 +1492,7 @@ fn condense_messages(
                 .inner
                 .can_condense(&buffer_config.server_messages.condense)
             {
-                CondensationKey::Condensable(
-                    message.time().utc.with_timezone(&Local).date_naive(),
-                )
+                CondensationKey::Condensable(message.time().system_date())
             } else {
                 CondensationKey::Singular
             }
@@ -1557,9 +1558,9 @@ fn populate_messages_reply_previews(
             if positions.is_empty() {
                 return None;
             }
-            let start = message.time().utc + chrono::Duration::seconds(1);
+            let start = message.time().stamp + SignedDuration::from_secs(1);
             let split = messages
-                .binary_search_by(|stored| stored.time().utc.cmp(&start))
+                .binary_search_by(|stored| stored.time().stamp.cmp(&start))
                 .unwrap_or_else(|position| position);
             let before =
                 positions.partition_point(|position| *position < split);
@@ -1627,21 +1628,21 @@ pub(super) fn reconcile_message(
         message.inner.is_echo() && message.labeled_response_context.is_none();
 
     let fuzz_seconds = if message_is_unlabeled_echo {
-        chrono::Duration::seconds(300)
+        SignedDuration::from_secs(300)
     } else {
-        chrono::Duration::seconds(1)
+        SignedDuration::from_secs(1)
     };
 
     let mut replaced_sent = false;
 
     if let Some(labeled_response_context) = &message.labeled_response_context {
-        let start = labeled_response_context.time.utc - fuzz_seconds;
-        let end = labeled_response_context.time.utc + fuzz_seconds;
+        let start = labeled_response_context.time.stamp - fuzz_seconds;
+        let end = labeled_response_context.time.stamp + fuzz_seconds;
 
         let start_index =
-            messages.partition_point(|stored| stored.time.utc < start);
+            messages.partition_point(|stored| stored.time.stamp < start);
         let end_index =
-            messages.partition_point(|stored| stored.time.utc < end);
+            messages.partition_point(|stored| stored.time.stamp < end);
 
         if let Some(index) = messages[start_index..end_index]
             .iter()
@@ -1659,12 +1660,12 @@ pub(super) fn reconcile_message(
         }
     }
 
-    let start = message.time().utc - fuzz_seconds;
-    let end = message.time().utc + fuzz_seconds;
+    let start = message.time().stamp - fuzz_seconds;
+    let end = message.time().stamp + fuzz_seconds;
 
     let start_index =
-        messages.partition_point(|stored| stored.time.utc < start);
-    let end_index = messages.partition_point(|stored| stored.time.utc < end);
+        messages.partition_point(|stored| stored.time.stamp < start);
+    let end_index = messages.partition_point(|stored| stored.time.stamp < end);
 
     let mut insert_at = start_index;
     let mut replace_at = None;
@@ -1845,7 +1846,7 @@ pub(super) fn get_before_and_after_count_from_position(
 
 fn write_chathistory_targets_timestamp(
     server: &Server,
-    timestamp: DateTime<Utc>,
+    timestamp: Timestamp,
 ) -> Result<(), Error> {
     let bytes = serde_json::to_vec(&Some(timestamp))?;
 

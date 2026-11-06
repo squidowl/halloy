@@ -26,13 +26,12 @@ hashbrown = { version = "0.17", features = ['serde'] }
 tokio = { version = "1.52.3" }
 futures = "0.3.32"
 thiserror = "2.0.18"
-chrono = { version = "0.4.40", features = ['serde', 'unstable-locales'] }
+jiff = { version = "0.2", features = ["serde"] }
 bytes = "1.10.1"
 strum = { version = "0.28.0", features = ["derive"] }
 anyhow = "1.0.97"
 url = { version = "2.5.0", features = ["serde"] }
 tokio-stream = { version = "0.1" }
-timeago = "0.6.0"
 itertools = "0.15.0"
 emojis = "0.9.0"
 unicode-segmentation = "1.13.2"
@@ -62,12 +61,11 @@ hashbrown = { workspace = true }
 tokio = { workspace = true, features = ["rt", "fs", "process"] }
 futures = { workspace = true }
 thiserror = { workspace = true }
-chrono = { workspace = true }
+jiff = { workspace = true }
 strum = { workspace = true }
 anyhow = { workspace = true }
 url = { workspace = true }
 tokio-stream = { workspace = true, features = ["fs"] }
-timeago = { workspace = true }
 itertools = { workspace = true }
 emojis = { workspace = true }
 rand = { workspace = true }

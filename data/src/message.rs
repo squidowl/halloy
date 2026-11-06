@@ -3,7 +3,6 @@ use std::collections::BTreeMap;
 use std::iter;
 use std::sync::{Arc, LazyLock};
 
-use chrono::{DateTime, Local, Utc};
 use const_format::concatcp;
 use fancy_regex::{Match, Regex, RegexBuilder};
 use hashbrown::{HashMap, HashSet};
@@ -11,6 +10,8 @@ use indexmap::IndexMap;
 use irc::proto;
 use irc::proto::Command;
 use itertools::{Either, Itertools};
+use jiff::tz::TimeZone;
+use jiff::{SignedDuration, Timestamp};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -33,7 +34,7 @@ use crate::log::Level;
 use crate::reaction::Reaction;
 use crate::redaction::Redaction;
 use crate::server::Server;
-use crate::time::Posix;
+use crate::time::rfc2822_from_seconds;
 use crate::user::{ChannelUsers, Nick, NickRef};
 use crate::{
     Config, User, buffer, command, ctcp, history, isupport, list_format,
@@ -183,11 +184,10 @@ impl Encoded {
         }
     }
 
-    pub fn server_time(&self) -> Option<DateTime<Utc>> {
+    pub fn server_time(&self) -> Option<Timestamp> {
         self.tags
             .get("time")
-            .and_then(|rfc3339| DateTime::parse_from_rfc3339(rfc3339).ok())
-            .map(|dt| dt.with_timezone(&Utc))
+            .and_then(|rfc3339| rfc3339.parse().ok())
     }
 
     pub fn time(&self) -> Time {
@@ -445,7 +445,7 @@ impl Message {
         self.rerouted_from.is_some()
     }
 
-    pub fn server_time(&self) -> Option<DateTime<Utc>> {
+    pub fn server_time(&self) -> Option<Timestamp> {
         self.time.try_into_server_time()
     }
 
@@ -584,7 +584,7 @@ impl Message {
     ) -> Self {
         Message {
             history_id: history::Id::default(),
-            time: Time::client(Utc::now()),
+            time: Time::client(Timestamp::now()),
             direction: Direction::Sent { command },
             target,
             source,
@@ -612,7 +612,7 @@ impl Message {
         MessageWithContext {
             inner: Message {
                 history_id: history::Id::default(),
-                time: Time::client(Utc::now()),
+                time: Time::client(Timestamp::now()),
                 direction: Direction::Received { is_echo: false },
                 source: Source::Action(None),
                 target: Target::Query {
@@ -645,7 +645,7 @@ impl Message {
         MessageWithContext {
             inner: Message {
                 history_id: history::Id::default(),
-                time: Time::client(Utc::now()),
+                time: Time::client(Timestamp::now()),
                 direction: Direction::Sent { command: None },
                 source: Source::Action(None),
                 target: Target::Query {
@@ -671,7 +671,7 @@ impl Message {
         status: source::Status,
         target: Target,
         content: String,
-        sent_time: DateTime<Utc>,
+        sent_time: Timestamp,
     ) -> MessageWithContext {
         let message = Message {
             history_id: history::Id::default(),
@@ -1020,7 +1020,7 @@ pub fn condense(
         (messages.first(), messages.last())
     {
         let source = Source::Internal(source::Internal::Condensed(
-            last_message.time().utc,
+            last_message.time().stamp,
         ));
 
         let target = first_message.inner.target.clone();
@@ -3347,23 +3347,18 @@ fn content<'a>(
                 casemapping,
             ));
 
-            let idle = params.get(2)?.parse::<u64>().ok()?;
-            let sign_on = params.get(3)?.parse::<u64>().ok()?;
+            let idle = params.get(2)?.parse::<i64>().ok()?;
+            let sign_on = params.get(3)?.parse::<i64>().ok()?;
 
-            let sign_on = Posix::from_seconds(sign_on);
-            let sign_on_datetime = sign_on.datetime()?.to_string();
+            let sign_on_date_time =
+                rfc2822_from_seconds(sign_on, TimeZone::system()).ok()?;
 
-            let mut formatter = timeago::Formatter::new();
-            // Remove "ago" from relative time.
-            formatter.ago("");
-
-            let duration = std::time::Duration::from_secs(idle);
-            let idle_readable = formatter.convert(duration);
+            let idle_duration = SignedDuration::from_secs(idle);
 
             Some((
                 parse_fragments_with_user(
                     format!(
-                        "{} signed on at {sign_on_datetime} and has been idle for {idle_readable}",
+                        "{} signed on at {sign_on_date_time} and has been idle for {idle_duration:#}",
                         user.nickname()
                     ),
                     &user,
@@ -3510,19 +3505,14 @@ fn content<'a>(
                 User::parse(params.get(2)?.as_str(), casemapping, Some(prefix))
                     .ok()?;
 
-            let datetime = params
-                .get(3)?
-                .parse::<u64>()
-                .ok()
-                .map(Posix::from_seconds)
-                .as_ref()
-                .and_then(Posix::datetime)?
-                .with_timezone(&Local)
-                .to_rfc2822();
+            let date_time =
+                params.get(3)?.parse::<i64>().ok().and_then(|second| {
+                    rfc2822_from_seconds(second, TimeZone::system()).ok()
+                })?;
 
             Some((
                 parse_fragments_with_user(
-                    format!("Topic set by {} at {datetime}", user.nickname()),
+                    format!("Topic set by {} at {date_time}", user.nickname()),
                     &user,
                     casemapping,
                 ),
@@ -4095,7 +4085,7 @@ impl Searchable for Message {
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct MessageReferences {
-    pub timestamp: Option<DateTime<Utc>>,
+    pub timestamp: Option<Timestamp>,
     pub id: Option<message::Id>,
 }
 

@@ -151,7 +151,7 @@ pub fn view<'a>(
 
         let timestamp = config
             .buffer
-            .format_timestamp(&message.inner.time.utc)
+            .format_timestamp(&message.inner.time.stamp)
             .map(|timestamp| {
                 context_menu::timestamp(
                     selectable_text(timestamp)
@@ -159,7 +159,7 @@ pub fn view<'a>(
                             theme::font_style::timestamp(theme).map(font::get),
                         )
                         .style(theme::selectable_text::timestamp),
-                    &message.inner.time.utc,
+                    &message.inner.time.stamp,
                     config,
                     theme,
                 )

@@ -1,12 +1,14 @@
 use std::cmp::Ordering;
 use std::hash::Hash;
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
+use jiff::civil::Date;
+use jiff::tz::TimeZone;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct Time {
-    pub utc: DateTime<Utc>,
+    pub stamp: Timestamp,
     pub source: Source,
 }
 
@@ -17,35 +19,39 @@ pub enum Source {
 }
 
 impl Time {
-    pub fn maybe_server(date_time: Option<DateTime<Utc>>) -> Self {
-        if let Some(date_time) = date_time {
+    pub fn maybe_server(timestamp: Option<Timestamp>) -> Self {
+        if let Some(timestamp) = timestamp {
             Self {
-                utc: date_time,
+                stamp: timestamp,
                 source: Source::Server,
             }
         } else {
             Self {
-                utc: Utc::now(),
+                stamp: Timestamp::now(),
                 source: Source::Client,
             }
         }
     }
 
-    pub fn client(date_time: DateTime<Utc>) -> Self {
+    pub fn client(timestamp: Timestamp) -> Self {
         Self {
-            utc: date_time,
+            stamp: timestamp,
             source: Source::Client,
         }
     }
 
-    pub fn try_into_server_time(&self) -> Option<DateTime<Utc>> {
-        matches!(self.source, Source::Server).then_some(self.utc)
+    pub fn try_into_server_time(&self) -> Option<Timestamp> {
+        matches!(self.source, Source::Server).then_some(self.stamp)
+    }
+
+    pub fn system_date(&self) -> Date {
+        self.stamp.to_zoned(TimeZone::system()).date()
     }
 }
 
 impl PartialEq for Time {
     fn eq(&self, other: &Self) -> bool {
-        self.utc == other.utc
+        self.stamp == other.stamp
     }
 }
 
@@ -59,69 +65,69 @@ impl PartialOrd for Time {
 
 impl Ord for Time {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.utc.cmp(&other.utc)
+        self.stamp.cmp(&other.stamp)
     }
 }
 
 impl Hash for Time {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.utc.hash(state);
+        self.stamp.hash(state);
     }
 }
 
-impl PartialEq<DateTime<Utc>> for Time {
-    fn eq(&self, other: &DateTime<Utc>) -> bool {
-        self.utc.eq(other)
+impl PartialEq<Timestamp> for Time {
+    fn eq(&self, other: &Timestamp) -> bool {
+        self.stamp.eq(other)
     }
 }
 
-impl PartialEq<Time> for DateTime<Utc> {
+impl PartialEq<Time> for Timestamp {
     fn eq(&self, other: &Time) -> bool {
-        self.eq(&other.utc)
+        self.eq(&other.stamp)
     }
 }
 
-impl PartialOrd<DateTime<Utc>> for Time {
-    fn partial_cmp(&self, other: &DateTime<Utc>) -> Option<Ordering> {
-        Some(self.utc.cmp(other))
+impl PartialOrd<Timestamp> for Time {
+    fn partial_cmp(&self, other: &Timestamp) -> Option<Ordering> {
+        Some(self.stamp.cmp(other))
     }
 }
 
-impl PartialOrd<Time> for DateTime<Utc> {
+impl PartialOrd<Time> for Timestamp {
     fn partial_cmp(&self, other: &Time) -> Option<Ordering> {
-        Some(self.cmp(&other.utc))
+        Some(self.cmp(&other.stamp))
     }
 }
 
-impl PartialEq<Option<DateTime<Utc>>> for Time {
-    fn eq(&self, other: &Option<DateTime<Utc>>) -> bool {
+impl PartialEq<Option<Timestamp>> for Time {
+    fn eq(&self, other: &Option<Timestamp>) -> bool {
         other
             .as_ref()
-            .is_some_and(|date_time| self.utc.eq(date_time))
+            .is_some_and(|date_time| self.stamp.eq(date_time))
     }
 }
 
-impl PartialEq<Time> for Option<DateTime<Utc>> {
+impl PartialEq<Time> for Option<Timestamp> {
     fn eq(&self, other: &Time) -> bool {
         self.as_ref()
-            .is_some_and(|date_time| date_time.eq(&other.utc))
+            .is_some_and(|date_time| date_time.eq(&other.stamp))
     }
 }
 
-impl PartialOrd<Option<DateTime<Utc>>> for Time {
-    fn partial_cmp(&self, other: &Option<DateTime<Utc>>) -> Option<Ordering> {
+impl PartialOrd<Option<Timestamp>> for Time {
+    fn partial_cmp(&self, other: &Option<Timestamp>) -> Option<Ordering> {
         if let Some(date_time) = other.as_ref() {
-            Some(self.utc.cmp(date_time))
+            Some(self.stamp.cmp(date_time))
         } else {
             Some(Ordering::Greater)
         }
     }
 }
 
-impl PartialOrd<Time> for Option<DateTime<Utc>> {
+impl PartialOrd<Time> for Option<Timestamp> {
     fn partial_cmp(&self, other: &Time) -> Option<Ordering> {
         if let Some(date_time) = self.as_ref() {
-            Some(date_time.cmp(&other.utc))
+            Some(date_time.cmp(&other.stamp))
         } else {
             Some(Ordering::Less)
         }

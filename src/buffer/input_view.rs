@@ -30,6 +30,7 @@ use iced::widget::{
 };
 use iced::{Alignment, Length, Task, clipboard, event, keyboard, padding};
 use itertools::Itertools;
+use jiff::SignedDuration;
 use tokio::time;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -880,9 +881,13 @@ impl State {
                         .uptime
                         .then(|| {
                             uptime_lib::get().ok().map(|uptime| {
-                                let mut formatter = timeago::Formatter::new();
-                                formatter.num_items(4);
-                                format!("UP: {}", formatter.convert(uptime))
+                                format!(
+                                    "UP: {:#}",
+                                    SignedDuration::from_secs(
+                                        i64::try_from(uptime.as_secs())
+                                            .unwrap_or(i64::MAX),
+                                    )
+                                )
                             })
                         })
                         .flatten(),

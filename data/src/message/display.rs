@@ -1,8 +1,8 @@
 use std::ops::Range;
 use std::sync::Arc;
 
-use chrono::{DateTime, Local, Utc};
 use hashbrown::HashSet;
+use jiff::Timestamp;
 use url::Url;
 
 use super::{Content, Id, Message, Searchable, Source, Temporal, Time};
@@ -45,7 +45,7 @@ impl MessageDisplay {
     pub fn displayed(
         &self,
         config: &config::Buffer,
-        now: DateTime<Utc>,
+        now: Timestamp,
     ) -> Option<&Self> {
         if self.blocked {
             return None;
@@ -92,10 +92,10 @@ impl MessageDisplay {
         if source.blocked || !source.inner.can_condense(config) {
             return None;
         }
-        let date = source.time().utc.with_timezone(&Local).date_naive();
+        let date = source.time().system_date();
         let same_group = |message: &Self| {
             message.inner.can_condense(config)
-                && message.time().utc.with_timezone(&Local).date_naive() == date
+                && message.time().system_date() == date
         };
         let mut start = index;
         for (position, message) in messages[..index].iter().enumerate().rev() {

@@ -19,7 +19,7 @@ pane_level = "info"
 
 ## Files
 
-Log files are named based on the Halloy launch time, with the [strftime](https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html) format `halloy.%Y-%m-%d-%H-%M-%S.log`.  They can be found in the log file directory:
+Log files are named based on the Halloy launch time, with the [strftime](https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html#conversion-specifications) format `halloy.%Y-%m-%d-%H-%M-%S.log`.  They can be found in the log file directory:
 
 * Windows: `%AppData%\Roaming\halloy\logs\`
 * macOS: `~/Library/Application Support/halloy/logs` or `$HOME/.local/share/halloy/logs`

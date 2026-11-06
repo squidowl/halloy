@@ -521,12 +521,12 @@ Customize how date separators are displayed within a buffer
 
 ### `format`
 
-Controls the date format. The expected format is [strftime](https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html).
+Controls the date format. The expected format is [strftime](https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html#conversion-specifications).  If not set, then the long month and day ICU format for [`timestamp.locale`] is used.
 
 ```toml
 # Type: string
-# Values: any valid strftime string
-# Default: "%A, %B %-d"
+# Values: any strftime string
+# Default: not set
 
 [buffer.date_separators]
 format = "%A, %B %-d"
@@ -1651,7 +1651,7 @@ Customize how timestamps are displayed within a buffer.
 
 ### `format`
 
-Controls the timestamp format. The expected format is [strftime](https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html).
+Controls the timestamp format. The expected format is [strftime](https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html#conversion-specifications).
 
 ```toml
 # Type: string
@@ -1659,30 +1659,30 @@ Controls the timestamp format. The expected format is [strftime](https://pubs.op
 # Default: "%R"
 
 [buffer.timestamp]
-format = "%R"
+format = "%T"
 ```
 
 ### `context_menu_format`
 
-Controls the format of shown in a timestamp's context menu. The expected format is [strftime](https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html).
-
-```toml
-# Type: string
-# Values: any valid strftime string
-# Default: "%x"
-
-[buffer.timestamp]
-context_menu_format = "%x"
-```
-
-### `copy_format`
-
-Controls the format used when copying the timestamp into the clipboard from its context menu. The expected format is [strftime](https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html).  If not set, then the timestamp is copied in the [date and time of day in UTC using extended format ISO 8601:2004(E) 4.3.2 with millisecond precision](https://en.wikipedia.org/wiki/ISO_8601) as is utilized in IRCv3.
+Controls the format of shown in a timestamp's context menu. The expected format is [strftime](https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html#conversion-specifications).  If not set, then the short year, month, and day ICU format for [`timestamp.locale`] is used.
 
 ```toml
 # Type: string
 # Values: any valid strftime string or not set
 # Default: not set
+
+[buffer.timestamp]
+context_menu_format = "%D"
+```
+
+### `copy_format`
+
+Controls the format used when copying the timestamp into the clipboard from its context menu. The expected format is [strftime](https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html#conversion-specifications).  The default format is the [date and time of day in UTC using extended format ISO 8601:2004(E) 4.3.2 with millisecond precision](https://en.wikipedia.org/wiki/ISO_8601) that is utilized in IRCv3.
+
+```toml
+# Type: string
+# Values: any strftime string
+# Default: "%Y-%m-%dT%H:%M:%S%.3fZ"
 
 [buffer.timestamp]
 copy_format = "%Y-%m-%d %H:%M:%S"

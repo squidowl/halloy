@@ -1,4 +1,3 @@
-use chrono::{DateTime, TimeDelta, Utc};
 use data::buffer::{self, RightAlignmentWidths};
 use data::config::buffer::nickname::ShownStatus;
 use data::config::buffer::{CondensationIcon, Dimmed};
@@ -18,6 +17,7 @@ use iced::widget::{
     space, stack, text,
 };
 use iced::{Color, ContentFit, Length, alignment, padding};
+use jiff::{SignedDuration, Timestamp};
 
 use crate::buffer::context_menu::{self, Context, UrlContext, UserContext};
 use crate::buffer::message_focus::{
@@ -215,15 +215,15 @@ impl<'a> ChannelQueryLayout<'a> {
     ) -> Option<Element<'a, Message>> {
         let date_time = match &message.inner.source {
             message::Source::Internal(
-                message::source::Internal::Condensed(end_time_utc),
+                message::source::Internal::Condensed(end_timestamp),
             ) => self
                 .config
                 .buffer
                 .server_messages
                 .condense
                 .timestamp
-                .primary(&message.time().utc, end_time_utc),
-            _ => Some(&message.time().utc),
+                .primary(&message.time().stamp, end_timestamp),
+            _ => Some(&message.time().stamp),
         }?;
 
         self.config
@@ -254,7 +254,7 @@ impl<'a> ChannelQueryLayout<'a> {
 
     fn format_range_end_timestamp(
         &self,
-        end_time: &'a DateTime<Utc>,
+        end_time: &'a Timestamp,
         hide_timestamp: bool,
     ) -> Option<Element<'a, Message>> {
         self.config.buffer.format_range_end_timestamp(end_time).map(
@@ -316,8 +316,8 @@ impl<'a> ChannelQueryLayout<'a> {
         if let message::Direction::Sent { command } = &message.direction
             && command.is_some() // Prevent messages migrated from older history format from appearing as not sent
             && self.confirm_message_delivery
-            && Utc::now().signed_duration_since(message.time.utc)
-                > TimeDelta::seconds(10)
+            && Timestamp::now().duration_since(message.time.stamp)
+                > SignedDuration::from_secs(10)
         {
             true
         } else {
@@ -962,11 +962,11 @@ impl<'a> ChannelQueryLayout<'a> {
             .timestamp
             .show_range()
             && let message::Source::Internal(
-                message::source::Internal::Condensed(end_time_utc),
+                message::source::Internal::Condensed(end_timestamp),
             ) = &message.inner.source
-            && message.time().utc != *end_time_utc
+            && message.time().stamp != *end_timestamp
         {
-            formatter.format_range_end_timestamp(end_time_utc, hide_timestamp)
+            formatter.format_range_end_timestamp(end_timestamp, hide_timestamp)
         } else {
             None
         };
@@ -1776,7 +1776,7 @@ impl<'a> ChannelQueryLayout<'a> {
         let timestamp_width = self
             .config
             .buffer
-            .format_timestamp(&message.time().utc)
+            .format_timestamp(&message.time().stamp)
             .map_or(0.0, |timestamp| {
                 font::width_from_str(&timestamp, &self.config.font)
             });
@@ -2093,7 +2093,7 @@ impl<'a> ChannelQueryLayout<'a> {
 
         let body: Element<_> = row![]
             .spacing(font::width_from_str(" ", &self.config.font))
-            .extend(self.config.buffer.format_timestamp(&time.utc).map(
+            .extend(self.config.buffer.format_timestamp(&time.stamp).map(
                 |timestamp| -> Element<_> {
                     text(timestamp).style(theme::text::timestamp).into()
                 },

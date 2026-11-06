@@ -2,20 +2,20 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::str::FromStr;
 
-use chrono::format::SecondsFormat;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 
 use crate::message::{
     Message, MessageReferences, MessageWithContext, Temporal, Time,
 };
+use crate::time::RFC3339_WITH_MILLIS;
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Metadata {
     pub read_marker: Option<ReadMarker>,
-    pub latest: Option<DateTime<Utc>>,
-    pub latest_triggers_unread: Option<DateTime<Utc>>,
-    pub latest_triggers_highlight: Option<DateTime<Utc>>,
+    pub latest: Option<Timestamp>,
+    pub latest_triggers_unread: Option<Timestamp>,
+    pub latest_triggers_highlight: Option<Timestamp>,
     pub latest_chathistory_references: Option<(Time, MessageReferences)>,
 }
 
@@ -31,41 +31,41 @@ pub struct Metadata {
     Deserialize,
     Serialize,
 )]
-pub struct ReadMarker(DateTime<Utc>);
+pub struct ReadMarker(Timestamp);
 
-impl From<DateTime<Utc>> for ReadMarker {
-    fn from(date_time: DateTime<Utc>) -> Self {
-        Self(date_time)
+impl From<Timestamp> for ReadMarker {
+    fn from(timestamp: Timestamp) -> Self {
+        Self(timestamp)
     }
 }
 
 impl From<&Time> for ReadMarker {
     fn from(time: &Time) -> Self {
-        Self::from(time.utc)
+        Self::from(time.stamp)
     }
 }
 
 impl PartialEq<ReadMarker> for Time {
     fn eq(&self, other: &ReadMarker) -> bool {
-        self.utc.eq(&other.0)
+        self.stamp.eq(&other.0)
     }
 }
 
 impl PartialEq<Time> for ReadMarker {
     fn eq(&self, other: &Time) -> bool {
-        self.0.eq(&other.utc)
+        self.0.eq(&other.stamp)
     }
 }
 
 impl PartialOrd<ReadMarker> for Time {
     fn partial_cmp(&self, other: &ReadMarker) -> Option<Ordering> {
-        Some(self.utc.cmp(&other.0))
+        Some(self.stamp.cmp(&other.0))
     }
 }
 
 impl PartialOrd<Time> for ReadMarker {
     fn partial_cmp(&self, other: &Time) -> Option<Ordering> {
-        Some(self.0.cmp(&other.utc))
+        Some(self.0.cmp(&other.stamp))
     }
 }
 
@@ -82,46 +82,44 @@ impl From<&MessageWithContext> for ReadMarker {
 }
 
 impl ReadMarker {
-    pub fn as_date_time(&self) -> &DateTime<Utc> {
-        &self.0
+    pub fn as_microsecond(&self) -> i64 {
+        self.0.as_microsecond()
     }
 }
 
 impl FromStr for ReadMarker {
-    type Err = chrono::ParseError;
+    type Err = jiff::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        DateTime::parse_from_rfc3339(s)
-            .map(|dt| dt.with_timezone(&Utc))
-            .map(Self)
+        s.parse().map(Self)
     }
 }
 
 impl fmt::Display for ReadMarker {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.to_rfc3339_opts(SecondsFormat::Millis, true).fmt(f)
+        Timestamp::strftime(&self.0, RFC3339_WITH_MILLIS).fmt(f)
     }
 }
 
-impl PartialEq<DateTime<Utc>> for ReadMarker {
-    fn eq(&self, other: &DateTime<Utc>) -> bool {
+impl PartialEq<Timestamp> for ReadMarker {
+    fn eq(&self, other: &Timestamp) -> bool {
         self.0.eq(other)
     }
 }
 
-impl PartialEq<ReadMarker> for DateTime<Utc> {
+impl PartialEq<ReadMarker> for Timestamp {
     fn eq(&self, other: &ReadMarker) -> bool {
         self.eq(&other.0)
     }
 }
 
-impl PartialOrd<DateTime<Utc>> for ReadMarker {
-    fn partial_cmp(&self, other: &DateTime<Utc>) -> Option<Ordering> {
+impl PartialOrd<Timestamp> for ReadMarker {
+    fn partial_cmp(&self, other: &Timestamp) -> Option<Ordering> {
         Some(self.0.cmp(other))
     }
 }
 
-impl PartialOrd<ReadMarker> for DateTime<Utc> {
+impl PartialOrd<ReadMarker> for Timestamp {
     fn partial_cmp(&self, other: &ReadMarker) -> Option<Ordering> {
         Some(self.cmp(&other.0))
     }
