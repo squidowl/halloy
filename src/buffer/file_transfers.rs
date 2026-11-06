@@ -134,6 +134,7 @@ mod transfer_row {
     use data::file_transfer::{self, FileTransfer};
     use iced::widget::{column, container, progress_bar, row, text};
     use iced::{Length, alignment, padding};
+    use jiff::SignedDuration;
 
     use super::Message;
     use crate::buffer::file_transfers::row_button;
@@ -260,12 +261,9 @@ mod transfer_row {
                 )
             }
             file_transfer::Status::Completed { elapsed, sha256 } => {
-                let mut formatter = timeago::Formatter::new();
-                formatter
-                    .ago("")
-                    .min_unit(timeago::TimeUnit::Seconds)
-                    .too_low("under a second");
-                let elapsed = formatter.convert(*elapsed);
+                let elapsed = SignedDuration::from_secs(
+                    i64::try_from(elapsed.as_secs()).unwrap_or(i64::MAX),
+                );
 
                 let direction = match transfer.direction {
                     file_transfer::Direction::Sent => "to",
@@ -274,7 +272,7 @@ mod transfer_row {
 
                 container(
                     text(format!(
-                        "Completed {} {} in {elapsed}. sha256: {sha256}",
+                        "Completed {} {} in {elapsed:#}. sha256: {sha256}",
                         direction,
                         transfer.remote_user.nickname(),
                     ))

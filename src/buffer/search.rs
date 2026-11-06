@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use chrono::{Datelike, Local, NaiveDate};
 use data::client::{self, ClientsContext};
 use data::config::actions::NicknameClickAction;
 use data::dashboard::BufferAction;
@@ -14,6 +13,8 @@ use iced::widget::{
     text, text_input,
 };
 use iced::{ContentFit, Length, Task, padding};
+use jiff::Zoned;
+use jiff::civil::Date;
 use tokio::time;
 
 use super::{context_menu, message_feed, scroll_view};
@@ -53,7 +54,7 @@ enum Status {
 struct Hit {
     buffer: buffer::Upstream,
     kind: history::Kind,
-    date: NaiveDate,
+    date: Date,
     message: data::Message,
 }
 
@@ -314,7 +315,7 @@ fn resolve(
 
     Some(Hit {
         kind: history::Kind::from(buffer.clone()),
-        date: hit.message.time.utc.with_timezone(&Local).date_naive(),
+        date: hit.message.time.system_date(),
         buffer,
         message: hit.message,
     })
@@ -399,8 +400,13 @@ pub fn view<'a>(
     .width(Length::Fill);
 
     let show_dates = config.buffer.date_separators.show;
-    let show_year = !has_year(&config.buffer.date_separators.format);
-    let this_year = Local::now().year();
+    let append_year = config
+        .buffer
+        .date_separators
+        .format
+        .as_ref()
+        .is_some_and(|format| !has_year(format));
+    let this_year = Zoned::now().year();
     let mut last_date = None;
     let mut rows = vec![];
 
@@ -428,8 +434,10 @@ pub fn view<'a>(
         if show_dates && last_date != Some(hit.date) {
             last_date = Some(hit.date);
 
-            let mut label = config.buffer.format_date_separator(&hit.date);
-            if show_year && hit.date.year() != this_year {
+            let show_year = hit.date.year() != this_year;
+            let mut label =
+                config.buffer.format_date_separator(&hit.date, show_year);
+            if show_year && append_year {
                 label = format!("{label}, {}", hit.date.year());
             }
 
@@ -494,8 +502,10 @@ pub fn view<'a>(
 fn has_year(format: &str) -> bool {
     // Same month, day and weekday; only the year differs.
     let date = |year| {
-        NaiveDate::from_ymd_opt(year, 1, 1)
-            .map(|date| date.format(format).to_string())
+        Date::new(year, 1, 1)
+            .ok()
+            .as_ref()
+            .map(|date| Date::strftime(date, format).to_string())
     };
     date(2001) != date(2007)
 }

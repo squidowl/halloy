@@ -1,44 +1,33 @@
-use std::time::SystemTime;
+use icu_locale::Locale;
+use jiff::fmt::rfc2822;
+use jiff::tz::TimeZone;
+use jiff::{self, Timestamp};
 
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+pub const RFC3339_WITH_MILLIS: &str = "%Y-%m-%dT%H:%M:%S%.3fZ";
 
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Serialize,
-    Deserialize,
-)]
-pub struct Posix(u64);
+/// Returns None if the time cannot be represented in the RFC 2822 format (e.g.
+/// a negative year)
+pub fn rfc2822_from_seconds(
+    seconds: i64,
+    time_zone: TimeZone,
+) -> Result<String, jiff::Error> {
+    Timestamp::from_second(seconds)
+        .and_then(|timestamp| rfc2822_from_timestamp(timestamp, time_zone))
+}
 
-impl Posix {
-    pub fn now() -> Self {
-        let nanos_since_epoch = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .expect("valid unix timestamp")
-            .as_nanos() as u64;
+/// Returns None if the time cannot be represented in the RFC 2822 format (e.g.
+/// a negative year)
+pub fn rfc2822_from_timestamp(
+    timestamp: Timestamp,
+    time_zone: TimeZone,
+) -> Result<String, jiff::Error> {
+    rfc2822::to_string(&timestamp.to_zoned(time_zone))
+}
 
-        Self(nanos_since_epoch)
-    }
-
-    pub fn from_seconds(seconds: u64) -> Self {
-        Self(seconds * 1_000_000_000)
-    }
-
-    pub fn as_nanos(&self) -> u64 {
-        self.0
-    }
-
-    pub fn datetime(&self) -> Option<DateTime<Utc>> {
-        let seconds = (self.0 / 1_000_000_000) as i64;
-        let nanos = (self.0 % 1_000_000_000) as u32;
-
-        DateTime::from_timestamp(seconds, nanos)
-    }
+pub fn system_locale() -> Locale {
+    sys_locale::get_locale()
+        .and_then(|locale_string| {
+            Locale::try_from_str(&locale_string.replace("_", "-")).ok()
+        })
+        .unwrap_or(Locale::UNKNOWN)
 }

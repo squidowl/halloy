@@ -1,6 +1,6 @@
-use chrono::{DateTime, Utc};
 use hashbrown::{HashMap, HashSet};
 use indexmap::IndexMap;
+use jiff::Timestamp;
 
 use super::{Error, Event, Update};
 use crate::buffer::BuffersContext;
@@ -20,7 +20,7 @@ pub struct Batch {
     histories: Vec<HistoryBatch>,
     filters: Vec<Filter>,
     buffer: config::Buffer,
-    captured_at: DateTime<Utc>,
+    captured_at: Timestamp,
 }
 
 #[derive(Debug)]
@@ -81,7 +81,7 @@ pub struct Committed {
     pub metadata: Metadata,
     pub display_read_marker: Option<ReadMarker>,
     pub show_in_sidebar: Option<bool>,
-    pub admitted_latest: Option<DateTime<Utc>>,
+    pub admitted_latest: Option<Timestamp>,
     pub events: Vec<Event>,
 }
 
@@ -192,7 +192,7 @@ impl Batch {
             histories,
             filters: filters.to_vec(),
             buffer: config.buffer.clone(),
-            captured_at: Utc::now(),
+            captured_at: Timestamp::now(),
         }
     }
 

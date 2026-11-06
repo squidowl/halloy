@@ -3,11 +3,11 @@ use std::num::NonZeroU16;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use chrono::Utc;
 use futures::StreamExt;
 use futures::stream::BoxStream;
 use hashbrown::HashMap;
 use itertools::Itertools;
+use jiff::Timestamp;
 use rand::RngExt;
 
 use super::{
@@ -108,7 +108,7 @@ impl Manager {
         let file_transfer = FileTransfer {
             id,
             server,
-            created_at: Utc::now(),
+            created_at: Timestamp::now(),
             direction: Direction::Sent,
             remote_user: to.clone(),
             filename: filename.clone(),
@@ -188,7 +188,7 @@ impl Manager {
         let file_transfer = FileTransfer {
             id,
             server,
-            created_at: Utc::now(),
+            created_at: Timestamp::now(),
             direction: Direction::Received,
             remote_user: from.clone(),
             filename: sanitize_filename(dcc_send.filename()),

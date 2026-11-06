@@ -1,7 +1,6 @@
 use std::str::FromStr;
 use std::string::ToString;
 
-use chrono::{DateTime, Utc};
 use data::config::actions::NicknameClickAction;
 use data::dashboard::BufferAction;
 use data::target::Target;
@@ -14,6 +13,7 @@ use iced::widget::{Space, button, center, column, container, row, rule, span};
 use iced::{
     Background, Border, Color, ContentFit, Length, Padding, alignment, mouse,
 };
+use jiff::Timestamp;
 use url::Url;
 
 use crate::widget::{
@@ -84,7 +84,7 @@ pub enum Context<'a> {
     User(UserContext<'a>),
     Url(UrlContext<'a>),
     Channel(ChannelContext<'a>),
-    Timestamp(&'a DateTime<Utc>),
+    Timestamp(&'a Timestamp),
     NotSentMessage(&'a message::Time, &'a history::Id),
     Message { message: &'a message::Message },
 }
@@ -736,9 +736,9 @@ impl Entry {
                     BufferAction::ReplacePane,
                 )),
             )),
-            (Entry::Timestamp, Context::Timestamp(date_time)) => Some((
-                config.buffer.format_context_menu_timestamp(date_time),
-                Some(Message::CopyTimestamp(**date_time)),
+            (Entry::Timestamp, Context::Timestamp(timestamp)) => Some((
+                config.buffer.format_context_menu_timestamp(timestamp),
+                Some(Message::CopyTimestamp(**timestamp)),
             )),
             (
                 Entry::DeleteMessage,
@@ -920,7 +920,7 @@ pub enum Message {
     OpenUrl(String),
     HidePreview(Option<history::Kind>, history::Id, message::Time, String),
     ShowPreview(Option<history::Kind>, history::Id, message::Time, String),
-    CopyTimestamp(DateTime<Utc>),
+    CopyTimestamp(Timestamp),
     #[allow(clippy::enum_variant_names)]
     DeleteMessage(message::Time, history::Id),
     #[allow(clippy::enum_variant_names)]
@@ -954,7 +954,7 @@ pub enum Event {
     OpenUrl(String),
     HidePreview(Option<history::Kind>, history::Id, message::Time, String),
     ShowPreview(Option<history::Kind>, history::Id, message::Time, String),
-    CopyTimestamp(DateTime<Utc>),
+    CopyTimestamp(Timestamp),
     DeleteMessage(message::Time, history::Id),
     ResendMessage(message::Time, history::Id),
     OpenReactionModal(message::Id, message::Time),
@@ -993,8 +993,8 @@ pub fn update(message: Message) -> Option<Event> {
         Message::ShowPreview(kind, history_id, time, url) => {
             Some(Event::ShowPreview(kind, history_id, time, url))
         }
-        Message::CopyTimestamp(date_time) => {
-            Some(Event::CopyTimestamp(date_time))
+        Message::CopyTimestamp(timestamp) => {
+            Some(Event::CopyTimestamp(timestamp))
         }
         Message::DeleteMessage(time, history_id) => {
             Some(Event::DeleteMessage(time, history_id))
@@ -1276,7 +1276,7 @@ fn user_with_entries<'a>(
 
 pub fn timestamp<'a>(
     content: impl Into<Element<'a, Message>>,
-    date_time: &'a DateTime<Utc>,
+    timestamp: &'a Timestamp,
     config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
@@ -1291,7 +1291,7 @@ pub fn timestamp<'a>(
         entries,
         move |entry, length| {
             entry.view(
-                Some(Context::Timestamp(date_time)),
+                Some(Context::Timestamp(timestamp)),
                 length,
                 config,
                 theme,

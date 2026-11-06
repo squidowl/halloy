@@ -8,12 +8,12 @@ use std::time::{Duration, Instant};
 use std::{fmt, io, iter};
 
 use anyhow::{Context as ErrorContext, Result, anyhow, bail};
-use chrono::{DateTime, Utc};
 use futures::channel::mpsc;
 use hashbrown::{HashMap, HashSet};
 use indexmap::IndexMap;
 use irc::proto::{self, Command, Tags, command, tags};
 use itertools::{Either, Itertools};
+use jiff::Timestamp;
 
 pub use self::map::{ClientsContext, Map, State, Status};
 pub use self::on_connect::on_connect;
@@ -36,7 +36,7 @@ use crate::isupport::{
 use crate::message::{broadcast, source};
 use crate::rate_limit::{TokenBucket, TokenPriority};
 use crate::target::{self, Target};
-use crate::time::Posix;
+use crate::time::RFC3339_WITH_MILLIS;
 use crate::user::{ChannelUsers, Nick};
 use crate::{
     Server, User, buffer, channel_discovery, compression, config, ctcp, dcc,
@@ -686,8 +686,9 @@ impl Client {
         if matches!(priority, TokenPriority::User) {
             match &message.command {
                 Command::LIST(..) => {
-                    self.channel_discovery_manager.status =
-                        Some(channel_discovery::Status::Requested(Utc::now()));
+                    self.channel_discovery_manager.status = Some(
+                        channel_discovery::Status::Requested(Timestamp::now()),
+                    );
                 }
                 Command::WHO(..) => {
                     let params = message.command.clone().parameters();
@@ -1493,8 +1494,9 @@ impl Client {
                 }
             }
             Command::Numeric(RPL_LISTSTART, _) => {
-                self.channel_discovery_manager.status =
-                    Some(channel_discovery::Status::Receiving(Utc::now()));
+                self.channel_discovery_manager.status = Some(
+                    channel_discovery::Status::Receiving(Timestamp::now()),
+                );
                 return Ok(vec![]);
             }
             Command::Numeric(RPL_LIST, args) => {
@@ -1505,13 +1507,14 @@ impl Client {
                 self.channel_discovery_manager
                     .push(channel, topic, user_count);
 
-                self.channel_discovery_manager.status =
-                    Some(channel_discovery::Status::Receiving(Utc::now()));
+                self.channel_discovery_manager.status = Some(
+                    channel_discovery::Status::Receiving(Timestamp::now()),
+                );
                 return Ok(vec![]);
             }
             Command::Numeric(RPL_LISTEND, _) => {
                 self.channel_discovery_manager.status =
-                    Some(channel_discovery::Status::Updated(Utc::now()));
+                    Some(channel_discovery::Status::Updated(Timestamp::now()));
                 return Ok(vec![]);
             }
             Command::Numeric(RPL_LOGGEDIN, args) => {
@@ -1716,19 +1719,18 @@ impl Client {
                                     }
                                     ctcp::Command::Time => {
                                         if config.ctcp.time {
-                                            let utc_time = Utc::now();
-                                            let formatted = utc_time
-                                                .to_rfc3339_opts(
-                                                chrono::SecondsFormat::Millis,
-                                                true,
-                                            );
+                                            let time = Timestamp::strftime(
+                                                &Timestamp::now(),
+                                                RFC3339_WITH_MILLIS,
+                                            )
+                                            .to_string();
 
                                             self.send(
                                                 None,
                                                 ctcp::response_message(
                                                     &query.command,
                                                     user.nickname().to_string(),
-                                                    Some(formatted),
+                                                    Some(time),
                                                 )
                                                 .into(),
                                                 TokenPriority::High,
@@ -2558,12 +2560,10 @@ impl Client {
                         isupport::get_prefix(&self.isupport),
                     )));
 
-                    let timestamp =
-                        Posix::from_seconds(ok!(args.get(3)).parse::<u64>()?);
-                    channel.topic.time =
-                        Some(timestamp.datetime().ok_or_else(|| {
-                            anyhow!("Unable to parse timestamp: {timestamp:?}")
-                        })?);
+                    let seconds = ok!(args.get(3)).parse::<i64>()?;
+                    let timestamp = context!(Timestamp::from_second(seconds));
+
+                    channel.topic.time = Some(timestamp);
 
                     if is_join_topic {
                         if config
@@ -3071,10 +3071,7 @@ impl Client {
 
                     let timestamp = ok!(args.get(1));
 
-                    if let Ok(server_time) =
-                        DateTime::parse_from_rfc3339(timestamp)
-                            .map(|date_time| date_time.to_utc())
-                    {
+                    if let Ok(server_time) = timestamp.parse() {
                         // Chathistory is automatically requested when JOIN is
                         // received, so we can filter out unprefixed channels.
                         if match &target {
@@ -3473,7 +3470,7 @@ impl Client {
                 if self.capabilities.acknowledged(Capability::Chathistory) {
                     let last_received_at = storage
                         .last_received_chathistory_targets(&self.server)
-                        .unwrap_or(DateTime::UNIX_EPOCH);
+                        .unwrap_or(Timestamp::UNIX_EPOCH);
 
                     let subcommand = ChathistorySubcommand::Targets(
                         last_received_at,
@@ -3829,7 +3826,7 @@ impl Client {
                         } else {
                             storage.update_last_received_chathistory_targets(
                                 &self.server,
-                                Utc::now(),
+                                Timestamp::now(),
                             );
                         }
                     }
@@ -5415,11 +5412,11 @@ impl Batch {
 }
 
 fn generate_label() -> String {
-    Posix::now().as_nanos().to_string()
+    Timestamp::now().as_nanosecond().to_string()
 }
 
 fn generate_batch_reference_tag() -> String {
-    Posix::now().as_nanos().to_string()
+    Timestamp::now().as_nanosecond().to_string()
 }
 
 fn prune_expired_typing(typing: &mut HashMap<Nick, Instant>) {
@@ -5498,7 +5495,7 @@ pub struct Topic {
     pub content: Option<message::Content>,
     pub raw: Option<String>,
     pub who: Option<User>,
-    pub time: Option<DateTime<Utc>>,
+    pub time: Option<Timestamp>,
 }
 
 #[derive(Debug, Clone)]

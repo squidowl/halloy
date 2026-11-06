@@ -3,9 +3,9 @@ use std::str::FromStr;
 use std::string::ToString;
 use std::sync::LazyLock;
 
-use chrono::{DateTime, TimeDelta, Utc};
 use hashbrown::{HashMap, HashSet};
 use irc::proto::{self, Tags, command, format};
+use jiff::{Timestamp, ToSpan};
 use serde::Deserialize;
 
 use crate::message::formatting::{Modifier, update_formatting_with_modifier};
@@ -643,16 +643,12 @@ impl LabeledResponseContext {
 /// will be shifted into the future.  If the resultant time is ahead of the
 /// server's clock, then deduplication should take care of any duplicate
 /// messages we receive.
-pub fn chathistory_entry_server_time(
-    message: &message::Encoded,
-) -> DateTime<Utc> {
+pub fn chathistory_entry_server_time(message: &message::Encoded) -> Timestamp {
     let time = message.time();
 
     if matches!(time.source, time::Source::Server) {
         time.utc
     } else {
-        TimeDelta::try_minutes(90)
-            .and_then(|time_delta| time.utc.checked_add_signed(time_delta))
-            .unwrap_or(time.utc)
+        time.utc.saturating_add(90.minutes()).unwrap_or(time.utc)
     }
 }

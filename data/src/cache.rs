@@ -2,8 +2,8 @@ mod trim;
 
 use std::path::{Path, PathBuf};
 
-use chrono::Utc;
 use derive_more::AsRef;
+use jiff::Timestamp;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -133,7 +133,7 @@ impl FileCache {
 
     pub fn download_path(&self, url: &Url) -> PathBuf {
         let hash = seahash::hash(url.as_str().as_bytes());
-        let nanos = Utc::now().timestamp_nanos_opt().unwrap_or_default();
+        let nanos = Timestamp::now().as_nanosecond();
 
         self.root
             .join("downloads")
