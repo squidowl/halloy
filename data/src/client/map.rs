@@ -40,6 +40,14 @@ impl Status {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChannelState {
+    Joined,
+    Joining,
+    Parted,
+    Offline,
+}
+
 #[derive(Debug, Default)]
 pub struct Map(BTreeMap<Server, State>);
 
@@ -354,8 +362,16 @@ impl Map {
         server: &Server,
         chan: &target::Channel,
     ) -> bool {
+        self.client(server).is_some_and(|c| c.is_joined(chan))
+    }
+
+    pub fn channel_state(
+        &self,
+        server: &Server,
+        chan: &target::Channel,
+    ) -> ChannelState {
         self.client(server)
-            .is_some_and(|c| c.chanmap.contains_key(chan))
+            .map_or(ChannelState::Offline, |c| c.channel_state(chan))
     }
 
     pub fn contains_query(

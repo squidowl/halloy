@@ -41,6 +41,7 @@ pub struct Sidebar {
     pub order_channels_by: OrderChannelsBy,
     pub channel_name_casing: Option<ChannelNameCasing>,
     pub internal_buffers: InternalBuffers,
+    pub restore_on_launch: RestoreOnLaunch,
 }
 
 impl Sidebar {
@@ -450,6 +451,26 @@ pub enum OrderChannelsBy {
     Name,
     NameAndPrefix,
     Config,
+}
+
+#[derive(Debug, Copy, Clone, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum RestoreOnLaunch {
+    #[default]
+    None,
+    Queries,
+    Channels,
+    All,
+}
+
+impl RestoreOnLaunch {
+    pub fn includes_channels(&self) -> bool {
+        matches!(self, RestoreOnLaunch::Channels | RestoreOnLaunch::All)
+    }
+
+    pub fn includes_queries(&self) -> bool {
+        matches!(self, RestoreOnLaunch::Queries | RestoreOnLaunch::All)
+    }
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, PartialEq, Eq)]

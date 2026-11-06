@@ -1127,6 +1127,10 @@ impl Halloy {
                     self.servers.remove(&server);
                     self.clients.remove(&server);
 
+                    if let Screen::Dashboard(_) = &self.screen {
+                        self.storage.forget_sidebar_buffers(&server);
+                    }
+
                     if let Screen::Exit {
                         pending_server_removals,
                         ..
@@ -1203,7 +1207,12 @@ impl Halloy {
                 let dashboard_tasks =
                     if let Screen::Dashboard(dashboard) = &mut self.screen {
                         dashboard
-                            .tick(now, &self.clients, &self.config)
+                            .tick(
+                                now,
+                                &self.clients,
+                                &mut self.storage,
+                                &self.config,
+                            )
                             .map(Message::Dashboard)
                     } else {
                         Task::none()
@@ -2149,7 +2158,9 @@ impl Halloy {
 
         let dashboard_save_task =
             if let Screen::Dashboard(dashboard) = &mut self.screen {
-                dashboard.exit().map(|task| task.map(Message::Dashboard))
+                dashboard
+                    .exit(&self.clients, &mut self.storage, &self.config)
+                    .map(|task| task.map(Message::Dashboard))
             } else {
                 None
             };
@@ -2313,6 +2324,9 @@ fn handle_client_events(
                             .map(Message::Dashboard),
                     );
                 }
+            }
+            Event::BouncerNetworksListed(listed) => {
+                storage.forget_unlisted_bouncer_networks(server, &listed);
             }
             Event::ShowInSidebar(target) => {
                 let kind = history::Kind::from_target(server.clone(), target);

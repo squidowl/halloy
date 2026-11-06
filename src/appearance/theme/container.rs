@@ -47,6 +47,13 @@ pub fn buffer(theme: &Theme, selected: bool) -> Style {
     }
 }
 
+pub fn buffer_background(theme: &Theme) -> Style {
+    Style {
+        background: Some(Background::Color(theme.styles().buffer.background)),
+        ..Default::default()
+    }
+}
+
 pub fn buffer_title_bar(theme: &Theme) -> Style {
     let styles = theme.styles().buffer;
 
