@@ -3645,7 +3645,7 @@ impl Paths {
         let expanded = if let Some(rest) =
             path.strip_prefix("~/").or((path == "~").then_some(""))
         {
-            dirs_next::home_dir().map_or_else(
+            dirs::home_dir().map_or_else(
                 || path.to_string(),
                 |h| format!("{}/{rest}", h.to_string_lossy()),
             )
