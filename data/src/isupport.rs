@@ -3,12 +3,12 @@ use std::fmt;
 use std::str::FromStr;
 use std::sync::LazyLock;
 
-use chrono::format::SecondsFormat;
-use chrono::{DateTime, Utc};
 use hashbrown::HashMap;
 use irc::proto;
+use jiff::{SignedDuration, Timestamp};
 
 use crate::target::Target;
+use crate::time::RFC3339_WITH_MILLIS;
 use crate::{Message, message};
 
 // Utilized ISUPPORT parameters should have an associated Kind enum variant
@@ -908,7 +908,7 @@ pub enum ChathistorySubcommand {
     Latest(Target, Option<MessageReference>, u16),
     Before(Target, MessageReference, u16),
     Between(Target, MessageReference, MessageReference, u16),
-    Targets(DateTime<Utc>, DateTime<Utc>, u16),
+    Targets(Timestamp, Timestamp, u16),
 }
 
 impl ChathistorySubcommand {
@@ -944,18 +944,20 @@ pub struct CommandTargetLimit {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum MessageReference {
-    Timestamp(DateTime<Utc>),
+    Timestamp(Timestamp),
     MessageId(message::Id),
 }
 
 impl fmt::Display for MessageReference {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MessageReference::Timestamp(server_time) => write!(
-                f,
-                "timestamp={}",
-                server_time.to_rfc3339_opts(SecondsFormat::Millis, true)
-            ),
+            MessageReference::Timestamp(server_time) => {
+                write!(
+                    f,
+                    "timestamp={}",
+                    Timestamp::strftime(server_time, RFC3339_WITH_MILLIS)
+                )
+            }
             MessageReference::MessageId(id) => write!(f, "msgid={id}"),
         }
     }
@@ -1059,7 +1061,7 @@ pub const DEFAULT_PREFIX: &[PrefixMap] = &[
 pub const DEFAULT_STATUSMSG: &[char] =
     proto::DEFAULT_CHANNEL_MEMBERSHIP_PREFIXES;
 
-const FUZZ_SECONDS: chrono::Duration = chrono::Duration::seconds(1);
+const FUZZ_SECONDS: SignedDuration = SignedDuration::from_secs(1);
 
 pub fn fuzz_start_message_reference(
     message_reference: MessageReference,

@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 
-use chrono::{DateTime, Utc};
 use data::isupport::CaseMap;
 use data::user::{ChannelUsers, Nick, User};
 use data::{Config, metadata};
@@ -10,6 +9,7 @@ use iced::widget::text::LineHeight;
 pub use iced::widget::tooltip::Position;
 use iced::widget::{Space, button, container, row};
 use iced::{alignment, padding};
+use jiff::Timestamp;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{Element, Row};
@@ -232,7 +232,7 @@ fn visible_reactions(
 ) -> Vec<BTreeMap<&str, Vec<&str>>> {
     // First sort by reaction, then sender, then time.
     let mut sorted_reactions =
-        BTreeMap::<&str, BTreeMap<&Nick, BTreeMap<DateTime<Utc>, bool>>>::new();
+        BTreeMap::<&str, BTreeMap<&Nick, BTreeMap<Timestamp, bool>>>::new();
 
     for reaction in &message.reactions {
         let reactions_for_sender = sorted_reactions
@@ -241,14 +241,13 @@ fn visible_reactions(
             .entry(&reaction.sender)
             .or_default();
 
-        reactions_for_sender.insert(reaction.time.utc, reaction.unreact);
+        reactions_for_sender.insert(reaction.time.stamp, reaction.unreact);
     }
 
-    let mut reactions =
-        BTreeMap::<DateTime<Utc>, BTreeMap<&str, Vec<&str>>>::new();
+    let mut reactions = BTreeMap::<Timestamp, BTreeMap<&str, Vec<&str>>>::new();
 
     for (reaction, senders) in sorted_reactions {
-        let reaction_senders: BTreeMap<DateTime<Utc>, &str> = senders
+        let reaction_senders: BTreeMap<Timestamp, &str> = senders
             .into_iter()
             .filter_map(|(sender, server_times)| {
                 // Find the earliest react time for each sender that doesn't have a subsequent unreact

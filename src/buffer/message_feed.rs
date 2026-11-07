@@ -154,7 +154,7 @@ pub fn message_row<'a>(
 
             let timestamp = config
                 .buffer
-                .format_timestamp(&message.time.utc)
+                .format_timestamp(&message.time.stamp)
                 .map(|timestamp| {
                     context_menu::timestamp(
                         selectable_text(timestamp)
@@ -163,7 +163,7 @@ pub fn message_row<'a>(
                                     .map(font::get),
                             )
                             .style(theme::selectable_text::timestamp),
-                        &message.time.utc,
+                        &message.time.stamp,
                         config,
                         theme,
                     )
@@ -373,7 +373,7 @@ pub fn message_row<'a>(
         message::Source::Action(_) => {
             let timestamp = config
                 .buffer
-                .format_timestamp(&message.time.utc)
+                .format_timestamp(&message.time.stamp)
                 .map(|timestamp| {
                     selectable_text(timestamp)
                         .font_maybe(

@@ -5,10 +5,11 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{fs, io};
 
-use chrono::{self, DateTime, Local, NaiveDate, Utc};
 use hashbrown::{HashMap, HashSet, hash_map};
 use iced::Task;
 use itertools::Itertools;
+use jiff::civil::Date;
+use jiff::{SignedDuration, Timestamp};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
@@ -37,6 +38,10 @@ use cache::{MessageCache, ReadCache};
 
 const CLEAR_AFTER_DURATION_SINCE_CLOSED: Duration = Duration::from_secs(8);
 
+pub const UNLABELED_ECHO_REPLACE_MESSAGE_FUZZ: SignedDuration =
+    SignedDuration::from_secs(300);
+pub const REPLACE_MESSAGE_FUZZ: SignedDuration = SignedDuration::from_secs(1);
+
 #[derive(Debug)]
 pub enum Message {
     Initialized(Kind, Metadata),
@@ -62,7 +67,7 @@ pub enum Event {
 #[derive(Debug, Clone, Copy)]
 pub enum ReferenceQuery {
     Oldest,
-    Before(DateTime<Utc>),
+    Before(Timestamp),
 }
 
 #[derive(Debug)]
@@ -305,15 +310,17 @@ impl Manager {
                 }
 
                 let seen = match update {
-                    Update::Message(_, message) => message
-                        .inner
-                        .user()
-                        .map(|user| (user.nickname(), message.inner.time.utc)),
-                    Update::Reaction(_, reaction) => {
-                        Some((&reaction.inner.sender, reaction.inner.time.utc))
+                    Update::Message(_, message) => {
+                        message.inner.user().map(|user| {
+                            (user.nickname(), message.inner.time.stamp)
+                        })
                     }
+                    Update::Reaction(_, reaction) => Some((
+                        &reaction.inner.sender,
+                        reaction.inner.time.stamp,
+                    )),
                     Update::Redaction(_, redaction) => {
-                        Some((&redaction.inner.from, redaction.time.utc))
+                        Some((&redaction.inner.from, redaction.time.stamp))
                     }
                     _ => None,
                 };
@@ -656,20 +663,26 @@ impl Manager {
         buffers: &dyn BuffersContext,
         config: &Config,
     ) {
-        let kinds = self
-            .storage
-            .keys()
-            .filter(|kind| {
-                config.buffer.mark_as_read.on_application_exit
-                    || config
-                        .buffer
-                        .mark_as_read
-                        .on_buffer_close
-                        .mark_as_read(buffers.is_open_and_at_bottom(kind))
-            })
-            .cloned()
-            .collect::<Vec<_>>();
-        self.worker.send(worker::Command::MarkReadOnExit(kinds));
+        if self.failure.is_some() {
+            let _ = self.event_sender.send(vec![Event::History(
+                Message::MarkedReadOnExit(Err("history failed".to_string())),
+            )]);
+        } else {
+            let kinds = self
+                .storage
+                .keys()
+                .filter(|kind| {
+                    config.buffer.mark_as_read.on_application_exit
+                        || config
+                            .buffer
+                            .mark_as_read
+                            .on_buffer_close
+                            .mark_as_read(buffers.is_open_and_at_bottom(kind))
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            self.worker.send(worker::Command::MarkReadOnExit(kinds));
+        }
     }
 
     pub fn set_model_limit(&mut self, kind: Kind, limit: message::Limit) {
@@ -719,8 +732,8 @@ impl Manager {
     pub fn last_received_chathistory_targets(
         &self,
         server: &Server,
-    ) -> Option<DateTime<Utc>> {
-        let path = chathistory_targets_path(server).ok()?;
+    ) -> Option<Timestamp> {
+        let path = chathistory_targets_path(server, true).ok()?;
 
         let bytes = fs::read(path).ok()?;
 
@@ -730,7 +743,7 @@ impl Manager {
     pub fn update_last_received_chathistory_targets(
         &self,
         server: &Server,
-        timestamp: DateTime<Utc>,
+        timestamp: Timestamp,
     ) {
         match write_chathistory_targets_timestamp(server, timestamp) {
             Ok(()) => {
@@ -813,14 +826,25 @@ impl Manager {
     pub fn exit(&mut self, config: &Config) {
         self.exiting = true;
         let save = self.input_storage.save(config);
+
+        let history_failed = self.failure.is_some();
         let worker = self.worker.clone();
+        let event_sender = self.event_sender.clone();
+
         tokio::task::spawn(async move {
             let result = if let Some(save) = save {
                 Some(save.await)
             } else {
                 None
             };
-            worker.send(worker::Command::Exit(result));
+
+            if history_failed {
+                let _ = event_sender.send(vec![Event::History(
+                    Message::Exited(Err("history failed".to_string()), result),
+                )]);
+            } else {
+                worker.send(worker::Command::Exit(result));
+            }
         });
     }
 
@@ -1038,7 +1062,7 @@ impl Manager {
     pub fn get_last_seen(
         &self,
         buffer: &buffer::Upstream,
-    ) -> Option<&HashMap<Nick, DateTime<Utc>>> {
+    ) -> Option<&HashMap<Nick, Timestamp>> {
         let kind = Kind::from(buffer.clone());
 
         self.storage
@@ -1076,13 +1100,13 @@ impl Manager {
 pub struct Storage {
     kind: Kind,
     show_in_sidebar: bool,
-    latest: Option<DateTime<Utc>>,
-    latest_triggers_unread: Option<DateTime<Utc>>,
-    latest_triggers_highlight: Option<DateTime<Utc>>,
+    latest: Option<Timestamp>,
+    latest_triggers_unread: Option<Timestamp>,
+    latest_triggers_highlight: Option<Timestamp>,
     display_read_marker: Option<ReadMarker>,
     read_marker: Option<ReadMarker>,
     read_cache: ReadCache,
-    last_seen: HashMap<Nick, DateTime<Utc>>,
+    last_seen: HashMap<Nick, Timestamp>,
     auto_read: Option<ReadMarker>,
     importing: bool,
 }
@@ -1373,10 +1397,10 @@ fn block_messages(
     clients_context: &dyn ClientsContext,
     buffer_config: &config::Buffer,
 ) {
-    let current_time = Utc::now();
+    let current_time = Timestamp::now();
 
-    let mut last_seen = HashMap::<Nick, DateTime<Utc>>::new();
-    let mut last_away = HashMap::<Nick, DateTime<Utc>>::new();
+    let mut last_seen = HashMap::<Nick, Timestamp>::new();
+    let mut last_away = HashMap::<Nick, Timestamp>::new();
 
     messages.iter_mut().for_each(|message| {
         message.blocked = false;
@@ -1428,7 +1452,7 @@ fn block_messages(
                                 if !message.blocked {
                                     last_away.insert(
                                         nick.clone(),
-                                        message.time().utc,
+                                        message.time().stamp,
                                     );
                                 }
                             }
@@ -1445,7 +1469,7 @@ fn block_messages(
                 Source::User(message_user) => {
                     last_seen.insert(
                         message_user.nickname().to_owned(),
-                        message.time().utc,
+                        message.time().stamp,
                     );
                 }
                 Source::Internal(source::Internal::Status(status)) => {
@@ -1477,7 +1501,7 @@ fn condense_messages(
 ) {
     #[derive(PartialEq)]
     enum CondensationKey {
-        Condensable(NaiveDate),
+        Condensable(Date),
         Singular,
     }
 
@@ -1489,9 +1513,7 @@ fn condense_messages(
                 .inner
                 .can_condense(&buffer_config.server_messages.condense)
             {
-                CondensationKey::Condensable(
-                    message.time().utc.with_timezone(&Local).date_naive(),
-                )
+                CondensationKey::Condensable(message.time().system_date())
             } else {
                 CondensationKey::Singular
             }
@@ -1557,9 +1579,9 @@ fn populate_messages_reply_previews(
             if positions.is_empty() {
                 return None;
             }
-            let start = message.time().utc + chrono::Duration::seconds(1);
+            let start = message.time().stamp + SignedDuration::from_secs(1);
             let split = messages
-                .binary_search_by(|stored| stored.time().utc.cmp(&start))
+                .binary_search_by(|stored| stored.time().stamp.cmp(&start))
                 .unwrap_or_else(|position| position);
             let before =
                 positions.partition_point(|position| *position < split);
@@ -1594,14 +1616,15 @@ fn populate_messages_reply_previews(
 ///  - Messages with an exact ID match
 ///  - Echoes (labeled via labeled-response, or unlabeled)
 ///
-/// For non-echoes a search window of +/- 1 second around the server time of the
-/// incoming message is used.
+/// For non-echoes a search window of +/- `REPLACE_MESSAGE_FUZZ` (1s) around the
+/// server time of the incoming message is used.
 ///
 /// For labeled echoes the exact time should be either be stored locally, or the
 /// message was sent from another client.
 ///
-/// For unlabeled echoes a search window of +/- 300s is used to account for
-/// transit time and potential clock skew.
+/// For unlabeled echoes a search window of +/-
+/// `UNLABELED_ECHO_REPLACE_MESSAGE_FUZZ` (300s) is used to account for transit
+/// time and potential clock skew.
 ///
 /// For matching methods that do not have an identifier (i.e. when matching
 /// historical messages without a message ID or unlabeled echoes) the messages
@@ -1627,21 +1650,21 @@ pub(super) fn reconcile_message(
         message.inner.is_echo() && message.labeled_response_context.is_none();
 
     let fuzz_seconds = if message_is_unlabeled_echo {
-        chrono::Duration::seconds(300)
+        UNLABELED_ECHO_REPLACE_MESSAGE_FUZZ
     } else {
-        chrono::Duration::seconds(1)
+        REPLACE_MESSAGE_FUZZ
     };
 
     let mut replaced_sent = false;
 
     if let Some(labeled_response_context) = &message.labeled_response_context {
-        let start = labeled_response_context.time.utc - fuzz_seconds;
-        let end = labeled_response_context.time.utc + fuzz_seconds;
+        let start = labeled_response_context.time.stamp - fuzz_seconds;
+        let end = labeled_response_context.time.stamp + fuzz_seconds;
 
         let start_index =
-            messages.partition_point(|stored| stored.time.utc < start);
+            messages.partition_point(|stored| stored.time.stamp < start);
         let end_index =
-            messages.partition_point(|stored| stored.time.utc < end);
+            messages.partition_point(|stored| stored.time.stamp < end);
 
         if let Some(index) = messages[start_index..end_index]
             .iter()
@@ -1659,12 +1682,12 @@ pub(super) fn reconcile_message(
         }
     }
 
-    let start = message.time().utc - fuzz_seconds;
-    let end = message.time().utc + fuzz_seconds;
+    let start = message.time().stamp - fuzz_seconds;
+    let end = message.time().stamp + fuzz_seconds;
 
     let start_index =
-        messages.partition_point(|stored| stored.time.utc < start);
-    let end_index = messages.partition_point(|stored| stored.time.utc < end);
+        messages.partition_point(|stored| stored.time.stamp < start);
+    let end_index = messages.partition_point(|stored| stored.time.stamp < end);
 
     let mut insert_at = start_index;
     let mut replace_at = None;
@@ -1845,24 +1868,60 @@ pub(super) fn get_before_and_after_count_from_position(
 
 fn write_chathistory_targets_timestamp(
     server: &Server,
-    timestamp: DateTime<Utc>,
+    timestamp: Timestamp,
 ) -> Result<(), Error> {
     let bytes = serde_json::to_vec(&Some(timestamp))?;
 
-    let path = chathistory_targets_path(server)?;
+    let path = chathistory_targets_path(server, false)?;
 
     Ok(fs::write(path, &bytes)?)
 }
 
-fn chathistory_targets_path(server: &Server) -> Result<PathBuf, Error> {
+fn chathistory_targets_path(
+    server: &Server,
+    fallback: bool,
+) -> Result<PathBuf, Error> {
     let dir = dir_path()?;
 
-    let name = format!("{server}-targets");
+    let sanitized_server_name =
+        sanitize_filename::sanitize(server.name.as_ref());
 
-    Ok(dir.join(format!("{name}.json")))
+    let path = if let Some(network) = &server.network {
+        let server_dir = dir.join(sanitized_server_name);
+
+        if !server_dir.exists() {
+            fs::create_dir_all(&server_dir)?;
+        }
+
+        server_dir.join(format!(
+            "{}.json",
+            sanitize_filename::sanitize(&network.name)
+        ))
+    } else {
+        dir.join(format!("{sanitized_server_name}.json"))
+    };
+
+    if !path.exists()
+        && fallback
+        && let Ok(fallback_dir) = fallback_dir_path()
+    {
+        let fallback_path = fallback_dir.join(format!("{server}-targets.json"));
+
+        if fallback_path.exists() {
+            return Ok(fallback_path);
+        }
+    }
+
+    Ok(path)
 }
 
 fn dir_path() -> Result<PathBuf, Error> {
+    let dir = environment::data_dir().join("targets");
+    fs::create_dir_all(&dir)?;
+    Ok(dir)
+}
+
+fn fallback_dir_path() -> Result<PathBuf, Error> {
     let dir = environment::data_dir().join("msdb");
     fs::create_dir_all(&dir)?;
     Ok(dir)

@@ -1,6 +1,5 @@
 use std::thread;
 
-use chrono::{DateTime, TimeDelta, Utc};
 use data::audio::Sound;
 use data::buffer::{self, Buffer};
 use data::config::actions::NotificationAction;
@@ -9,6 +8,7 @@ use data::user::Nick;
 use data::{Config, Notification, Server, User, list_format};
 use hashbrown::HashMap;
 use iced::Task;
+use jiff::{SignedDuration, Timestamp};
 use rand::prelude::*;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
@@ -86,7 +86,7 @@ impl From<&Notification> for NotificationDelayKey {
 }
 
 pub struct Notifications {
-    recent_notifications: HashMap<NotificationDelayKey, DateTime<Utc>>,
+    recent_notifications: HashMap<NotificationDelayKey, Timestamp>,
     sounds: HashMap<String, Sound>,
     sender: mpsc::Sender<Event>,
     audio: Option<thread::JoinHandle<()>>,
@@ -545,13 +545,13 @@ impl Notifications {
         sounds: &[String],
         buffer: Option<Buffer>,
     ) {
-        let now = Utc::now();
+        let now = Timestamp::now();
         let delay_key = notification.into();
 
         if self.recent_notifications.get(&delay_key).is_some_and(
             |last_notification| {
-                now - last_notification
-                    < TimeDelta::milliseconds(i64::from(
+                now.duration_since(*last_notification)
+                    < SignedDuration::from_millis(i64::from(
                         config.delay.unwrap_or(500),
                     ))
             },
