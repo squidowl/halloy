@@ -2,9 +2,9 @@
 
 Halloy supports file uploads via the [`soju.im/filehost`](https://soju.im/filehost) IRC extension. When a file is uploaded the resulting URL is inserted into the message input.
 
-File uploads require a server which is capable of authenticating and accepting requests as described by `soju.im/filehost`. This can be provided by your server, bouncer, or manually overwritten with `servers.<server>.filehost.override_url`](/configuration/servers#override-url).
+File uploads require a server which is capable of authenticating and accepting requests as described by `soju.im/filehost`. This can be provided by the IRC server or your bouncer.  Alternatively, any filehost server can be used for any IRC server with  `servers.<server>.filehost.override_url`](/configuration/servers#override-url).
 
-## Making a file upload
+## Uploading a file
 
 Uploads can be triggered by:
 
@@ -21,7 +21,7 @@ If your server does not allow advertising a filehost token, or you do not contro
 
 ### Ergo
 
-Ergo is not capable of hosting files, but you can point clients to the filehost by adding the following to your `ircd.yaml`:
+Ergo is not capable of hosting files, but you can point clients to a filehost server by adding the following to your `ircd.yaml`:
 
 ```yaml
 server:
