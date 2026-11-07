@@ -904,15 +904,13 @@ impl Write<'_> {
             .stamp
             .round(TimestampRound::new().smallest(Unit::Microsecond))?;
         let history = self.history(kind)?;
-        let fuzz = SignedDuration::from_secs(
-            if incoming.inner.is_echo()
-                && incoming.labeled_response_context.is_none()
-            {
-                300
-            } else {
-                1
-            },
-        );
+        let fuzz = if incoming.inner.is_echo()
+            && incoming.labeled_response_context.is_none()
+        {
+            storage::UNLABELED_ECHO_REPLACE_MESSAGE_FUZZ
+        } else {
+            storage::REPLACE_MESSAGE_FUZZ
+        };
         let time = incoming.inner.time.stamp;
         let mut candidates = if !incoming.inner.is_echo()
             && incoming.labeled_response_context.is_none()
