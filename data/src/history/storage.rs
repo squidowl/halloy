@@ -659,20 +659,26 @@ impl Manager {
         buffers: &dyn BuffersContext,
         config: &Config,
     ) {
-        let kinds = self
-            .storage
-            .keys()
-            .filter(|kind| {
-                config.buffer.mark_as_read.on_application_exit
-                    || config
-                        .buffer
-                        .mark_as_read
-                        .on_buffer_close
-                        .mark_as_read(buffers.is_open_and_at_bottom(kind))
-            })
-            .cloned()
-            .collect::<Vec<_>>();
-        self.worker.send(worker::Command::MarkReadOnExit(kinds));
+        if self.failure.is_some() {
+            let _ = self.event_sender.send(vec![Event::History(
+                Message::MarkedReadOnExit(Err("history failed".to_string())),
+            )]);
+        } else {
+            let kinds = self
+                .storage
+                .keys()
+                .filter(|kind| {
+                    config.buffer.mark_as_read.on_application_exit
+                        || config
+                            .buffer
+                            .mark_as_read
+                            .on_buffer_close
+                            .mark_as_read(buffers.is_open_and_at_bottom(kind))
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            self.worker.send(worker::Command::MarkReadOnExit(kinds));
+        }
     }
 
     pub fn set_model_limit(&mut self, kind: Kind, limit: message::Limit) {
@@ -816,14 +822,25 @@ impl Manager {
     pub fn exit(&mut self, config: &Config) {
         self.exiting = true;
         let save = self.input_storage.save(config);
+
+        let history_failed = self.failure.is_some();
         let worker = self.worker.clone();
+        let event_sender = self.event_sender.clone();
+
         tokio::task::spawn(async move {
             let result = if let Some(save) = save {
                 Some(save.await)
             } else {
                 None
             };
-            worker.send(worker::Command::Exit(result));
+
+            if history_failed {
+                let _ = event_sender.send(vec![Event::History(
+                    Message::Exited(Err("history failed".to_string()), result),
+                )]);
+            } else {
+                worker.send(worker::Command::Exit(result));
+            }
         });
     }
 
