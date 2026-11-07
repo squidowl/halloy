@@ -1887,7 +1887,13 @@ fn chathistory_targets_path(
         sanitize_filename::sanitize(server.name.as_ref());
 
     let path = if let Some(network) = &server.network {
-        dir.join(sanitized_server_name).join(format!(
+        let server_dir = dir.join(sanitized_server_name);
+
+        if !server_dir.exists() {
+            fs::create_dir_all(&server_dir)?;
+        }
+
+        server_dir.join(format!(
             "{}.json",
             sanitize_filename::sanitize(&network.name)
         ))

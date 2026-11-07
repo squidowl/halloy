@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct Time {
+    #[serde(alias = "utc")]
     pub stamp: Timestamp,
     pub source: Source,
 }
