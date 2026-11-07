@@ -729,7 +729,7 @@ impl Manager {
         &self,
         server: &Server,
     ) -> Option<Timestamp> {
-        let path = chathistory_targets_path(server).ok()?;
+        let path = chathistory_targets_path(server, true).ok()?;
 
         let bytes = fs::read(path).ok()?;
 
@@ -1867,20 +1867,50 @@ fn write_chathistory_targets_timestamp(
 ) -> Result<(), Error> {
     let bytes = serde_json::to_vec(&Some(timestamp))?;
 
-    let path = chathistory_targets_path(server)?;
+    let path = chathistory_targets_path(server, false)?;
 
     Ok(fs::write(path, &bytes)?)
 }
 
-fn chathistory_targets_path(server: &Server) -> Result<PathBuf, Error> {
+fn chathistory_targets_path(
+    server: &Server,
+    fallback: bool,
+) -> Result<PathBuf, Error> {
     let dir = dir_path()?;
 
-    let name = format!("{server}-targets");
+    let sanitized_server_name =
+        sanitize_filename::sanitize(server.name.as_ref());
 
-    Ok(dir.join(format!("{name}.json")))
+    let path = if let Some(network) = &server.network {
+        dir.join(sanitized_server_name).join(format!(
+            "{}.json",
+            sanitize_filename::sanitize(&network.name)
+        ))
+    } else {
+        dir.join(format!("{sanitized_server_name}.json"))
+    };
+
+    if !path.exists()
+        && fallback
+        && let Ok(fallback_dir) = fallback_dir_path()
+    {
+        let fallback_path = fallback_dir.join(format!("{server}-targets.json"));
+
+        if fallback_path.exists() {
+            return Ok(fallback_path);
+        }
+    }
+
+    Ok(path)
 }
 
 fn dir_path() -> Result<PathBuf, Error> {
+    let dir = environment::data_dir().join("targets");
+    fs::create_dir_all(&dir)?;
+    Ok(dir)
+}
+
+fn fallback_dir_path() -> Result<PathBuf, Error> {
     let dir = environment::data_dir().join("msdb");
     fs::create_dir_all(&dir)?;
     Ok(dir)
