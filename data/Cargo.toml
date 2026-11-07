@@ -85,6 +85,8 @@ icu_time = "2.4"
 apple-native-keyring-store = { version = "1", default-features = false, features = [
     "keychain",
 ] }
+core-foundation = "0.10"
+core-foundation-sys = "0.8"
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
 zbus-secret-service-keyring-store = { version = "1", features = [

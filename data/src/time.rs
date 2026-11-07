@@ -3,6 +3,8 @@ use jiff::fmt::rfc2822;
 use jiff::tz::TimeZone;
 use jiff::{self, Timestamp};
 
+#[cfg(target_os = "macos")]
+mod apple;
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
 mod unix;
 
@@ -31,10 +33,22 @@ pub fn system_locale() -> Locale {
     #[cfg(any(target_os = "linux", target_os = "freebsd"))]
     let locale = crate::time::unix::get_time_locale();
 
-    #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
+    #[cfg(target_os = "macos")]
+    let locale = crate::time::apple::get_locale();
+
+    #[cfg(target_os = "windows")]
     let locale = sys_locale::get_locales().next();
 
     locale
         .and_then(|locale| Locale::try_from_str(&locale).ok())
         .unwrap_or(Locale::UNKNOWN)
+}
+
+#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "macos"))]
+fn posix_to_bcp47(locale: &str) -> String {
+    locale
+        .chars()
+        .take_while(|&c| c != '.' && c != '@')
+        .map(|c| if c == '_' { '-' } else { c })
+        .collect()
 }
