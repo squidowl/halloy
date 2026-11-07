@@ -109,10 +109,7 @@ bytesize = "2.0.1"
 rodio = "0.22.0"
 humantime = "2.2.0"
 strsim = "0.11.1"
-rfd = { version = "0.15.2", default-features = false, features = [
-    "xdg-portal",
-    "tokio",
-] }
+rfd = { version = "0.18", default-features = false, features = ["xdg-portal"] }
 uuid = { version = "1.23", features = ["v7"] }
 netwatcher = { version = "0.8.0", features = ["tokio"] }
 mundy = { version = "0.1.9", default-features = false, features = [
