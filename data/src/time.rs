@@ -29,21 +29,12 @@ pub fn rfc2822_from_timestamp(
 
 pub fn system_locale() -> Locale {
     #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-    {
-        use crate::time::unix::get_time_locales;
-
-        get_time_locales()
-            .next()
-            .and_then(|locale_string| {
-                Locale::try_from_str(&locale_string.replace("_", "-")).ok()
-            })
-            .unwrap_or(Locale::UNKNOWN)
-    }
+    let locale = crate::time::unix::get_time_locale();
 
     #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
-    sys_locale::get_locale()
-        .and_then(|locale_string| {
-            Locale::try_from_str(&locale_string.replace("_", "-")).ok()
-        })
+    let locale = sys_locale::get_locales().next();
+
+    locale
+        .and_then(|locale| Locale::try_from_str(&locale).ok())
         .unwrap_or(Locale::UNKNOWN)
 }
