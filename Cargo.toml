@@ -56,6 +56,7 @@ const_format = "0.2.36"
 iced = { version = "0.15.0-dev", default-features = false }
 nom = "8.0"
 percent-encoding = "2.3.2"
+image = "0.25.10"
 
 [dependencies]
 hashbrown = { workspace = true }
@@ -79,7 +80,7 @@ nucleo-matcher = { workspace = true }
 reqwest = { workspace = true }
 const_format = { workspace = true }
 dirs-next = "2.0.0"
-image = "0.25"
+image = { workspace = true }
 iced = { workspace = true, features = [
     "wgpu",
     "tiny-skia",
@@ -95,6 +96,7 @@ iced = { workspace = true, features = [
     "highlighter",
 ] }
 percent-encoding = { workspace = true }
+unicode-segmentation = { workspace = true }
 
 data = { version = "0.1.0", path = "data" }
 ipc = { version = "0.1.0", path = "ipc" }
@@ -103,7 +105,6 @@ irc = { version = "0.1.0", path = "irc" }
 signal-hook = "0.3.18"
 notify-rust = { version = "4.18", features = [ "images" ] }
 fern = "0.7.1"
-unicode-segmentation = "1.6"
 open = { version = "5.4.4", features = ["shellexecute-on-windows"] }
 bytesize = "2.0.1"
 rodio = "0.22.0"
