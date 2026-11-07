@@ -1,5 +1,9 @@
 # Unreleased
 
+Fixed:
+
+- Localization of default date separators and timestamp context menu formats
+
 # 2026.10 (2026-11-03)
 
 Added:
