@@ -38,6 +38,10 @@ use cache::{MessageCache, ReadCache};
 
 const CLEAR_AFTER_DURATION_SINCE_CLOSED: Duration = Duration::from_secs(8);
 
+pub const UNLABELED_ECHO_REPLACE_MESSAGE_FUZZ: SignedDuration =
+    SignedDuration::from_secs(300);
+pub const REPLACE_MESSAGE_FUZZ: SignedDuration = SignedDuration::from_secs(1);
+
 #[derive(Debug)]
 pub enum Message {
     Initialized(Kind, Metadata),
@@ -1610,14 +1614,15 @@ fn populate_messages_reply_previews(
 ///  - Messages with an exact ID match
 ///  - Echoes (labeled via labeled-response, or unlabeled)
 ///
-/// For non-echoes a search window of +/- 1 second around the server time of the
-/// incoming message is used.
+/// For non-echoes a search window of +/- `REPLACE_MESSAGE_FUZZ` (1s) around the
+/// server time of the incoming message is used.
 ///
 /// For labeled echoes the exact time should be either be stored locally, or the
 /// message was sent from another client.
 ///
-/// For unlabeled echoes a search window of +/- 300s is used to account for
-/// transit time and potential clock skew.
+/// For unlabeled echoes a search window of +/-
+/// `UNLABELED_ECHO_REPLACE_MESSAGE_FUZZ` (300s) is used to account for transit
+/// time and potential clock skew.
 ///
 /// For matching methods that do not have an identifier (i.e. when matching
 /// historical messages without a message ID or unlabeled echoes) the messages
@@ -1643,9 +1648,9 @@ pub(super) fn reconcile_message(
         message.inner.is_echo() && message.labeled_response_context.is_none();
 
     let fuzz_seconds = if message_is_unlabeled_echo {
-        SignedDuration::from_secs(300)
+        UNLABELED_ECHO_REPLACE_MESSAGE_FUZZ
     } else {
-        SignedDuration::from_secs(1)
+        REPLACE_MESSAGE_FUZZ
     };
 
     let mut replaced_sent = false;
