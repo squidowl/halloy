@@ -182,9 +182,31 @@ fn set_platform_default_store() -> keyring_core::Result<()> {
 
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
 fn set_platform_default_store() -> keyring_core::Result<()> {
-    use zbus_secret_service_keyring_store::Store;
+    use std::collections::HashMap;
 
-    keyring_core::set_default_store(Store::new()?);
+    use zbus_secret_portal_keyring_store::Store as PortalStore;
+    use zbus_secret_service_keyring_store::Store as SecretServiceStore;
+
+    use crate::environment;
+
+    if let Ok(store) = SecretServiceStore::new() {
+        keyring_core::set_default_store(store);
+        return Ok(());
+    }
+
+    let file = environment::data_dir().join("keyring.json");
+    let file = file.to_str().ok_or_else(|| {
+        keyring_core::Error::NotSupportedByStore(
+            "file path isn't valid string".to_string(),
+        )
+    })?;
+
+    let config = HashMap::from([("keyring-file", file)]);
+
+    keyring_core::set_default_store(PortalStore::new_with_configuration(
+        &config,
+    )?);
+
     Ok(())
 }
 
