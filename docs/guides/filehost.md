@@ -1,6 +1,10 @@
 # File Uploads
 
-Halloy supports file uploads via the [`soju.im/filehost`](https://soju.im/filehost) IRC extension. When a file is uploaded, the resulting URL is inserted into the message input.
+Halloy supports file uploads via the [`soju.im/filehost`](https://soju.im/filehost) IRC extension. When a file is uploaded the resulting URL is inserted into the message input.
+
+File uploads require a server which is capable of authenticating and accepting requests as described by `soju.im/filehost`. This can be provided by your server, bouncer, or manually overwritten with `servers.<server>.filehost.override_url`](/configuration/servers#override-url).
+
+## Making a file upload
 
 Uploads can be triggered by:
 
@@ -9,17 +13,15 @@ Uploads can be triggered by:
 - Pasting a file into the window
 - The [`/upload`](/commands#types) command
 
-::: info
-Filehost requires your server to advertise support for it according to the spec. Alternatively, [`servers.<server>.filehost.override_url`](/configuration/servers#override-url) can be set to override with any filehost.
-:::
+## Filehost software
 
-## Server support
+This is not an exhaustive list.
 
-A server can set an `ISUPPORT` token to provide a filehost.
+If your server does not allow advertising a filehost token, or you do not control the IRC server, you can configure a URL manually via [`filehost.override_url`](/configuration/servers#override_url).
 
 ### Ergo
 
-Ergo supports filehost natively via `additional-isupport`. Add the following to your `ircd.yaml`:
+Ergo is not capable of hosting files, but you can point clients to the filehost by adding the following to your `ircd.yaml`:
 
 ```yaml
 server:
@@ -29,9 +31,9 @@ server:
 
 ### soju
 
-soju supports filehost via its own `soju.im/FILEHOST` token. Configure filehost [in your soju configuration](https://codeberg.org/emersion/soju/src/branch/master/doc/file-upload.md).
+soju both advertises and acts as a filehost. You configure filehost [in your soju configuration](https://codeberg.org/emersion/soju/src/branch/master/doc/file-upload.md).
 
-soju will advertise the configured URL to clients via `soju.im/FILEHOST`. For networks provided by bouncer, Halloy will use the bouncer's filehost.
+soju will advertise the configured URL to clients via `soju.im/FILEHOST`.
 
 ### ircv3-filehost-server
 
@@ -40,10 +42,6 @@ soju will advertise the configured URL to clients via `soju.im/FILEHOST`. For ne
 ### convoyeur
 
 [convoyeur](https://codeberg.org/classabbyamp/convoyeur) can act as a proxy to external file upload services. 
-
-### Others
-
-If your server does not allow advertising a filehost token, or you do not control the IRC server, you can configure a URL manually via [`filehost.override_url`](/configuration/servers#override_url).
 
 ## Authentication
 
