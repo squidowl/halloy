@@ -43,6 +43,7 @@ iced = { workspace = true, features = [
 ] }
 nom = { workspace = true }
 percent-encoding = { workspace = true }
+image = { workspace = true }
 keyring-core = "1"
 rusqlite = { version = "0.40", features = ["bundled"] }
 
@@ -64,7 +65,6 @@ toml = { version = "1.1.4", features = ["preserve_order"] }
 fancy-regex = "0.20"
 walkdir = "2.5.0"
 derive_more = { version = "2.0.1", features = ["full"] }
-image = "0.25.10"
 gif = "0.14.1"
 html-escape = "0.3.0"
 display-info = "0.5.9"
