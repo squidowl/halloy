@@ -1121,7 +1121,7 @@ impl Buffer {
             self.timestamp.context_menu_format.as_ref()
         {
             Timestamp::strftime(timestamp, context_menu_format).to_string()
-        } else if let Ok(formatter) = DateTimeFormatter::<YMD>::try_new(
+        } else if let Ok(formatter) = DateTimeFormatter::try_new(
             self.timestamp.locale.clone().into(),
             YMD::short(),
         ) {
@@ -1150,7 +1150,7 @@ impl Buffer {
             Date::strftime(date, format).to_string()
         } else {
             if show_year {
-                if let Ok(formatter) = DateTimeFormatter::<YMDE>::try_new(
+                if let Ok(formatter) = DateTimeFormatter::try_new(
                     self.timestamp.locale.clone().into(),
                     YMDE::long(),
                 ) {
@@ -1161,7 +1161,7 @@ impl Buffer {
                     Date::strftime(date, "%A, %B %-d, %-Y").to_string()
                 }
             } else {
-                if let Ok(formatter) = DateTimeFormatter::<MDE>::try_new(
+                if let Ok(formatter) = DateTimeFormatter::try_new(
                     self.timestamp.locale.clone().into(),
                     MDE::long(),
                 ) {
