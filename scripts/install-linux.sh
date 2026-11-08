@@ -20,8 +20,8 @@
   prefix=$(realpath -- "$prefix")
 
 # To build successfully, install packages:
-#   alsa-lib-devel openssl-devel libxcb-devel (on Fedora-based distros)
-#   librust-alsa-sys-dev libssl-dev libxcb1-dev (on Debian-based distros)
+#   alsa-lib-devel openssl-devel libxcb-devel hunspell-devel (on Fedora-based distros)
+#   librust-alsa-sys-dev libssl-dev libxcb1-dev libhunspell-dev (on Debian-based distros)
 
   cargo install --locked --force --path "$git_root_dir" --root "$prefix"
 
