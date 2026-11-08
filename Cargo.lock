@@ -2938,7 +2938,6 @@ dependencies = [
  "fern",
  "futures",
  "hashbrown 0.17.1",
- "humantime",
  "iced",
  "image",
  "ipc",

@@ -128,8 +128,6 @@ impl FileTransfers {
 }
 
 mod transfer_row {
-    use std::time::Duration;
-
     use bytesize::ByteSize;
     use data::file_transfer::{self, FileTransfer};
     use iced::widget::{column, container, progress_bar, row, text};
@@ -212,31 +210,30 @@ mod transfer_row {
                 transferred,
                 elapsed,
             } => {
-                let transfer_speed_and_remaining_time = if elapsed.as_secs()
-                    == 0
-                {
-                    String::default()
-                } else {
-                    let bytes_per_second = *transferred / elapsed.as_secs();
-                    let transfer_speed = ByteSize::b(bytes_per_second);
-
-                    let remaining_bytes =
-                        transfer.size.saturating_sub(*transferred);
-                    let remaining_time = if let Some(estimated_seconds) =
-                        remaining_bytes.checked_div(bytes_per_second)
-                    {
-                        let readable_time_left = humantime::format_duration(
-                            Duration::from_secs(estimated_seconds),
-                        )
-                        .to_string();
-
-                        format!("| {readable_time_left}")
-                    } else {
+                let transfer_speed_and_remaining_time =
+                    if elapsed.as_secs() == 0 {
                         String::default()
-                    };
+                    } else {
+                        let bytes_per_second = *transferred / elapsed.as_secs();
+                        let transfer_speed = ByteSize::b(bytes_per_second);
 
-                    format!("({transfer_speed}/s) {remaining_time}")
-                };
+                        let remaining_bytes =
+                            transfer.size.saturating_sub(*transferred);
+                        let remaining_time = if let Some(estimated_seconds) =
+                            remaining_bytes.checked_div(bytes_per_second)
+                        {
+                            let time_left = SignedDuration::from_secs(
+                                i64::try_from(estimated_seconds)
+                                    .unwrap_or(i64::MAX),
+                            );
+
+                            format!("| {time_left:#}")
+                        } else {
+                            String::default()
+                        };
+
+                        format!("({transfer_speed}/s) {remaining_time}")
+                    };
 
                 let transferred = ByteSize::b(*transferred);
                 let file_size = ByteSize::b(transfer.size);
