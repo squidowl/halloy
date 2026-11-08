@@ -7,6 +7,8 @@ use jiff::{self, Timestamp};
 mod apple;
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
 mod unix;
+#[cfg(target_os = "windows")]
+mod windows;
 
 pub const RFC3339_WITH_MILLIS: &str = "%Y-%m-%dT%H:%M:%S%.3fZ";
 
@@ -37,7 +39,7 @@ pub fn system_locale() -> Locale {
     let locale = crate::time::apple::get_locale();
 
     #[cfg(target_os = "windows")]
-    let locale = sys_locale::get_locales().next();
+    let locale = crate::time::windows::get_locale();
 
     locale
         .and_then(|locale| Locale::try_from_str(&locale).ok())

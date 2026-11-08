@@ -1643,7 +1643,6 @@ dependencies = [
  "serde_test",
  "sha2 0.11.1",
  "strum",
- "sys-locale",
  "tempfile",
  "thiserror 2.0.21",
  "tokio",
@@ -1656,6 +1655,7 @@ dependencies = [
  "version-compare",
  "walkdir",
  "windows-native-keyring-store",
+ "windows-sys 0.61.2",
  "xdg",
  "zbus-secret-service-keyring-store",
 ]
