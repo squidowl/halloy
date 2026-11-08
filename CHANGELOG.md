@@ -4,6 +4,10 @@ Fixed:
 
 - Localization of default date separators and timestamp context menu formats
 
+Changed:
+
+- Supported strftime formats; new list of supported specifiers is viewable at <https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html#conversion-specifications>
+
 Thanks:
 
 - Contributions: @auronandace
