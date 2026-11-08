@@ -1,4 +1,4 @@
-use icu_locale::Locale;
+use icu_locale::{Locale, locale};
 use jiff::fmt::rfc2822;
 use jiff::tz::TimeZone;
 use jiff::{self, Timestamp};
@@ -43,7 +43,7 @@ pub fn system_locale() -> Locale {
 
     locale
         .and_then(|locale| Locale::try_from_str(&locale).ok())
-        .unwrap_or(Locale::UNKNOWN)
+        .unwrap_or(locale!("en"))
 }
 
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "macos"))]
