@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 use std::collections::VecDeque;
-use std::convert;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use std::{convert, slice};
 
 use data::buffer::{self, BuffersContext, Upstream};
 use data::capabilities::{
@@ -130,6 +130,7 @@ pub enum Message {
         to_nick: Nick,
     },
     ClearDraftReply,
+    JoinChannel,
     NavigateFocus(FocusDirection, bool),
     ExitFocus,
     FocusAction(FocusAction),
@@ -212,6 +213,7 @@ fn paste_key_binding(
 pub fn view<'a>(
     state: &'a State,
     our_user: Option<&User>,
+    channel_state: Option<client::ChannelState>,
     channel_users: Option<&'a ChannelUsers>,
     server: &'a Server,
     registry: &'a dyn metadata::Registry,
@@ -498,9 +500,13 @@ pub fn view<'a>(
         reply_bar(reply_preview, channel_users, registry, config, theme)
     });
 
+    let joined = channel_state.is_none_or(|channel_state| {
+        channel_state == client::ChannelState::Joined
+    });
+
     let input_row = container(
         row![]
-            .extend(maybe_our_user(our_user, registry, config, theme))
+            .extend(maybe_our_user(our_user, joined, registry, config, theme))
             .push(wrapped_input)
             .extend(maybe_upload_spinner.into_iter().chain(maybe_upload_button))
             .spacing(INPUT_ROW_SPACING)
@@ -514,8 +520,15 @@ pub fn view<'a>(
     )
     .padding(8);
 
-    let styled_input =
-        container(input_row).style(theme::container::buffer_text_input);
+    let join_banner: Element<'a, Message> =
+        if channel_state == Some(client::ChannelState::Parted) {
+            join_banner(config)
+        } else {
+            column![].into()
+        };
+
+    let styled_input = container(column![join_banner, input_row])
+        .style(theme::container::buffer_text_input);
 
     let input_column = column![
         if let Some(bar) = maybe_reply_bar {
@@ -555,7 +568,9 @@ pub fn view<'a>(
 
         let overlay = double_pass(
             row![]
-                .extend(maybe_our_user(our_user, registry, config, theme))
+                .extend(maybe_our_user(
+                    our_user, joined, registry, config, theme,
+                ))
                 .push(overlay())
                 .spacing(INPUT_ROW_SPACING),
             row![Space::new().width(Length::Fill), overlay()],
@@ -576,6 +591,7 @@ pub fn view<'a>(
 
 fn maybe_our_user<'a>(
     our_user: Option<&User>,
+    joined: bool,
     registry: &'a dyn metadata::Registry,
     config: &'a Config,
     theme: &'a Theme,
@@ -599,7 +615,7 @@ fn maybe_our_user<'a>(
                 vec![
                     container(user_display.into_element(
                         user,
-                        user.is_away(),
+                        user.is_away() || !joined,
                         false,
                         None,
                         None,
@@ -675,6 +691,39 @@ fn reply_bar<'a>(
     )
     .padding([2, 8])
     .into()
+}
+
+fn join_banner<'a>(config: &'a Config) -> Element<'a, Message> {
+    let font_size = config.font.size.map_or(theme::TEXT_SIZE, f32::from);
+
+    let banner = column![
+        rule::horizontal(1.0).style(theme::rule::primary),
+        container(
+            row![
+                container(
+                    text("You have left this channel")
+                        .size(font_size - 1.0)
+                        .line_height(1.0)
+                        .style(theme::text::primary),
+                )
+                .padding([4, 0])
+                .width(Length::Fill),
+                button(text("Join").size(font_size - 1.0).line_height(1.0))
+                    .padding(5)
+                    .style(|theme, status| {
+                        theme::button::secondary(theme, status, false)
+                    })
+                    .on_press(Message::JoinChannel),
+            ]
+            .spacing(8)
+            .align_y(Alignment::Center),
+        )
+        .padding([4, 6])
+        .style(theme::container::buffer_background),
+        rule::horizontal(1.0).style(theme::rule::primary),
+    ];
+
+    container(banner).padding([0, 1]).into()
 }
 
 fn notice_view<'a, 'b, Message: 'a>(
@@ -1501,6 +1550,13 @@ impl State {
 
                 (self.focus(), None)
             }
+            Message::JoinChannel => {
+                if let Upstream::Channel(server, channel) = buffer {
+                    clients.join(server, slice::from_ref(channel));
+                }
+
+                (self.focus(), None)
+            }
             Message::FilehostUploadDone { id, url } => {
                 self.uploading = self.uploading.saturating_sub(1);
                 // ids are sequential per upload batch — resetting when idle
@@ -2180,8 +2236,15 @@ impl State {
                         };
 
                         // Part channel. Might not exist if we execute on a query/server.
-                        let part_command =
-                            buffer.as_channel().and_then(|channel| {
+                        let part_command = buffer
+                            .as_channel()
+                            .filter(|channel| {
+                                clients.contains_channel(
+                                    buffer.as_server(),
+                                    channel,
+                                )
+                            })
+                            .and_then(|channel| {
                                 data::Input::from_command(
                                     buffer.clone(),
                                     command::Irc::Part(
@@ -2236,7 +2299,7 @@ impl State {
                             casemapping,
                         );
 
-                        let event = has_channel_argument.then_some({
+                        let event = has_channel_argument.then(|| {
                             let buffer_action = match buffer {
                                 // If it's a channel, we want to replace it when hopping to a new channel.
                                 Upstream::Channel(..) => {
@@ -2247,6 +2310,21 @@ impl State {
                                     config.actions.buffer.message_channel
                                 }
                             };
+
+                            // replaced channel is closed so its PART doesnt keep it open
+                            if let Some(channel) =
+                                buffer.as_channel().filter(|channel| {
+                                    target.as_channel() != Some(*channel)
+                                })
+                            {
+                                storage.show_in_sidebar(
+                                    history::Kind::Channel(
+                                        buffer.as_server().clone(),
+                                        channel.clone(),
+                                    ),
+                                    false,
+                                );
+                            }
 
                             Event::OpenBuffers {
                                 server: buffer.as_server().clone(),

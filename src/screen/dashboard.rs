@@ -673,6 +673,15 @@ impl Dashboard {
                             (Task::none(), None)
                         }
                     }
+                    sidebar::Event::Join(buffer) => {
+                        if let buffer::Upstream::Channel(server, channel) =
+                            buffer
+                        {
+                            clients.join(&server, slice::from_ref(&channel));
+                        }
+
+                        (Task::none(), None)
+                    }
                     sidebar::Event::Leave(buffer) => {
                         self.leave_buffer(clients, storage, config, buffer)
                     }
@@ -680,7 +689,7 @@ impl Dashboard {
                         self.toggle_command_bar(
                             servers,
                             clients,
-                            &closed_upstream_buffers(self, clients),
+                            &closed_upstream_buffers(self, servers, clients),
                             version,
                             config,
                             theme,
@@ -863,7 +872,9 @@ impl Dashboard {
                                 self.toggle_command_bar(
                                     servers,
                                     clients,
-                                    &closed_upstream_buffers(self, clients),
+                                    &closed_upstream_buffers(
+                                        self, servers, clients,
+                                    ),
                                     version,
                                     config,
                                     theme,
@@ -877,7 +888,9 @@ impl Dashboard {
                             self.toggle_command_bar(
                                 servers,
                                 clients,
-                                &closed_upstream_buffers(self, clients),
+                                &closed_upstream_buffers(
+                                    self, servers, clients,
+                                ),
                                 version,
                                 config,
                                 theme,
@@ -1068,7 +1081,9 @@ impl Dashboard {
                             self.toggle_command_bar(
                                 servers,
                                 clients,
-                                &closed_upstream_buffers(self, clients),
+                                &closed_upstream_buffers(
+                                    self, servers, clients,
+                                ),
                                 version,
                                 config,
                                 theme,
@@ -1881,7 +1896,11 @@ impl Dashboard {
                         .view(
                             servers,
                             clients,
-                            &all_upstream_buffers(clients, &self.models),
+                            &all_upstream_buffers(
+                                servers,
+                                clients,
+                                &self.models,
+                            ),
                             self.panes.focus,
                             self.buffer_resize_action(),
                             version,
@@ -2880,7 +2899,7 @@ impl Dashboard {
                     self.toggle_command_bar(
                         servers,
                         clients,
-                        &closed_upstream_buffers(self, clients),
+                        &closed_upstream_buffers(self, servers, clients),
                         version,
                         config,
                         theme,
@@ -3693,7 +3712,9 @@ impl Dashboard {
 
                 let input = data::Input::from_command(buffer, command);
 
-                if let Some(encoded) = input.encoded() {
+                if clients.contains_channel(&server, &channel)
+                    && let Some(encoded) = input.encoded()
+                {
                     clients.send_from_buffer(
                         &input.buffer,
                         encoded,
@@ -3711,12 +3732,12 @@ impl Dashboard {
             }
         };
 
+        storage.show_in_sidebar(kind, false);
+
         // Close pane
         if let Some((window, pane)) = open {
             self.close_pane(clients, storage, config, window, pane)
         } else {
-            storage.show_in_sidebar(kind, false);
-
             Task::none()
         }
     }
@@ -4005,16 +4026,11 @@ impl Dashboard {
                 .is_some_and(|is_scrolled_to_bottom| is_scrolled_to_bottom);
 
             let hide_in_sidebar = match &kind {
-                history::Kind::Query(server, query) => {
-                    if config.buffer.close.query.close(replaced) {
-                        clients.remove_query(server, query);
-                        true
-                    } else {
-                        !clients.contains_query(server, query)
-                    }
-                }
-                history::Kind::Channel(server, channel) => {
-                    !clients.contains_channel(server, channel)
+                history::Kind::Query(server, query)
+                    if config.buffer.close.query.close(replaced) =>
+                {
+                    clients.remove_query(server, query);
+                    true
                 }
                 _ => false,
             };
@@ -4134,16 +4150,26 @@ impl Dashboard {
         &mut self,
         now: Instant,
         clients: &client::Map,
+        storage: &mut storage::Manager,
         config: &Config,
     ) -> Task<Message> {
         if !self.has_typing_activity(clients, config) {
             self.typing_animation = None;
         }
 
+        if storage
+            .update_saved_buffers(clients, config.sidebar.restore_on_launch)
+        {
+            self.last_changed = Some(now);
+        }
+
         if let Some(last_changed) = self.last_changed
             && now.duration_since(last_changed) >= SAVE_AFTER
         {
-            let dashboard = data::Dashboard::from(&*self);
+            let dashboard = data::Dashboard {
+                buffers: storage.saved_buffers(),
+                ..data::Dashboard::from(&*self)
+            };
 
             self.last_changed = None;
 
@@ -4402,6 +4428,12 @@ impl Dashboard {
 
         let mut tasks = vec![sidebar_task.map(Message::Sidebar)];
 
+        storage.restore_saved_buffers(
+            data.buffers,
+            &config.servers,
+            config.sidebar.restore_on_launch,
+        );
+
         for pane in data.popout_panes {
             // Popouts are only a single pane
             let pane_grid::Configuration::Pane(pane) = Panes::configuration(
@@ -4602,9 +4634,23 @@ impl Dashboard {
         }
     }
 
-    pub fn exit(&mut self) -> Option<Task<Message>> {
+    pub fn exit(
+        &mut self,
+        clients: &client::Map,
+        storage: &mut storage::Manager,
+        config: &Config,
+    ) -> Option<Task<Message>> {
+        if storage
+            .update_saved_buffers(clients, config.sidebar.restore_on_launch)
+        {
+            self.last_changed = Some(Instant::now());
+        }
+
         let last_changed = self.last_changed.take();
-        let dashboard = data::Dashboard::from(&*self);
+        let dashboard = data::Dashboard {
+            buffers: storage.saved_buffers(),
+            ..data::Dashboard::from(&*self)
+        };
 
         last_changed
             .is_some()
@@ -4994,6 +5040,7 @@ impl<'a> From<&'a Dashboard> for data::Dashboard {
             } else {
                 data::dashboard::Sidebar::Visible
             },
+            buffers: vec![],
         }
     }
 }
@@ -5247,21 +5294,24 @@ impl Panes {
 }
 
 fn all_upstream_buffers(
+    servers: &server::Map,
     clients: &client::Map,
     models: &model::Manager,
 ) -> Vec<buffer::Upstream> {
     clients
-        .connected_servers()
-        .flat_map(|server| {
+        .iter()
+        .flat_map(|(server, _)| {
+            let config = servers.get(server);
+            let targets =
+                models.sidebar_targets(server, clients, config.as_deref());
+
             std::iter::once(buffer::Upstream::Server(server.clone()))
-                .chain(clients.get_channels(server).map(|channel| {
+                .chain(targets.channels.into_iter().map(|(channel, _)| {
                     buffer::Upstream::Channel(server.clone(), channel.clone())
                 }))
-                .chain(models.visible_server_queries(server).into_iter().map(
-                    |nick| {
-                        buffer::Upstream::Query(server.clone(), nick.clone())
-                    },
-                ))
+                .chain(targets.queries.into_iter().map(|nick| {
+                    buffer::Upstream::Query(server.clone(), nick.clone())
+                }))
         })
         .collect()
 }
@@ -5285,11 +5335,12 @@ fn open_upstream_buffers(dashboard: &Dashboard) -> Vec<buffer::Upstream> {
 
 fn closed_upstream_buffers(
     dashboard: &Dashboard,
+    servers: &server::Map,
     clients: &client::Map,
 ) -> Vec<buffer::Upstream> {
     let open_buffers = open_upstream_buffers(dashboard);
 
-    all_upstream_buffers(clients, &dashboard.models)
+    all_upstream_buffers(servers, clients, &dashboard.models)
         .into_iter()
         .filter(|buffer| !open_buffers.contains(buffer))
         .collect()

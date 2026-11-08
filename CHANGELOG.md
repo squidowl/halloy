@@ -1,5 +1,18 @@
 # Unreleased
 
+Added:
+
+- Added `sidebar.restore_on_launch`. This setting can restore queries and/or channels that were in the sidebar during the last session.
+
+Changed:
+
+- Being kicked from a channel no longer closes the buffer.
+- Disconnecting from a server no longer removes its channels and queries from the sidebar.
+
+Thanks:
+
+- Contributions: @furudean
+
 # 2026.10 (2026-11-03)
 
 Added:

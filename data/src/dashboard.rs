@@ -6,7 +6,8 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::buffer::{self, Buffer};
 use crate::pane::Pane;
-use crate::{compression, environment};
+use crate::target::Target;
+use crate::{Server, compression, environment};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -16,6 +17,7 @@ pub struct Dashboard {
     pub buffer_settings: BufferSettings,
     pub focus_buffer: Option<Buffer>,
     pub sidebar: Sidebar,
+    pub buffers: Vec<(Server, Target)>,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
