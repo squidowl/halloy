@@ -46,8 +46,7 @@ pub fn system_locale() -> Locale {
         .unwrap_or(locale!("en"))
 }
 
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "macos"))]
-fn posix_to_bcp47(locale: &str) -> String {
+pub fn posix_to_bcp47(locale: &str) -> String {
     locale
         .chars()
         .take_while(|&c| c != '.' && c != '@')

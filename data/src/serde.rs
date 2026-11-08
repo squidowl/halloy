@@ -5,7 +5,7 @@ use jiff::Timestamp;
 use serde::{Deserialize, Deserializer};
 
 use crate::Config;
-use crate::time::system_locale;
+use crate::time::{posix_to_bcp47, system_locale};
 
 pub fn deserialize_string_or_vec<'de, D>(
     deserializer: D,
@@ -137,7 +137,7 @@ where
         Deserialize::deserialize(deserializer)?;
 
     if let Some(locale_string) = locale_string_maybe {
-        Locale::try_from_str(&locale_string.replace("_", "-")).map_err(|_| {
+        Locale::try_from_str(&posix_to_bcp47(&locale_string)).map_err(|_| {
             serde::de::Error::invalid_value(
                 serde::de::Unexpected::Str(&locale_string),
                 &"IETF BCP 47 language tag",
