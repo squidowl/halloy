@@ -2,7 +2,7 @@
 
 Halloy supports file uploads via the [`soju.im/filehost`](https://soju.im/filehost) IRC extension. When a file is uploaded the resulting URL is inserted into the message input.
 
-File uploads require a server which is capable of authenticating and accepting requests as described by `soju.im/filehost`. This can be provided by the IRC server or your bouncer.  Alternatively, any filehost server can be used for any IRC server with  `servers.<server>.filehost.override_url`](/configuration/servers#override-url).
+File uploads require a server which is capable of authenticating and accepting requests as described by `soju.im/filehost`. This can be provided by the IRC server or your bouncer.  Alternatively, any filehost server can be used for any IRC server with  [`servers.<server>.filehost.override_url`](/configuration/servers#override-url).
 
 ## Uploading a file
 
