@@ -91,6 +91,10 @@ core-foundation-sys = "0.8"
 zbus-secret-service-keyring-store = { version = "1", features = [
     "rt-tokio-crypto-rust",
 ] }
+zbus-secret-portal-keyring-store = {
+    git = "https://github.com/luca020400/zbus-secret-portal-keyring-store",
+    rev = "ff61ffb37324055cb6c48f55410726f67a0f08a0",
+}
 
 [target.'cfg(windows)'.dependencies]
 windows-native-keyring-store = { version = "1", default-features = false }
