@@ -57,11 +57,14 @@ fn escaped<'a>(
     markdown_only: bool,
 ) -> impl Parser<&'a str, Output = char, Error = nom::error::Error<&'a str>> {
     alt((
-        value('\\', terminated(tag("\\"), not(one_of("*_`|")))),
+        value('\\', terminated(tag("\\"), not(one_of("*_~`|<>")))),
         value('*', tag("\\*")),
         value('_', tag("\\_")),
+        value('~', tag("\\~")),
         value('`', tag("\\`")),
         value('|', tag("\\|")),
+        value('<', tag("\\<")),
+        value('>', tag("\\>")),
         skip(markdown_only, value('$', tag("\\$"))),
         skip(markdown_only, value('$', tag("$$"))),
     ))
@@ -552,8 +555,12 @@ mod test {
                 String::from("\u{11}__length_hint__\u{11}"),
             ),
             (
-                ("These are escaped: \\*, \\_, \\`, \\|", false),
-                String::from("These are escaped: *, _, `, |"),
+                ("These are escaped: \\*, \\_, \\~, \\`, \\|", false),
+                String::from("These are escaped: *, _, ~, `, |"),
+            ),
+            (
+                ("\\<https://spec.commonmark.org/dingus/>", false),
+                String::from("<https://spec.commonmark.org/dingus/>"),
             ),
             (
                 (
