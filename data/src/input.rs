@@ -14,7 +14,7 @@ use nom::{Finish, IResult, Parser};
 use tokio::time::Duration;
 
 use crate::capabilities::{Capabilities, MultilineBatchKind};
-use crate::config::buffer::text_input::AutoFormat;
+use crate::config::buffer::text_input::{AutoFormat, MarkdownFeature};
 use crate::features::Features;
 use crate::history::reroute::RerouteRules;
 use crate::history::storage;
@@ -33,7 +33,7 @@ const DRAFT_SAVE_EVERY: Duration = Duration::from_secs(10);
 
 pub fn parse(
     buffer: buffer::Upstream,
-    auto_format: AutoFormat,
+    auto_format: &AutoFormat,
     input: &str,
     code_fence: Option<&CodeFence>,
     our_nickname: Option<&Nick>,
@@ -65,17 +65,13 @@ pub fn parse(
                 .map_or(input, |(_, unindented)| unindented)
         ))
     } else {
-        match auto_format {
-            AutoFormat::Disabled | AutoFormat::ForceDisabled => (),
-            AutoFormat::Markdown | AutoFormat::All => {
-                if let Some(open_code_fence) = parse_code_fence(input)
-                    .finish()
-                    .ok()
-                    .map(|(_, code_fence)| code_fence)
-                {
-                    return Ok(Parsed::CodeFence(open_code_fence));
-                }
-            }
+        if auto_format.encodes_markdown_feature(&MarkdownFeature::Code)
+            && let Some(open_code_fence) = parse_code_fence(input)
+                .finish()
+                .ok()
+                .map(|(_, code_fence)| code_fence)
+        {
+            return Ok(Parsed::CodeFence(open_code_fence));
         }
 
         match command::parse(
@@ -116,12 +112,10 @@ pub fn parse(
                 Content::Command(command, warning)
             }
             Err(command::Error::MissingSlash) => {
-                let text = match auto_format {
-                    AutoFormat::Disabled | AutoFormat::ForceDisabled => {
-                        input.to_string()
-                    }
-                    AutoFormat::Markdown => formatting::encode(input, true),
-                    AutoFormat::All => formatting::encode(input, false),
+                let text = if let Some(encoding) = auto_format.encoding() {
+                    formatting::encode(input, encoding)
+                } else {
+                    input.to_string()
                 };
 
                 Content::Text(text)
@@ -131,10 +125,10 @@ pub fn parse(
                     .strip_prefix('/')
                     .map_or(input.to_string(), ToString::to_string);
 
-                let text = match auto_format {
-                    AutoFormat::Disabled | AutoFormat::ForceDisabled => text,
-                    AutoFormat::Markdown => formatting::encode(&text, true),
-                    AutoFormat::All => formatting::encode(&text, false),
+                let text = if let Some(encoding) = auto_format.encoding() {
+                    formatting::encode(&text, encoding)
+                } else {
+                    text.to_string()
                 };
 
                 Content::Text(text)
@@ -663,8 +657,10 @@ pub enum Error {
 
 #[cfg(test)]
 mod test {
+    use hashbrown::HashSet;
+
     use crate::capabilities::Capabilities;
-    use crate::config::buffer::text_input::AutoFormat;
+    use crate::config::buffer::text_input::{AutoFormat, MarkdownFeature};
     use crate::input::{CodeFence, Content, Input, Parsed, parse};
     use crate::user::Nick;
     use crate::{Config, Server, buffer, command, features, isupport, target};
@@ -711,6 +707,20 @@ mod test {
             ),
             (
                 (AutoFormat::Markdown, "```toml", None),
+                Ok(Parsed::CodeFence(CodeFence {
+                    indent: 0,
+                    backticks: 3,
+                    info: Some(String::from("toml")),
+                })),
+            ),
+            (
+                (
+                    AutoFormat::MarkdownFeatures(HashSet::from([
+                        MarkdownFeature::Code,
+                    ])),
+                    "```toml",
+                    None,
+                ),
                 Ok(Parsed::CodeFence(CodeFence {
                     indent: 0,
                     backticks: 3,
@@ -821,7 +831,7 @@ mod test {
         for ((auto_format, input, code_fence), expected) in tests {
             let parsed = parse(
                 buffer.clone(),
-                auto_format,
+                &auto_format,
                 input,
                 code_fence,
                 Some(&nick),

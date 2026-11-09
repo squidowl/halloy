@@ -1,6 +1,8 @@
+use hashbrown::HashSet;
 use serde::Deserialize;
 
 use crate::config::buffer::AccessLevelFormat;
+use crate::message::formatting::encode::Encoding;
 use crate::serde::deserialize_usize_positive_integer;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -78,15 +80,51 @@ impl Default for Nickname {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum AutoFormat {
     #[default]
     Disabled,
     Markdown,
+    MarkdownFeatures(HashSet<MarkdownFeature>),
+    Token,
     All,
     #[serde(skip)]
     ForceDisabled,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum MarkdownFeature {
+    Bold,
+    Italics,
+    Strikethrough,
+    Code,
+    Spoiler,
+    Link,
+}
+
+impl AutoFormat {
+    pub fn encoding(&self) -> Option<Encoding> {
+        match self {
+            Self::Disabled | Self::ForceDisabled => None,
+            Self::Markdown => Some(Encoding::MarkdownOnly),
+            Self::MarkdownFeatures(features) => {
+                Some(Encoding::MarkdownFeaturesOnly(features.clone()))
+            }
+            Self::Token => Some(Encoding::TokenOnly),
+            Self::All => Some(Encoding::All),
+        }
+    }
+
+    pub fn encodes_markdown_feature(&self, feature: &MarkdownFeature) -> bool {
+        match self {
+            Self::Token | Self::Disabled | Self::ForceDisabled => false,
+            Self::Markdown => true,
+            Self::MarkdownFeatures(features) => features.contains(feature),
+            Self::All => true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

@@ -790,7 +790,7 @@ impl State {
                 Ok(output) => {
                     let parsed = input::parse(
                         buffer.clone(),
-                        AutoFormat::Disabled,
+                        &AutoFormat::Disabled,
                         output.as_str(),
                         None,
                         clients.nickname(buffer.as_server()),
@@ -905,7 +905,7 @@ impl State {
 
                 if let Ok(parsed) = input::parse(
                     buffer.clone(),
-                    AutoFormat::Disabled,
+                    &AutoFormat::Disabled,
                     message.as_str(),
                     None,
                     clients.nickname(buffer.as_server()),
@@ -1675,9 +1675,9 @@ impl State {
         }
 
         let auto_format = if mode.is_some_and(|m| m.contains("c")) {
-            AutoFormat::ForceDisabled
+            &AutoFormat::ForceDisabled
         } else {
-            config.buffer.text_input.auto_format
+            &config.buffer.text_input.auto_format
         };
 
         let text = self.input_content.text();

@@ -1346,15 +1346,15 @@ visibility = "always"
 
 ### `auto_format`
 
-Control if the text input should auto format the input. By default text is only formatted when using the `/format` command.
+Control if the text input should automatically [format](/guides/text-formatting) the input. By default text is only formatted when using the `/format`, `/format-me`, `/format-msg`, or `/format-notice` commands.
 
 ```toml
 # Type: string
-# Values: "disabled", "markdown", "all"
+# Values: "disabled", "markdown", "token", { "markdown-features" = ["italics", "bold", "strikethrough", "code", "spoiler", "link"] }, "all"
 # Default: "disabled"
 
 [buffer.text_input]
-auto_format = "markdown"
+auto_format = { "markdown-features" = ["italics", "bold", "strikethrough", "code", "spoiler"] }
 ```
 
 ::: tip
