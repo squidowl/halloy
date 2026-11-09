@@ -5,7 +5,6 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{convert, slice};
 
-use chrono::Utc;
 use data::buffer::{
     BufferContextSnapshot, BuffersContext, BuffersContextSnapshot,
 };
@@ -27,6 +26,7 @@ use hashbrown::{HashMap, HashSet, hash_map};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{center, column, container, row, stack, text};
 use iced::{Length, Size, Task, Vector, clipboard, padding};
+use jiff::Timestamp;
 
 use self::command_bar::CommandBar;
 use self::modal::{reaction as reaction_modal, redaction as redaction_modal};
@@ -2668,7 +2668,7 @@ impl Dashboard {
                             target.into(),
                             "no filehost configured for server {server}"
                                 .to_string(),
-                            Utc::now(),
+                            Timestamp::now(),
                         ),
                     );
 
@@ -2808,7 +2808,7 @@ impl Dashboard {
                         Status::Error,
                         target.into(),
                         format!("Upload failed: {error}"),
-                        Utc::now(),
+                        Timestamp::now(),
                     ),
                 );
 

@@ -7,7 +7,7 @@ use crate::history::database;
 pub struct Read {
     pub generation: u64,
     pub limit: message::Limit,
-    pub clear: Option<DateTime<Utc>>,
+    pub clear: Option<Timestamp>,
     pub read_marker: Option<ReadMarker>,
     pub extension: Option<Extension>,
     tail_revision: u64,
@@ -41,7 +41,7 @@ pub(super) enum MessageCache {
         has_more_newer_messages: bool,
         messages: Vec<message::MessageDisplay>,
         limit: message::Limit,
-        clear: Option<DateTime<Utc>>,
+        clear: Option<Timestamp>,
     },
 }
 
@@ -56,7 +56,7 @@ fn cursor(message: &message::MessageDisplay) -> (i64, u64) {
     let Id::Determined(id) = message.inner.history_id else {
         unreachable!("cached messages have determined IDs");
     };
-    (message.inner.time.utc.timestamp_micros(), id)
+    (message.inner.time.utc.as_microsecond(), id)
 }
 
 impl ReadCache {
@@ -180,7 +180,7 @@ impl ReadCache {
     fn useful(
         &self,
         requested: message::Limit,
-        requested_clear: Option<DateTime<Utc>>,
+        requested_clear: Option<Timestamp>,
         marker: Option<ReadMarker>,
     ) -> bool {
         let MessageCache::Loaded {
@@ -221,7 +221,7 @@ impl ReadCache {
     fn selection(
         &self,
         requested: message::Limit,
-        clear: Option<DateTime<Utc>>,
+        clear: Option<Timestamp>,
         marker: Option<ReadMarker>,
     ) -> Selection {
         let MessageCache::Loaded {
@@ -238,7 +238,7 @@ impl ReadCache {
                 newer_needed: false,
             };
         };
-        let now = Utc::now();
+        let now = Timestamp::now();
         let visible = || {
             messages
                 .iter()
@@ -607,7 +607,7 @@ impl ReadCache {
 
     pub fn clear_model(&mut self) {
         if let Request::Open { clear, .. } = &mut self.requested {
-            *clear = Some(Utc::now());
+            *clear = Some(Timestamp::now());
         }
         self.invalidate();
     }
@@ -653,7 +653,7 @@ impl ReadCache {
                 || !self.useful(limit, clear, *display_read_marker)
                 || selection.older_needed
                 || selection.newer_needed);
-        let now = Utc::now();
+        let now = Timestamp::now();
         let visible_outside = |range: Range<usize>| {
             messages[range]
                 .iter()

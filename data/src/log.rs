@@ -2,20 +2,22 @@ use std::cmp::Ordering;
 use std::path::PathBuf;
 use std::{fs, io};
 
-use chrono::{DateTime, Local, Utc};
+use jiff::tz::TimeZone;
+use jiff::{Timestamp, Zoned};
 use serde::{Deserialize, Serialize};
 
-use crate::config::logs::{LevelFilter, Timestamp};
-use crate::environment;
+use crate::config::logs::LevelFilter;
+use crate::{config, environment};
 
-pub fn file(timestamp: Timestamp) -> Result<fs::File, Error> {
-    let file_format = "halloy.%Y-%m-%d-%H-%M-%S.log";
-    let path = dir()?.join(
-        match timestamp {
-            Timestamp::Local => Local::now().format(file_format),
-            Timestamp::Utc => Utc::now().format(file_format),
+pub fn file(timestamp: config::logs::Timestamp) -> Result<fs::File, Error> {
+    let zoned = match timestamp {
+        config::logs::Timestamp::Local => Zoned::now(),
+        config::logs::Timestamp::Utc => {
+            Zoned::now().with_time_zone(TimeZone::UTC)
         }
-        .to_string(),
+    };
+    let path = dir()?.join(
+        Zoned::strftime(&zoned, "halloy.%Y-%m-%d-%H-%M-%S.log").to_string(),
     );
 
     Ok(fs::OpenOptions::new()
@@ -61,7 +63,7 @@ pub fn clear(number_of_logs_to_keep: usize) {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Record {
-    pub timestamp: DateTime<Utc>,
+    pub timestamp: Timestamp,
     pub level: Level,
     pub message: String,
 }

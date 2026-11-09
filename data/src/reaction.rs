@@ -1,5 +1,5 @@
-use chrono::{DateTime, Utc};
 use irc::proto::Command;
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -83,7 +83,7 @@ impl Reaction {
         })
     }
 
-    pub fn server_time(&self) -> Option<DateTime<Utc>> {
+    pub fn server_time(&self) -> Option<Timestamp> {
         self.time.try_into_server_time()
     }
 }

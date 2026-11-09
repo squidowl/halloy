@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 use std::time::Duration;
 
-use chrono::{Local, NaiveDate, Utc};
 use data::buffer::{BuffersContext, RightAlignmentWidths};
 use data::command::Irc;
 use data::config::actions::{ImageClickAction, NicknameClickAction};
@@ -24,6 +23,8 @@ use iced::widget::{
     space, text,
 };
 use iced::{Length, Size, Task, padding};
+use jiff::civil::Date;
+use jiff::{SignedDuration, Timestamp};
 use tokio::time;
 
 use self::correct_viewport::correct_viewport;
@@ -244,7 +245,7 @@ fn has_visible_preview(
 fn is_consecutive_user_message(
     message: &data::MessageDisplay,
     prev_message: Option<&data::MessageDisplay>,
-    duration: Option<chrono::TimeDelta>,
+    duration: Option<SignedDuration>,
     config: &Config,
 ) -> bool {
     let message = &message.inner;
@@ -253,7 +254,8 @@ fn is_consecutive_user_message(
     matches!(message.source, message::Source::User(_))
         && prev_message.is_some_and(|prev_message| {
             if duration.is_none_or(|duration| {
-                message.time.utc - prev_message.time.utc < duration
+                message.time.utc.duration_since(prev_message.time.utc)
+                    < duration
             }) && message.is_rerouted() == prev_message.is_rerouted()
                 && let message::Source::User(user) = &message.source
                 && let message::Source::User(prev_user) = &prev_message.source
@@ -546,13 +548,13 @@ pub fn view<'a>(
                 alignment_messages()
                     .filter_map(|message| {
                         if let message::Source::Internal(
-                            message::source::Internal::Condensed(end_time_utc),
+                            message::source::Internal::Condensed(end_timestamp),
                         ) = &message.inner.source
-                            && message.time().utc != *end_time_utc
+                            && message.time().utc != *end_timestamp
                         {
                             config
                                 .buffer
-                                .format_range_end_timestamp(end_time_utc)
+                                .format_range_end_timestamp(end_timestamp)
                                 .map(|(dash, end_timestamp)| {
                                     let condensation_icon = !matches!(
                                         config
@@ -609,8 +611,7 @@ pub fn view<'a>(
         });
 
     let message_rows =
-        |last_date: Option<NaiveDate>,
-         messages: &[&'a data::MessageDisplay]| {
+        |last_date: Option<Date>, messages: &[&'a data::MessageDisplay]| {
             messages
                 .iter()
                 .scan(
@@ -697,8 +698,7 @@ pub fn view<'a>(
                 )
                 .flatten()
                 .scan(last_date, |last_date, (message, element)| {
-                    let date =
-                        message.time().utc.with_timezone(&Local).date_naive();
+                    let date = message.time().system_date();
 
                     let is_new_day = last_date.is_none_or(|prev| date > prev);
 
@@ -770,7 +770,9 @@ pub fn view<'a>(
                         if is_new_day && config.buffer.date_separators.show {
                             column![
                                 date_separator(
-                                    config.buffer.format_date_separator(&date),
+                                    config
+                                        .buffer
+                                        .format_date_separator(&date, false),
                                     config,
                                     theme,
                                 ),
@@ -786,20 +788,16 @@ pub fn view<'a>(
                 .collect::<Vec<_>>()
         };
 
-    let date_of = |m: &data::MessageDisplay| {
-        m.time().utc.with_timezone(&Local).date_naive()
-    };
-
     let old_last_date = old_start
         .checked_sub(1)
         .and_then(|i| old_messages.get(i))
-        .map(|m| date_of(m));
+        .map(|m| m.time().system_date());
 
     let new_last_date = new_start
         .checked_sub(1)
         .and_then(|i| new_messages.get(i))
-        .map(|m| date_of(m))
-        .or_else(|| old_messages.last().map(|m| date_of(m)));
+        .map(|m| m.time().system_date())
+        .or_else(|| old_messages.last().map(|m| m.time().system_date()));
 
     let old = message_rows(old_last_date, &old_messages[old_start..old_end]);
     let new = message_rows(new_last_date, &new_messages[new_start..new_end]);
@@ -2242,7 +2240,7 @@ fn send_reaction(
                     text: text.into_owned(),
                     unreact,
                     id: None,
-                    time: message::Time::client(Utc::now()),
+                    time: message::Time::client(Timestamp::now()),
                 },
                 target,
                 in_reply_to: msgid,

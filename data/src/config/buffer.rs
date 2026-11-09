@@ -1,7 +1,14 @@
-use chrono::format::SecondsFormat;
-use chrono::{DateTime, Local, NaiveDate, Utc};
 use hashbrown::{HashMap, HashSet};
 use iced::Color;
+use icu_calendar::cal::Iso;
+use icu_datetime::DateTimeFormatter;
+use icu_datetime::fieldsets::{MDE, YMD, YMDE};
+use icu_time::zone::models::AtTime;
+use icu_time::{TimeZoneInfo, ZonedDateTime};
+use jiff::Timestamp;
+use jiff::civil::Date;
+use jiff::tz::TimeZone;
+use jiff_icu::ConvertFrom as _;
 use serde::{Deserialize, Deserializer};
 
 pub use self::channel::{Channel, ChannelNameCasing};
@@ -11,7 +18,7 @@ pub use self::redaction::Redaction;
 pub use self::typing::{Animation, Style, Typing};
 pub use crate::appearance::theme::{alpha_color, alpha_color_calculate};
 use crate::buffer::{
-    BacklogSeparator, DateSeparators, SkinTone, StatusMessagePrefix, Timestamp,
+    self, BacklogSeparator, DateSeparators, SkinTone, StatusMessagePrefix,
 };
 use crate::config::buffer::nickname::Nickname;
 use crate::config::buffer::text_input::TextInput;
@@ -32,7 +39,7 @@ pub mod typing;
 #[derive(Debug, Default, Clone, Deserialize)]
 #[serde(default)]
 pub struct Buffer {
-    pub timestamp: Timestamp,
+    pub timestamp: buffer::Timestamp,
     pub nickname: Nickname,
     pub text_input: TextInput,
     pub channel: Channel,
@@ -833,9 +840,9 @@ pub enum CondensationTimestamp {
 impl CondensationTimestamp {
     pub fn primary<'a>(
         self,
-        start: &'a DateTime<Utc>,
-        end: &'a DateTime<Utc>,
-    ) -> Option<&'a DateTime<Utc>> {
+        start: &'a Timestamp,
+        end: &'a Timestamp,
+    ) -> Option<&'a Timestamp> {
         match self {
             CondensationTimestamp::Range | CondensationTimestamp::Start => {
                 Some(start)
@@ -1074,25 +1081,21 @@ impl<'de> Deserialize<'de> for AccessLevelFormat {
 }
 
 impl Buffer {
-    pub fn format_timestamp(
-        &self,
-        date_time: &DateTime<Utc>,
-    ) -> Option<String> {
+    pub fn format_timestamp(&self, timestamp: &Timestamp) -> Option<String> {
         if self.timestamp.format.is_empty() {
             return None;
         }
 
-        Some(self.timestamp.brackets.format(
-            date_time.with_timezone(&Local).format_localized(
-                &self.timestamp.format,
-                self.timestamp.locale,
-            ),
-        ))
+        Some(
+            self.timestamp
+                .brackets
+                .format(Timestamp::strftime(timestamp, &self.timestamp.format)),
+        )
     }
 
     pub fn format_range_end_timestamp(
         &self,
-        end_date_time: &DateTime<Utc>,
+        end_timestamp: &Timestamp,
     ) -> Option<(String, String)> {
         if self.timestamp.format.is_empty() {
             return None;
@@ -1104,10 +1107,7 @@ impl Buffer {
                 .brackets
                 .format(format!(
                     "{}",
-                    end_date_time.with_timezone(&Local).format_localized(
-                        &self.timestamp.format,
-                        self.timestamp.locale
-                    )
+                    Timestamp::strftime(end_timestamp, &self.timestamp.format)
                 ))
                 .to_string(),
         ))
@@ -1115,48 +1115,64 @@ impl Buffer {
 
     pub fn format_context_menu_timestamp(
         &self,
-        date_time: &DateTime<Utc>,
+        timestamp: &Timestamp,
     ) -> String {
-        date_time
-            .with_timezone(&Local)
-            .format_localized(
-                &self.timestamp.context_menu_format,
-                self.timestamp.locale,
-            )
-            .to_string()
-    }
-
-    pub fn format_copy_timestamp(&self, date_time: &DateTime<Utc>) -> String {
-        if let Some(copy_format) = &self.timestamp.copy_format {
-            date_time
-                .with_timezone(&Local)
-                .format_localized(copy_format, self.timestamp.locale)
+        if let Some(context_menu_format) =
+            self.timestamp.context_menu_format.as_ref()
+        {
+            Timestamp::strftime(timestamp, context_menu_format).to_string()
+        } else if let Ok(formatter) = DateTimeFormatter::try_new(
+            self.timestamp.locale.clone().into(),
+            YMD::short(),
+        ) {
+            formatter
+                .format(
+                    &ZonedDateTime::<Iso, TimeZoneInfo<AtTime>>::convert_from(
+                        &timestamp.to_zoned(TimeZone::system()),
+                    ),
+                )
                 .to_string()
         } else {
-            date_time
-                .with_timezone(&Local)
-                .to_rfc3339_opts(SecondsFormat::Millis, true)
+            Timestamp::strftime(timestamp, "%D").to_string()
         }
     }
 
-    pub fn format_date_separator(&self, date: &NaiveDate) -> String {
-        date.and_hms_opt(0, 0, 0)
-            .and_then(|date_time| date_time.and_local_timezone(Local).single())
-            .map_or(
-                // in the event of timezone weirdness,
-                // revert to default format
-                date.format_localized(
-                    &DateSeparators::default().format,
-                    self.timestamp.locale,
-                ),
-                |date_time| {
-                    date_time.format_localized(
-                        &self.date_separators.format,
-                        self.timestamp.locale,
-                    )
-                },
-            )
-            .to_string()
+    pub fn format_copy_timestamp(&self, timestamp: &Timestamp) -> String {
+        Timestamp::strftime(timestamp, &self.timestamp.copy_format).to_string()
+    }
+
+    pub fn format_date_separator(
+        &self,
+        date: &Date,
+        show_year: bool,
+    ) -> String {
+        if let Some(format) = self.date_separators.format.as_ref() {
+            Date::strftime(date, format).to_string()
+        } else {
+            if show_year {
+                if let Ok(formatter) = DateTimeFormatter::try_new(
+                    self.timestamp.locale.clone().into(),
+                    YMDE::long(),
+                ) {
+                    formatter
+                        .format(&icu_calendar::Date::<Iso>::convert_from(*date))
+                        .to_string()
+                } else {
+                    Date::strftime(date, "%A, %B %-d, %-Y").to_string()
+                }
+            } else {
+                if let Ok(formatter) = DateTimeFormatter::try_new(
+                    self.timestamp.locale.clone().into(),
+                    MDE::long(),
+                ) {
+                    formatter
+                        .format(&icu_calendar::Date::<Iso>::convert_from(*date))
+                        .to_string()
+                } else {
+                    Date::strftime(date, "%A, %B %-d").to_string()
+                }
+            }
+        }
     }
 }
 

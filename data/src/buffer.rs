@@ -1,8 +1,6 @@
 use core::fmt;
-use std::str::FromStr;
 use std::sync::LazyLock;
 
-use chrono::Locale;
 use hashbrown::HashMap;
 use iced_core::Color as IcedColor;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -11,7 +9,6 @@ pub mod timestamp;
 
 pub use self::timestamp::Timestamp;
 use crate::appearance::theme::hex_to_color;
-use crate::serde::deserialize_strftime_date;
 use crate::target::{self, Target};
 use crate::{Server, channel, config, history};
 
@@ -476,15 +473,14 @@ impl Default for BacklogSeparator {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct DateSeparators {
-    #[serde(deserialize_with = "deserialize_strftime_date")]
-    pub format: String,
+    pub format: Option<String>,
     pub show: bool,
 }
 
 impl Default for DateSeparators {
     fn default() -> Self {
         Self {
-            format: "%A, %B %-d".to_string(),
+            format: None,
             show: true,
         }
     }
@@ -673,30 +669,5 @@ impl From<SkinTone> for emojis::SkinTone {
             SkinTone::MediumDark => emojis::SkinTone::MediumDark,
             SkinTone::Dark => emojis::SkinTone::Dark,
         }
-    }
-}
-
-pub fn deserialize_locale<'de, D>(deserializer: D) -> Result<Locale, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let locale_string_maybe: Option<String> =
-        Deserialize::deserialize(deserializer)?;
-
-    if let Some(locale_string) = &locale_string_maybe {
-        if let Ok(locale) = Locale::from_str(&locale_string.replace("-", "_")) {
-            Ok(locale)
-        } else {
-            Err(serde::de::Error::invalid_value(
-                serde::de::Unexpected::Str(locale_string),
-                &"IETF BCP 47 language tag",
-            ))
-        }
-    } else {
-        Ok(sys_locale::get_locale()
-            .and_then(|locale_string| {
-                Locale::from_str(&locale_string.replace("-", "_")).ok()
-            })
-            .unwrap_or_default())
     }
 }

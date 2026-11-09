@@ -4,7 +4,6 @@ use std::ops::RangeInclusive;
 use std::sync::LazyLock;
 use std::{fmt, iter};
 
-use chrono::{DateTime, Utc};
 use const_format::concatcp;
 use data::buffer::SkinTone;
 use data::config::buffer::text_input::{OrderBy, SortDirection};
@@ -20,6 +19,7 @@ use iced::Length;
 use iced::widget::{button, column, container, row, text_editor, tooltip};
 use irc::proto;
 use itertools::{Either, Itertools};
+use jiff::Timestamp;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::theme::{self, Theme};
@@ -54,7 +54,7 @@ impl Completion {
         our_nickname: Option<&Nick>,
         users: Option<&ChannelUsers>,
         filters: FilterChain,
-        last_seen: Option<&HashMap<Nick, DateTime<Utc>>>,
+        last_seen: Option<&HashMap<Nick, Timestamp>>,
         channels: impl IntoIterator<Item = &'a target::Channel>,
         current_target: Option<&Target>,
         topic: Option<&str>,
@@ -2050,7 +2050,7 @@ impl Words {
         users: Option<&ChannelUsers>,
         our_nickname: Option<&Nick>,
         filters: FilterChain,
-        last_seen: Option<&HashMap<Nick, DateTime<Utc>>>,
+        last_seen: Option<&HashMap<Nick, Timestamp>>,
         channels: impl IntoIterator<Item = &'a target::Channel>,
         current_target: Option<&Target>,
         server: &Server,
@@ -2090,7 +2090,7 @@ impl Words {
         filters: FilterChain,
         current_channel: Option<&target::Channel>,
         server: &Server,
-        last_seen: Option<&HashMap<Nick, DateTime<Utc>>>,
+        last_seen: Option<&HashMap<Nick, Timestamp>>,
         config: &Config,
     ) {
         let autocomplete = &config.buffer.text_input.autocomplete;

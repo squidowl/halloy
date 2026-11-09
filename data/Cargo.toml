@@ -18,13 +18,12 @@ hashbrown = { workspace = true }
 thiserror = { workspace = true }
 futures = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "fs", "rt"] }
-chrono = { workspace = true }
+jiff = { workspace = true }
 bytes = { workspace = true }
 strum = { workspace = true }
 anyhow = { workspace = true }
 url = { workspace = true }
 tokio-stream = { workspace = true, features = ["time", "fs"] }
-timeago = { workspace = true }
 itertools = { workspace = true }
 emojis = { workspace = true }
 unicode-segmentation = { workspace = true }
@@ -69,18 +68,24 @@ gif = "0.14.1"
 html-escape = "0.3.0"
 display-info = "0.5.9"
 infer = "0.22"
-sys-locale = "0.3"
 mime_guess = "2.0.5"
 any_ascii = "0.3.3"
 idna = "1.1.0"
 unicode-security = "0.1.2"
 version-compare = "0.2"
 sanitize-filename = "0.6.0"
+jiff-icu = "0.2"
+icu_locale = { version = "2.4", features = ["serde"] }
+icu_datetime = "2.4"
+icu_calendar = "2.4"
+icu_time = "2.4"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 apple-native-keyring-store = { version = "1", default-features = false, features = [
     "keychain",
 ] }
+core-foundation = "0.10"
+core-foundation-sys = "0.8"
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
 zbus-secret-service-keyring-store = { version = "1", features = [
@@ -89,6 +94,7 @@ zbus-secret-service-keyring-store = { version = "1", features = [
 
 [target.'cfg(windows)'.dependencies]
 windows-native-keyring-store = { version = "1", default-features = false }
+windows-sys = { version = "0.61", features = ["Win32"] }
 
 [dev-dependencies]
 serde_test = "1.0"
