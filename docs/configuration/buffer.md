@@ -1677,7 +1677,7 @@ context_menu_format = "%D"
 
 ### `copy_format`
 
-Controls the format used when copying the timestamp into the clipboard from its context menu. The expected format is [strftime](https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html#conversion-specifications).  The default format is the [date and time of day in UTC using extended format ISO 8601:2004(E) 4.3.2 with millisecond precision](https://en.wikipedia.org/wiki/ISO_8601) that is utilized in IRCv3.
+Controls the format used when copying the timestamp into the clipboard from its context menu. The expected format is [strftime](https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html#conversion-specifications).  The default format is the [date and time of day in UTC using extended format ISO 8601:2004(E) 4.3.2 with millisecond precision](https://en.wikipedia.org/wiki/ISO_8601) that is utilized in IRCv3.  The local system's timezone is used for any non-default format.
 
 ```toml
 # Type: string
