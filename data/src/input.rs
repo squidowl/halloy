@@ -14,7 +14,7 @@ use nom::{Finish, IResult, Parser};
 use tokio::time::Duration;
 
 use crate::capabilities::{Capabilities, MultilineBatchKind};
-use crate::config::buffer::text_input::{AutoFormat, MarkdownFeature};
+use crate::config::buffer::text_input::{AutoFormat, MarkdownFeatures};
 use crate::features::Features;
 use crate::history::reroute::RerouteRules;
 use crate::history::storage;
@@ -65,7 +65,7 @@ pub fn parse(
                 .map_or(input, |(_, unindented)| unindented)
         ))
     } else {
-        if auto_format.encodes_markdown_feature(&MarkdownFeature::Code)
+        if auto_format.encodes_markdown_features(MarkdownFeatures::Code)
             && let Some(open_code_fence) = parse_code_fence(input)
                 .finish()
                 .ok()
@@ -657,10 +657,8 @@ pub enum Error {
 
 #[cfg(test)]
 mod test {
-    use hashbrown::HashSet;
-
     use crate::capabilities::Capabilities;
-    use crate::config::buffer::text_input::{AutoFormat, MarkdownFeature};
+    use crate::config::buffer::text_input::{AutoFormat, MarkdownFeatures};
     use crate::input::{CodeFence, Content, Input, Parsed, parse};
     use crate::user::Nick;
     use crate::{Config, Server, buffer, command, features, isupport, target};
@@ -715,9 +713,7 @@ mod test {
             ),
             (
                 (
-                    AutoFormat::MarkdownFeatures(HashSet::from([
-                        MarkdownFeature::Code,
-                    ])),
+                    AutoFormat::MarkdownFeatures(MarkdownFeatures::Code),
                     "```toml",
                     None,
                 ),

@@ -2,7 +2,6 @@
 use std::convert::identity;
 use std::fmt::Write;
 
-use hashbrown::HashSet;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{anychar, char, none_of, one_of, satisfy};
@@ -15,11 +14,11 @@ use nom::sequence::{pair, preceded, terminated};
 use nom::{Finish, IResult, Parser};
 
 use super::{Color, Modifier};
-use crate::config::buffer::text_input::MarkdownFeature;
+use crate::config::buffer::text_input::MarkdownFeatures;
 
 pub enum Encoding {
     MarkdownOnly,
-    MarkdownFeaturesOnly(HashSet<MarkdownFeature>),
+    MarkdownFeaturesOnly(MarkdownFeatures),
     TokenOnly,
     All,
 }
@@ -34,7 +33,7 @@ impl Encoding {
         }
     }
 
-    pub fn encodes_markdown_feature(&self, feature: &MarkdownFeature) -> bool {
+    pub fn encodes_markdown_feature(&self, feature: MarkdownFeatures) -> bool {
         match self {
             Self::All | Self::MarkdownOnly => true,
             Self::MarkdownFeaturesOnly(features) => features.contains(feature),
@@ -55,21 +54,21 @@ impl Encoding {
             Self::MarkdownFeaturesOnly(features) => {
                 let mut escaped_chars = String::new();
 
-                if features.contains(&MarkdownFeature::Bold)
-                    || features.contains(&MarkdownFeature::Italics)
+                if features.contains(MarkdownFeatures::Bold)
+                    || features.contains(MarkdownFeatures::Italics)
                 {
                     escaped_chars.push_str("*_");
                 }
-                if features.contains(&MarkdownFeature::Strikethrough) {
+                if features.contains(MarkdownFeatures::Strikethrough) {
                     escaped_chars.push('~');
                 }
-                if features.contains(&MarkdownFeature::Code) {
+                if features.contains(MarkdownFeatures::Code) {
                     escaped_chars.push('`');
                 }
-                if features.contains(&MarkdownFeature::Spoiler) {
+                if features.contains(MarkdownFeatures::Spoiler) {
                     escaped_chars.push('|');
                 }
-                if features.contains(&MarkdownFeature::Link) {
+                if features.contains(MarkdownFeatures::Link) {
                     escaped_chars.push_str("<>");
                 }
 
@@ -135,33 +134,33 @@ fn escaped<'a>(
     alt((
         value('\\', terminated(tag("\\"), not(one_of(escaped_chars)))),
         skip(
-            !encoding.encodes_markdown_feature(&MarkdownFeature::Italics)
-                && !encoding.encodes_markdown_feature(&MarkdownFeature::Bold),
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Italics)
+                && !encoding.encodes_markdown_feature(MarkdownFeatures::Bold),
             value('*', tag("\\*")),
         ),
         skip(
-            !encoding.encodes_markdown_feature(&MarkdownFeature::Italics)
-                && !encoding.encodes_markdown_feature(&MarkdownFeature::Bold),
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Italics)
+                && !encoding.encodes_markdown_feature(MarkdownFeatures::Bold),
             value('_', tag("\\_")),
         ),
         skip(
-            !encoding.encodes_markdown_feature(&MarkdownFeature::Strikethrough),
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Strikethrough),
             value('~', tag("\\~")),
         ),
         skip(
-            !encoding.encodes_markdown_feature(&MarkdownFeature::Code),
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Code),
             value('`', tag("\\`")),
         ),
         skip(
-            !encoding.encodes_markdown_feature(&MarkdownFeature::Spoiler),
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Spoiler),
             value('|', tag("\\|")),
         ),
         skip(
-            !encoding.encodes_markdown_feature(&MarkdownFeature::Link),
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Link),
             value('<', tag("\\<")),
         ),
         skip(
-            !encoding.encodes_markdown_feature(&MarkdownFeature::Link),
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Link),
             value('>', tag("\\>")),
         ),
         skip(!encoding.encodes_token(), value('$', tag("\\$"))),
@@ -396,32 +395,32 @@ fn markdown<'a>(
 
     alt((
         skip(
-            !encoding.encodes_markdown_feature(&MarkdownFeature::Code),
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Code),
             map(code, Markdown::Code),
         ),
         skip(
-            !encoding.encodes_markdown_feature(&MarkdownFeature::Link),
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Link),
             map(link, Markdown::Link),
         ),
         skip(
-            !encoding.encodes_markdown_feature(&MarkdownFeature::Italics)
-                || !encoding.encodes_markdown_feature(&MarkdownFeature::Bold),
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Italics)
+                || !encoding.encodes_markdown_feature(MarkdownFeatures::Bold),
             map(italic_bold, Markdown::ItalicBold),
         ),
         skip(
-            !encoding.encodes_markdown_feature(&MarkdownFeature::Bold),
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Bold),
             map(bold, Markdown::Bold),
         ),
         skip(
-            !encoding.encodes_markdown_feature(&MarkdownFeature::Italics),
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Italics),
             map(italic, Markdown::Italic),
         ),
         skip(
-            !encoding.encodes_markdown_feature(&MarkdownFeature::Strikethrough),
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Strikethrough),
             map(strikethrough, Markdown::Strikethrough),
         ),
         skip(
-            !encoding.encodes_markdown_feature(&MarkdownFeature::Spoiler),
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Spoiler),
             map(spoiler, Markdown::Spoiler),
         ),
         map(plain_code_delimiters, Markdown::Plain),
@@ -623,7 +622,7 @@ enum Dollar {
 
 #[cfg(test)]
 mod test {
-    use super::{Encoding, HashSet, MarkdownFeature, encode};
+    use super::{Encoding, MarkdownFeatures, encode};
 
     #[test]
     fn internal_format() {
@@ -643,9 +642,7 @@ mod test {
             (
                 (
                     "_hello_ there __friend__!!",
-                    Encoding::MarkdownFeaturesOnly(HashSet::from([
-                        MarkdownFeature::Italics,
-                    ])),
+                    Encoding::MarkdownFeaturesOnly(MarkdownFeatures::Italics),
                 ),
                 String::from("\u{1d}hello\u{1d} there __friend__!!"),
             ),
@@ -660,9 +657,7 @@ mod test {
             (
                 (
                     "hello there **_fri_end_**!!",
-                    Encoding::MarkdownFeaturesOnly(HashSet::from([
-                        MarkdownFeature::Bold,
-                    ])),
+                    Encoding::MarkdownFeaturesOnly(MarkdownFeatures::Bold),
                 ),
                 String::from("hello there \u{2}_fri_end_\u{2}!!"),
             ),
@@ -705,10 +700,9 @@ mod test {
             (
                 (
                     "<Cthon98> ********* see!",
-                    Encoding::MarkdownFeaturesOnly(HashSet::from([
-                        MarkdownFeature::Bold,
-                        MarkdownFeature::Italics,
-                    ])),
+                    Encoding::MarkdownFeaturesOnly(
+                        MarkdownFeatures::Bold | MarkdownFeatures::Italics,
+                    ),
                 ),
                 String::from("<Cthon98> ********* see!"),
             ),

@@ -79,6 +79,7 @@ icu_locale = { version = "2.4", features = ["serde"] }
 icu_datetime = "2.4"
 icu_calendar = "2.4"
 icu_time = "2.4"
+bitflags = "2.13.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 apple-native-keyring-store = { version = "1", default-features = false, features = [

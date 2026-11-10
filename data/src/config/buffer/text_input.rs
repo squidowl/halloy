@@ -1,5 +1,7 @@
-use hashbrown::HashSet;
-use serde::Deserialize;
+use std::fmt;
+
+use bitflags::bitflags;
+use serde::{Deserialize, de};
 
 use crate::config::buffer::AccessLevelFormat;
 use crate::message::formatting::encode::Encoding;
@@ -86,22 +88,65 @@ pub enum AutoFormat {
     #[default]
     Disabled,
     Markdown,
-    MarkdownFeatures(HashSet<MarkdownFeature>),
+    MarkdownFeatures(MarkdownFeatures),
     Token,
     All,
     #[serde(skip)]
     ForceDisabled,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum MarkdownFeature {
-    Bold,
-    Italics,
-    Strikethrough,
-    Code,
-    Spoiler,
-    Link,
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct MarkdownFeatures: u8 {
+        #[bitflags(flag_name = "bold")]
+        const Bold = 1;
+        #[bitflags(flag_name = "italics")]
+        const Italics = 1 << 1;
+        #[bitflags(flag_name = "strikethrough")]
+        const Strikethrough = 1 << 2;
+        #[bitflags(flag_name = "code")]
+        const Code = 1 << 3;
+        #[bitflags(flag_name = "spoiler")]
+        const Spoiler = 1 << 4;
+        #[bitflags(flag_name = "link")]
+        const Link = 1 << 5;
+    }
+}
+
+struct FeatureVisitor();
+
+impl<'de> de::Visitor<'de> for FeatureVisitor {
+    type Value = MarkdownFeatures;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(formatter, "Invalid markdown specifier")
+    }
+
+    fn visit_seq<V>(self, mut visitor: V) -> Result<Self::Value, V::Error>
+    where
+        V: de::SeqAccess<'de>,
+    {
+        let mut features = MarkdownFeatures::empty();
+        while let Some(s) = visitor.next_element()? {
+            let Some(x) = MarkdownFeatures::from_name(s) else {
+                return Err(de::Error::invalid_value(
+                    de::Unexpected::Str(s),
+                    &self,
+                ));
+            };
+            features |= x;
+        }
+        Ok(features)
+    }
+}
+
+impl<'de> Deserialize<'de> for MarkdownFeatures {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        d.deserialize_seq(FeatureVisitor())
+    }
 }
 
 impl AutoFormat {
@@ -110,14 +155,14 @@ impl AutoFormat {
             Self::Disabled | Self::ForceDisabled => None,
             Self::Markdown => Some(Encoding::MarkdownOnly),
             Self::MarkdownFeatures(features) => {
-                Some(Encoding::MarkdownFeaturesOnly(features.clone()))
+                Some(Encoding::MarkdownFeaturesOnly(*features))
             }
             Self::Token => Some(Encoding::TokenOnly),
             Self::All => Some(Encoding::All),
         }
     }
 
-    pub fn encodes_markdown_feature(&self, feature: &MarkdownFeature) -> bool {
+    pub fn encodes_markdown_features(&self, feature: MarkdownFeatures) -> bool {
         match self {
             Self::Token | Self::Disabled | Self::ForceDisabled => false,
             Self::Markdown => true,
