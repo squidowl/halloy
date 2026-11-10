@@ -1703,15 +1703,15 @@ brackets = { left = "[", right = "]" }
 
 ### `locale`
 
-Locale used when formatting timestamps, for strftime formats that produce locale-specific output (e.g. `%x`, `%X`, `%a`, etc).  If not specified, then the locale will be set automatically, falling back to the POSIX locale if the system locale cannot be determined.  Supported locales are determined by [`enum Locale` in the `pure-rust-locales` crate](https://docs.rs/pure-rust-locales/latest/pure_rust_locales/enum.Locale.html).
+Locale used when formatting timestamps, where ICU formatting is used.  If not specified, then the locale will be set automatically, falling back to the default English locale if the local system's locale cannot be determined.  Supplied value should be a [Unicode locale identifier](https://unicode.org/reports/tr35/tr35.html#Unicode_locale_identifier) or IETF BCP 47 language tag (e.g. `"en-AQ"`, `"de-VA"`, etc).
 
 ```toml
 # Type: string
-# Values: IETF BCP 47 language tags
+# Values: Unicode locale identifiers
 # Default: not set
 
 [buffer.timestamp]
-locale = "POSIX"
+locale = "en-AQ"
 ```
 
 ### `hide_consecutive`
