@@ -1,10 +1,11 @@
 //! Internal formatting specification
 use std::convert::identity;
 use std::fmt::Write;
+use std::iter;
 
 use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::character::complete::{anychar, char, none_of, one_of, satisfy};
+use nom::character::complete::{anychar, char, one_of, satisfy};
 use nom::combinator::{
     cond, cut, eof, flat_map, map, map_opt, not, opt, peek, recognize, value,
     verify,
@@ -387,9 +388,32 @@ fn markdown<'a>(
     });
 
     let link = map(
-        pair(char('<'), many_till(none_of("<"), char('>'))),
-        |(_, (chars, _))| {
-            chars.into_iter().map(Token::Plain).collect::<Vec<_>>()
+        (
+            char('<'),
+            satisfy(move |c| c.is_ascii_alphabetic()),
+            many_m_n(
+                1,
+                31,
+                satisfy(move |c| {
+                    c.is_ascii_alphanumeric()
+                        || c == '+'
+                        || c == '.'
+                        || c == '-'
+                }),
+            ),
+            char(':'),
+            many_till(
+                satisfy(move |c| !c.is_ascii_control() && c != ' ' && c != '<'),
+                char('>'),
+            ),
+        ),
+        |(_, scheme_first, scheme_rest, colon, (rest, _))| {
+            iter::once(scheme_first)
+                .chain(scheme_rest)
+                .chain(iter::once(colon))
+                .chain(rest)
+                .map(Token::Plain)
+                .collect::<Vec<_>>()
         },
     );
 
@@ -697,6 +721,7 @@ mod test {
                 ("\\<https://spec.commonmark.org/dingus/>", Encoding::All),
                 String::from("<https://spec.commonmark.org/dingus/>"),
             ),
+            (("<sebbu>", Encoding::All), String::from("<sebbu>")),
             (
                 (
                     "<Cthon98> ********* see!",

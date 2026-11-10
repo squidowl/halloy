@@ -98,4 +98,4 @@ Token-based formatting is included in `"all"`, in addition to Markdown formattin
 
 When `auto_format` is enabled, it can be disabled for an individual message by using the `/plain` command.
 
-[^1]: The text inside link brackets `<` and `>` will not be formatted by Halloy (e.g. `_`'s will not start/stop italics).  However, whether the interior text is parsed as a URL or not is up to the rendering client.
+[^1]: The text inside link brackets `<` and `>` will not be formatted by Halloy if it is [recognized as a link](https://spec.commonmark.org/0.31.2/#autolink) (e.g. `_`'s will not start/stop italics).  However, whether the interior text is parsed as a URL or not is up to the rendering client.
