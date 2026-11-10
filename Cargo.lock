@@ -2929,7 +2929,6 @@ name = "halloy"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bitflags 2.13.2",
  "bytesize",
  "const_format",
  "data",

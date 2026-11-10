@@ -116,7 +116,6 @@ mundy = { version = "0.2.3", default-features = false, features = [
     "tokio",
     "log",
 ] }
-bitflags = "2.13.2"
 
 [dev-dependencies]
 iced = { workspace = true, features = [
