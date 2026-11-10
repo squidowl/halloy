@@ -27,6 +27,7 @@ use crate::config::inclusivities::{
 };
 use crate::message::source;
 use crate::target::TargetRef;
+use crate::time::RFC3339_WITH_MILLIS;
 use crate::{Server, isupport};
 
 pub mod channel;
@@ -1148,7 +1149,14 @@ impl Buffer {
     }
 
     pub fn format_copy_timestamp(&self, timestamp: &Timestamp) -> String {
-        Timestamp::strftime(timestamp, &self.timestamp.copy_format).to_string()
+        if let Some(copy_format) = &self.timestamp.copy_format {
+            timestamp
+                .to_zoned(TimeZone::system())
+                .strftime(copy_format)
+                .to_string()
+        } else {
+            Timestamp::strftime(timestamp, RFC3339_WITH_MILLIS).to_string()
+        }
     }
 
     pub fn format_date_separator(

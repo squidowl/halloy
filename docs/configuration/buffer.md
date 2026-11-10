@@ -1682,7 +1682,7 @@ Controls the format used when copying the timestamp into the clipboard from its 
 ```toml
 # Type: string
 # Values: any strftime string
-# Default: "%Y-%m-%dT%H:%M:%S%.3fZ"
+# Default: "%Y-%m-%dT%H:%M:%S%.3fZ" (UTC)
 
 [buffer.timestamp]
 copy_format = "%Y-%m-%d %H:%M:%S"
