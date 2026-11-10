@@ -1677,12 +1677,12 @@ context_menu_format = "%D"
 
 ### `copy_format`
 
-Controls the format used when copying the timestamp into the clipboard from its context menu. The expected format is [strftime](https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html#conversion-specifications).  The default format is the [date and time of day in UTC using extended format ISO 8601:2004(E) 4.3.2 with millisecond precision](https://en.wikipedia.org/wiki/ISO_8601) that is utilized in IRCv3.
+Controls the format used when copying the timestamp into the clipboard from its context menu. The expected format is [strftime](https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html#conversion-specifications).  The default format is the [date and time of day in UTC using extended format ISO 8601:2004(E) 4.3.2 with millisecond precision](https://en.wikipedia.org/wiki/ISO_8601) that is utilized in IRCv3.  The local system's timezone is used for any non-default format.
 
 ```toml
 # Type: string
 # Values: any strftime string
-# Default: "%Y-%m-%dT%H:%M:%S%.3fZ"
+# Default: "%Y-%m-%dT%H:%M:%S%.3fZ" (UTC)
 
 [buffer.timestamp]
 copy_format = "%Y-%m-%d %H:%M:%S"
@@ -1703,15 +1703,15 @@ brackets = { left = "[", right = "]" }
 
 ### `locale`
 
-Locale used when formatting timestamps, for strftime formats that produce locale-specific output (e.g. `%x`, `%X`, `%a`, etc).  If not specified, then the locale will be set automatically, falling back to the POSIX locale if the system locale cannot be determined.  Supported locales are determined by [`enum Locale` in the `pure-rust-locales` crate](https://docs.rs/pure-rust-locales/latest/pure_rust_locales/enum.Locale.html).
+Locale used when formatting timestamps, where ICU formatting is used.  If not specified, then the locale will be set automatically, falling back to the default English locale if the local system's locale cannot be determined.  Supplied value should be a [Unicode locale identifier](https://unicode.org/reports/tr35/tr35.html#Unicode_locale_identifier) or IETF BCP 47 language tag (e.g. `"en-AQ"`, `"de-VA"`, etc).
 
 ```toml
 # Type: string
-# Values: IETF BCP 47 language tags
+# Values: Unicode locale identifiers
 # Default: not set
 
 [buffer.timestamp]
-locale = "POSIX"
+locale = "en-AQ"
 ```
 
 ### `hide_consecutive`

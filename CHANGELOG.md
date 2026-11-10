@@ -10,7 +10,7 @@ Changed:
 
 Thanks:
 
-- Contributions: @auronandace
+- Contributions: @auronandace. @sjm42
 
 # 2026.10 (2026-11-03)
 

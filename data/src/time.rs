@@ -10,6 +10,9 @@ mod unix;
 #[cfg(target_os = "windows")]
 mod windows;
 
+/// This format is for use with IRCv3 features that utilize timestamps (e.g.
+/// chathistory) and is expected to be used directly with Timestamp (or UTC
+/// Zoned).
 pub const RFC3339_WITH_MILLIS: &str = "%Y-%m-%dT%H:%M:%S%.3fZ";
 
 /// Returns None if the time cannot be represented in the RFC 2822 format (e.g.

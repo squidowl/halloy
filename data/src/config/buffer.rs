@@ -27,6 +27,7 @@ use crate::config::inclusivities::{
 };
 use crate::message::source;
 use crate::target::TargetRef;
+use crate::time::RFC3339_WITH_MILLIS;
 use crate::{Server, isupport};
 
 pub mod channel;
@@ -1087,9 +1088,11 @@ impl Buffer {
         }
 
         Some(
-            self.timestamp
-                .brackets
-                .format(Timestamp::strftime(timestamp, &self.timestamp.format)),
+            self.timestamp.brackets.format(
+                timestamp
+                    .to_zoned(TimeZone::system())
+                    .strftime(&self.timestamp.format),
+            ),
         )
     }
 
@@ -1107,7 +1110,9 @@ impl Buffer {
                 .brackets
                 .format(format!(
                     "{}",
-                    Timestamp::strftime(end_timestamp, &self.timestamp.format)
+                    end_timestamp
+                        .to_zoned(TimeZone::system())
+                        .strftime(&self.timestamp.format)
                 ))
                 .to_string(),
         ))
@@ -1120,7 +1125,10 @@ impl Buffer {
         if let Some(context_menu_format) =
             self.timestamp.context_menu_format.as_ref()
         {
-            Timestamp::strftime(timestamp, context_menu_format).to_string()
+            timestamp
+                .to_zoned(TimeZone::system())
+                .strftime(context_menu_format)
+                .to_string()
         } else if let Ok(formatter) = DateTimeFormatter::try_new(
             self.timestamp.locale.clone().into(),
             YMD::short(),
@@ -1133,12 +1141,22 @@ impl Buffer {
                 )
                 .to_string()
         } else {
-            Timestamp::strftime(timestamp, "%D").to_string()
+            timestamp
+                .to_zoned(TimeZone::system())
+                .strftime("%D")
+                .to_string()
         }
     }
 
     pub fn format_copy_timestamp(&self, timestamp: &Timestamp) -> String {
-        Timestamp::strftime(timestamp, &self.timestamp.copy_format).to_string()
+        if let Some(copy_format) = &self.timestamp.copy_format {
+            timestamp
+                .to_zoned(TimeZone::system())
+                .strftime(copy_format)
+                .to_string()
+        } else {
+            Timestamp::strftime(timestamp, RFC3339_WITH_MILLIS).to_string()
+        }
     }
 
     pub fn format_date_separator(
