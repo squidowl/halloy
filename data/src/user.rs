@@ -155,11 +155,17 @@ impl<'de> Deserialize<'de> for User {
         let value = String::deserialize(deserializer)?;
 
         if let Some((access_levels_and_is_bot, names)) = value.split_once(' ') {
-            let access_levels = access_levels_and_is_bot
+            let (is_bot, access_levels) = if let Some(access_levels) =
+                access_levels_and_is_bot.strip_suffix(':')
+            {
+                (true, access_levels)
+            } else {
+                (false, access_levels_and_is_bot)
+            };
+            let access_levels = access_levels
                 .chars()
-                .filter_map(|c| AccessLevel::try_from(c).ok())
+                .map(AccessLevel::from_prefix)
                 .collect::<BTreeSet<_>>();
-            let is_bot = access_levels_and_is_bot.ends_with(':');
 
             let (nickname, username, hostname) =
                 parse_user_names(names, isupport::CaseMap::default());
@@ -176,14 +182,17 @@ impl<'de> Deserialize<'de> for User {
         } else {
             // Older format for user string, with no space; attempt to parse
             // with default
-            User::parse(&value, isupport::CaseMap::default(), None).map_err(
-                |_| {
-                    serde::de::Error::invalid_value(
-                        serde::de::Unexpected::Str(&value),
-                        &"{access_levels}{nickname}{username}{hostname}",
-                    )
-                },
+            User::parse(
+                &value,
+                isupport::CaseMap::default(),
+                isupport::DEFAULT_PREFIX,
             )
+            .map_err(|_| {
+                serde::de::Error::invalid_value(
+                    serde::de::Unexpected::Str(&value),
+                    &"{access_levels}{nickname}{username}{hostname}",
+                )
+            })
         }
     }
 }
@@ -310,16 +319,14 @@ impl User {
     pub fn update_access_level(
         &mut self,
         operation: mode::Operation,
-        mode: mode::Channel,
+        level: AccessLevel,
     ) {
-        if let Ok(level) = AccessLevel::try_from(mode) {
-            match operation {
-                mode::Operation::Add => {
-                    self.access_levels.insert(level);
-                }
-                mode::Operation::Remove => {
-                    self.access_levels.remove(&level);
-                }
+        match operation {
+            mode::Operation::Add => {
+                self.access_levels.insert(level);
+            }
+            mode::Operation::Remove => {
+                self.access_levels.remove(&level);
             }
         }
     }
@@ -416,19 +423,15 @@ impl User {
     pub fn parse(
         value: &str,
         casemapping: isupport::CaseMap,
-        prefix: Option<&[isupport::PrefixMap]>,
+        prefix: &[isupport::PrefixMap],
     ) -> Result<Self, ParseUserError> {
         if value.is_empty() {
             return Err(ParseUserError::NicknameEmpty);
         }
 
-        let index = if let Some(prefix) = prefix {
-            value.find(|c: char| {
-                prefix.iter().all(|prefix_map| c != prefix_map.prefix)
-            })
-        } else {
-            value.find(|c: char| AccessLevel::try_from(c).is_err())
-        };
+        let index = value.find(|c: char| {
+            prefix.iter().all(|prefix_map| c != prefix_map.prefix)
+        });
 
         let Some(index) = index else {
             return Err(ParseUserError::NicknameEmpty);
@@ -438,7 +441,7 @@ impl User {
 
         let access_levels = access_levels
             .chars()
-            .filter_map(|c| AccessLevel::try_from(c).ok())
+            .filter_map(|c| AccessLevel::try_from_prefix_char(c, prefix))
             .collect::<BTreeSet<_>>();
 
         let (nickname, username, hostname) =
@@ -462,12 +465,13 @@ impl User {
         host: &str,
         account: Option<&str>,
         casemapping: isupport::CaseMap,
+        prefix: &[isupport::PrefixMap],
         bot_mode_char: Option<char>,
     ) -> Self {
         let access_levels = flags
             .chars()
             .skip(1)
-            .filter_map(|c| AccessLevel::try_from(c).ok())
+            .filter_map(|c| AccessLevel::try_from_prefix_char(c, prefix))
             .collect::<BTreeSet<_>>();
         let away = flags.starts_with('G');
         let bot =
@@ -489,7 +493,7 @@ impl User {
     pub fn parse_or_force(
         value: &str,
         casemapping: isupport::CaseMap,
-        prefix: Option<&[isupport::PrefixMap]>,
+        prefix: &[isupport::PrefixMap],
     ) -> User {
         User::parse(value, casemapping, prefix)
             .unwrap_or(User::from(Nick::from_str(value, casemapping)))
@@ -752,6 +756,10 @@ impl PartialEq<NickRef<'_>> for Nick {
     }
 }
 
+// These are the common mappings, plus a catch-all Unknown variant.  The allowed
+// customization and available information does not allow us to guarantee that
+// e.g. proto::FOUNDER_PREFIX maps to AccessLevel::Founder, but we make that
+// mapping to provide a reasonable UX.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AccessLevel {
     Member,
@@ -760,6 +768,7 @@ pub enum AccessLevel {
     Oper,
     Protected(ProtectedPrefix),
     Founder,
+    Unknown(char),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -778,38 +787,41 @@ impl std::fmt::Display for AccessLevel {
     }
 }
 
-impl TryFrom<char> for AccessLevel {
-    type Error = ();
+impl AccessLevel {
+    pub fn try_from_mode_char(
+        mode_char: char,
+        prefix: &[isupport::PrefixMap],
+    ) -> Option<AccessLevel> {
+        prefix.iter().find_map(|prefix_map| {
+            (prefix_map.mode == mode_char)
+                .then_some(AccessLevel::from_prefix(prefix_map.prefix))
+        })
+    }
 
-    fn try_from(c: char) -> Result<AccessLevel, ()> {
-        match c {
-            proto::FOUNDER_PREFIX => Ok(AccessLevel::Founder),
+    pub fn try_from_prefix_char(
+        prefix_char: char,
+        prefix: &[isupport::PrefixMap],
+    ) -> Option<AccessLevel> {
+        prefix.iter().find_map(|prefix_map| {
+            (prefix_map.prefix == prefix_char)
+                .then_some(AccessLevel::from_prefix(prefix_map.prefix))
+        })
+    }
+
+    pub fn from_prefix(prefix: char) -> AccessLevel {
+        match prefix {
+            proto::FOUNDER_PREFIX => AccessLevel::Founder,
             proto::PROTECTED_PREFIX_STD => {
-                Ok(AccessLevel::Protected(ProtectedPrefix::Standard))
+                AccessLevel::Protected(ProtectedPrefix::Standard)
             }
             proto::PROTECTED_PREFIX_ALT => {
-                Ok(AccessLevel::Protected(ProtectedPrefix::Alternative))
+                AccessLevel::Protected(ProtectedPrefix::Alternative)
             }
-            proto::OPERATOR_PREFIX => Ok(AccessLevel::Oper),
-            proto::HALF_OPERATOR_PREFIX => Ok(AccessLevel::HalfOp),
-            proto::VOICED_PREFIX => Ok(AccessLevel::Voice),
-            _ => Err(()),
+            proto::OPERATOR_PREFIX => AccessLevel::Oper,
+            proto::HALF_OPERATOR_PREFIX => AccessLevel::HalfOp,
+            proto::VOICED_PREFIX => AccessLevel::Voice,
+            _ => AccessLevel::Unknown(prefix),
         }
-    }
-}
-
-impl TryFrom<mode::Channel> for AccessLevel {
-    type Error = ();
-
-    fn try_from(mode: mode::Channel) -> Result<Self, Self::Error> {
-        Ok(match mode {
-            mode::Channel::Founder => Self::Founder,
-            mode::Channel::Protected(prefix) => Self::Protected(prefix),
-            mode::Channel::Oper => Self::Oper,
-            mode::Channel::HalfOp => Self::HalfOp,
-            mode::Channel::Voice => Self::Voice,
-            _ => return Err(()),
-        })
     }
 }
 
@@ -826,6 +838,7 @@ impl AccessLevel {
             AccessLevel::Oper => Some(proto::OPERATOR_PREFIX),
             AccessLevel::HalfOp => Some(proto::HALF_OPERATOR_PREFIX),
             AccessLevel::Voice => Some(proto::VOICED_PREFIX),
+            AccessLevel::Unknown(prefix) => Some(*prefix),
             AccessLevel::Member => None,
         }
     }
@@ -1091,7 +1104,12 @@ mod tests {
         .map(|(a, b)| {
             (
                 Nick::from_str(a, isupport::CaseMap::default()),
-                User::parse(b, isupport::CaseMap::default(), None).unwrap(),
+                User::parse(
+                    b,
+                    isupport::CaseMap::default(),
+                    isupport::DEFAULT_PREFIX,
+                )
+                .unwrap(),
             )
         });
         let channel_users: ChannelUsers =

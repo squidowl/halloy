@@ -360,9 +360,9 @@ impl Client {
                 if let Some(isupport::Parameter::MONITOR(monitor_limit)) =
                     self.isupport.get(&isupport::Kind::MONITOR)
                 {
-                    let casemapping =
-                        isupport::get_casemapping_or_default(&self.isupport);
-                    let prefix = isupport::get_prefix(&self.isupport);
+                    let casemapping = self.casemapping();
+                    let prefix =
+                        isupport::get_prefix_or_default(&self.isupport);
 
                     let remove_monitors = self
                         .config
@@ -725,11 +725,10 @@ impl Client {
                 Command::MONITOR(subcommand, targets) => {
                     match (targets, subcommand.as_str()) {
                         (Some(targets), "+") => {
-                            let casemapping =
-                                isupport::get_casemapping_or_default(
-                                    &self.isupport,
-                                );
-                            let prefix = isupport::get_prefix(&self.isupport);
+                            let casemapping = self.casemapping();
+                            let prefix =
+                                isupport::get_prefix_or_default(&self.isupport);
+
                             for target in targets.split(",") {
                                 self.monitored_users
                                     .entry(User::parse_or_force(
@@ -747,11 +746,10 @@ impl Client {
                             }
                         }
                         (Some(targets), "-") => {
-                            let casemapping =
-                                isupport::get_casemapping_or_default(
-                                    &self.isupport,
-                                );
-                            let prefix = isupport::get_prefix(&self.isupport);
+                            let casemapping = self.casemapping();
+                            let prefix =
+                                isupport::get_prefix_or_default(&self.isupport);
+
                             for target in
                                 targets.split(',').filter(|s| !s.is_empty())
                             {
@@ -2327,8 +2325,13 @@ impl Client {
                                 && let Some(mut user) =
                                     channel.users.take(&lookup)
                             {
-                                user.update_access_level(op, *mode.value());
-                                channel.users.insert(user);
+                                if let mode::Channel::AccessLevel(
+                                    access_level,
+                                ) = mode.value()
+                                {
+                                    user.update_access_level(op, *access_level);
+                                    channel.users.insert(user);
+                                }
                             } else {
                                 channel_mode_changed = true;
                             }
@@ -2408,20 +2411,22 @@ impl Client {
                 let our_nick = self.nickname().to_owned();
                 let our_away = self.away;
 
+                let casemapping = self.casemapping();
+
                 if let Some(channel) =
                     self.chanmap.get_mut(&context!(target::Channel::parse(
                         channel,
                         self.chantypes(),
                         self.statusmsg(),
-                        self.casemapping(),
+                        casemapping,
                     )))
                 {
                     let mut our_user = None;
                     let mut our_host = None;
 
-                    let casemapping =
-                        isupport::get_casemapping_or_default(&self.isupport);
-                    let prefix = isupport::get_prefix(&self.isupport);
+                    let prefix =
+                        isupport::get_prefix_or_default(&self.isupport);
+
                     for user in args[3].split(' ') {
                         if let Ok(mut user) =
                             User::parse(user, casemapping, prefix)
@@ -2543,12 +2548,15 @@ impl Client {
             Command::Numeric(RPL_TOPICWHOTIME, args) => {
                 let channel = ok!(args.get(1));
 
+                let casemapping = self.casemapping();
+                let prefix = isupport::get_prefix_or_default(&self.isupport);
+
                 if let Some(channel) =
                     self.chanmap.get_mut(&context!(target::Channel::parse(
                         channel,
                         self.chantypes(),
                         self.statusmsg(),
-                        self.casemapping(),
+                        casemapping,
                     )))
                 {
                     let is_join_topic = channel.topic.who.is_none()
@@ -2556,8 +2564,8 @@ impl Client {
 
                     channel.topic.who = Some(context!(User::parse(
                         ok!(args.get(2)),
-                        isupport::get_casemapping_or_default(&self.isupport),
-                        isupport::get_prefix(&self.isupport),
+                        casemapping,
+                        prefix,
                     )));
 
                     let seconds = ok!(args.get(3)).parse::<i64>()?;
@@ -2959,9 +2967,8 @@ impl Client {
                 }
             }
             Command::Numeric(RPL_MONONLINE, args) => {
-                let casemapping =
-                    isupport::get_casemapping_or_default(&self.isupport);
-                let prefix = isupport::get_prefix(&self.isupport);
+                let casemapping = self.casemapping();
+                let prefix = isupport::get_prefix_or_default(&self.isupport);
 
                 let targets = ok!(args.get(1))
                     .split(',')
@@ -3000,9 +3007,9 @@ impl Client {
                 return Ok(events);
             }
             Command::Numeric(RPL_MONOFFLINE, args) => {
-                let casemapping =
-                    isupport::get_casemapping_or_default(&self.isupport);
-                let prefix = isupport::get_prefix(&self.isupport);
+                let casemapping = self.casemapping();
+                let prefix = isupport::get_prefix_or_default(&self.isupport);
+
                 let targets = ok!(args.get(1))
                     .split(',')
                     .filter_map(|target| {
