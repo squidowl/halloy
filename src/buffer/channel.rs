@@ -730,11 +730,11 @@ mod nick_list {
     use data::user::ChannelUsers;
     use data::{Config, Server, User, isupport, metadata, target};
     use iced::Length;
-    use iced::widget::{Scrollable, column, scrollable};
+    use iced::widget::{Scrollable, scrollable};
 
     use crate::buffer::context_menu;
-    use crate::widget::Element;
     use crate::widget::user_display::UserDisplay;
+    use crate::widget::{Column, Element};
     use crate::{Theme, theme};
 
     pub fn view<'a>(
@@ -750,77 +750,66 @@ mod nick_list {
     ) -> Element<'a, Message> {
         let nicklist_config = &config.buffer.channel.nicklist;
 
-        let user_displays = users
+        let mut max_width = 0.0_f32;
+        let rows = users
             .into_iter()
             .flatten()
             .map(|user| {
-                (
+                let user_display = UserDisplay::new(
                     user,
-                    UserDisplay::new(
+                    nicklist_config.show_access_levels,
+                    nicklist_config.show_bot_icon,
+                    false,
+                    registry,
+                    &config.display.nicklist_nickname,
+                    nicklist_config
+                        .truncate
+                        .or(config.buffer.nickname.truncate),
+                    config.display.truncation_character,
+                    None,
+                    true,
+                );
+                max_width = max_width.max(user_display.width(config));
+                context_menu::user(
+                    user_display.into_element(
                         user,
-                        nicklist_config.show_access_levels,
-                        nicklist_config.show_bot_icon,
+                        user.is_away(),
                         false,
-                        registry,
-                        &config.display.nicklist_nickname,
-                        nicklist_config
-                            .truncate
-                            .or(config.buffer.nickname.truncate),
-                        config.display.truncation_character,
                         None,
+                        None,
+                        false,
                         true,
+                        false,
+                        theme,
+                        config,
                     ),
+                    server,
+                    prefix,
+                    Some(channel),
+                    registry,
+                    previews,
+                    user,
+                    Some(user),
+                    our_user,
+                    None,
+                    config,
+                    theme,
+                    config
+                        .actions
+                        .nicklist
+                        .click_username
+                        .as_ref()
+                        .unwrap_or(&config.actions.buffer.click_username),
                 )
             })
-            .collect::<Vec<_>>();
+            .collect();
 
         let width = match nicklist_config.width {
             Some(width) => width,
-            None => {
-                user_displays.iter().fold(
-                    0.0_f32,
-                    |max_width, (_, user_display)| {
-                        max_width.max(user_display.width(config))
-                    },
-                ) + 1.0
-            }
+            None => max_width + 1.0,
         };
 
-        let rows = user_displays.into_iter().map(|(user, user_display)| {
-            context_menu::user(
-                user_display.into_element(
-                    user,
-                    user.is_away(),
-                    false,
-                    None,
-                    None,
-                    false,
-                    true,
-                    false,
-                    theme,
-                    config,
-                ),
-                server,
-                prefix,
-                Some(channel),
-                registry,
-                previews,
-                user,
-                Some(user),
-                our_user,
-                None,
-                config,
-                theme,
-                config
-                    .actions
-                    .nicklist
-                    .click_username
-                    .as_ref()
-                    .unwrap_or(&config.actions.buffer.click_username),
-            )
-        });
-
-        let content = column(rows);
+        let content = Column::from_vec(rows);
 
         Scrollable::new(content)
             .direction(scrollable::Direction::Vertical(
