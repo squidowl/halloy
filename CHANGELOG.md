@@ -7,6 +7,7 @@ Fixed:
 Changed:
 
 - Supported strftime formats; new list of supported specifiers is viewable at <https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html#conversion-specifications>
+- Message drafts are saved in the history database instead of drafts.json. Drafts saved by earlier versions are not carried over.
 
 Thanks:
 
