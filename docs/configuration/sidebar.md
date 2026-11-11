@@ -486,7 +486,6 @@ Default is enabled for only queries and behavior depends on [`sidebar.position`]
 enabled for vertical sidebars and disabled for horizontal sidebars.
 
 To enable for both channels and queries, use `"all"`.
-Highlight indicators take precedence over channel typing indicators.
 
 ```toml
 # Type: string
@@ -495,6 +494,21 @@ Highlight indicators take precedence over channel typing indicators.
 
 [sidebar.typing_indicator]
 show = "all"
+```
+
+### `position`
+
+Change the sidebar typing indicator's display position.
+
+Due to space constraints, `"left"` position displays one indicator at a time.
+
+```toml
+# Type: string
+# Values: "left", "right"
+# Default: "right"
+
+[sidebar.typing_indicator]
+position = "left"
 ```
 
 ### `icon_height`
