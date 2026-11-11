@@ -3,6 +3,7 @@
 Fixed:
 
 - Localization of default date separators and timestamp context menu formats
+- Utilize ISUPPORT parameters when parsing mode characters
 
 Changed:
 
