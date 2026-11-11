@@ -2308,6 +2308,9 @@ impl Client {
                         args,
                         self.chanmodes(),
                         self.prefix(),
+                        isupport::get_bot_mode_char(&self.isupport),
+                        isupport::get_deaf_mode_char(&self.isupport),
+                        isupport::get_invex_mode_char(&self.isupport),
                     );
                     let target_channel = channel.clone();
 
@@ -2353,6 +2356,9 @@ impl Client {
                         args,
                         self.chanmodes(),
                         self.prefix(),
+                        isupport::get_bot_mode_char(&self.isupport),
+                        isupport::get_deaf_mode_char(&self.isupport),
+                        isupport::get_invex_mode_char(&self.isupport),
                     );
 
                     let bot_change = modes.iter().find_map(|mode| match mode {
