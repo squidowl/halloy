@@ -290,6 +290,7 @@ fn channel_list_view<'a>(
                         .view(
                             Context::link(
                                 link,
+                                None,
                                 Option::<fn(&User) -> UserContext>::None,
                                 Option::<fn(&str) -> UrlContext>::None,
                                 Some(|server, channel|  {
@@ -344,6 +345,7 @@ fn channel_list_view<'a>(
                             .view(
                                 Context::link(
                                     link,
+                                    None,
                                     Option::<fn(&User) -> UserContext>::None,
                                     Some(|url| UrlContext {
                                         url,

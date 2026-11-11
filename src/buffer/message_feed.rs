@@ -206,6 +206,7 @@ pub fn message_row<'a>(
                         .view(
                             Context::link(
                                 link,
+                                None,
                                 Option::<fn(&User) -> UserContext>::None,
                                 Option::<fn(&str) -> UrlContext>::None,
                                 Some(|server, channel| {
@@ -326,6 +327,7 @@ pub fn message_row<'a>(
                 move |link, entry, length| {
                     let context = Context::link(
                         link,
+                        None,
                         Some(|user| UserContext {
                             server,
                             prefix,
