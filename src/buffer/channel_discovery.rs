@@ -266,42 +266,13 @@ fn channel_list_view<'a>(
             ])
             .on_link(Message::Link)
             .context_menu(move |link| {
-                let entries = context_menu::Entry::link_list(
-                    &link,
-                    Option::<fn(&User) -> Vec<context_menu::Entry>>::None,
-                    Option::<fn(&str) -> Vec<context_menu::Entry>>::None,
-                    Some(|server, channel| {
-                        context_menu::Entry::channel_list(
-                            channels_context.is_open(server, channel),
-                            channels_context.is_focused(server, channel),
-                        )
-                    }),
-                );
-
-                crate::widget::context_menu::items(
-                    entries,
-                    move |entry, length| {
-                        entry
-                            .view(
-                                Context::link(
-                                    &link,
-                                    None,
-                                    Option::<fn(&User) -> UserContext>::None,
-                                    Option::<fn(&str) -> UrlContext>::None,
-                                    Some(|server, channel| {
-                                        channels_context.channel_context(
-                                            server, channel, None,
-                                        )
-                                    }),
-                                ),
-                                length,
-                                config,
-                                theme,
-                                false,
-                            )
-                            .map(Message::ContextMenu)
-                    },
+                context_menu::channel_link_menu(
+                    link,
+                    channels_context,
+                    config,
+                    theme,
                 )
+                .map(Message::ContextMenu)
             });
             let user_count_text =
                 selectable_text(format!("{user_count} users"))

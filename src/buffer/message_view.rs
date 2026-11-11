@@ -766,31 +766,9 @@ impl<'a> ChannelQueryLayout<'a> {
                             message_font_style,
                             color_transformation,
                             move |link| {
-                                let entries = formatter.link_entries(
-                                    message,
-                                    &link,
-                                    channels_context,
-                                    true,
-                                );
-
-                                crate::widget::context_menu::items(
-                                    entries,
-                                    move |entry, length| {
-                                        entry
-                                            .view(
-                                                formatter.link_context(
-                                                    message,
-                                                    &link,
-                                                    channels_context,
-                                                ),
-                                                length,
-                                                formatter.config,
-                                                formatter.theme,
-                                                false,
-                                            )
-                                            .map(Message::ContextMenu)
-                                    },
-                                )
+                                formatter
+                                    .link_menu(message, link, channels_context)
+                                    .map(Message::ContextMenu)
                             },
                             nick_prefix_to_strip,
                             self.config,
@@ -897,31 +875,9 @@ impl<'a> ChannelQueryLayout<'a> {
                 }
             }),
             move |link| {
-                let entries = formatter.link_entries(
-                    message,
-                    &link,
-                    channels_context,
-                    true,
-                );
-
-                crate::widget::context_menu::items(
-                    entries,
-                    move |entry, length| {
-                        entry
-                            .view(
-                                formatter.link_context(
-                                    message,
-                                    &link,
-                                    channels_context,
-                                ),
-                                length,
-                                formatter.config,
-                                formatter.theme,
-                                false,
-                            )
-                            .map(Message::ContextMenu)
-                    },
-                )
+                formatter
+                    .link_menu(message, link, channels_context)
+                    .map(Message::ContextMenu)
             },
             None,
             self.config,
@@ -1056,31 +1012,9 @@ impl<'a> ChannelQueryLayout<'a> {
                 }
             }),
             move |link| {
-                let entries = formatter.link_entries(
-                    message,
-                    &link,
-                    channels_context,
-                    true,
-                );
-
-                crate::widget::context_menu::items(
-                    entries,
-                    move |entry, length| {
-                        entry
-                            .view(
-                                formatter.link_context(
-                                    message,
-                                    &link,
-                                    channels_context,
-                                ),
-                                length,
-                                formatter.config,
-                                formatter.theme,
-                                false,
-                            )
-                            .map(Message::ContextMenu)
-                    },
-                )
+                formatter
+                    .link_menu(message, link, channels_context)
+                    .map(Message::ContextMenu)
             },
             None,
             self.config,
@@ -1096,6 +1030,21 @@ impl<'a> ChannelQueryLayout<'a> {
                 self.config.buffer.nickname.alignment,
                 buffer::Alignment::Top
             )
+    }
+
+    fn link_menu(
+        self,
+        message: &'a message::MessageDisplay,
+        link: message::Link,
+        channels_context: &'a dyn context_menu::ChannelsContext,
+    ) -> Element<'a, context_menu::Message> {
+        let entries = self.link_entries(message, &link, channels_context, true);
+
+        crate::widget::context_menu::items(entries, move |entry, length| {
+            let context = self.link_context(message, &link, channels_context);
+
+            entry.view(context, length, self.config, self.theme, false)
+        })
     }
 
     fn link_entries<'b>(
@@ -1399,31 +1348,9 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     theme::font_style::action,
                     color_transformation,
                     move |link| {
-                        let entries = formatter.link_entries(
-                            message,
-                            &link,
-                            channels_context,
-                            true,
-                        );
-
-                        crate::widget::context_menu::items(
-                            entries,
-                            move |entry, length| {
-                                entry
-                                    .view(
-                                        formatter.link_context(
-                                            message,
-                                            &link,
-                                            channels_context,
-                                        ),
-                                        length,
-                                        formatter.config,
-                                        formatter.theme,
-                                        false,
-                                    )
-                                    .map(Message::ContextMenu)
-                            },
-                        )
+                        formatter
+                            .link_menu(message, link, channels_context)
+                            .map(Message::ContextMenu)
                     },
                     None,
                     formatter.config,

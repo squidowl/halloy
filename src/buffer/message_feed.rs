@@ -5,7 +5,7 @@ use data::dashboard::BufferAction;
 use data::history::{self, model, storage};
 use data::message::{self, Temporal};
 use data::target::{self, Target};
-use data::{Config, Image, Preview, Server, User, client, metadata, preview};
+use data::{Config, Image, Preview, Server, client, metadata, preview};
 use iced::widget::{container, row, span};
 use iced::{Color, Length, Size, Task};
 
@@ -185,39 +185,13 @@ pub fn message_row<'a>(
             ])
             .on_link(scroll_view::Message::Link)
             .context_menu(move |link| {
-                let entries = context_menu::Entry::link_list(
-                    &link,
-                    Option::<fn(&User) -> Vec<context_menu::Entry>>::None,
-                    Option::<fn(&str) -> Vec<context_menu::Entry>>::None,
-                    Some(|server, channel| {
-                        channels_context.channel_entries(server, channel)
-                    }),
-                );
-
-                crate::widget::context_menu::items(
-                    entries,
-                    move |entry, length| {
-                        entry
-                            .view(
-                                Context::link(
-                                    &link,
-                                    None,
-                                    Option::<fn(&User) -> UserContext>::None,
-                                    Option::<fn(&str) -> UrlContext>::None,
-                                    Some(|server, channel| {
-                                        channels_context.channel_context(
-                                            server, channel, None,
-                                        )
-                                    }),
-                                ),
-                                length,
-                                config,
-                                theme,
-                                false,
-                            )
-                            .map(scroll_view::Message::ContextMenu)
-                    },
+                context_menu::channel_link_menu(
+                    link,
+                    channels_context,
+                    config,
+                    theme,
                 )
+                .map(scroll_view::Message::ContextMenu)
             });
 
             let current_user = users.and_then(|users| users.resolve(user));

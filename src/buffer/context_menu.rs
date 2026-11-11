@@ -79,6 +79,36 @@ pub trait ChannelsContext {
     }
 }
 
+pub fn channel_link_menu<'a>(
+    link: message::Link,
+    channels_context: &'a dyn ChannelsContext,
+    config: &'a Config,
+    theme: &'a Theme,
+) -> Element<'a, Message> {
+    let entries = Entry::link_list(
+        &link,
+        Option::<fn(&User) -> Vec<Entry>>::None,
+        Option::<fn(&str) -> Vec<Entry>>::None,
+        Some(|server, channel| {
+            channels_context.channel_entries(server, channel)
+        }),
+    );
+
+    context_menu::items(entries, move |entry, length| {
+        let context = Context::link(
+            &link,
+            None,
+            Option::<fn(&User) -> UserContext>::None,
+            Option::<fn(&str) -> UrlContext>::None,
+            Some(|server, channel| {
+                channels_context.channel_context(server, channel, None)
+            }),
+        );
+
+        entry.view(context, length, config, theme, false)
+    })
+}
+
 #[derive(Clone)]
 pub enum Context<'a> {
     User(UserContext<'a>),
