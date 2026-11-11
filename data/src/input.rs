@@ -1,9 +1,5 @@
-use std::io;
-use std::path::PathBuf;
 use std::time::Instant;
 
-use futures::FutureExt;
-use futures::future::BoxFuture;
 use hashbrown::HashMap;
 use irc::proto;
 use irc::proto::format;
@@ -17,13 +13,11 @@ use crate::capabilities::{Capabilities, MultilineBatchKind};
 use crate::config::buffer::text_input::AutoFormat;
 use crate::features::Features;
 use crate::history::reroute::RerouteRules;
-use crate::history::storage;
 use crate::message::formatting;
 use crate::target::Target;
 use crate::user::{ChannelUsers, Nick};
 use crate::{
-    Command, Config, Message, Server, User, buffer, command, environment,
-    isupport, message,
+    Command, Config, Message, Server, User, buffer, command, isupport, message,
 };
 
 const INPUT_HISTORY_LENGTH: usize = 100;
@@ -456,7 +450,7 @@ impl Storage {
         &mut self,
         now: Instant,
         config: &Config,
-    ) -> Option<BoxFuture<'static, Result<usize, storage::Error>>> {
+    ) -> Option<Vec<(buffer::Upstream, SavedDraft)>> {
         if let Some(oldest_unsaved_draft) = self.oldest_unsaved_draft_at
             && now.duration_since(oldest_unsaved_draft) >= DRAFT_SAVE_EVERY
         {
@@ -469,7 +463,7 @@ impl Storage {
     pub fn save(
         &mut self,
         config: &Config,
-    ) -> Option<BoxFuture<'static, Result<usize, storage::Error>>> {
+    ) -> Option<Vec<(buffer::Upstream, SavedDraft)>> {
         if config.buffer.text_input.persist
             && self.oldest_unsaved_draft_at.is_some()
             && !self.saving
@@ -478,21 +472,20 @@ impl Storage {
 
             self.oldest_unsaved_draft_at = None;
 
-            let drafts = self
-                .draft_messages
-                .iter()
-                .map(|(buffer, text)| {
-                    (
-                        buffer.clone(),
-                        SavedDraft {
-                            text: text.clone(),
-                            reply: self.draft_reply.get(buffer).cloned(),
-                        },
-                    )
-                })
-                .collect();
-
-            Some(async move { save_drafts(drafts).await }.boxed())
+            Some(
+                self.draft_messages
+                    .iter()
+                    .map(|(buffer, text)| {
+                        (
+                            buffer.clone(),
+                            SavedDraft {
+                                text: text.clone(),
+                                reply: self.draft_reply.get(buffer).cloned(),
+                            },
+                        )
+                    })
+                    .collect(),
+            )
         } else {
             None
         }
@@ -502,96 +495,31 @@ impl Storage {
         self.saving = false;
     }
 
-    pub fn load(&mut self, config: &Config) {
+    pub fn load(
+        &mut self,
+        config: &Config,
+        drafts: Vec<(buffer::Upstream, SavedDraft)>,
+    ) {
         if config.buffer.text_input.persist {
-            match load_drafts() {
-                Ok(drafts) => {
-                    log::debug!("loaded input drafts: {} drafts", drafts.len());
+            log::debug!("loaded input drafts: {} drafts", drafts.len());
 
-                    for (buffer, saved) in drafts {
-                        if !saved.text.is_empty() {
-                            self.draft_messages
-                                .insert(buffer.clone(), saved.text);
-                        }
-                        if let Some(reply) = saved.reply {
-                            self.draft_reply.insert(buffer, reply);
-                        }
-                    }
+            for (buffer, saved) in drafts {
+                if !saved.text.is_empty() {
+                    self.draft_messages.insert(buffer.clone(), saved.text);
                 }
-                Err(error) => {
-                    log::error!("failed to load input drafts: {error}");
+                if let Some(reply) = saved.reply {
+                    self.draft_reply.insert(buffer, reply);
                 }
             }
         }
     }
-
-    pub fn clear() -> Result<(), storage::Error> {
-        let path = draft_path();
-
-        if path.exists() {
-            Ok(std::fs::remove_file(path)?)
-        } else {
-            Ok(())
-        }
-    }
 }
 
-fn draft_path() -> PathBuf {
-    environment::data_dir().join("drafts.json")
-}
-
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SavedDraft {
     pub text: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reply: Option<DraftReply>,
-}
-
-async fn save_drafts(
-    drafts: HashMap<buffer::Upstream, SavedDraft>,
-) -> Result<usize, storage::Error> {
-    let path = draft_path();
-
-    if drafts.is_empty() {
-        return match tokio::fs::remove_file(path).await {
-            Ok(()) => Ok(0),
-            Err(error) => {
-                if matches!(error.kind(), io::ErrorKind::NotFound) {
-                    Ok(0)
-                } else {
-                    Err(error.into())
-                }
-            }
-        };
-    }
-
-    let pairs: Vec<(buffer::Upstream, SavedDraft)> =
-        drafts.into_iter().collect();
-
-    let bytes = serde_json::to_vec(&pairs)?;
-
-    tokio::fs::write(path, &bytes).await?;
-
-    Ok(pairs.len())
-}
-
-fn load_drafts() -> Result<HashMap<buffer::Upstream, SavedDraft>, storage::Error>
-{
-    let bytes = match std::fs::read(draft_path()) {
-        Ok(bytes) => bytes,
-        Err(error) => {
-            if matches!(error.kind(), io::ErrorKind::NotFound) {
-                return Ok(HashMap::new());
-            } else {
-                return Err(error.into());
-            }
-        }
-    };
-
-    let drafts =
-        serde_json::from_slice::<Vec<(buffer::Upstream, SavedDraft)>>(&bytes)?;
-
-    Ok(drafts.into_iter().collect())
 }
 
 /// Cached values for a buffers input

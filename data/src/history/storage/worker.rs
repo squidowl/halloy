@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Weak, mpsc};
 use std::time::{Duration, Instant};
@@ -10,12 +10,14 @@ use rusqlite::Connection;
 
 use super::{Error, Event, Message, batch, cache};
 use crate::history::{Kind, Metadata, ReadMarker, database, legacy};
-use crate::{client, config, environment, message};
+use crate::{buffer, client, config, environment, input, message};
 
 const QUEUE_WARNING: usize = 10_000;
 const MAX_ACTIVE_IMPORTS: usize = 2;
 const INDEX_BATCH: usize = 1_000;
 const INDEX_INTERVAL: Duration = Duration::from_secs(2);
+
+type Drafts = Vec<(buffer::Upstream, input::SavedDraft)>;
 
 type Events = tokio::sync::mpsc::UnboundedSender<Vec<Event>>;
 
@@ -29,7 +31,8 @@ pub(super) enum Command {
     HighlightSource(crate::history::model::Navigation, crate::history::Id),
     MarkRead(Kind, Option<ReadMarker>, bool),
     MarkReadOnExit(Vec<Kind>),
-    Exit(Option<Result<usize, Error>>),
+    SaveDrafts(Drafts),
+    Exit,
     Imported(
         Kind,
         Result<(Vec<message::Message>, Metadata), legacy::Error>,
@@ -43,7 +46,7 @@ impl Command {
             Self::Initialize(kind)
             | Self::MarkRead(kind, ..)
             | Self::Imported(kind, ..) => vec![kind.clone()],
-            Self::UpdateConfig(_) => vec![],
+            Self::UpdateConfig(_) | Self::SaveDrafts(_) => vec![],
             Self::Write(batch) => batch.kinds().collect(),
             Self::Read(kind, _, monitored) => {
                 let mut kinds = vec![kind.clone()];
@@ -61,7 +64,7 @@ impl Command {
             }
             Self::Resend(lookup) => vec![Kind::from(lookup.buffer.clone())],
             Self::MarkReadOnExit(kinds) => kinds.clone(),
-            Self::Exit(_) => vec![],
+            Self::Exit => vec![],
         }
     }
 }
@@ -77,7 +80,7 @@ impl Worker {
     pub fn new(
         events: Events,
         server_messages_config: config::buffer::ServerMessages,
-    ) -> Self {
+    ) -> (Self, Drafts) {
         Self::start(
             events,
             Some(environment::data_dir()),
@@ -90,14 +93,22 @@ impl Worker {
         events: Events,
         server_messages_config: config::buffer::ServerMessages,
     ) -> Self {
-        Self::start(events, None, server_messages_config)
+        Self::start(events, None, server_messages_config).0
     }
 
     fn start(
         events: Events,
         path: Option<PathBuf>,
         server_messages_config: config::buffer::ServerMessages,
-    ) -> Self {
+    ) -> (Self, Drafts) {
+        let opened = open(path.as_deref());
+        let drafts = match &opened {
+            Ok(database) => database.drafts().unwrap_or_else(|error| {
+                log::error!("failed to load input drafts: {error}");
+                vec![]
+            }),
+            Err(_) => vec![],
+        };
         let (sender, receiver) = mpsc::channel();
         let sender = Arc::new(sender);
         let weak_sender = Arc::downgrade(&sender);
@@ -124,7 +135,7 @@ impl Worker {
                 indexed_unannounced: false,
                 server_messages_config,
             };
-            match state.open() {
+            match opened {
                 Ok(database) => state.database = Some(database),
                 Err(error) => state.fail(error),
             }
@@ -161,11 +172,14 @@ impl Worker {
                 }
             }
         });
-        Self {
-            sender,
-            events,
-            queued,
-        }
+        (
+            Self {
+                sender,
+                events,
+                queued,
+            },
+            drafts,
+        )
     }
 
     pub fn send(&self, command: Command) {
@@ -235,24 +249,6 @@ impl State {
                 self.index_backlog = false;
             }
         }
-    }
-
-    fn open(&self) -> Result<database::Database, String> {
-        let connection = if let Some(path) = &self.path {
-            fs::create_dir_all(path).map_err(string)?;
-            Connection::open(path.join(database::FILE_NAME)).map_err(string)?
-        } else {
-            Connection::open_in_memory().map_err(string)?
-        };
-        let mut database =
-            database::Database::new(connection).map_err(string)?;
-        let mut transaction = database.transaction().map_err(string)?;
-        transaction.clear(&Kind::Logs).map_err(string)?;
-        transaction
-            .import(&Kind::Logs, &[], &Metadata::default())
-            .map_err(string)?;
-        transaction.commit().map_err(string)?;
-        Ok(database)
     }
 
     fn initialize(&mut self, kind: Kind) -> Result<(), String> {
@@ -352,7 +348,7 @@ impl State {
                 }
             }
         }
-        let exiting = matches!(command, Command::Exit(..));
+        let exiting = matches!(command, Command::Exit);
         if self.failure.is_some()
             || (!self.exit_pending
                 && (!exiting || self.pending.is_empty())
@@ -382,7 +378,7 @@ impl State {
         for _ in 0..count {
             let (command, kinds) =
                 self.pending.pop_front().expect("pending command");
-            let exiting = matches!(command, Command::Exit(..));
+            let exiting = matches!(command, Command::Exit);
             if self.failure.is_none()
                 && (barrier
                     || kinds.iter().any(|kind| {
@@ -560,14 +556,23 @@ impl State {
                 events.push(Event::History(Message::MarkedReadOnExit(result)));
                 let _ = self.events.send(events);
             }
-            Command::Exit(input_saved) => {
+            Command::SaveDrafts(drafts) => {
+                let result = retry(|| {
+                    let mut transaction = database.transaction()?;
+                    transaction.replace_drafts(&drafts)?;
+                    transaction.commit().map_err(Error::from)
+                })
+                .map(|()| drafts.len());
+                self.emit(Message::DraftsSaved(result));
+            }
+            Command::Exit => {
                 let result = database.shutdown().map_err(string);
                 if let Err(error) = &result {
                     self.fail(error.clone());
                 }
-                let _ = self.events.send(vec![Event::History(
-                    Message::Exited(result, input_saved),
-                )]);
+                let _ = self
+                    .events
+                    .send(vec![Event::History(Message::Exited(result))]);
             }
             Command::Imported(..) => {
                 unreachable!("import completions bypass pending operations")
@@ -638,12 +643,32 @@ fn reject(events: &Events, command: Command, error: &str) {
         Command::Resend(lookup) => {
             Event::Client(client::Message::ResendMessage(lookup, None))
         }
-        Command::Exit(input_saved) => {
-            Event::History(Message::Exited(Err(error.to_string()), input_saved))
+        Command::SaveDrafts(_) => {
+            Event::History(Message::DraftsSaved(Err(error.to_string())))
+        }
+        Command::Exit => {
+            Event::History(Message::Exited(Err(error.to_string())))
         }
         _ => return,
     };
     let _ = events.send(vec![event]);
+}
+
+fn open(path: Option<&Path>) -> Result<database::Database, String> {
+    let connection = if let Some(path) = path {
+        fs::create_dir_all(path).map_err(string)?;
+        Connection::open(path.join(database::FILE_NAME)).map_err(string)?
+    } else {
+        Connection::open_in_memory().map_err(string)?
+    };
+    let mut database = database::Database::new(connection).map_err(string)?;
+    let mut transaction = database.transaction().map_err(string)?;
+    transaction.clear(&Kind::Logs).map_err(string)?;
+    transaction
+        .import(&Kind::Logs, &[], &Metadata::default())
+        .map_err(string)?;
+    transaction.commit().map_err(string)?;
+    Ok(database)
 }
 
 fn retry<T>(

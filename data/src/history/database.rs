@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use super::{Id, Kind, Metadata, ReadMarker, search, storage};
-use crate::{isupport, message, reaction, redaction, user};
+use crate::{buffer, input, isupport, message, reaction, redaction, user};
 
 pub(super) const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 pub(super) const FILE_NAME: &str = "history.sqlite3";
@@ -21,6 +21,12 @@ const UNLABELED_ECHO_CANDIDATES: &str = "SELECT id, time, time_from_server, msgi
                      AND (json_type(CAST(content AS TEXT), '$.direction.Sent') IS NOT NULL
                        OR (?5 AND time = ?6))))
                  ORDER BY time, id";
+
+const DRAFT_TABLE: &str = "CREATE TABLE draft (
+                    buffer TEXT PRIMARY KEY,
+                    text TEXT NOT NULL,
+                    reply TEXT
+                );";
 
 const REFERENCE_TYPES: &[isupport::MessageReferenceType] = &[
     isupport::MessageReferenceType::MessageId,
@@ -255,12 +261,19 @@ impl Database {
                     );
                     CREATE TABLE search_state (indexed INTEGER NOT NULL);
                     INSERT INTO search_state VALUES (0);
-                    CREATE TABLE search_pending (key INTEGER PRIMARY KEY, message INTEGER NOT NULL);
-                    PRAGMA user_version = 3;",
+                    CREATE TABLE search_pending (key INTEGER PRIMARY KEY, message INTEGER NOT NULL);",
                 )?;
+                transaction.execute_batch(DRAFT_TABLE)?;
+                transaction.execute_batch("PRAGMA user_version = 4;")?;
                 transaction.commit()?;
             }
-            3 => (),
+            3 => {
+                let transaction = connection.transaction()?;
+                transaction.execute_batch(DRAFT_TABLE)?;
+                transaction.execute_batch("PRAGMA user_version = 4;")?;
+                transaction.commit()?;
+            }
+            4 => (),
             other => return Err(Error::Schema(other)),
         }
         let indexed = connection.query_row(
@@ -871,6 +884,35 @@ impl Database {
     pub fn metadata(&self, kind: &Kind) -> Result<Metadata, Error> {
         read_metadata(&self.connection, kind)
     }
+
+    pub fn drafts(
+        &self,
+    ) -> Result<Vec<(buffer::Upstream, input::SavedDraft)>, Error> {
+        let mut statement = self
+            .connection
+            .prepare("SELECT buffer, text, reply FROM draft")?;
+        let rows = statement.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Option<String>>(2)?,
+            ))
+        })?;
+        let mut drafts = vec![];
+        for row in rows {
+            let (buffer, text, reply) = row?;
+            drafts.push((
+                serde_json::from_str(&buffer)?,
+                input::SavedDraft {
+                    text,
+                    reply: reply
+                        .map(|reply| serde_json::from_str(&reply))
+                        .transpose()?,
+                },
+            ));
+        }
+        Ok(drafts)
+    }
 }
 
 pub(super) struct Write<'a> {
@@ -1407,6 +1449,28 @@ impl Write<'_> {
                 metadata.latest_triggers_highlight.map(Timestamp::as_microsecond),
                 metadata.latest_chathistory_references.as_ref().map(serde_json::to_string).transpose()?],
         )?;
+        Ok(())
+    }
+
+    pub fn replace_drafts(
+        &mut self,
+        drafts: &[(buffer::Upstream, input::SavedDraft)],
+    ) -> Result<(), Error> {
+        self.transaction.execute("DELETE FROM draft", [])?;
+        let mut insert = self.transaction.prepare_cached(
+            "INSERT INTO draft(buffer, text, reply) VALUES (?1, ?2, ?3)",
+        )?;
+        for (buffer, draft) in drafts {
+            insert.execute(params![
+                serde_json::to_string(buffer)?,
+                draft.text,
+                draft
+                    .reply
+                    .as_ref()
+                    .map(serde_json::to_string)
+                    .transpose()?,
+            ])?;
+        }
         Ok(())
     }
 

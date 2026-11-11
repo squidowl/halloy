@@ -50,9 +50,9 @@ pub enum Message {
     Importing(Kind),
     Failed(String),
     Unrecorded(batch::Batch),
-    DraftsSaved(Result<usize, Error>),
+    DraftsSaved(Result<usize, String>),
     MarkedReadOnExit(Result<(), String>),
-    Exited(Result<(), String>, Option<Result<usize, Error>>),
+    Exited(Result<(), String>),
 }
 
 #[derive(Debug)]
@@ -99,19 +99,21 @@ pub struct Manager {
 
 impl Manager {
     pub fn new(config: &Config) -> (Self, Task<Vec<Event>>) {
+        let (event_sender, event_receiver) = mpsc::unbounded_channel();
+
+        let (worker, drafts) = worker::Worker::new(
+            event_sender.clone(),
+            config.buffer.server_messages.clone(),
+        );
+
         let mut input_storage = input::Storage::default();
 
-        input_storage.load(config);
-
-        let (event_sender, event_receiver) = mpsc::unbounded_channel();
+        input_storage.load(config, drafts);
 
         (
             Self {
                 storage: HashMap::new(),
-                worker: worker::Worker::new(
-                    event_sender.clone(),
-                    config.buffer.server_messages.clone(),
-                ),
+                worker,
                 searcher: searcher::Searcher::new(),
                 input_storage,
                 filters: Vec::new(),
@@ -366,13 +368,10 @@ impl Manager {
     }
 
     pub fn tick(&mut self, now: Instant, config: &Config) {
-        if let Some(save_future) = self.input_storage.tick(now, config) {
-            let events = self.event_sender.clone();
-            tokio::task::spawn(async move {
-                let _ = events.send(vec![Event::History(
-                    Message::DraftsSaved(save_future.await),
-                )]);
-            });
+        if self.failure.is_none()
+            && let Some(drafts) = self.input_storage.tick(now, config)
+        {
+            self.worker.send(worker::Command::SaveDrafts(drafts));
         }
         for storage in self.storage.values_mut() {
             if let Request::Closed { at: Some(closed) } =
@@ -555,12 +554,9 @@ impl Manager {
                     );
                 }
             }
-            Message::Exited(result, input_result) => {
+            Message::Exited(result) => {
                 if let Err(error) = result {
                     log::error!("history shutdown failed: {error}");
-                }
-                if let Some(Err(error)) = input_result {
-                    log::error!("failed to save input drafts: {error}");
                 }
             }
         }
@@ -823,27 +819,17 @@ impl Manager {
 
     pub fn exit(&mut self, config: &Config) {
         self.exiting = true;
-        let save = self.input_storage.save(config);
 
-        let history_failed = self.failure.is_some();
-        let worker = self.worker.clone();
-        let event_sender = self.event_sender.clone();
-
-        tokio::task::spawn(async move {
-            let result = if let Some(save) = save {
-                Some(save.await)
-            } else {
-                None
-            };
-
-            if history_failed {
-                let _ = event_sender.send(vec![Event::History(
-                    Message::Exited(Err("history failed".to_string()), result),
-                )]);
-            } else {
-                worker.send(worker::Command::Exit(result));
+        if self.failure.is_some() {
+            let _ = self.event_sender.send(vec![Event::History(
+                Message::Exited(Err("history failed".to_string())),
+            )]);
+        } else {
+            if let Some(drafts) = self.input_storage.save(config) {
+                self.worker.send(worker::Command::SaveDrafts(drafts));
             }
-        });
+            self.worker.send(worker::Command::Exit);
+        }
     }
 
     pub fn get_filters(&self) -> &[Filter] {
