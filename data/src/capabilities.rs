@@ -3,9 +3,9 @@ use std::str::FromStr;
 use std::string::ToString;
 use std::sync::LazyLock;
 
-use chrono::{DateTime, TimeDelta, Utc};
 use hashbrown::{HashMap, HashSet};
 use irc::proto::{self, Tags, command, format};
+use jiff::{Timestamp, ToSpan};
 use serde::Deserialize;
 
 use crate::message::formatting::{Modifier, update_formatting_with_modifier};
@@ -73,6 +73,7 @@ impl FromStr for Capability {
             "draft/message-redaction" => Ok(Self::MessageRedaction),
             "multi-prefix" => Ok(Self::MultiPrefix),
             "draft/metadata-2" => Ok(Self::Metadata),
+            "draft/metadata-3" => Ok(Self::Metadata),
             "no-implicit-names" => Ok(Self::NoImplicitNames),
             // TODO(quaff): remove `draft/no-implicit-names` support when ergo & soju have both been upgraded
             "draft/no-implicit-names" => Ok(Self::NoImplicitNames),
@@ -129,7 +130,7 @@ impl FromStr for MultilineLimits {
 
 #[derive(Debug, Clone, Copy)]
 pub struct MetadataLimits {
-    pub max_subs: usize,
+    pub max_subs: Option<usize>,
 }
 
 impl FromStr for MetadataLimits {
@@ -144,13 +145,8 @@ impl FromStr for MetadataLimits {
         Ok(MetadataLimits {
             max_subs: dictionary
                 .get("max-subs")
-                .ok_or_else(|| {
-                    CapParseError::MissingKey(
-                        "max-subs".to_owned(),
-                        s.to_owned(),
-                    )
-                })?
-                .parse::<usize>()?,
+                .map(|s| s.parse())
+                .transpose()?,
         })
     }
 }
@@ -407,7 +403,7 @@ impl Capabilities {
 
         if let Some(request) = self.create_request(
             "draft/message-redaction",
-            &[],
+            &["message-tags"],
             available,
             config,
         ) {
@@ -429,15 +425,6 @@ impl Capabilities {
         if let Some(request) =
             self.create_request("extended-monitor", &[], available, config)
         {
-            requested.push(request);
-        }
-
-        if let Some(request) = self.create_request(
-            "draft/message-redaction",
-            &[],
-            available,
-            config,
-        ) {
             requested.push(request);
         }
 
@@ -545,8 +532,11 @@ impl Capabilities {
             requested.push(request);
         }
 
-        if let Some(request) =
-            self.create_request("draft/metadata-2", &[], available, config)
+        if let Some(request) = self
+            .create_request("draft/metadata-3", &[], available, config)
+            .or_else(|| {
+                self.create_request("draft/metadata-2", &[], available, config)
+            })
         {
             requested.push(request);
         }
@@ -610,12 +600,20 @@ impl Capabilities {
     }
 
     pub fn metadata_limits(&self) -> Option<MetadataLimits> {
-        self.acknowledged(Capability::Metadata)
-            .then(|| {
-                MetadataLimits::from_str(self.listed.get("draft/metadata-2")?)
-                    .ok()
-            })
-            .flatten()
+        if self.acknowledged(Capability::Metadata) {
+            MetadataLimits::from_str(
+                self.listed
+                    .get("draft/metadata-3")
+                    .or_else(|| self.listed.get("draft/metadata-2"))?,
+            )
+            .ok()
+        } else {
+            None
+        }
+    }
+
+    pub fn metadata_max_subs(&self) -> Option<usize> {
+        self.metadata_limits().and_then(|l| l.max_subs)
     }
 
     pub fn contains_multiline_limits(&self) -> bool {
@@ -645,16 +643,12 @@ impl LabeledResponseContext {
 /// will be shifted into the future.  If the resultant time is ahead of the
 /// server's clock, then deduplication should take care of any duplicate
 /// messages we receive.
-pub fn chathistory_entry_server_time(
-    message: &message::Encoded,
-) -> DateTime<Utc> {
+pub fn chathistory_entry_server_time(message: &message::Encoded) -> Timestamp {
     let time = message.time();
 
     if matches!(time.source, time::Source::Server) {
         time.utc
     } else {
-        TimeDelta::try_minutes(90)
-            .and_then(|time_delta| time.utc.checked_add_signed(time_delta))
-            .unwrap_or(time.utc)
+        time.utc.saturating_add(90.minutes()).unwrap_or(time.utc)
     }
 }

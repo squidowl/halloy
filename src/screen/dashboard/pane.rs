@@ -27,6 +27,7 @@ pub enum Message {
     Popout,
     Merge,
     ScrollToBottom,
+    ScrollToBacklog,
     MarkAsRead,
     ClearBuffer,
     ContentResized(pane_grid::Pane, Size),
@@ -177,6 +178,21 @@ impl Pane {
                 .wrapping(Wrapping::None)
                 .ellipsis(text::Ellipsis::End)
                 .into(),
+            Buffer::Search(state) => {
+                let title = match state.result_count() {
+                    Some(count) if state.has_more() => {
+                        format!("Search - {count}+ results")
+                    }
+                    Some(1) => "Search - 1 result".to_string(),
+                    Some(count) => format!("Search - {count} results"),
+                    None => "Search".to_string(),
+                };
+
+                text(title)
+                    .wrapping(Wrapping::None)
+                    .ellipsis(text::Ellipsis::End)
+                    .into()
+            }
         };
 
         let title_bar = self.title_bar.view(
@@ -266,7 +282,8 @@ impl Pane {
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
             | Buffer::ChannelMonitor(_)
-            | Buffer::ConfigEditor(_) => vec![],
+            | Buffer::ConfigEditor(_)
+            | Buffer::Search(_) => vec![],
         }
     }
 }
@@ -494,6 +511,47 @@ impl TitleBar {
                         theme,
                     );
                     Some(scroll_to_bottom_button_with_tooltip)
+                } else {
+                    None
+                }
+            },
+            {
+                if maybe_buffer_kind.is_some() {
+                    let can_scroll_to_backlog = has_unread
+                        || !config.buffer.backlog_separator.hide_when_all_read;
+                    let scroll_to_backlog_button =
+                        button(center(icon::scroll_to_backlog()))
+                            .padding(5)
+                            .width(22)
+                            .height(22)
+                            .on_press_maybe(
+                                can_scroll_to_backlog
+                                    .then_some(Message::ScrollToBacklog),
+                            )
+                            .style(|theme, status| {
+                                theme::button::secondary(theme, status, false)
+                            });
+
+                    let scroll_to_backlog_button_with_tooltip = tooltip(
+                        scroll_to_backlog_button,
+                        show_tooltips.then_some(if can_scroll_to_backlog {
+                            match config.keyboard.scroll_to_backlog.primary() {
+                                Some(
+                                    keybind @ data::shortcut::KeyBind::Bind {
+                                        ..
+                                    },
+                                ) => {
+                                    format!("Scroll to backlog ({keybind})")
+                                }
+                                _ => "Scroll to backlog".to_string(),
+                            }
+                        } else {
+                            "No messages backlog".to_string()
+                        }),
+                        tooltip::Position::Bottom,
+                        theme,
+                    );
+                    Some(scroll_to_backlog_button_with_tooltip)
                 } else {
                     None
                 }
@@ -838,7 +896,6 @@ fn query_title<'a>(
         .font_maybe(
             theme::font_style::nickname(theme, user_is_offline).map(font::get),
         )
-        .shaping(text::Shaping::Advanced)
         .wrapping(Wrapping::None)
         .ellipsis(text::Ellipsis::End);
 
@@ -893,7 +950,6 @@ fn query_title<'a>(
             .font_maybe(
                 theme::font_style::buffer_title_bar(theme).map(font::get)
             )
-            .shaping(text::Shaping::Advanced)
             .wrapping(Wrapping::None)
             .ellipsis(text::Ellipsis::End),
     ]
@@ -930,6 +986,11 @@ impl From<Pane> for data::Pane {
             ),
             Buffer::ConfigEditor(_) => {
                 data::Buffer::Internal(buffer::Internal::ConfigEditor)
+            }
+            Buffer::Search(state) => {
+                data::Buffer::Internal(buffer::Internal::Search(
+                    (!state.query.is_empty()).then_some(state.query),
+                ))
             }
         };
 

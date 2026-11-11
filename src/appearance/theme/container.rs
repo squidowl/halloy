@@ -160,7 +160,7 @@ pub fn error_tooltip(theme: &Theme) -> Style {
     }
 }
 
-pub fn highlighted_message(theme: &Theme, alpha: f32) -> Style {
+pub fn highlighted(theme: &Theme, alpha: f32) -> Style {
     let color = theme.styles().buffer.highlight;
 
     Style {

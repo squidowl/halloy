@@ -1,14 +1,16 @@
 use data::config::actions::NotificationAction;
 #[cfg(target_os = "linux")]
 use image::EncodableLayout;
-use notify_rust::{Notification, NotificationResponse};
+use notify_rust::Notification;
+#[cfg(target_os = "linux")]
+use notify_rust::NotificationResponse;
 
 #[cfg(target_os = "macos")]
 pub fn prepare() {
     match notify_rust::set_application(data::environment::APPLICATION_ID) {
         Ok(()) => {}
         Err(error) => {
-            log::error!("{error}");
+            log::error!("error preparing notification backend: {error}");
         }
     }
 }
@@ -97,11 +99,11 @@ impl Toast {
         self,
         default_action: NotificationAction,
     ) -> Option<Action> {
+        let mut action = None;
+
         // When image_data is set, Notification::show/Notification::show_async
         // will attempt to start a tokio runtime and panic.  This is a
         // workaround for that behavior.
-        let mut action = None;
-
         if let Ok(handle) = tokio::task::spawn_blocking(move || {
             futures::executor::block_on(async { self.0.show_async().await })
         })
@@ -123,38 +125,13 @@ impl Toast {
     }
 
     #[cfg(not(target_os = "linux"))]
-    pub async fn show_and_wait_for_response(
-        self,
-        default_action: NotificationAction,
-    ) -> Option<Action> {
-        let (sender, receiver) = futures::channel::oneshot::channel();
-
-        // Notification::show_async and
-        // NotificationHandle::wait_for_action_async are not available on
-        // macOS/Windows. wait_for_response blocks until the toast is clicked
-        // or dismissed, which may be never. Waiting on a detached thread keeps
-        // it from tying up a runtime worker and blocking shutdown on exit.
-        std::thread::spawn(move || {
-            let mut action = None;
-
-            if let Ok(handle) = self.0.show() {
-                let _ = handle.wait_for_response(
-                    |response: &NotificationResponse| {
-                        Toast::handle_response(
-                            response,
-                            default_action,
-                            &mut action,
-                        );
-                    },
-                );
-            }
-
-            let _ = sender.send(action);
-        });
-
-        receiver.await.ok().flatten()
+    pub fn show(self) {
+        if let Err(error) = self.0.show() {
+            log::error!("error showing toast: {error}");
+        }
     }
 
+    #[cfg(target_os = "linux")]
     fn handle_response(
         response: &NotificationResponse,
         default_action: NotificationAction,

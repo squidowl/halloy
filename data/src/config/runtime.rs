@@ -8,6 +8,7 @@ pub struct Runtime {
     pub vsync: bool,
     pub antialiasing: bool,
     pub metrics_hinting: bool,
+    pub smooth_scrolling: bool,
 }
 
 impl Default for Runtime {
@@ -18,6 +19,7 @@ impl Default for Runtime {
             vsync: true,
             antialiasing: false,
             metrics_hinting: true,
+            smooth_scrolling: true,
         }
     }
 }

@@ -215,11 +215,11 @@ Overwrite nicklist width in pixels.
 width = 150
 ```
 
-## `scrollbar`
+#### `scrollbar`
 
 Scrollbar in nicklist
 
-### `hidden`
+##### `hidden` {#nicklist-scrollbar-hidden}
 
 Whether the scrollbar is hidden.
 
@@ -232,7 +232,7 @@ Whether the scrollbar is hidden.
 hidden = false
 ```
 
-### `width`
+##### `width` {#nicklist-scrollbar-width}
 
 Width of the nicklist scrollbar.
 
@@ -245,7 +245,7 @@ Width of the nicklist scrollbar.
 width = 5
 ```
 
-### `scroller_width`
+##### `scroller_width` {#nicklist-scrollbar-scroller-width}
 
 Width of the nicklist scrollbar scroller.
 
@@ -521,12 +521,12 @@ Customize how date separators are displayed within a buffer
 
 ### `format`
 
-Controls the date format. The expected format is [strftime](https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html).
+Controls the date format. The expected format is [strftime](https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html#conversion-specifications).  If not set, then the long month and day ICU format for [`timestamp.locale`] is used.
 
 ```toml
 # Type: string
-# Values: any valid strftime string
-# Default: "%A, %B %-d"
+# Values: any strftime string
+# Default: not set
 
 [buffer.date_separators]
 format = "%A, %B %-d"
@@ -1059,7 +1059,7 @@ Control if server message type is enabled;  if set to `false` then the received 
 ```toml
 # Type: boolean
 # Values: true, false
-# Default: true (except for join_topic, which is "drop")
+# Default: true (except for join_topic, which is "drop", and change_host, which is false)
 
 [buffer.server_messages.<server_message>]
 enabled = true
@@ -1256,10 +1256,11 @@ How to format condensed messages:
 - `"brief"`:  Only show changes to channel state.  If a user joins then leaves, then do not show any message.  If a user joins, leaves, then joins again, then show that they joined the channel (`+`).
 - `"detailed"`: Include messages that do not change channel state, but do not show repeated events.  If a user joins then leaves, show a condensed message with both events (`+-`).  But, if a user joins and leaves many times in a row, only indicate that they left and re-joined (i.e. still `+-`).
 - `"full"`:  Include all messages in the condensed message.  If a user joins and leaves three times, then show a symbol for each event (`+-+-+-`).
+- `"summary"`:  Include a summary of the events using `"detailed"` handling of repeated events. join-leave pairs are counted as users who "popped in", and leave-join pairs as users who "nipped out".
 
 ```toml
 # Type: string
-# Values: "brief", "detailed", "full"
+# Values: "brief", "detailed", "full", "summary"
 # Default: "brief"
 
 [buffer.server_messages.condense]
@@ -1650,7 +1651,7 @@ Customize how timestamps are displayed within a buffer.
 
 ### `format`
 
-Controls the timestamp format. The expected format is [strftime](https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html).
+Controls the timestamp format. The expected format is [strftime](https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html#conversion-specifications).
 
 ```toml
 # Type: string
@@ -1658,30 +1659,30 @@ Controls the timestamp format. The expected format is [strftime](https://pubs.op
 # Default: "%R"
 
 [buffer.timestamp]
-format = "%R"
+format = "%T"
 ```
 
 ### `context_menu_format`
 
-Controls the format of shown in a timestamp's context menu. The expected format is [strftime](https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html).
-
-```toml
-# Type: string
-# Values: any valid strftime string
-# Default: "%x"
-
-[buffer.timestamp]
-context_menu_format = "%x"
-```
-
-### `copy_format`
-
-Controls the format used when copying the timestamp into the clipboard from its context menu. The expected format is [strftime](https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html).  If not set, then the timestamp is copied in the [date and time of day in UTC using extended format ISO 8601:2004(E) 4.3.2 with millisecond precision](https://en.wikipedia.org/wiki/ISO_8601) as is utilized in IRCv3.
+Controls the format of shown in a timestamp's context menu. The expected format is [strftime](https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html#conversion-specifications).  If not set, then the short year, month, and day ICU format for [`timestamp.locale`] is used.
 
 ```toml
 # Type: string
 # Values: any valid strftime string or not set
 # Default: not set
+
+[buffer.timestamp]
+context_menu_format = "%D"
+```
+
+### `copy_format`
+
+Controls the format used when copying the timestamp into the clipboard from its context menu. The expected format is [strftime](https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html#conversion-specifications).  The default format is the [date and time of day in UTC using extended format ISO 8601:2004(E) 4.3.2 with millisecond precision](https://en.wikipedia.org/wiki/ISO_8601) that is utilized in IRCv3.  The local system's timezone is used for any non-default format.
+
+```toml
+# Type: string
+# Values: any strftime string
+# Default: "%Y-%m-%dT%H:%M:%S%.3fZ" (UTC)
 
 [buffer.timestamp]
 copy_format = "%Y-%m-%d %H:%M:%S"
@@ -1702,15 +1703,15 @@ brackets = { left = "[", right = "]" }
 
 ### `locale`
 
-Locale used when formatting timestamps, for strftime formats that produce locale-specific output (e.g. `%x`, `%X`, `%a`, etc).  If not specified, then the locale will be set automatically, falling back to the POSIX locale if the system locale cannot be determined.  Supported locales are determined by [`enum Locale` in the `pure-rust-locales` crate](https://docs.rs/pure-rust-locales/latest/pure_rust_locales/enum.Locale.html).
+Locale used when formatting timestamps, where ICU formatting is used.  If not specified, then the locale will be set automatically, falling back to the default English locale if the local system's locale cannot be determined.  Supplied value should be a [Unicode locale identifier](https://unicode.org/reports/tr35/tr35.html#Unicode_locale_identifier) or IETF BCP 47 language tag (e.g. `"en-AQ"`, `"de-VA"`, etc).
 
 ```toml
 # Type: string
-# Values: IETF BCP 47 language tags
+# Values: Unicode locale identifiers
 # Default: not set
 
 [buffer.timestamp]
-locale = "POSIX"
+locale = "en-AQ"
 ```
 
 ### `hide_consecutive`

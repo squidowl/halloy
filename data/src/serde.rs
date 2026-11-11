@@ -1,10 +1,39 @@
 use std::path::{self, PathBuf};
 
-use chrono::format::StrftimeItems;
-use chrono::{DateTime, Utc};
+use icu_locale::Locale;
+use jiff::Timestamp;
 use serde::{Deserialize, Deserializer};
 
 use crate::Config;
+use crate::time::{posix_to_bcp47, system_locale};
+
+pub fn deserialize_string_or_vec<'de, D>(
+    deserializer: D,
+) -> Result<Vec<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Inner {
+        String(String),
+        Vec(Vec<String>),
+    }
+
+    let vec = match Inner::deserialize(deserializer)? {
+        Inner::String(sound) => vec![sound],
+        Inner::Vec(sounds) => sounds,
+    };
+
+    if vec.iter().any(std::string::String::is_empty) {
+        return Err(serde::de::Error::invalid_value(
+            serde::de::Unexpected::Str(""),
+            &"non-empty string",
+        ));
+    }
+
+    Ok(vec)
+}
 
 pub fn deserialize_path_buf_with_path_transformations<'de, D>(
     deserializer: D,
@@ -44,7 +73,7 @@ fn transform_path(path_buf: PathBuf) -> PathBuf {
     if let Some(first_component) = components.next() {
         match first_component {
             path::Component::Normal(os_str) if os_str == "~" => {
-                if let Some(home_dir) = dirs_next::home_dir() {
+                if let Some(home_dir) = dirs::home_dir() {
                     expanded_path_buf.push(home_dir);
                 } else {
                     expanded_path_buf.push(first_component);
@@ -100,42 +129,22 @@ where
     Ok(Option::<T>::deserialize(intermediate).unwrap_or_default())
 }
 
-pub fn deserialize_strftime_date<'de, D>(
-    deserializer: D,
-) -> Result<String, D::Error>
+pub fn deserialize_locale<'de, D>(deserializer: D) -> Result<Locale, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let strftime_string = String::deserialize(deserializer)?;
-
-    if StrftimeItems::new(&strftime_string).parse().is_ok() {
-        Ok(strftime_string)
-    } else {
-        Err(serde::de::Error::invalid_value(
-            serde::de::Unexpected::Str(&strftime_string),
-            &"valid strftime string",
-        ))
-    }
-}
-
-pub fn deserialize_strftime_date_maybe<'de, D>(
-    deserializer: D,
-) -> Result<Option<String>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let strftime_string_maybe: Option<String> =
+    let locale_string_maybe: Option<String> =
         Deserialize::deserialize(deserializer)?;
 
-    if let Some(strftime_string) = &strftime_string_maybe
-        && StrftimeItems::new(strftime_string).parse().is_err()
-    {
-        Err(serde::de::Error::invalid_value(
-            serde::de::Unexpected::Str(strftime_string),
-            &"valid strftime string",
-        ))
+    if let Some(locale_string) = locale_string_maybe {
+        Locale::try_from_str(&posix_to_bcp47(&locale_string)).map_err(|_| {
+            serde::de::Error::invalid_value(
+                serde::de::Unexpected::Str(&locale_string),
+                &"IETF BCP 47 language tag",
+            )
+        })
     } else {
-        Ok(strftime_string_maybe)
+        Ok(system_locale())
     }
 }
 
@@ -335,19 +344,19 @@ where
     Ok((!s.is_empty()).then_some(s))
 }
 
-pub fn deserialize_date_time_utc_or_epoch<'de, D>(
+pub fn deserialize_timestamp_or_epoch<'de, D>(
     deserializer: D,
-) -> Result<DateTime<Utc>, D::Error>
+) -> Result<Timestamp, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let date_time: Result<DateTime<Utc>, D::Error> =
+    let timestamp: Result<Timestamp, D::Error> =
         Deserialize::deserialize(deserializer);
 
-    if let Ok(date_time) = date_time {
-        Ok(date_time)
+    if let Ok(timestamp) = timestamp {
+        Ok(timestamp)
     } else {
-        Ok(DateTime::UNIX_EPOCH)
+        Ok(Timestamp::UNIX_EPOCH)
     }
 }
 
@@ -358,10 +367,10 @@ mod tests {
     #[test]
     fn home_from_tilde_expansion() {
         let tests = [
-            ("~", dirs_next::home_dir().expect("expected valid home dir")),
+            ("~", dirs::home_dir().expect("expected valid home dir")),
             (
                 "~/.config/halloy/",
-                dirs_next::home_dir()
+                dirs::home_dir()
                     .expect("expected valid home dir")
                     .join(".config/halloy"),
             ),
@@ -375,13 +384,10 @@ mod tests {
     #[test]
     fn home_from_home_environment_variable() {
         let tests = [
-            (
-                "$HOME",
-                dirs_next::home_dir().expect("expected valid home dir"),
-            ),
+            ("$HOME", dirs::home_dir().expect("expected valid home dir")),
             (
                 "$HOME/.config/halloy/",
-                dirs_next::home_dir()
+                dirs::home_dir()
                     .expect("expected valid home dir")
                     .join(".config/halloy"),
             ),
@@ -397,15 +403,15 @@ mod tests {
         let tests = [
             (
                 "%AppData%",
-                dirs_next::data_dir().expect("expected valid data dir"),
+                dirs::data_dir().expect("expected valid data dir"),
             ),
             (
                 "%appdata%", // Should be case-insensitive
-                dirs_next::data_dir().expect("expected valid data dir"),
+                dirs::data_dir().expect("expected valid data dir"),
             ),
             (
                 "%AppData%/.config/halloy/",
-                dirs_next::data_dir()
+                dirs::data_dir()
                     .expect("expected valid data dir")
                     .join(".config/halloy"),
             ),

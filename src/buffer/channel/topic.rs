@@ -1,9 +1,11 @@
-use chrono::{DateTime, Local, Utc};
 use data::dashboard::BufferAction;
+use data::time::rfc2822_from_timestamp;
 use data::user::ChannelUsers;
 use data::{Config, Server, User, isupport, message, target};
 use iced::widget::{Scrollable, column, container, row, rule, scrollable};
 use iced::{Color, Length, padding};
+use jiff::Timestamp;
+use jiff::tz::TimeZone;
 
 use super::context_menu::{self, Context, UrlContext, UserContext};
 use crate::widget::user_display::UserDisplay;
@@ -53,7 +55,7 @@ pub fn view<'a>(
     channel: &'a target::Channel,
     content: &'a message::Content,
     who: Option<&'a User>,
-    time: Option<&'a DateTime<Utc>>,
+    time: Option<&'a Timestamp>,
     max_lines: u16,
     users: Option<&'a ChannelUsers>,
     our_user: Option<&'a User>,
@@ -63,7 +65,7 @@ pub fn view<'a>(
     previews: &'a data::preview::Collection,
     channels_context: &'a dyn context_menu::ChannelsContext,
 ) -> Element<'a, Message> {
-    let set_by = who.and_then(|user| {
+    let set_by = who.map(|user| {
         let user_in_channel = users.and_then(|users| users.resolve(user));
 
         let user_display = UserDisplay::new(
@@ -100,21 +102,24 @@ pub fn view<'a>(
             &config.actions.buffer.click_username,
         );
 
-        Some(
-            Element::new(row![
-                selectable_text("set by ")
-                    .font_maybe(theme::font_style::topic(theme).map(font::get))
-                    .style(theme::selectable_text::topic),
-                content,
-                selectable_text(format!(
-                    " at {}",
-                    time?.with_timezone(&Local).to_rfc2822()
-                ))
+        let mut content = row![
+            selectable_text("set by ")
                 .font_maybe(theme::font_style::topic(theme).map(font::get))
                 .style(theme::selectable_text::topic),
-            ])
-            .map(Message::ContextMenu),
-        )
+            content,
+        ];
+
+        if let Some(rfc2822) = time.and_then(|time| {
+            rfc2822_from_timestamp(*time, TimeZone::system()).ok()
+        }) {
+            content = content.push(
+                selectable_text(format!(" at {rfc2822}"))
+                    .font_maybe(theme::font_style::topic(theme).map(font::get))
+                    .style(theme::selectable_text::topic),
+            );
+        }
+
+        Element::new(content).map(Message::ContextMenu)
     });
 
     let content = column![
@@ -203,7 +208,8 @@ pub fn view<'a>(
     .direction(scrollable::Direction::Vertical(
         scrollable::Scrollbar::new().width(1).scroller_width(1),
     ))
-    .style(theme::scrollable::hidden);
+    .style(theme::scrollable::hidden)
+    .smooth_scroll(config.runtime.smooth_scrolling);
 
     // Use double pass to limit layout to `max_lines` of text
     column![

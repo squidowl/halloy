@@ -1,6 +1,5 @@
 use std::thread;
 
-use chrono::{DateTime, TimeDelta, Utc};
 use data::audio::Sound;
 use data::buffer::{self, Buffer};
 use data::config::actions::NotificationAction;
@@ -9,6 +8,8 @@ use data::user::Nick;
 use data::{Config, Notification, Server, User, list_format};
 use hashbrown::HashMap;
 use iced::Task;
+use jiff::{SignedDuration, Timestamp};
+use rand::prelude::*;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 
@@ -85,7 +86,7 @@ impl From<&Notification> for NotificationDelayKey {
 }
 
 pub struct Notifications {
-    recent_notifications: HashMap<NotificationDelayKey, DateTime<Utc>>,
+    recent_notifications: HashMap<NotificationDelayKey, Timestamp>,
     sounds: HashMap<String, Sound>,
     sender: mpsc::Sender<Event>,
     audio: Option<thread::JoinHandle<()>>,
@@ -120,7 +121,8 @@ impl Notifications {
                 .highlights
                 .matches
                 .iter()
-                .filter_map(|highlight_match| highlight_match.sound.as_deref()),
+                .flat_map(|highlight_match| &highlight_match.sound)
+                .map(String::as_str),
         )
     }
 
@@ -130,14 +132,14 @@ impl Notifications {
         notification: &Notification,
         server: &Server,
     ) {
-        let (notification_config, title, subtitle, body, sound_name, buffer) =
+        let (notification_config, title, subtitle, body, sounds, buffer) =
             match notification {
                 Notification::Connected => (
                     &config.notifications.connected,
                     "Connected".to_string(),
                     None,
                     server.to_string(),
-                    None,
+                    vec![],
                     None,
                 ),
                 Notification::Disconnected => (
@@ -145,7 +147,7 @@ impl Notifications {
                     "Disconnected".to_string(),
                     None,
                     server.to_string(),
-                    None,
+                    vec![],
                     None,
                 ),
                 Notification::Reconnected => (
@@ -153,7 +155,7 @@ impl Notifications {
                     "Reconnected".to_string(),
                     None,
                     server.to_string(),
-                    None,
+                    vec![],
                     None,
                 ),
                 Notification::MonitoredOnline(targets) => (
@@ -168,7 +170,7 @@ impl Notifications {
                     list_format::join(
                         &targets.iter().map(User::as_str).collect::<Vec<_>>(),
                     ),
-                    None,
+                    vec![],
                     None,
                 ),
                 Notification::MonitoredOffline(targets) => (
@@ -183,7 +185,7 @@ impl Notifications {
                     list_format::join(
                         &targets.iter().map(Nick::as_str).collect::<Vec<_>>(),
                     ),
-                    None,
+                    vec![],
                     None,
                 ),
                 Notification::FileTransferRequest {
@@ -224,7 +226,7 @@ impl Notifications {
                             title,
                             subtitle,
                             body,
-                            None,
+                            vec![],
                             Some(Buffer::Internal(
                                 buffer::Internal::FileTransfers,
                             )),
@@ -270,7 +272,7 @@ impl Notifications {
                             title,
                             subtitle,
                             body,
-                            None,
+                            vec![],
                             Some(Buffer::Upstream(buffer::Upstream::Query(
                                 server.clone(),
                                 user.into(),
@@ -286,7 +288,7 @@ impl Notifications {
                     casemapping,
                     message,
                     description,
-                    sound,
+                    sounds,
                 } => {
                     if config.notifications.highlight.should_notify(
                         user,
@@ -312,7 +314,7 @@ impl Notifications {
                                     format!("{channel}, {server}")
                                 }),
                                 message.to_owned(),
-                                sound.to_owned(),
+                                sounds.to_owned(),
                                 Some(buffer),
                             )
                         } else {
@@ -323,7 +325,7 @@ impl Notifications {
                                 format!(
                                     "{description} in {channel} ({server})"
                                 ),
-                                sound.to_owned(),
+                                sounds.to_owned(),
                                 Some(buffer),
                             )
                         }
@@ -361,7 +363,7 @@ impl Notifications {
                                     format!("{channel}, {server}")
                                 }),
                                 message.to_owned(),
-                                None,
+                                vec![],
                                 Some(buffer),
                             )
                         } else {
@@ -372,7 +374,7 @@ impl Notifications {
                                 format!(
                                     "Sent a message in {channel} ({server})"
                                 ),
-                                None,
+                                vec![],
                                 Some(buffer),
                             )
                         }
@@ -455,7 +457,7 @@ impl Notifications {
                             title,
                             subtitle,
                             body,
-                            None,
+                            vec![],
                             Some(buffer),
                         )
                     } else {
@@ -490,7 +492,7 @@ impl Notifications {
                                     format!("{channel}, {server}")
                                 }),
                                 message.to_owned(),
-                                None,
+                                vec![],
                                 Some(buffer),
                             )
                         } else {
@@ -501,7 +503,7 @@ impl Notifications {
                                 format!(
                                     "replied to you in {channel} ({server})"
                                 ),
-                                None,
+                                vec![],
                                 Some(buffer),
                             )
                         }
@@ -527,7 +529,7 @@ impl Notifications {
             &title,
             subtitle.as_deref(),
             &body,
-            sound_name.as_deref(),
+            &sounds,
             buffer,
         );
     }
@@ -540,16 +542,16 @@ impl Notifications {
         title: &str,
         subtitle: Option<&str>,
         body: &str,
-        sound_name: Option<&str>,
+        sounds: &[String],
         buffer: Option<Buffer>,
     ) {
-        let now = Utc::now();
+        let now = Timestamp::now();
         let delay_key = notification.into();
 
         if self.recent_notifications.get(&delay_key).is_some_and(
             |last_notification| {
-                now - last_notification
-                    < TimeDelta::milliseconds(i64::from(
+                now.duration_since(*last_notification)
+                    < SignedDuration::from_millis(i64::from(
                         config.delay.unwrap_or(500),
                     ))
             },
@@ -568,23 +570,35 @@ impl Notifications {
                 default_notification_action,
             );
 
-            let sender = self.sender.clone();
+            #[cfg(target_os = "linux")]
+            {
+                let sender = self.sender.clone();
 
-            tokio::task::spawn(async move {
-                if let Some(action) = toast
-                    .show_and_wait_for_response(default_notification_action)
-                    .await
-                {
-                    let _ = sender
-                        .send(Event::NotificationResponse { action, buffer })
-                        .await;
-                }
-            });
+                tokio::task::spawn(async move {
+                    if let Some(action) = toast
+                        .show_and_wait_for_response(default_notification_action)
+                        .await
+                    {
+                        let _ = sender
+                            .send(Event::NotificationResponse {
+                                action,
+                                buffer,
+                            })
+                            .await;
+                    }
+                });
+            }
+
+            #[cfg(not(target_os = "linux"))]
+            toast.show();
         }
 
-        if let Some(sound) = sound_name
-            .or(config.sound.as_deref())
-            .and_then(|sound_name| self.sounds.get(sound_name))
+        let mut rng = rand::rng();
+        let sound = sounds
+            .choose(&mut rng)
+            .or_else(|| config.sound.choose(&mut rng));
+
+        if let Some(sound) = sound.and_then(|sound| self.sounds.get(sound))
             && self
                 .audio
                 .as_ref()

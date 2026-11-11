@@ -21,10 +21,7 @@ pub fn view<'a, Message: 'a>(
     };
 
     let content = column![]
-        .push(
-            text(format!("{arrow} select buffer"))
-                .shaping(text::Shaping::Advanced),
-        )
+        .push(text(format!("{arrow} select buffer")))
         .align_x(iced::Alignment::Center);
 
     container(content)

@@ -5,7 +5,6 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{convert, slice};
 
-use chrono::Utc;
 use data::buffer::{
     BufferContextSnapshot, BuffersContext, BuffersContextSnapshot,
 };
@@ -27,6 +26,7 @@ use hashbrown::{HashMap, HashSet, hash_map};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{center, column, container, row, stack, text};
 use iced::{Length, Size, Task, Vector, clipboard, padding};
+use jiff::Timestamp;
 
 use self::command_bar::CommandBar;
 use self::modal::{reaction as reaction_modal, redaction as redaction_modal};
@@ -80,7 +80,7 @@ pub enum Message {
     SelectedText(Vec<(RangeInclusive<f32>, String)>, clipboard::ClipboardKind),
     DashboardSaved(Result<(), data::dashboard::Error>),
     Task(command_bar::Message),
-    Shortcut(shortcut::Command),
+    Shortcut(shortcut::Command, bool),
     FileTransfer(file_transfer::task::Update),
     SendFileSelected(Server, User, Option<PathBuf>),
     CloseContextMenu(window::Id, bool),
@@ -95,6 +95,7 @@ pub enum Message {
     CancelFilehostUpload,
     ConfigReloadComplete,
     Model(model::Message),
+    Indexed,
 }
 
 #[derive(Debug)]
@@ -411,6 +412,28 @@ impl Dashboard {
                             {
                                 storage.mark_as_read(kind);
                             }
+
+                            return (task, None);
+                        }
+                    }
+                    pane::Message::ScrollToBacklog => {
+                        let Focus { window, pane } = self.panes.focus;
+
+                        if let Some(state) = self.panes.get_mut(window, pane) {
+                            let task = state
+                                .buffer
+                                .scroll_to_backlog(
+                                    &self.models,
+                                    storage,
+                                    config,
+                                    true,
+                                )
+                                .map(move |message| {
+                                    Message::Pane(
+                                        window,
+                                        pane::Message::Buffer(pane, message),
+                                    )
+                                });
 
                             return (task, None);
                         }
@@ -865,7 +888,7 @@ impl Dashboard {
                     None => {}
                 }
             }
-            Message::Shortcut(shortcut) => {
+            Message::Shortcut(shortcut, repeat) => {
                 use shortcut::Command::*;
 
                 // Only works on main window / pane_grid
@@ -1100,6 +1123,17 @@ impl Dashboard {
                             None,
                         );
                     }
+                    Search => {
+                        return (
+                            self.toggle_internal_buffer(
+                                clients,
+                                storage,
+                                config,
+                                buffer::Internal::Search(None),
+                            ),
+                            None,
+                        );
+                    }
                     ToggleFullscreen => {
                         return (
                             window::toggle_fullscreen(),
@@ -1213,6 +1247,31 @@ impl Dashboard {
                                 }
 
                                 task
+                            },
+                        );
+
+                        return (task, None);
+                    }
+                    ScrollToBacklog => {
+                        let task = self.panes.get_focused_mut().map_or(
+                            Task::none(),
+                            |(window, pane, state)| {
+                                state
+                                    .buffer
+                                    .scroll_to_backlog(
+                                        &self.models,
+                                        storage,
+                                        config,
+                                        true,
+                                    )
+                                    .map(move |message| {
+                                        Message::Pane(
+                                            window,
+                                            pane::Message::Buffer(
+                                                pane, message,
+                                            ),
+                                        )
+                                    })
                             },
                         );
 
@@ -1341,8 +1400,9 @@ impl Dashboard {
                                 _ => unreachable!(),
                             };
 
-                            if let Some(message) =
-                                state.buffer.focus_navigate_message(direction)
+                            if let Some(message) = state
+                                .buffer
+                                .focus_navigate_message(direction, repeat)
                             {
                                 return (
                                     Task::done(message).map(move |message| {
@@ -1396,7 +1456,20 @@ impl Dashboard {
             }
             Message::CloseContextMenu(window, any_closed) => {
                 if !any_closed {
-                    if let Some((_, _, state)) = self.get_focused_mut() {
+                    if let Some((window, pane, state)) = self.get_focused_mut()
+                    {
+                        if state.buffer.in_focus_mode()
+                            && let Some(msg) =
+                                state.buffer.exit_focus_mode_message()
+                        {
+                            return (
+                                Task::done(Message::Pane(
+                                    window,
+                                    pane::Message::Buffer(pane, msg),
+                                )),
+                                None,
+                            );
+                        }
                         if state.buffer.close_picker() {
                             return (Task::none(), None);
                         // We only want to call clear_draft_reply if
@@ -1518,6 +1591,28 @@ impl Dashboard {
             Message::ConfigReloadComplete => {
                 self.reloading_config = false;
             }
+            Message::Indexed => {
+                let tasks = self
+                    .panes
+                    .iter_mut()
+                    .filter_map(|(window, pane, state)| {
+                        let Buffer::Search(search) = &mut state.buffer else {
+                            return None;
+                        };
+                        Some(search.indexed(storage).map(move |message| {
+                            Message::Pane(
+                                window,
+                                pane::Message::Buffer(
+                                    pane,
+                                    buffer::Message::Search(message),
+                                ),
+                            )
+                        }))
+                    })
+                    .collect::<Vec<_>>();
+
+                return (Task::batch(tasks), None);
+            }
             Message::Model(message) => {
                 let event = self
                     .models
@@ -1538,6 +1633,7 @@ impl Dashboard {
                                         &self.models,
                                         storage,
                                         config,
+                                        false,
                                     )
                                     .map(move |message| {
                                         Message::Pane(
@@ -1720,6 +1816,7 @@ impl Dashboard {
                 version,
                 theme,
                 self.buffer_settings.show_muted,
+                self.typing_animation.as_ref(),
             )
             .map(|e| e.map(Message::Sidebar));
 
@@ -2086,6 +2183,22 @@ impl Dashboard {
 
                         None
                     }
+                    buffer::context_menu::Event::SearchMessages(nick) => {
+                        tasks.push(
+                            self.open_buffer(
+                                buffer::Internal::Search(Some(format!(
+                                    "from:{nick} "
+                                )))
+                                .into(),
+                                config.actions.buffer.open_internal,
+                                clients,
+                                storage,
+                                config,
+                            ),
+                        );
+
+                        None
+                    }
                     buffer::context_menu::Event::OpenTarget(
                         server,
                         target,
@@ -2346,15 +2459,13 @@ impl Dashboard {
                 }
             }
             buffer::Event::GoToMessage(
-                server,
-                channel,
+                upstream,
                 destination,
                 buffer_action,
             ) => {
                 self.pending_navigation = None;
                 let mut navigation = model::Navigation {
-                    server,
-                    channel,
+                    buffer: upstream,
                     message: None,
                     buffer_action,
                     token: std::sync::Weak::new(),
@@ -2557,7 +2668,7 @@ impl Dashboard {
                             target.into(),
                             "no filehost configured for server {server}"
                                 .to_string(),
-                            Utc::now(),
+                            Timestamp::now(),
                         ),
                     );
 
@@ -2697,7 +2808,7 @@ impl Dashboard {
                         Status::Error,
                         target.into(),
                         format!("Upload failed: {error}"),
-                        Utc::now(),
+                        Timestamp::now(),
                     ),
                 );
 
@@ -2831,7 +2942,7 @@ impl Dashboard {
                     )
                 })
             }
-            Key(key_bind) => {
+            Key(key_bind, repeat) => {
                 use data::shortcut::FocusCommand;
 
                 let Some((window, pane, state)) = self.get_focused() else {
@@ -2863,7 +2974,7 @@ impl Dashboard {
                             _ => unreachable!(),
                         };
 
-                        state.buffer.focus_navigate_message(direction)
+                        state.buffer.focus_navigate_message(direction, repeat)
                     }
                     FocusCommand::Activate | FocusCommand::ActivateAlt
                         if !in_focus =>
@@ -3151,10 +3262,7 @@ impl Dashboard {
         storage: &mut storage::Manager,
         config: &Config,
     ) -> Task<Message> {
-        let buffer = data::Buffer::Upstream(buffer::Upstream::Channel(
-            navigation.server,
-            navigation.channel,
-        ));
+        let buffer = data::Buffer::Upstream(navigation.buffer);
 
         let mut tasks = vec![];
 
@@ -3204,6 +3312,24 @@ impl Dashboard {
         config: &Config,
     ) -> Task<Message> {
         self.pending_navigation = None;
+
+        if let data::Buffer::Internal(buffer::Internal::Search(Some(query))) =
+            &buffer
+        {
+            let open =
+                self.panes.iter_mut().find_map(|(window, pane, state)| {
+                    let Buffer::Search(search) = &mut state.buffer else {
+                        return None;
+                    };
+                    search.set_query(query.clone());
+                    Some((window, pane))
+                });
+
+            if let Some((window, pane)) = open {
+                return self.focus_pane(window, pane);
+            }
+        }
+
         let open_in = self.panes.iter().find_map(|(window, pane, state)| {
             (state.buffer.data().as_ref() == Some(&buffer))
                 .then_some((window, pane))
@@ -3240,7 +3366,8 @@ impl Dashboard {
                 | buffer::Internal::Logs
                 | buffer::Internal::Highlights
                 | buffer::Internal::ChannelDiscovery(_)
-                | buffer::Internal::ConfigEditor => (),
+                | buffer::Internal::ConfigEditor
+                | buffer::Internal::Search(_) => (),
             }
         }
 
@@ -4007,8 +4134,9 @@ impl Dashboard {
         &mut self,
         now: Instant,
         clients: &client::Map,
+        config: &Config,
     ) -> Task<Message> {
-        if !self.has_typing_activity(clients) {
+        if !self.has_typing_activity(clients, config) {
             self.typing_animation = None;
         }
 
@@ -4029,8 +4157,9 @@ impl Dashboard {
         &mut self,
         now: Instant,
         clients: &client::Map,
+        config: &Config,
     ) -> Task<Message> {
-        if self.has_typing_activity(clients) {
+        if self.has_typing_activity(clients, config) {
             buffer::typing::advance(&mut self.typing_animation, now);
         } else {
             self.typing_animation = None;
@@ -4473,15 +4602,13 @@ impl Dashboard {
         }
     }
 
-    pub fn exit(&mut self) -> Task<Message> {
+    pub fn exit(&mut self) -> Option<Task<Message>> {
         let last_changed = self.last_changed.take();
         let dashboard = data::Dashboard::from(&*self);
 
-        if last_changed.is_some() {
-            Task::perform(dashboard.save(), Message::DashboardSaved)
-        } else {
-            Task::none()
-        }
+        last_changed
+            .is_some()
+            .then_some(Task::perform(dashboard.save(), Message::DashboardSaved))
     }
 
     pub fn open_target(
@@ -4537,10 +4664,17 @@ impl Dashboard {
         })
     }
 
-    pub fn has_typing_activity(&self, clients: &client::Map) -> bool {
+    pub fn has_typing_activity(
+        &self,
+        clients: &client::Map,
+        config: &Config,
+    ) -> bool {
         self.panes
             .iter()
             .any(|(_, _, pane)| pane.buffer.has_typing_activity(clients))
+            || (config.can_show_any_typing()
+                && config.sidebar.can_show_typing()
+                && clients.has_any_query_typing())
     }
 
     pub fn has_typing_activity_in_focused_window(
@@ -4728,23 +4862,6 @@ impl Dashboard {
             .any(|(open_server, open_channel)| {
                 *open_server == server && *open_channel == channel
             })
-    }
-
-    pub fn open_pane_server_queries(
-        &self,
-        server: &Server,
-    ) -> Vec<&target::Query> {
-        self.panes
-            .iter()
-            .filter_map(|(_, _, pane)| match pane.buffer.upstream() {
-                Some(buffer::Upstream::Query(buffer_server, query))
-                    if buffer_server == server =>
-                {
-                    Some(query)
-                }
-                _ => None,
-            })
-            .collect()
     }
 
     fn save_config_editor(
@@ -5469,5 +5586,18 @@ impl BuffersContext for Panes {
                 .is_some_and(|pane_kind| pane_kind == *kind)
                 .then_some(window_id)
         })
+    }
+
+    fn open_pane_server_queries(&self, server: &Server) -> Vec<&target::Query> {
+        self.iter()
+            .filter_map(|(_, _, pane)| match pane.buffer.upstream() {
+                Some(buffer::Upstream::Query(buffer_server, query))
+                    if buffer_server == server =>
+                {
+                    Some(query)
+                }
+                _ => None,
+            })
+            .collect()
     }
 }

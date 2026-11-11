@@ -55,6 +55,7 @@ Below is a list of all actions which can be mapped.
 | `scroll_down_page`             | Scroll buffer down a page           | <kbd>Fn</kbd> + <kbd>↓</kbd>                        | <kbd>pagedown</kbd>                                 |
 | `scroll_to_top`                | Scroll to top of buffer             | <kbd>⌘</kbd> + <kbd>↑</kbd>                         | <kbd>ctrl</kbd> + <kbd>↑</kbd>                      |
 | `scroll_to_bottom`             | Scroll to bottom of buffer          | <kbd>⌘</kbd> + <kbd>↓</kbd>                         | <kbd>ctrl</kbd> + <kbd>↓</kbd>                      |
+| `scroll_to_backlog`            | Scroll to backlog separator         | <kbd>⌘</kbd> + <kbd>pageup</kbd>                    | <kbd>ctrl</kbd> + <kbd>pageup</kbd>                      |
 | `leave_buffer`                 | Leave channel or close query        | <kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>w</kbd>      | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>w</kbd>   |
 | `mark_as_read`                 | Mark focused buffer as read         | <kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>m</kbd>      | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>m</kbd>   |
 | `config_editor_save`           | Save config in Config Editor                 | <kbd>⌘</kbd> + <kbd>s</kbd>                         | <kbd>ctrl</kbd> + <kbd>s</kbd>                      |
@@ -68,6 +69,7 @@ Below is a list of all actions which can be mapped.
 | `logs`                         | Toggle Logs Buffer                  | <kbd>⌘</kbd> + <kbd>l</kbd>                         | <kbd>ctrl</kbd> + <kbd>l</kbd>                      |
 | `theme_editor`                 | Toggle Theme Editor Window          | <kbd>⌘</kbd> + <kbd>t</kbd>                         | <kbd>ctrl</kbd> + <kbd>t</kbd>                      |
 | `highlights`                   | Toggle Highlights Window            | <kbd>⌘</kbd> + <kbd>i</kbd>                         | <kbd>ctrl</kbd> + <kbd>i</kbd>                      |
+| `search`                       | Toggle Search Buffer                | <kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>f</kbd>      | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>f</kbd>   |
 | `quit_application`             | Quit Halloy                         | None                                                | None                                                |
 | `open_config_editor`           | Toggle Config Editor Buffer         | <kbd>⌘</kbd> + <kbd>,</kbd>                         | <kbd>ctrl</kbd> + <kbd>,</kbd>                      |
 | `open_config_file`             | Open settings file in system editor | None                                                | None                                                |

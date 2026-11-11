@@ -13,9 +13,10 @@ tor = ["arti-client"]
 thiserror = { workspace = true }
 futures = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
+tokio-util = { workspace = true, features = ["codec"] }
 bytes = { workspace = true }
 
-arti-client = { version = "0.44", default-features = false, features = [
+arti-client = { version = "0.48", default-features = false, features = [
     "rustls",
     "compression",
     "tokio",
@@ -34,9 +35,7 @@ tokio-rustls = { version = "0.26.0", default-features = false, features = [
 tokio-tungstenite = { version = "0.30.0", default-features = false, features = [
     "handshake",
 ] }
-tokio-util = { version = "0.7", features = ["codec"] }
 rustls-platform-verifier = "0.7.1"
-xz2 = { version = "0.1.7", features = ["static"] }
 
 [dependencies.proto]
 path = "proto"

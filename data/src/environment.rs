@@ -29,7 +29,7 @@ pub fn data_dir() -> PathBuf {
 }
 
 pub fn cache_dir() -> PathBuf {
-    dirs_next::cache_dir()
+    dirs::cache_dir()
         .expect("expected valid cache dir")
         .join("halloy")
 }
@@ -62,14 +62,14 @@ fn platform_specific_config_dir() -> PathBuf {
         // 1. XDG config dir (~/.config/halloy)
         // 2. User config directory (~/Library/Application Support/halloy)
         xdg_config_dir().unwrap_or_else(|| {
-            dirs_next::config_dir()
+            dirs::config_dir()
                 .expect("expected valid config dir")
                 .join("halloy")
         })
     }
     #[cfg(not(target_os = "macos"))]
     {
-        dirs_next::config_dir()
+        dirs::config_dir()
             .expect("expected valid config dir")
             .join("halloy")
     }
@@ -94,14 +94,14 @@ fn platform_specific_data_dir() -> PathBuf {
         // 1. XDG data dir (~/.local/share/halloy)
         // 2. User data directory (~/Library/Application Support/halloy)
         xdg_data_dir().unwrap_or_else(|| {
-            dirs_next::data_dir()
+            dirs::data_dir()
                 .expect("expected valid data dir")
                 .join("halloy")
         })
     }
     #[cfg(not(target_os = "macos"))]
     {
-        dirs_next::data_dir()
+        dirs::data_dir()
             .expect("expected valid data dir")
             .join("halloy")
     }

@@ -148,6 +148,10 @@ pub fn scroll_to_bottom<'a>() -> Text<'a> {
     to_text('\u{E016}')
 }
 
+pub fn scroll_to_backlog<'a>() -> Text<'a> {
+    to_text('\u{E020}')
+}
+
 pub fn share<'a>() -> Text<'a> {
     to_text('\u{E010}')
 }

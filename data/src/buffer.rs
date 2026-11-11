@@ -1,8 +1,6 @@
 use core::fmt;
-use std::str::FromStr;
 use std::sync::LazyLock;
 
-use chrono::Locale;
 use hashbrown::HashMap;
 use iced_core::Color as IcedColor;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -11,7 +9,6 @@ pub mod timestamp;
 
 pub use self::timestamp::Timestamp;
 use crate::appearance::theme::hex_to_color;
-use crate::serde::deserialize_strftime_date;
 use crate::target::{self, Target};
 use crate::{Server, channel, config, history};
 
@@ -69,6 +66,7 @@ pub enum Internal {
     ChannelDiscovery(Option<Server>),
     #[strum(serialize = "Config Editor")]
     ConfigEditor,
+    Search(Option<String>),
 }
 
 impl Buffer {
@@ -174,6 +172,7 @@ impl Internal {
         Self::ChannelMonitor,
         Self::ChannelDiscovery(None),
         Self::ConfigEditor,
+        Self::Search(None),
     ];
 
     pub fn key(&self) -> String {
@@ -184,6 +183,7 @@ impl Internal {
             Internal::ChannelMonitor => "channel-monitor",
             Internal::ChannelDiscovery(_) => "channel-discovery",
             Internal::ConfigEditor => "config-editor",
+            Internal::Search(_) => "search",
         }
         .to_string()
     }
@@ -204,6 +204,7 @@ impl From<&config::sidebar::InternalBuffer> for Internal {
             config::sidebar::InternalBuffer::ChannelDiscovery => {
                 Self::ChannelDiscovery(None)
             }
+            config::sidebar::InternalBuffer::Search => Self::Search(None),
         }
     }
 }
@@ -223,6 +224,7 @@ impl From<&Internal> for config::sidebar::InternalBuffer {
             Internal::Highlights => Self::Highlights,
             Internal::ChannelDiscovery(_) => Self::ChannelDiscovery,
             Internal::ChannelMonitor => Self::ChannelMonitor,
+            Internal::Search(_) => Self::Search,
         }
     }
 }
@@ -255,14 +257,16 @@ pub trait BuffersContext {
         &self,
         kind: &history::Kind,
     ) -> Option<iced::window::Id>;
+
+    fn open_pane_server_queries(&self, server: &Server) -> Vec<&target::Query>;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BuffersContextSnapshot {
     pub buffers: HashMap<history::Kind, BufferContextSnapshot>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BufferContextSnapshot {
     Focused {
         is_scrolled_to_bottom: bool,
@@ -379,6 +383,21 @@ impl BuffersContext for BuffersContextSnapshot {
             BufferContextSnapshot::Open { window, .. } => *window,
         })
     }
+
+    fn open_pane_server_queries(&self, server: &Server) -> Vec<&target::Query> {
+        self.buffers
+            .keys()
+            .filter_map(|kind| {
+                if let history::Kind::Query(kind_server, query) = kind
+                    && kind_server == server
+                {
+                    Some(query)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
 }
 
 pub static EMPTY_BUFFERS_CONTEXT: LazyLock<BuffersContextSnapshot> =
@@ -454,15 +473,14 @@ impl Default for BacklogSeparator {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct DateSeparators {
-    #[serde(deserialize_with = "deserialize_strftime_date")]
-    pub format: String,
+    pub format: Option<String>,
     pub show: bool,
 }
 
 impl Default for DateSeparators {
     fn default() -> Self {
         Self {
-            format: "%A, %B %-d".to_string(),
+            format: None,
             show: true,
         }
     }
@@ -651,30 +669,5 @@ impl From<SkinTone> for emojis::SkinTone {
             SkinTone::MediumDark => emojis::SkinTone::MediumDark,
             SkinTone::Dark => emojis::SkinTone::Dark,
         }
-    }
-}
-
-pub fn deserialize_locale<'de, D>(deserializer: D) -> Result<Locale, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let locale_string_maybe: Option<String> =
-        Deserialize::deserialize(deserializer)?;
-
-    if let Some(locale_string) = &locale_string_maybe {
-        if let Ok(locale) = Locale::from_str(&locale_string.replace("-", "_")) {
-            Ok(locale)
-        } else {
-            Err(serde::de::Error::invalid_value(
-                serde::de::Unexpected::Str(locale_string),
-                &"IETF BCP 47 language tag",
-            ))
-        }
-    } else {
-        Ok(sys_locale::get_locale()
-            .and_then(|locale_string| {
-                Locale::from_str(&locale_string.replace("-", "_")).ok()
-            })
-            .unwrap_or_default())
     }
 }

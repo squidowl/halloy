@@ -152,11 +152,13 @@ pub enum Command {
     Logs,
     ThemeEditor,
     Highlights,
+    Search,
     QuitApplication,
     ScrollUpPage,
     ScrollDownPage,
     ScrollToTop,
     ScrollToBottom,
+    ScrollToBacklog,
     CycleNextUnreadBuffer,
     CyclePreviousUnreadBuffer,
     MarkAsRead,
@@ -437,11 +439,13 @@ impl KeyBind {
     default!(logs, "l", COMMAND);
     default!(theme_editor, "t", COMMAND);
     default!(highlights, "i", COMMAND);
+    default!(search, "f", COMMAND | SHIFT);
     default!(scroll_up_page, PageUp);
     default!(scroll_down_page, PageDown);
     // Don't use HOME / END since text input is always focused
     default!(scroll_to_top, ArrowUp, COMMAND);
     default!(scroll_to_bottom, ArrowDown, COMMAND);
+    default!(scroll_to_backlog, PageUp, COMMAND);
     default!(cycle_next_unread_buffer, "`", CTRL);
     default!(cycle_previous_unread_buffer, "`", CTRL | SHIFT);
     // Command + m is minimize in macOS

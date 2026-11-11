@@ -1,11 +1,13 @@
 use std::borrow::Cow;
 use std::str::FromStr;
 
-use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, Utc};
 use fancy_regex::Regex;
 use hashbrown::HashMap;
 use irc::proto::{self, tags};
 use itertools::Itertools;
+use jiff::civil::{Date, DateTime};
+use jiff::tz::TimeZone;
+use jiff::{Timestamp, Zoned};
 use serde::{Deserialize, Serialize};
 
 use crate::buffer::{self, Upstream};
@@ -48,6 +50,7 @@ pub enum Internal {
     Reconnect,
     Upload(String),
     Exec(String),
+    Search(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -279,6 +282,7 @@ pub enum Kind {
     Upload,
     MassMessage,
     Exec,
+    Search,
     Raw,
 }
 
@@ -326,6 +330,7 @@ impl FromStr for Kind {
             "upload" => Ok(Kind::Upload),
             "massmessage" | "mm" => Ok(Kind::MassMessage),
             "exec" => Ok(Kind::Exec),
+            "search" => Ok(Kind::Search),
             _ => Err(()),
         }
     }
@@ -1561,6 +1566,9 @@ fn parse_command(
             Kind::SysInfo => validated::<0, 0, false>(args, |_, _| {
                 Ok(Command::Internal(Internal::SysInfo))
             }),
+            Kind::Search => {
+                Ok(Command::Internal(Internal::Search(raw.trim().to_string())))
+            }
             Kind::Detach => {
                 if !features.detach {
                     return Err(Error::CommandNotAvailable {
@@ -1816,66 +1824,30 @@ fn get_combined_arg(
     (!combined_arg.is_empty()).then_some(combined_arg)
 }
 
-fn validated_timestamp(timestamp: &str) -> Option<DateTime<Utc>> {
+fn validated_timestamp(timestamp: &str) -> Option<Timestamp> {
     // Allow no timestamp= prefix if we can parse the remainder as a timestamp.
     let timestamp = timestamp.strip_prefix("timestamp=").unwrap_or(timestamp);
 
     // Parse full timestamp format
-    if let Ok(date_time) = DateTime::parse_from_rfc3339(timestamp)
-        .map(|date_time| date_time.to_utc())
+    if let Ok(date_time) = Timestamp::from_str(timestamp) {
+        return Some(date_time);
+    }
+
+    // Allow omitted offset, by assuming it's the local timezone.
+    if let Ok(date_time) = DateTime::from_str(timestamp)
+        .and_then(|date_time| date_time.to_zoned(TimeZone::system()))
+        .as_ref()
+        .map(Zoned::timestamp)
     {
         return Some(date_time);
     }
 
-    // Allow omitted offset, by assuming it's the local timezone.  Also, per
-    // Chrono crate's documentation, "missing seconds are assumed to be zero".
-    if let Some(date_time) =
-        NaiveDateTime::parse_from_str(timestamp, "%Y-%m-%dT%H:%M:%S%.f")
-            .ok()
-            .and_then(|naive_date_time| {
-                naive_date_time.and_local_timezone(Local).single()
-            })
-            .map(|date_time| date_time.to_utc())
-    {
-        return Some(date_time);
-    }
-
-    // Allow omitted seconds, which will be assumed to be zero
-    if let Some(date_time) = NaiveDateTime::parse_from_str(
-        &format!("{timestamp}:00"),
-        "%Y-%m-%dT%H:%M:%S",
-    )
-    .ok()
-    .and_then(|naive_date_time| {
-        naive_date_time.and_local_timezone(Local).single()
-    })
-    .map(|date_time| date_time.to_utc())
-    {
-        return Some(date_time);
-    }
-
-    // Allow omitted minutes, which will be assumed to be zero
-    if let Some(date_time) = NaiveDateTime::parse_from_str(
-        &format!("{timestamp}:00"),
-        "%Y-%m-%dT%H:%M",
-    )
-    .ok()
-    .and_then(|naive_date_time| {
-        naive_date_time.and_local_timezone(Local).single()
-    })
-    .map(|date_time| date_time.to_utc())
-    {
-        return Some(date_time);
-    }
-
-    // Allow omitted hours, which will be assumed to be zero (midnight)
-    NaiveDate::parse_from_str(timestamp, "%Y-%m-%d")
+    // Allow omitted time, which will be assumed to be midnight.
+    Date::from_str(timestamp)
+        .and_then(|date| date.to_zoned(TimeZone::system()))
+        .as_ref()
+        .map(Zoned::timestamp)
         .ok()
-        .and_then(|naive_date| naive_date.and_hms_opt(0, 0, 0))
-        .and_then(|naive_date_time| {
-            naive_date_time.and_local_timezone(Local).single()
-        })
-        .map(|date_time| date_time.to_utc())
 }
 
 fn validated_message_reference(
@@ -2189,7 +2161,14 @@ fn fmt_channel_name_requirements(chantypes: &[char]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{AutoFormat, Command, Error, Internal, isupport, parse};
+    use jiff::civil::date;
+    use jiff::tz::TimeZone;
+    use jiff::{Timestamp, Zoned};
+
+    use super::{
+        AutoFormat, Command, Error, Internal, isupport, parse,
+        validated_timestamp,
+    };
     use crate::Config;
     use crate::capabilities::Capabilities;
     use crate::features::Features;
@@ -2362,5 +2341,51 @@ mod tests {
         .unwrap_err();
 
         assert!(matches!(error, Error::ExecDisabled));
+    }
+
+    #[test]
+    fn parse_timestamp() {
+        let tests = [
+            ("1973-11-29T21:33:09Z", Timestamp::new(123_456_789, 0).ok()),
+            (
+                "1973-11-29T21:33:09",
+                date(1973, 11, 29)
+                    .at(21, 33, 9, 0)
+                    .to_zoned(TimeZone::system())
+                    .as_ref()
+                    .map(Zoned::timestamp)
+                    .ok(),
+            ),
+            (
+                "1973-11-29T21:33",
+                date(1973, 11, 29)
+                    .at(21, 33, 0, 0)
+                    .to_zoned(TimeZone::system())
+                    .as_ref()
+                    .map(Zoned::timestamp)
+                    .ok(),
+            ),
+            (
+                "1973-11-29T21",
+                date(1973, 11, 29)
+                    .at(21, 0, 0, 0)
+                    .to_zoned(TimeZone::system())
+                    .as_ref()
+                    .map(Zoned::timestamp)
+                    .ok(),
+            ),
+            (
+                "1973-11-29",
+                date(1973, 11, 29)
+                    .to_zoned(TimeZone::system())
+                    .as_ref()
+                    .map(Zoned::timestamp)
+                    .ok(),
+            ),
+        ];
+
+        for (timestamp_str, timestamp) in tests {
+            assert_eq!(validated_timestamp(timestamp_str), timestamp);
+        }
     }
 }

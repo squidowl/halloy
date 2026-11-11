@@ -9,12 +9,20 @@ pub const PAGE_SIZE: usize = 100;
 #[derive(Debug, Clone)]
 pub struct Page {
     pub hits: Vec<Hit>,
+    pub newest: Option<Cursor>,
     pub next: Option<Cursor>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Cursor {
     pub(super) key: i64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Range {
+    Latest,
+    Before(Cursor),
+    After(Cursor),
 }
 
 #[derive(Debug, Clone)]

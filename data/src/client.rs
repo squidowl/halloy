@@ -8,12 +8,12 @@ use std::time::{Duration, Instant};
 use std::{fmt, io, iter};
 
 use anyhow::{Context as ErrorContext, Result, anyhow, bail};
-use chrono::{DateTime, Utc};
 use futures::channel::mpsc;
 use hashbrown::{HashMap, HashSet};
 use indexmap::IndexMap;
 use irc::proto::{self, Command, Tags, command, tags};
 use itertools::{Either, Itertools};
+use jiff::Timestamp;
 
 pub use self::map::{ClientsContext, Map, State, Status};
 pub use self::on_connect::on_connect;
@@ -36,7 +36,7 @@ use crate::isupport::{
 use crate::message::{broadcast, source};
 use crate::rate_limit::{TokenBucket, TokenPriority};
 use crate::target::{self, Target};
-use crate::time::Posix;
+use crate::time::RFC3339_WITH_MILLIS;
 use crate::user::{ChannelUsers, Nick};
 use crate::{
     Server, User, buffer, channel_discovery, compression, config, ctcp, dcc,
@@ -686,8 +686,9 @@ impl Client {
         if matches!(priority, TokenPriority::User) {
             match &message.command {
                 Command::LIST(..) => {
-                    self.channel_discovery_manager.status =
-                        Some(channel_discovery::Status::Requested(Utc::now()));
+                    self.channel_discovery_manager.status = Some(
+                        channel_discovery::Status::Requested(Timestamp::now()),
+                    );
                 }
                 Command::WHO(..) => {
                     let params = message.command.clone().parameters();
@@ -1493,8 +1494,9 @@ impl Client {
                 }
             }
             Command::Numeric(RPL_LISTSTART, _) => {
-                self.channel_discovery_manager.status =
-                    Some(channel_discovery::Status::Receiving(Utc::now()));
+                self.channel_discovery_manager.status = Some(
+                    channel_discovery::Status::Receiving(Timestamp::now()),
+                );
                 return Ok(vec![]);
             }
             Command::Numeric(RPL_LIST, args) => {
@@ -1505,13 +1507,14 @@ impl Client {
                 self.channel_discovery_manager
                     .push(channel, topic, user_count);
 
-                self.channel_discovery_manager.status =
-                    Some(channel_discovery::Status::Receiving(Utc::now()));
+                self.channel_discovery_manager.status = Some(
+                    channel_discovery::Status::Receiving(Timestamp::now()),
+                );
                 return Ok(vec![]);
             }
             Command::Numeric(RPL_LISTEND, _) => {
                 self.channel_discovery_manager.status =
-                    Some(channel_discovery::Status::Updated(Utc::now()));
+                    Some(channel_discovery::Status::Updated(Timestamp::now()));
                 return Ok(vec![]);
             }
             Command::Numeric(RPL_LOGGEDIN, args) => {
@@ -1716,19 +1719,18 @@ impl Client {
                                     }
                                     ctcp::Command::Time => {
                                         if config.ctcp.time {
-                                            let utc_time = Utc::now();
-                                            let formatted = utc_time
-                                                .to_rfc3339_opts(
-                                                chrono::SecondsFormat::Millis,
-                                                true,
-                                            );
+                                            let time = Timestamp::strftime(
+                                                &Timestamp::now(),
+                                                RFC3339_WITH_MILLIS,
+                                            )
+                                            .to_string();
 
                                             self.send(
                                                 None,
                                                 ctcp::response_message(
                                                     &query.command,
                                                     user.nickname().to_string(),
-                                                    Some(formatted),
+                                                    Some(time),
                                                 )
                                                 .into(),
                                                 TokenPriority::High,
@@ -1831,6 +1833,8 @@ impl Client {
                 let new_nick =
                     Nick::from_str(nick.as_str(), self.casemapping());
 
+                let channels = self.user_channels(old_user.nickname());
+
                 self.chanmap.values_mut().for_each(|channel| {
                     if let Some(user) = channel.users.take(&old_user) {
                         channel
@@ -1841,9 +1845,7 @@ impl Client {
 
                 return Ok(vec![Event::Broadcast(
                     broadcast::BroadcastWithContext {
-                        in_channels: broadcast::Channels::Vec(
-                            self.user_channels(old_user.nickname()),
-                        ),
+                        in_channels: broadcast::Channels::Vec(channels),
                         in_server: ourself,
                         in_queries: if ourself {
                             broadcast::Queries::All
@@ -2019,7 +2021,24 @@ impl Client {
                         );
                     }
 
-                    return Ok(vec![Event::ShowInSidebar(target)]);
+                    let mut events = vec![Event::ShowInSidebar(target)];
+
+                    // bouncers replay self-joins on connect, but this isn't
+                    // technically joining since the connection is bounced. the
+                    // real joins are stored in chathistory and should be displayed.
+                    if self.connection_role() == ConnectionRole::Regular
+                        && let Some(message_with_context) = self
+                            .process_message(
+                                message,
+                                storage,
+                                buffers_context,
+                                config,
+                            )
+                    {
+                        events.push(Event::Message(message_with_context));
+                    }
+
+                    return Ok(events);
                 } else if let Some(channel) =
                     self.chanmap.get_mut(&target_channel)
                 {
@@ -2541,12 +2560,10 @@ impl Client {
                         isupport::get_prefix(&self.isupport),
                     )));
 
-                    let timestamp =
-                        Posix::from_seconds(ok!(args.get(3)).parse::<u64>()?);
-                    channel.topic.time =
-                        Some(timestamp.datetime().ok_or_else(|| {
-                            anyhow!("Unable to parse timestamp: {timestamp:?}")
-                        })?);
+                    let seconds = ok!(args.get(3)).parse::<i64>()?;
+                    let timestamp = context!(Timestamp::from_second(seconds));
+
+                    channel.topic.time = Some(timestamp);
 
                     if is_join_topic {
                         if config
@@ -3054,10 +3071,7 @@ impl Client {
 
                     let timestamp = ok!(args.get(1));
 
-                    if let Ok(server_time) =
-                        DateTime::parse_from_rfc3339(timestamp)
-                            .map(|date_time| date_time.to_utc())
-                    {
+                    if let Ok(server_time) = timestamp.parse() {
                         // Chathistory is automatically requested when JOIN is
                         // received, so we can filter out unprefixed channels.
                         if match &target {
@@ -3304,8 +3318,10 @@ impl Client {
                         .map(ToString::to_string)
                         .collect::<Vec<String>>();
 
-                    if let Some(limits) = self.capabilities.metadata_limits() {
-                        requested.truncate(limits.max_subs);
+                    if let Some(max_subs) =
+                        self.capabilities.metadata_max_subs()
+                    {
+                        requested.truncate(max_subs);
                     }
 
                     log::debug!(
@@ -3454,7 +3470,7 @@ impl Client {
                 if self.capabilities.acknowledged(Capability::Chathistory) {
                     let last_received_at = storage
                         .last_received_chathistory_targets(&self.server)
-                        .unwrap_or(DateTime::UNIX_EPOCH);
+                        .unwrap_or(Timestamp::UNIX_EPOCH);
 
                     let subcommand = ChathistorySubcommand::Targets(
                         last_received_at,
@@ -3810,7 +3826,7 @@ impl Client {
                         } else {
                             storage.update_last_received_chathistory_targets(
                                 &self.server,
-                                Utc::now(),
+                                Timestamp::now(),
                             );
                         }
                     }
@@ -4773,6 +4789,14 @@ impl Client {
             .is_some_and(|updated_at| !is_typing_expired(updated_at))
     }
 
+    pub fn has_any_query_typing_users(&self) -> bool {
+        self.querymap.values().any(|query_state| {
+            query_state
+                .typing
+                .is_some_and(|updated_at| !is_typing_expired(updated_at))
+        })
+    }
+
     fn user_channels(&self, nick: &Nick) -> Vec<target::Channel> {
         self.chanmap
             .iter()
@@ -5272,6 +5296,7 @@ impl NotificationBlackout {
         }
     }
 }
+
 #[derive(Debug, Clone)]
 pub enum Context {
     Buffer(buffer::Upstream),
@@ -5387,11 +5412,11 @@ impl Batch {
 }
 
 fn generate_label() -> String {
-    Posix::now().as_nanos().to_string()
+    Timestamp::now().as_nanosecond().to_string()
 }
 
 fn generate_batch_reference_tag() -> String {
-    Posix::now().as_nanos().to_string()
+    Timestamp::now().as_nanosecond().to_string()
 }
 
 fn prune_expired_typing(typing: &mut HashMap<Nick, Instant>) {
@@ -5470,7 +5495,7 @@ pub struct Topic {
     pub content: Option<message::Content>,
     pub raw: Option<String>,
     pub who: Option<User>,
-    pub time: Option<DateTime<Utc>>,
+    pub time: Option<Timestamp>,
 }
 
 #[derive(Debug, Clone)]
@@ -6278,5 +6303,90 @@ mod tests {
         );
 
         assert_eq!(channel_user_is_away(&client, "tester"), Some(false));
+    }
+
+    #[test]
+    fn own_join_is_recorded() {
+        let mut client = test_client("tester");
+        let mut history = storage::Manager::test();
+        let buffers_context = BuffersContextSnapshot::empty();
+        let config = config::Config::default();
+
+        let events = client
+            .handle(
+                message::Encoded(proto::Message {
+                    tags: BTreeMap::default(),
+                    source: Some(proto::Source::User(proto::User {
+                        nickname: "tester".to_string(),
+                        username: Some("tester".to_string()),
+                        hostname: Some("example.test".to_string()),
+                    })),
+                    command: Command::JOIN("#test".to_string(), None),
+                }),
+                None,
+                &mut history,
+                &buffers_context,
+                &config,
+            )
+            .unwrap();
+
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, Event::ShowInSidebar(_)))
+        );
+        assert!(events.iter().any(|event| matches!(
+            event,
+            Event::Message(message_with_context)
+                if message_with_context
+                    .inner
+                    .text()
+                    .contains("has joined the channel")
+        )));
+    }
+
+    #[test]
+    fn bounced_join_is_hidden() {
+        let mut client = test_client("tester");
+        let mut history = storage::Manager::test();
+        let buffers_context = BuffersContextSnapshot::empty();
+        let config = config::Config::default();
+
+        client
+            .capabilities
+            .acknowledge(["soju.im/bouncer-networks".to_string()].into_iter());
+        client.resolved_netid = Some("1".to_string());
+
+        let events = client
+            .handle(
+                message::Encoded(proto::Message {
+                    tags: BTreeMap::default(),
+                    source: Some(proto::Source::User(proto::User {
+                        nickname: "tester".to_string(),
+                        username: Some("tester".to_string()),
+                        hostname: Some("example.test".to_string()),
+                    })),
+                    command: Command::JOIN("#test".to_string(), None),
+                }),
+                None,
+                &mut history,
+                &buffers_context,
+                &config,
+            )
+            .unwrap();
+
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, Event::ShowInSidebar(_)))
+        );
+        assert!(!events.iter().any(|event| matches!(
+            event,
+            Event::Message(message_with_context)
+                if message_with_context
+                    .inner
+                    .text()
+                    .contains("has joined the channel")
+        )));
     }
 }

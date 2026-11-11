@@ -5,10 +5,11 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{fs, io};
 
-use chrono::{self, DateTime, Local, NaiveDate, Utc};
 use hashbrown::{HashMap, HashSet, hash_map};
 use iced::Task;
 use itertools::Itertools;
+use jiff::civil::Date;
+use jiff::{SignedDuration, Timestamp};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
@@ -37,6 +38,10 @@ use cache::{MessageCache, ReadCache};
 
 const CLEAR_AFTER_DURATION_SINCE_CLOSED: Duration = Duration::from_secs(8);
 
+pub const UNLABELED_ECHO_REPLACE_MESSAGE_FUZZ: SignedDuration =
+    SignedDuration::from_secs(300);
+pub const REPLACE_MESSAGE_FUZZ: SignedDuration = SignedDuration::from_secs(1);
+
 #[derive(Debug)]
 pub enum Message {
     Initialized(Kind, Metadata),
@@ -46,6 +51,7 @@ pub enum Message {
     Failed(String),
     Unrecorded(batch::Batch),
     DraftsSaved(Result<usize, Error>),
+    MarkedReadOnExit(Result<(), String>),
     Exited(Result<(), String>, Option<Result<usize, Error>>),
 }
 
@@ -55,12 +61,13 @@ pub enum Event {
     Model(model::Message),
     Notification(Server, Notification),
     Client(client::Message),
+    Indexed,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum ReferenceQuery {
     Oldest,
-    Before(DateTime<Utc>),
+    Before(Timestamp),
 }
 
 #[derive(Debug)]
@@ -285,7 +292,23 @@ impl Manager {
                 self.monitored.push(kind.clone());
             }
             let storage = self.get_or_load_mut(kind.clone());
+
             for update in updates {
+                if let Update::Message(_, message) = update
+                    && let Source::Server(Some(source::Server {
+                        kind: source::server::Kind::ChangeNick,
+                        nick: Some(old_nick),
+                        change: Some(source::server::Change::Nick(new_nick)),
+                    })) = &message.inner.source
+                    && let Some(time) = storage.last_seen.remove(old_nick)
+                    && storage
+                        .last_seen
+                        .get(new_nick)
+                        .is_none_or(|seen| *seen < time)
+                {
+                    storage.last_seen.insert(new_nick.clone(), time);
+                }
+
                 let seen = match update {
                     Update::Message(_, message) => message
                         .inner
@@ -525,6 +548,13 @@ impl Manager {
                 }
                 self.input_storage.saved();
             }
+            Message::MarkedReadOnExit(result) => {
+                if let Err(error) = result {
+                    log::error!(
+                        "marking read on application exit failed: {error}"
+                    );
+                }
+            }
             Message::Exited(result, input_result) => {
                 if let Err(error) = result {
                     log::error!("history shutdown failed: {error}");
@@ -626,6 +656,33 @@ impl Manager {
         }
     }
 
+    pub fn mark_as_read_on_exit(
+        &mut self,
+        buffers: &dyn BuffersContext,
+        config: &Config,
+    ) {
+        if self.failure.is_some() {
+            let _ = self.event_sender.send(vec![Event::History(
+                Message::MarkedReadOnExit(Err("history failed".to_string())),
+            )]);
+        } else {
+            let kinds = self
+                .storage
+                .keys()
+                .filter(|kind| {
+                    config.buffer.mark_as_read.on_application_exit
+                        || config
+                            .buffer
+                            .mark_as_read
+                            .on_buffer_close
+                            .mark_as_read(buffers.is_open_and_at_bottom(kind))
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            self.worker.send(worker::Command::MarkReadOnExit(kinds));
+        }
+    }
+
     pub fn set_model_limit(&mut self, kind: Kind, limit: message::Limit) {
         self.get_or_load_mut(kind.clone())
             .read_cache
@@ -673,8 +730,8 @@ impl Manager {
     pub fn last_received_chathistory_targets(
         &self,
         server: &Server,
-    ) -> Option<DateTime<Utc>> {
-        let path = chathistory_targets_path(server).ok()?;
+    ) -> Option<Timestamp> {
+        let path = chathistory_targets_path(server, true).ok()?;
 
         let bytes = fs::read(path).ok()?;
 
@@ -684,7 +741,7 @@ impl Manager {
     pub fn update_last_received_chathistory_targets(
         &self,
         server: &Server,
-        timestamp: DateTime<Utc>,
+        timestamp: Timestamp,
     ) {
         match write_chathistory_targets_timestamp(server, timestamp) {
             Ok(()) => {
@@ -716,9 +773,9 @@ impl Manager {
     pub fn search(
         &self,
         query: search::Query,
-        before: Option<search::Cursor>,
+        range: search::Range,
     ) -> impl Future<Output = Result<search::Page, search::Error>> + use<> {
-        self.searcher.search(query, before)
+        self.searcher.search(query, range)
     }
 
     pub fn request_highlight_source(
@@ -764,32 +821,28 @@ impl Manager {
         }
     }
 
-    pub fn exit(&mut self, buffers: &dyn BuffersContext, config: &Config) {
+    pub fn exit(&mut self, config: &Config) {
         self.exiting = true;
-        let histories = self
-            .storage
-            .keys()
-            .map(|kind| {
-                (
-                    kind.clone(),
-                    config.buffer.mark_as_read.on_application_exit
-                        || config
-                            .buffer
-                            .mark_as_read
-                            .on_buffer_close
-                            .mark_as_read(buffers.is_open_and_at_bottom(kind)),
-                )
-            })
-            .collect();
         let save = self.input_storage.save(config);
+
+        let history_failed = self.failure.is_some();
         let worker = self.worker.clone();
+        let event_sender = self.event_sender.clone();
+
         tokio::task::spawn(async move {
             let result = if let Some(save) = save {
                 Some(save.await)
             } else {
                 None
             };
-            worker.send(worker::Command::Exit(histories, result));
+
+            if history_failed {
+                let _ = event_sender.send(vec![Event::History(
+                    Message::Exited(Err("history failed".to_string()), result),
+                )]);
+            } else {
+                worker.send(worker::Command::Exit(result));
+            }
         });
     }
 
@@ -1007,7 +1060,7 @@ impl Manager {
     pub fn get_last_seen(
         &self,
         buffer: &buffer::Upstream,
-    ) -> Option<&HashMap<Nick, DateTime<Utc>>> {
+    ) -> Option<&HashMap<Nick, Timestamp>> {
         let kind = Kind::from(buffer.clone());
 
         self.storage
@@ -1045,13 +1098,13 @@ impl Manager {
 pub struct Storage {
     kind: Kind,
     show_in_sidebar: bool,
-    latest: Option<DateTime<Utc>>,
-    latest_triggers_unread: Option<DateTime<Utc>>,
-    latest_triggers_highlight: Option<DateTime<Utc>>,
+    latest: Option<Timestamp>,
+    latest_triggers_unread: Option<Timestamp>,
+    latest_triggers_highlight: Option<Timestamp>,
     display_read_marker: Option<ReadMarker>,
     read_marker: Option<ReadMarker>,
     read_cache: ReadCache,
-    last_seen: HashMap<Nick, DateTime<Utc>>,
+    last_seen: HashMap<Nick, Timestamp>,
     auto_read: Option<ReadMarker>,
     importing: bool,
 }
@@ -1342,10 +1395,10 @@ fn block_messages(
     clients_context: &dyn ClientsContext,
     buffer_config: &config::Buffer,
 ) {
-    let current_time = Utc::now();
+    let current_time = Timestamp::now();
 
-    let mut last_seen = HashMap::<Nick, DateTime<Utc>>::new();
-    let mut last_away = HashMap::<Nick, DateTime<Utc>>::new();
+    let mut last_seen = HashMap::<Nick, Timestamp>::new();
+    let mut last_away = HashMap::<Nick, Timestamp>::new();
 
     messages.iter_mut().for_each(|message| {
         message.blocked = false;
@@ -1446,7 +1499,7 @@ fn condense_messages(
 ) {
     #[derive(PartialEq)]
     enum CondensationKey {
-        Condensable(NaiveDate),
+        Condensable(Date),
         Singular,
     }
 
@@ -1458,9 +1511,7 @@ fn condense_messages(
                 .inner
                 .can_condense(&buffer_config.server_messages.condense)
             {
-                CondensationKey::Condensable(
-                    message.time().utc.with_timezone(&Local).date_naive(),
-                )
+                CondensationKey::Condensable(message.time().system_date())
             } else {
                 CondensationKey::Singular
             }
@@ -1526,7 +1577,7 @@ fn populate_messages_reply_previews(
             if positions.is_empty() {
                 return None;
             }
-            let start = message.time().utc + chrono::Duration::seconds(1);
+            let start = message.time().utc + SignedDuration::from_secs(1);
             let split = messages
                 .binary_search_by(|stored| stored.time().utc.cmp(&start))
                 .unwrap_or_else(|position| position);
@@ -1563,14 +1614,15 @@ fn populate_messages_reply_previews(
 ///  - Messages with an exact ID match
 ///  - Echoes (labeled via labeled-response, or unlabeled)
 ///
-/// For non-echoes a search window of +/- 1 second around the server time of the
-/// incoming message is used.
+/// For non-echoes a search window of +/- `REPLACE_MESSAGE_FUZZ` (1s) around the
+/// server time of the incoming message is used.
 ///
 /// For labeled echoes the exact time should be either be stored locally, or the
 /// message was sent from another client.
 ///
-/// For unlabeled echoes a search window of +/- 300s is used to account for
-/// transit time and potential clock skew.
+/// For unlabeled echoes a search window of +/-
+/// `UNLABELED_ECHO_REPLACE_MESSAGE_FUZZ` (300s) is used to account for transit
+/// time and potential clock skew.
 ///
 /// For matching methods that do not have an identifier (i.e. when matching
 /// historical messages without a message ID or unlabeled echoes) the messages
@@ -1596,9 +1648,9 @@ pub(super) fn reconcile_message(
         message.inner.is_echo() && message.labeled_response_context.is_none();
 
     let fuzz_seconds = if message_is_unlabeled_echo {
-        chrono::Duration::seconds(300)
+        UNLABELED_ECHO_REPLACE_MESSAGE_FUZZ
     } else {
-        chrono::Duration::seconds(1)
+        REPLACE_MESSAGE_FUZZ
     };
 
     let mut replaced_sent = false;
@@ -1709,13 +1761,13 @@ pub(super) fn reconcile_message(
 
 /// The content of JOIN, PART, and QUIT messages may be dependent on how
 /// the user attributes are resolved.  Match those messages based on Nick
-/// alone (covered by comparing target components) to avoid false negatives.
+/// alone (covered by comparing sources) to avoid false negatives.
 fn has_matching_content(
     message: &message::Message,
     other: &message::Message,
     use_echo_cmp: bool,
 ) -> bool {
-    if message.target == other.target {
+    if message.source == other.source {
         if let message::Source::Server(Some(source)) = &message.source {
             match source.kind {
                 message::source::server::Kind::Join
@@ -1814,24 +1866,60 @@ pub(super) fn get_before_and_after_count_from_position(
 
 fn write_chathistory_targets_timestamp(
     server: &Server,
-    timestamp: DateTime<Utc>,
+    timestamp: Timestamp,
 ) -> Result<(), Error> {
     let bytes = serde_json::to_vec(&Some(timestamp))?;
 
-    let path = chathistory_targets_path(server)?;
+    let path = chathistory_targets_path(server, false)?;
 
     Ok(fs::write(path, &bytes)?)
 }
 
-fn chathistory_targets_path(server: &Server) -> Result<PathBuf, Error> {
+fn chathistory_targets_path(
+    server: &Server,
+    fallback: bool,
+) -> Result<PathBuf, Error> {
     let dir = dir_path()?;
 
-    let name = format!("{server}-targets");
+    let sanitized_server_name =
+        sanitize_filename::sanitize(server.name.as_ref());
 
-    Ok(dir.join(format!("{name}.json")))
+    let path = if let Some(network) = &server.network {
+        let server_dir = dir.join(sanitized_server_name);
+
+        if !server_dir.exists() {
+            fs::create_dir_all(&server_dir)?;
+        }
+
+        server_dir.join(format!(
+            "{}.json",
+            sanitize_filename::sanitize(&network.name)
+        ))
+    } else {
+        dir.join(format!("{sanitized_server_name}.json"))
+    };
+
+    if !path.exists()
+        && fallback
+        && let Ok(fallback_dir) = fallback_dir_path()
+    {
+        let fallback_path = fallback_dir.join(format!("{server}-targets.json"));
+
+        if fallback_path.exists() {
+            return Ok(fallback_path);
+        }
+    }
+
+    Ok(path)
 }
 
 fn dir_path() -> Result<PathBuf, Error> {
+    let dir = environment::data_dir().join("targets");
+    fs::create_dir_all(&dir)?;
+    Ok(dir)
+}
+
+fn fallback_dir_path() -> Result<PathBuf, Error> {
     let dir = environment::data_dir().join("msdb");
     fs::create_dir_all(&dir)?;
     Ok(dir)

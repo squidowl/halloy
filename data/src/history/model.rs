@@ -1,6 +1,6 @@
-use chrono::{DateTime, Utc};
 use hashbrown::HashMap;
 use itertools::Itertools;
+use jiff::Timestamp;
 
 use super::metadata::ReadMarker;
 use super::{
@@ -25,8 +25,7 @@ pub enum Event {
 
 #[derive(Debug, Clone)]
 pub struct Navigation {
-    pub server: Server,
-    pub channel: target::Channel,
+    pub buffer: crate::buffer::Upstream,
     pub message: Option<(Id, message::Time)>,
     pub buffer_action: crate::dashboard::BufferAction,
     pub token: std::sync::Weak<()>,
@@ -209,9 +208,9 @@ pub struct Update {
     pub show_in_sidebar: bool,
     pub read_marker: Option<ReadMarker>,
     pub display_read_marker: Option<ReadMarker>,
-    pub latest: Option<DateTime<Utc>>,
-    pub latest_triggers_unread: Option<DateTime<Utc>>,
-    pub latest_triggers_highlight: Option<DateTime<Utc>>,
+    pub latest: Option<Timestamp>,
+    pub latest_triggers_unread: Option<Timestamp>,
+    pub latest_triggers_highlight: Option<Timestamp>,
     pub pane: Pane,
 }
 
@@ -220,9 +219,9 @@ pub struct Model {
     show_in_sidebar: bool,
     read_marker: Option<ReadMarker>,
     display_read_marker: Option<ReadMarker>,
-    latest: Option<DateTime<Utc>>,
-    latest_triggers_unread: Option<DateTime<Utc>>,
-    latest_triggers_highlight: Option<DateTime<Utc>>,
+    latest: Option<Timestamp>,
+    latest_triggers_unread: Option<Timestamp>,
+    latest_triggers_highlight: Option<Timestamp>,
     pane: Pane,
 }
 
@@ -233,7 +232,7 @@ pub enum Pane {
         has_more_newer_messages: bool,
         messages: Vec<message::MessageDisplay>, // ordered by (time, history ID)
         limit: message::Limit,
-        clear: Option<DateTime<Utc>>,
+        clear: Option<Timestamp>,
         loading: bool,
         read_marker: Option<ReadMarker>,
     },
@@ -531,7 +530,7 @@ fn process_messages<'a>(
     messages: &'a [message::MessageDisplay],
     config: &Config,
 ) -> Vec<&'a message::MessageDisplay> {
-    let now = Utc::now();
+    let now = Timestamp::now();
     messages
         .iter()
         .filter_map(|message| message.displayed(&config.buffer, now))
@@ -544,7 +543,7 @@ fn resolve_anchor(
     time: &message::Time,
     config: &config::Buffer,
 ) -> Option<Id> {
-    let now = Utc::now();
+    let now = Timestamp::now();
     let index = position_message_by_history_id(messages, id, time);
     if let Some(index) = index {
         if let Some(row) = messages[index].displayed(config, now) {

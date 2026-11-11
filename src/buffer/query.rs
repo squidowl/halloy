@@ -184,7 +184,7 @@ pub fn view<'a>(
             .height(Length::Fill)
             .into()
         } else {
-            column![column![content].height(Length::Fill), text_input]
+            column![stack![content].height(Length::Fill), text_input]
                 .height(Length::Fill)
                 .into()
         };
@@ -453,7 +453,7 @@ impl Query {
                         }),
                     ),
                     Some(
-                        event @ (input_view::Event::NavigateFocus(_)
+                        event @ (input_view::Event::NavigateFocus(..)
                         | input_view::Event::ExitFocus
                         | input_view::Event::FocusAction(_)),
                     ) => {

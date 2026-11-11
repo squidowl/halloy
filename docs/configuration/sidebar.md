@@ -4,7 +4,7 @@ Sidebar settings for Halloy.
 
 ## `primary_font_size`
 
-Configure the font size used for server and internal buffer titles.  If not set, then [`sidebar.secondary_font_size`](./sidebar#secondary_font_size) will be used.
+Configure the font size used for server and internal buffer titles. If not set, then [`sidebar.secondary_font_size`](./sidebar#secondary_font_size) will be used.
 
 ```toml
 # Type: integer
@@ -37,7 +37,7 @@ primary_icon = "hidden"
 
 ## `secondary_font_size`
 
-Configure the font size used for buffers in the sidebar.  If not set, then [`font.size`](./font#size) will be used.
+Configure the font size used for buffers in the sidebar. If not set, then [`font.size`](./font#size) will be used.
 
 ```toml
 # Type: integer
@@ -175,7 +175,7 @@ Internal buffers shown in the sidebar.
 
 ```toml
 # Type: array of strings
-# Values: "channel-discovery", "channel-monitor", "config-editor", "file-transfers", "highlights", "logs"
+# Values: "channel-discovery", "channel-monitor", "config-editor", "file-transfers", "highlights", "logs", "search"
 # Default: []
 
 [sidebar.internal_buffers]
@@ -272,6 +272,17 @@ title = false
 
 Changes the icon which appears when unread messages are present. To disable use `"none"`.
 
+| Name         | Icon                                                                                              |
+| ------------ | :-----------------------------------------------------------------------------------------------: |
+| dot          | ![dot](../images/unread-indicators/fontawesome-circle.svg){width=12px height=12px}                |
+| circle-empty | ![circle-empty](../images/unread-indicators/fontawesome-circle-empty.svg){width=12px height=12px} |
+| dot-circled  | ![dot-circled](../images/unread-indicators/fontawesome-dot-circled.svg){width=12px height=12px}   |
+| certificate  | ![certificate](../images/unread-indicators/fontawesome-certificate.svg){width=12px height=12px}   |
+| asterisk     | ![asterisk](../images/unread-indicators/fontawesome-asterisk.svg){width=12px height=12px}         |
+| speaker      | ![speaker](../images/unread-indicators/entypo-sound.svg){width=12px height=12px}                  |
+| lightbulb    | ![lightbulb](../images/unread-indicators/fontawesome-lightbulb.svg){width=12px height=12px}       |
+| star         | ![star](../images/unread-indicators/fontawesome-star.svg){width=12px height=12px}                 |
+
 ```toml
 # Type: string
 # Values: "dot", "circle-empty", "dot-circled", "certificate", "asterisk", "speaker", "lightbulb", "star", "none"
@@ -306,7 +317,6 @@ Show unread message indicators on buffers that have an open pane.
 [sidebar.unread_indicator]
 show_on_open_buffers = false
 ```
-
 
 ### `query_as_highlight`
 
@@ -381,6 +391,17 @@ title = false
 
 Changes the icon which appears when unread highlights are present. To disable use `"none"`.
 
+| Name         | Icon                                                                                                 |
+| ------------ | :--------------------------------------------------------------------------------------------------: |
+| dot          | ![dot](../images/highlight-indicators/fontawesome-circle.svg){width=12px height=12px}                |
+| circle-empty | ![circle-empty](../images/highlight-indicators/fontawesome-circle-empty.svg){width=12px height=12px} |
+| dot-circled  | ![dot-circled](../images/highlight-indicators/fontawesome-dot-circled.svg){width=12px height=12px}   |
+| certificate  | ![certificate](../images/highlight-indicators/fontawesome-certificate.svg){width=12px height=12px}   |
+| asterisk     | ![asterisk](../images/highlight-indicators/fontawesome-asterisk.svg){width=12px height=12px}         |
+| speaker      | ![speaker](../images/highlight-indicators/entypo-sound.svg){width=12px height=12px}                  |
+| lightbulb    | ![lightbulb](../images/highlight-indicators/fontawesome-lightbulb.svg){width=12px height=12px}       |
+| star         | ![star](../images/highlight-indicators/fontawesome-star.svg){width=12px height=12px}                 |
+
 ```toml
 # Type: string
 # Values: "dot", "circle-empty", "dot-circled", "certificate", "asterisk", "speaker", "lightbulb", "star", "none"
@@ -452,6 +473,40 @@ exclude = "*"
 include = { channels = ["#halloy"] }
 ```
 
+## `typing_indicator`
+
+Show typing indicator for query buffers (direct messages) in sidebars.
+Requires typing indicators to be enabled, either [globally](/configuration/buffer#show-1) or at the [server level](/configuration/servers#show).
+
+### `show`
+
+Change if sidebar typing indicators are shown. To disable use `"none"`.
+
+Default behavior depends on [`sidebar.position`](/configuration/sidebar#position):
+enabled for vertical sidebars and disabled for horizontal sidebars.
+
+```toml
+# Type: string
+# Values: "queries", "none"
+# Default: "queries" when sidebar.position = "left" or "right", "none" when sidebar.position = "top" or "bottom"
+
+[sidebar.typing_indicator]
+show = "queries"
+```
+
+### `icon_height`
+
+Change the sidebar typing indicator's icon height.
+
+```toml
+# Type: number 
+# Values: any positive number 
+# Default: 4
+
+[sidebar.typing_indicator]
+icon_height = 6
+```
+
 ## `user_menu`
 
 User menu in sidebar settings.
@@ -476,7 +531,7 @@ Adjust padding for sidebar
 ### `buffer`
 
 Controls padding for buffer buttons (server, channels, queries) in the sidebar
-The value is an array where the first value is vertical padding and the second is horizontal padding. 
+The value is an array where the first value is vertical padding and the second is horizontal padding.
 
 ```toml
 # Type: array

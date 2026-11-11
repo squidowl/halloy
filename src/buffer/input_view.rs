@@ -23,13 +23,14 @@ use iced::Length::Fit;
 use iced::advanced::widget::Tree;
 use iced::advanced::{Layout, Shell, mouse};
 use iced::keyboard::{Key, key};
-use iced::widget::text::{self, Shaping, Wrapping};
+use iced::widget::text::{self, Wrapping};
 use iced::widget::{
     self, Space, button, center, column, container, mouse_area, operation, row,
     rule, text_editor,
 };
 use iced::{Alignment, Length, Task, clipboard, event, keyboard, padding};
 use itertools::Itertools;
+use jiff::SignedDuration;
 use tokio::time;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -82,7 +83,7 @@ pub enum Event {
         upload_ids: Vec<u32>,
         abort_registrations: Vec<futures::future::AbortRegistration>,
     },
-    NavigateFocus(FocusDirection),
+    NavigateFocus(FocusDirection, bool),
     ExitFocus,
     FocusAction(FocusAction),
 }
@@ -130,7 +131,7 @@ pub enum Message {
         to_nick: Nick,
     },
     ClearDraftReply,
-    NavigateFocus(FocusDirection),
+    NavigateFocus(FocusDirection, bool),
     ExitFocus,
     FocusAction(FocusAction),
 }
@@ -376,7 +377,6 @@ pub fn view<'a>(
                             title,
                             keybind.map(|kb| {
                                 text(format!("({kb})"))
-                                    .shaping(Shaping::Advanced)
                                     .size(theme::TEXT_SIZE - 2.0)
                                     .style(theme::text::secondary)
                                     .font_maybe(
@@ -881,9 +881,13 @@ impl State {
                         .uptime
                         .then(|| {
                             uptime_lib::get().ok().map(|uptime| {
-                                let mut formatter = timeago::Formatter::new();
-                                formatter.num_items(4);
-                                format!("UP: {}", formatter.convert(uptime))
+                                format!(
+                                    "UP: {:#}",
+                                    SignedDuration::from_secs(
+                                        i64::try_from(uptime.as_secs())
+                                            .unwrap_or(i64::MAX),
+                                    )
+                                )
                             })
                         })
                         .flatten(),
@@ -1216,20 +1220,10 @@ impl State {
                     (Task::none(), None)
                 }
             }
-            // Capture escape so that closing context menu or commands/emojis picker
-            // does not defocus input. Also exits message selection mode if active.
-            Message::Escape => {
-                if in_focus_mode {
-                    return (Task::none(), Some(Event::ExitFocus));
-                }
-                if self.close_picker() {
-                    return (Task::none(), None);
-                }
-                if self.clear_draft_reply(buffer, storage, config) {
-                    return (self.focus(), None);
-                }
-                (Task::none(), None)
-            }
+            // Capture escape so that closing context menu or commands/emojis
+            // picker does not defocus input.  Escape actions are handled by
+            // `Dashboard::handle_event` to allow global state to be considered.
+            Message::Escape => (Task::none(), None),
             Message::SendCommand { buffer, command } => {
                 let input = data::Input::from_command(buffer.clone(), command)
                     .encoded();
@@ -1422,8 +1416,8 @@ impl State {
                 self.spinner_hovered = hovered;
                 (Task::none(), None)
             }
-            Message::NavigateFocus(direction) => {
-                (Task::none(), Some(Event::NavigateFocus(direction)))
+            Message::NavigateFocus(direction, repeat) => {
+                (Task::none(), Some(Event::NavigateFocus(direction, repeat)))
             }
             Message::ExitFocus => (self.focus(), Some(Event::ExitFocus)),
             Message::FocusAction(action) => {
@@ -2274,6 +2268,16 @@ impl State {
                                 buffer::Internal::ChannelDiscovery(Some(
                                     buffer.as_server().clone(),
                                 )),
+                            )),
+                        );
+                    }
+                    command::Internal::Search(query) => {
+                        let query = (!query.is_empty()).then_some(query);
+
+                        return (
+                            Task::none(),
+                            Some(Event::OpenInternalBuffer(
+                                buffer::Internal::Search(query),
                             )),
                         );
                     }

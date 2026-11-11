@@ -1,19 +1,19 @@
 use std::str::FromStr;
 use std::string::ToString;
 
-use chrono::{DateTime, Utc};
 use data::config::actions::NicknameClickAction;
 use data::dashboard::BufferAction;
 use data::target::Target;
 use data::user::Nick;
 use data::{
-    Config, Server, User, ctcp, history, isupport, message, metadata, preview,
-    target,
+    Config, Server, User, buffer, ctcp, history, isupport, message, metadata,
+    preview, target,
 };
 use iced::widget::{Space, button, center, column, container, row, rule, span};
 use iced::{
     Background, Border, Color, ContentFit, Length, Padding, alignment, mouse,
 };
+use jiff::Timestamp;
 use url::Url;
 
 use crate::widget::{
@@ -84,7 +84,7 @@ pub enum Context<'a> {
     User(UserContext<'a>),
     Url(UrlContext<'a>),
     Channel(ChannelContext<'a>),
-    Timestamp(&'a DateTime<Utc>),
+    Timestamp(&'a Timestamp),
     NotSentMessage(&'a message::Time, &'a history::Id),
     Message { message: &'a message::Message },
 }
@@ -125,7 +125,11 @@ impl<'a> Context<'a> {
             ) => into_url_context
                 .map(|into_url_context| Context::Url(into_url_context(url))),
             message::Link::Channel(server, channel, _)
-            | message::Link::GoToMessage(server, channel, _, _)
+            | message::Link::GoToMessage(
+                buffer::Upstream::Channel(server, channel),
+                _,
+                _,
+            )
             | message::Link::ExpandMessage(
                 _,
                 _,
@@ -138,7 +142,8 @@ impl<'a> Context<'a> {
             ) => into_channel_context.map(|into_channel_context| {
                 Context::Channel(into_channel_context(server, channel))
             }),
-            message::Link::ExpandMessage(..)
+            message::Link::GoToMessage(..)
+            | message::Link::ExpandMessage(..)
             | message::Link::ContractMessage(..) => None,
         }
     }
@@ -150,6 +155,7 @@ pub enum Entry {
     Whois,
     Whowas,
     Query,
+    SearchMessages,
     ToggleAccessLevelOp,
     ToggleAccessLevelVoice,
     SendFile,
@@ -225,7 +231,11 @@ impl Entry {
                 into_url_list.map_or(vec![], |into_url_list| into_url_list(url))
             }
             message::Link::Channel(server, channel, _)
-            | message::Link::GoToMessage(server, channel, _, _)
+            | message::Link::GoToMessage(
+                buffer::Upstream::Channel(server, channel),
+                _,
+                _,
+            )
             | message::Link::ExpandMessage(
                 _,
                 _,
@@ -238,7 +248,8 @@ impl Entry {
             ) => into_channel_list.map_or(vec![], |into_channel_list| {
                 into_channel_list(server, channel)
             }),
-            message::Link::ExpandMessage(..)
+            message::Link::GoToMessage(..)
+            | message::Link::ExpandMessage(..)
             | message::Link::ContractMessage(..) => vec![],
         }
     }
@@ -363,6 +374,8 @@ impl Entry {
                     list.push(Entry::Whowas);
                 }
 
+                list.push(Entry::SearchMessages);
+
                 list
             } else if our_user.is_some_and(|u| {
                 u.has_access_level(data::user::AccessLevel::Oper)
@@ -372,6 +385,7 @@ impl Entry {
                     Entry::HorizontalRule,
                     Entry::Whois,
                     Entry::Query,
+                    Entry::SearchMessages,
                 ]);
 
                 if file_transfer_enabled {
@@ -394,6 +408,7 @@ impl Entry {
                     Entry::HorizontalRule,
                     Entry::Whois,
                     Entry::Query,
+                    Entry::SearchMessages,
                 ]);
 
                 if file_transfer_enabled {
@@ -411,7 +426,8 @@ impl Entry {
         } else {
             // In a query, server notice, or WALLOPS scenario we don't know
             // whether the user is online or not
-            let mut list = vec![Entry::Whois, Entry::Whowas];
+            let mut list =
+                vec![Entry::Whois, Entry::Whowas, Entry::SearchMessages];
 
             if file_transfer_enabled {
                 list.push(Entry::SendFile);
@@ -507,6 +523,13 @@ impl Entry {
                     (*server).clone(),
                     user.nickname().to_owned(),
                 )),
+            )),
+            (
+                Entry::SearchMessages,
+                Context::User(UserContext { user, .. }),
+            ) => Some((
+                "Search messages".to_string(),
+                Some(Message::SearchMessages(user.nickname().to_owned())),
             )),
             (Entry::Query, Context::User(UserContext { server, user, .. })) => {
                 Some((
@@ -713,9 +736,9 @@ impl Entry {
                     BufferAction::ReplacePane,
                 )),
             )),
-            (Entry::Timestamp, Context::Timestamp(date_time)) => Some((
-                config.buffer.format_context_menu_timestamp(date_time),
-                Some(Message::CopyTimestamp(**date_time)),
+            (Entry::Timestamp, Context::Timestamp(timestamp)) => Some((
+                config.buffer.format_context_menu_timestamp(timestamp),
+                Some(Message::CopyTimestamp(**timestamp)),
             )),
             (
                 Entry::DeleteMessage,
@@ -887,6 +910,7 @@ impl Entry {
 pub enum Message {
     Whois(Server, Nick),
     Whowas(Server, Nick),
+    SearchMessages(Nick),
     OpenTarget(Server, Target, BufferAction),
     ToggleAccessLevel(Server, target::Channel, Nick, String),
     SendFile(Server, User),
@@ -896,7 +920,7 @@ pub enum Message {
     OpenUrl(String),
     HidePreview(Option<history::Kind>, history::Id, message::Time, String),
     ShowPreview(Option<history::Kind>, history::Id, message::Time, String),
-    CopyTimestamp(DateTime<Utc>),
+    CopyTimestamp(Timestamp),
     #[allow(clippy::enum_variant_names)]
     DeleteMessage(message::Time, history::Id),
     #[allow(clippy::enum_variant_names)]
@@ -920,6 +944,7 @@ pub enum Message {
 pub enum Event {
     SendWhois(Server, Nick),
     SendWhowas(Server, Nick),
+    SearchMessages(Nick),
     OpenTarget(Server, Target, BufferAction),
     ToggleAccessLevel(Server, target::Channel, Nick, String),
     SendFile(Server, User),
@@ -929,7 +954,7 @@ pub enum Event {
     OpenUrl(String),
     HidePreview(Option<history::Kind>, history::Id, message::Time, String),
     ShowPreview(Option<history::Kind>, history::Id, message::Time, String),
-    CopyTimestamp(DateTime<Utc>),
+    CopyTimestamp(Timestamp),
     DeleteMessage(message::Time, history::Id),
     ResendMessage(message::Time, history::Id),
     OpenReactionModal(message::Id, message::Time),
@@ -948,6 +973,7 @@ pub fn update(message: Message) -> Option<Event> {
     match message {
         Message::Whois(server, nick) => Some(Event::SendWhois(server, nick)),
         Message::Whowas(server, nick) => Some(Event::SendWhowas(server, nick)),
+        Message::SearchMessages(nick) => Some(Event::SearchMessages(nick)),
         Message::OpenTarget(server, target, buffer_action) => {
             Some(Event::OpenTarget(server, target, buffer_action))
         }
@@ -967,8 +993,8 @@ pub fn update(message: Message) -> Option<Event> {
         Message::ShowPreview(kind, history_id, time, url) => {
             Some(Event::ShowPreview(kind, history_id, time, url))
         }
-        Message::CopyTimestamp(date_time) => {
-            Some(Event::CopyTimestamp(date_time))
+        Message::CopyTimestamp(timestamp) => {
+            Some(Event::CopyTimestamp(timestamp))
         }
         Message::DeleteMessage(time, history_id) => {
             Some(Event::DeleteMessage(time, history_id))
@@ -1250,7 +1276,7 @@ fn user_with_entries<'a>(
 
 pub fn timestamp<'a>(
     content: impl Into<Element<'a, Message>>,
-    date_time: &'a DateTime<Utc>,
+    timestamp: &'a Timestamp,
     config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
@@ -1265,7 +1291,7 @@ pub fn timestamp<'a>(
         entries,
         move |entry, length| {
             entry.view(
-                Some(Context::Timestamp(date_time)),
+                Some(Context::Timestamp(timestamp)),
                 length,
                 config,
                 theme,
