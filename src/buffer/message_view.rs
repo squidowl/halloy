@@ -1106,7 +1106,9 @@ impl<'a> ChannelQueryLayout<'a> {
         );
 
         if include_message_entries {
-            entries.push(context_menu::Entry::HorizontalRule);
+            if !entries.is_empty() {
+                entries.push(context_menu::Entry::HorizontalRule);
+            }
 
             entries.extend(self.message_entries(message));
         }
