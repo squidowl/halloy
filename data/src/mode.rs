@@ -1,9 +1,6 @@
 use std::fmt;
 
-use irc::proto;
-
-use crate::isupport;
-use crate::user::ProtectedPrefix;
+use crate::{isupport, user};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Mode<T> {
@@ -44,7 +41,7 @@ pub enum Operation {
 }
 
 pub trait Parser: Copy {
-    fn from_char(c: char) -> Self;
+    fn from_char(c: char, prefix: &[isupport::PrefixMap]) -> Self;
 }
 
 // Reference: https://defs.ircdocs.horse/defs/chanmodes
@@ -80,63 +77,12 @@ pub enum Channel {
     ExemptChanOps,
     OperPrefix,
     OJoin,
-    Founder,
-    Protected(ProtectedPrefix),
-    Oper,
-    HalfOp,
-    Voice,
+    AccessLevel(user::AccessLevel),
     Unknown(char),
 }
 
 // These mappings, where not supplied via ISUPPORT, are from typical/common
 // mode letters and cannot be relied upon when certainty is necessary.
-
-impl From<char> for Channel {
-    fn from(c: char) -> Self {
-        use Channel::*;
-
-        match c {
-            'a' => Admin,
-            'b' => Ban,
-            'B' => BlockCaps,
-            'C' => NoCTCP,
-            'D' => DelayJoins,
-            'e' => BanException,
-            'g' => ChanFilter,
-            'G' => StripBadWords,
-            'H' => History,
-            'i' => InviteOnly,
-            'I' => InviteException, // TODO: This mapping should be determined via ISUPPORT
-            'j' => JoinThrottle,
-            'J' => KickNoRejoin,
-            'k' => KeyLock,
-            'K' => NoKnock,
-            'l' => Limit,
-            'm' => Moderated,
-            'n' => NoExternalMessages,
-            'N' => NoNickChange,
-            'P' => Permanent,
-            'r' => RegisteredOnly,
-            's' => Secret,
-            't' => ProtectedTopic,
-            'T' => NoNotice,
-            'V' => NoInvite,
-            'w' => AutoOp,
-            'X' => ExemptChanOps,
-            'y' => OperPrefix,
-            'Y' => OJoin,
-            proto::FOUNDER_PREFIX => Founder,
-            proto::PROTECTED_PREFIX_STD => Protected(ProtectedPrefix::Standard),
-            proto::PROTECTED_PREFIX_ALT => {
-                Protected(ProtectedPrefix::Alternative)
-            }
-            proto::OPERATOR_PREFIX => Oper,
-            proto::HALF_OPERATOR_PREFIX => HalfOp,
-            proto::VOICED_PREFIX => Voice,
-            _ => Unknown(c),
-        }
-    }
-}
 
 impl fmt::Display for Channel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -172,19 +118,61 @@ impl fmt::Display for Channel {
             ExemptChanOps => write!(f, "Exempt Automatic Channel Membership"),
             OperPrefix => write!(f, "Operator Prefix"),
             OJoin => write!(f, "Operator with Prefix"),
-            Founder => write!(f, "Founder"),
-            Protected(_) => write!(f, "Protected"),
-            Oper => write!(f, "Operator"),
-            HalfOp => write!(f, "Half Operator"),
-            Voice => write!(f, "Voice"),
+            AccessLevel(access_level) => match access_level {
+                user::AccessLevel::Member => write!(f, "Member"),
+                user::AccessLevel::Founder => write!(f, "Founder"),
+                user::AccessLevel::Protected(_) => write!(f, "Protected"),
+                user::AccessLevel::Oper => write!(f, "Operator"),
+                user::AccessLevel::HalfOp => write!(f, "Half Operator"),
+                user::AccessLevel::Voice => write!(f, "Voice"),
+                user::AccessLevel::Unknown(prefix) => {
+                    write!(f, "Unknown Prefix ({prefix})")
+                }
+            },
             Unknown(_) => write!(f, "Unknown Mode"),
         }
     }
 }
 
 impl Parser for Channel {
-    fn from_char(c: char) -> Self {
-        Self::from(c)
+    fn from_char(c: char, prefix: &[isupport::PrefixMap]) -> Self {
+        use Channel::*;
+
+        user::AccessLevel::try_from_mode_char(c, prefix).map_or(
+            match c {
+                'a' => Admin,
+                'b' => Ban,
+                'B' => BlockCaps,
+                'C' => NoCTCP,
+                'D' => DelayJoins,
+                'e' => BanException,
+                'g' => ChanFilter,
+                'G' => StripBadWords,
+                'H' => History,
+                'i' => InviteOnly,
+                'I' => InviteException, // TODO: This mapping should be determined via ISUPPORT
+                'j' => JoinThrottle,
+                'J' => KickNoRejoin,
+                'k' => KeyLock,
+                'K' => NoKnock,
+                'l' => Limit,
+                'm' => Moderated,
+                'n' => NoExternalMessages,
+                'N' => NoNickChange,
+                'P' => Permanent,
+                'r' => RegisteredOnly,
+                's' => Secret,
+                't' => ProtectedTopic,
+                'T' => NoNotice,
+                'V' => NoInvite,
+                'w' => AutoOp,
+                'X' => ExemptChanOps,
+                'y' => OperPrefix,
+                'Y' => OJoin,
+                _ => Unknown(c),
+            },
+            AccessLevel,
+        )
     }
 }
 
@@ -283,7 +271,7 @@ impl fmt::Display for User {
 }
 
 impl Parser for User {
-    fn from_char(c: char) -> Self {
+    fn from_char(c: char, _prefix: &[isupport::PrefixMap]) -> Self {
         Self::from(c)
     }
 }
@@ -317,14 +305,8 @@ where
             '+' => sign = Sign::Plus,
             '-' => sign = Sign::Minus,
             _ => {
-                let value = T::from_char(
-                    prefix
-                        .iter()
-                        .find_map(|prefix_map| {
-                            (prefix_map.mode == c).then_some(prefix_map.prefix)
-                        })
-                        .unwrap_or(c),
-                );
+                let value = T::from_char(c, prefix);
+
                 let arg = if takes_arg(c, sign, chanmodes, prefix) {
                     args.next().cloned()
                 } else {
@@ -403,8 +385,14 @@ mod test {
                 "-o+v",
                 vec!["alice".into(), "bob".into()],
                 vec![
-                    Mode::Remove(Channel::Oper, Some("alice".into())),
-                    Mode::Add(Channel::Voice, Some("bob".into())),
+                    Mode::Remove(
+                        Channel::AccessLevel(user::AccessLevel::Oper),
+                        Some("alice".into()),
+                    ),
+                    Mode::Add(
+                        Channel::AccessLevel(user::AccessLevel::Voice),
+                        Some("bob".into()),
+                    ),
                 ],
             ),
             // Signs may repeat multiple times
@@ -412,8 +400,14 @@ mod test {
                 "+o-v+t",
                 vec!["alice".into(), "bob".into()],
                 vec![
-                    Mode::Add(Channel::Oper, Some("alice".into())),
-                    Mode::Remove(Channel::Voice, Some("bob".into())),
+                    Mode::Add(
+                        Channel::AccessLevel(user::AccessLevel::Oper),
+                        Some("alice".into()),
+                    ),
+                    Mode::Remove(
+                        Channel::AccessLevel(user::AccessLevel::Voice),
+                        Some("bob".into()),
+                    ),
                     Mode::Add(Channel::ProtectedTopic, None),
                 ],
             ),
