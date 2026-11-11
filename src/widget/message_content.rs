@@ -4,10 +4,10 @@ use data::target::Query;
 use data::{Config, Server, User, isupport, message, metadata, target};
 use iced::widget::text::Span;
 use iced::widget::{button, span};
-use iced::{Color, Length, border};
+use iced::{Color, border};
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{Element, Renderer, selectable_rich_text, selectable_text};
+use super::{Element, selectable_rich_text, selectable_text};
 use crate::{Theme, font, theme};
 
 pub fn message_content<'a, M: 'a + std::clone::Clone>(
@@ -26,7 +26,7 @@ pub fn message_content<'a, M: 'a + std::clone::Clone>(
     nick_prefix_to_strip: Option<&str>,
     config: &Config,
 ) -> Element<'a, M> {
-    message_content_impl::<(), M>(
+    message_content_impl(
         content,
         hidden_fragments,
         server,
@@ -39,14 +39,14 @@ pub fn message_content<'a, M: 'a + std::clone::Clone>(
         style,
         font_style,
         color_transformation,
-        Option::<(fn(&message::Link) -> _, fn(&message::Link, _, _) -> _)>::None,
+        Option::<fn(message::Link) -> Element<'a, M>>::None,
         nick_prefix_to_strip,
         config,
         None,
     )
 }
 
-pub fn with_context<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
+pub fn with_context<'a, M: 'a + std::clone::Clone>(
     content: &'a message::Content,
     hidden_fragments: &[usize],
     server: &'a Server,
@@ -59,8 +59,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
     font_style: impl Fn(&Theme) -> Option<FontStyle>,
     color_transformation: Option<impl Fn(Color) -> Color>,
-    link_entries: impl Fn(&message::Link) -> Vec<T> + 'a,
-    entry: impl Fn(&message::Link, T, Length) -> Element<'a, M> + 'a,
+    menu: impl Fn(message::Link) -> Element<'a, M> + 'a,
     nick_prefix_to_strip: Option<&str>,
     config: &Config,
     focused_fragment_index: Option<usize>,
@@ -78,7 +77,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
         style,
         font_style,
         color_transformation,
-        Some((link_entries, entry)),
+        Some(menu),
         nick_prefix_to_strip,
         config,
         focused_fragment_index,
@@ -86,7 +85,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
 }
 
 #[allow(clippy::type_complexity)]
-fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
+fn message_content_impl<'a, M: 'a + std::clone::Clone>(
     content: &'a message::Content,
     hidden_fragments: &[usize],
     server: &'a Server,
@@ -99,10 +98,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
     font_style: impl Fn(&Theme) -> Option<FontStyle>,
     color_transformation: Option<impl Fn(Color) -> Color>,
-    context_menu: Option<(
-        impl Fn(&message::Link) -> Vec<T> + 'a,
-        impl Fn(&message::Link, T, Length) -> Element<'a, M> + 'a,
-    )>,
+    context_menu: Option<impl Fn(message::Link) -> Element<'a, M> + 'a>,
     nick_prefix_to_strip: Option<&str>,
     config: &Config,
     focused_fragment_index: Option<usize>,
@@ -176,13 +172,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                     leading_nick_offsets(fragments, nick)
                 });
 
-            let mut text = selectable_rich_text::<
-                M,
-                message::Link,
-                T,
-                Theme,
-                Renderer,
-            >(
+            let mut text = selectable_rich_text(
                 fragments
                     .iter()
                     .enumerate()
@@ -431,8 +421,8 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
             .font_maybe(font_style(theme).map(font::get))
             .style(style);
 
-            if let Some((link_entries, view)) = context_menu {
-                text = text.context_menu(link_entries, view);
+            if let Some(menu) = context_menu {
+                text = text.context_menu(menu);
             }
 
             text.into()
@@ -443,9 +433,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                     .font_maybe(font_style(theme).map(font::get)),
             ];
 
-            selectable_rich_text::<M, message::Link, T, Theme, Renderer>(spans)
-                .style(style)
-                .into()
+            selectable_rich_text(spans).style(style).into()
         }
     }
 }

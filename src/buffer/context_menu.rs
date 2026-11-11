@@ -17,8 +17,8 @@ use jiff::Timestamp;
 use url::Url;
 
 use crate::widget::{
-    Element, Renderer, color_dot, context_menu, double_pass, image,
-    selectable_rich_text, selectable_text, text,
+    Element, color_dot, context_menu, double_pass, image, selectable_rich_text,
+    selectable_text, text,
 };
 use crate::{Theme, font, icon, theme, widget};
 
@@ -1064,19 +1064,20 @@ where
         context_menu::ToggleBehavior::KeepOpen,
         None,
         content,
-        entries,
-        move |entry, length| {
-            entry
-                .view(
-                    Some(Context::Message {
-                        message: &message.inner,
-                    }),
-                    length,
-                    config,
-                    theme,
-                    false,
-                )
-                .map(M::from)
+        move || {
+            context_menu::items(entries, move |entry, length| {
+                entry
+                    .view(
+                        Some(Context::Message {
+                            message: &message.inner,
+                        }),
+                        length,
+                        config,
+                        theme,
+                        false,
+                    )
+                    .map(M::from)
+            })
         },
     )
     .into()
@@ -1107,20 +1108,21 @@ where
         context_menu::ToggleBehavior::KeepOpen,
         None,
         content,
-        entries,
-        move |entry, length| {
-            entry
-                .view(
-                    Some(Context::Url(UrlContext {
-                        url,
-                        message: Some(&message.inner),
-                    })),
-                    length,
-                    config,
-                    theme,
-                    false,
-                )
-                .map(M::from)
+        move || {
+            context_menu::items(entries, move |entry, length| {
+                entry
+                    .view(
+                        Some(Context::Url(UrlContext {
+                            url,
+                            message: Some(&message.inner),
+                        })),
+                        length,
+                        config,
+                        theme,
+                        false,
+                    )
+                    .map(M::from)
+            })
         },
     )
     .into()
@@ -1248,25 +1250,26 @@ fn user_with_entries<'a>(
         context_menu::ToggleBehavior::KeepOpen,
         Some(mouse::Interaction::Pointer),
         base,
-        entries,
-        move |entry, length| {
-            entry.view(
-                Some(Context::User(UserContext {
-                    server,
-                    prefix,
-                    channel,
-                    registry,
-                    avatar: avatar.clone(),
-                    user,
-                    current_user,
-                    relayed_by,
-                    message: None,
-                })),
-                length,
-                config,
-                theme,
-                false,
-            )
+        move || {
+            context_menu::items(entries, move |entry, length| {
+                entry.view(
+                    Some(Context::User(UserContext {
+                        server,
+                        prefix,
+                        channel,
+                        registry,
+                        avatar: avatar.clone(),
+                        user,
+                        current_user,
+                        relayed_by,
+                        message: None,
+                    })),
+                    length,
+                    config,
+                    theme,
+                    false,
+                )
+            })
         },
     );
 
@@ -1291,15 +1294,16 @@ pub fn timestamp<'a>(
         context_menu::ToggleBehavior::KeepOpen,
         None,
         content,
-        entries,
-        move |entry, length| {
-            entry.view(
-                Some(Context::Timestamp(timestamp)),
-                length,
-                config,
-                theme,
-                false,
-            )
+        move || {
+            context_menu::items(entries, move |entry, length| {
+                entry.view(
+                    Some(Context::Timestamp(timestamp)),
+                    length,
+                    config,
+                    theme,
+                    false,
+                )
+            })
         },
     )
     .into()
@@ -1321,15 +1325,16 @@ pub fn not_sent_message<'a>(
         context_menu::ToggleBehavior::KeepOpen,
         Some(mouse::Interaction::Pointer),
         content,
-        entries,
-        move |entry, length| {
-            entry.view(
-                Some(Context::NotSentMessage(time, history_id)),
-                length,
-                config,
-                theme,
-                false,
-            )
+        move || {
+            context_menu::items(entries, move |entry, length| {
+                entry.view(
+                    Some(Context::NotSentMessage(time, history_id)),
+                    length,
+                    config,
+                    theme,
+                    false,
+                )
+            })
         },
     )
     .into()
@@ -1478,13 +1483,7 @@ fn user_metadata<'a>(
         .map(|(key, value)| {
             match key {
                 metadata::Key::Homepage => Url::parse(value).ok().map(|url| {
-                    selectable_rich_text::<
-                        Message,
-                        message::Link,
-                        (),
-                        Theme,
-                        Renderer,
-                    >(vec![
+                    selectable_rich_text(vec![
                         if config.display.decode_urls {
                             span(data::url::display(&url).to_string())
                         } else {

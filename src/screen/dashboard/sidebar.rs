@@ -592,13 +592,14 @@ impl Sidebar {
                 context_menu::ToggleBehavior::Close,
                 Some(mouse::Interaction::Pointer),
                 base,
-                menu,
-                move |menu, length| {
+                move || {
                     let context_button =
                         |title: Text<'a>,
                          keybinds: Option<&data::shortcut::KeyBinds>,
                          icon: TextColorSvg<'a, Theme>,
-                         message: Message| {
+                         message: Message,
+                         length: Length,
+                         key_bind_font_size: f32| {
                             let keybind =
                                 keybinds.and_then(|key_binds| match key_binds
                                     .primary()
@@ -636,12 +637,14 @@ impl Sidebar {
                             .into()
                         };
 
-                    match menu {
+                    context_menu::items(menu, move |menu, length| match menu {
                         Menu::QuitApplication => context_button(
                             text("Quit Halloy"),
                             Some(&keyboard.quit_application),
                             icon::quit(),
                             Message::QuitApplication,
+                            length,
+                            key_bind_font_size,
                         ),
                         Menu::ShowMutedBuffers(show_muted_buffers) => {
                             context_button(
@@ -661,6 +664,8 @@ impl Sidebar {
                                     icon::hide()
                                 },
                                 Message::ShowMutedBuffers(show_muted_buffers),
+                                length,
+                                key_bind_font_size,
                             )
                         }
                         Menu::RefreshConfig => context_button(
@@ -668,12 +673,16 @@ impl Sidebar {
                             Some(&keyboard.reload_configuration),
                             icon::refresh(),
                             Message::ReloadConfigFile,
+                            length,
+                            key_bind_font_size,
                         ),
                         Menu::CommandBar => context_button(
                             text("Command Bar"),
                             Some(&keyboard.command_bar),
                             icon::search(),
                             Message::ToggleCommandBar,
+                            length,
+                            key_bind_font_size,
                         ),
                         Menu::FileTransfers => context_button(
                             text("File Transfers")
@@ -700,6 +709,8 @@ impl Sidebar {
                             Message::Replace(
                                 buffer::Internal::FileTransfers.into(),
                             ),
+                            length,
+                            key_bind_font_size,
                         ),
                         Menu::Search => context_button(
                             text("Search"),
@@ -708,6 +719,8 @@ impl Sidebar {
                             Message::Replace(
                                 buffer::Internal::Search(None).into(),
                             ),
+                            length,
+                            key_bind_font_size,
                         ),
                         Menu::Highlights => context_button(
                             text("Highlights"),
@@ -716,6 +729,8 @@ impl Sidebar {
                             Message::Replace(
                                 buffer::Internal::Highlights.into(),
                             ),
+                            length,
+                            key_bind_font_size,
                         ),
                         Menu::ChannelDiscovery => context_button(
                             text("Channel Discovery"),
@@ -724,6 +739,8 @@ impl Sidebar {
                             Message::Replace(
                                 buffer::Internal::ChannelDiscovery(None).into(),
                             ),
+                            length,
+                            key_bind_font_size,
                         ),
                         Menu::ChannelMonitor => context_button(
                             text("Channel Monitor"),
@@ -732,6 +749,8 @@ impl Sidebar {
                             Message::Replace(
                                 buffer::Internal::ChannelMonitor.into(),
                             ),
+                            length,
+                            key_bind_font_size,
                         ),
                         Menu::Logs => context_button(
                             text("Logs")
@@ -754,12 +773,16 @@ impl Sidebar {
                                 theme::text::primary
                             }),
                             Message::Replace(buffer::Internal::Logs.into()),
+                            length,
+                            key_bind_font_size,
                         ),
                         Menu::ThemeEditor => context_button(
                             text("Theme Editor"),
                             Some(&keyboard.theme_editor),
                             icon::theme_editor(),
                             Message::ToggleThemeEditor,
+                            length,
+                            key_bind_font_size,
                         ),
                         Menu::HorizontalRule => match length {
                             Length::Fill => container(rule::horizontal(1))
@@ -777,6 +800,8 @@ impl Sidebar {
                             None,
                             icon::megaphone().style(theme::text::tertiary),
                             Message::OpenReleaseWebsite,
+                            length,
+                            key_bind_font_size,
                         ),
                         Menu::Version => context_button(
                             text("About Halloy"),
@@ -791,12 +816,16 @@ impl Sidebar {
                                     .to_string(),
                                 system_information: system_information.clone(),
                             },
+                            length,
+                            key_bind_font_size,
                         ),
                         Menu::Documentation => context_button(
                             text("Documentation"),
                             None,
                             icon::documentation(),
                             Message::OpenDocumentation,
+                            length,
+                            key_bind_font_size,
                         ),
                         Menu::ConfigEditor => context_button(
                             text("Config Editor"),
@@ -805,8 +834,10 @@ impl Sidebar {
                             Message::Replace(
                                 buffer::Internal::ConfigEditor.into(),
                             ),
+                            length,
+                            key_bind_font_size,
                         ),
-                    }
+                    })
                 },
             )
             .into()
@@ -1881,180 +1912,186 @@ fn upstream_buffer_context_menu<'a>(
         context_menu::ToggleBehavior::KeepOpen,
         Some(mouse::Interaction::Pointer),
         base,
-        entries,
-        move |entry, length| {
-            let (content, message) = match entry {
-                Entry::CloseAllQueries => {
-                    let queries = models
-                        .visible_server_queries(buffer.as_server())
-                        .into_iter()
-                        .cloned()
-                        .collect::<Vec<_>>();
+        move || {
+            context_menu::items(entries, move |entry, length| {
+                let (content, message) = match entry {
+                    Entry::CloseAllQueries => {
+                        let queries = models
+                            .visible_server_queries(buffer.as_server())
+                            .into_iter()
+                            .cloned()
+                            .collect::<Vec<_>>();
 
-                    (
-                        "Close all queries",
-                        if queries.is_empty() {
-                            None
-                        } else {
-                            Some(Message::CloseAllQueries(
-                                buffer.as_server().clone(),
-                                queries,
-                            ))
-                        },
-                    )
-                }
-                Entry::MarkAsRead => (
-                    if matches!(&buffer, buffer::Upstream::Server(_)) {
-                        "Mark server buffer as read"
-                    } else {
-                        "Mark as read"
-                    },
-                    can_mark_as_read
-                        .then(|| Message::MarkAsRead(buffer.clone().into())),
-                ),
-                Entry::MarkServerAsRead => (
-                    "Mark entire server as read",
-                    server_has_unread.then(|| {
-                        Message::MarkServerAsRead(buffer.as_server().clone())
-                    }),
-                ),
-                Entry::ChannelDiscovery => (
-                    "Open channel discovery",
-                    Some(Message::OpenChannelDiscovery(
-                        buffer.as_server().clone(),
-                    )),
-                ),
-                Entry::NewPane => (
-                    "Open in new pane",
-                    Some(Message::New(buffer.clone().into())),
-                ),
-                Entry::Popout => (
-                    "Open in new window",
-                    Some(Message::Popout(buffer.clone().into())),
-                ),
-                Entry::Replace => (
-                    "Replace current pane",
-                    Some(Message::Replace(buffer.clone().into())),
-                ),
-                Entry::Close(window, pane) => {
-                    ("Close pane", Some(Message::Close(window, pane)))
-                }
-                Entry::Swap(window, pane) => (
-                    "Swap with current pane",
-                    Some(Message::Swap(window, pane)),
-                ),
-                Entry::Detach => (
-                    "Detach from channel",
-                    Some(Message::Detach(buffer.clone())),
-                ),
-                Entry::Leave => (
-                    match &buffer {
-                        buffer::Upstream::Server(_) => "Disconnect from server",
-                        buffer::Upstream::Channel(_, _) => "Leave channel",
-                        buffer::Upstream::Query(_, _) => "Close query",
-                    },
-                    Some(Message::Leave(buffer.clone())),
-                ),
-                Entry::Connect => (
-                    "Connect to server",
-                    Some(Message::Connect(buffer.as_server().clone())),
-                ),
-                Entry::DisableAutoconnect => (
-                    "Disable autoconnect",
-                    Some(Message::DisableAutoconnect(
-                        buffer.as_server().clone(),
-                    )),
-                ),
-                Entry::Remove => (
-                    "Remove server from sidebar",
-                    Some(Message::Remove(buffer.as_server().clone())),
-                ),
-                Entry::Context => {
-                    return container(
-                        row![
-                            text(match &buffer {
-                                buffer::Upstream::Server(server) =>
-                                    server.network.as_ref().map_or_else(
-                                        || format!("{server}"),
-                                        |network| network.name.to_string(),
-                                    ),
-                                buffer::Upstream::Channel(_, channel) => {
-                                    format!("{channel}")
-                                }
-                                buffer::Upstream::Query(_, query) => {
-                                    format!("{query}")
-                                }
-                            })
-                            .style(theme::text::primary)
-                            .font_maybe(
-                                theme::font_style::primary(theme)
-                                    .map(font::get),
-                            ),
-                            Space::new().width(6),
-                            match &buffer {
-                                buffer::Upstream::Server(server) => server
-                                    .network
-                                    .is_some()
-                                    .then(|| server.name.to_string()),
-                                buffer::Upstream::Channel(server, _)
-                                | buffer::Upstream::Query(server, _) => {
-                                    Some(format!("{server}"))
-                                }
-                            }
-                            .map(
-                                |secondary_name| text(secondary_name)
-                                    .style(theme::text::secondary)
-                                    .font_maybe(
-                                        theme::font_style::secondary(theme)
-                                            .map(font::get)
-                                    )
-                            ),
-                        ]
-                        .width(length),
-                    )
-                    .padding(config.context_menu.padding.entry)
-                    .into();
-                }
-                Entry::HorizontalRule => match length {
-                    Length::Fill => {
-                        return container(rule::horizontal(1))
-                            .padding([0, 6])
-                            .into();
-                    }
-                    _ => {
-                        return Space::new().width(length).height(1).into();
-                    }
-                },
-                Entry::ToggleCollapse => {
-                    let server = buffer.as_server();
-                    let is_expanded =
-                        collapse.is_expanded(server, server_sidebar_visibility);
-                    (
-                        if is_expanded {
-                            "Collapse server"
-                        } else {
-                            "Expand server"
-                        },
-                        Some(Message::SetServerVisibility(
-                            server.clone(),
-                            if is_expanded {
-                                SidebarVisibility::Collapsed
+                        (
+                            "Close all queries",
+                            if queries.is_empty() {
+                                None
                             } else {
-                                SidebarVisibility::Expanded
+                                Some(Message::CloseAllQueries(
+                                    buffer.as_server().clone(),
+                                    queries,
+                                ))
                             },
+                        )
+                    }
+                    Entry::MarkAsRead => (
+                        if matches!(&buffer, buffer::Upstream::Server(_)) {
+                            "Mark server buffer as read"
+                        } else {
+                            "Mark as read"
+                        },
+                        can_mark_as_read.then(|| {
+                            Message::MarkAsRead(buffer.clone().into())
+                        }),
+                    ),
+                    Entry::MarkServerAsRead => (
+                        "Mark entire server as read",
+                        server_has_unread.then(|| {
+                            Message::MarkServerAsRead(
+                                buffer.as_server().clone(),
+                            )
+                        }),
+                    ),
+                    Entry::ChannelDiscovery => (
+                        "Open channel discovery",
+                        Some(Message::OpenChannelDiscovery(
+                            buffer.as_server().clone(),
                         )),
-                    )
-                }
-            };
+                    ),
+                    Entry::NewPane => (
+                        "Open in new pane",
+                        Some(Message::New(buffer.clone().into())),
+                    ),
+                    Entry::Popout => (
+                        "Open in new window",
+                        Some(Message::Popout(buffer.clone().into())),
+                    ),
+                    Entry::Replace => (
+                        "Replace current pane",
+                        Some(Message::Replace(buffer.clone().into())),
+                    ),
+                    Entry::Close(window, pane) => {
+                        ("Close pane", Some(Message::Close(window, pane)))
+                    }
+                    Entry::Swap(window, pane) => (
+                        "Swap with current pane",
+                        Some(Message::Swap(window, pane)),
+                    ),
+                    Entry::Detach => (
+                        "Detach from channel",
+                        Some(Message::Detach(buffer.clone())),
+                    ),
+                    Entry::Leave => (
+                        match &buffer {
+                            buffer::Upstream::Server(_) => {
+                                "Disconnect from server"
+                            }
+                            buffer::Upstream::Channel(_, _) => "Leave channel",
+                            buffer::Upstream::Query(_, _) => "Close query",
+                        },
+                        Some(Message::Leave(buffer.clone())),
+                    ),
+                    Entry::Connect => (
+                        "Connect to server",
+                        Some(Message::Connect(buffer.as_server().clone())),
+                    ),
+                    Entry::DisableAutoconnect => (
+                        "Disable autoconnect",
+                        Some(Message::DisableAutoconnect(
+                            buffer.as_server().clone(),
+                        )),
+                    ),
+                    Entry::Remove => (
+                        "Remove server from sidebar",
+                        Some(Message::Remove(buffer.as_server().clone())),
+                    ),
+                    Entry::Context => {
+                        return container(
+                            row![
+                                text(match &buffer {
+                                    buffer::Upstream::Server(server) =>
+                                        server.network.as_ref().map_or_else(
+                                            || format!("{server}"),
+                                            |network| network.name.to_string(),
+                                        ),
+                                    buffer::Upstream::Channel(_, channel) => {
+                                        format!("{channel}")
+                                    }
+                                    buffer::Upstream::Query(_, query) => {
+                                        format!("{query}")
+                                    }
+                                })
+                                .style(theme::text::primary)
+                                .font_maybe(
+                                    theme::font_style::primary(theme)
+                                        .map(font::get),
+                                ),
+                                Space::new().width(6),
+                                match &buffer {
+                                    buffer::Upstream::Server(server) => server
+                                        .network
+                                        .is_some()
+                                        .then(|| server.name.to_string()),
+                                    buffer::Upstream::Channel(server, _)
+                                    | buffer::Upstream::Query(server, _) => {
+                                        Some(format!("{server}"))
+                                    }
+                                }
+                                .map(
+                                    |secondary_name| text(secondary_name)
+                                        .style(theme::text::secondary)
+                                        .font_maybe(
+                                            theme::font_style::secondary(theme)
+                                                .map(font::get)
+                                        )
+                                ),
+                            ]
+                            .width(length),
+                        )
+                        .padding(config.context_menu.padding.entry)
+                        .into();
+                    }
+                    Entry::HorizontalRule => match length {
+                        Length::Fill => {
+                            return container(rule::horizontal(1))
+                                .padding([0, 6])
+                                .into();
+                        }
+                        _ => {
+                            return Space::new().width(length).height(1).into();
+                        }
+                    },
+                    Entry::ToggleCollapse => {
+                        let server = buffer.as_server();
+                        let is_expanded = collapse
+                            .is_expanded(server, server_sidebar_visibility);
+                        (
+                            if is_expanded {
+                                "Collapse server"
+                            } else {
+                                "Expand server"
+                            },
+                            Some(Message::SetServerVisibility(
+                                server.clone(),
+                                if is_expanded {
+                                    SidebarVisibility::Collapsed
+                                } else {
+                                    SidebarVisibility::Expanded
+                                },
+                            )),
+                        )
+                    }
+                };
 
-            button(text(content))
-                .width(length)
-                .padding(config.context_menu.padding.entry)
-                .style(|theme, status| {
-                    theme::button::primary(theme, status, false)
-                })
-                .on_press_maybe(message)
-                .into()
+                button(text(content))
+                    .width(length)
+                    .padding(config.context_menu.padding.entry)
+                    .style(|theme, status| {
+                        theme::button::primary(theme, status, false)
+                    })
+                    .on_press_maybe(message)
+                    .into()
+            })
         },
     )
     .into()
@@ -2261,72 +2298,76 @@ fn internal_buffer_button<'a>(
             context_menu::ToggleBehavior::KeepOpen,
             Some(mouse::Interaction::Pointer),
             base,
-            entries,
-            move |entry, length| {
-                let (content, message) = match entry {
-                    Entry::MarkAsRead => (
-                        "Mark as read",
-                        if can_mark_as_read {
-                            Some(Message::MarkAsRead(buffer.clone().into()))
-                        } else {
-                            None
+            move || {
+                context_menu::items(entries, move |entry, length| {
+                    let (content, message) = match entry {
+                        Entry::MarkAsRead => (
+                            "Mark as read",
+                            if can_mark_as_read {
+                                Some(Message::MarkAsRead(buffer.clone().into()))
+                            } else {
+                                None
+                            },
+                        ),
+                        Entry::NewPane => (
+                            "Open in new pane",
+                            Some(Message::New(buffer.clone().into())),
+                        ),
+                        Entry::Popout => (
+                            "Open in new window",
+                            Some(Message::Popout(buffer.clone().into())),
+                        ),
+                        Entry::Replace => (
+                            "Replace current pane",
+                            Some(Message::Replace(buffer.clone().into())),
+                        ),
+                        Entry::Close(window, pane) => {
+                            ("Close pane", Some(Message::Close(window, pane)))
+                        }
+                        Entry::Swap(window, pane) => (
+                            "Swap with current pane",
+                            Some(Message::Swap(window, pane)),
+                        ),
+                        Entry::Context => {
+                            return container(
+                                text(title)
+                                    .style(theme::text::primary)
+                                    .font_maybe(
+                                        theme::font_style::primary(theme)
+                                            .map(font::get),
+                                    )
+                                    .width(length),
+                            )
+                            .padding(config.context_menu.padding.entry)
+                            .into();
+                        }
+                        Entry::HorizontalRule => match length {
+                            Length::Fill => {
+                                return container(rule::horizontal(1))
+                                    .padding([0, 6])
+                                    .into();
+                            }
+                            _ => {
+                                return Space::new()
+                                    .width(length)
+                                    .height(1)
+                                    .into();
+                            }
                         },
-                    ),
-                    Entry::NewPane => (
-                        "Open in new pane",
-                        Some(Message::New(buffer.clone().into())),
-                    ),
-                    Entry::Popout => (
-                        "Open in new window",
-                        Some(Message::Popout(buffer.clone().into())),
-                    ),
-                    Entry::Replace => (
-                        "Replace current pane",
-                        Some(Message::Replace(buffer.clone().into())),
-                    ),
-                    Entry::Close(window, pane) => {
-                        ("Close pane", Some(Message::Close(window, pane)))
-                    }
-                    Entry::Swap(window, pane) => (
-                        "Swap with current pane",
-                        Some(Message::Swap(window, pane)),
-                    ),
-                    Entry::Context => {
-                        return container(
-                            text(title)
-                                .style(theme::text::primary)
-                                .font_maybe(
-                                    theme::font_style::primary(theme)
-                                        .map(font::get),
-                                )
-                                .width(length),
-                        )
-                        .padding(config.context_menu.padding.entry)
-                        .into();
-                    }
-                    Entry::HorizontalRule => match length {
-                        Length::Fill => {
-                            return container(rule::horizontal(1))
-                                .padding([0, 6])
-                                .into();
-                        }
                         _ => {
-                            return Space::new().width(length).height(1).into();
+                            return row![].into();
                         }
-                    },
-                    _ => {
-                        return row![].into();
-                    }
-                };
+                    };
 
-                button(text(content))
-                    .width(length)
-                    .padding(config.context_menu.padding.entry)
-                    .style(|theme, status| {
-                        theme::button::primary(theme, status, false)
-                    })
-                    .on_press_maybe(message)
-                    .into()
+                    button(text(content))
+                        .width(length)
+                        .padding(config.context_menu.padding.entry)
+                        .style(|theme, status| {
+                            theme::button::primary(theme, status, false)
+                        })
+                        .on_press_maybe(message)
+                        .into()
+                })
             },
         )
         .into()

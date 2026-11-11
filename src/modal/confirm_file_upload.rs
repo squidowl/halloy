@@ -28,7 +28,7 @@ pub fn view<'a>(
     }
 
     let content = column![
-        selectable_rich_text::<Message, (), (), _, _>(spans)
+        selectable_rich_text(spans)
             .on_link(|()| Message::OpenURL(url.to_string()))
             .align_x(iced::Alignment::Center),
         row![

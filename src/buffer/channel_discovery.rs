@@ -244,13 +244,7 @@ fn channel_list_view<'a>(
         .into_iter()
         .enumerate()
         .map(|(idx, (channel, topic_content, user_count))| {
-            let channel_text = selectable_rich_text::<
-                _,
-                message::Link,
-                context_menu::Entry,
-                _,
-                _,
-            >(vec![
+            let channel_text = selectable_rich_text(vec![
                 span(channel.as_str())
                     .font_maybe(
                         theme.styles().buffer.url.font_style.map(font::get),
@@ -271,50 +265,51 @@ fn channel_list_view<'a>(
                     )),
             ])
             .on_link(Message::Link)
-            .context_menu(
-                move |link| {
-                    context_menu::Entry::link_list(
-                        link,
-                        Option::<fn(&User) -> Vec<context_menu::Entry>>::None,
-                        Option::<fn(&str) -> Vec<context_menu::Entry>>::None,
-                        Some(|server, channel| {
-                            context_menu::Entry::channel_list(
-                                channels_context.is_open(server, channel),
-                                channels_context.is_focused(server, channel),
-                            )
-                        }),
-                    )
-                },
-                move |link, entry, length| {
-                    entry
-                        .view(
-                            Context::link(
-                                link,
-                                None,
-                                Option::<fn(&User) -> UserContext>::None,
-                                Option::<fn(&str) -> UrlContext>::None,
-                                Some(|server, channel|  {
-                                        channels_context
-                                            .channel_context(server, channel, None)
-                                }),
-                            ),
-                            length,
-                            config,
-                            theme,
-                            false,
+            .context_menu(move |link| {
+                let entries = context_menu::Entry::link_list(
+                    &link,
+                    Option::<fn(&User) -> Vec<context_menu::Entry>>::None,
+                    Option::<fn(&str) -> Vec<context_menu::Entry>>::None,
+                    Some(|server, channel| {
+                        context_menu::Entry::channel_list(
+                            channels_context.is_open(server, channel),
+                            channels_context.is_focused(server, channel),
                         )
-                        .map(Message::ContextMenu)
-                },
-            );
+                    }),
+                );
+
+                crate::widget::context_menu::items(
+                    entries,
+                    move |entry, length| {
+                        entry
+                            .view(
+                                Context::link(
+                                    &link,
+                                    None,
+                                    Option::<fn(&User) -> UserContext>::None,
+                                    Option::<fn(&str) -> UrlContext>::None,
+                                    Some(|server, channel| {
+                                        channels_context.channel_context(
+                                            server, channel, None,
+                                        )
+                                    }),
+                                ),
+                                length,
+                                config,
+                                theme,
+                                false,
+                            )
+                            .map(Message::ContextMenu)
+                    },
+                )
+            });
             let user_count_text =
                 selectable_text(format!("{user_count} users"))
                     .style(theme::selectable_text::timestamp);
 
             let has_topic = topic_content.text().is_empty();
-            let topic_text = if has_topic {
-                None
-            } else {
-                Some(message_content::with_context(
+            let topic_text = has_topic.then(|| {
+                message_content::with_context(
                     topic_content,
                     &[],
                     server,
@@ -328,46 +323,62 @@ fn channel_list_view<'a>(
                     theme::font_style::topic,
                     Option::<fn(Color) -> Color>::None,
                     move |link| {
-                        context_menu::Entry::link_list(
-                            link,
-                            Option::<fn(&User) -> Vec<context_menu::Entry>>::None,
-                            Some(|_| context_menu::Entry::url_list(None)),
-                            Some(|server, channel| {
-                                context_menu::Entry::channel_list(
-                                    channels_context.is_open(server, channel),
-                                    channels_context.is_focused(server, channel),
-                                )
-                            }),
-                        )
-                    },
-                    move |link, entry, length| {
-                        entry
-                            .view(
-                                Context::link(
-                                    link,
-                                    None,
-                                    Option::<fn(&User) -> UserContext>::None,
-                                    Some(|url| UrlContext {
-                                        url,
-                                        message: None,
+                        let entries =
+                                context_menu::Entry::link_list(
+                                    &link,
+                                    Option::<
+                                        fn(&User) -> Vec<context_menu::Entry>,
+                                    >::None,
+                                    Some(|_| {
+                                        context_menu::Entry::url_list(None)
                                     }),
                                     Some(|server, channel| {
-                                        channels_context
-                                            .channel_context(server, channel, None)
+                                        context_menu::Entry::channel_list(
+                                            channels_context
+                                                .is_open(server, channel),
+                                            channels_context
+                                                .is_focused(server, channel),
+                                        )
                                     }),
-                                ),
-                                length,
-                                config,
-                                theme,
-                                false,
-                            )
-                            .map(Message::ContextMenu)
+                                );
+
+                        crate::widget::context_menu::items(
+                            entries,
+                            move |entry, length| {
+                                entry
+                                        .view(
+                                            Context::link(
+                                                &link,
+                                                None,
+                                                Option::<
+                                                    fn(&User) -> UserContext,
+                                                >::None,
+                                                Some(|url| UrlContext {
+                                                    url,
+                                                    message: None,
+                                                }),
+                                                Some(|server, channel| {
+                                                    channels_context
+                                                        .channel_context(
+                                                            server, channel,
+                                                            None,
+                                                        )
+                                                }),
+                                            ),
+                                            length,
+                                            config,
+                                            theme,
+                                            false,
+                                        )
+                                        .map(Message::ContextMenu)
+                            },
+                        )
                     },
                     None,
                     config,
                     None,
-                ))
-            };
+                )
+            });
 
             container(column![
                 row![channel_text, selectable_text(" "), user_count_text,],
