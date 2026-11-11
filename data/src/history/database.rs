@@ -23,7 +23,7 @@ const UNLABELED_ECHO_CANDIDATES: &str = "SELECT id, time, time_from_server, msgi
                  ORDER BY time, id";
 
 const DRAFT_TABLE: &str = "CREATE TABLE draft (
-                    buffer TEXT PRIMARY KEY,
+                    buffer TEXT PRIMARY KEY NOT NULL,
                     text TEXT NOT NULL,
                     reply TEXT
                 );";
