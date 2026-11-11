@@ -11,6 +11,7 @@ Fixed:
 - Context menu for condensed messages in the summary format
 - Sent messages no longer briefly appear above the latest received messages when the server clock is ahead
 - Typing indicator only animates when window is focused
+- Utilize ISUPPORT parameters when parsing mode characters
 
 Changed:
 
