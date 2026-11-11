@@ -371,6 +371,7 @@ where
 #[serde(default)]
 pub struct TypingIndicator {
     pub show: Option<TypingIndicatorShow>,
+    pub position: TypingIndicatorPosition,
     #[serde(deserialize_with = "deserialize_u32_positive_integer")]
     pub icon_height: u32,
 }
@@ -379,6 +380,7 @@ impl Default for TypingIndicator {
     fn default() -> Self {
         Self {
             show: None,
+            position: TypingIndicatorPosition::default(),
             icon_height: 4,
         }
     }
@@ -401,6 +403,14 @@ pub enum TypingIndicatorBuffer {
     Query,
 }
 
+#[derive(Debug, Copy, Clone, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum TypingIndicatorPosition {
+    Left,
+    #[default]
+    Right,
+}
+
 impl TypingIndicator {
     pub fn can_show(
         &self,
@@ -421,6 +431,14 @@ impl TypingIndicator {
             },
             None => !is_horizontal && buffer == TypingIndicatorBuffer::Query,
         }
+    }
+
+    pub fn is_position_left(&self) -> bool {
+        matches!(self.position, TypingIndicatorPosition::Left)
+    }
+
+    pub fn is_position_right(&self) -> bool {
+        matches!(self.position, TypingIndicatorPosition::Right)
     }
 }
 

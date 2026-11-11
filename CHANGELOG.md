@@ -14,6 +14,7 @@ Changed:
 
 - Supported strftime formats; new list of supported specifiers is viewable at <https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html#conversion-specifications>
 - Markdown link formatting is only applied if the contents are link-shaped (specifically adheres to the [autolink](https://spec.commonmark.org/0.31.2/#autolink) format)
+- Default position right for sidebar typing indicators
 
 Thanks:
 
