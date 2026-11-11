@@ -1124,6 +1124,7 @@ impl<'a> ChannelQueryLayout<'a> {
     ) -> Option<Context<'b>> {
         Context::link(
             link,
+            Some(&message.inner),
             Some(|user| {
                 let current_user =
                     self.target.users().and_then(|users| users.resolve(user));

@@ -164,6 +164,7 @@ pub fn view<'a>(
             move |link, entry, length| {
                 let context = Context::link(
                     link,
+                    None,
                     Some(|user| {
                         let current_user =
                             users.and_then(|users| users.resolve(user));

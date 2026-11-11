@@ -92,6 +92,7 @@ pub enum Context<'a> {
 impl<'a> Context<'a> {
     pub fn link(
         link: &'a message::Link,
+        message: Option<&'a message::Message>,
         into_user_context: Option<impl Fn(&'a User) -> UserContext<'a>>,
         into_url_context: Option<impl Fn(&'a str) -> UrlContext<'a>>,
         into_channel_context: Option<
@@ -142,9 +143,11 @@ impl<'a> Context<'a> {
             ) => into_channel_context.map(|into_channel_context| {
                 Context::Channel(into_channel_context(server, channel))
             }),
-            message::Link::GoToMessage(..)
-            | message::Link::ExpandMessage(..)
-            | message::Link::ContractMessage(..) => None,
+            message::Link::ExpandMessage(_, _, None)
+            | message::Link::ContractMessage(_, _, None) => {
+                message.map(|message| Context::Message { message })
+            }
+            message::Link::GoToMessage(..) => None,
         }
     }
 }
