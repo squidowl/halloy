@@ -41,7 +41,13 @@ pub enum Operation {
 }
 
 pub trait Parser: Copy {
-    fn from_char(c: char, prefix: &[isupport::PrefixMap]) -> Self;
+    fn from_char(
+        c: char,
+        prefix: &[isupport::PrefixMap],
+        bot_mode_char: Option<char>,
+        deaf_mode_char: Option<char>,
+        invex_mode_char: Option<char>,
+    ) -> Self;
 }
 
 // Reference: https://defs.ircdocs.horse/defs/chanmodes
@@ -135,44 +141,53 @@ impl fmt::Display for Channel {
 }
 
 impl Parser for Channel {
-    fn from_char(c: char, prefix: &[isupport::PrefixMap]) -> Self {
+    fn from_char(
+        c: char,
+        prefix: &[isupport::PrefixMap],
+        _bot_mode_char: Option<char>,
+        _deaf_mode_char: Option<char>,
+        invex_mode_char: Option<char>,
+    ) -> Self {
         use Channel::*;
 
-        user::AccessLevel::try_from_mode_char(c, prefix).map_or(
-            match c {
-                'a' => Admin,
-                'b' => Ban,
-                'B' => BlockCaps,
-                'C' => NoCTCP,
-                'D' => DelayJoins,
-                'e' => BanException,
-                'g' => ChanFilter,
-                'G' => StripBadWords,
-                'H' => History,
-                'i' => InviteOnly,
-                'I' => InviteException, // TODO: This mapping should be determined via ISUPPORT
-                'j' => JoinThrottle,
-                'J' => KickNoRejoin,
-                'k' => KeyLock,
-                'K' => NoKnock,
-                'l' => Limit,
-                'm' => Moderated,
-                'n' => NoExternalMessages,
-                'N' => NoNickChange,
-                'P' => Permanent,
-                'r' => RegisteredOnly,
-                's' => Secret,
-                't' => ProtectedTopic,
-                'T' => NoNotice,
-                'V' => NoInvite,
-                'w' => AutoOp,
-                'X' => ExemptChanOps,
-                'y' => OperPrefix,
-                'Y' => OJoin,
-                _ => Unknown(c),
-            },
-            AccessLevel,
-        )
+        if invex_mode_char.is_some_and(|invex_mode_char| c == invex_mode_char) {
+            InviteException
+        } else {
+            user::AccessLevel::try_from_mode_char(c, prefix).map_or(
+                match c {
+                    'a' => Admin,
+                    'b' => Ban,
+                    'B' => BlockCaps,
+                    'C' => NoCTCP,
+                    'D' => DelayJoins,
+                    'e' => BanException,
+                    'g' => ChanFilter,
+                    'G' => StripBadWords,
+                    'H' => History,
+                    'i' => InviteOnly,
+                    'j' => JoinThrottle,
+                    'J' => KickNoRejoin,
+                    'k' => KeyLock,
+                    'K' => NoKnock,
+                    'l' => Limit,
+                    'm' => Moderated,
+                    'n' => NoExternalMessages,
+                    'N' => NoNickChange,
+                    'P' => Permanent,
+                    'r' => RegisteredOnly,
+                    's' => Secret,
+                    't' => ProtectedTopic,
+                    'T' => NoNotice,
+                    'V' => NoInvite,
+                    'w' => AutoOp,
+                    'X' => ExemptChanOps,
+                    'y' => OperPrefix,
+                    'Y' => OJoin,
+                    _ => Unknown(c),
+                },
+                AccessLevel,
+            )
+        }
     }
 }
 
@@ -205,36 +220,6 @@ pub enum User {
 
 // These mappings, where not supplied via ISUPPORT, are from typical/common
 // mode letters and cannot be relied upon when certainty is necessary.
-
-impl From<char> for User {
-    fn from(c: char) -> Self {
-        use User::*;
-
-        match c {
-            'A' => ServerAdmin,
-            'B' => Bot,
-            'C' => CoAdmin,
-            'D' => Deaf, // TODO: This mapping should be determined via ISUPPORT
-            'e' => External,
-            'F' => RemoteClientConns,
-            'H' => HideOper,
-            'i' => Invisible,
-            'I' => HideChans,
-            'j' => Rej,
-            'N' => NetworkAdmin,
-            'm' => Spambots,
-            'o' => GlobalOperator,
-            'O' => LocalOperator,
-            'r' | 'R' => Registered,
-            's' => ServerNotices,
-            'u' => UnAuth,
-            'V' => WebTV,
-            'w' => WAllOps,
-            'x' => HostHiding,
-            _ => Unknown(c),
-        }
-    }
-}
 
 impl fmt::Display for User {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -271,8 +256,44 @@ impl fmt::Display for User {
 }
 
 impl Parser for User {
-    fn from_char(c: char, _prefix: &[isupport::PrefixMap]) -> Self {
-        Self::from(c)
+    fn from_char(
+        c: char,
+        _prefix: &[isupport::PrefixMap],
+        bot_mode_char: Option<char>,
+        deaf_mode_char: Option<char>,
+        _invex_mode_char: Option<char>,
+    ) -> Self {
+        use User::*;
+
+        if bot_mode_char.is_some_and(|bot_mode_char| c == bot_mode_char) {
+            Bot
+        } else if deaf_mode_char
+            .is_some_and(|deaf_mode_char| c == deaf_mode_char)
+        {
+            Deaf
+        } else {
+            match c {
+                'A' => ServerAdmin,
+                'C' => CoAdmin,
+                'e' => External,
+                'F' => RemoteClientConns,
+                'H' => HideOper,
+                'i' => Invisible,
+                'I' => HideChans,
+                'j' => Rej,
+                'N' => NetworkAdmin,
+                'm' => Spambots,
+                'o' => GlobalOperator,
+                'O' => LocalOperator,
+                'r' | 'R' => Registered,
+                's' => ServerNotices,
+                'u' => UnAuth,
+                'V' => WebTV,
+                'w' => WAllOps,
+                'x' => HostHiding,
+                _ => Unknown(c),
+            }
+        }
     }
 }
 
@@ -288,6 +309,9 @@ pub fn parse<T>(
     args: &[String],
     chanmodes: &[isupport::ModeKind],
     prefix: &[isupport::PrefixMap],
+    bot_mode_char: Option<char>,
+    deaf_mode_char: Option<char>,
+    invex_mode_char: Option<char>,
 ) -> Vec<Mode<T>>
 where
     T: Parser,
@@ -305,7 +329,13 @@ where
             '+' => sign = Sign::Plus,
             '-' => sign = Sign::Minus,
             _ => {
-                let value = T::from_char(c, prefix);
+                let value = T::from_char(
+                    c,
+                    prefix,
+                    bot_mode_char,
+                    deaf_mode_char,
+                    invex_mode_char,
+                );
 
                 let arg = if takes_arg(c, sign, chanmodes, prefix) {
                     args.next().cloned()
@@ -433,6 +463,9 @@ mod test {
                 &args,
                 isupport::get_chanmodes_or_default(&isupport),
                 isupport::get_prefix_or_default(&isupport),
+                None,
+                None,
+                None,
             );
             assert_eq!(modes, expected);
         }

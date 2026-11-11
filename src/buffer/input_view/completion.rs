@@ -1183,6 +1183,9 @@ fn connected_command_list<'a>(
         {
             let chanmodes = isupport::get_chanmodes_or_default(isupport);
             let prefix = isupport::get_prefix_or_default(isupport);
+            let bot_mode_char = isupport::get_bot_mode_char(isupport);
+            let deaf_mode_char = isupport::get_deaf_mode_char(isupport);
+            let invex_mode_char = isupport::get_invex_mode_char(isupport);
             let mode_limit = isupport::get_mode_limit_or_default(isupport);
 
             let default = current_target
@@ -1209,7 +1212,14 @@ fn connected_command_list<'a>(
                     tooltip: Some(tooltip),
                 }],
                 subcommands: Some(vec![
-                    mode_channel_command(chanmodes, prefix, mode_limit),
+                    mode_channel_command(
+                        chanmodes,
+                        prefix,
+                        bot_mode_char,
+                        deaf_mode_char,
+                        invex_mode_char,
+                        mode_limit,
+                    ),
                     mode_user_command(mode_limit),
                 ]),
             }
@@ -2986,6 +2996,9 @@ static MONITOR_STATUS_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
 fn mode_channel_command(
     chanmodes: &[isupport::ModeKind],
     prefix: &[isupport::PrefixMap],
+    bot_mode_char: Option<char>,
+    deaf_mode_char: Option<char>,
+    invex_mode_char: Option<char>,
     mode_limit: Option<u16>,
 ) -> Command {
     let mut modestring_tooltip = String::new();
@@ -3002,7 +3015,13 @@ fn mode_channel_command(
                 &format!("Type {} Modes ({chanmode})", chanmode.kind);
 
             for mode in chanmode.modes.chars() {
-                let channel_mode = mode::Channel::from_char(mode, prefix);
+                let channel_mode = mode::Channel::from_char(
+                    mode,
+                    prefix,
+                    bot_mode_char,
+                    deaf_mode_char,
+                    invex_mode_char,
+                );
 
                 match channel_mode {
                     mode::Channel::Unknown(_) => unknown_modes.push(mode),
@@ -3014,8 +3033,13 @@ fn mode_channel_command(
             }
 
             if let Some(unknown_mode) = unknown_modes.chars().next() {
-                let unknown_mode =
-                    mode::Channel::from_char(unknown_mode, prefix);
+                let unknown_mode = mode::Channel::from_char(
+                    unknown_mode,
+                    prefix,
+                    bot_mode_char,
+                    deaf_mode_char,
+                    invex_mode_char,
+                );
 
                 modestring_tooltip +=
                     &format!("\n  {unknown_modes}: {unknown_mode}");
