@@ -31,3 +31,7 @@
 /docs/.vitepress/cache/
 /docs/.vitepress/dist/
 profile.json.gz
+
+# emacs
+\#*\#
+.\#*
