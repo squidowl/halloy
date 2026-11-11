@@ -37,7 +37,7 @@ Will render the following:
 | Text and background (fg & bg) | `$c0,1` |
 | End color                     | `$c`    |
 
-The number next to the `$c` token indicates the color. For a comprehensive list of all numbers, see the following [ircdocs.horse documentation](https://modern.ircdocs.horse/formatting#colors-16-98). Below, the first 00 to 15 colors are defined and have been assigned aliases for convenience.
+The number next to the `$c` token indicates the color. For a comprehensive list of all numbers, see the following [ircdocs.horse documentation](https://modern.ircdocs.horse/formatting#colors-16-98). If background and foreground colors are the set to the same color, the text will be rendered as a spoiler. Below, the first 00 to 15 colors are defined and have been assigned aliases for convenience.
 
 Colors
 
@@ -87,15 +87,15 @@ will render as
 
 ## Configuration
 
-By default, Halloy will only format text when using the `/format` command. This, however, can be changed with the `auto_format` configuration option:
+By default, Halloy will only format text when using the `/format` command. This, however, can be changed with the [`auto_format`](../configuration/buffer.md#auto-format) configuration option:
 
 ```toml
 [buffer.text_input]
-auto_format = "disabled" | "markdown" | "all"
+auto_format = "disabled" | "markdown" | { "markdown-features" = [ ["italics", "bold", "strikethrough", "code", "spoiler", "link"] } | "token" | "all"
 ```
 
 Token-based formatting is included in `"all"`, in addition to Markdown formatting, which provides underline and color formatting that `"markdown"` does not.
 
 When `auto_format` is enabled, it can be disabled for an individual message by using the `/plain` command.
 
-[^1]: The text inside link brackets `<` and `>` will not be formatted by Halloy (e.g. `_`'s will not start/stop italics).  However, whether the interior text is parsed as a URL or not is up to the rendering client.
+[^1]: The text inside link brackets `<` and `>` will not be formatted by Halloy if it is [recognized as a link](https://spec.commonmark.org/0.31.2/#autolink) (e.g. `_`'s will not start/stop italics).  However, whether the interior text is parsed as a URL or not is up to the rendering client.

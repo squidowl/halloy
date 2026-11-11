@@ -18,6 +18,7 @@ use crate::history::reroute::RerouteRules;
 use crate::isupport::{
     self, find_target_limit, format_optional_message_reference,
 };
+use crate::message::formatting::encode::Encoding;
 use crate::message::{self, formatting};
 use crate::user::{ChannelUsers, Nick};
 use crate::{Config, Message, Server, Target, Url, User, ctcp, target};
@@ -340,7 +341,7 @@ pub fn parse(
     s: &str,
     buffer: Option<&buffer::Upstream>,
     our_nickname: Option<&Nick>,
-    auto_format: AutoFormat,
+    auto_format: &AutoFormat,
     is_connected: bool,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
     capabilities: &Capabilities,
@@ -406,7 +407,7 @@ fn parse_command(
     raw: &str,
     buffer: Option<&buffer::Upstream>,
     our_nickname: Option<&Nick>,
-    auto_format: AutoFormat,
+    auto_format: &AutoFormat,
     is_connected: bool,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
     capabilities: &Capabilities,
@@ -588,18 +589,17 @@ fn parse_command(
 
                     if let Some(msg) = msg {
                         let msg = match kind {
-                            Kind::FormatMsg => formatting::encode(&msg, false),
+                            Kind::FormatMsg => {
+                                formatting::encode(&msg, Encoding::All)
+                            }
                             Kind::PlainMsg => msg,
-                            _ => match auto_format {
-                                AutoFormat::Disabled
-                                | AutoFormat::ForceDisabled => msg,
-                                AutoFormat::Markdown => {
-                                    formatting::encode(&msg, true)
+                            _ => {
+                                if let Some(encoding) = auto_format.encoding() {
+                                    formatting::encode(&msg, encoding)
+                                } else {
+                                    msg
                                 }
-                                AutoFormat::All => {
-                                    formatting::encode(&msg, false)
-                                }
-                            },
+                            }
                         };
 
                         Ok(Command::Irc(Irc::Msg(targets, msg), None))
@@ -630,14 +630,12 @@ fn parse_command(
             Kind::Me => {
                 if let Some(target) = buffer.and_then(Upstream::target) {
                     validated::<1, 0, true>(args, |[text], _| {
-                        let text = match auto_format {
-                            AutoFormat::Disabled
-                            | AutoFormat::ForceDisabled => text,
-                            AutoFormat::Markdown => {
-                                formatting::encode(&text, true)
-                            }
-                            AutoFormat::All => formatting::encode(&text, false),
-                        };
+                        let text =
+                            if let Some(encoding) = auto_format.encoding() {
+                                formatting::encode(&text, encoding)
+                            } else {
+                                text
+                            };
 
                         Ok(Command::Irc(
                             Irc::Me(target.to_string(), text),
@@ -1038,19 +1036,16 @@ fn parse_command(
                     if let Some(msg) = msg {
                         let msg = match kind {
                             Kind::FormatNotice => {
-                                formatting::encode(&msg, false)
+                                formatting::encode(&msg, Encoding::All)
                             }
                             Kind::PlainNotice => msg,
-                            _ => match auto_format {
-                                AutoFormat::Disabled
-                                | AutoFormat::ForceDisabled => msg,
-                                AutoFormat::Markdown => {
-                                    formatting::encode(&msg, true)
+                            _ => {
+                                if let Some(encoding) = auto_format.encoding() {
+                                    formatting::encode(&msg, encoding)
+                                } else {
+                                    msg
                                 }
-                                AutoFormat::All => {
-                                    formatting::encode(&msg, false)
-                                }
-                            },
+                            }
                         };
 
                         Ok(Command::Irc(Irc::Notice(targets, msg), None))
@@ -1086,7 +1081,7 @@ fn parse_command(
                             target.to_string(),
                             match auto_format {
                                 AutoFormat::ForceDisabled => raw.to_string(),
-                                _ => formatting::encode(raw, false),
+                                _ => formatting::encode(raw, Encoding::All),
                             },
                         ),
                         None,
@@ -1102,7 +1097,7 @@ fn parse_command(
                             target.to_string(),
                             match auto_format {
                                 AutoFormat::ForceDisabled => raw.to_string(),
-                                _ => formatting::encode(raw, false),
+                                _ => formatting::encode(raw, Encoding::All),
                             },
                         ),
                         None,
@@ -2225,7 +2220,7 @@ mod tests {
                     test,
                     None,
                     None,
-                    AutoFormat::default(),
+                    &AutoFormat::default(),
                     true,
                     &isupport,
                     &Capabilities::default(),
@@ -2275,7 +2270,7 @@ mod tests {
             "/exec printf '/me hello world'",
             None,
             None,
-            AutoFormat::default(),
+            &AutoFormat::default(),
             true,
             &isupport::DEFAULT,
             &Capabilities::default(),
@@ -2301,7 +2296,7 @@ mod tests {
             "/exec   ",
             None,
             None,
-            AutoFormat::default(),
+            &AutoFormat::default(),
             true,
             &isupport::DEFAULT,
             &Capabilities::default(),
@@ -2330,7 +2325,7 @@ mod tests {
             "/exec echo hi",
             None,
             None,
-            AutoFormat::default(),
+            &AutoFormat::default(),
             true,
             &isupport::DEFAULT,
             &Capabilities::default(),

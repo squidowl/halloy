@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- `buffer.text_input.auto_format` can be set to token-only formatting or a limited set of markdown features (in addition to the existing: markdown-only formatting, all formatting, and no formatting options)
+
 Fixed:
 
 - Localization of default date separators and timestamp context menu formats
@@ -7,10 +11,12 @@ Fixed:
 Changed:
 
 - Supported strftime formats; new list of supported specifiers is viewable at <https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html#conversion-specifications>
+- Markdown link formatting is only applied if the contents are link-shaped (specifically adheres to the [autolink](https://spec.commonmark.org/0.31.2/#autolink) format)
 
 Thanks:
 
 - Contributions: @auronandace. @sjm42
+- Feature requests: @sebbu2
 
 # 2026.10 (2026-11-03)
 

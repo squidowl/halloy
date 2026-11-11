@@ -1344,23 +1344,18 @@ Text input visibility. When set to `"focused"` it will only be visible when the 
 visibility = "always"
 ```
 
-### `auto_format`
+### `auto_format` {#auto-format}
 
-Control if the text input should auto format the input. By default text is only formatted when using the `/format` command.
+Control if the text input should automatically format the input. By default text is only formatted when using the `/format`, `/format-me`, `/format-msg`, or `/format-notice` commands. Token-based formatting (`"token"`) is a Halloy-specific formatting scheme that provides direct access to all [IRC formatting](https://modern.ircdocs.horse/formatting.html). Markdown formatting (`"markdown"`), on the other hand, supports the subset of markdown that can be reasonably rendered using IRC formatting (where only a subset of markdown formatting can be enabled by specifying `"markdown-features"`). Details on both token-based and markdown foarmtting are available in the [text formatting guide](/guides/text-formatting).
 
 ```toml
 # Type: string
-# Values: "disabled", "markdown", "all"
+# Values: "disabled", "markdown", "token", { "markdown-features" = ["italics", "bold", "strikethrough", "code", "spoiler", "link"] }, "all"
 # Default: "disabled"
 
 [buffer.text_input]
-auto_format = "markdown"
+auto_format = { "markdown-features" = ["italics", "bold", "strikethrough", "code", "spoiler"] }
 ```
-
-::: tip
-Token-based formatting is included in `"all"`, in addition to Markdown formatting, which provides underline and color formatting that `"markdown"` does not.
-Read more about [text formatting](/guides/text-formatting).
-:::
 
 ### `key_bindings`
 

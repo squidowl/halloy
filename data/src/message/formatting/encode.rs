@@ -1,10 +1,11 @@
 //! Internal formatting specification
 use std::convert::identity;
 use std::fmt::Write;
+use std::iter;
 
 use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::character::complete::{anychar, char, none_of, one_of, satisfy};
+use nom::character::complete::{anychar, char, one_of, satisfy};
 use nom::combinator::{
     cond, cut, eof, flat_map, map, map_opt, not, opt, peek, recognize, value,
     verify,
@@ -14,9 +15,74 @@ use nom::sequence::{pair, preceded, terminated};
 use nom::{Finish, IResult, Parser};
 
 use super::{Color, Modifier};
+use crate::config::buffer::text_input::MarkdownFeatures;
 
-pub fn encode(text: &str, markdown_only: bool) -> String {
-    let Some(tokens) = parse(text, markdown_only) else {
+pub enum Encoding {
+    MarkdownOnly,
+    MarkdownFeaturesOnly(MarkdownFeatures),
+    TokenOnly,
+    All,
+}
+
+impl Encoding {
+    pub fn encodes_markdown(&self) -> bool {
+        match self {
+            Self::All | Self::MarkdownOnly | Self::MarkdownFeaturesOnly(_) => {
+                true
+            }
+            Self::TokenOnly => false,
+        }
+    }
+
+    pub fn encodes_markdown_feature(&self, feature: MarkdownFeatures) -> bool {
+        match self {
+            Self::All | Self::MarkdownOnly => true,
+            Self::MarkdownFeaturesOnly(features) => features.contains(feature),
+            Self::TokenOnly => false,
+        }
+    }
+
+    pub fn encodes_token(&self) -> bool {
+        match self {
+            Self::TokenOnly | Self::All => true,
+            Self::MarkdownOnly | Self::MarkdownFeaturesOnly(_) => false,
+        }
+    }
+
+    pub fn escaped_chars(&self) -> String {
+        match self {
+            Self::MarkdownOnly => String::from("*_~`|<>"),
+            Self::MarkdownFeaturesOnly(features) => {
+                let mut escaped_chars = String::new();
+
+                if features.contains(MarkdownFeatures::Bold)
+                    || features.contains(MarkdownFeatures::Italics)
+                {
+                    escaped_chars.push_str("*_");
+                }
+                if features.contains(MarkdownFeatures::Strikethrough) {
+                    escaped_chars.push('~');
+                }
+                if features.contains(MarkdownFeatures::Code) {
+                    escaped_chars.push('`');
+                }
+                if features.contains(MarkdownFeatures::Spoiler) {
+                    escaped_chars.push('|');
+                }
+                if features.contains(MarkdownFeatures::Link) {
+                    escaped_chars.push_str("<>");
+                }
+
+                escaped_chars
+            }
+            Self::TokenOnly => String::from("$"),
+            Self::All => String::from("*_~`|<>$"),
+        }
+    }
+}
+
+pub fn encode(text: &str, encoding: Encoding) -> String {
+    let Some(tokens) = parse(text, encoding) else {
         return text.to_string();
     };
 
@@ -29,8 +95,13 @@ pub fn encode(text: &str, markdown_only: bool) -> String {
     out
 }
 
-fn parse(input: &str, markdown_only: bool) -> Option<Vec<Token>> {
-    let mut tokens = cut(many_till(|i| token(input, i, markdown_only), eof));
+fn parse(input: &str, encoding: Encoding) -> Option<Vec<Token>> {
+    let escaped_chars = encoding.escaped_chars();
+
+    let mut tokens = cut(many_till(
+        |i| token(input, i, &encoding, &escaped_chars),
+        eof,
+    ));
 
     tokens
         .parse(input)
@@ -42,28 +113,59 @@ fn parse(input: &str, markdown_only: bool) -> Option<Vec<Token>> {
 fn token<'a>(
     source: &'a str,
     input: &'a str,
-    markdown_only: bool,
+    encoding: &Encoding,
+    escaped_chars: &str,
 ) -> IResult<&'a str, Token> {
     alt((
-        map(escaped(markdown_only), Token::Escaped),
-        map(markdown(source, markdown_only), Token::Markdown),
-        skip(markdown_only, map(dollar, Token::Dollar)),
+        map(escaped(encoding, escaped_chars), Token::Escaped),
+        skip(
+            !encoding.encodes_markdown(),
+            map(markdown(source, encoding, escaped_chars), Token::Markdown),
+        ),
+        skip(!encoding.encodes_token(), map(dollar, Token::Dollar)),
         map(anychar, Token::Plain),
     ))
     .parse(input)
 }
 
 fn escaped<'a>(
-    markdown_only: bool,
+    encoding: &Encoding,
+    escaped_chars: &str,
 ) -> impl Parser<&'a str, Output = char, Error = nom::error::Error<&'a str>> {
     alt((
-        value('\\', terminated(tag("\\"), not(one_of("*_`|")))),
-        value('*', tag("\\*")),
-        value('_', tag("\\_")),
-        value('`', tag("\\`")),
-        value('|', tag("\\|")),
-        skip(markdown_only, value('$', tag("\\$"))),
-        skip(markdown_only, value('$', tag("$$"))),
+        value('\\', terminated(tag("\\"), not(one_of(escaped_chars)))),
+        skip(
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Italics)
+                && !encoding.encodes_markdown_feature(MarkdownFeatures::Bold),
+            value('*', tag("\\*")),
+        ),
+        skip(
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Italics)
+                && !encoding.encodes_markdown_feature(MarkdownFeatures::Bold),
+            value('_', tag("\\_")),
+        ),
+        skip(
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Strikethrough),
+            value('~', tag("\\~")),
+        ),
+        skip(
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Code),
+            value('`', tag("\\`")),
+        ),
+        skip(
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Spoiler),
+            value('|', tag("\\|")),
+        ),
+        skip(
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Link),
+            value('<', tag("\\<")),
+        ),
+        skip(
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Link),
+            value('>', tag("\\>")),
+        ),
+        skip(!encoding.encodes_token(), value('$', tag("\\$"))),
+        skip(!encoding.encodes_token(), value('$', tag("$$"))),
     ))
 }
 
@@ -82,7 +184,8 @@ where
 /// features should follow the specification as closely as possible.
 fn markdown<'a>(
     source: &'a str,
-    markdown_only: bool,
+    encoding: &Encoding,
+    escaped_chars: &str,
 ) -> impl Parser<&'a str, Output = Markdown, Error = nom::error::Error<&'a str>>
 {
     // EOF is considered WS in common mark spec
@@ -223,7 +326,7 @@ fn markdown<'a>(
             pair(
                 open_emphasis_relaxed(d, n),
                 many_till(
-                    move |input| token(source, input, markdown_only),
+                    move |input| token(source, input, encoding, escaped_chars),
                     close_emphasis_relaxed(d, n),
                 ),
             ),
@@ -236,7 +339,7 @@ fn markdown<'a>(
             pair(
                 open_emphasis_strict(d, n),
                 many_till(
-                    move |input| token(source, input, markdown_only),
+                    move |input| token(source, input, encoding, escaped_chars),
                     close_emphasis_strict(d, n),
                 ),
             ),
@@ -285,20 +388,65 @@ fn markdown<'a>(
     });
 
     let link = map(
-        pair(char('<'), many_till(none_of("<"), char('>'))),
-        |(_, (chars, _))| {
-            chars.into_iter().map(Token::Plain).collect::<Vec<_>>()
+        (
+            char('<'),
+            satisfy(move |c| c.is_ascii_alphabetic()),
+            many_m_n(
+                1,
+                31,
+                satisfy(move |c| {
+                    c.is_ascii_alphanumeric()
+                        || c == '+'
+                        || c == '.'
+                        || c == '-'
+                }),
+            ),
+            char(':'),
+            many_till(
+                satisfy(move |c| !c.is_ascii_control() && c != ' ' && c != '<'),
+                char('>'),
+            ),
+        ),
+        |(_, scheme_first, scheme_rest, colon, (rest, _))| {
+            iter::once(scheme_first)
+                .chain(scheme_rest)
+                .chain(iter::once(colon))
+                .chain(rest)
+                .map(Token::Plain)
+                .collect::<Vec<_>>()
         },
     );
 
     alt((
-        map(code, Markdown::Code),
-        map(link, Markdown::Link),
-        map(italic_bold, Markdown::ItalicBold),
-        map(bold, Markdown::Bold),
-        map(italic, Markdown::Italic),
-        map(strikethrough, Markdown::Strikethrough),
-        map(spoiler, Markdown::Spoiler),
+        skip(
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Code),
+            map(code, Markdown::Code),
+        ),
+        skip(
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Link),
+            map(link, Markdown::Link),
+        ),
+        skip(
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Italics)
+                || !encoding.encodes_markdown_feature(MarkdownFeatures::Bold),
+            map(italic_bold, Markdown::ItalicBold),
+        ),
+        skip(
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Bold),
+            map(bold, Markdown::Bold),
+        ),
+        skip(
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Italics),
+            map(italic, Markdown::Italic),
+        ),
+        skip(
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Strikethrough),
+            map(strikethrough, Markdown::Strikethrough),
+        ),
+        skip(
+            !encoding.encodes_markdown_feature(MarkdownFeatures::Spoiler),
+            map(spoiler, Markdown::Spoiler),
+        ),
         map(plain_code_delimiters, Markdown::Plain),
     ))
 }
@@ -498,67 +646,95 @@ enum Dollar {
 
 #[cfg(test)]
 mod test {
-    use crate::message::formatting::encode;
+    use super::{Encoding, MarkdownFeatures, encode};
+
     #[test]
     fn internal_format() {
         let tests = [
-            (("_hello_", false), String::from("\u{1d}hello\u{1d}")),
             (
-                ("hello there friend!!", false),
+                ("_hello_", Encoding::All),
+                String::from("\u{1d}hello\u{1d}"),
+            ),
+            (
+                ("hello there friend!!", Encoding::All),
                 String::from("hello there friend!!"),
             ),
             (
-                ("hello there _friend_!!", false),
-                String::from("hello there \u{1d}friend\u{1d}!!"),
+                ("_hello_ there __friend__!!", Encoding::All),
+                String::from("\u{1d}hello\u{1d} there \u{2}friend\u{2}!!"),
             ),
             (
-                ("hello there __friend__!!", false),
-                String::from("hello there \u{2}friend\u{2}!!"),
+                (
+                    "_hello_ there __friend__!!",
+                    Encoding::MarkdownFeaturesOnly(MarkdownFeatures::Italics),
+                ),
+                String::from("\u{1d}hello\u{1d} there __friend__!!"),
             ),
             (
-                ("hello there ___friend___!!", false),
+                ("hello there ___friend___!!", Encoding::All),
                 String::from("hello there \u{2}\u{1d}friend\u{1d}\u{2}!!"),
             ),
             (
-                ("hello there **_fri_end_**!!", false),
+                ("hello there **_fri_end_**!!", Encoding::All),
                 String::from("hello there \u{2}\u{1d}fri_end\u{1d}\u{2}!!"),
             ),
             (
-                ("abc *** def *123* A _ B", false),
+                (
+                    "hello there **_fri_end_**!!",
+                    Encoding::MarkdownFeaturesOnly(MarkdownFeatures::Bold),
+                ),
+                String::from("hello there \u{2}_fri_end_\u{2}!!"),
+            ),
+            (
+                ("abc *** def *123* A _ B", Encoding::All),
                 String::from("abc *** def \u{1d}123\u{1d} A _ B"),
             ),
             (
-                ("does that show up as ******* for you too?", false),
+                ("does that show up as ******* for you too?", Encoding::All),
                 String::from("does that show up as ******* for you too?"),
             ),
             (
-                ("hello there ~~friend~~!!", false),
+                ("hello there ~~friend~~!!", Encoding::All),
                 String::from("hello there \u{1e}friend\u{1e}!!"),
             ),
             (
-                ("testing__testing__onetwothree", false),
+                ("testing__testing__onetwothree", Encoding::All),
                 String::from("testing__testing__onetwothree"),
             ),
             (
-                ("some code `let x = 0;`", false),
+                ("some code `let x = 0;`", Encoding::All),
                 String::from("some code \u{11}let x = 0;\u{11}"),
             ),
             (
-                ("spoiler --> ||super secret||", false),
+                ("spoiler --> ||super secret||", Encoding::All),
                 String::from("spoiler --> \u{3}1,1super secret\u{3}"),
             ),
             (
-                ("`__length_hint__`", false),
+                ("`__length_hint__`", Encoding::All),
                 String::from("\u{11}__length_hint__\u{11}"),
             ),
             (
-                ("These are escaped: \\*, \\_, \\`, \\|", false),
-                String::from("These are escaped: *, _, `, |"),
+                ("These are escaped: \\*, \\_, \\~, \\`, \\|", Encoding::All),
+                String::from("These are escaped: *, _, ~, `, |"),
+            ),
+            (
+                ("\\<https://spec.commonmark.org/dingus/>", Encoding::All),
+                String::from("<https://spec.commonmark.org/dingus/>"),
+            ),
+            (("<sebbu>", Encoding::All), String::from("<sebbu>")),
+            (
+                (
+                    "<Cthon98> ********* see!",
+                    Encoding::MarkdownFeaturesOnly(
+                        MarkdownFeatures::Bold | MarkdownFeatures::Italics,
+                    ),
+                ),
+                String::from("<Cthon98> ********* see!"),
             ),
             (
                 (
                     r"test escaping with *zero* \*one\* \\*two\\* \\\*three\\\* \\\\*four\\\\* backslashes",
-                    false,
+                    Encoding::All,
                 ),
                 String::from(
                     "test escaping with \u{1d}zero\u{1d} *one* \\*two\\* \\\\*three\\\\* \\\\\\*four\\\\\\* backslashes",
@@ -567,7 +743,7 @@ mod test {
             (
                 (
                     r"nicknames like \, \\, \\\ and \\\\ contain backslashes",
-                    false,
+                    Encoding::All,
                 ),
                 String::from(
                     r"nicknames like \, \\, \\\ and \\\\ contain backslashes",
@@ -576,46 +752,46 @@ mod test {
             (
                 (
                     "Use `` \\` `` to wrap code, but only strip spaces if on` both` sides.",
-                    false,
+                    Encoding::All,
                 ),
                 String::from(
                     "Use \u{11}\\`\u{11} to wrap code, but only strip spaces if on\u{11} both\u{11} sides.",
                 ),
             ),
             (
-                ("``foo`bar``, ` foo `` bar `, `foo\\`bar`", false),
+                ("``foo`bar``, ` foo `` bar `, `foo\\`bar`", Encoding::All),
                 String::from(
                     "\u{11}foo`bar\u{11}, \u{11}foo `` bar\u{11}, \u{11}foo\\\u{11}bar`",
                 ),
             ),
             (
-                ("`foo``bar`` ```bar``", false),
+                ("`foo``bar`` ```bar``", Encoding::All),
                 String::from("`foo\u{11}bar\u{11} ```bar``"),
             ),
             (
-                ("<https://example.org/_with_underscores>", false),
+                ("<https://example.org/_with_underscores>", Encoding::All),
                 String::from("https://example.org/_with_underscores"),
             ),
             (
-                ("< <https://example.org/_with_underscores> >", false),
+                ("< <https://example.org/_with_underscores> >", Encoding::All),
                 String::from("< https://example.org/_with_underscores >"),
             ),
             (
-                ("`<https://in.code.org/>`", false),
+                ("`<https://in.code.org/>`", Encoding::All),
                 String::from("\u{11}<https://in.code.org/>\u{11}"),
             ),
             (
                 (
                     "$c1,0black on white $c2now blue on white$r$b BOLD $i BOLD AND ITALIC$r $ccode yo",
-                    false,
+                    Encoding::All,
                 ),
                 String::from(
                     "\u{3}1,0black on white \u{3}2now blue on white\u{f}\u{2} BOLD \u{1d} BOLD AND ITALIC\u{f} \u{3}code yo",
                 ),
             ),
         ];
-        for ((text, markdown_only), expected) in tests {
-            let actual = encode(text, markdown_only);
+        for ((text, encoding), expected) in tests {
+            let actual = encode(text, encoding);
             assert_eq!(actual, expected);
         }
     }
