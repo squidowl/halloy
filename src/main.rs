@@ -178,10 +178,8 @@ fn settings(
     let default_text_size =
         font_config.size.map_or(theme::TEXT_SIZE, f32::from);
 
-    let line_height = font_config
-        .line_height
-        .map(LineHeight::Relative)
-        .unwrap_or_default();
+    let line_height =
+        font_config.line_height.map_or_default(LineHeight::Relative);
 
     let runtime = config_load
         .as_ref()
@@ -542,9 +540,7 @@ impl Halloy {
 
         let (main_window, open_main_window) = window::open(window::Settings {
             size: fullscreen.unwrap_or(window_size),
-            position: position
-                .map(window::Position::Specific)
-                .unwrap_or_default(),
+            position: position.map_or_default(window::Position::Specific),
             min_size: Some(window::MIN_SIZE),
             exit_on_close_request: false,
             fullscreen: fullscreen.is_some(),

@@ -95,8 +95,7 @@ impl Broadcast {
             Broadcast::Disconnected { error } => {
                 let error = error
                     .as_ref()
-                    .map(|error| format!(" ({error})"))
-                    .unwrap_or_default();
+                    .map_or_default(|error| format!(" ({error})"));
 
                 plain(format!("Connection to server lost{error}"))
             }

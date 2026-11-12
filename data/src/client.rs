@@ -4747,18 +4747,14 @@ impl Client {
         &self,
         channel: &target::Channel,
     ) -> Vec<String> {
-        let mut users = self
-            .chanmap
-            .get(channel)
-            .map(|channel| {
-                channel
-                    .typing
-                    .iter()
-                    .filter(|(_, updated_at)| !is_typing_expired(**updated_at))
-                    .map(|(nick, _)| nick.to_string())
-                    .collect_vec()
-            })
-            .unwrap_or_default();
+        let mut users = self.chanmap.get(channel).map_or_default(|channel| {
+            channel
+                .typing
+                .iter()
+                .filter(|(_, updated_at)| !is_typing_expired(**updated_at))
+                .map(|(nick, _)| nick.to_string())
+                .collect_vec()
+        });
 
         users.sort_unstable();
         users
@@ -4778,8 +4774,7 @@ impl Client {
             .get(query)
             .and_then(|query_state| query_state.typing)
             .filter(|updated_at| !is_typing_expired(*updated_at))
-            .map(|_| vec![query.as_str().to_string()])
-            .unwrap_or_default()
+            .map_or_default(|_| vec![query.as_str().to_string()])
     }
 
     pub fn has_query_typing_users(&self, query: &target::Query) -> bool {

@@ -315,8 +315,7 @@ impl Map {
         nick: &Nick,
     ) -> Vec<target::Channel> {
         self.client(server)
-            .map(|client| client.user_channels(nick))
-            .unwrap_or_default()
+            .map_or_default(|client| client.user_channels(nick))
     }
 
     pub fn get_channel_topic<'a>(
@@ -325,8 +324,7 @@ impl Map {
         channel: &target::Channel,
     ) -> Option<&'a Topic> {
         self.client(server)
-            .map(|client| client.topic(channel))
-            .unwrap_or_default()
+            .map_or_default(|client| client.topic(channel))
     }
 
     pub fn get_channel_mode<'a>(
@@ -335,8 +333,7 @@ impl Map {
         channel: &target::Channel,
     ) -> Option<&'a String> {
         self.client(server)
-            .map(|client| client.mode(channel))
-            .unwrap_or_default()
+            .map_or_default(|client| client.mode(channel))
     }
 
     pub fn get_channels<'a>(
@@ -513,9 +510,7 @@ impl Map {
         &'a self,
         server: &Server,
     ) -> &'a [isupport::ModeKind] {
-        self.client(server)
-            .map(Client::chanmodes)
-            .unwrap_or_default()
+        self.client(server).map_or_default(Client::chanmodes)
     }
 
     pub fn get_server_chantypes_or_default<'a>(
@@ -538,7 +533,7 @@ impl Map {
         &'a self,
         server: &Server,
     ) -> &'a [isupport::PrefixMap] {
-        self.client(server).map(Client::prefix).unwrap_or_default()
+        self.client(server).map_or_default(Client::prefix)
     }
 
     pub fn get_server_statusmsg_or_default<'a>(
@@ -631,8 +626,7 @@ impl Map {
         channel: &target::Channel,
     ) -> Vec<String> {
         self.client(server)
-            .map(|client| client.channel_typing_users(channel))
-            .unwrap_or_default()
+            .map_or_default(|client| client.channel_typing_users(channel))
     }
 
     pub fn get_query_typing_users(
@@ -641,8 +635,7 @@ impl Map {
         query: &target::Query,
     ) -> Vec<String> {
         self.client(server)
-            .map(|client| client.query_typing_users(query))
-            .unwrap_or_default()
+            .map_or_default(|client| client.query_typing_users(query))
     }
 
     pub fn has_channel_typing_users(
@@ -941,8 +934,7 @@ impl ClientsContext for ClientsContextSnapshot {
     ) -> isupport::CaseMap {
         server
             .and_then(|server| self.server_contexts.get(server))
-            .map(|server_context| server_context.casemapping)
-            .unwrap_or_default()
+            .map_or_default(|server_context| server_context.casemapping)
     }
 
     fn get_server_chathistory_message_reference_types(

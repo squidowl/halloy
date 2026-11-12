@@ -65,12 +65,9 @@ impl ThemeEditor {
             size,
             min_size: Some(base_size),
             resizable: true,
-            position: main_window
-                .position
-                .map(|point| {
-                    window::Position::Specific(point + Vector::new(20.0, 20.0))
-                })
-                .unwrap_or_default(),
+            position: main_window.position.map_or_default(|point| {
+                window::Position::Specific(point + Vector::new(20.0, 20.0))
+            }),
             exit_on_close_request: false,
             ..window::settings(config)
         });
