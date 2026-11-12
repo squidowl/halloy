@@ -43,6 +43,16 @@ impl Server {
             None
         }
     }
+
+    // bouncer networks are keyed by netid so their history survives renames.
+    // the double nul keeps these keys apart from the older name keys written
+    // by `fmt::Binary`
+    pub fn storage_key(&self) -> String {
+        match &self.network {
+            Some(network) => format!("{}\0\0{}", self.name, network.id),
+            None => self.name.to_string(),
+        }
+    }
 }
 
 impl From<ServerName> for Server {

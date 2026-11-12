@@ -259,6 +259,19 @@ impl State {
         if self.ready.contains(&kind) || self.importing.contains(&kind) {
             return Ok(());
         }
+
+        // migrate before the first read or write, or the network's old history
+        // would be missed
+        if let Some(server) = kind.as_server() {
+            let database =
+                self.database.as_mut().expect("opened history database");
+            retry(|| {
+                database
+                    .migrate_bouncer_network(server)
+                    .map_err(Error::from)
+            })?;
+        }
+
         let database = self.database.as_ref().expect("opened history database");
         if database.is_imported(&kind).map_err(string)? {
             let metadata = database.metadata(&kind).map_err(string)?;
