@@ -1251,6 +1251,15 @@ impl Client {
                         _ => None,
                     };
 
+                    if let Some(netid) = listed_netid
+                        && let Some(Batch {
+                            kind: Some(BatchKind::BouncerNetworks(netids)),
+                            ..
+                        }) = self.batches.get_mut(batch_tag)
+                    {
+                        netids.insert(netid);
+                    }
+
                     let events = match self
                         .batches
                         .get(batch_tag)
@@ -1290,13 +1299,6 @@ impl Client {
 
                     if let Some(batch) = self.batches.get_mut(batch_tag) {
                         batch.last_updated_at = Instant::now();
-
-                        if let Some(BatchKind::BouncerNetworks(netids)) =
-                            &mut batch.kind
-                            && let Some(netid) = listed_netid
-                        {
-                            netids.insert(netid);
-                        }
 
                         if !is_chathistory_context {
                             batch.size += 1;
