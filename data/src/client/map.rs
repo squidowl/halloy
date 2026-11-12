@@ -6,6 +6,7 @@ use anyhow::{Context as ErrorContext, Result, anyhow};
 use hashbrown::HashMap;
 
 use super::{CLIENT_CHATHISTORY_LIMIT, Client, Event, Topic};
+use crate::bouncer::NetworkState;
 use crate::buffer::{self, BuffersContext};
 use crate::capabilities::{
     self, Capabilities, Capability, LabeledResponseContext, MultilineLimits,
@@ -89,6 +90,21 @@ impl Map {
 
     pub fn ready(&mut self, server: Server, client: Client) {
         self.0.insert(server, State::Ready(client));
+    }
+
+    pub fn rename(&mut self, server: &Server) {
+        if let Some(mut state) = self.0.remove(server) {
+            if let State::Ready(client) = &mut state {
+                client.rename(server.clone());
+            }
+            self.0.insert(server.clone(), state);
+        }
+    }
+
+    pub fn resolve_server<'a>(&'a self, server: &'a Server) -> &'a Server {
+        self.0
+            .get_key_value(server)
+            .map_or(server, |(server, _)| server)
     }
 
     pub fn update_config(
@@ -615,6 +631,14 @@ impl Map {
 
     pub fn get_server_can_send_typing(&self, server: &Server) -> bool {
         self.client(server).is_some_and(Client::can_send_typing)
+    }
+
+    pub fn get_bouncer_network_state(
+        &self,
+        server: &Server,
+    ) -> Option<NetworkState> {
+        self.client(&server.parent()?)?
+            .bouncer_network_state(server.bouncer_netid()?)
     }
 
     pub fn get_server_show_typing(&self, server: &Server) -> bool {

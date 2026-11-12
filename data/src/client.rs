@@ -17,7 +17,7 @@ use jiff::Timestamp;
 
 pub use self::map::{ClientsContext, Map, State, Status};
 pub use self::on_connect::on_connect;
-use crate::bouncer::{self, BouncerNetwork};
+use crate::bouncer::{self, BouncerNetwork, NetworkState};
 use crate::buffer::BuffersContext;
 use crate::capabilities::{
     Capabilities, Capability, LabeledResponseContext, MultilineBatchKind,
@@ -130,6 +130,8 @@ pub enum Event {
     MonitoredOffline(Vec<Nick>),
     OnConnect(on_connect::Stream),
     BouncerNetwork(Server, Arc<config::Server>),
+    BouncerNetworkRemoved(Server),
+    BouncerNetworksListed(HashSet<String>),
     ShowInSidebar(Target),
     AuthenticationFailed(Option<String>),
     UpdateIcon,
@@ -191,6 +193,7 @@ pub struct Client {
     isupport: HashMap<isupport::Kind, isupport::Parameter>,
     who_queue: who_queue::WhoQueue,
     resolved_netid: Option<String>,
+    bouncer_network_states: HashMap<String, NetworkState>,
     anti_flood: Option<TokenBucket<message::Encoded>>,
     mode_requests: Vec<ModeRequest>,
     metadata_sub_requests: HashSet<String>,
@@ -261,6 +264,7 @@ impl Client {
             isupport: HashMap::new(),
             who_queue: who_queue::WhoQueue::new(&config),
             resolved_netid: None,
+            bouncer_network_states: HashMap::new(),
             anti_flood: Some(TokenBucket::new(
                 config.anti_flood.rate,
                 config.anti_flood.burst,
@@ -286,6 +290,11 @@ impl Client {
         } else {
             ConnectionRole::BouncerControl
         }
+    }
+
+    pub fn rename(&mut self, server: Server) {
+        debug_assert_eq!(self.server, server);
+        self.server = server;
     }
 
     pub fn connect(&mut self) -> Result<()> {
@@ -314,7 +323,10 @@ impl Client {
         if self.registration_step == RegistrationStep::Complete {
             let requested =
                 if config.do_not_request != self.config.do_not_request {
-                    self.capabilities.create_update_requested(&config)
+                    self.capabilities.create_update_requested(
+                        &config,
+                        self.server.is_bouncer_network(),
+                    )
                 } else {
                     vec![]
                 };
@@ -544,6 +556,10 @@ impl Client {
 
     pub fn registration_complete(&self) -> bool {
         matches!(self.registration_step, RegistrationStep::Complete)
+    }
+
+    pub fn bouncer_network_state(&self, netid: &str) -> Option<NetworkState> {
+        self.bouncer_network_states.get(netid).copied()
     }
 
     fn quit(&mut self, reason: Option<String>) {
@@ -1226,6 +1242,24 @@ impl Client {
                     let is_chathistory_context =
                         message.tags.contains_key("draft/chathistory-context");
 
+                    let listed_netid = match &message.command {
+                        Command::BOUNCER(subcommand, params)
+                            if subcommand == "NETWORK" =>
+                        {
+                            params.first().cloned()
+                        }
+                        _ => None,
+                    };
+
+                    if let Some(netid) = listed_netid
+                        && let Some(Batch {
+                            kind: Some(BatchKind::BouncerNetworks(netids)),
+                            ..
+                        }) = self.batches.get_mut(batch_tag)
+                    {
+                        netids.insert(netid);
+                    }
+
                     let events = match self
                         .batches
                         .get(batch_tag)
@@ -1245,6 +1279,7 @@ impl Client {
                         }
                         Some(BatchKind::ChathistoryTargets)
                         | Some(BatchKind::LabeledResponse)
+                        | Some(BatchKind::BouncerNetworks(_))
                         | None => self.handle(
                             message,
                             context,
@@ -1341,6 +1376,18 @@ impl Client {
                     );
                 };
 
+                if network == "*" {
+                    self.bouncer_network_states.remove(netid);
+
+                    return Ok(vec![Event::BouncerNetworkRemoved(Server {
+                        network: Some(Arc::new(BouncerNetwork {
+                            id: netid.clone(),
+                            name: String::new(),
+                        })),
+                        ..self.server.clone()
+                    })]);
+                }
+
                 if !self.sasl_succeeded {
                     // our connection isn't currently SASL. We have to assume that SASL won't
                     // succeed for any other bouncer networks, which means they won't be able to
@@ -1352,7 +1399,25 @@ impl Client {
                     return Ok(vec![]);
                 }
 
-                let network = BouncerNetwork::parse(netid, network)?;
+                match BouncerNetwork::parse_state(network)? {
+                    Some(Some(state)) => {
+                        self.bouncer_network_states
+                            .insert(netid.clone(), state);
+                    }
+                    Some(None) => {
+                        self.bouncer_network_states.remove(netid);
+                    }
+                    None => (),
+                }
+
+                // notifications only carry changed attributes, and only a
+                // name change matters here
+                let network = match BouncerNetwork::parse(netid, network) {
+                    Err(bouncer::Error::MissingField("name")) => {
+                        return Ok(vec![]);
+                    }
+                    network => network?,
+                };
                 let Some(network_config) =
                     self.config.bouncer_network_config(&network)
                 else {
@@ -1378,8 +1443,10 @@ impl Client {
 
                 // Finished
                 if asterisk.is_none() {
-                    let requested =
-                        self.capabilities.create_new_requested(&self.config);
+                    let requested = self.capabilities.create_new_requested(
+                        &self.config,
+                        self.server.is_bouncer_network(),
+                    );
 
                     if !requested.is_empty() {
                         // Request
@@ -1455,8 +1522,10 @@ impl Client {
 
                 self.capabilities.extend_list(caps.split(' '));
 
-                let requested =
-                    self.capabilities.create_new_requested(&self.config);
+                let requested = self.capabilities.create_new_requested(
+                    &self.config,
+                    self.server.is_bouncer_network(),
+                );
 
                 if !requested.is_empty() {
                     for message in group_capability_requests(&requested) {
@@ -3303,9 +3372,11 @@ impl Client {
                 }
 
                 // Request bouncer networks
-                // TODO(pounce) replace this with "bouncer-networks-notify" after the cap handling
-                // is cleaned up.
-                if self.connection_role() == ConnectionRole::BouncerControl {
+                if self.connection_role() == ConnectionRole::BouncerControl
+                    && !self
+                        .capabilities
+                        .acknowledged(Capability::BouncerNetworksNotify)
+                {
                     self.handle
                         .try_send(command!("BOUNCER", "LISTNETWORKS"))?;
                 }
@@ -3683,6 +3754,9 @@ impl Client {
                 ))
             }),
             Some("labeled-response") => Some(BatchKind::LabeledResponse),
+            Some("soju.im/bouncer-networks") => {
+                Some(BatchKind::BouncerNetworks(HashSet::new()))
+            }
             _ => None,
         };
 
@@ -3829,6 +3903,13 @@ impl Client {
                                 Timestamp::now(),
                             );
                         }
+                    }
+                    // the batch holds the bouncer's full network list, so any
+                    // network missing from it was deleted while we were away
+                    Some(BatchKind::BouncerNetworks(netids)) => {
+                        finished
+                            .events
+                            .push(Event::BouncerNetworksListed(netids.clone()));
                     }
                     Some(BatchKind::Multiline(_, _, _, _, _))
                     | Some(BatchKind::ZncPlayback(_))
@@ -5375,6 +5456,7 @@ pub enum BatchKind {
     ),
     ZncPlayback(Target),
     LabeledResponse,
+    BouncerNetworks(HashSet<String>),
 }
 
 impl BatchKind {
@@ -5383,7 +5465,9 @@ impl BatchKind {
             Self::ChathistoryTarget(batch_target)
             | Self::Multiline(_, _, batch_target, _, _)
             | Self::ZncPlayback(batch_target) => Some(batch_target.clone()),
-            Self::ChathistoryTargets | Self::LabeledResponse => None,
+            Self::ChathistoryTargets
+            | Self::LabeledResponse
+            | Self::BouncerNetworks(_) => None,
         }
     }
 }

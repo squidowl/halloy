@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use super::{Id, Kind, Metadata, ReadMarker, search, storage};
-use crate::{isupport, message, reaction, redaction, user};
+use crate::{Server, isupport, message, reaction, redaction, user};
 
 pub(super) const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 pub(super) const FILE_NAME: &str = "history.sqlite3";
@@ -256,11 +256,14 @@ impl Database {
                     CREATE TABLE search_state (indexed INTEGER NOT NULL);
                     INSERT INTO search_state VALUES (0);
                     CREATE TABLE search_pending (key INTEGER PRIMARY KEY, message INTEGER NOT NULL);
-                    PRAGMA user_version = 3;",
+                    PRAGMA user_version = 4;",
                 )?;
                 transaction.commit()?;
             }
-            3 => (),
+            // bouncer networks are keyed by netid from version 4 on. the bump
+            // stops older versions from writing name keys alongside them
+            3 => connection.execute_batch("PRAGMA user_version = 4;")?,
+            4 => (),
             other => return Err(Error::Schema(other)),
         }
         let indexed = connection.query_row(
@@ -276,6 +279,66 @@ impl Database {
 
     pub fn is_imported(&self, kind: &Kind) -> Result<bool, Error> {
         is_imported(&self.connection, kind)
+    }
+
+    // the name-to-netid mapping only exists at runtime, so name-keyed
+    // histories move here instead of in a schema migration. an existing
+    // netid-keyed history is never overwritten
+    pub fn migrate_bouncer_network(
+        &mut self,
+        server: &Server,
+    ) -> Result<(), Error> {
+        if !server.is_bouncer_network() {
+            return Ok(());
+        }
+        let name_key = format!("{server:b}");
+        let key = server.storage_key();
+        let transaction = self.connection.transaction()?;
+        let histories = transaction
+            .prepare_cached("SELECT id, kind FROM history WHERE server = ?1")?
+            .query_map([&name_key], |row| {
+                Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        for (id, kind) in histories {
+            let (tag, _, target): (String, Option<String>, Option<String>) =
+                serde_json::from_str(&kind)?;
+            let kind = serde_json::to_string(&(tag, Some(&key), target))?;
+            transaction
+                .prepare_cached(
+                    "UPDATE history SET kind = ?2, server = ?3 WHERE id = ?1
+                     AND NOT EXISTS (SELECT 1 FROM history WHERE kind = ?2)",
+                )?
+                .execute(params![id, kind, key])?;
+        }
+        transaction.commit()?;
+        Ok(())
+    }
+
+    pub fn delete_bouncer_network(
+        &mut self,
+        server: &Server,
+    ) -> Result<(), Error> {
+        let name_key = format!("{server:b}");
+        let transaction = self.connection.transaction()?;
+        let histories = transaction
+            .prepare_cached(
+                "SELECT id FROM history WHERE server = ?1 OR server = ?2",
+            )?
+            .query_map(params![server.storage_key(), name_key], |row| {
+                row.get::<_, i64>(0)
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        for history in histories {
+            transaction.execute(
+                "INSERT OR REPLACE INTO search_pending SELECT time * 1024 + (id & 1023), id FROM message WHERE history = ?1 AND id <= ?2",
+                [history, self.indexed],
+            )?;
+            transaction
+                .execute("DELETE FROM history WHERE id = ?1", [history])?;
+        }
+        transaction.commit()?;
+        Ok(())
     }
 
     pub fn shutdown(&self) -> Result<(), Error> {
@@ -1429,7 +1492,7 @@ impl Write<'_> {
                 (None, None)
             }
         };
-        let server = server.map(|server| format!("{server:b}"));
+        let server = server.map(Server::storage_key);
         self.transaction.prepare_cached(
             "INSERT INTO history(kind, server, target) VALUES (?1, ?2, ?3) ON CONFLICT(kind) DO NOTHING",
         )?.execute(params![&key, server, target])?;
@@ -1600,11 +1663,7 @@ fn history_key(kind: &Kind) -> Result<String, serde_json::Error> {
         Kind::Highlights => ("highlights", None, None),
         Kind::ChannelMonitor => ("channel_monitor", None, None),
     };
-    serde_json::to_string(&(
-        tag,
-        server.map(|server| format!("{server:b}")),
-        target,
-    ))
+    serde_json::to_string(&(tag, server.map(Server::storage_key), target))
 }
 
 pub(super) fn search(

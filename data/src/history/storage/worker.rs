@@ -10,7 +10,7 @@ use rusqlite::Connection;
 
 use super::{Error, Event, Message, batch, cache};
 use crate::history::{Kind, Metadata, ReadMarker, database, legacy};
-use crate::{client, config, environment, message};
+use crate::{Server, client, config, environment, message};
 
 const QUEUE_WARNING: usize = 10_000;
 const MAX_ACTIVE_IMPORTS: usize = 2;
@@ -35,6 +35,7 @@ pub(super) enum Command {
         Result<(Vec<message::Message>, Metadata), legacy::Error>,
     ),
     UpdateConfig(config::buffer::ServerMessages),
+    DeleteBouncerNetwork(Server),
 }
 
 impl Command {
@@ -43,7 +44,7 @@ impl Command {
             Self::Initialize(kind)
             | Self::MarkRead(kind, ..)
             | Self::Imported(kind, ..) => vec![kind.clone()],
-            Self::UpdateConfig(_) => vec![],
+            Self::UpdateConfig(_) | Self::DeleteBouncerNetwork(_) => vec![],
             Self::Write(batch) => batch.kinds().collect(),
             Self::Read(kind, _, monitored) => {
                 let mut kinds = vec![kind.clone()];
@@ -259,6 +260,19 @@ impl State {
         if self.ready.contains(&kind) || self.importing.contains(&kind) {
             return Ok(());
         }
+
+        // migrate before the first read or write, or the network's old history
+        // would be missed
+        if let Some(server) = kind.as_server() {
+            let database =
+                self.database.as_mut().expect("opened history database");
+            retry(|| {
+                database
+                    .migrate_bouncer_network(server)
+                    .map_err(Error::from)
+            })?;
+        }
+
         let database = self.database.as_ref().expect("opened history database");
         if database.is_imported(&kind).map_err(string)? {
             let metadata = database.metadata(&kind).map_err(string)?;
@@ -275,6 +289,28 @@ impl State {
             self.import(kind, Ok((vec![], Metadata::default())));
         }
         Ok(())
+    }
+
+    fn initialize_kinds(&mut self, kinds: &[Kind]) {
+        if self.failure.is_some() {
+            return;
+        }
+        for kind in kinds {
+            if let Err(error) = self.initialize(kind.clone()) {
+                self.fail(error);
+                break;
+            }
+        }
+    }
+
+    fn bouncer_network_kinds(&self, server: &Server) -> Vec<Kind> {
+        self.ready
+            .iter()
+            .chain(&self.importing)
+            .chain(&self.blocked)
+            .filter(|kind| kind.as_server() == Some(server))
+            .cloned()
+            .collect()
     }
 
     fn start_imports(&mut self) {
@@ -343,15 +379,13 @@ impl State {
             self.start_imports();
             return self.drain();
         }
-        let kinds = command.kinds();
-        if self.failure.is_none() {
-            for kind in &kinds {
-                if let Err(error) = self.initialize(kind.clone()) {
-                    self.fail(error);
-                    break;
-                }
+        let kinds = match &command {
+            Command::DeleteBouncerNetwork(server) => {
+                self.bouncer_network_kinds(server)
             }
-        }
+            command => command.kinds(),
+        };
+        self.initialize_kinds(&kinds);
         let exiting = matches!(command, Command::Exit(..));
         if self.failure.is_some()
             || (!self.exit_pending
@@ -382,6 +416,11 @@ impl State {
         for _ in 0..count {
             let (command, kinds) =
                 self.pending.pop_front().expect("pending command");
+
+            // a deleted network's histories leave `ready`, and commands queued
+            // behind the delete still need them
+            self.initialize_kinds(&kinds);
+
             let exiting = matches!(command, Command::Exit(..));
             if self.failure.is_none()
                 && (barrier
@@ -532,6 +571,20 @@ impl State {
                     Ok((metadata, advanced)) => self.emit(Message::Committed(
                         vec![marked(kind, metadata, send && advanced)],
                     )),
+                    Err(error) => self.fail(error),
+                }
+            }
+            Command::DeleteBouncerNetwork(server) => {
+                match retry(|| {
+                    database
+                        .delete_bouncer_network(&server)
+                        .map_err(Error::from)
+                }) {
+                    Ok(()) => {
+                        self.ready
+                            .retain(|kind| kind.as_server() != Some(&server));
+                        self.emit(Message::BouncerNetworkDeleted(server));
+                    }
                     Err(error) => self.fail(error),
                 }
             }

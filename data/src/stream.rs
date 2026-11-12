@@ -73,6 +73,22 @@ pub enum Update {
     },
 }
 
+impl Update {
+    pub fn server_mut(&mut self) -> &mut Server {
+        match self {
+            Update::Controller { server, .. }
+            | Update::Connecting { server, .. }
+            | Update::Connected { server, .. }
+            | Update::Disconnected { server, .. }
+            | Update::ConnectionFailed { server, .. }
+            | Update::MessagesReceived(server, _)
+            | Update::Remove(server)
+            | Update::UpdateConfiguration { server, .. }
+            | Update::AutoconnectDisabled { server } => server,
+        }
+    }
+}
+
 enum State {
     Disconnected {
         autoconnect: bool,

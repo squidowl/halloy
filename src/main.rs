@@ -262,6 +262,7 @@ struct Halloy {
     pending_logs: Vec<data::log::Record>,
     notifications: Notifications,
     power: system::State,
+    deleted_bouncer_networks: HashSet<Server>,
 }
 
 impl Halloy {
@@ -417,6 +418,7 @@ impl Halloy {
                 pending_logs: vec![],
                 notifications,
                 power: system::State::default(),
+                deleted_bouncer_networks: HashSet::new(),
             },
             commands,
         )
@@ -929,7 +931,8 @@ impl Halloy {
                 self.controllers.network_changed(routable, &addresses);
                 Task::none()
             }
-            Message::Stream(update) => match update {
+            Message::Stream(update) => match self.resolve_stream_update(update)
+            {
                 stream::Update::Disconnected {
                     server,
                     is_initial,
@@ -1127,6 +1130,10 @@ impl Halloy {
                     self.servers.remove(&server);
                     self.clients.remove(&server);
 
+                    if self.deleted_bouncer_networks.remove(&server) {
+                        self.storage.delete_bouncer_network(&server);
+                    }
+
                     if let Screen::Exit {
                         pending_server_removals,
                         ..
@@ -1167,6 +1174,7 @@ impl Halloy {
                         &mut self.notifications,
                         &mut self.servers,
                         &mut self.controllers,
+                        &mut self.deleted_bouncer_networks,
                         &self.focused_window,
                     )
                 }
@@ -1307,6 +1315,7 @@ impl Halloy {
                                         &mut self.notifications,
                                         &mut self.servers,
                                         &mut self.controllers,
+                                        &mut self.deleted_bouncer_networks,
                                         &self.focused_window,
                                     );
 
@@ -2106,6 +2115,18 @@ impl Halloy {
         reload_complete
     }
 
+    fn resolve_stream_update(
+        &self,
+        mut update: stream::Update,
+    ) -> stream::Update {
+        *update.server_mut() =
+            self.clients.resolve_server(update.server_mut()).clone();
+        if let stream::Update::Connected { server, client, .. } = &mut update {
+            client.rename(server.clone());
+        }
+        update
+    }
+
     fn handle_messages_received(
         &mut self,
         server: Server,
@@ -2135,6 +2156,7 @@ impl Halloy {
             &mut self.notifications,
             &mut self.servers,
             &mut self.controllers,
+            &mut self.deleted_bouncer_networks,
             &self.focused_window,
         )
     }
@@ -2191,6 +2213,34 @@ impl Halloy {
     }
 }
 
+fn remove_bouncer_network(
+    network: &Server,
+    screen: &mut Screen,
+    clients: &mut client::Map,
+    storage: &mut storage::Manager,
+    config: &Config,
+    servers: &server::Map,
+    controllers: &mut stream::Map,
+    deleted_bouncer_networks: &mut HashSet<Server>,
+) -> Task<Message> {
+    let task = if let Screen::Dashboard(dashboard) = screen {
+        dashboard
+            .close_server_buffers(clients, storage, config, network)
+            .map(Message::Dashboard)
+    } else {
+        Task::none()
+    };
+
+    if servers.contains(network) {
+        controllers.end(network, &config.buffer.commands.quit.default_reason);
+        deleted_bouncer_networks.insert(network.clone());
+    } else {
+        storage.delete_bouncer_network(network);
+    }
+
+    task
+}
+
 fn handle_client_events(
     server: &Server,
     events: Vec<data::client::Event>,
@@ -2201,6 +2251,7 @@ fn handle_client_events(
     notifications: &mut Notifications,
     servers: &mut server::Map,
     controllers: &mut stream::Map,
+    deleted_bouncer_networks: &mut HashSet<Server>,
     focused_window: &Option<window::Id>,
 ) -> Task<Message> {
     use data::client::Event;
@@ -2300,7 +2351,15 @@ fn handle_client_events(
                 );
             }
             Event::BouncerNetwork(server, server_config) => {
-                servers.insert(server, server_config);
+                // an insert keeps the existing key, so remove it first to
+                // pick up a new name
+                servers.remove(&server);
+                servers.insert(server.clone(), server_config);
+                clients.rename(&server);
+
+                if let Screen::Dashboard(dashboard) = screen {
+                    dashboard.rename_server(&server);
+                }
 
                 storage.set_filters(servers, clients, &config.buffer);
 
@@ -2312,6 +2371,42 @@ fn handle_client_events(
                             .request_override_server_icons(servers)
                             .map(Message::Dashboard),
                     );
+                }
+            }
+            Event::BouncerNetworkRemoved(network) => {
+                commands.push(remove_bouncer_network(
+                    &network,
+                    screen,
+                    clients,
+                    storage,
+                    config,
+                    servers,
+                    controllers,
+                    deleted_bouncer_networks,
+                ));
+            }
+            Event::BouncerNetworksListed(netids) => {
+                let missing = servers
+                    .get_bouncer_networks(server)
+                    .filter(|network| {
+                        network
+                            .bouncer_netid()
+                            .is_some_and(|netid| !netids.contains(netid))
+                    })
+                    .cloned()
+                    .collect::<Vec<_>>();
+
+                for network in missing {
+                    commands.push(remove_bouncer_network(
+                        &network,
+                        screen,
+                        clients,
+                        storage,
+                        config,
+                        servers,
+                        controllers,
+                        deleted_bouncer_networks,
+                    ));
                 }
             }
             Event::ShowInSidebar(target) => {
