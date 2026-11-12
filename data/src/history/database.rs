@@ -320,6 +320,33 @@ impl Database {
         Ok(())
     }
 
+    pub fn delete_bouncer_network(
+        &mut self,
+        server: &Server,
+    ) -> Result<(), Error> {
+        let name_key = format!("{server:b}");
+        let transaction = self.connection.transaction()?;
+        let histories = transaction
+            .prepare_cached(
+                "SELECT id FROM history WHERE server = ?1 OR server = ?2",
+            )?
+            .query_map(params![server.storage_key(), name_key], |row| {
+                row.get::<_, i64>(0)
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        for history in histories {
+            transaction.execute(
+                "INSERT OR REPLACE INTO search_pending SELECT time * 1024 + (id & 1023), id FROM message WHERE history = ?1 AND id <= ?2",
+                [history, self.indexed],
+            )?;
+            transaction
+                .execute("DELETE FROM history WHERE id = ?1", [history])?;
+        }
+        transaction.commit()?;
+        self.unmigrated_bouncer_networks.remove(&name_key);
+        Ok(())
+    }
+
     pub fn shutdown(&self) -> Result<(), Error> {
         self.connection.execute_batch(
             "PRAGMA incremental_vacuum(256); PRAGMA wal_checkpoint(PASSIVE);",

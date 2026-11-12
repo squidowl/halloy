@@ -91,6 +91,21 @@ impl Map {
         self.0.insert(server, State::Ready(client));
     }
 
+    pub fn rename(&mut self, server: &Server) {
+        if let Some(mut state) = self.0.remove(server) {
+            if let State::Ready(client) = &mut state {
+                client.rename(server.clone());
+            }
+            self.0.insert(server.clone(), state);
+        }
+    }
+
+    pub fn resolve_server<'a>(&'a self, server: &'a Server) -> &'a Server {
+        self.0
+            .get_key_value(server)
+            .map_or(server, |(server, _)| server)
+    }
+
     pub fn update_config(
         &mut self,
         server: &Server,

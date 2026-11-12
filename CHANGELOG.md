@@ -3,6 +3,7 @@
 Added:
 
 - `buffer.text_input.auto_format` can be set to token-only formatting or a limited set of markdown features (in addition to the existing: markdown-only formatting, all formatting, and no formatting options)
+- Support for `soju.im/bouncer-networks-notify`
 
 Fixed:
 
@@ -16,8 +17,8 @@ Changed:
 
 Thanks:
 
-- Contributions: @auronandace. @sjm42
-- Feature requests: @sebbu2
+- Contributions: @auronandace. @sjm42, @furudean
+- Feature requests: @sebbu2, @dimaguy
 
 # 2026.10 (2026-11-03)
 

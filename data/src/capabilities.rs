@@ -26,6 +26,7 @@ pub enum Capability {
     AwayNotify,
     Batch,
     BouncerNetworks,
+    BouncerNetworksNotify,
     Chathistory,
     Chghost,
     EchoMessage,
@@ -80,6 +81,9 @@ impl FromStr for Capability {
             "server-time" => Ok(Self::ServerTime),
             "setname" => Ok(Self::Setname),
             "soju.im/bouncer-networks" => Ok(Self::BouncerNetworks),
+            "soju.im/bouncer-networks-notify" => {
+                Ok(Self::BouncerNetworksNotify)
+            }
             "userhost-in-names" => Ok(Self::UserhostInNames),
             _ if cap.starts_with("sasl") => Ok(Self::Sasl),
             _ => Err("unknown capability"),
@@ -328,6 +332,7 @@ impl Capabilities {
                 | Capability::AwayNotify
                 | Capability::Batch
                 | Capability::BouncerNetworks
+                | Capability::BouncerNetworksNotify
                 | Capability::Chathistory
                 | Capability::Chghost
                 | Capability::EchoMessage
@@ -368,6 +373,7 @@ impl Capabilities {
         &self,
         available: &HashMap<String, String>,
         config: &config::Server,
+        bouncer_network: bool,
     ) -> Vec<Cow<'static, str>> {
         let mut requested = vec![];
 
@@ -506,6 +512,18 @@ impl Capabilities {
             requested.push(request);
         }
 
+        // only the bouncer control connection tracks the network list
+        if !bouncer_network
+            && let Some(request) = self.create_request(
+                "soju.im/bouncer-networks-notify",
+                &["soju.im/bouncer-networks"],
+                available,
+                config,
+            )
+        {
+            requested.push(request);
+        }
+
         if let Some(request) =
             self.create_request("sasl", &[], available, config)
         {
@@ -553,8 +571,10 @@ impl Capabilities {
     pub fn create_new_requested(
         &mut self,
         config: &config::Server,
+        bouncer_network: bool,
     ) -> Vec<Cow<'static, str>> {
-        let requested = self.create_requested(&self.pending, config);
+        let requested =
+            self.create_requested(&self.pending, config, bouncer_network);
 
         for (cap, val) in self.pending.drain() {
             self.listed.insert(cap, val);
@@ -566,8 +586,9 @@ impl Capabilities {
     pub fn create_update_requested(
         &self,
         config: &config::Server,
+        bouncer_network: bool,
     ) -> Vec<Cow<'static, str>> {
-        self.create_requested(&self.listed, config)
+        self.create_requested(&self.listed, config, bouncer_network)
     }
 
     pub fn delete(&mut self, caps: impl Iterator<Item = String>) {

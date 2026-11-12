@@ -43,16 +43,9 @@ pub struct BouncerNetwork {
     pub name: String,
 }
 
-// for ordering, we try to order lexiographically by name, and then check ID
-// So ID equality must imply name equality
 impl Ord for BouncerNetwork {
     fn cmp(&self, other: &Self) -> Ordering {
-        // case sensitive first, then insensitive, then ID
-        self.name
-            .to_lowercase()
-            .cmp(&other.name.to_lowercase())
-            .then_with(|| self.name.cmp(&other.name))
-            .then_with(|| self.id.cmp(&other.id))
+        self.id.cmp(&other.id)
     }
 }
 
@@ -79,6 +72,16 @@ impl Hash for BouncerNetwork {
 impl Eq for BouncerNetwork {}
 
 impl BouncerNetwork {
+    // networks are shown sorted by name. soju guarantees unique names, but we
+    // use the id to break ties for safety
+    pub fn display_cmp(&self, other: &Self) -> Ordering {
+        self.name
+            .to_lowercase()
+            .cmp(&other.name.to_lowercase())
+            .then_with(|| self.name.cmp(&other.name))
+            .then_with(|| self.id.cmp(&other.id))
+    }
+
     pub fn parse(id: &str, s: &str) -> Result<Self, Error> {
         let mut parameter_map = tagstr(s)?;
 

@@ -8,6 +8,7 @@ use iced::widget::{
     scrollable, span, text, text_input,
 };
 use iced::{Color, ContentFit, Length, Task, alignment, padding};
+use itertools::Itertools;
 
 use crate::appearance::theme;
 use crate::buffer::context_menu::{self, Context, UrlContext, UserContext};
@@ -131,7 +132,11 @@ pub fn view<'a>(
             row![
                 pick_list(
                     selected_server,
-                    clients.servers().cloned().collect::<Vec<_>>(),
+                    clients
+                        .servers()
+                        .cloned()
+                        .sorted_by(Server::display_cmp)
+                        .collect::<Vec<_>>(),
                     Server::to_string
                 )
                 .on_select(Message::SelectServer)

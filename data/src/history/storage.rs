@@ -45,6 +45,7 @@ pub const REPLACE_MESSAGE_FUZZ: SignedDuration = SignedDuration::from_secs(1);
 #[derive(Debug)]
 pub enum Message {
     Initialized(Kind, Metadata),
+    BouncerNetworkDeleted(Server),
     Read(Kind, cache::Read, database::Window),
     Committed(Vec<batch::Committed>),
     Importing(Kind),
@@ -404,6 +405,16 @@ impl Manager {
                 self.refresh(&kind);
                 self.publish(&kind);
             }
+            Message::BouncerNetworkDeleted(server) => {
+                let removed = self
+                    .storage
+                    .extract_if(|kind, _| kind.as_server() == Some(&server))
+                    .map(|(kind, _)| Event::Model(model::Message::Remove(kind)))
+                    .collect::<Vec<_>>();
+                if !removed.is_empty() {
+                    let _ = self.event_sender.send(removed);
+                }
+            }
             Message::Read(kind, read, window) => {
                 if self.failure.is_some() {
                     return;
@@ -654,6 +665,11 @@ impl Manager {
         for kind in kinds {
             self.mark_as_read(kind);
         }
+    }
+
+    pub fn delete_bouncer_network(&mut self, server: &Server) {
+        self.worker
+            .send(worker::Command::DeleteBouncerNetwork(server.clone()));
     }
 
     pub fn mark_as_read_on_exit(
