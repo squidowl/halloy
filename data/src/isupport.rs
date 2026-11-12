@@ -28,10 +28,12 @@ pub enum Kind {
     CLIENTTAGDENY,
     CNOTICE,
     CPRIVMSG,
+    DEAF,
     ELIST,
     FILEHOST,
     HOSTLEN,
     ICON,
+    INVEX,
     KEYLEN,
     KICKLEN,
     KNOCK,
@@ -641,10 +643,12 @@ impl Operation {
                 "CLIENTTAGDENY" => Some(Kind::CLIENTTAGDENY),
                 "CNOTICE" => Some(Kind::CNOTICE),
                 "CPRIVMSG" => Some(Kind::CPRIVMSG),
+                "DEAF" => Some(Kind::DEAF),
                 "ELIST" => Some(Kind::ELIST),
                 "soju.im/FILEHOST" => Some(Kind::FILEHOST),
                 "HOSTLEN" => Some(Kind::HOSTLEN),
                 "draft/ICON" => Some(Kind::ICON),
+                "INVEX" => Some(Kind::INVEX),
                 "KEYLEN" => Some(Kind::KEYLEN),
                 "KICKLEN" => Some(Kind::KICKLEN),
                 "KNOCK" => Some(Kind::KNOCK),
@@ -758,10 +762,12 @@ impl Parameter {
             Parameter::CLIENTTAGDENY(_) => Some(Kind::CLIENTTAGDENY),
             Parameter::CNOTICE => Some(Kind::CNOTICE),
             Parameter::CPRIVMSG => Some(Kind::CPRIVMSG),
+            Parameter::DEAF(_) => Some(Kind::DEAF),
             Parameter::ELIST(_) => Some(Kind::ELIST),
             Parameter::FILEHOST(_) => Some(Kind::FILEHOST),
             Parameter::HOSTLEN(_) => Some(Kind::HOSTLEN),
             Parameter::ICON(_) => Some(Kind::ICON),
+            Parameter::INVEX(_) => Some(Kind::INVEX),
             Parameter::KEYLEN(_) => Some(Kind::KEYLEN),
             Parameter::KICKLEN(_) => Some(Kind::KICKLEN),
             Parameter::KNOCK => Some(Kind::KNOCK),
@@ -1322,6 +1328,24 @@ pub fn get_mode_limit_or_default(
 
 pub fn get_bot_mode_char(isupport: &HashMap<Kind, Parameter>) -> Option<char> {
     if let Some(Parameter::BOT(c)) = isupport.get(&Kind::BOT) {
+        Some(*c)
+    } else {
+        None
+    }
+}
+
+pub fn get_deaf_mode_char(isupport: &HashMap<Kind, Parameter>) -> Option<char> {
+    if let Some(Parameter::DEAF(c)) = isupport.get(&Kind::DEAF) {
+        Some(*c)
+    } else {
+        None
+    }
+}
+
+pub fn get_invex_mode_char(
+    isupport: &HashMap<Kind, Parameter>,
+) -> Option<char> {
+    if let Some(Parameter::INVEX(c)) = isupport.get(&Kind::INVEX) {
         Some(*c)
     } else {
         None

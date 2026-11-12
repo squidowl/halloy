@@ -375,6 +375,7 @@ impl WhoQueue {
         }
 
         let casemapping = isupport::get_casemapping_or_default(isupport);
+        let prefix = isupport::get_prefix_or_default(isupport);
         let bot_mode_char = isupport::get_bot_mode_char(isupport);
 
         let nick = ok!(args.get(5));
@@ -389,6 +390,7 @@ impl WhoQueue {
             hostname,
             None,
             casemapping,
+            prefix,
             bot_mode_char,
         );
 
@@ -470,6 +472,7 @@ impl WhoQueue {
             ) {
                 let casemapping =
                     isupport::get_casemapping_or_default(isupport);
+                let prefix = isupport::get_prefix_or_default(isupport);
                 let bot_mode_char = isupport::get_bot_mode_char(isupport);
 
                 // Check token to ~ensure reply is to poll request
@@ -518,6 +521,7 @@ impl WhoQueue {
                             hostname,
                             Some(accountname),
                             casemapping,
+                            prefix,
                             bot_mode_char,
                         );
 

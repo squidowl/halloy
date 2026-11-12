@@ -3502,7 +3502,7 @@ fn content<'a>(
         }
         Command::Numeric(RPL_TOPICWHOTIME, params) => {
             let user =
-                User::parse(params.get(2)?.as_str(), casemapping, Some(prefix))
+                User::parse(params.get(2)?.as_str(), casemapping, prefix)
                     .ok()?;
 
             let date_time =
@@ -3568,7 +3568,7 @@ fn content<'a>(
                 .get(1)?
                 .split(',')
                 .map(|target| {
-                    User::parse(target, casemapping, Some(prefix)).unwrap_or(
+                    User::parse(target, casemapping, prefix).unwrap_or(
                         User::from(Nick::from_str(target, casemapping)),
                     )
                 })

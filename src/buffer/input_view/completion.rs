@@ -10,10 +10,11 @@ use data::config::buffer::text_input::{OrderBy, SortDirection};
 use data::features::Features;
 use data::history::filter::FilterChain;
 use data::isupport::{self, find_target_limit};
+use data::mode::{self, Parser};
 use data::server::Server;
 use data::target::{self, Target};
 use data::user::{ChannelUsers, Nick};
-use data::{Config, command, mode};
+use data::{Config, command, user};
 use hashbrown::HashMap;
 use iced::Length;
 use iced::widget::{button, column, container, row, text_editor, tooltip};
@@ -1182,6 +1183,9 @@ fn connected_command_list<'a>(
         {
             let chanmodes = isupport::get_chanmodes_or_default(isupport);
             let prefix = isupport::get_prefix_or_default(isupport);
+            let bot_mode_char = isupport::get_bot_mode_char(isupport);
+            let deaf_mode_char = isupport::get_deaf_mode_char(isupport);
+            let invex_mode_char = isupport::get_invex_mode_char(isupport);
             let mode_limit = isupport::get_mode_limit_or_default(isupport);
 
             let default = current_target
@@ -1208,7 +1212,14 @@ fn connected_command_list<'a>(
                     tooltip: Some(tooltip),
                 }],
                 subcommands: Some(vec![
-                    mode_channel_command(chanmodes, prefix, mode_limit),
+                    mode_channel_command(
+                        chanmodes,
+                        prefix,
+                        bot_mode_char,
+                        deaf_mode_char,
+                        invex_mode_char,
+                        mode_limit,
+                    ),
                     mode_user_command(mode_limit),
                 ]),
             }
@@ -2985,6 +2996,9 @@ static MONITOR_STATUS_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
 fn mode_channel_command(
     chanmodes: &[isupport::ModeKind],
     prefix: &[isupport::PrefixMap],
+    bot_mode_char: Option<char>,
+    deaf_mode_char: Option<char>,
+    invex_mode_char: Option<char>,
     mode_limit: Option<u16>,
 ) -> Command {
     let mut modestring_tooltip = String::new();
@@ -3001,7 +3015,13 @@ fn mode_channel_command(
                 &format!("Type {} Modes ({chanmode})", chanmode.kind);
 
             for mode in chanmode.modes.chars() {
-                let channel_mode = mode::Channel::from(mode);
+                let channel_mode = mode::Channel::from_char(
+                    mode,
+                    prefix,
+                    bot_mode_char,
+                    deaf_mode_char,
+                    invex_mode_char,
+                );
 
                 match channel_mode {
                     mode::Channel::Unknown(_) => unknown_modes.push(mode),
@@ -3013,7 +3033,13 @@ fn mode_channel_command(
             }
 
             if let Some(unknown_mode) = unknown_modes.chars().next() {
-                let unknown_mode = mode::Channel::from(unknown_mode);
+                let unknown_mode = mode::Channel::from_char(
+                    unknown_mode,
+                    prefix,
+                    bot_mode_char,
+                    deaf_mode_char,
+                    invex_mode_char,
+                );
 
                 modestring_tooltip +=
                     &format!("\n  {unknown_modes}: {unknown_mode}");
@@ -3039,7 +3065,9 @@ fn mode_channel_command(
         modestring_tooltip += &format!(
             "\n  {}: {} ({})",
             prefix_map.mode,
-            mode::Channel::from(prefix_map.prefix),
+            mode::Channel::AccessLevel(user::AccessLevel::from_prefix(
+                prefix_map.prefix
+            )),
             prefix_map.prefix
         );
     }
