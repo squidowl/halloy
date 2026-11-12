@@ -291,6 +291,18 @@ impl State {
         Ok(())
     }
 
+    fn initialize_kinds(&mut self, kinds: &[Kind]) {
+        if self.failure.is_some() {
+            return;
+        }
+        for kind in kinds {
+            if let Err(error) = self.initialize(kind.clone()) {
+                self.fail(error);
+                break;
+            }
+        }
+    }
+
     fn bouncer_network_kinds(&self, server: &Server) -> Vec<Kind> {
         self.ready
             .iter()
@@ -373,14 +385,7 @@ impl State {
             }
             command => command.kinds(),
         };
-        if self.failure.is_none() {
-            for kind in &kinds {
-                if let Err(error) = self.initialize(kind.clone()) {
-                    self.fail(error);
-                    break;
-                }
-            }
-        }
+        self.initialize_kinds(&kinds);
         let exiting = matches!(command, Command::Exit(..));
         if self.failure.is_some()
             || (!self.exit_pending
@@ -414,14 +419,7 @@ impl State {
 
             // a deleted network's histories leave `ready`, and commands queued
             // behind the delete still need them
-            if self.failure.is_none() {
-                for kind in &kinds {
-                    if let Err(error) = self.initialize(kind.clone()) {
-                        self.fail(error);
-                        break;
-                    }
-                }
-            }
+            self.initialize_kinds(&kinds);
 
             let exiting = matches!(command, Command::Exit(..));
             if self.failure.is_none()
