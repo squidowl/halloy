@@ -26,6 +26,8 @@ Added:
 - SQLite history storage, with automatic migration of existing gzip history as buffers are used and loading of history in windows.
 - Search buffer to search messages across all servers, channels and queries, opened from the command bar, sidebar menu, a nickname's context menu, the `search` key binding or `/search`
 - Added `buffer.text_input.upload_long_paste` to automatically use filehost in case pasted text is too long
+- Right-clickable text in the server buffer now offers a context menu
+- Added a macOS Window menu for native window tiling (Fill, Center, Move & Resize)
 - Pane title bar button and shortcut to scroll to the backlog divider
 - Condensed message gained support for summary via `buffer.server_messages.condense.format = "summary"`
 - Pressing Tab after `/topic ` fills in the current channel topic for editing
@@ -44,6 +46,7 @@ Added:
 
 Fixed:
 
+- Double-clicking empty titlebar space on macOS now zooms or minimizes the window based on system settings
 - Colored emojis are now preferred over outline ones
 - Closing Halloy hangs while a toast notification is pending on Windows
 - Crash when right clicking a message in the server buffer

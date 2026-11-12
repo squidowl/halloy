@@ -8,6 +8,9 @@ pub use iced::window::{
 };
 use iced::{Point, Size, Subscription, Task};
 
+#[cfg(target_os = "macos")]
+pub mod macos;
+
 #[derive(Debug, Clone, Copy)]
 pub struct Window {
     pub id: Id,
