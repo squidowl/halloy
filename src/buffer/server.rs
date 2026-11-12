@@ -186,8 +186,14 @@ pub fn view<'a>(
                         theme::font_style::server(theme, server.as_ref())
                     },
                     Option::<fn(Color) -> Color>::None,
-                    link_entries,
-                    link_entry,
+                    move |link| {
+                        crate::widget::context_menu::items(
+                            link_entries(&link),
+                            move |entry, length| {
+                                link_entry(&link, entry, length)
+                            },
+                        )
+                    },
                     None,
                     config,
                     None,
