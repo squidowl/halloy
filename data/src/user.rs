@@ -134,12 +134,10 @@ impl Serialize for User {
         let nickname = self.nickname();
         let username = self
             .username()
-            .map(|username| format!("!{username}"))
-            .unwrap_or_default();
+            .map_or_default(|username| format!("!{username}"));
         let hostname = self
             .hostname()
-            .map(|hostname| format!("@{hostname}"))
-            .unwrap_or_default();
+            .map_or_default(|hostname| format!("@{hostname}"));
         let is_bot = if self.is_bot() { ":" } else { "" };
 
         format!("{access_levels}{is_bot} {nickname}{username}{hostname}")
@@ -361,11 +359,9 @@ impl User {
                 "{}{}{}",
                 self.nickname(),
                 self.username()
-                    .map(|username| format!("!{username}"))
-                    .unwrap_or_default(),
+                    .map_or_default(|username| format!("!{username}")),
                 self.hostname()
-                    .map(|hostname| format!("@{hostname}"))
-                    .unwrap_or_default()
+                    .map_or_default(|hostname| format!("@{hostname}"))
             ),
         }
     }

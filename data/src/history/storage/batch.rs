@@ -133,13 +133,11 @@ impl Batch {
                 clients.get_maybe_server_casemapping_or_default(server);
             let window = buffers.find_window_with(&kind);
             let notify = window.is_none() || *focused_window != window;
-            let reference_types = server
-                .map(|server| {
-                    clients
-                        .get_server_chathistory_message_reference_types(server)
-                        .to_vec()
-                })
-                .unwrap_or_default();
+            let reference_types = server.map_or_default(|server| {
+                clients
+                    .get_server_chathistory_message_reference_types(server)
+                    .to_vec()
+            });
             let monitored = buffers.is_open(&Kind::ChannelMonitor)
                 && matches!(&kind, Kind::Channel(server, channel)
                     if config.channel_monitor.is_channel_included(server, channel, casemapping));

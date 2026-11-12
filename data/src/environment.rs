@@ -13,9 +13,7 @@ pub const RELEASE_WEBSITE: &str =
 pub const SOURCE_WEBSITE: &str = "https://github.com/squidowl/halloy/";
 
 pub fn formatted_version() -> String {
-    let hash = GIT_HASH
-        .map(|hash| format!(" ({hash})"))
-        .unwrap_or_default();
+    let hash = GIT_HASH.map_or_default(|hash| format!(" ({hash})"));
 
     format!("{VERSION}{hash}")
 }

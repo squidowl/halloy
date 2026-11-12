@@ -569,11 +569,7 @@ impl Sasl {
                 if password_file_first_line_only
                     .is_none_or(|first_line_only| first_line_only)
                 {
-                    pass = pass
-                        .lines()
-                        .next()
-                        .map(String::from)
-                        .unwrap_or_default();
+                    pass = pass.lines().next().map_or_default(String::from);
                 }
 
                 *password = Some(pass);

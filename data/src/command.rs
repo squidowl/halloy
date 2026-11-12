@@ -1813,8 +1813,7 @@ fn get_combined_arg(
 
     // Combine everything after the penultimate arg
     let combined_arg = skip_args_count
-        .map(|count| args.iter().skip(count).join(" "))
-        .unwrap_or_default();
+        .map_or_default(|count| args.iter().skip(count).join(" "));
 
     (!combined_arg.is_empty()).then_some(combined_arg)
 }

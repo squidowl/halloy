@@ -3064,10 +3064,8 @@ fn content<'a>(
             .and_then(|channel| resolve_attributes(&raw_user, &channel))
             .unwrap_or(raw_user);
 
-            let text = text
-                .as_ref()
-                .map(|text| format!(" ({text})"))
-                .unwrap_or_default();
+            let text =
+                text.as_ref().map_or_default(|text| format!(" ({text})"));
 
             Some((
                 parse_fragments_with_user(
@@ -3547,10 +3545,8 @@ fn content<'a>(
                 params.get(1)?.as_str(),
                 casemapping,
             ));
-            let away_message = params
-                .get(2)
-                .map(|away| format!(" ({away})"))
-                .unwrap_or_default();
+            let away_message =
+                params.get(2).map_or_default(|away| format!(" ({away})"));
 
             Some((
                 parse_fragments_with_user(
@@ -3921,8 +3917,7 @@ fn kick_text(
 
     let reason = reason
         .as_ref()
-        .map(|reason| format!(" ({reason})"))
-        .unwrap_or_default();
+        .map_or_default(|reason| format!(" ({reason})"));
 
     parse_fragments_with_users(
         if let Some(channel) = channel {
@@ -3984,8 +3979,7 @@ pub fn quit_text(
 ) -> Content {
     let comment = comment
         .as_ref()
-        .map(|comment| format!(" ({comment})"))
-        .unwrap_or_default();
+        .map_or_default(|comment| format!(" ({comment})"));
 
     parse_fragments_with_user(
         format!(

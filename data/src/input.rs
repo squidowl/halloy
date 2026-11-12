@@ -396,16 +396,11 @@ pub struct Storage {
 impl Storage {
     pub fn get<'a>(&'a self, buffer: &buffer::Upstream) -> Cache<'a> {
         Cache {
-            history: self
-                .sent
-                .get(buffer)
-                .map(Vec::as_slice)
-                .unwrap_or_default(),
+            history: self.sent.get(buffer).map_or_default(Vec::as_slice),
             draft_message: self
                 .draft_messages
                 .get(buffer)
-                .map(AsRef::as_ref)
-                .unwrap_or_default(),
+                .map_or_default(AsRef::as_ref),
             draft_reply: self.draft_reply.get(buffer),
             cursor_position: self.cursor_position.get(buffer),
         }

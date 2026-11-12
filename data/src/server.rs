@@ -199,11 +199,7 @@ impl ConfigMap {
                     },
                 )?;
                 if config.password_file_first_line_only {
-                    pass = pass
-                        .lines()
-                        .next()
-                        .map(String::from)
-                        .unwrap_or_default();
+                    pass = pass.lines().next().map_or_default(String::from);
                 }
                 config.password = Some(pass);
             }
@@ -259,11 +255,8 @@ impl ConfigMap {
                         error: io_error.to_string(),
                     })?;
                 if config.nick_password_file_first_line_only {
-                    nick_pass = nick_pass
-                        .lines()
-                        .next()
-                        .map(String::from)
-                        .unwrap_or_default();
+                    nick_pass =
+                        nick_pass.lines().next().map_or_default(String::from);
                 }
                 config.nick_password = Some(nick_pass);
             }

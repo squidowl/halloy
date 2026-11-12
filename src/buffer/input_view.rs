@@ -582,40 +582,38 @@ fn maybe_our_user<'a>(
     theme: &'a Theme,
 ) -> impl IntoIterator<Item = Element<'a, Message>> {
     if config.buffer.text_input.nickname.enabled {
-        our_user
-            .map(|user| {
-                let user_display = UserDisplay::new(
-                    user,
-                    config.buffer.text_input.nickname.show_access_levels,
-                    config.buffer.nickname.show_bot_icon,
-                    false,
-                    registry,
-                    &config.display.nickname,
-                    None,
-                    config.display.truncation_character,
-                    None,
-                    true,
-                );
+        our_user.map_or_default(|user| {
+            let user_display = UserDisplay::new(
+                user,
+                config.buffer.text_input.nickname.show_access_levels,
+                config.buffer.nickname.show_bot_icon,
+                false,
+                registry,
+                &config.display.nickname,
+                None,
+                config.display.truncation_character,
+                None,
+                true,
+            );
 
-                vec![
-                    container(user_display.into_element(
-                        user,
-                        user.is_away(),
-                        false,
-                        None,
-                        None,
-                        false,
-                        false,
-                        false,
-                        theme,
-                        config,
-                    ))
-                    .padding(padding::right(4))
-                    .into(),
-                    rule::vertical(1.0).into(),
-                ]
-            })
-            .unwrap_or_default()
+            vec![
+                container(user_display.into_element(
+                    user,
+                    user.is_away(),
+                    false,
+                    None,
+                    None,
+                    false,
+                    false,
+                    false,
+                    theme,
+                    config,
+                ))
+                .padding(padding::right(4))
+                .into(),
+                rule::vertical(1.0).into(),
+            ]
+        })
     } else {
         vec![]
     }
@@ -2835,8 +2833,7 @@ impl State {
 
         self.input_content
             .line(cursor_position.line)
-            .map(|line| line.text.to_string())
-            .unwrap_or_default()
+            .map_or_default(|line| line.text.to_string())
     }
 
     fn reset_typing(&mut self) {

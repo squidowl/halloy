@@ -3549,13 +3549,13 @@ impl Dashboard {
                     move |main_window_position| {
                         let (_, task) = window::open(window::Settings {
                             // Just big enough to show all components in combobox
-                            position: main_window_position
-                                .map(|point| {
+                            position: main_window_position.map_or_default(
+                                |point| {
                                     window::Position::Specific(
                                         point + Vector::new(20.0, 20.0),
                                     )
-                                })
-                                .unwrap_or_default(),
+                                },
+                            ),
                             exit_on_close_request: false,
                             ..window::settings(&config)
                         });
