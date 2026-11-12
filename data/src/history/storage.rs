@@ -668,6 +668,7 @@ impl Manager {
     }
 
     pub fn delete_bouncer_network(&mut self, server: &Server) {
+        self.input_storage.remove_server(server);
         self.worker
             .send(worker::Command::DeleteBouncerNetwork(server.clone()));
     }

@@ -446,6 +446,24 @@ impl Storage {
         }
     }
 
+    pub fn remove_server(&mut self, server: &Server) {
+        let drafts = self.draft_messages.len() + self.draft_reply.len();
+
+        self.sent.retain(|buffer, _| buffer.as_server() != server);
+        self.draft_messages
+            .retain(|buffer, _| buffer.as_server() != server);
+        self.draft_reply
+            .retain(|buffer, _| buffer.as_server() != server);
+        self.cursor_position
+            .retain(|buffer, _| buffer.as_server() != server);
+
+        if self.draft_messages.len() + self.draft_reply.len() != drafts
+            && self.oldest_unsaved_draft_at.is_none()
+        {
+            self.oldest_unsaved_draft_at = Some(Instant::now());
+        }
+    }
+
     pub fn tick(
         &mut self,
         now: Instant,
