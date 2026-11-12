@@ -95,12 +95,16 @@ impl BouncerNetwork {
         })
     }
 
-    pub fn parse_state(s: &str) -> Result<Option<NetworkState>, Error> {
-        tagstr(s)?
-            .remove("state")
-            .filter(|state| !state.is_empty())
-            .map(|state| state.parse())
-            .transpose()
+    pub fn parse_state(s: &str) -> Result<Option<Option<NetworkState>>, Error> {
+        Ok(tagstr(s)?.remove("state").map(|state| match state.parse() {
+            Ok(state) => Some(state),
+            Err(error) => {
+                if !state.is_empty() {
+                    log::debug!("{error}");
+                }
+                None
+            }
+        }))
     }
 }
 

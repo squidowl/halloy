@@ -1397,8 +1397,15 @@ impl Client {
                     return Ok(vec![]);
                 }
 
-                if let Some(state) = BouncerNetwork::parse_state(network)? {
-                    self.bouncer_network_states.insert(netid.clone(), state);
+                match BouncerNetwork::parse_state(network)? {
+                    Some(Some(state)) => {
+                        self.bouncer_network_states
+                            .insert(netid.clone(), state);
+                    }
+                    Some(None) => {
+                        self.bouncer_network_states.remove(netid);
+                    }
+                    None => (),
                 }
 
                 // notifications only carry changed attributes, and only a
