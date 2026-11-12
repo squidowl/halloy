@@ -17,7 +17,7 @@ use jiff::Timestamp;
 
 pub use self::map::{ClientsContext, Map, State, Status};
 pub use self::on_connect::on_connect;
-use crate::bouncer::{self, BouncerNetwork};
+use crate::bouncer::{self, BouncerNetwork, NetworkState};
 use crate::buffer::BuffersContext;
 use crate::capabilities::{
     Capabilities, Capability, LabeledResponseContext, MultilineBatchKind,
@@ -193,6 +193,7 @@ pub struct Client {
     isupport: HashMap<isupport::Kind, isupport::Parameter>,
     who_queue: who_queue::WhoQueue,
     resolved_netid: Option<String>,
+    bouncer_network_states: HashMap<String, NetworkState>,
     anti_flood: Option<TokenBucket<message::Encoded>>,
     mode_requests: Vec<ModeRequest>,
     metadata_sub_requests: HashSet<String>,
@@ -263,6 +264,7 @@ impl Client {
             isupport: HashMap::new(),
             who_queue: who_queue::WhoQueue::new(&config),
             resolved_netid: None,
+            bouncer_network_states: HashMap::new(),
             anti_flood: Some(TokenBucket::new(
                 config.anti_flood.rate,
                 config.anti_flood.burst,
@@ -554,6 +556,10 @@ impl Client {
 
     pub fn registration_complete(&self) -> bool {
         matches!(self.registration_step, RegistrationStep::Complete)
+    }
+
+    pub fn bouncer_network_state(&self, netid: &str) -> Option<NetworkState> {
+        self.bouncer_network_states.get(netid).copied()
     }
 
     fn quit(&mut self, reason: Option<String>) {
@@ -1369,6 +1375,8 @@ impl Client {
                 };
 
                 if network == "*" {
+                    self.bouncer_network_states.remove(netid);
+
                     return Ok(vec![Event::BouncerNetworkRemoved(Server {
                         network: Some(Arc::new(BouncerNetwork {
                             id: netid.clone(),
@@ -1387,6 +1395,10 @@ impl Client {
                         self.server,
                     );
                     return Ok(vec![]);
+                }
+
+                if let Some(state) = BouncerNetwork::parse_state(network)? {
+                    self.bouncer_network_states.insert(netid.clone(), state);
                 }
 
                 // notifications only carry changed attributes, and only a

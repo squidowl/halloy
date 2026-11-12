@@ -1,5 +1,6 @@
 use std::{convert, iter};
 
+use data::bouncer::NetworkState;
 use data::buffer::{Buffer, BufferRef};
 use data::client::{self, ClientsContext};
 use data::config::server::SidebarVisibility;
@@ -1603,6 +1604,14 @@ fn upstream_buffer_button<'a>(
         false
     };
 
+    let bouncer_state = match (buffer, connection_status) {
+        (
+            buffer::Upstream::Server(server),
+            ConnectionStatus::Connected { .. },
+        ) => clients.get_bouncer_network_state(server),
+        _ => None,
+    };
+
     let buffer_title_style = if show_highlight_title {
         theme::text::highlight_indicator
     } else if show_unread_title {
@@ -1616,6 +1625,8 @@ fn upstream_buffer_button<'a>(
         } else {
             theme::text::secondary
         }
+    } else if bouncer_state == Some(NetworkState::Disconnected) {
+        theme::text::error
     } else {
         theme::text::primary
     };
@@ -1672,10 +1683,16 @@ fn upstream_buffer_button<'a>(
         && let ConnectionStatus::Connected {
             registration_complete,
         } = connection_status
-        && !registration_complete
+        && (!registration_complete
+            || bouncer_state == Some(NetworkState::Connecting))
     {
         Some((
             icon::connecting().style(theme::text::success),
+            dimensions.icon_badge_size,
+        ))
+    } else if bouncer_state == Some(NetworkState::Disconnected) {
+        Some((
+            icon::disconnected().style(theme::text::error),
             dimensions.icon_badge_size,
         ))
     } else if show_highlight_icon

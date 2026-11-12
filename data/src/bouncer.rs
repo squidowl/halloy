@@ -5,7 +5,9 @@ use std::str::FromStr;
 use irc::proto::parse::{Error as ParseError, tagstr};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, Eq, PartialEq, Default, Serialize, Deserialize,
+)]
 pub enum NetworkState {
     Connected,
     Connecting,
@@ -91,6 +93,14 @@ impl BouncerNetwork {
                 .remove("name")
                 .ok_or(Error::MissingField("name"))?,
         })
+    }
+
+    pub fn parse_state(s: &str) -> Result<Option<NetworkState>, Error> {
+        tagstr(s)?
+            .remove("state")
+            .filter(|state| !state.is_empty())
+            .map(|state| state.parse())
+            .transpose()
     }
 }
 
