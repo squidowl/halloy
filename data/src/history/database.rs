@@ -157,7 +157,6 @@ impl PartialOrd for MonitorHead {
 pub(super) struct Database {
     connection: Connection,
     indexed: i64,
-    unmigrated_bouncer_networks: HashSet<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -272,12 +271,9 @@ impl Database {
             [],
             |row| row.get(0),
         )?;
-        let unmigrated_bouncer_networks =
-            unmigrated_bouncer_networks(&connection)?;
         Ok(Self {
             connection,
             indexed,
-            unmigrated_bouncer_networks,
         })
     }
 
@@ -292,10 +288,10 @@ impl Database {
         &mut self,
         server: &Server,
     ) -> Result<(), Error> {
-        let name_key = format!("{server:b}");
-        if !self.unmigrated_bouncer_networks.contains(&name_key) {
+        if !server.is_bouncer_network() {
             return Ok(());
         }
+        let name_key = format!("{server:b}");
         let key = server.storage_key();
         let transaction = self.connection.transaction()?;
         let histories = transaction
@@ -316,7 +312,6 @@ impl Database {
                 .execute(params![id, kind, key])?;
         }
         transaction.commit()?;
-        self.unmigrated_bouncer_networks.remove(&name_key);
         Ok(())
     }
 
@@ -343,7 +338,6 @@ impl Database {
                 .execute("DELETE FROM history WHERE id = ?1", [history])?;
         }
         transaction.commit()?;
-        self.unmigrated_bouncer_networks.remove(&name_key);
         Ok(())
     }
 
@@ -1620,21 +1614,6 @@ fn is_imported(connection: &Connection, kind: &Kind) -> Result<bool, Error> {
         .query_row([history_key(kind)?], |row| row.get(0))
         .optional()?
         .unwrap_or(false))
-}
-
-// name keys hold one nul and netid keys hold two. the blob cast is there
-// because sqlite's text functions don't handle embedded nuls reliably
-fn unmigrated_bouncer_networks(
-    connection: &Connection,
-) -> Result<HashSet<String>, Error> {
-    Ok(connection
-        .prepare_cached(
-            "SELECT DISTINCT server FROM history
-             WHERE instr(CAST(server AS BLOB), x'00') > 0
-               AND instr(CAST(server AS BLOB), x'0000') = 0",
-        )?
-        .query_map([], |row| row.get(0))?
-        .collect::<Result<_, _>>()?)
 }
 
 fn read_metadata(
