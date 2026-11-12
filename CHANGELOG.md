@@ -7,6 +7,7 @@ Added:
 Fixed:
 
 - Localization of default date separators and timestamp context menu formats
+- Context menu for condensed messages in the summary format
 
 Changed:
 

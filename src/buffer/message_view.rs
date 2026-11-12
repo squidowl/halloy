@@ -1106,7 +1106,9 @@ impl<'a> ChannelQueryLayout<'a> {
         );
 
         if include_message_entries {
-            entries.push(context_menu::Entry::HorizontalRule);
+            if !entries.is_empty() {
+                entries.push(context_menu::Entry::HorizontalRule);
+            }
 
             entries.extend(self.message_entries(message));
         }
@@ -1122,6 +1124,7 @@ impl<'a> ChannelQueryLayout<'a> {
     ) -> Option<Context<'b>> {
         Context::link(
             link,
+            Some(&message.inner),
             Some(|user| {
                 let current_user =
                     self.target.users().and_then(|users| users.resolve(user));
