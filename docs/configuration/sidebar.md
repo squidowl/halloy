@@ -500,15 +500,17 @@ show = "all"
 
 Change the sidebar typing indicator's display position.
 
-Due to space constraints, `"left"` position displays one indicator at a time.
+The default position is set to `"right"`. Using `"left-gutter"` will add a gutter
+for the typing indicator on the left. `"left-single"` shows one indicator at a time,
+with highlights taking precedence.
 
 ```toml
 # Type: string
-# Values: "left", "right"
+# Values: "left-gutter", "left-single", "right"
 # Default: "right"
 
 [sidebar.typing_indicator]
-position = "left"
+position = "left-gutter"
 ```
 
 ### `icon_height`
