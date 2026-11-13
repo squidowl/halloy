@@ -48,6 +48,11 @@ impl Sidebar {
         self.typing_indicator
             .can_show(self.position.is_horizontal(), buffer)
     }
+
+    pub fn can_show_any_typing(&self) -> bool {
+        self.can_show_typing(TypingIndicatorBuffer::Channel)
+            || self.can_show_typing(TypingIndicatorBuffer::Query)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -406,7 +411,8 @@ pub enum TypingIndicatorBuffer {
 #[derive(Debug, Copy, Clone, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum TypingIndicatorPosition {
-    Left,
+    LeftSingle,
+    LeftGutter,
     #[default]
     Right,
 }
@@ -433,8 +439,12 @@ impl TypingIndicator {
         }
     }
 
-    pub fn is_position_left(&self) -> bool {
-        matches!(self.position, TypingIndicatorPosition::Left)
+    pub fn is_position_left_single(&self) -> bool {
+        matches!(self.position, TypingIndicatorPosition::LeftSingle)
+    }
+
+    pub fn is_position_left_gutter(&self) -> bool {
+        matches!(self.position, TypingIndicatorPosition::LeftGutter)
     }
 
     pub fn is_position_right(&self) -> bool {
