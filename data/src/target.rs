@@ -163,7 +163,7 @@ impl Target {
             Target::Channel(Channel::from(ChannelData {
                 prefixes,
                 normalized: casemapping.normalize(&channel),
-                raw: target.to_string(),
+                raw: channel.to_string(),
             }))
         } else {
             Target::Query(Query::from(QueryData {
@@ -345,7 +345,7 @@ impl Channel {
             Ok(Channel::from(ChannelData {
                 prefixes,
                 normalized: casemapping.normalize(&channel),
-                raw: target.to_string(),
+                raw: channel.to_string(),
             }))
         } else {
             Err(ParseError::InvalidChannel(target.to_string()))
@@ -547,4 +547,48 @@ pub enum ParseError {
     InvalidChannel(String),
     #[error("unable to parse query from {0}")]
     InvalidQuery(String),
+}
+
+#[cfg(test)]
+mod tests {
+    use irc::proto::{CHANNEL_MEMBERSHIP_PREFIXES, DEFAULT_CHANNEL_PREFIXES};
+
+    use super::*;
+    use crate::isupport::CaseMap;
+
+    #[test]
+    fn parse_channel() {
+        let chantypes = DEFAULT_CHANNEL_PREFIXES;
+        let prefixes = CHANNEL_MEMBERSHIP_PREFIXES;
+        assert_eq!(
+            Channel::parse("#foo", chantypes, prefixes, CaseMap::default())
+                .unwrap(),
+            Channel::from(ChannelData {
+                prefixes: vec![],
+                normalized: "#foo".to_owned(),
+                raw: "#foo".to_owned(),
+            })
+        );
+        assert_eq!(
+            Channel::parse("+%#foo", chantypes, prefixes, CaseMap::default())
+                .unwrap(),
+            Channel::from(ChannelData {
+                prefixes: vec!['+', '%'],
+                normalized: "#foo".to_owned(),
+                raw: "#foo".to_owned(),
+            })
+        );
+    }
+
+    #[test]
+    fn test_renormalize() {
+        let chantypes = DEFAULT_CHANNEL_PREFIXES;
+        let prefixes = CHANNEL_MEMBERSHIP_PREFIXES;
+        let c =
+            Channel::parse("+%#foo", chantypes, prefixes, CaseMap::default())
+                .unwrap();
+        let mut c2 = c.clone();
+        c2.renormalize(CaseMap::default());
+        assert_eq!(c, c2);
+    }
 }
