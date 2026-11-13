@@ -9,10 +9,41 @@ use crate::casemapping::CaseMap;
 /// A string type for small, rarely modified but often copied strings.
 pub type IrcString = EcoString;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct CaseMapped {
     raw: IrcString,
     normalized: IrcString,
+}
+
+impl CaseMapped {
+    fn new(raw: IrcString, normalized: IrcString) -> Self {
+        Self {
+            normalized: if normalized == raw {
+                raw.clone()
+            } else {
+                normalized
+            },
+            raw,
+        }
+    }
+}
+
+// We need to use CaseMapped::new to ensure string deduplication.
+impl<'de> Deserialize<'de> for CaseMapped {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(rename = "CaseMapped")]
+        struct Stored {
+            raw: IrcString,
+            normalized: IrcString,
+        }
+
+        let stored = Stored::deserialize(deserializer)?;
+        Ok(Self::new(stored.raw, stored.normalized))
+    }
 }
 
 impl CaseMapped {
@@ -25,16 +56,21 @@ impl CaseMapped {
     }
 
     pub fn from_string(s: impl Into<IrcString>, casemapping: CaseMap) -> Self {
-        let s = s.into();
-        Self {
-            normalized: casemapping.normalize(s.as_str()).into(),
-            raw: s,
-        }
+        let raw = s.into();
+        let normalized = casemapping.normalize(&raw).into();
+        Self::new(raw, normalized)
     }
 
     pub fn renormalize(&mut self, casemapping: CaseMap) {
-        // TODO(pounce, perf) rc++ if this is the same as before?
-        self.normalized = casemapping.normalize(&self.raw).into();
+        let normalized: IrcString = casemapping.normalize(self.as_str()).into();
+        if normalized.as_str() == self.normalized {
+            return;
+        }
+        self.normalized = if normalized == self.raw {
+            self.raw.clone()
+        } else {
+            normalized
+        };
     }
 }
 
