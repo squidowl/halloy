@@ -1620,6 +1620,7 @@ dependencies = [
  "derive_more",
  "dirs 7.0.0",
  "display-info",
+ "ecow",
  "emojis",
  "equivalent",
  "fancy-regex 0.20.0",
@@ -1991,6 +1992,15 @@ dependencies = [
  "rfc6979",
  "signature 2.2.0",
  "spki 0.7.3",
+]
+
+[[package]]
+name = "ecow"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2dca6141d10838e13f9b166c190254a3f9b5d8379521f9b7510810061cef17a4"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -3987,10 +3997,12 @@ dependencies = [
  "arti-client",
  "async-http-proxy",
  "bytes",
+ "ecow",
  "fast-socks5",
  "futures",
  "irc_proto",
  "rustls-platform-verifier",
+ "serde",
  "thiserror 2.0.21",
  "tokio",
  "tokio-rustls",
@@ -4002,6 +4014,7 @@ dependencies = [
 name = "irc_proto"
 version = "0.1.0"
 dependencies = [
+ "ecow",
  "itertools 0.15.0",
  "nom 8.0.0",
  "thiserror 2.0.21",

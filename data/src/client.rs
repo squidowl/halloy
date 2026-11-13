@@ -4129,7 +4129,7 @@ impl Client {
     ) -> Option<message::MessageWithContext> {
         let message_with_context = message::Message::received(
             message,
-            self.nickname().as_nickref(),
+            self.nickname(),
             config,
             storage.get_reroute_rules(),
             buffers_context,
@@ -4159,7 +4159,7 @@ impl Client {
     ) -> Option<reaction::ReactionWithContext> {
         let reaction_with_context = reaction::Reaction::received(
             message,
-            self.nickname().as_nickref(),
+            self.nickname(),
             self.chantypes(),
             self.statusmsg(),
             self.casemapping(),
@@ -4181,7 +4181,7 @@ impl Client {
     ) -> Option<redaction::RedactionWithContext> {
         redaction::Redaction::received(
             message,
-            self.nickname().as_nickref(),
+            self.nickname(),
             self.chantypes(),
             self.statusmsg(),
             self.casemapping(),

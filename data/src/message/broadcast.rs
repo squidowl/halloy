@@ -110,12 +110,7 @@ impl Broadcast {
                 old_nick,
                 new_nick,
                 ourself,
-            } => nickname_text(
-                old_nick.into(),
-                new_nick.into(),
-                *ourself,
-                casemapping,
-            ),
+            } => nickname_text(old_nick, new_nick, *ourself, casemapping),
             Broadcast::ChangeHost {
                 old_user,
                 new_username,
