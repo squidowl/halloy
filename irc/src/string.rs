@@ -62,8 +62,8 @@ impl CaseMapped {
     }
 
     pub fn renormalize(&mut self, casemapping: CaseMap) {
-        let normalized: IrcString = casemapping.normalize(self.as_str()).into();
-        if normalized.as_str() == self.normalized {
+        let normalized = casemapping.normalize(self.as_str()).into();
+        if normalized == self.normalized {
             return;
         }
         self.normalized = if normalized == self.raw {
