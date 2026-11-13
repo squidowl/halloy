@@ -7,7 +7,7 @@ use crate::capabilities::LabeledResponseContext;
 use crate::isupport;
 use crate::message::{Direction, Encoded, Id, Time};
 use crate::target::Target;
-use crate::user::{Nick, NickRef};
+use crate::user::Nick;
 
 /// Reaction data that is (potentially) stored with an IRC message.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -23,7 +23,7 @@ pub struct Reaction {
 impl Reaction {
     pub fn received(
         message: Encoded,
-        our_nick: NickRef<'_>,
+        our_nick: &Nick,
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
@@ -49,7 +49,7 @@ impl Reaction {
         let in_reply_to = message.in_reply_to()?;
         let id = message.message_id();
         let time = message.time();
-        let is_echo = our_nick == *user.nickname();
+        let is_echo = our_nick == user.nickname();
 
         let (Command::PRIVMSG(target, _) | Command::TAGMSG(target)) =
             message.0.command

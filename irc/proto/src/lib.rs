@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
 
+use ecow::{EcoString, EcoVec};
+
 pub use self::command::Command;
 
 pub type Tags = BTreeMap<String, String>;
@@ -79,7 +81,7 @@ pub fn parse_channel_from_target(
     target: &str,
     chantypes: &[char],
     statusmsg_prefixes: &[char],
-) -> Option<(Vec<char>, String)> {
+) -> Option<(EcoVec<char>, EcoString)> {
     // We parse the target by finding the first character in chantypes, and returning (even if that
     // character is in statusmsg_prefixes)
     // If the characters before the first chantypes character are all valid prefixes, then we have
@@ -91,7 +93,7 @@ pub fn parse_channel_from_target(
     // We need to return this since the channel target includes its chantype.
     let (prefix, chan) = target.split_at(chan_index);
     if prefix.chars().all(|ref c| statusmsg_prefixes.contains(c)) {
-        Some((prefix.chars().collect(), chan.to_owned()))
+        Some((prefix.chars().collect(), chan.into()))
     } else {
         None
     }
@@ -130,6 +132,8 @@ pub const DEFAULT_CHANNEL_MEMBERSHIP_PREFIXES: &[char] =
 
 #[cfg(test)]
 mod tests {
+    use ecow::eco_vec;
+
     use super::*;
 
     #[test]
@@ -152,15 +156,15 @@ mod tests {
         let prefixes = CHANNEL_MEMBERSHIP_PREFIXES;
         assert_eq!(
             parse_channel_from_target("#foo", chantypes, prefixes),
-            Some((vec![], "#foo".to_owned()))
+            Some((eco_vec![], "#foo".into()))
         );
         assert_eq!(
             parse_channel_from_target("+%#foo", chantypes, prefixes),
-            Some((vec!['+', '%'], "#foo".to_owned()))
+            Some((eco_vec!['+', '%'], "#foo".into()))
         );
         assert_eq!(
             parse_channel_from_target("&+%foo", chantypes, prefixes),
-            Some((vec![], "&+%foo".to_owned()))
+            Some((eco_vec![], "&+%foo".into()))
         );
     }
 
