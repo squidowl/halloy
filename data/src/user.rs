@@ -6,6 +6,7 @@ use std::hash::Hash;
 use indexmap::set::MutableValues;
 use indexmap::{Equivalent, IndexSet};
 use irc::proto;
+use irc::string::CaseMapped;
 use itertools::sorted;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -219,11 +220,8 @@ impl User {
         }
     }
 
-    fn key(&'_ self) -> (Reverse<AccessLevel>, NickRef<'_>) {
-        (
-            Reverse(self.highest_access_level()),
-            self.nickname.as_nickref(),
-        )
+    fn key(&'_ self) -> (Reverse<AccessLevel>, &Nick) {
+        (Reverse(self.highest_access_level()), self.nickname())
     }
 
     pub fn seed(&self) -> &str {
@@ -231,11 +229,11 @@ impl User {
     }
 
     pub fn as_str(&self) -> &str {
-        self.nickname.raw.as_ref()
+        self.nickname.as_str()
     }
 
     pub fn as_normalized_str(&self) -> &str {
-        self.nickname.normalized.as_ref()
+        self.nickname.as_normalized_str()
     }
 
     pub fn is_away(&self) -> bool {
@@ -248,10 +246,6 @@ impl User {
 
     pub fn nickname(&self) -> &Nick {
         &self.nickname
-    }
-
-    pub fn nickref(&self) -> NickRef<'_> {
-        self.nickname.as_nickref()
     }
 
     pub fn hostname(&self) -> Option<&str> {
@@ -537,35 +531,12 @@ pub enum ParseUserError {
     NicknameEmpty,
 }
 
-#[derive(Debug, Clone)]
-pub struct Nick {
-    raw: String,
-    normalized: String,
-}
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Nick(CaseMapped);
 
-impl PartialEq for Nick {
-    fn eq(&self, other: &Self) -> bool {
-        self.normalized.eq(&other.normalized)
-    }
-}
-
-impl Eq for Nick {}
-
-impl PartialOrd for Nick {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Nick {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.normalized.cmp(&other.normalized)
-    }
-}
-
-impl Hash for Nick {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.normalized.hash(state);
+impl fmt::Display for Nick {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 
@@ -575,27 +546,27 @@ impl Equivalent<User> for Nick {
     }
 }
 
-impl fmt::Display for Nick {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.raw.fmt(f)
+impl From<CaseMapped> for Nick {
+    fn from(inner: CaseMapped) -> Self {
+        Nick(inner)
     }
 }
 
-impl From<NickRef<'_>> for Nick {
-    fn from(nickref: NickRef) -> Self {
-        Nick {
-            raw: nickref.raw.to_string(),
-            normalized: nickref.normalized.to_string(),
-        }
+impl From<Nick> for CaseMapped {
+    fn from(nick: Nick) -> Self {
+        nick.0
+    }
+}
+
+impl From<&Nick> for CaseMapped {
+    fn from(nick: &Nick) -> Self {
+        nick.0.clone()
     }
 }
 
 impl From<&Query> for Nick {
     fn from(query: &Query) -> Self {
-        Nick {
-            raw: query.as_str().to_string(),
-            normalized: query.as_normalized_str().to_string(),
-        }
+        Nick(query.into())
     }
 }
 
@@ -605,48 +576,29 @@ impl From<User> for Nick {
     }
 }
 
-impl From<Nick> for (String, String) {
-    fn from(nick: Nick) -> Self {
-        (nick.raw, nick.normalized)
-    }
-}
-
 impl<'a> Nick {
     pub fn from_string(nick: String, casemapping: isupport::CaseMap) -> Self {
-        Nick {
-            normalized: casemapping.normalize(&nick),
-            raw: nick,
-        }
+        Nick(CaseMapped::from_string(nick, casemapping))
     }
 
     pub fn from_str(nick: &'a str, casemapping: isupport::CaseMap) -> Self {
-        Nick {
-            normalized: casemapping.normalize(nick),
-            raw: nick.to_string(),
-        }
-    }
-
-    pub fn as_nickref(&'a self) -> NickRef<'a> {
-        NickRef {
-            raw: self.raw.as_ref(),
-            normalized: self.normalized.as_ref(),
-        }
+        Nick(CaseMapped::from_string(nick, casemapping))
     }
 
     pub fn as_str(&self) -> &str {
-        self.raw.as_ref()
+        self.0.as_str()
     }
 
     pub fn as_normalized_str(&self) -> &str {
-        self.normalized.as_ref()
+        self.0.as_normalized_str()
     }
 
     pub fn renormalize(&mut self, casemapping: isupport::CaseMap) {
-        self.normalized = casemapping.normalize(self.raw.as_str());
+        self.0.renormalize(casemapping);
     }
 
     pub fn seed(&self) -> &str {
-        self.normalized.as_ref()
+        self.0.as_normalized_str()
     }
 }
 
@@ -655,7 +607,7 @@ impl Serialize for Nick {
     where
         S: serde::Serializer,
     {
-        self.raw.serialize(serializer)
+        self.as_str().serialize(serializer)
     }
 }
 
@@ -670,85 +622,9 @@ impl<'de> Deserialize<'de> for Nick {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct NickRef<'a> {
-    raw: &'a str,
-    normalized: &'a str,
-}
-
-impl<'a> From<&'a Nick> for NickRef<'a> {
-    fn from(nick: &'a Nick) -> Self {
-        NickRef {
-            raw: nick.raw.as_str(),
-            normalized: nick.normalized.as_str(),
-        }
-    }
-}
-
-impl NickRef<'_> {
-    pub fn to_owned(self) -> Nick {
-        Nick {
-            raw: self.raw.to_string(),
-            normalized: self.normalized.to_string(),
-        }
-    }
-
-    pub fn as_str(&self) -> &str {
-        self.raw
-    }
-
-    pub fn as_normalized_str(&self) -> &str {
-        self.normalized
-    }
-}
-
-impl Equivalent<User> for NickRef<'_> {
+impl Equivalent<User> for &Nick {
     fn equivalent(&self, user: &User) -> bool {
-        self.eq(&user.nickname.as_nickref())
-    }
-}
-
-impl Hash for NickRef<'_> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.normalized.hash(state);
-    }
-}
-
-impl fmt::Display for NickRef<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.raw.fmt(f)
-    }
-}
-
-impl PartialOrd for NickRef<'_> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for NickRef<'_> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.normalized.cmp(other.normalized)
-    }
-}
-
-impl PartialEq for NickRef<'_> {
-    fn eq(&self, other: &NickRef) -> bool {
-        self.normalized.eq(other.normalized)
-    }
-}
-
-impl Eq for NickRef<'_> {}
-
-impl PartialEq<Nick> for NickRef<'_> {
-    fn eq(&self, other: &Nick) -> bool {
-        self.normalized.eq(other.normalized.as_str())
-    }
-}
-
-impl PartialEq<NickRef<'_>> for Nick {
-    fn eq(&self, other: &NickRef<'_>) -> bool {
-        self.normalized.eq(other.normalized)
+        self.eq(&user.nickname())
     }
 }
 

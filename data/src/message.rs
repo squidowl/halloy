@@ -35,7 +35,7 @@ use crate::reaction::Reaction;
 use crate::redaction::Redaction;
 use crate::server::Server;
 use crate::time::rfc2822_from_seconds;
-use crate::user::{ChannelUsers, Nick, NickRef};
+use crate::user::{ChannelUsers, Nick};
 use crate::{
     Config, User, buffer, command, ctcp, history, isupport, list_format,
     message, target,
@@ -499,7 +499,7 @@ impl Message {
     /// server.
     pub fn received<'a>(
         encoded: Encoded,
-        our_nick: NickRef<'_>,
+        our_nick: &Nick,
         config: &'a Config,
         reroute_rules: &RerouteRules,
         buffers_context: &dyn BuffersContext,
@@ -514,7 +514,7 @@ impl Message {
         let time = encoded.time();
         let is_echo = encoded
             .user(casemapping)
-            .is_some_and(|user| *user.nickname() == our_nick);
+            .is_some_and(|user| user.nickname() == our_nick);
         let id = encoded.message_id();
         let reply_to = encoded.in_reply_to();
         let relayed_by = encoded.relayed_by(casemapping);
@@ -1027,14 +1027,14 @@ pub fn condense(
 
         let nick_associations = find_nickname_associations(messages);
 
-        let mut condensed_fragments: IndexMap<NickRef, Vec<Fragment>> =
+        let mut condensed_fragments: IndexMap<&Nick, Vec<Fragment>> =
             IndexMap::new();
 
         // Convert messages to condensed fragments while grouping them based on
         // nickname association
         messages.iter().for_each(|message| {
             if let Source::Server(Some(source)) = &message.inner.source
-                && let Some(nick) = source.nick.as_ref().map(NickRef::from)
+                && let Some(nick) = source.nick.as_ref()
                 && let Some((nick, nick_fragment)) = match source.kind {
                     Kind::Join => Some((
                         nick,
@@ -1061,7 +1061,7 @@ pub fn condense(
                         let kicked = if let Some(Change::Nick(kicked)) =
                             source.change.as_ref()
                         {
-                            Some(kicked.as_nickref())
+                            Some(kicked)
                         } else {
                             find_other_nickname_in_message_content(
                                 &message.inner.content,
@@ -1100,7 +1100,7 @@ pub fn condense(
                                 &message.inner.content,
                                 nick,
                             )
-                            .map(NickRef::to_owned)
+                            .cloned()
                             .map(|new_nick| {
                                 (
                                     nick,
@@ -1242,14 +1242,14 @@ pub fn condense(
     }
 }
 
-fn find_other_nickname_in_message_content<'a, 'b>(
+fn find_other_nickname_in_message_content<'a>(
     content: &'a Content,
-    except: NickRef<'b>,
-) -> Option<NickRef<'a>> {
+    except: &Nick,
+) -> Option<&'a Nick> {
     if let Content::Fragments(fragments) = content {
         fragments.iter().find_map(|fragment| {
             if let Fragment::User(user, _) = fragment {
-                (*user.nickname() != except).then_some(user.nickref())
+                (user.nickname() != except).then_some(user.nickname())
             } else {
                 None
             }
@@ -1261,20 +1261,20 @@ fn find_other_nickname_in_message_content<'a, 'b>(
 
 #[derive(Clone, Debug)]
 enum NickAssociation<'a> {
-    Association(HashSet<NickRef<'a>>),
+    Association(HashSet<&'a Nick>),
     Associate(usize), // Index of an association (not an index of another associate)
 }
 
 // Finds associations between nicknames via nickname changes
 fn find_nickname_associations<'a>(
     messages: &'a [&'a MessageDisplay],
-) -> IndexMap<NickRef<'a>, NickAssociation<'a>> {
-    let mut nick_associations: IndexMap<NickRef, NickAssociation> =
+) -> IndexMap<&'a Nick, NickAssociation<'a>> {
+    let mut nick_associations: IndexMap<&Nick, NickAssociation> =
         IndexMap::new();
 
     messages.iter().for_each(|message| {
         if let Source::Server(Some(source)) = &message.inner.source
-            && let Some(nick) = source.nick.as_ref().map(NickRef::from)
+            && let Some(nick) = source.nick.as_ref()
         {
             match source.kind {
                 Kind::Join | Kind::Part | Kind::Quit | Kind::ChangeHost => {
@@ -1288,7 +1288,7 @@ fn find_nickname_associations<'a>(
                     let kicked = if let Some(Change::Nick(kicked)) =
                         source.change.as_ref()
                     {
-                        Some(kicked.as_nickref())
+                        Some(kicked)
                     } else {
                         find_other_nickname_in_message_content(
                             &message.inner.content,
@@ -1308,7 +1308,7 @@ fn find_nickname_associations<'a>(
                     let new_nick = if let Some(Change::Nick(new_nick)) =
                         source.change.as_ref()
                     {
-                        Some(new_nick.as_nickref())
+                        Some(new_nick)
                     } else {
                         find_other_nickname_in_message_content(
                             &message.inner.content,
@@ -1333,9 +1333,9 @@ fn find_nickname_associations<'a>(
 }
 
 fn associate_nicknames<'a>(
-    nick: NickRef<'a>,
-    new_nick: NickRef<'a>,
-    nick_associations: &mut IndexMap<NickRef<'a>, NickAssociation<'a>>,
+    nick: &'a Nick,
+    new_nick: &'a Nick,
+    nick_associations: &mut IndexMap<&'a Nick, NickAssociation<'a>>,
 ) {
     match (
         nick_associations.get_index_of(&nick),
@@ -1488,12 +1488,12 @@ fn filter_associated_fragments(
 
 /// Finds the longest chain of condensable fragments and returns its length.
 fn longest_changeless_chain_len<'a>(fragments: &'a [Fragment]) -> usize {
-    // NickRef -> (initial_state, current_state)
-    let mut states: HashMap<NickRef, (bool, bool)> = HashMap::new();
+    // Nick -> (initial_state, current_state)
+    let mut states: HashMap<&Nick, (bool, bool)> = HashMap::new();
 
     for fragment in fragments {
         if let Fragment::Condensed { source, .. } = fragment
-            && let Some(nick) = source.nick.as_ref().map(NickRef::from)
+            && let Some(nick) = source.nick.as_ref()
         {
             match source.kind {
                 Kind::Join => {
@@ -1506,7 +1506,7 @@ fn longest_changeless_chain_len<'a>(fragments: &'a [Fragment]) -> usize {
                     if let Some(Change::Nick(new_nick)) = source.change.as_ref()
                     {
                         states.entry(nick).or_insert((true, true));
-                        states.entry(new_nick.into()).or_insert((false, false));
+                        states.entry(new_nick).or_insert((false, false));
                     }
                 }
                 _ => (),
@@ -1518,7 +1518,7 @@ fn longest_changeless_chain_len<'a>(fragments: &'a [Fragment]) -> usize {
     let mut changeless_chain_len = 0;
 
     let mut set_state =
-        |nick: NickRef<'a>, new_state: bool, mismatched: &mut usize| {
+        |nick: &'a Nick, new_state: bool, mismatched: &mut usize| {
             if let Some((initial, current)) = states.get_mut(&nick)
                 && *current != new_state
             {
@@ -1538,16 +1538,16 @@ fn longest_changeless_chain_len<'a>(fragments: &'a [Fragment]) -> usize {
         {
             match source.kind {
                 Kind::Join => {
-                    set_state(nick.into(), true, &mut mismatched);
+                    set_state(nick, true, &mut mismatched);
                 }
                 Kind::Part | Kind::Quit | Kind::Kick => {
-                    set_state(nick.into(), false, &mut mismatched);
+                    set_state(nick, false, &mut mismatched);
                 }
                 Kind::ChangeNick => {
                     if let Some(Change::Nick(new_nick)) = source.change.as_ref()
                     {
-                        set_state(nick.into(), false, &mut mismatched);
-                        set_state(new_nick.into(), true, &mut mismatched);
+                        set_state(nick, false, &mut mismatched);
+                        set_state(new_nick, true, &mut mismatched);
                     }
                 }
                 _ => (),
@@ -1845,7 +1845,7 @@ pub fn parse_fragments_with_highlights(
     message_user: Option<&User>,
     channel_users: Option<&ChannelUsers>,
     target: &target::Target,
-    our_nick: NickRef<'_>,
+    our_nick: &Nick,
     highlights: &Highlights,
     server: &Server,
     casemapping: isupport::CaseMap,
@@ -1861,7 +1861,7 @@ pub fn parse_fragments_with_highlights(
     );
 
     let is_our_nick = |user: &User, raw: &str| {
-        (highlights.nickname.case_insensitive && *user.nickname() == our_nick)
+        (highlights.nickname.case_insensitive && user.nickname() == our_nick)
             || raw == our_nick.as_str()
     };
 
@@ -2432,7 +2432,7 @@ impl From<formatting::Fragment> for Fragment {
 
 fn source_and_target(
     message: &Encoded,
-    our_nick: NickRef<'_>,
+    our_nick: &Nick,
     reroute_rules: &RerouteRules,
     buffers_context: &dyn BuffersContext,
     resolve_attributes: &dyn Fn(&User, &target::Channel) -> Option<User>,
@@ -2693,7 +2693,7 @@ fn source_and_target(
                 let target = User::from(Nick::from_str(target, casemapping));
 
                 // We want to show both requests, and responses in query with the client.
-                let user = if *user.nickname() == our_nick {
+                let user = if user.nickname() == our_nick {
                     target
                 } else {
                     user.clone()
@@ -2729,7 +2729,7 @@ fn source_and_target(
                         None,
                     ),
                     (target::Target::Query(query), Some(user)) => {
-                        let query = if *user.nickname() == our_nick {
+                        let query = if user.nickname() == our_nick {
                             // Message from ourself, from another client.
                             query
                         } else {
@@ -2896,7 +2896,7 @@ fn source_and_target(
                 None,
             )));
 
-            if *invitee.nickname() == our_nick {
+            if invitee.nickname() == our_nick {
                 if let Some(user) = user {
                     return Some((
                         source,
@@ -3002,7 +3002,7 @@ pub type Id = Arc<str>;
 fn content<'a>(
     message: Encoded,
     message_target: &Target,
-    our_nick: NickRef<'_>,
+    our_nick: &Nick,
     config: &Config,
     resolve_attributes: &dyn Fn(&User, &target::Channel) -> Option<User>,
     channel_users: impl Fn(&target::Channel) -> Option<&'a ChannelUsers>,
@@ -3119,14 +3119,14 @@ fn content<'a>(
         }
         Command::NICK(new_nick) => {
             let old_user = message.user(casemapping)?;
-            let ourself = *old_user.nickname() == our_nick;
+            let ourself = old_user.nickname() == our_nick;
 
             let new_nick = Nick::from_str(new_nick.as_str(), casemapping);
 
             Some((
                 nickname_text(
-                    old_user.nickref(),
-                    new_nick.as_nickref(),
+                    old_user.nickname(),
+                    &new_nick,
                     ourself,
                     casemapping,
                 ),
@@ -3156,7 +3156,7 @@ fn content<'a>(
                 })
                 .unwrap_or(raw_victim_user);
 
-            let ourself = *victim.nickname() == our_nick;
+            let ourself = victim.nickname() == our_nick;
 
             let raw_user = message.user(casemapping)?;
             let user = channel
@@ -3223,7 +3223,7 @@ fn content<'a>(
                     ),
                     None,
                 ))
-            } else if *raw_user.nickname() == our_nick {
+            } else if raw_user.nickname() == our_nick {
                 if casemapping.normalize(target) == our_nick.as_normalized_str()
                 {
                     Some((
@@ -3309,7 +3309,7 @@ fn content<'a>(
 
             if user
                 .as_ref()
-                .is_some_and(|user| *user.nickname() == our_nick)
+                .is_some_and(|user| user.nickname() == our_nick)
             {
                 Some((
                     parse_fragments_with_users(
@@ -3807,7 +3807,7 @@ fn parse_action(
     text: &str,
     channel_users: Option<&ChannelUsers>,
     target: &target::Target,
-    our_nick: NickRef<'_>,
+    our_nick: &Nick,
     highlights: &Highlights,
     server: &Server,
     casemapping: isupport::CaseMap,
@@ -3818,7 +3818,7 @@ fn parse_action(
 
     let query = ctcp::parse_query(text)?;
 
-    if *user.nickname() == our_nick {
+    if user.nickname() == our_nick {
         Some((
             action_text(user, query.params, channel_users, casemapping),
             None,
@@ -3857,7 +3857,7 @@ pub fn action_text_with_highlights(
     action: Option<&str>,
     channel_users: Option<&ChannelUsers>,
     target: &target::Target,
-    our_nick: NickRef<'_>,
+    our_nick: &Nick,
     highlights: &Highlights,
     server: &Server,
     casemapping: isupport::CaseMap,
@@ -3883,14 +3883,14 @@ pub fn action_text_with_highlights(
 fn invite_text(
     inviter: User,
     invitee: User,
-    our_nick: NickRef<'_>,
+    our_nick: &Nick,
     channel: target::Channel,
     casemapping: isupport::CaseMap,
 ) -> Content {
     parse_fragments_with_users(
-        if *invitee.nickname() == our_nick {
+        if invitee.nickname() == our_nick {
             format!("{} has invited you to {channel}", inviter.as_str())
-        } else if *inviter.nickname() == our_nick {
+        } else if inviter.nickname() == our_nick {
             format!("You have invited {} to {channel}", invitee.as_str())
         } else {
             format!(
@@ -3943,8 +3943,8 @@ fn kick_text(
 }
 
 pub fn nickname_text(
-    old_nick: NickRef,
-    new_nick: NickRef,
+    old_nick: &Nick,
+    new_nick: &Nick,
     ourself: bool,
     casemapping: isupport::CaseMap,
 ) -> Content {
@@ -4314,7 +4314,7 @@ mod tests {
 
             let actual = message::source_and_target(
                 &message::Encoded(encoded),
-                our_nick.as_nickref(),
+                &our_nick,
                 &reroute_rules,
                 &buffers_context,
                 &|_: &User, _: &target::Channel| None,
@@ -4993,7 +4993,7 @@ mod tests {
                     Some(&user),
                     Some(&channel_users),
                     &target,
-                    our_nick.as_nickref(),
+                    &our_nick,
                     highlights,
                     &server,
                     casemapping,
@@ -5045,7 +5045,7 @@ mod tests {
 
         Message::received(
             Encoded::from(encoded.clone()),
-            our_nick.as_nickref(),
+            &our_nick,
             &Config::default(),
             &RerouteRules::default(),
             &BuffersContextSnapshot::empty(),

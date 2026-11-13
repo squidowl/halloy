@@ -13,10 +13,11 @@ Changed:
 
 - Supported strftime formats; new list of supported specifiers is viewable at <https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html#conversion-specifications>
 - Markdown link formatting is only applied if the contents are link-shaped (specifically adheres to the [autolink](https://spec.commonmark.org/0.31.2/#autolink) format)
+- Nicks and channels are now stored more efficiently, reducing memory consumption.
 
 Thanks:
 
-- Contributions: @auronandace. @sjm42
+- Contributions: @auronandace, @sjm42, @4e554c4c
 - Feature requests: @sebbu2
 
 # 2026.10 (2026-11-03)

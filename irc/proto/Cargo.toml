@@ -6,6 +6,7 @@ license.workspace = true
 edition.workspace = true
 
 [dependencies]
+ecow = { workspace = true }
 itertools = { workspace = true }
 nom = { workspace = true }
 thiserror = { workspace = true }
