@@ -14,6 +14,7 @@ tor = ["irc/tor"]
 message_tests = ["iced/tokio"]
 
 [dependencies]
+ecow = { workspace = true }
 hashbrown = { workspace = true }
 thiserror = { workspace = true }
 futures = { workspace = true }
@@ -80,7 +81,6 @@ icu_datetime = "2.4"
 icu_calendar = "2.4"
 icu_time = "2.4"
 bitflags = "2.13.2"
-ecow = { version = "0.3.1", features = ["serde"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 apple-native-keyring-store = { version = "1", default-features = false, features = [
