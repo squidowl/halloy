@@ -1732,39 +1732,46 @@ fn upstream_buffer_button<'a>(
 
     content = content.extend(sidebar_icon(config, icon, indicator, dimensions));
 
-    content = content.push(
-        row(upstream_buffer_title(
-            config,
-            buffer,
-            *casemapping,
-            buffer_title_style,
-            buffer_title_font,
-        ))
-        .width(*width)
-        .align_y(Alignment::Center),
+    let buffer_title = upstream_buffer_title(
+        config,
+        buffer,
+        *casemapping,
+        buffer_title_style,
+        buffer_title_font,
     );
-
-    if config.sidebar.can_show_any_typing()
+    if (buffer.as_channel().is_some() || buffer.query().is_some())
+        && config.sidebar.can_show_any_typing()
         && config.sidebar.typing_indicator.is_position_right()
     {
         let typing_indicator: Element<'a, Message> =
             if is_channel_with_typing || is_query_with_typing {
                 row![
-                    container(typing::animate_for_sidebar::<_>(
+                    Space::new().width(Length::Fill).height(Length::Fill),
+                    typing::animate_for_sidebar::<_>(
                         *typing_animation,
                         config.sidebar.typing_indicator.icon_height,
                         &config.buffer.typing.animation,
                         theme.styles().text.secondary.color,
-                    ))
-                    .width(dimensions.typing_indicator_width)
+                    )
                 ]
                 .align_y(Alignment::Center)
                 .into()
             } else {
-                Space::new().width(dimensions.typing_indicator_width).into()
+                Space::new().width(Length::Fill).into()
             };
 
-        content = content.push(typing_indicator);
+        content = content.push(stack![
+            row![
+                row(buffer_title)
+                    .width(Length::Fill)
+                    .align_y(Alignment::Center),
+                Space::new().width(dimensions.typing_indicator_width)
+            ]
+            .align_y(Alignment::Center),
+            typing_indicator
+        ]);
+    } else {
+        content = content.extend(buffer_title);
     }
 
     let disclosure = if let buffer::Upstream::Server(server) = buffer {
@@ -2442,15 +2449,19 @@ fn sidebar_icon<'a>(
             (
                 Some(
                     stack![
-                        Space::new()
-                            .width(
-                                dimensions.icon_badge_padding
-                                    + dimensions
+                        row![
+                            Space::new().width(dimensions.icon_badge_padding),
+                            column![
+                                Space::new()
+                                    .height(dimensions.icon_badge_padding),
+                                container(icon).width(
+                                    dimensions
                                         .icon_size
                                         .max(reserve_gutter_width)
-                            )
-                            .height(dimensions.icon_size),
-                        icon,
+                                )
+                            ]
+                        ]
+                        .align_y(iced::Alignment::Center),
                         row![
                             Space::new().width(if show_typing_gutter {
                                 Length::Fill
@@ -2458,7 +2469,7 @@ fn sidebar_icon<'a>(
                                 Length::Shrink
                             }),
                             badge
-                        ]
+                        ],
                     ]
                     .into(),
                 ),
@@ -2509,11 +2520,7 @@ fn sidebar_icon<'a>(
                             .icon_badge_size
                             .max(dimensions.typing_indicator_height),
                     ),
-                    dimensions
-                        .max_indicator_size()
-                        .saturating_sub(dimensions.typing_indicator_width)
-                        as f32
-                        / 2.0,
+                    0.0,
                 )
             } else {
                 (
@@ -2532,25 +2539,17 @@ fn sidebar_icon<'a>(
             if let Some((indicator, _)) = indicator {
                 (
                     Some(
-                        stack![
+                        row![
                             Space::new()
-                                .width(
-                                    reserve_gutter_width
-                                        + dimensions.icon_badge_size
-                                )
+                                .width(reserve_gutter_width)
                                 .height(dimensions.icon_badge_size),
-                            row![
-                                Space::new()
-                                    .width(Length::Fill)
-                                    .height(dimensions.icon_badge_size),
-                                sidebar_icon_badge(
-                                    indicator,
-                                    dimensions.icon_badge_size,
-                                    dimensions.icon_badge_padding as f32 / 2.0,
-                                )
-                            ]
-                            .align_y(iced::Alignment::Center)
+                            sidebar_icon_badge(
+                                indicator,
+                                dimensions.icon_badge_size,
+                                dimensions.icon_badge_padding as f32 / 2.0,
+                            )
                         ]
+                        .align_y(iced::Alignment::Center)
                         .into(),
                     ),
                     reserve_gutter_height.max(dimensions.icon_badge_size),
