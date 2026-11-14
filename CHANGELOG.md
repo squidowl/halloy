@@ -17,7 +17,7 @@ Changed:
 
 Thanks:
 
-- Contributions: @auronandace. @sjm42
+- Contributions: @auronandace. @sjm42, @kasper93
 - Feature requests: @sebbu2
 
 # 2026.10 (2026-11-03)
