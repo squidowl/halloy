@@ -7,11 +7,12 @@ use irc::proto::{self, tags};
 use itertools::Itertools;
 use jiff::civil::{Date, DateTime};
 use jiff::tz::TimeZone;
-use jiff::{SignedDuration, Timestamp, Zoned};
+use jiff::{Timestamp, Zoned};
 use serde::{Deserialize, Serialize};
 
 use crate::buffer::{self, Upstream};
 use crate::capabilities::{Capabilities, Capability};
+use crate::client::ServerTimeTracking;
 use crate::config::buffer::text_input::AutoFormat;
 use crate::features::Features;
 use crate::history::reroute::RerouteRules;
@@ -126,7 +127,7 @@ impl Irc {
         supports_echoes: bool,
         reroute_rules: &RerouteRules,
         focused_buffer: Option<&buffer::Upstream>,
-        server_time_offset: Option<SignedDuration>,
+        server_time_tracking: Option<ServerTimeTracking>,
     ) -> Option<Vec<Message>> {
         let to_message_target = |target: &str| {
             if target == "*" {
@@ -181,7 +182,7 @@ impl Irc {
                                 target.to_string(),
                                 text.clone(),
                             )),
-                            server_time_offset,
+                            server_time_tracking,
                         )
                     })
                     .collect(),
@@ -213,7 +214,7 @@ impl Irc {
                                 target.to_string(),
                                 text.clone(),
                             )),
-                            server_time_offset,
+                            server_time_tracking,
                         )
                     })
                     .collect(),
@@ -239,7 +240,7 @@ impl Irc {
                         casemapping,
                     ),
                     supports_echoes.then_some(self.clone()),
-                    server_time_offset,
+                    server_time_tracking,
                 )])
             }
             _ => None,

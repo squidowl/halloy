@@ -159,6 +159,34 @@ enum ConnectionRole {
     BouncerNetwork,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct ServerTimeTracking {
+    latest: Timestamp,
+    offset: SignedDuration,
+}
+
+impl ServerTimeTracking {
+    pub fn new(server_time: Timestamp) -> Self {
+        Self {
+            latest: server_time,
+            offset: Timestamp::now().duration_until(server_time),
+        }
+    }
+
+    pub fn update(&mut self, server_time: Timestamp) {
+        self.latest = self.latest.max(server_time);
+        self.offset = Timestamp::now().duration_until(server_time);
+    }
+
+    /// Estimate server-time based on the most recent comparison between
+    /// server-time and local time it was received.
+    pub fn estimate_server_time(&self) -> Timestamp {
+        // Using the last seen offset between local and server-time should be
+        // later than `latest`, unless the local clock has changed.
+        (Timestamp::now() + self.offset).max(self.latest)
+    }
+}
+
 pub struct Client {
     server: Server,
     config: Arc<config::Server>,
@@ -172,7 +200,7 @@ pub struct Client {
     querymap: IndexMap<target::Query, QueryState>,
     labels: HashMap<String, Context>,
     batches: HashMap<String, Batch>,
-    server_time_offset: Option<SignedDuration>,
+    server_time_tracking: Option<ServerTimeTracking>,
     reroute_responses_to: Option<buffer::Upstream>,
     logged_in: bool,
     away: bool,
@@ -242,7 +270,7 @@ impl Client {
             querymap: IndexMap::default(),
             labels: HashMap::new(),
             batches: HashMap::new(),
-            server_time_offset: None,
+            server_time_tracking: None,
             reroute_responses_to: None,
             logged_in: false,
             away: false,
@@ -1296,7 +1324,7 @@ impl Client {
                 self.capabilities.acknowledged(Capability::EchoMessage),
                 reroute_rules.unwrap_or(&RerouteRules::default()),
                 Some(buffer),
-                self.server_time_offset,
+                self.server_time_tracking,
             )
             .unwrap_or_default()
     }
@@ -1306,10 +1334,8 @@ impl Client {
         command: Irc,
     ) -> Option<(reaction::Reaction, Arc<str>)> {
         let time = message::Time::client(
-            // Attempt to predict server-time by using the last seen offset
-            // between local and server-time.
-            if let Some(server_time_offset) = self.server_time_offset {
-                Timestamp::now() + server_time_offset
+            if let Some(server_time_tracking) = self.server_time_tracking {
+                server_time_tracking.estimate_server_time()
             } else {
                 Timestamp::now()
             },
@@ -1350,9 +1376,14 @@ impl Client {
         log::trace!("[{}] Message received => {:?}", self.server, *message);
 
         if let Some(server_time) = message.server_time() {
-            self.server_time_offset = self
-                .server_time_offset
-                .max(Some(Timestamp::now().duration_until(server_time)));
+            if let Some(server_time_tracking) =
+                self.server_time_tracking.as_mut()
+            {
+                server_time_tracking.update(server_time);
+            } else {
+                self.server_time_tracking =
+                    Some(ServerTimeTracking::new(server_time));
+            }
         }
 
         let stop_reroute = self.stop_reroute(&message);
