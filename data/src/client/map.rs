@@ -7,9 +7,7 @@ use hashbrown::HashMap;
 
 use super::{CLIENT_CHATHISTORY_LIMIT, Client, Event, Topic};
 use crate::buffer::{self, BuffersContext};
-use crate::capabilities::{
-    self, Capabilities, Capability, LabeledResponseContext, MultilineLimits,
-};
+use crate::capabilities::{self, Capabilities, Capability, MultilineLimits};
 use crate::config::server::filehost;
 use crate::features::{self, Features};
 use crate::history::reroute::RerouteRules;
@@ -19,7 +17,9 @@ use crate::rate_limit::TokenPriority;
 use crate::server::{self, Server};
 use crate::target::{self, Target};
 use crate::user::{ChannelUsers, Nick, User};
-use crate::{channel_discovery, config, fileupload, message, metadata};
+use crate::{
+    channel_discovery, command, config, fileupload, message, metadata,
+};
 
 #[derive(Debug)]
 pub enum State {
@@ -153,22 +153,40 @@ impl Map {
     pub fn send_from_buffer(
         &mut self,
         buffer: &buffer::Upstream,
-        message: message::Encoded,
+        command: command::Irc,
+        reply_id: Option<&message::Id>,
+        reroute_rules: Option<&RerouteRules>,
         priority: TokenPriority,
-    ) -> Option<LabeledResponseContext> {
+    ) -> Vec<storage::Update> {
         self.client_mut(buffer.as_server())
-            .and_then(|client| client.send(Some(buffer), message, priority))
+            .map(|client| {
+                client.send_from_buffer(
+                    buffer,
+                    command,
+                    reply_id,
+                    reroute_rules,
+                    priority,
+                )
+            })
+            .unwrap_or_default()
     }
 
     pub fn send_multiline_batch_from_buffer(
         &mut self,
         buffer: &buffer::Upstream,
-        messages: Vec<message::Encoded>,
-        priority: TokenPriority,
+        commands: Vec<command::Irc>,
         reply_id: Option<&message::Id>,
-    ) -> Option<LabeledResponseContext> {
+        reroute_rules: &RerouteRules,
+        priority: TokenPriority,
+    ) -> Option<storage::Update> {
         self.client_mut(buffer.as_server()).and_then(|client| {
-            client.send_multiline_batch(buffer, messages, priority, reply_id)
+            client.send_multiline_batch_from_buffer(
+                buffer,
+                commands,
+                reply_id,
+                reroute_rules,
+                priority,
+            )
         })
     }
 
@@ -177,9 +195,10 @@ impl Map {
         server: &Server,
         message: message::Encoded,
         priority: TokenPriority,
-    ) -> Option<LabeledResponseContext> {
-        self.client_mut(server)
-            .and_then(|client| client.send(None, message, priority))
+    ) {
+        if let Some(client) = self.client_mut(server) {
+            client.send(None, message, priority);
+        }
     }
 
     pub fn request_resend_message(
