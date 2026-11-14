@@ -8,6 +8,7 @@ Fixed:
 
 - Localization of default date separators and timestamp context menu formats
 - Context menu for condensed messages in the summary format
+- Sent messages no longer briefly appear above the latest received messages when the server clock is ahead
 
 Changed:
 
@@ -16,7 +17,7 @@ Changed:
 
 Thanks:
 
-- Contributions: @auronandace. @sjm42
+- Contributions: @auronandace. @sjm42, @kasper93
 - Feature requests: @sebbu2
 
 # 2026.10 (2026-11-03)

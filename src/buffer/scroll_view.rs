@@ -13,18 +13,17 @@ use data::isupport::ChathistoryState;
 use data::message::{self, Limit, Searchable, Temporal};
 use data::preview::{self, Previews};
 use data::rate_limit::TokenPriority;
-use data::reaction::Reaction;
 use data::server::Server;
 use data::target::{self, Target};
-use data::{Config, Image, Preview, client, metadata, reaction};
+use data::{Config, Image, Preview, client, metadata};
 use hashbrown::{HashMap, HashSet};
 use iced::widget::{
     self, Scrollable, button, column, container, row, rule, scrollable, sensor,
     space, text,
 };
 use iced::{Length, Size, Task, padding};
+use jiff::SignedDuration;
 use jiff::civil::Date;
-use jiff::{SignedDuration, Timestamp};
 use tokio::time;
 
 use self::correct_viewport::correct_viewport;
@@ -1660,11 +1659,12 @@ impl State {
                 }
             }
             Message::Reacted { msgid, text } => {
-                if let Some(history_update) =
-                    send_reaction(clients, buffer, msgid, text, false)
-                {
+                let history_updates =
+                    send_reaction(clients, buffer, msgid, text, false);
+
+                if !history_updates.is_empty() {
                     storage.write(
-                        vec![history_update],
+                        history_updates,
                         clients,
                         buffers_context,
                         focused_window,
@@ -1673,11 +1673,12 @@ impl State {
                 }
             }
             Message::Unreacted { msgid, text } => {
-                if let Some(history_update) =
-                    send_reaction(clients, buffer, msgid, text, true)
-                {
+                let history_updates =
+                    send_reaction(clients, buffer, msgid, text, true);
+
+                if !history_updates.is_empty() {
                     storage.write(
-                        vec![history_update],
+                        history_updates,
                         clients,
                         buffers_context,
                         focused_window,
@@ -2208,10 +2209,11 @@ fn send_reaction(
     msgid: message::Id,
     text: Cow<'static, str>,
     unreact: bool,
-) -> Option<storage::Update> {
-    let buffer = buffer?;
-    let server = buffer.as_server();
-    let target = buffer.target()?;
+) -> Vec<storage::Update> {
+    let Some(buffer) = buffer else { return vec![] };
+    let Some(target) = buffer.target() else {
+        return vec![];
+    };
     let command = match unreact {
         true => Irc::Unreact {
             target: target.to_string(),
@@ -2225,37 +2227,7 @@ fn send_reaction(
         },
     };
 
-    let encoded = message::Encoded::try_from(command).ok()?;
-    let labeled_response_context =
-        clients.send_from_buffer(buffer, encoded, TokenPriority::User);
-
-    if !clients.get_server_supports_echoes(server) {
-        let nick = clients.nickname(server)?;
-
-        Some(storage::Update::Reaction(
-            server.clone(),
-            reaction::ReactionWithContext {
-                inner: Reaction {
-                    sender: nick.to_owned(),
-                    text: text.into_owned(),
-                    unreact,
-                    id: None,
-                    time: message::Time::client(Timestamp::now()),
-                },
-                target,
-                in_reply_to: msgid,
-                // TODO: Confirm delivery of reactions, and allow to re-send
-                // when failed (or simply remove?).
-                direction: message::Direction::Sent { command: None },
-                labeled_response_context: None,
-                historical: false,
-                notification_allowed: false,
-            }
-            .with_labeled_response_context(labeled_response_context),
-        ))
-    } else {
-        None
-    }
+    clients.send_from_buffer(buffer, command, None, None, TokenPriority::User)
 }
 
 #[derive(Debug, Clone, Copy, Default)]

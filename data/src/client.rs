@@ -13,7 +13,7 @@ use hashbrown::{HashMap, HashSet};
 use indexmap::IndexMap;
 use irc::proto::{self, Command, Tags, command, tags};
 use itertools::{Either, Itertools};
-use jiff::Timestamp;
+use jiff::{SignedDuration, Timestamp};
 
 pub use self::map::{ClientsContext, Map, State, Status};
 pub use self::on_connect::on_connect;
@@ -172,6 +172,7 @@ pub struct Client {
     querymap: IndexMap<target::Query, QueryState>,
     labels: HashMap<String, Context>,
     batches: HashMap<String, Batch>,
+    server_time_offset: Option<SignedDuration>,
     reroute_responses_to: Option<buffer::Upstream>,
     logged_in: bool,
     away: bool,
@@ -241,6 +242,7 @@ impl Client {
             querymap: IndexMap::default(),
             labels: HashMap::new(),
             batches: HashMap::new(),
+            server_time_offset: None,
             reroute_responses_to: None,
             logged_in: false,
             away: false,
@@ -814,19 +816,117 @@ impl Client {
         labeled_response_context
     }
 
-    fn send_multiline_batch(
+    fn send_from_buffer(
         &mut self,
         buffer: &buffer::Upstream,
-        mut messages: Vec<message::Encoded>,
-        priority: TokenPriority,
+        command: Irc,
         reply_id: Option<&message::Id>,
-    ) -> Option<LabeledResponseContext> {
+        reroute_rules: Option<&RerouteRules>,
+        priority: TokenPriority,
+    ) -> Vec<storage::Update> {
+        let Ok(message_to_send) = message::Encoded::try_from(command.clone())
+        else {
+            log::warn!(
+                "[{}] attempting to send IRC command that cannot be encoded: {command:?}",
+                self.server
+            );
+
+            return vec![];
+        };
+
+        let labeled_response_context =
+            self.send(Some(buffer), message_to_send, priority);
+
+        match command {
+            Irc::Msg(_, _) | Irc::Notice(_, _) | Irc::Me(_, _) => self
+                .convert_command_to_messages(buffer, &command, reroute_rules)
+                .into_iter()
+                .map(|mut message| {
+                    message.reply_to = reply_id.cloned();
+
+                    storage::Update::Message(
+                        Some(self.server.clone()),
+                        message::MessageWithContext {
+                            inner: message,
+                            highlight: None,
+                            historical: false,
+                            labeled_response_context: None,
+                            notification_allowed: false,
+                        }
+                        .with_labeled_response_context(
+                            labeled_response_context.clone(),
+                        ),
+                    )
+                })
+                .collect(),
+            Irc::React { .. } | Irc::Unreact { .. } => {
+                if let Some(target) = buffer.target()
+                    && let Some((reaction, msgid)) =
+                        self.convert_command_to_reaction(command)
+                {
+                    vec![storage::Update::Reaction(
+                        self.server.clone(),
+                        reaction::ReactionWithContext {
+                            inner: reaction,
+                            target,
+                            in_reply_to: msgid,
+                            // TODO: Confirm delivery of reactions, and allow to re-send
+                            // when failed (or simply remove?).
+                            direction: message::Direction::Sent {
+                                command: None,
+                            },
+                            labeled_response_context: None,
+                            historical: false,
+                            notification_allowed: false,
+                        }
+                        .with_labeled_response_context(
+                            labeled_response_context,
+                        ),
+                    )]
+                } else {
+                    vec![]
+                }
+            }
+            _ => vec![],
+        }
+    }
+
+    fn send_multiline_batch_from_buffer(
+        &mut self,
+        buffer: &buffer::Upstream,
+        commands: Vec<Irc>,
+        reply_id: Option<&message::Id>,
+        reroute_rules: &RerouteRules,
+        priority: TokenPriority,
+    ) -> Option<storage::Update> {
+        let mut messages_to_send = commands
+            .iter()
+            .filter_map(|command| {
+                message::Encoded::try_from(command.clone()).ok()
+            })
+            .collect::<Vec<_>>();
+
+        if messages_to_send.is_empty() {
+            log::warn!(
+                "[{}] attempting to send IRC multiline message that cannot be encoded: {commands:?}",
+                self.server
+            );
+
+            return None;
+        }
+
         if self.multiline_limits().is_some()
             && let Some(batch_kind) =
-                messages.first().and_then(|message| match message.command {
-                    Command::PRIVMSG(_, _) => Some(MultilineBatchKind::PRIVMSG),
-                    Command::NOTICE(_, _) => Some(MultilineBatchKind::NOTICE),
-                    _ => None,
+                messages_to_send.first().and_then(|message| {
+                    match message.command {
+                        Command::PRIVMSG(_, _) => {
+                            Some(MultilineBatchKind::PRIVMSG)
+                        }
+                        Command::NOTICE(_, _) => {
+                            Some(MultilineBatchKind::NOTICE)
+                        }
+                        _ => None,
+                    }
                 })
             && let Some(target) = buffer.target().as_ref()
         {
@@ -847,7 +947,7 @@ impl Client {
 
             // Overwrite any existing tags, since messages in the batch can only
             // have draft/multiline-concat and batch tags
-            for message in messages.iter_mut() {
+            for message in messages_to_send.iter_mut() {
                 message.tags = tags![ "batch" => reference_tag.clone() ];
             }
 
@@ -860,8 +960,8 @@ impl Client {
                 target.as_str(),
             );
 
-            let messages = iter::once(opening_batch)
-                .chain(messages.into_iter().flat_map(|message| {
+            let messages_to_send = iter::once(opening_batch)
+                .chain(messages_to_send.into_iter().flat_map(|message| {
                     match &message.command {
                         Command::PRIVMSG(_, text)
                         | Command::NOTICE(_, text) => {
@@ -922,11 +1022,11 @@ impl Client {
                 .collect::<Vec<message::Encoded>>();
 
             if let Some(ref mut anti_flood) = self.anti_flood {
-                for message in messages {
+                for message in messages_to_send {
                     anti_flood.add_token(message, priority);
                 }
             } else {
-                for message in messages {
+                for message in messages_to_send {
                     if let Err(e) = self.handle.try_send(message.into()) {
                         log::warn!(
                             "[{}] Error sending message: {e}",
@@ -936,10 +1036,98 @@ impl Client {
                 }
             }
 
-            labeled_response_context
+            commands
+                .iter()
+                .flat_map(|command| {
+                    self.convert_command_to_messages(
+                        buffer,
+                        command,
+                        Some(reroute_rules),
+                    )
+                })
+                .reduce(|mut batch_message, message| {
+                    match (&mut batch_message.content, message.content) {
+                        (
+                            message::Content::Plain(batch_text),
+                            message::Content::Plain(message_text),
+                        ) => {
+                            batch_text.push('\n');
+                            batch_text.push_str(message_text.as_str());
+                        }
+                        (
+                            message::Content::Plain(batch_text),
+                            message::Content::Fragments(message_fragments),
+                        ) => {
+                            batch_text.push('\n');
+                            let mut fragments = vec![message::Fragment::Text(
+                                batch_text.to_string(),
+                            )];
+                            fragments.extend(message_fragments);
+
+                            batch_message.content =
+                                message::Content::Fragments(fragments);
+                        }
+                        (
+                            message::Content::Fragments(batch_fragments),
+                            message::Content::Plain(message_text),
+                        ) => {
+                            batch_fragments.push(message::Fragment::Text(
+                                format!("\n{message_text}"),
+                            ));
+                        }
+                        (
+                            message::Content::Fragments(batch_fragments),
+                            message::Content::Fragments(message_fragments),
+                        ) => {
+                            batch_fragments.push(message::Fragment::Text(
+                                "\n".to_string(),
+                            ));
+                            batch_fragments.extend(message_fragments);
+                        }
+                        (message::Content::Log(_), _)
+                        | (_, message::Content::Log(_)) => (),
+                    }
+
+                    match (
+                        batch_message.as_command_mut(),
+                        message.direction.as_command(),
+                    ) {
+                        (
+                            Some(Irc::Msg(_, batch_text)),
+                            Some(Irc::Msg(_, text)),
+                        )
+                        | (
+                            Some(Irc::Notice(_, batch_text)),
+                            Some(Irc::Notice(_, text)),
+                        ) => {
+                            batch_text.push('\n');
+                            batch_text.push_str(text.as_str());
+                        }
+                        _ => (),
+                    }
+
+                    batch_message
+                })
+                .map(|mut message| {
+                    message.reply_to = reply_id.cloned();
+
+                    storage::Update::Message(
+                        Some(self.server.clone()),
+                        message::MessageWithContext {
+                            inner: message,
+                            highlight: None,
+                            historical: false,
+                            labeled_response_context: None,
+                            notification_allowed: false,
+                        }
+                        .with_labeled_response_context(
+                            labeled_response_context,
+                        ),
+                    )
+                })
         } else {
             log::warn!(
-                "[{}] unable to send messages as IRCv3 draft/multiline batch; capability not supported: {messages:?}",
+                "[{}] unable to send messages as IRCv3 draft/multiline batch; capability not supported: {messages_to_send:?}",
                 self.server
             );
 
@@ -993,17 +1181,17 @@ impl Client {
         {
             return vec![];
         }
-        let Some(message) = self.resend_privmsg_or_notice(
+        let Some(storage_update) = self.resend_privmsg_or_notice(
             &lookup.buffer,
             &message,
-            TokenPriority::User,
             reroute_rules,
+            TokenPriority::User,
         ) else {
             return vec![];
         };
         vec![
             storage::Update::Remove(kind, lookup.history_id, lookup.time),
-            storage::Update::Message(Some(self.server.clone()), message),
+            storage_update,
         ]
     }
 
@@ -1011,9 +1199,9 @@ impl Client {
         &mut self,
         buffer: &buffer::Upstream,
         message: &message::Message,
-        priority: TokenPriority,
         reroute_rules: &RerouteRules,
-    ) -> Option<message::MessageWithContext> {
+        priority: TokenPriority,
+    ) -> Option<storage::Update> {
         message.as_command().and_then(|command| {
             let multiline = if let Some((target, text, batch_kind)) =
                 match &command {
@@ -1045,73 +1233,111 @@ impl Client {
 
             let reply_id = message.reply_to.as_ref();
 
-            // TODO: Use Client::handle to create message::MessageWithContext
-            // instead of Irc::messages.  Similarly, return
-            // message::MessageWithContext by Client::send and
-            // Client::send_multiline_batch in place of LabeledResponseContext,
-            // utilizing Client::handle.
-
-            let channel_users =
-                buffer.as_channel().and_then(|channel| self.users(channel));
-
-            let mut user = User::from(self.nickname().to_owned());
-
-            if let Some(channel_users) = channel_users {
-                user = channel_users.resolve(&user).cloned().unwrap_or(user);
-            }
-
-            // The command stored with each sent message is expected to
-            // correspond to a single message (i.e. it is not a multi-target
-            // command; if the original command was multi-target, then it was
-            // split into single-target commands).
-            if let Some(mut message) = command
-                .messages(
-                    user,
-                    channel_users,
-                    buffer.as_server(),
-                    self.chantypes(),
-                    self.statusmsg(),
-                    self.casemapping(),
-                    self.capabilities.acknowledged(Capability::EchoMessage),
+            if multiline {
+                self.send_multiline_batch_from_buffer(
+                    buffer,
+                    vec![command.clone()],
+                    reply_id,
                     reroute_rules,
-                    Some(buffer),
-                )
-                .and_then(|messages| messages.into_iter().next())
-                && let Some(mut encoded) =
-                    proto::Command::try_from(command.clone())
-                        .ok()
-                        .map(proto::Message::from)
-                        .map(message::Encoded::from)
-            {
-                let labeled_response_context = if multiline {
-                    self.send_multiline_batch(
-                        buffer,
-                        vec![encoded],
-                        priority,
-                        reply_id,
-                    )
-                } else {
-                    encoded.set_reply_to(reply_id);
-
-                    self.send(Some(buffer), encoded, priority)
-                };
-
-                message.reply_to = reply_id.cloned();
-
-                Some(
-                    message::MessageWithContext {
-                        inner: message,
-                        highlight: None,
-                        historical: false,
-                        labeled_response_context: None,
-                        notification_allowed: false,
-                    }
-                    .with_labeled_response_context(labeled_response_context),
+                    priority,
                 )
             } else {
-                None
+                // The command stored with each sent message is expected to
+                // correspond to a single message (i.e. it is not a multi-target
+                // command; if the original command was multi-target, then it
+                // was split into single-target commands).
+                self.send_from_buffer(
+                    buffer,
+                    command.clone(),
+                    reply_id,
+                    Some(reroute_rules),
+                    priority,
+                )
+                .into_iter()
+                .next()
             }
         })
+    }
+
+    fn convert_command_to_messages(
+        &self,
+        buffer: &buffer::Upstream,
+        command: &Irc,
+        reroute_rules: Option<&RerouteRules>,
+    ) -> Vec<message::Message> {
+        let mut user = self.nickname().to_owned().into();
+
+        let channel_users = match buffer {
+            buffer::Upstream::Channel(_, channel) => {
+                self.chanmap.get(channel).map(|chanimpl| &chanimpl.users)
+            }
+            _ => None,
+        };
+
+        if let Some(channel_users) = channel_users {
+            user = channel_users.resolve(&user).cloned().unwrap_or(user);
+        }
+
+        if reroute_rules.is_none() {
+            log::warn!(
+                "[{}] Missing reroute rules when converting IRC command to messages",
+                self.server
+            );
+        }
+
+        command
+            .messages(
+                &user,
+                channel_users,
+                &self.server,
+                self.chantypes(),
+                self.statusmsg(),
+                self.casemapping(),
+                self.capabilities.acknowledged(Capability::EchoMessage),
+                reroute_rules.unwrap_or(&RerouteRules::default()),
+                Some(buffer),
+                self.server_time_offset,
+            )
+            .unwrap_or_default()
+    }
+
+    fn convert_command_to_reaction(
+        &self,
+        command: Irc,
+    ) -> Option<(reaction::Reaction, Arc<str>)> {
+        let time = message::Time::client(
+            // Attempt to predict server-time by using the last seen offset
+            // between local and server-time.
+            if let Some(server_time_offset) = self.server_time_offset {
+                Timestamp::now() + server_time_offset
+            } else {
+                Timestamp::now()
+            },
+        );
+
+        match command {
+            Irc::React { text, msgid, .. } => Some((
+                reaction::Reaction {
+                    sender: self.nickname().to_owned(),
+                    text: text.into_owned(),
+                    unreact: false,
+                    id: None,
+                    time,
+                },
+                msgid,
+            )),
+            Irc::Unreact { text, msgid, .. } => Some((
+                reaction::Reaction {
+                    sender: self.nickname().to_owned(),
+                    text: text.into_owned(),
+                    unreact: true,
+                    id: None,
+                    time,
+                },
+                msgid,
+            )),
+            _ => None,
+        }
     }
 
     fn receive(
@@ -1122,6 +1348,12 @@ impl Client {
         config: &config::Config,
     ) -> Result<Vec<Event>> {
         log::trace!("[{}] Message received => {:?}", self.server, *message);
+
+        if let Some(server_time) = message.server_time() {
+            self.server_time_offset = self
+                .server_time_offset
+                .max(Some(Timestamp::now().duration_until(server_time)));
+        }
 
         let stop_reroute = self.stop_reroute(&message);
 

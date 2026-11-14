@@ -581,10 +581,19 @@ impl Message {
         target: Target,
         content: Content,
         command: Option<command::Irc>,
+        server_time_offset: Option<SignedDuration>,
     ) -> Self {
         Message {
             history_id: history::Id::default(),
-            time: Time::client(Timestamp::now()),
+            time: Time::client(
+                // Attempt to predict server-time by using the last seen offset
+                // between local and server-time.
+                if let Some(server_time_offset) = server_time_offset {
+                    Timestamp::now() + server_time_offset
+                } else {
+                    Timestamp::now()
+                },
+            ),
             direction: Direction::Sent { command },
             target,
             source,
