@@ -44,9 +44,14 @@ pub struct Sidebar {
 }
 
 impl Sidebar {
-    pub fn can_show_typing(&self) -> bool {
+    pub fn can_show_typing(&self, buffer: TypingIndicatorBuffer) -> bool {
         self.typing_indicator
-            .can_show(self.position.is_horizontal())
+            .can_show(self.position.is_horizontal(), buffer)
+    }
+
+    pub fn can_show_any_typing(&self) -> bool {
+        self.can_show_typing(TypingIndicatorBuffer::Channel)
+            || self.can_show_typing(TypingIndicatorBuffer::Query)
     }
 }
 
@@ -371,6 +376,7 @@ where
 #[serde(default)]
 pub struct TypingIndicator {
     pub show: Option<TypingIndicatorShow>,
+    pub position: TypingIndicatorPosition,
     #[serde(deserialize_with = "deserialize_u32_positive_integer")]
     pub icon_height: u32,
 }
@@ -379,6 +385,7 @@ impl Default for TypingIndicator {
     fn default() -> Self {
         Self {
             show: None,
+            position: TypingIndicatorPosition::default(),
             icon_height: 4,
         }
     }
@@ -387,17 +394,61 @@ impl Default for TypingIndicator {
 #[derive(Debug, Clone, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum TypingIndicatorShow {
+    All,
+    Channels,
     #[default]
     Queries,
     None,
 }
 
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+pub enum TypingIndicatorBuffer {
+    Channel,
+    Query,
+}
+
+#[derive(Debug, Copy, Clone, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum TypingIndicatorPosition {
+    LeftSingle,
+    LeftGutter,
+    #[default]
+    Right,
+}
+
 impl TypingIndicator {
-    pub fn can_show(&self, is_horizontal: bool) -> bool {
+    pub fn can_show(
+        &self,
+        is_horizontal: bool,
+        buffer: TypingIndicatorBuffer,
+    ) -> bool {
         match &self.show {
-            Some(show) => *show != TypingIndicatorShow::None,
-            None => !is_horizontal,
+            Some(show) => match show {
+                TypingIndicatorShow::All => true,
+                _ => match buffer {
+                    TypingIndicatorBuffer::Channel => {
+                        *show == TypingIndicatorShow::Channels
+                    }
+                    TypingIndicatorBuffer::Query => {
+                        *show == TypingIndicatorShow::Queries
+                    }
+                },
+            },
+            None => !is_horizontal && buffer == TypingIndicatorBuffer::Query,
         }
+    }
+
+    pub fn is_position_left_single(&self) -> bool {
+        matches!(self.position, TypingIndicatorPosition::LeftSingle)
+    }
+
+    pub fn is_position_left_gutter(&self) -> bool {
+        matches!(self.position, TypingIndicatorPosition::LeftGutter)
+    }
+
+    pub fn is_position_right(&self) -> bool {
+        matches!(self.position, TypingIndicatorPosition::Right)
     }
 }
 
