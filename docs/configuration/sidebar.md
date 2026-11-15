@@ -500,18 +500,61 @@ show = "all"
 
 Change the sidebar typing indicator's display position.
 
-The default position is set to `"right"`. Using `"left-gutter"` will add a gutter
-for the typing indicator on the left. `"left-single"` shows one indicator at a time,
-with highlights taking precedence.
+The default position is set to `"right"`.
 
 ```toml
 # Type: string
-# Values: "left-gutter", "left-single", "right"
+# Values: "left", "right"
 # Default: "right"
 
 [sidebar.typing_indicator]
-position = "left-gutter"
+position = "left"
 ```
+
+#### `left`
+
+The `"left"` position defaults to having a gutter for the typing indicator.
+
+##### `gutter`
+
+Changing `gutter` to `false` will display typing, highlights, and unread
+indicators one at a time.
+
+```toml
+# Type: boolean
+# Values: true, false 
+# Default: true
+
+[sidebar.typing_indicator.position.left]
+gutter = false
+```
+
+##### `priority`
+
+Set the `priority` for the typing indicator to display over the
+highlight and unread indicators.
+
+```toml
+# Type: array of strings
+# Values: any variation of ["highlight", typing", "unread"]  
+# Default: ["highlight", "typing", "unread"]
+
+[sidebar.typing_indicator.position.left]
+gutter = false
+priority = ["highlight", "typing", "unread"]
+```
+
+:::info
+
+All three indicator priority values must be set in this setting to be valid.
+The following is an invalid value:
+
+```toml
+[sidebar.typing_indicator.position.left]
+priority = ["highlight", "typing"]
+```
+
+:::
 
 ### `icon_height`
 

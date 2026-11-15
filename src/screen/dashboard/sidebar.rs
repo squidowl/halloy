@@ -1700,23 +1700,23 @@ fn upstream_buffer_button<'a>(
         None
     };
 
-    let typing_indicator =
-        if (config.sidebar.typing_indicator.is_position_left_single()
-            && !show_highlight_icon
-            && is_channel_with_typing)
-            || (config.sidebar.typing_indicator.is_position_left_gutter()
-                && is_channel_with_typing)
-            || is_query_with_typing
-        {
-            typing::animate_for_sidebar::<_>(
-                *typing_animation,
-                config.sidebar.typing_indicator.icon_height,
-                &config.buffer.typing.animation,
-                theme.styles().text.secondary.color,
-            )
-        } else {
-            None
-        };
+    let typing_indicator = if (is_channel_with_typing || is_query_with_typing)
+        && (config.sidebar.typing_indicator.is_position_left()
+            || (config.sidebar.typing_indicator.is_position_left_single()
+                && config
+                    .sidebar
+                    .typing_indicator
+                    .show_by_priority(show_highlight_icon, show_unread_icon)))
+    {
+        typing::animate_for_sidebar::<_>(
+            *typing_animation,
+            config.sidebar.typing_indicator.icon_height,
+            &config.buffer.typing.animation,
+            theme.styles().text.secondary.color,
+        )
+    } else {
+        None
+    };
 
     if typing_indicator.is_some()
         && config.sidebar.typing_indicator.is_position_left_single()
@@ -2409,10 +2409,9 @@ fn sidebar_icon<'a>(
     typing_indicator: Option<Element<'a, Message>>,
     dimensions: Dimensions,
 ) -> impl IntoIterator<Item = Element<'a, Message>> {
-    let show_typing_gutter =
-        config.sidebar.typing_indicator.is_position_left_gutter()
-            && config.sidebar.can_show_any_typing()
-            && !config.sidebar.position.is_horizontal();
+    let show_typing_gutter = config.sidebar.typing_indicator.is_position_left()
+        && config.sidebar.can_show_any_typing()
+        && !config.sidebar.position.is_horizontal();
 
     let (icon, icon_height, icon_left_spacing): (
         Option<Element<'a, Message>>,

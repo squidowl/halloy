@@ -91,7 +91,7 @@ By default, Halloy will only format text when using the `/format` command. This,
 
 ```toml
 [buffer.text_input]
-auto_format = "disabled" | "markdown" | { "markdown-features" = [ ["italics", "bold", "strikethrough", "code", "spoiler", "link"] } | "token" | "all"
+auto_format = "disabled" | "markdown" | { "markdown-features" = ["italics", "bold", "strikethrough", "code", "spoiler", "link"] } | "token" | "all"
 ```
 
 Token-based formatting is included in `"all"`, in addition to Markdown formatting, which provides underline and color formatting that `"markdown"` does not.
