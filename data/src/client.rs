@@ -1401,21 +1401,37 @@ impl Client {
     ) -> Result<Vec<Event>> {
         log::trace!("[{}] Message received => {:?}", self.server, *message);
 
-        if let Some(server_time) = message.server_time() {
-            if let Some(server_time_tracking) =
-                self.server_time_tracking.as_mut()
-            {
-                server_time_tracking.update(server_time);
-            } else {
-                self.server_time_tracking =
-                    Some(ServerTimeTracking::new(server_time));
-            }
-        }
-
         let stop_reroute = self.stop_reroute(&message);
 
         let events =
             self.handle(message, None, storage, buffers_context, config)?;
+
+        for event in events.iter() {
+            let server_time = match event {
+                Event::Message(message) if !message.historical => {
+                    message.server_time()
+                }
+                Event::Reaction(reaction) if !reaction.historical => {
+                    reaction.server_time()
+                }
+                Event::Redaction(redaction) if !redaction.historical => {
+                    redaction.server_time()
+                }
+                Event::Broadcast(broadcast) => broadcast.server_time(),
+                _ => None,
+            };
+
+            if let Some(server_time) = server_time {
+                if let Some(server_time_tracking) =
+                    self.server_time_tracking.as_mut()
+                {
+                    server_time_tracking.update(server_time);
+                } else {
+                    self.server_time_tracking =
+                        Some(ServerTimeTracking::new(server_time));
+                }
+            }
+        }
 
         if stop_reroute {
             self.reroute_responses_to = None;
@@ -4225,6 +4241,7 @@ impl Client {
                 .collect(),
             Command::REDACT(_, _, _) => self
                 .process_redaction(message)
+                .map(redaction::RedactionWithContext::into_historical)
                 .into_iter()
                 .map(Event::Redaction)
                 .collect(),
@@ -4356,6 +4373,7 @@ impl Client {
                 .collect(),
             Command::REDACT(_, _, _) => self
                 .process_redaction(message)
+                .map(redaction::RedactionWithContext::into_historical)
                 .into_iter()
                 .map(Event::Redaction)
                 .collect(),

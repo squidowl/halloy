@@ -1,5 +1,6 @@
 //! Generate messages that can be broadcast into every buffer
 use hashbrown::HashSet;
+use jiff::Timestamp;
 
 use super::{
     Content, Direction, Message, Source, kick_text, nickname_text,
@@ -190,6 +191,10 @@ impl BroadcastWithContext {
                 }
             })
             .collect()
+    }
+
+    pub fn server_time(&self) -> Option<Timestamp> {
+        self.time.try_into_server_time()
     }
 }
 
