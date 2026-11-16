@@ -479,9 +479,9 @@ where
             TypingIndicatorLeftPositionOptions::TypingGutter => {
                 Ok(TypingIndicatorPosition::Left)
             }
-            TypingIndicatorLeftPositionOptions::TypingPrecedence(precedence) => {
-                Ok(TypingIndicatorPosition::LeftPrecedence(precedence))
-            }
+            TypingIndicatorLeftPositionOptions::TypingPrecedence(
+                precedence,
+            ) => Ok(TypingIndicatorPosition::LeftPrecedence(precedence)),
         },
     }
 }
@@ -536,6 +536,10 @@ impl TypingIndicator {
     }
 
     pub fn is_position_left(&self) -> bool {
+        self.is_position_left_gutter() || self.is_position_left_precedence()
+    }
+
+    pub fn is_position_left_gutter(&self) -> bool {
         matches!(self.position, TypingIndicatorPosition::Left)
     }
 
@@ -560,7 +564,9 @@ impl TypingIndicator {
         match precedence {
             TypingIndicatorPrecedence::None => true,
             TypingIndicatorPrecedence::Highlight => !show_highlight,
-            TypingIndicatorPrecedence::Unread => !show_unread && !show_highlight,
+            TypingIndicatorPrecedence::Unread => {
+                !show_unread && !show_highlight
+            }
         }
     }
 }

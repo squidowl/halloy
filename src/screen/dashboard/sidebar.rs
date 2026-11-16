@@ -1756,12 +1756,7 @@ fn upstream_buffer_button<'a>(
         config,
         icon,
         indicator,
-        if config.sidebar.typing_indicator.is_position_left()
-            || config
-                .sidebar
-                .typing_indicator
-                .is_position_left_precedence()
-        {
+        if config.sidebar.typing_indicator.is_position_left() {
             std::mem::take(&mut typing_indicator)
         } else {
             None
@@ -2421,9 +2416,10 @@ fn sidebar_icon<'a>(
     typing_indicator: Option<Element<'a, Message>>,
     dimensions: Dimensions,
 ) -> impl IntoIterator<Item = Element<'a, Message>> {
-    let show_typing_gutter = config.sidebar.typing_indicator.is_position_left()
-        && config.sidebar.can_show_any_typing()
-        && !config.sidebar.position.is_horizontal();
+    let show_typing_gutter =
+        config.sidebar.typing_indicator.is_position_left_gutter()
+            && config.sidebar.can_show_any_typing()
+            && !config.sidebar.position.is_horizontal();
 
     let (icon, icon_height, icon_left_spacing): (
         Option<Element<'a, Message>>,
