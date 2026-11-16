@@ -2348,6 +2348,10 @@ fn handle_client_events(
                         && format!("{known:b}") != format!("{server:b}")
                 }) {
                     storage.rename_bouncer_network(old, &server);
+
+                    // overrides are keyed by name, so the running connection
+                    // picks up the config for its new name
+                    controllers.rename(&server, server_config.clone());
                 }
 
                 // an insert keeps the existing key, so remove it first to

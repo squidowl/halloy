@@ -133,6 +133,7 @@ pub enum Control {
     Resumed,
     End(Option<String>),
     UpdateConfiguration(Arc<config::Server>, Option<config::Proxy>),
+    Rename(Server, Arc<config::Server>),
 }
 
 struct Stream {
@@ -167,7 +168,10 @@ async fn _run(
     mut default_proxy: Option<config::Proxy>,
     sender: mpsc::UnboundedSender<Update>,
 ) -> Never {
-    let server::Entry { server, mut config } = server;
+    let server::Entry {
+        mut server,
+        mut config,
+    } = server;
 
     let (controller, control) = mpsc::channel(20);
     let mut control = control.peekable();
@@ -411,6 +415,10 @@ async fn _run(
                     }
                     Some(Control::End(_)) => {
                         state = State::End;
+                    }
+                    Some(Control::Rename(renamed, renamed_config)) => {
+                        server = renamed;
+                        config = renamed_config;
                     }
                     Some(Control::AuthenticationFailed { .. }) | None => (),
                 }
@@ -660,6 +668,19 @@ async fn _run(
                             default_proxy = updated_default_proxy;
                         }
                         Control::Connect(_) | Control::DisableAutoconnect => (),
+                        // a rename keeps the connection, since bouncer
+                        // network overrides never change connection settings
+                        Control::Rename(renamed, renamed_config) => {
+                            server = renamed;
+                            config = renamed_config;
+
+                            let _ = sender.unbounded_send(
+                                Update::UpdateConfiguration {
+                                    server: server.clone(),
+                                    updated_config: config.clone(),
+                                },
+                            );
+                        }
                         Control::NetworkChanged {
                             routable,
                             addresses,
@@ -1180,6 +1201,14 @@ impl Map {
 
     pub fn remove(&mut self, server: &Server) {
         self.controllers.remove(server);
+    }
+
+    pub fn rename(&mut self, server: &Server, config: Arc<config::Server>) {
+        if let Some(mut controller) = self.controllers.remove(server) {
+            let _ =
+                controller.try_send(Control::Rename(server.clone(), config));
+            self.controllers.insert(server.clone(), controller);
+        }
     }
 
     pub fn end(&mut self, server: &Server, reason: &Option<String>) {
