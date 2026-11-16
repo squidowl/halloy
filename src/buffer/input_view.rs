@@ -1226,7 +1226,6 @@ impl State {
             Message::Escape => (Task::none(), None),
             Message::SendCommand { buffer, command } => {
                 // Send command.
-                println!("command {command:?}");
                 clients.send_from_buffer(
                     &buffer,
                     command,

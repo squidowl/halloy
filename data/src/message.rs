@@ -25,7 +25,7 @@ pub use self::time::Time;
 pub use self::with_context::MessageWithContext;
 use crate::buffer::BuffersContext;
 use crate::capabilities::LabeledResponseContext;
-use crate::client::{Destination, ServerTimeTracking};
+use crate::client::Destination;
 use crate::config::buffer::{CondensationFormat, UsernameFormat};
 use crate::config::{self, Highlights};
 use crate::dashboard::BufferAction;
@@ -581,19 +581,11 @@ impl Message {
         target: Target,
         content: Content,
         command: Option<command::Irc>,
-        server_time_tracking: Option<ServerTimeTracking>,
+        time: message::Time,
     ) -> Self {
         Message {
             history_id: history::Id::default(),
-            time: Time::client(
-                // Attempt to predict server-time by using the last seen offset
-                // between local and server-time.
-                if let Some(server_time_tracking) = server_time_tracking {
-                    server_time_tracking.estimate_server_time()
-                } else {
-                    Timestamp::now()
-                },
-            ),
+            time,
             direction: Direction::Sent { command },
             target,
             source,

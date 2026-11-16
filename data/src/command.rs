@@ -12,7 +12,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::buffer::{self, Upstream};
 use crate::capabilities::{Capabilities, Capability};
-use crate::client::ServerTimeTracking;
 use crate::config::buffer::text_input::AutoFormat;
 use crate::features::Features;
 use crate::history::reroute::RerouteRules;
@@ -127,7 +126,7 @@ impl Irc {
         supports_echoes: bool,
         reroute_rules: &RerouteRules,
         focused_buffer: Option<&buffer::Upstream>,
-        server_time_tracking: Option<ServerTimeTracking>,
+        time: message::Time,
     ) -> Option<Vec<Message>> {
         let to_message_target = |target: &str| {
             if target == "*" {
@@ -182,7 +181,7 @@ impl Irc {
                                 target.to_string(),
                                 text.clone(),
                             )),
-                            server_time_tracking,
+                            time,
                         )
                     })
                     .collect(),
@@ -214,7 +213,7 @@ impl Irc {
                                 target.to_string(),
                                 text.clone(),
                             )),
-                            server_time_tracking,
+                            time,
                         )
                     })
                     .collect(),
@@ -240,7 +239,7 @@ impl Irc {
                         casemapping,
                     ),
                     supports_echoes.then_some(self.clone()),
-                    server_time_tracking,
+                    time,
                 )])
             }
             _ => None,

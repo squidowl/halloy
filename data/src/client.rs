@@ -166,24 +166,34 @@ pub struct ServerTimeTracking {
 }
 
 impl ServerTimeTracking {
-    pub fn new(server_time: Timestamp) -> Self {
+    fn new(server_time: Timestamp) -> Self {
         Self {
             latest: server_time,
             offset: Timestamp::now().duration_until(server_time),
         }
     }
 
-    pub fn update(&mut self, server_time: Timestamp) {
+    fn update(&mut self, server_time: Timestamp) {
         self.latest = self.latest.max(server_time);
         self.offset = Timestamp::now().duration_until(server_time);
     }
 
-    /// Estimate server-time based on the most recent comparison between
-    /// server-time and local time it was received.
-    pub fn estimate_server_time(&self) -> Timestamp {
+    fn estimate_server_time(&self) -> Timestamp {
         // Using the last seen offset between local and server-time should be
         // later than `latest`, unless the local clock has changed.
         (Timestamp::now() + self.offset).max(self.latest)
+    }
+}
+
+/// Estimate server-time based on the most recent comparison between server-time
+/// and local time it was received.
+pub fn estimate_server_time(
+    server_time_tracking: Option<ServerTimeTracking>,
+) -> Timestamp {
+    if let Some(server_time_tracking) = server_time_tracking {
+        server_time_tracking.estimate_server_time()
+    } else {
+        Timestamp::now()
     }
 }
 
@@ -680,8 +690,12 @@ impl Client {
             if self.capabilities.acknowledged(Capability::LabeledResponse) {
                 let label = generate_label();
 
-                let context =
-                    Context::new(message, buffer.clone(), Some(&label));
+                let context = Context::new(
+                    message,
+                    buffer.clone(),
+                    Some(&label),
+                    self.server_time_tracking,
+                );
 
                 let labeled_response_context =
                     context.labeled_response_context().cloned();
@@ -867,7 +881,12 @@ impl Client {
 
         match command {
             Irc::Msg(_, _) | Irc::Notice(_, _) | Irc::Me(_, _) => self
-                .convert_command_to_messages(buffer, &command, reroute_rules)
+                .convert_command_to_messages(
+                    buffer,
+                    &command,
+                    reroute_rules,
+                    labeled_response_context.as_ref(),
+                )
                 .into_iter()
                 .map(|mut message| {
                     message.reply_to = reply_id.cloned();
@@ -1071,6 +1090,7 @@ impl Client {
                         buffer,
                         command,
                         Some(reroute_rules),
+                        labeled_response_context.as_ref(),
                     )
                 })
                 .reduce(|mut batch_message, message| {
@@ -1292,6 +1312,7 @@ impl Client {
         buffer: &buffer::Upstream,
         command: &Irc,
         reroute_rules: Option<&RerouteRules>,
+        labeled_response_context: Option<&LabeledResponseContext>,
     ) -> Vec<message::Message> {
         let mut user = self.nickname().to_owned().into();
 
@@ -1324,7 +1345,12 @@ impl Client {
                 self.capabilities.acknowledged(Capability::EchoMessage),
                 reroute_rules.unwrap_or(&RerouteRules::default()),
                 Some(buffer),
-                self.server_time_tracking,
+                labeled_response_context.map_or(
+                    message::Time::client(estimate_server_time(
+                        self.server_time_tracking,
+                    )),
+                    |labeled_response_context| labeled_response_context.time,
+                ),
             )
             .unwrap_or_default()
     }
@@ -5571,13 +5597,14 @@ impl Context {
         message: &message::Encoded,
         buffer: buffer::Upstream,
         label: Option<&str>,
+        server_time_tracking: Option<ServerTimeTracking>,
     ) -> Self {
         match &message.command {
             Command::PRIVMSG(_, _) | Command::NOTICE(_, _) => {
                 Self::PrivmsgOrNotice(
                     buffer,
                     label.map(|label| {
-                        LabeledResponseContext::new(message, label)
+                        LabeledResponseContext::new(server_time_tracking, label)
                     }),
                 )
             }
@@ -5589,7 +5616,7 @@ impl Context {
                 Self::PrivmsgOrNotice(
                     buffer,
                     label.map(|label| {
-                        LabeledResponseContext::new(message, label)
+                        LabeledResponseContext::new(server_time_tracking, label)
                     }),
                 )
             }
