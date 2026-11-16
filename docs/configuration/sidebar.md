@@ -529,11 +529,14 @@ left = "typing-gutter"
 
 ##### `precedence`
 
-Set the `precedence` for the typing indicator to display over the
-highlight or unread indicators.
+Specify which indicators (highlight or unread) take precedence, in display, over
+the typing indicator.
 
 For example, setting `"highlight"` means that highlight indicators will take
 precedence over the typing indicator.
+
+When using `"unread"`, both the highlight and unread indicators will displayed
+over the typing indicator.
 
 ```toml
 # Type: string
