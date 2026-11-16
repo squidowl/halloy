@@ -45,7 +45,7 @@ pub const REPLACE_MESSAGE_FUZZ: SignedDuration = SignedDuration::from_secs(1);
 #[derive(Debug)]
 pub enum Message {
     Initialized(Kind, Metadata),
-    BouncerNetworkDeleted(Server),
+    BouncerNetworkUnloaded(Server),
     Read(Kind, cache::Read, database::Window),
     Committed(Vec<batch::Committed>),
     Importing(Kind),
@@ -405,7 +405,7 @@ impl Manager {
                 self.refresh(&kind);
                 self.publish(&kind);
             }
-            Message::BouncerNetworkDeleted(server) => {
+            Message::BouncerNetworkUnloaded(server) => {
                 let removed = self
                     .storage
                     .extract_if(|kind, _| kind.as_server() == Some(&server))
@@ -667,10 +667,16 @@ impl Manager {
         }
     }
 
-    pub fn delete_bouncer_network(&mut self, server: &Server) {
-        self.input_storage.remove_server(server);
+    pub fn rename_bouncer_network(&mut self, old: &Server, new: &Server) {
+        self.worker.send(worker::Command::RenameBouncerNetwork(
+            old.clone(),
+            new.clone(),
+        ));
+    }
+
+    pub fn unload_bouncer_network(&mut self, server: &Server) {
         self.worker
-            .send(worker::Command::DeleteBouncerNetwork(server.clone()));
+            .send(worker::Command::UnloadBouncerNetwork(server.clone()));
     }
 
     pub fn mark_as_read_on_exit(

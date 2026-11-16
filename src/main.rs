@@ -262,7 +262,6 @@ struct Halloy {
     pending_logs: Vec<data::log::Record>,
     notifications: Notifications,
     power: system::State,
-    deleted_bouncer_networks: HashSet<Server>,
 }
 
 impl Halloy {
@@ -418,7 +417,6 @@ impl Halloy {
                 pending_logs: vec![],
                 notifications,
                 power: system::State::default(),
-                deleted_bouncer_networks: HashSet::new(),
             },
             commands,
         )
@@ -1130,8 +1128,8 @@ impl Halloy {
                     self.servers.remove(&server);
                     self.clients.remove(&server);
 
-                    if self.deleted_bouncer_networks.remove(&server) {
-                        self.storage.delete_bouncer_network(&server);
+                    if server.is_bouncer_network() {
+                        self.storage.unload_bouncer_network(&server);
                     }
 
                     if let Screen::Exit {
@@ -1174,7 +1172,6 @@ impl Halloy {
                         &mut self.notifications,
                         &mut self.servers,
                         &mut self.controllers,
-                        &mut self.deleted_bouncer_networks,
                         &self.focused_window,
                     )
                 }
@@ -1315,7 +1312,6 @@ impl Halloy {
                                         &mut self.notifications,
                                         &mut self.servers,
                                         &mut self.controllers,
-                                        &mut self.deleted_bouncer_networks,
                                         &self.focused_window,
                                     );
 
@@ -2156,7 +2152,6 @@ impl Halloy {
             &mut self.notifications,
             &mut self.servers,
             &mut self.controllers,
-            &mut self.deleted_bouncer_networks,
             &self.focused_window,
         )
     }
@@ -2221,7 +2216,6 @@ fn remove_bouncer_network(
     config: &Config,
     servers: &server::Map,
     controllers: &mut stream::Map,
-    deleted_bouncer_networks: &mut HashSet<Server>,
 ) -> Task<Message> {
     let task = if let Screen::Dashboard(dashboard) = screen {
         dashboard
@@ -2233,9 +2227,8 @@ fn remove_bouncer_network(
 
     if servers.contains(network) {
         controllers.end(network, &config.buffer.commands.quit.default_reason);
-        deleted_bouncer_networks.insert(network.clone());
     } else {
-        storage.delete_bouncer_network(network);
+        storage.unload_bouncer_network(network);
     }
 
     task
@@ -2251,7 +2244,6 @@ fn handle_client_events(
     notifications: &mut Notifications,
     servers: &mut server::Map,
     controllers: &mut stream::Map,
-    deleted_bouncer_networks: &mut HashSet<Server>,
     focused_window: &Option<window::Id>,
 ) -> Task<Message> {
     use data::client::Event;
@@ -2351,6 +2343,13 @@ fn handle_client_events(
                 );
             }
             Event::BouncerNetwork(server, server_config) => {
+                if let Some(old) = servers.keys().find(|known| {
+                    **known == server
+                        && format!("{known:b}") != format!("{server:b}")
+                }) {
+                    storage.rename_bouncer_network(old, &server);
+                }
+
                 // an insert keeps the existing key, so remove it first to
                 // pick up a new name
                 servers.remove(&server);
@@ -2382,7 +2381,6 @@ fn handle_client_events(
                     config,
                     servers,
                     controllers,
-                    deleted_bouncer_networks,
                 ));
             }
             Event::BouncerNetworksListed(netids) => {
@@ -2405,7 +2403,6 @@ fn handle_client_events(
                         config,
                         servers,
                         controllers,
-                        deleted_bouncer_networks,
                     ));
                 }
             }

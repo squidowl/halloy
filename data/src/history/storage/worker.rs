@@ -35,7 +35,8 @@ pub(super) enum Command {
         Result<(Vec<message::Message>, Metadata), legacy::Error>,
     ),
     UpdateConfig(config::buffer::ServerMessages),
-    DeleteBouncerNetwork(Server),
+    RenameBouncerNetwork(Server, Server),
+    UnloadBouncerNetwork(Server),
 }
 
 impl Command {
@@ -44,7 +45,9 @@ impl Command {
             Self::Initialize(kind)
             | Self::MarkRead(kind, ..)
             | Self::Imported(kind, ..) => vec![kind.clone()],
-            Self::UpdateConfig(_) | Self::DeleteBouncerNetwork(_) => vec![],
+            Self::UpdateConfig(_)
+            | Self::RenameBouncerNetwork(..)
+            | Self::UnloadBouncerNetwork(_) => vec![],
             Self::Write(batch) => batch.kinds().collect(),
             Self::Read(kind, _, monitored) => {
                 let mut kinds = vec![kind.clone()];
@@ -260,19 +263,6 @@ impl State {
         if self.ready.contains(&kind) || self.importing.contains(&kind) {
             return Ok(());
         }
-
-        // migrate before the first read or write, or the network's old history
-        // would be missed
-        if let Some(server) = kind.as_server() {
-            let database =
-                self.database.as_mut().expect("opened history database");
-            retry(|| {
-                database
-                    .migrate_bouncer_network(server)
-                    .map_err(Error::from)
-            })?;
-        }
-
         let database = self.database.as_ref().expect("opened history database");
         if database.is_imported(&kind).map_err(string)? {
             let metadata = database.metadata(&kind).map_err(string)?;
@@ -289,18 +279,6 @@ impl State {
             self.import(kind, Ok((vec![], Metadata::default())));
         }
         Ok(())
-    }
-
-    fn initialize_kinds(&mut self, kinds: &[Kind]) {
-        if self.failure.is_some() {
-            return;
-        }
-        for kind in kinds {
-            if let Err(error) = self.initialize(kind.clone()) {
-                self.fail(error);
-                break;
-            }
-        }
     }
 
     fn bouncer_network_kinds(&self, server: &Server) -> Vec<Kind> {
@@ -380,12 +358,20 @@ impl State {
             return self.drain();
         }
         let kinds = match &command {
-            Command::DeleteBouncerNetwork(server) => {
+            Command::RenameBouncerNetwork(server, _)
+            | Command::UnloadBouncerNetwork(server) => {
                 self.bouncer_network_kinds(server)
             }
             command => command.kinds(),
         };
-        self.initialize_kinds(&kinds);
+        if self.failure.is_none() {
+            for kind in &kinds {
+                if let Err(error) = self.initialize(kind.clone()) {
+                    self.fail(error);
+                    break;
+                }
+            }
+        }
         let exiting = matches!(command, Command::Exit(..));
         if self.failure.is_some()
             || (!self.exit_pending
@@ -417,9 +403,14 @@ impl State {
             let (command, kinds) =
                 self.pending.pop_front().expect("pending command");
 
-            // a deleted network's histories leave `ready`, and commands queued
-            // behind the delete still need them
-            self.initialize_kinds(&kinds);
+            if self.failure.is_none() {
+                for kind in &kinds {
+                    if let Err(error) = self.initialize(kind.clone()) {
+                        self.fail(error);
+                        break;
+                    }
+                }
+            }
 
             let exiting = matches!(command, Command::Exit(..));
             if self.failure.is_none()
@@ -574,20 +565,19 @@ impl State {
                     Err(error) => self.fail(error),
                 }
             }
-            Command::DeleteBouncerNetwork(server) => {
+            // loaded histories still carry the old name, so they are
+            // forgotten and reloaded under the new one
+            Command::RenameBouncerNetwork(old, new) => {
                 match retry(|| {
                     database
-                        .delete_bouncer_network(&server)
+                        .rekey_bouncer_network(&old, &new)
                         .map_err(Error::from)
                 }) {
-                    Ok(()) => {
-                        self.ready
-                            .retain(|kind| kind.as_server() != Some(&server));
-                        self.emit(Message::BouncerNetworkDeleted(server));
-                    }
+                    Ok(()) => self.unload(new),
                     Err(error) => self.fail(error),
                 }
             }
+            Command::UnloadBouncerNetwork(server) => self.unload(server),
             Command::MarkReadOnExit(kinds) => {
                 let result = retry(|| {
                     let mut transaction = database.transaction()?;
@@ -626,6 +616,11 @@ impl State {
                 unreachable!("import completions bypass pending operations")
             }
         }
+    }
+
+    fn unload(&mut self, server: Server) {
+        self.ready.retain(|kind| kind.as_server() != Some(&server));
+        self.emit(Message::BouncerNetworkUnloaded(server));
     }
 
     fn emit(&self, message: Message) {

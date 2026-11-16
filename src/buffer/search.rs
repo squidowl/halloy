@@ -191,7 +191,7 @@ impl Search {
 
                 let servers = clients
                     .servers()
-                    .map(|server| (server.storage_key(), server))
+                    .map(|server| (format!("{server:b}"), server))
                     .collect::<Vec<_>>();
                 let hits = page
                     .hits

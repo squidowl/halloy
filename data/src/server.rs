@@ -44,17 +44,6 @@ impl Server {
         }
     }
 
-    // bouncer networks are keyed by netid so their history survives renames.
-    // other servers must stay keyed by their plain name, since all of their
-    // existing history is stored under it. the double nul keeps netid keys
-    // apart from the older name keys written by `fmt::Binary`
-    pub fn storage_key(&self) -> String {
-        match &self.network {
-            Some(network) => format!("{}\0\0{}", self.name, network.id),
-            None => self.name.to_string(),
-        }
-    }
-
     // matches Ord, except bouncer networks sort by name
     pub fn display_cmp(&self, other: &Self) -> cmp::Ordering {
         self.name
