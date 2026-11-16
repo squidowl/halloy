@@ -1,3 +1,5 @@
+use jiff::Timestamp;
+
 use super::{Direction, Id, Message, Searchable, Temporal, Time, highlight};
 use crate::capabilities::LabeledResponseContext;
 use crate::client::Destination;
@@ -62,6 +64,10 @@ impl MessageWithContext {
             inner: self.inner.with_target(target),
             ..self
         }
+    }
+
+    pub fn server_time(&self) -> Option<Timestamp> {
+        self.inner.server_time()
     }
 }
 

@@ -581,10 +581,11 @@ impl Message {
         target: Target,
         content: Content,
         command: Option<command::Irc>,
+        time: message::Time,
     ) -> Self {
         Message {
             history_id: history::Id::default(),
-            time: Time::client(Timestamp::now()),
+            time,
             direction: Direction::Sent { command },
             target,
             source,

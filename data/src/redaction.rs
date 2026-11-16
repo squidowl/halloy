@@ -58,6 +58,7 @@ impl Redaction {
             redacts,
             id,
             time,
+            historical: false,
         })
     }
 }
@@ -73,6 +74,7 @@ pub struct RedactionWithContext {
     pub redacts: Id,
     pub id: Option<Id>,
     pub time: Time,
+    pub historical: bool,
 }
 
 impl From<RedactionWithContext> for Redaction {
@@ -82,6 +84,13 @@ impl From<RedactionWithContext> for Redaction {
 }
 
 impl RedactionWithContext {
+    pub fn into_historical(self) -> Self {
+        Self {
+            historical: true,
+            ..self
+        }
+    }
+
     pub fn server_time(&self) -> Option<Timestamp> {
         self.time.try_into_server_time()
     }

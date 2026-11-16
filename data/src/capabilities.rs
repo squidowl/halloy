@@ -8,6 +8,7 @@ use irc::proto::{self, Tags, command, format};
 use jiff::{Timestamp, ToSpan};
 use serde::Deserialize;
 
+use crate::client::{ServerTimeTracking, estimate_server_time};
 use crate::message::formatting::{Modifier, update_formatting_with_modifier};
 use crate::message::time;
 use crate::{Target, User, config, message};
@@ -628,11 +629,18 @@ pub struct LabeledResponseContext {
 }
 
 impl LabeledResponseContext {
-    pub fn new(message: &message::Encoded, label: &str) -> Self {
+    pub fn new(
+        server_time_tracking: Option<ServerTimeTracking>,
+        label: &str,
+    ) -> Self {
         Self {
             // Prefix ':' to ensure it cannot match any valid message id
             label_as_id: format!(":label={label}").into(),
-            time: message.time(),
+            // Attempt to predict server-time by using the last seen offset
+            // between local and server-time.
+            time: message::Time::client(estimate_server_time(
+                server_time_tracking,
+            )),
         }
     }
 }

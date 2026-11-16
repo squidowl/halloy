@@ -145,4 +145,8 @@ impl ReactionWithContext {
             ..self
         }
     }
+
+    pub fn server_time(&self) -> Option<Timestamp> {
+        self.inner.server_time()
+    }
 }
