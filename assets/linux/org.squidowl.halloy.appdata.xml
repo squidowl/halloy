@@ -10,8 +10,7 @@
     <summary>IRC client written in Rust</summary>
     <description>
         <p>            
-            Halloy is an open-source IRC client written in Rust, with the Iced GUI library.
-            It aims to provide a simple and fast client for macOS, Windows, and Linux.
+            Halloy is an open-source IRC client focused on being simple and fast.
         </p>
     </description>
     <launchable type="desktop-id">org.squidowl.halloy.desktop</launchable>
