@@ -35,6 +35,7 @@ use crate::{Theme, font, icon, platform_specific, theme, window};
 mod collapse;
 
 const INTER_INDICATOR_SPACING: u32 = 2;
+const TITLE_HORIZONTAL_PADDING: u32 = 8;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -1584,36 +1585,53 @@ fn upstream_buffer_button<'a>(
 
     let can_mark_as_read = models.can_mark_as_read(kind);
 
-    let show_unread_icon =
-        indicators.unread && config.sidebar.unread_indicator.has_icon();
-    let show_unread_title =
-        indicators.unread && config.sidebar.unread_indicator.title;
-
     let show_highlight_icon =
         indicators.highlight && config.sidebar.highlight_indicator.has_icon();
     let show_highlight_title =
         indicators.highlight && config.sidebar.highlight_indicator.title;
 
-    let is_channel_with_typing = if config
-        .sidebar
-        .can_show_typing(TypingIndicatorBuffer::Channel)
-        && let buffer::Upstream::Channel(server, channel) = &buffer
-    {
-        clients.get_server_show_typing(server)
-            && clients.has_channel_typing_users(server, channel)
-    } else {
-        false
-    };
+    let show_unread_icon = !show_highlight_icon
+        && indicators.unread
+        && config.sidebar.unread_indicator.has_icon();
+    let show_unread_title =
+        indicators.unread && config.sidebar.unread_indicator.title;
 
-    let is_query_with_typing =
-        if config.sidebar.can_show_typing(TypingIndicatorBuffer::Query)
-            && let buffer::Upstream::Query(server, query) = &buffer
+    let (can_show_typing, show_typing) =
+        if config.sidebar.show_typing(
+            TypingIndicatorBuffer::Channel,
+            show_highlight_icon,
+            show_unread_icon,
+        ) && let buffer::Upstream::Channel(server, channel) = &buffer
         {
-            clients.get_server_show_typing(server)
-                && clients.has_query_typing_users(server, query)
+            (
+                true,
+                clients.get_server_show_typing(server)
+                    && clients.has_channel_typing_users(server, channel),
+            )
+        } else if config.sidebar.show_typing(
+            TypingIndicatorBuffer::Query,
+            show_highlight_icon,
+            show_unread_icon,
+        ) && let buffer::Upstream::Query(server, query) = &buffer
+        {
+            (
+                true,
+                clients.get_server_show_typing(server)
+                    && clients.has_query_typing_users(server, query),
+            )
         } else {
-            false
+            (false, false)
         };
+
+    // If configured to only show one indicator for a channel or query, hide
+    // highlight and unread indicators.
+    let show_highlight_icon = show_highlight_icon
+        && !(show_typing
+            && config.sidebar.typing_indicator.is_position_left_single());
+
+    let show_unread_icon = show_unread_icon
+        && !(show_typing
+            && config.sidebar.typing_indicator.is_position_left_single());
 
     let buffer_title_style = if show_highlight_title {
         theme::text::highlight_indicator
@@ -1654,7 +1672,9 @@ fn upstream_buffer_button<'a>(
         None
     };
 
-    let mut indicator = if matches!(buffer, buffer::Upstream::Server(_))
+    // This includes all indicators *except* the typing indicator, which is
+    // handled distinctly from every other indicator.
+    let indicator = if matches!(buffer, buffer::Upstream::Server(_))
         && let ConnectionStatus::Disconnected {
             autoconnect,
             connecting,
@@ -1700,14 +1720,7 @@ fn upstream_buffer_button<'a>(
         None
     };
 
-    let typing_indicator = if (is_channel_with_typing || is_query_with_typing)
-        && (config.sidebar.typing_indicator.is_position_left()
-            || (config.sidebar.typing_indicator.is_position_left_single()
-                && config
-                    .sidebar
-                    .typing_indicator
-                    .show_by_priority(show_highlight_icon, show_unread_icon)))
-    {
+    let mut typing_indicator = if show_typing {
         typing::animate_for_sidebar::<_>(
             *typing_animation,
             config.sidebar.typing_indicator.icon_height,
@@ -1718,15 +1731,17 @@ fn upstream_buffer_button<'a>(
         None
     };
 
-    if typing_indicator.is_some()
-        && config.sidebar.typing_indicator.is_position_left_single()
-    {
-        indicator = None;
-    }
-
     let sidebar_icon_height = match icon {
         Some(_) => dimensions.icon_size,
-        None => indicator.as_ref().map_or(1, |(_, size)| *size),
+        None => indicator
+            .as_ref()
+            .map(|(_, size)| *size)
+            .max(
+                typing_indicator
+                    .is_some()
+                    .then_some(dimensions.typing_indicator_height),
+            )
+            .unwrap_or(0),
     };
 
     let mut content = row![].align_y(iced::Alignment::Center);
@@ -1735,7 +1750,11 @@ fn upstream_buffer_button<'a>(
         config,
         icon,
         indicator,
-        typing_indicator,
+        if config.sidebar.typing_indicator.is_position_left() {
+            std::mem::take(&mut typing_indicator)
+        } else {
+            None
+        },
         dimensions,
     ));
 
@@ -1746,39 +1765,21 @@ fn upstream_buffer_button<'a>(
         buffer_title_style,
         buffer_title_font,
     );
-    if (buffer.as_channel().is_some() || buffer.query().is_some())
-        && config.sidebar.can_show_any_typing()
-        && config.sidebar.typing_indicator.is_position_right()
-    {
-        let typing_indicator: Element<'a, Message> =
-            if is_channel_with_typing || is_query_with_typing {
-                row![
-                    Space::new().width(Length::Fill).height(Length::Fill),
-                    typing::animate_for_sidebar::<_>(
-                        *typing_animation,
-                        config.sidebar.typing_indicator.icon_height,
-                        &config.buffer.typing.animation,
-                        theme.styles().text.secondary.color,
-                    )
-                ]
-                .align_y(Alignment::Center)
-                .into()
-            } else {
-                Space::new().width(Length::Fill).into()
-            };
 
-        content = content.push(stack![
-            row![
-                row(buffer_title)
-                    .width(Length::Fill)
-                    .align_y(Alignment::Center),
-                Space::new().width(dimensions.typing_indicator_width)
-            ]
-            .align_y(Alignment::Center),
-            typing_indicator
-        ]);
-    } else {
-        content = content.extend(buffer_title);
+    content = content.extend(buffer_title);
+
+    if can_show_typing && config.sidebar.typing_indicator.is_position_right() {
+        content = content.push(Space::new().width(Length::Fill));
+
+        if let Some(typing_indicator) = typing_indicator {
+            content = content
+                .push(Space::new().width(TITLE_HORIZONTAL_PADDING))
+                .push(typing_indicator);
+        } else {
+            content = content.push(Space::new().width(
+                TITLE_HORIZONTAL_PADDING + dimensions.typing_indicator_width,
+            ));
+        }
     }
 
     let disclosure = if let buffer::Upstream::Server(server) = buffer {
@@ -2552,7 +2553,10 @@ fn sidebar_icon<'a>(
 
     if config.sidebar.position.is_horizontal() {
         if let Some(icon) = icon {
-            Either::Left(vec![icon, Space::new().width(8).into()].into_iter())
+            Either::Left(
+                vec![icon, Space::new().width(TITLE_HORIZONTAL_PADDING).into()]
+                    .into_iter(),
+            )
         } else {
             Either::Right(iter::empty())
         }
@@ -2569,7 +2573,7 @@ fn sidebar_icon<'a>(
                     ])
                 ]
                 .into(),
-                Space::new().width(8).into(),
+                Space::new().width(TITLE_HORIZONTAL_PADDING).into(),
             ]
             .into_iter(),
         )

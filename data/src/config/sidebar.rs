@@ -53,6 +53,20 @@ impl Sidebar {
         self.can_show_typing(TypingIndicatorBuffer::Channel)
             || self.can_show_typing(TypingIndicatorBuffer::Query)
     }
+
+    pub fn show_typing(
+        &self,
+        buffer: TypingIndicatorBuffer,
+        show_highlight: bool,
+        show_unread: bool,
+    ) -> bool {
+        self.typing_indicator
+            .can_show(self.position.is_horizontal(), buffer)
+            && (!self.typing_indicator.is_position_left_single()
+                || self
+                    .typing_indicator
+                    .show_by_priority(show_highlight, show_unread))
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
