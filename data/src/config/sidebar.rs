@@ -62,10 +62,10 @@ impl Sidebar {
     ) -> bool {
         self.typing_indicator
             .can_show(self.position.is_horizontal(), buffer)
-            && (!self.typing_indicator.is_position_left_single()
+            && (!self.typing_indicator.is_position_left_precedence()
                 || self
                     .typing_indicator
-                    .show_by_priority(show_highlight, show_unread))
+                    .typing_precedence(show_highlight, show_unread))
     }
 }
 
@@ -427,16 +427,37 @@ pub enum TypingIndicatorBuffer {
 #[serde(rename_all = "kebab-case")]
 pub enum TypingIndicatorPosition {
     Left,
-    LeftSingle(TypingIndicatorPriorities),
+    LeftPrecedence(TypingIndicatorPrecedence),
     #[default]
     Right,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct TypingIndicatorPriorities {
-    pub highlight: usize,
-    pub typing: usize,
-    pub unread: usize,
+pub struct TypingIndicatorLeftPosition {
+    #[serde(deserialize_with = "deserialize_typing_indicator_left_position")]
+    pub left: TypingIndicatorLeftPositionOptions,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum TypingIndicatorLeftPositionOptions {
+    #[default]
+    TypingGutter,
+    TypingPrecedence(TypingIndicatorPrecedence),
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct TypingIndicatorLeftPrecedence {
+    pub precedence: TypingIndicatorPrecedence,
+}
+
+#[derive(Debug, Copy, Clone, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum TypingIndicatorPrecedence {
+    #[default]
+    Highlight,
+    None,
+    Unread,
 }
 
 pub fn deserialize_typing_indicator_position<'de, D>(
@@ -454,81 +475,36 @@ where
 
     match Inner::deserialize(deserializer)? {
         Inner::String(string) => Ok(string),
-        Inner::TypingIndicatorLeftPosition(position) => {
-            if position.left.gutter {
+        Inner::TypingIndicatorLeftPosition(position) => match position.left {
+            TypingIndicatorLeftPositionOptions::TypingGutter => {
                 Ok(TypingIndicatorPosition::Left)
-            } else {
-                if position.left.priority.len() != 3 {
-                    Err(serde::de::Error::invalid_value(
-                        serde::de::Unexpected::Other(
-                            format!(
-                                "invalid number ({}) of priorities set",
-                                position.left.priority.len()
-                            )
-                            .as_str(),
-                        ),
-                        &"all 3 indicator priorities must be set",
-                    ))
-                } else {
-                    let mut priorities: TypingIndicatorPriorities =
-                        TypingIndicatorPriorities {
-                            highlight: 0,
-                            typing: 0,
-                            unread: 0,
-                        };
-                    for (index, indicator) in
-                        position.left.priority.into_iter().enumerate()
-                    {
-                        match indicator {
-                            SidebarIndicator::Highlight => {
-                                priorities.highlight = index + 1;
-                            }
-                            SidebarIndicator::Typing => {
-                                priorities.typing = index + 1;
-                            }
-                            SidebarIndicator::Unread => {
-                                priorities.unread = index + 1;
-                            }
-                        }
-                    }
-
-                    if priorities.highlight == 0
-                        || priorities.typing == 0
-                        || priorities.unread == 0
-                    {
-                        Err(serde::de::Error::invalid_value(
-                            serde::de::Unexpected::Other(
-                                "missing typing indicator priority",
-                            ),
-                            &"all 3 indicator priorities must be set",
-                        ))
-                    } else {
-                        Ok(TypingIndicatorPosition::LeftSingle(priorities))
-                    }
-                }
             }
-        }
+            TypingIndicatorLeftPositionOptions::TypingPrecedence(precedence) => {
+                Ok(TypingIndicatorPosition::LeftPrecedence(precedence))
+            }
+        },
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct TypingIndicatorLeftPosition {
-    pub left: TypingIndicatorLeftPositionOptions,
-}
-#[derive(Debug, Clone, Deserialize)]
-pub struct TypingIndicatorLeftPositionOptions {
-    pub gutter: bool,
-    pub priority: Vec<SidebarIndicator>,
-}
-impl Default for TypingIndicatorLeftPositionOptions {
-    fn default() -> Self {
-        Self {
-            gutter: true,
-            priority: vec![
-                SidebarIndicator::Highlight,
-                SidebarIndicator::Typing,
-                SidebarIndicator::Unread,
-            ],
+pub fn deserialize_typing_indicator_left_position<'de, D>(
+    deserializer: D,
+) -> Result<TypingIndicatorLeftPositionOptions, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Inner {
+        String(TypingIndicatorLeftPositionOptions),
+        TypingIndicatorLeftPrecedence(TypingIndicatorLeftPrecedence),
+    }
+
+    match Inner::deserialize(deserializer)? {
+        Inner::String(string) => Ok(string),
+        Inner::TypingIndicatorLeftPrecedence(left) => {
+            Ok(TypingIndicatorLeftPositionOptions::TypingPrecedence(
+                left.precedence,
+            ))
         }
     }
 }
@@ -563,46 +539,30 @@ impl TypingIndicator {
         matches!(self.position, TypingIndicatorPosition::Left)
     }
 
-    pub fn is_position_left_single(&self) -> bool {
-        matches!(self.position, TypingIndicatorPosition::LeftSingle(..))
+    pub fn is_position_left_precedence(&self) -> bool {
+        matches!(self.position, TypingIndicatorPosition::LeftPrecedence(..))
     }
 
-    pub fn show_by_priority(
+    pub fn typing_precedence(
         &self,
         show_highlight: bool,
         show_unread: bool,
     ) -> bool {
-        if !matches!(self.position, TypingIndicatorPosition::LeftSingle(..)) {
-            return true;
-        }
-
-        let priorities =
-            if let TypingIndicatorPosition::LeftSingle(priorities) =
-                &self.position
+        let precedence =
+            if let TypingIndicatorPosition::LeftPrecedence(precedence) =
+                self.position
             {
-                priorities
+                precedence
             } else {
-                return true;
+                TypingIndicatorPrecedence::None
             };
 
-        if show_highlight && priorities.highlight < priorities.typing {
-            return false;
+        match precedence {
+            TypingIndicatorPrecedence::None => true,
+            TypingIndicatorPrecedence::Highlight => !show_highlight,
+            TypingIndicatorPrecedence::Unread => !show_unread && !show_highlight,
         }
-
-        if show_unread && priorities.unread < priorities.typing {
-            return false;
-        }
-
-        true
     }
-}
-
-#[derive(Debug, Copy, Clone, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum SidebarIndicator {
-    Highlight,
-    Typing,
-    Unread,
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, Default)]

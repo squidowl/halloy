@@ -1627,11 +1627,17 @@ fn upstream_buffer_button<'a>(
     // highlight and unread indicators.
     let show_highlight_icon = show_highlight_icon
         && !(show_typing
-            && config.sidebar.typing_indicator.is_position_left_single());
+            && config
+                .sidebar
+                .typing_indicator
+                .is_position_left_precedence());
 
     let show_unread_icon = show_unread_icon
         && !(show_typing
-            && config.sidebar.typing_indicator.is_position_left_single());
+            && config
+                .sidebar
+                .typing_indicator
+                .is_position_left_precedence());
 
     let buffer_title_style = if show_highlight_title {
         theme::text::highlight_indicator
@@ -1750,7 +1756,12 @@ fn upstream_buffer_button<'a>(
         config,
         icon,
         indicator,
-        if config.sidebar.typing_indicator.is_position_left() {
+        if config.sidebar.typing_indicator.is_position_left()
+            || config
+                .sidebar
+                .typing_indicator
+                .is_position_left_precedence()
+        {
             std::mem::take(&mut typing_indicator)
         } else {
             None

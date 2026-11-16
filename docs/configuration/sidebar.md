@@ -515,46 +515,34 @@ position = "left"
 
 The `"left"` position defaults to having a gutter for the typing indicator.
 
-##### `gutter`
-
-Changing `gutter` to `false` will display typing, highlights, and unread
+Changing `left` to `false` will display typing, highlights, and unread
 indicators one at a time.
 
 ```toml
-# Type: boolean
-# Values: true, false 
-# Default: true
+# Type: string or struct
+# Values: "typing-gutter" or { "precedence": "highlight" | "unread" | "none" }
+# Default: "typing-gutter"
 
-[sidebar.typing_indicator.position.left]
-gutter = false
+[sidebar.typing_indicator.position]
+left = "typing-gutter"
 ```
 
-##### `priority`
+##### `precedence`
 
-Set the `priority` for the typing indicator to display over the
-highlight and unread indicators.
+Set the `precedence` for the typing indicator to display over the
+highlight or unread indicators.
+
+For example, setting `"highlight"` means that highlight indicators will take
+precedence over the typing indicator.
 
 ```toml
-# Type: array of strings
-# Values: any variation of ["highlight", typing", "unread"]  
-# Default: ["highlight", "typing", "unread"]
+# Type: string
+# Values: "highlight", "none", "unread"
+# Default: "highlight"
 
 [sidebar.typing_indicator.position.left]
-gutter = false
-priority = ["highlight", "typing", "unread"]
+precedence = "highlight"
 ```
-
-:::info
-
-All three indicator priority values must be set in this setting to be valid.
-The following is an invalid value:
-
-```toml
-[sidebar.typing_indicator.position.left]
-priority = ["highlight", "typing"]
-```
-
-:::
 
 ### `icon_height`
 
