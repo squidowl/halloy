@@ -475,23 +475,78 @@ include = { channels = ["#halloy"] }
 
 ## `typing_indicator`
 
-Show typing indicator for query buffers (direct messages) in sidebars.
+Show typing indicator for channel & query buffers in the sidebar.
 Requires typing indicators to be enabled, either [globally](/configuration/buffer#show-1) or at the [server level](/configuration/servers#show).
 
 ### `show`
 
-Change if sidebar typing indicators are shown. To disable use `"none"`.
+Change how sidebar typing indicators are shown. To disable use `"none"`.
 
-Default behavior depends on [`sidebar.position`](/configuration/sidebar#position):
+Default is enabled for only queries and behavior depends on [`sidebar.position`](/configuration/sidebar#position):
 enabled for vertical sidebars and disabled for horizontal sidebars.
+
+To enable for both channels and queries, use `"all"`.
 
 ```toml
 # Type: string
-# Values: "queries", "none"
+# Values: "all", "channels", "queries", "none"
 # Default: "queries" when sidebar.position = "left" or "right", "none" when sidebar.position = "top" or "bottom"
 
 [sidebar.typing_indicator]
-show = "queries"
+show = "all"
+```
+
+### `position`
+
+Change the sidebar typing indicator's display position.
+
+The default position is set to `"right"`.
+
+```toml
+# Type: string
+# Values: "left", "right"
+# Default: "right"
+
+[sidebar.typing_indicator]
+position = "left"
+```
+
+#### `left`
+
+The `"left"` position defaults to having a gutter for the typing indicator.
+
+Changing `left` to `false` will display typing, highlights, and unread
+indicators one at a time.
+
+```toml
+# Type: string or struct
+# Values: "typing-gutter" or { "priority": "highlight" | "unread" | "none" }
+# Default: "typing-gutter"
+
+[sidebar.typing_indicator.position]
+left = "typing-gutter"
+```
+
+##### `priority`
+
+Specify which indicators (highlight or unread) has priority to display instead
+of the typing indicator.
+
+Highlight indicators has display priority over unread.
+
+This setting allows you to set which available indicator (highlight/unread) to
+display instead of the typing indicator.
+
+For example, setting `"highlight"` will only display typing if there is no
+highlight indicator.
+
+```toml
+# Type: string
+# Values: "highlight", "none", "unread"
+# Default: "highlight"
+
+[sidebar.typing_indicator.position.left]
+priority = "highlight"
 ```
 
 ### `icon_height`

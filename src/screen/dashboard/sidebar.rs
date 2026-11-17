@@ -3,7 +3,9 @@ use std::{convert, iter};
 use data::buffer::{Buffer, BufferRef};
 use data::client::{self, ClientsContext};
 use data::config::server::SidebarVisibility;
-use data::config::sidebar::{InternalBuffer, PrimaryIcon};
+use data::config::sidebar::{
+    InternalBuffer, PrimaryIcon, TypingIndicatorBuffer,
+};
 use data::config::{self, Config, sidebar};
 use data::dashboard::{BufferAction, BufferFocusedAction};
 use data::history::{self, model};
@@ -31,6 +33,9 @@ use crate::widget::{
 use crate::{Theme, font, icon, platform_specific, theme, window};
 
 mod collapse;
+
+const INTER_INDICATOR_SPACING: u32 = 2;
+const TITLE_HORIZONTAL_PADDING: u32 = 8;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -563,8 +568,9 @@ impl Sidebar {
         let base = button(
             sidebar_icon(
                 config,
-                Some(BufferIcon::Icon(Icon::Internal(icon))),
+                Some(Icon::Internal(icon)),
                 badge,
+                None,
                 dimensions,
             )
             .into_iter()
@@ -1537,11 +1543,6 @@ fn upstream_buffer_title<'a>(
     }
 }
 
-enum BufferIcon<'a> {
-    Icon(Icon<'a>),
-    Typing(Element<'a, Message>),
-}
-
 fn upstream_buffer_button<'a>(
     context: UpstreamButtonContext<'a>,
 ) -> Element<'a, Message> {
@@ -1584,24 +1585,53 @@ fn upstream_buffer_button<'a>(
 
     let can_mark_as_read = models.can_mark_as_read(kind);
 
-    let show_unread_icon =
-        indicators.unread && config.sidebar.unread_indicator.has_icon();
-    let show_unread_title =
-        indicators.unread && config.sidebar.unread_indicator.title;
-
     let show_highlight_icon =
         indicators.highlight && config.sidebar.highlight_indicator.has_icon();
     let show_highlight_title =
         indicators.highlight && config.sidebar.highlight_indicator.title;
 
-    let is_query_with_typing = if config.sidebar.can_show_typing()
-        && let buffer::Upstream::Query(server, query) = &buffer
-    {
-        clients.get_server_show_typing(server)
-            && clients.has_query_typing_users(server, query)
-    } else {
-        false
-    };
+    let show_unread_icon = !show_highlight_icon
+        && indicators.unread
+        && config.sidebar.unread_indicator.has_icon();
+    let show_unread_title =
+        indicators.unread && config.sidebar.unread_indicator.title;
+
+    let (can_show_typing, show_typing) =
+        if config.sidebar.show_typing(
+            TypingIndicatorBuffer::Channel,
+            show_highlight_icon,
+            show_unread_icon,
+        ) && let buffer::Upstream::Channel(server, channel) = &buffer
+        {
+            (
+                true,
+                clients.get_server_show_typing(server)
+                    && clients.has_channel_typing_users(server, channel),
+            )
+        } else if config.sidebar.show_typing(
+            TypingIndicatorBuffer::Query,
+            show_highlight_icon,
+            show_unread_icon,
+        ) && let buffer::Upstream::Query(server, query) = &buffer
+        {
+            (
+                true,
+                clients.get_server_show_typing(server)
+                    && clients.has_query_typing_users(server, query),
+            )
+        } else {
+            (false, false)
+        };
+
+    // If configured to only show one indicator for a channel or query, hide
+    // highlight and unread indicators.
+    let show_highlight_icon = show_highlight_icon
+        && !(show_typing
+            && config.sidebar.typing_indicator.is_position_left_priority());
+
+    let show_unread_icon = show_unread_icon
+        && !(show_typing
+            && config.sidebar.typing_indicator.is_position_left_priority());
 
     let buffer_title_style = if show_highlight_title {
         theme::text::highlight_indicator
@@ -1630,28 +1660,20 @@ fn upstream_buffer_button<'a>(
         if *server_icon_enabled
             && let Some(server_icon) = server_icons.get(server)
         {
-            Some(BufferIcon::Icon(Icon::Upstream(server_icon)))
+            Some(Icon::Upstream(server_icon))
         } else {
-            Some(BufferIcon::Icon(Icon::Internal(
-                if server.is_bouncer_network() {
-                    icon::link()
-                } else {
-                    icon::connected()
-                },
-            )))
+            Some(Icon::Internal(if server.is_bouncer_network() {
+                icon::link()
+            } else {
+                icon::connected()
+            }))
         }
-    } else if is_query_with_typing {
-        typing::animate_for_sidebar::<_>(
-            *typing_animation,
-            config.sidebar.typing_indicator.icon_height,
-            &config.buffer.typing.animation,
-            theme.styles().text.secondary.color,
-        )
-        .map(BufferIcon::Typing)
     } else {
         None
     };
 
+    // This includes all indicators *except* the typing indicator, which is
+    // handled distinctly from every other indicator.
     let indicator = if matches!(buffer, buffer::Upstream::Server(_))
         && let ConnectionStatus::Disconnected {
             autoconnect,
@@ -1666,7 +1688,7 @@ fn upstream_buffer_button<'a>(
             } else {
                 icon::not_connected().style(theme::text::error)
             },
-            dimensions.icon_badge_size,
+            dimensions.icon_badge_padded_size,
         ))
     } else if matches!(buffer, buffer::Upstream::Server(_))
         && let ConnectionStatus::Connected {
@@ -1676,7 +1698,7 @@ fn upstream_buffer_button<'a>(
     {
         Some((
             icon::connecting().style(theme::text::success),
-            dimensions.icon_badge_size,
+            dimensions.icon_badge_padded_size,
         ))
     } else if show_highlight_icon
         && let Some(highlight_icon) =
@@ -1698,25 +1720,67 @@ fn upstream_buffer_button<'a>(
         None
     };
 
+    let mut typing_indicator = if show_typing {
+        typing::animate_for_sidebar::<_>(
+            *typing_animation,
+            config.sidebar.typing_indicator.icon_height,
+            &config.buffer.typing.animation,
+            theme.styles().text.secondary.color,
+        )
+    } else {
+        None
+    };
+
     let sidebar_icon_height = match icon {
-        Some(BufferIcon::Icon(_)) => dimensions
-            .icon_size
-            .max(indicator.as_ref().map_or(0, |_| dimensions.icon_badge_size)),
-        Some(BufferIcon::Typing(_)) => dimensions.typing_indicator_height,
-        None => indicator.as_ref().map_or(1, |(_, size)| *size),
+        Some(_) => dimensions.icon_size,
+        None => indicator
+            .as_ref()
+            .map(|(_, size)| *size)
+            .max(
+                typing_indicator
+                    .is_some()
+                    .then_some(dimensions.typing_indicator_height),
+            )
+            .unwrap_or(0),
     };
 
     let mut content = row![].align_y(iced::Alignment::Center);
 
-    content = content.extend(sidebar_icon(config, icon, indicator, dimensions));
+    content = content.extend(sidebar_icon(
+        config,
+        icon,
+        indicator,
+        if config.sidebar.typing_indicator.is_position_left() {
+            std::mem::take(&mut typing_indicator)
+        } else {
+            None
+        },
+        dimensions,
+    ));
 
-    content = content.extend(upstream_buffer_title(
+    let buffer_title = upstream_buffer_title(
         config,
         buffer,
         *casemapping,
         buffer_title_style,
         buffer_title_font,
-    ));
+    );
+
+    content = content.extend(buffer_title);
+
+    if can_show_typing && config.sidebar.typing_indicator.is_position_right() {
+        content = content.push(Space::new().width(Length::Fill));
+
+        if let Some(typing_indicator) = typing_indicator {
+            content = content
+                .push(Space::new().width(TITLE_HORIZONTAL_PADDING))
+                .push(typing_indicator);
+        } else {
+            content = content.push(Space::new().width(
+                TITLE_HORIZONTAL_PADDING + dimensions.typing_indicator_width,
+            ));
+        }
+    }
 
     let disclosure = if let buffer::Upstream::Server(server) = buffer {
         let font_size = config
@@ -2169,8 +2233,9 @@ fn internal_buffer_button<'a>(
 
     content = content.extend(sidebar_icon(
         config,
-        icon.map(|icon| BufferIcon::Icon(Icon::Internal(icon))),
+        icon.map(Icon::Internal),
         badge,
+        None,
         dimensions,
     ));
 
@@ -2340,16 +2405,22 @@ enum Icon<'a> {
 
 fn sidebar_icon<'a>(
     config: &'a Config,
-    icon: Option<BufferIcon<'a>>,
+    icon: Option<Icon<'a>>,
     indicator: Option<(TextColorSvg<'a, Theme>, u32)>,
+    typing_indicator: Option<Element<'a, Message>>,
     dimensions: Dimensions,
 ) -> impl IntoIterator<Item = Element<'a, Message>> {
+    let show_typing_gutter =
+        config.sidebar.typing_indicator.is_position_left_gutter()
+            && config.sidebar.can_show_any_typing()
+            && !config.sidebar.position.is_horizontal();
+
     let (icon, icon_height, icon_left_spacing): (
         Option<Element<'a, Message>>,
         u32,
-        f32,
+        Length,
     ) = match icon {
-        Some(BufferIcon::Icon(icon)) => {
+        Some(icon) => {
             let icon: Element<'a, Message> = match icon {
                 Icon::Upstream(server_icon) => container(image::from_data(
                     server_icon,
@@ -2367,26 +2438,7 @@ fn sidebar_icon<'a>(
 
             let badge: Option<Element<'a, Message>> =
                 indicator.map(move |(indicator, _)| {
-                    container(
-                        indicator
-                            .width(Length::Shrink)
-                            .content_fit(ContentFit::Contain),
-                    )
-                    .style(move |theme: &Theme| container::Style {
-                        text_color: None,
-                        background: Some(
-                            theme.styles().buttons.primary.background.into(),
-                        ),
-                        border: Border {
-                            radius: dimensions.icon_badge_size.into(),
-                            ..Border::default()
-                        },
-                        ..container::Style::default()
-                    })
-                    .width(dimensions.icon_badge_size)
-                    .height(dimensions.icon_badge_size)
-                    .padding(dimensions.icon_badge_padding as f32)
-                    .into()
+                    sidebar_icon_badge(indicator, dimensions)
                 });
 
             (
@@ -2397,60 +2449,115 @@ fn sidebar_icon<'a>(
                             column![
                                 Space::new()
                                     .height(dimensions.icon_badge_padding),
-                                icon
-                            ]
+                                icon,
+                                Space::new()
+                                    .height(dimensions.icon_badge_padding),
+                            ],
+                            Space::new().width(dimensions.icon_badge_padding),
                         ]
                         .align_y(iced::Alignment::Center),
-                        badge,
+                        row![
+                            Space::new().width(if show_typing_gutter {
+                                Length::Fill
+                            } else {
+                                Length::Fixed(0.0)
+                            }),
+                            badge
+                        ],
                     ]
                     .into(),
                 ),
-                dimensions.icon_size,
-                dimensions
-                    .max_indicator_size()
-                    .saturating_sub(dimensions.icon_badge_size)
-                    as f32
-                    / 2.0,
+                dimensions.icon_padded_size(),
+                if show_typing_gutter {
+                    Length::Fixed(
+                        dimensions.max_width(true)
+                            - dimensions.icon_padded_size() as f32
+                            - dimensions.indicator_center_align_spacing(
+                                dimensions.icon_badge_padded_size,
+                            ),
+                    )
+                } else {
+                    Length::Fixed(dimensions.indicator_center_align_spacing(
+                        dimensions.icon_badge_padded_size,
+                    ))
+                },
             )
         }
-        Some(BufferIcon::Typing(typing_indicator)) => (
-            Some(typing_indicator),
-            dimensions.typing_indicator_height,
-            dimensions
-                .max_indicator_size()
-                .saturating_sub(dimensions.typing_indicator_width)
-                as f32
-                / 2.0,
-        ),
         None => {
             if let Some((indicator, indicator_size)) = indicator {
+                if let Some(typing_indicator) = typing_indicator {
+                    (
+                        Some(
+                            row![
+                                typing_indicator,
+                                Space::new().width(
+                                    dimensions.indicator_center_align_spacing(
+                                        indicator_size
+                                    ) + INTER_INDICATOR_SPACING as f32
+                                ),
+                                container(
+                                    indicator
+                                        .width(Length::Shrink)
+                                        .content_fit(ContentFit::Contain),
+                                )
+                                .width(indicator_size)
+                                .height(indicator_size)
+                            ]
+                            .align_y(iced::Alignment::Center)
+                            .into(),
+                        ),
+                        indicator_size.max(dimensions.typing_indicator_height),
+                        Length::Fixed(0.0),
+                    )
+                } else {
+                    (
+                        Some(
+                            container(
+                                indicator
+                                    .width(Length::Shrink)
+                                    .content_fit(ContentFit::Contain),
+                            )
+                            .width(indicator_size)
+                            .height(indicator_size)
+                            .into(),
+                        ),
+                        indicator_size,
+                        Length::Fixed(
+                            if show_typing_gutter {
+                                (dimensions.typing_indicator_width
+                                    + INTER_INDICATOR_SPACING)
+                                    as f32
+                            } else {
+                                0.0
+                            } + dimensions
+                                .indicator_center_align_spacing(indicator_size),
+                        ),
+                    )
+                }
+            } else if let Some(typing_indicator) = typing_indicator {
                 (
-                    Some(
-                        container(
-                            indicator
-                                .width(Length::Shrink)
-                                .content_fit(ContentFit::Contain),
+                    Some(typing_indicator),
+                    dimensions.typing_indicator_height,
+                    Length::Fixed(if show_typing_gutter {
+                        0.0
+                    } else {
+                        dimensions.indicator_center_align_spacing(
+                            dimensions.typing_indicator_height,
                         )
-                        .width(indicator_size)
-                        .height(indicator_size)
-                        .into(),
-                    ),
-                    indicator_size,
-                    dimensions
-                        .max_indicator_size()
-                        .saturating_sub(indicator_size)
-                        as f32
-                        / 2.0,
+                    }),
                 )
             } else {
-                (None, 1, 0.0)
+                (None, 0, Length::Fixed(0.0))
             }
         }
     };
 
     if config.sidebar.position.is_horizontal() {
         if let Some(icon) = icon {
-            Either::Left(vec![icon, Space::new().width(8).into()].into_iter())
+            Either::Left(
+                vec![icon, Space::new().width(TITLE_HORIZONTAL_PADDING).into()]
+                    .into_iter(),
+            )
         } else {
             Either::Right(iter::empty())
         }
@@ -2459,7 +2566,7 @@ fn sidebar_icon<'a>(
             vec![
                 stack![
                     Space::new()
-                        .width(dimensions.max_icon_width())
+                        .width(dimensions.max_width(show_typing_gutter))
                         .height(icon_height),
                     icon.map(|icon| row![
                         Space::new().width(icon_left_spacing),
@@ -2467,17 +2574,42 @@ fn sidebar_icon<'a>(
                     ])
                 ]
                 .into(),
-                Space::new().width(8).into(),
+                Space::new().width(TITLE_HORIZONTAL_PADDING).into(),
             ]
             .into_iter(),
         )
     }
 }
 
+fn sidebar_icon_badge<'a>(
+    indicator: TextColorSvg<'a, Theme>,
+    dimensions: Dimensions,
+) -> Element<'a, Message> {
+    container(
+        indicator
+            .width(Length::Shrink)
+            .content_fit(ContentFit::Contain),
+    )
+    .style(move |theme: &Theme| container::Style {
+        text_color: None,
+        background: Some(theme.styles().buttons.primary.background.into()),
+        border: Border {
+            radius: dimensions.icon_badge_padded_size.into(),
+            ..Border::default()
+        },
+        ..container::Style::default()
+    })
+    .width(dimensions.icon_badge_padded_size)
+    .height(dimensions.icon_badge_padded_size)
+    .padding(dimensions.icon_badge_padding as f32)
+    .align_y(iced::Alignment::Start)
+    .into()
+}
+
 #[derive(Debug, Default, Clone, Copy)]
 struct Dimensions {
     icon_size: u32,
-    icon_badge_size: u32,
+    icon_badge_padded_size: u32,
     icon_badge_padding: u32,
     unread_indicator_size: u32,
     highlight_indicator_size: u32,
@@ -2487,14 +2619,14 @@ struct Dimensions {
 
 impl From<&config::sidebar::Sidebar> for Dimensions {
     fn from(config: &config::sidebar::Sidebar) -> Self {
-        let (icon_size, icon_badge_padding, icon_badge_size) =
+        let (icon_size, icon_badge_padding, icon_badge_padded_size) =
             match config.primary_icon {
                 PrimaryIcon::Size(icon_size) => {
                     let icon_badge_padding = 2;
-                    let icon_badge_size =
+                    let icon_badge_padded_size =
                         (icon_size / 3).max(4) + 2 * icon_badge_padding;
 
-                    (icon_size, icon_badge_padding, icon_badge_size)
+                    (icon_size, icon_badge_padding, icon_badge_padded_size)
                 }
                 PrimaryIcon::Hidden => (0, 0, 0),
             };
@@ -2512,22 +2644,20 @@ impl From<&config::sidebar::Sidebar> for Dimensions {
             0
         };
 
-        let (typing_indicator_width, typing_indicator_height) = if config
-            .typing_indicator
-            .can_show(config.position.is_horizontal())
-        {
-            (
-                3 * config.typing_indicator.icon_height
-                    + 2 * typing::DOT_SIDEBAR_SPACING,
-                config.typing_indicator.icon_height,
-            )
-        } else {
-            (0, 0)
-        };
+        let (typing_indicator_width, typing_indicator_height) =
+            if config.can_show_any_typing() {
+                (
+                    3 * config.typing_indicator.icon_height
+                        + 2 * typing::DOT_SIDEBAR_SPACING,
+                    config.typing_indicator.icon_height,
+                )
+            } else {
+                (0, 0)
+            };
 
         Self {
             icon_size,
-            icon_badge_size,
+            icon_badge_padded_size,
             icon_badge_padding,
             unread_indicator_size,
             highlight_indicator_size,
@@ -2539,17 +2669,32 @@ impl From<&config::sidebar::Sidebar> for Dimensions {
 
 impl Dimensions {
     fn max_indicator_size(&self) -> u32 {
-        self.icon_badge_size
+        self.icon_badge_padded_size
             .max(self.unread_indicator_size)
             .max(self.highlight_indicator_size)
             .max(self.typing_indicator_height)
     }
 
-    fn max_icon_width(&self) -> u32 {
-        self.icon_size
-            .max(self.unread_indicator_size)
-            .max(self.highlight_indicator_size)
-            .max(self.typing_indicator_width)
+    fn indicator_center_align_spacing(&self, indicator_size: u32) -> f32 {
+        self.max_indicator_size().saturating_sub(indicator_size) as f32 / 2.0
+    }
+
+    fn icon_padded_size(&self) -> u32 {
+        self.icon_size + 2 * self.icon_badge_padding
+    }
+
+    fn max_width(&self, show_typing_gutter: bool) -> f32 {
+        (self.icon_padded_size() as f32
+            + self.indicator_center_align_spacing(self.icon_badge_padded_size))
+        .max(if show_typing_gutter {
+            self.typing_indicator_width
+                + INTER_INDICATOR_SPACING
+                + self.max_indicator_size()
+        } else {
+            self.unread_indicator_size
+                .max(self.highlight_indicator_size)
+                .max(self.typing_indicator_width)
+        } as f32)
     }
 }
 

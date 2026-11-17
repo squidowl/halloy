@@ -1346,7 +1346,7 @@ visibility = "always"
 
 ### `auto_format` {#auto-format}
 
-Control if the text input should automatically format the input. By default text is only formatted when using the `/format`, `/format-me`, `/format-msg`, or `/format-notice` commands. Token-based formatting (`"token"`) is a Halloy-specific formatting scheme that provides direct access to all [IRC formatting](https://modern.ircdocs.horse/formatting.html). Markdown formatting (`"markdown"`), on the other hand, supports the subset of markdown that can be reasonably rendered using IRC formatting (where only a subset of markdown formatting can be enabled by specifying `"markdown-features"`). Details on both token-based and markdown foarmtting are available in the [text formatting guide](/guides/text-formatting).
+Control if the text input should automatically format the input. By default text is only formatted when using the `/format`, `/format-me`, `/format-msg`, or `/format-notice` commands. Token-based formatting (`"token"`) is a Halloy-specific formatting scheme that provides direct access to all [IRC formatting](https://modern.ircdocs.horse/formatting.html). Markdown formatting (`"markdown"`), on the other hand, supports the subset of markdown that can be reasonably rendered using IRC formatting (where only a subset of markdown formatting can be enabled by specifying `"markdown-features"`). Details on both token-based and markdown formatting are available in the [text formatting guide](/guides/text-formatting).
 
 ```toml
 # Type: string
