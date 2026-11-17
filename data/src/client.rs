@@ -910,7 +910,8 @@ impl Client {
                 })
                 .collect(),
             Irc::React { .. } | Irc::Unreact { .. } => {
-                if let Some(target) = buffer.target()
+                if !self.capabilities.acknowledged(Capability::EchoMessage)
+                    && let Some(target) = buffer.target()
                     && let Some((reaction, msgid)) =
                         self.convert_command_to_reaction(command)
                 {
