@@ -187,15 +187,16 @@ impl ServerTimeTracking {
         // us (e.g. network lag, or it is replayed) rather than that a clock
         // has changed, so it is only used once no message has matched the
         // tracked offset for a while.
-        if offset >= self.offset
-            || self
-                .delayed_since
-                .get_or_insert_with(Instant::now)
-                .elapsed()
-                >= SERVER_TIME_OFFSET_TIMEOUT
-        {
+        if offset >= self.offset {
             self.offset = offset;
             self.delayed_since = None;
+        } else if self
+            .delayed_since
+            .get_or_insert_with(Instant::now)
+            .elapsed()
+            >= SERVER_TIME_OFFSET_TIMEOUT
+        {
+            *self = Self::new(server_time);
         }
     }
 
