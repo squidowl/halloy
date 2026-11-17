@@ -1911,19 +1911,12 @@ impl Halloy {
             tick,
             streams,
         ];
-
         if self.config.buffer.typing.animation.enabled
-            && (matches!(
+            && matches!(
                 &self.screen,
                 Screen::Dashboard(dashboard)
-            if dashboard.has_typing_activity_in_focused_window(&self.clients, self.focused_window)
-            ) || (self.config.can_show_any_typing()
-                && ((self.config.sidebar.can_show_typing(
-                    config::sidebar::TypingIndicatorBuffer::Channel,
-                ) && self.clients.has_any_channel_typing())
-                    || (self.config.sidebar.can_show_typing(
-                        config::sidebar::TypingIndicatorBuffer::Query,
-                    ) && self.clients.has_any_query_typing()))))
+            if dashboard.has_typing_activity_in_focused_window(&self.clients, &self.config, self.focused_window)
+            )
         {
             subscriptions.push(
                 iced::time::every(Duration::from_millis(50))
