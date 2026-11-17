@@ -62,10 +62,10 @@ impl Sidebar {
     ) -> bool {
         self.typing_indicator
             .can_show(self.position.is_horizontal(), buffer)
-            && (!self.typing_indicator.is_position_left_precedence()
+            && (!self.typing_indicator.is_position_left_priority()
                 || self
                     .typing_indicator
-                    .typing_precedence(show_highlight, show_unread))
+                    .typing_priority(show_highlight, show_unread))
     }
 }
 
@@ -427,7 +427,7 @@ pub enum TypingIndicatorBuffer {
 #[serde(rename_all = "kebab-case")]
 pub enum TypingIndicatorPosition {
     Left,
-    LeftPrecedence(TypingIndicatorPrecedence),
+    LeftPriority(TypingIndicatorPriority),
     #[default]
     Right,
 }
@@ -443,17 +443,17 @@ pub struct TypingIndicatorLeftPosition {
 pub enum TypingIndicatorLeftPositionOptions {
     #[default]
     TypingGutter,
-    TypingPrecedence(TypingIndicatorPrecedence),
+    TypingPriority(TypingIndicatorPriority),
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct TypingIndicatorLeftPrecedence {
-    pub precedence: TypingIndicatorPrecedence,
+pub struct TypingIndicatorLeftPriority {
+    pub priority: TypingIndicatorPriority,
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
-pub enum TypingIndicatorPrecedence {
+pub enum TypingIndicatorPriority {
     #[default]
     Highlight,
     None,
@@ -479,9 +479,9 @@ where
             TypingIndicatorLeftPositionOptions::TypingGutter => {
                 Ok(TypingIndicatorPosition::Left)
             }
-            TypingIndicatorLeftPositionOptions::TypingPrecedence(
-                precedence,
-            ) => Ok(TypingIndicatorPosition::LeftPrecedence(precedence)),
+            TypingIndicatorLeftPositionOptions::TypingPriority(priority) => {
+                Ok(TypingIndicatorPosition::LeftPriority(priority))
+            }
         },
     }
 }
@@ -496,16 +496,14 @@ where
     #[serde(untagged)]
     enum Inner {
         String(TypingIndicatorLeftPositionOptions),
-        TypingIndicatorLeftPrecedence(TypingIndicatorLeftPrecedence),
+        TypingIndicatorLeftPriority(TypingIndicatorLeftPriority),
     }
 
     match Inner::deserialize(deserializer)? {
         Inner::String(string) => Ok(string),
-        Inner::TypingIndicatorLeftPrecedence(left) => {
-            Ok(TypingIndicatorLeftPositionOptions::TypingPrecedence(
-                left.precedence,
-            ))
-        }
+        Inner::TypingIndicatorLeftPriority(left) => Ok(
+            TypingIndicatorLeftPositionOptions::TypingPriority(left.priority),
+        ),
     }
 }
 
@@ -536,37 +534,34 @@ impl TypingIndicator {
     }
 
     pub fn is_position_left(&self) -> bool {
-        self.is_position_left_gutter() || self.is_position_left_precedence()
+        self.is_position_left_gutter() || self.is_position_left_priority()
     }
 
     pub fn is_position_left_gutter(&self) -> bool {
         matches!(self.position, TypingIndicatorPosition::Left)
     }
 
-    pub fn is_position_left_precedence(&self) -> bool {
-        matches!(self.position, TypingIndicatorPosition::LeftPrecedence(..))
+    pub fn is_position_left_priority(&self) -> bool {
+        matches!(self.position, TypingIndicatorPosition::LeftPriority(..))
     }
 
-    pub fn typing_precedence(
+    pub fn typing_priority(
         &self,
         show_highlight: bool,
         show_unread: bool,
     ) -> bool {
-        let precedence =
-            if let TypingIndicatorPosition::LeftPrecedence(precedence) =
-                self.position
-            {
-                precedence
-            } else {
-                TypingIndicatorPrecedence::None
-            };
+        let priority = if let TypingIndicatorPosition::LeftPriority(priority) =
+            self.position
+        {
+            priority
+        } else {
+            TypingIndicatorPriority::None
+        };
 
-        match precedence {
-            TypingIndicatorPrecedence::None => true,
-            TypingIndicatorPrecedence::Highlight => !show_highlight,
-            TypingIndicatorPrecedence::Unread => {
-                !show_unread && !show_highlight
-            }
+        match priority {
+            TypingIndicatorPriority::None => true,
+            TypingIndicatorPriority::Highlight => !show_highlight,
+            TypingIndicatorPriority::Unread => !show_unread && !show_highlight,
         }
     }
 }

@@ -1627,17 +1627,11 @@ fn upstream_buffer_button<'a>(
     // highlight and unread indicators.
     let show_highlight_icon = show_highlight_icon
         && !(show_typing
-            && config
-                .sidebar
-                .typing_indicator
-                .is_position_left_precedence());
+            && config.sidebar.typing_indicator.is_position_left_priority());
 
     let show_unread_icon = show_unread_icon
         && !(show_typing
-            && config
-                .sidebar
-                .typing_indicator
-                .is_position_left_precedence());
+            && config.sidebar.typing_indicator.is_position_left_priority());
 
     let buffer_title_style = if show_highlight_title {
         theme::text::highlight_indicator

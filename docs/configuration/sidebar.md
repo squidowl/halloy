@@ -520,23 +520,25 @@ indicators one at a time.
 
 ```toml
 # Type: string or struct
-# Values: "typing-gutter" or { "precedence": "highlight" | "unread" | "none" }
+# Values: "typing-gutter" or { "priority": "highlight" | "unread" | "none" }
 # Default: "typing-gutter"
 
 [sidebar.typing_indicator.position]
 left = "typing-gutter"
 ```
 
-##### `precedence`
+##### `priority`
 
-Specify which indicators (highlight or unread) take precedence, in display, over
-the typing indicator.
+Specify which indicators (highlight or unread) has priority to display instead
+of the typing indicator.
 
-For example, setting `"highlight"` means that highlight indicators will take
-precedence over the typing indicator.
+Highlight indicators has display priority over unread.
 
-When using `"unread"`, both the highlight and unread indicators will displayed
-over the typing indicator.
+This setting allows you to set which available indicator (highlight/unread) to
+display instead of the typing indicator.
+
+For example, setting `"highlight"` will only display typing if there is no
+highlight indicator.
 
 ```toml
 # Type: string
@@ -544,7 +546,7 @@ over the typing indicator.
 # Default: "highlight"
 
 [sidebar.typing_indicator.position.left]
-precedence = "highlight"
+priority = "highlight"
 ```
 
 ### `icon_height`
