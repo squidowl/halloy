@@ -6,13 +6,15 @@ use std::pin::{Pin, pin};
 use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::{DateTime, Local, NaiveDate, Utc};
 use futures::channel::mpsc;
 use futures::never::Never;
 use futures::{FutureExt, SinkExt, StreamExt, future, stream};
 use hashbrown::HashSet;
 use irc::proto::{self, Command, command};
 use irc::{CodecLog, Connection, codec, connection};
+use jiff::civil::Date;
+use jiff::tz::TimeZone;
+use jiff::{Timestamp, Zoned};
 use tokio::fs::{self, File};
 use tokio::io::{AsyncWriteExt, BufWriter};
 use tokio::time::{self, Instant, Interval, MissedTickBehavior};
@@ -20,7 +22,6 @@ use tokio::time::{self, Instant, Interval, MissedTickBehavior};
 use crate::client::{BURST_PING_TOKEN, Client};
 use crate::config::server::IrcProtocolLogFormat;
 use crate::server::Server;
-use crate::time::Posix;
 use crate::{config, environment, message, server};
 
 const QUIT_REQUEST_TIMEOUT: Duration = Duration::from_millis(400);
@@ -40,25 +41,25 @@ pub enum Update {
     },
     Connecting {
         server: Server,
-        sent_time: DateTime<Utc>,
+        sent_time: Timestamp,
     },
     Connected {
         server: Server,
         client: Client,
         is_initial: bool,
-        sent_time: DateTime<Utc>,
+        sent_time: Timestamp,
     },
     Disconnected {
         server: Server,
         is_initial: bool,
         error: Option<String>,
-        sent_time: DateTime<Utc>,
+        sent_time: Timestamp,
         autoconnect: bool,
     },
     ConnectionFailed {
         server: Server,
         error: String,
-        sent_time: DateTime<Utc>,
+        sent_time: Timestamp,
         autoconnect: bool,
     },
     MessagesReceived(Server, Vec<message::Encoded>),
@@ -182,7 +183,7 @@ async fn _run(
         server: server.clone(),
         is_initial,
         error: None,
-        sent_time: Utc::now(),
+        sent_time: Timestamp::now(),
         autoconnect: config.autoconnect,
     });
 
@@ -279,7 +280,7 @@ async fn _run(
 
                         let _ = sender.unbounded_send(Update::Connecting {
                             server: server.clone(),
-                            sent_time: Utc::now(),
+                            sent_time: Timestamp::now(),
                         });
 
                         let attempt = pin!(connect(
@@ -331,7 +332,7 @@ async fn _run(
                                         server: server.clone(),
                                         client,
                                         is_initial,
-                                        sent_time: Utc::now(),
+                                        sent_time: Timestamp::now(),
                                     });
 
                                 is_initial = false;
@@ -376,7 +377,7 @@ async fn _run(
                                     Update::ConnectionFailed {
                                         server: server.clone(),
                                         error,
-                                        sent_time: Utc::now(),
+                                        sent_time: Timestamp::now(),
                                         autoconnect: *autoconnect,
                                     },
                                 );
@@ -555,7 +556,7 @@ async fn _run(
                         }
                     }
                     Input::Ping => {
-                        let now = Posix::now().as_nanos().to_string();
+                        let now = Timestamp::now().as_nanosecond().to_string();
                         log::trace!("[{server}] ping sent: {now}");
 
                         if let Err(e) =
@@ -584,7 +585,7 @@ async fn _run(
                         };
                     }
                     Input::WebSocketPing => {
-                        let now = Posix::now().as_nanos().to_string();
+                        let now = Timestamp::now().as_nanosecond().to_string();
                         log::trace!("[{server}] websocket ping sent: {now}");
 
                         match stream
@@ -624,7 +625,7 @@ async fn _run(
                                         server: server.clone(),
                                         is_initial,
                                         error: None,
-                                        sent_time: Utc::now(),
+                                        sent_time: Timestamp::now(),
                                         autoconnect: updated_config.autoconnect,
                                     },
                                 );
@@ -691,7 +692,7 @@ async fn _run(
                                     server: server.clone(),
                                     is_initial,
                                     error,
-                                    sent_time: Utc::now(),
+                                    sent_time: Timestamp::now(),
                                     autoconnect,
                                 });
                             state = State::Disconnected {
@@ -720,7 +721,7 @@ async fn _run(
                                     server: server.clone(),
                                     is_initial,
                                     error,
-                                    sent_time: Utc::now(),
+                                    sent_time: Timestamp::now(),
                                     autoconnect,
                                 });
                             state = State::Disconnected {
@@ -785,7 +786,7 @@ async fn _run(
                         server: server.clone(),
                         is_initial,
                         error,
-                        sent_time: Utc::now(),
+                        sent_time: Timestamp::now(),
                         autoconnect,
                     });
                     state = State::Disconnected {
@@ -900,7 +901,7 @@ async fn log_codec(
 
 struct LogWriter {
     log_dir: PathBuf,
-    date_writer: Option<(NaiveDate, BufWriter<File>)>,
+    date_writer: Option<(Date, BufWriter<File>)>,
 }
 
 impl LogWriter {
@@ -930,12 +931,13 @@ impl LogWriter {
         message: CodecLog,
         config: &config::server::IrcProtocolLog,
     ) {
-        let now = Local::now();
+        let now = Timestamp::now();
 
         let today = match config.timestamp {
-            config::logs::Timestamp::Local => now.date_naive(),
-            config::logs::Timestamp::Utc => now.to_utc().date_naive(),
-        };
+            config::logs::Timestamp::Local => now.to_zoned(TimeZone::system()),
+            config::logs::Timestamp::Utc => now.to_zoned(TimeZone::UTC),
+        }
+        .date();
 
         if let Some((date, writer)) = &mut self.date_writer {
             if today != *date {
@@ -954,8 +956,8 @@ impl LogWriter {
         }
     }
 
-    async fn create_date_writer(&mut self, date: NaiveDate) {
-        let log_file = date.format("%Y-%m-%d.log").to_string();
+    async fn create_date_writer(&mut self, date: Date) {
+        let log_file = Date::strftime(&date, "%Y-%m-%d.log").to_string();
 
         self.date_writer = File::options()
             .append(true)
@@ -968,18 +970,16 @@ impl LogWriter {
 
     fn format(
         message: CodecLog,
-        received_at: DateTime<Local>,
+        received_at: Timestamp,
         config: &config::server::IrcProtocolLog,
     ) -> String {
-        let received_at_format = "%H:%M:%S%.3f";
-        let received_at = match config.timestamp {
+        let received_at_zoned = match config.timestamp {
             config::logs::Timestamp::Local => {
-                received_at.format(received_at_format)
+                received_at.to_zoned(TimeZone::system())
             }
-            config::logs::Timestamp::Utc => {
-                received_at.to_utc().format(received_at_format)
-            }
+            config::logs::Timestamp::Utc => received_at.to_zoned(TimeZone::UTC),
         };
+        let received_at = Zoned::strftime(&received_at_zoned, "%H:%M:%S%.3f");
 
         let (direction, divider, message_content) = match config.format {
             IrcProtocolLogFormat::Halloy => match message {

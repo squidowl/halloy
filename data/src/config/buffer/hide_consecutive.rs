@@ -1,4 +1,4 @@
-use chrono::TimeDelta;
+use jiff::SignedDuration;
 use serde::{Deserialize, Deserializer};
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -43,9 +43,9 @@ impl<'de> Deserialize<'de> for HideConsecutive {
                 show_after_previews: false,
             }),
             Inner::Smart { smart } => Ok(HideConsecutive {
-                enabled: HideConsecutiveEnabled::Enabled(
-                    TimeDelta::try_seconds(smart),
-                ),
+                enabled: HideConsecutiveEnabled::Enabled(Some(
+                    SignedDuration::from_secs(smart),
+                )),
                 show_after_previews: false,
             }),
         }
@@ -56,7 +56,7 @@ impl<'de> Deserialize<'de> for HideConsecutive {
 pub enum HideConsecutiveEnabled {
     #[default]
     Disabled,
-    Enabled(Option<TimeDelta>),
+    Enabled(Option<SignedDuration>),
 }
 
 impl<'de> Deserialize<'de> for HideConsecutiveEnabled {
@@ -80,7 +80,7 @@ impl<'de> Deserialize<'de> for HideConsecutiveEnabled {
                 }
             }
             Inner::Smart { smart } => Ok(HideConsecutiveEnabled::Enabled(
-                TimeDelta::try_seconds(smart),
+                Some(SignedDuration::from_secs(smart)),
             )),
         }
     }
@@ -111,7 +111,7 @@ mod tests {
         assert!(matches!(
             config.enabled,
             HideConsecutiveEnabled::Enabled(Some(duration))
-                if duration.num_seconds() == 42
+                if duration.as_secs() == 42
         ));
         assert!(!config.show_after_previews);
     }

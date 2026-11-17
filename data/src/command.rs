@@ -1,11 +1,13 @@
 use std::borrow::Cow;
 use std::str::FromStr;
 
-use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, Utc};
 use fancy_regex::Regex;
 use hashbrown::HashMap;
 use irc::proto::{self, tags};
 use itertools::Itertools;
+use jiff::civil::{Date, DateTime};
+use jiff::tz::TimeZone;
+use jiff::{Timestamp, Zoned};
 use serde::{Deserialize, Serialize};
 
 use crate::buffer::{self, Upstream};
@@ -16,6 +18,7 @@ use crate::history::reroute::RerouteRules;
 use crate::isupport::{
     self, find_target_limit, format_optional_message_reference,
 };
+use crate::message::formatting::encode::Encoding;
 use crate::message::{self, formatting};
 use crate::user::{ChannelUsers, Nick};
 use crate::{Config, Message, Server, Target, Url, User, ctcp, target};
@@ -114,7 +117,7 @@ impl Typing {
 impl Irc {
     pub fn messages(
         &self,
-        user: User,
+        user: &User,
         channel_users: Option<&ChannelUsers>,
         server: &Server,
         chantypes: &[char],
@@ -123,6 +126,7 @@ impl Irc {
         supports_echoes: bool,
         reroute_rules: &RerouteRules,
         focused_buffer: Option<&buffer::Upstream>,
+        time: message::Time,
     ) -> Option<Vec<Message>> {
         let to_message_target = |target: &str| {
             if target == "*" {
@@ -177,6 +181,7 @@ impl Irc {
                                 target.to_string(),
                                 text.clone(),
                             )),
+                            time,
                         )
                     })
                     .collect(),
@@ -208,6 +213,7 @@ impl Irc {
                                 target.to_string(),
                                 text.clone(),
                             )),
+                            time,
                         )
                     })
                     .collect(),
@@ -227,12 +233,13 @@ impl Irc {
                     message::Source::Action(Some(user.clone())),
                     message_target,
                     message::action_text(
-                        &user,
+                        user,
                         Some(action),
                         channel_users,
                         casemapping,
                     ),
                     supports_echoes.then_some(self.clone()),
+                    time,
                 )])
             }
             _ => None,
@@ -338,7 +345,7 @@ pub fn parse(
     s: &str,
     buffer: Option<&buffer::Upstream>,
     our_nickname: Option<&Nick>,
-    auto_format: AutoFormat,
+    auto_format: &AutoFormat,
     is_connected: bool,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
     capabilities: &Capabilities,
@@ -404,7 +411,7 @@ fn parse_command(
     raw: &str,
     buffer: Option<&buffer::Upstream>,
     our_nickname: Option<&Nick>,
-    auto_format: AutoFormat,
+    auto_format: &AutoFormat,
     is_connected: bool,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
     capabilities: &Capabilities,
@@ -586,18 +593,17 @@ fn parse_command(
 
                     if let Some(msg) = msg {
                         let msg = match kind {
-                            Kind::FormatMsg => formatting::encode(&msg, false),
+                            Kind::FormatMsg => {
+                                formatting::encode(&msg, Encoding::All)
+                            }
                             Kind::PlainMsg => msg,
-                            _ => match auto_format {
-                                AutoFormat::Disabled
-                                | AutoFormat::ForceDisabled => msg,
-                                AutoFormat::Markdown => {
-                                    formatting::encode(&msg, true)
+                            _ => {
+                                if let Some(encoding) = auto_format.encoding() {
+                                    formatting::encode(&msg, encoding)
+                                } else {
+                                    msg
                                 }
-                                AutoFormat::All => {
-                                    formatting::encode(&msg, false)
-                                }
-                            },
+                            }
                         };
 
                         Ok(Command::Irc(Irc::Msg(targets, msg), None))
@@ -628,14 +634,12 @@ fn parse_command(
             Kind::Me => {
                 if let Some(target) = buffer.and_then(Upstream::target) {
                     validated::<1, 0, true>(args, |[text], _| {
-                        let text = match auto_format {
-                            AutoFormat::Disabled
-                            | AutoFormat::ForceDisabled => text,
-                            AutoFormat::Markdown => {
-                                formatting::encode(&text, true)
-                            }
-                            AutoFormat::All => formatting::encode(&text, false),
-                        };
+                        let text =
+                            if let Some(encoding) = auto_format.encoding() {
+                                formatting::encode(&text, encoding)
+                            } else {
+                                text
+                            };
 
                         Ok(Command::Irc(
                             Irc::Me(target.to_string(), text),
@@ -1036,19 +1040,16 @@ fn parse_command(
                     if let Some(msg) = msg {
                         let msg = match kind {
                             Kind::FormatNotice => {
-                                formatting::encode(&msg, false)
+                                formatting::encode(&msg, Encoding::All)
                             }
                             Kind::PlainNotice => msg,
-                            _ => match auto_format {
-                                AutoFormat::Disabled
-                                | AutoFormat::ForceDisabled => msg,
-                                AutoFormat::Markdown => {
-                                    formatting::encode(&msg, true)
+                            _ => {
+                                if let Some(encoding) = auto_format.encoding() {
+                                    formatting::encode(&msg, encoding)
+                                } else {
+                                    msg
                                 }
-                                AutoFormat::All => {
-                                    formatting::encode(&msg, false)
-                                }
-                            },
+                            }
                         };
 
                         Ok(Command::Irc(Irc::Notice(targets, msg), None))
@@ -1084,7 +1085,7 @@ fn parse_command(
                             target.to_string(),
                             match auto_format {
                                 AutoFormat::ForceDisabled => raw.to_string(),
-                                _ => formatting::encode(raw, false),
+                                _ => formatting::encode(raw, Encoding::All),
                             },
                         ),
                         None,
@@ -1100,7 +1101,7 @@ fn parse_command(
                             target.to_string(),
                             match auto_format {
                                 AutoFormat::ForceDisabled => raw.to_string(),
-                                _ => formatting::encode(raw, false),
+                                _ => formatting::encode(raw, Encoding::All),
                             },
                         ),
                         None,
@@ -1822,66 +1823,30 @@ fn get_combined_arg(
     (!combined_arg.is_empty()).then_some(combined_arg)
 }
 
-fn validated_timestamp(timestamp: &str) -> Option<DateTime<Utc>> {
+fn validated_timestamp(timestamp: &str) -> Option<Timestamp> {
     // Allow no timestamp= prefix if we can parse the remainder as a timestamp.
     let timestamp = timestamp.strip_prefix("timestamp=").unwrap_or(timestamp);
 
     // Parse full timestamp format
-    if let Ok(date_time) = DateTime::parse_from_rfc3339(timestamp)
-        .map(|date_time| date_time.to_utc())
+    if let Ok(date_time) = Timestamp::from_str(timestamp) {
+        return Some(date_time);
+    }
+
+    // Allow omitted offset, by assuming it's the local timezone.
+    if let Ok(date_time) = DateTime::from_str(timestamp)
+        .and_then(|date_time| date_time.to_zoned(TimeZone::system()))
+        .as_ref()
+        .map(Zoned::timestamp)
     {
         return Some(date_time);
     }
 
-    // Allow omitted offset, by assuming it's the local timezone.  Also, per
-    // Chrono crate's documentation, "missing seconds are assumed to be zero".
-    if let Some(date_time) =
-        NaiveDateTime::parse_from_str(timestamp, "%Y-%m-%dT%H:%M:%S%.f")
-            .ok()
-            .and_then(|naive_date_time| {
-                naive_date_time.and_local_timezone(Local).single()
-            })
-            .map(|date_time| date_time.to_utc())
-    {
-        return Some(date_time);
-    }
-
-    // Allow omitted seconds, which will be assumed to be zero
-    if let Some(date_time) = NaiveDateTime::parse_from_str(
-        &format!("{timestamp}:00"),
-        "%Y-%m-%dT%H:%M:%S",
-    )
-    .ok()
-    .and_then(|naive_date_time| {
-        naive_date_time.and_local_timezone(Local).single()
-    })
-    .map(|date_time| date_time.to_utc())
-    {
-        return Some(date_time);
-    }
-
-    // Allow omitted minutes, which will be assumed to be zero
-    if let Some(date_time) = NaiveDateTime::parse_from_str(
-        &format!("{timestamp}:00"),
-        "%Y-%m-%dT%H:%M",
-    )
-    .ok()
-    .and_then(|naive_date_time| {
-        naive_date_time.and_local_timezone(Local).single()
-    })
-    .map(|date_time| date_time.to_utc())
-    {
-        return Some(date_time);
-    }
-
-    // Allow omitted hours, which will be assumed to be zero (midnight)
-    NaiveDate::parse_from_str(timestamp, "%Y-%m-%d")
+    // Allow omitted time, which will be assumed to be midnight.
+    Date::from_str(timestamp)
+        .and_then(|date| date.to_zoned(TimeZone::system()))
+        .as_ref()
+        .map(Zoned::timestamp)
         .ok()
-        .and_then(|naive_date| naive_date.and_hms_opt(0, 0, 0))
-        .and_then(|naive_date_time| {
-            naive_date_time.and_local_timezone(Local).single()
-        })
-        .map(|date_time| date_time.to_utc())
 }
 
 fn validated_message_reference(
@@ -2195,7 +2160,14 @@ fn fmt_channel_name_requirements(chantypes: &[char]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{AutoFormat, Command, Error, Internal, isupport, parse};
+    use jiff::civil::date;
+    use jiff::tz::TimeZone;
+    use jiff::{Timestamp, Zoned};
+
+    use super::{
+        AutoFormat, Command, Error, Internal, isupport, parse,
+        validated_timestamp,
+    };
     use crate::Config;
     use crate::capabilities::Capabilities;
     use crate::features::Features;
@@ -2252,7 +2224,7 @@ mod tests {
                     test,
                     None,
                     None,
-                    AutoFormat::default(),
+                    &AutoFormat::default(),
                     true,
                     &isupport,
                     &Capabilities::default(),
@@ -2302,7 +2274,7 @@ mod tests {
             "/exec printf '/me hello world'",
             None,
             None,
-            AutoFormat::default(),
+            &AutoFormat::default(),
             true,
             &isupport::DEFAULT,
             &Capabilities::default(),
@@ -2328,7 +2300,7 @@ mod tests {
             "/exec   ",
             None,
             None,
-            AutoFormat::default(),
+            &AutoFormat::default(),
             true,
             &isupport::DEFAULT,
             &Capabilities::default(),
@@ -2357,7 +2329,7 @@ mod tests {
             "/exec echo hi",
             None,
             None,
-            AutoFormat::default(),
+            &AutoFormat::default(),
             true,
             &isupport::DEFAULT,
             &Capabilities::default(),
@@ -2368,5 +2340,51 @@ mod tests {
         .unwrap_err();
 
         assert!(matches!(error, Error::ExecDisabled));
+    }
+
+    #[test]
+    fn parse_timestamp() {
+        let tests = [
+            ("1973-11-29T21:33:09Z", Timestamp::new(123_456_789, 0).ok()),
+            (
+                "1973-11-29T21:33:09",
+                date(1973, 11, 29)
+                    .at(21, 33, 9, 0)
+                    .to_zoned(TimeZone::system())
+                    .as_ref()
+                    .map(Zoned::timestamp)
+                    .ok(),
+            ),
+            (
+                "1973-11-29T21:33",
+                date(1973, 11, 29)
+                    .at(21, 33, 0, 0)
+                    .to_zoned(TimeZone::system())
+                    .as_ref()
+                    .map(Zoned::timestamp)
+                    .ok(),
+            ),
+            (
+                "1973-11-29T21",
+                date(1973, 11, 29)
+                    .at(21, 0, 0, 0)
+                    .to_zoned(TimeZone::system())
+                    .as_ref()
+                    .map(Zoned::timestamp)
+                    .ok(),
+            ),
+            (
+                "1973-11-29",
+                date(1973, 11, 29)
+                    .to_zoned(TimeZone::system())
+                    .as_ref()
+                    .map(Zoned::timestamp)
+                    .ok(),
+            ),
+        ];
+
+        for (timestamp_str, timestamp) in tests {
+            assert_eq!(validated_timestamp(timestamp_str), timestamp);
+        }
     }
 }

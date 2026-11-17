@@ -5,12 +5,12 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{convert, slice};
 
-use chrono::Utc;
 use data::buffer::{
     BufferContextSnapshot, BuffersContext, BuffersContextSnapshot,
 };
 use data::client::{self, ClientsContext};
 use data::config::buffer::{ScrollPosition, UsernameFormat};
+use data::config::sidebar::TypingIndicatorBuffer;
 use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
 use data::history::filter::FilterChain;
@@ -27,6 +27,7 @@ use hashbrown::{HashMap, HashSet, hash_map};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{center, column, container, row, stack, text};
 use iced::{Length, Size, Task, Vector, clipboard, padding};
+use jiff::Timestamp;
 
 use self::command_bar::CommandBar;
 use self::modal::{reaction as reaction_modal, redaction as redaction_modal};
@@ -204,18 +205,17 @@ impl Dashboard {
         clients: &mut client::Map,
         server: &data::Server,
     ) {
-        if let Some(pane) = self.panes.iter().find_map(|(_, _, pane)| {
+        if self.panes.iter().any(|(_, _, pane)| {
             if let Some(data::Buffer::Internal(
                 buffer::Internal::ChannelDiscovery(Some(pane_server)),
             )) = pane.buffer.data()
-                && pane_server == *server
             {
-                Some(pane)
+                pane_server == *server
             } else {
-                None
+                false
             }
         }) {
-            Self::send_list_command_if_needed(server, pane, clients);
+            Self::send_list_command_if_needed(server, clients);
         }
     }
 
@@ -538,29 +538,21 @@ impl Dashboard {
                                     if let Some(buffer) = pane.buffer.upstream()
                                         && let Some(target) = buffer.target()
                                     {
-                                        let command = command::Irc::Redact {
-                                            target: target.to_string(),
-                                            msgid: msgid.clone(),
-                                            reason: if reason.is_empty() {
-                                                None
-                                            } else {
-                                                Some(reason.clone())
+                                        clients.send_from_buffer(
+                                            buffer,
+                                            command::Irc::Redact {
+                                                target: target.to_string(),
+                                                msgid: msgid.clone(),
+                                                reason: if reason.is_empty() {
+                                                    None
+                                                } else {
+                                                    Some(reason.clone())
+                                                },
                                             },
-                                        };
-
-                                        let input: data::Input =
-                                            data::Input::from_command(
-                                                buffer.clone(),
-                                                command,
-                                            );
-
-                                        if let Some(encoded) = input.encoded() {
-                                            clients.send_from_buffer(
-                                                &input.buffer,
-                                                encoded,
-                                                TokenPriority::User,
-                                            );
-                                        }
+                                            None,
+                                            None,
+                                            TokenPriority::User,
+                                        );
                                     }
 
                                     (self.refocus_pane(), None)
@@ -728,14 +720,7 @@ impl Dashboard {
                         (Task::none(), None)
                     }
                     sidebar::Event::OpenChannelDiscovery(server) => {
-                        if let Some(pane) = self
-                            .panes
-                            .get(self.panes.focus.window, self.panes.focus.pane)
-                        {
-                            Self::send_list_command_if_needed(
-                                &server, pane, clients,
-                            );
-                        }
+                        Self::send_list_command_if_needed(&server, clients);
 
                         (
                             self.open_buffer(
@@ -1999,7 +1984,7 @@ impl Dashboard {
                 if let buffer::Internal::ChannelDiscovery(Some(server)) =
                     &buffer
                 {
-                    Self::send_list_command_if_needed(server, pane, clients);
+                    Self::send_list_command_if_needed(server, clients);
                 }
 
                 return (
@@ -2141,20 +2126,17 @@ impl Dashboard {
                             channel.clone(),
                         );
 
-                        let command = command::Irc::Mode(
-                            channel.to_string(),
-                            Some(mode),
-                            Some(vec![nick.to_string()]),
+                        clients.send_from_buffer(
+                            &buffer,
+                            command::Irc::Mode(
+                                channel.to_string(),
+                                Some(mode),
+                                Some(vec![nick.to_string()]),
+                            ),
+                            None,
+                            None,
+                            TokenPriority::User,
                         );
-                        let input = data::Input::from_command(buffer, command);
-
-                        if let Some(encoded) = input.encoded() {
-                            clients.send_from_buffer(
-                                &input.buffer,
-                                encoded,
-                                TokenPriority::User,
-                            );
-                        }
 
                         None
                     }
@@ -2164,19 +2146,13 @@ impl Dashboard {
                                 || buffer::Upstream::Server(server.clone()),
                             );
 
-                        let command =
-                            command::Irc::Whois(None, nick.to_string());
-
-                        let input =
-                            data::Input::from_command(buffer.clone(), command);
-
-                        if let Some(encoded) = input.encoded() {
-                            clients.send_from_buffer(
-                                &input.buffer,
-                                encoded,
-                                TokenPriority::User,
-                            );
-                        }
+                        clients.send_from_buffer(
+                            &buffer,
+                            command::Irc::Whois(None, nick.to_string()),
+                            None,
+                            None,
+                            TokenPriority::User,
+                        );
 
                         None
                     }
@@ -2186,19 +2162,13 @@ impl Dashboard {
                                 || buffer::Upstream::Server(server.clone()),
                             );
 
-                        let command =
-                            command::Irc::Whowas(nick.to_string(), None);
-
-                        let input =
-                            data::Input::from_command(buffer.clone(), command);
-
-                        if let Some(encoded) = input.encoded() {
-                            clients.send_from_buffer(
-                                &input.buffer,
-                                encoded,
-                                TokenPriority::User,
-                            );
-                        }
+                        clients.send_from_buffer(
+                            &buffer,
+                            command::Irc::Whowas(nick.to_string(), None),
+                            None,
+                            None,
+                            TokenPriority::User,
+                        );
 
                         None
                     }
@@ -2276,22 +2246,17 @@ impl Dashboard {
                                 || buffer::Upstream::Server(server.clone()),
                             );
 
-                        let command = command::Irc::Ctcp(
-                            command,
-                            nick.to_string(),
-                            params,
+                        clients.send_from_buffer(
+                            &buffer,
+                            command::Irc::Ctcp(
+                                command,
+                                nick.to_string(),
+                                params,
+                            ),
+                            None,
+                            None,
+                            TokenPriority::High,
                         );
-
-                        let input =
-                            data::Input::from_command(buffer.clone(), command);
-
-                        if let Some(encoded) = input.encoded() {
-                            clients.send_from_buffer(
-                                &input.buffer,
-                                encoded,
-                                TokenPriority::High,
-                            );
-                        }
 
                         None
                     }
@@ -2650,14 +2615,14 @@ impl Dashboard {
                 return (Task::batch(tasks), None);
             }
             buffer::Event::SelectedServer(server) => {
-                Self::send_list_command_if_needed(&server, pane, clients);
+                Self::send_list_command_if_needed(&server, clients);
 
                 self.last_changed = Some(Instant::now());
 
                 return (Task::none(), None);
             }
             buffer::Event::SendUnsafeList(server) => {
-                Self::send_list_command(&server, pane, clients);
+                Self::send_list_command(&server, clients);
 
                 return (Task::none(), None);
             }
@@ -2687,7 +2652,7 @@ impl Dashboard {
                             target.into(),
                             "no filehost configured for server {server}"
                                 .to_string(),
-                            Utc::now(),
+                            Timestamp::now(),
                         ),
                     );
 
@@ -2827,7 +2792,7 @@ impl Dashboard {
                         Status::Error,
                         target.into(),
                         format!("Upload failed: {error}"),
-                        Utc::now(),
+                        Timestamp::now(),
                     ),
                 );
 
@@ -3233,7 +3198,6 @@ impl Dashboard {
 
     fn send_list_command_if_needed(
         server: &data::Server,
-        pane: &Pane,
         clients: &mut client::Map,
     ) {
         let is_needed = if clients.get_server_supports_list(server) {
@@ -3247,30 +3211,15 @@ impl Dashboard {
         };
 
         if is_needed {
-            Self::send_list_command(server, pane, clients);
+            Self::send_list_command(server, clients);
         }
     }
 
-    fn send_list_command(
-        server: &data::Server,
-        pane: &Pane,
-        clients: &mut client::Map,
-    ) {
-        let buffer = pane
-            .buffer
-            .upstream()
-            .cloned()
-            .unwrap_or_else(|| buffer::Upstream::Server(server.clone()));
-
-        let command = command::Irc::List(None, None);
-        let input = data::Input::from_command(buffer, command);
-
-        if let Some(encoded) = input.encoded() {
-            clients.send_from_buffer(
-                &input.buffer,
-                encoded,
-                TokenPriority::User,
-            );
+    fn send_list_command(server: &data::Server, clients: &mut client::Map) {
+        if let Ok(encoded) =
+            message::Encoded::try_from(command::Irc::List(None, None))
+        {
+            clients.send(server, encoded, TokenPriority::User);
         }
     }
 
@@ -3697,27 +3646,23 @@ impl Dashboard {
         let kind = match target {
             Target::Channel(channel) => {
                 // Send part & close history file
-                let command = command::Irc::Part(
-                    channel.to_string(),
-                    reason.or(config
-                        .buffer
-                        .commands
-                        .part
-                        .default_reason
-                        .clone()),
-                );
-
-                let buffer =
-                    buffer::Upstream::Channel(server.clone(), channel.clone());
-
-                let input = data::Input::from_command(buffer, command);
-
-                if clients.contains_channel(&server, &channel)
-                    && let Some(encoded) = input.encoded()
-                {
+                if clients.contains_channel(&server, &channel) {
                     clients.send_from_buffer(
-                        &input.buffer,
-                        encoded,
+                        &buffer::Upstream::Channel(
+                            server.clone(),
+                            channel.clone(),
+                        ),
+                        command::Irc::Part(
+                            channel.to_string(),
+                            reason.or(config
+                                .buffer
+                                .commands
+                                .part
+                                .default_reason
+                                .clone()),
+                        ),
+                        None,
+                        None,
                         TokenPriority::High,
                     );
                 }
@@ -4719,8 +4664,14 @@ impl Dashboard {
             .iter()
             .any(|(_, _, pane)| pane.buffer.has_typing_activity(clients))
             || (config.can_show_any_typing()
-                && config.sidebar.can_show_typing()
-                && clients.has_any_query_typing())
+                && (config
+                    .sidebar
+                    .can_show_typing(TypingIndicatorBuffer::Channel)
+                    && clients.has_any_channel_typing())
+                || (config
+                    .sidebar
+                    .can_show_typing(TypingIndicatorBuffer::Query)
+                    && clients.has_any_query_typing()))
     }
 
     pub fn has_typing_activity_in_focused_window(

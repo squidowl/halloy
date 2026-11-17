@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 
 pub use self::server::Server;
@@ -27,7 +27,7 @@ impl Source {
 pub enum Internal {
     Status(Status),
     Logs(log::Level),
-    Condensed(DateTime<Utc>),
+    Condensed(Timestamp),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

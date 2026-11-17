@@ -157,7 +157,7 @@ mod tests {
         );
         let message = message::Message {
             history_id: Id::Undetermined,
-            time: message::Time::client(chrono::Utc::now()),
+            time: message::Time::client(jiff::Timestamp::now()),
             direction: message::Direction::Received { is_echo: false },
             source: message::Source::User(User::from(Nick::from_str(
                 "casper", casemap,

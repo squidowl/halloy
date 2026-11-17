@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 
 pub use self::manager::Manager;
 pub use self::task::Task;
@@ -52,7 +52,7 @@ impl From<Id> for u16 {
 pub struct FileTransfer {
     pub id: Id,
     pub server: Server,
-    pub created_at: DateTime<Utc>,
+    pub created_at: Timestamp,
     pub direction: Direction,
     pub remote_user: User,
     pub filename: String,

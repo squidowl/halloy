@@ -3,12 +3,13 @@ use std::fmt;
 use std::str::FromStr;
 use std::sync::LazyLock;
 
-use chrono::format::SecondsFormat;
-use chrono::{DateTime, Utc};
 use hashbrown::HashMap;
+pub use irc::casemapping::CaseMap;
 use irc::proto;
+use jiff::{SignedDuration, Timestamp};
 
 use crate::target::Target;
+use crate::time::RFC3339_WITH_MILLIS;
 use crate::{Message, message};
 
 // Utilized ISUPPORT parameters should have an associated Kind enum variant
@@ -786,96 +787,6 @@ impl Parameter {
     }
 }
 
-#[allow(non_camel_case_types)]
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum CaseMap {
-    ASCII,
-    RFC1459,
-    RFC1459_STRICT,
-    #[default]
-    RFC7613,
-}
-
-impl CaseMap {
-    pub fn normalize(&self, from_str: &str) -> String {
-        match self {
-            CaseMap::ASCII => from_str.to_ascii_lowercase(),
-            CaseMap::RFC1459 => from_str
-                .chars()
-                .map(|c| match c {
-                    'A' => 'a',
-                    'B' => 'b',
-                    'C' => 'c',
-                    'D' => 'd',
-                    'E' => 'e',
-                    'F' => 'f',
-                    'G' => 'g',
-                    'H' => 'h',
-                    'I' => 'i',
-                    'J' => 'j',
-                    'K' => 'k',
-                    'L' => 'l',
-                    'M' => 'm',
-                    'N' => 'n',
-                    'O' => 'o',
-                    'P' => 'p',
-                    'Q' => 'q',
-                    'R' => 'r',
-                    'S' => 's',
-                    'T' => 't',
-                    'U' => 'u',
-                    'V' => 'v',
-                    'W' => 'w',
-                    'X' => 'x',
-                    'Y' => 'y',
-                    'Z' => 'z',
-                    '[' => '{',
-                    ']' => '}',
-                    '\\' => '|',
-                    '~' => '^',
-                    _ => c,
-                })
-                .collect(),
-            CaseMap::RFC1459_STRICT => from_str
-                .chars()
-                .map(|c| match c {
-                    'A' => 'a',
-                    'B' => 'b',
-                    'C' => 'c',
-                    'D' => 'd',
-                    'E' => 'e',
-                    'F' => 'f',
-                    'G' => 'g',
-                    'H' => 'h',
-                    'I' => 'i',
-                    'J' => 'j',
-                    'K' => 'k',
-                    'L' => 'l',
-                    'M' => 'm',
-                    'N' => 'n',
-                    'O' => 'o',
-                    'P' => 'p',
-                    'Q' => 'q',
-                    'R' => 'r',
-                    'S' => 's',
-                    'T' => 't',
-                    'U' => 'u',
-                    'V' => 'v',
-                    'W' => 'w',
-                    'X' => 'x',
-                    'Y' => 'y',
-                    'Z' => 'z',
-                    '[' => '{',
-                    ']' => '}',
-                    '\\' => '|',
-                    _ => c,
-                })
-                .collect(),
-            CaseMap::RFC7613 => from_str.to_lowercase(),
-        }
-    }
-}
-
 #[derive(Clone, Debug)]
 pub struct ChannelLimit {
     pub prefix: char,
@@ -908,7 +819,7 @@ pub enum ChathistorySubcommand {
     Latest(Target, Option<MessageReference>, u16),
     Before(Target, MessageReference, u16),
     Between(Target, MessageReference, MessageReference, u16),
-    Targets(DateTime<Utc>, DateTime<Utc>, u16),
+    Targets(Timestamp, Timestamp, u16),
 }
 
 impl ChathistorySubcommand {
@@ -944,18 +855,20 @@ pub struct CommandTargetLimit {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum MessageReference {
-    Timestamp(DateTime<Utc>),
+    Timestamp(Timestamp),
     MessageId(message::Id),
 }
 
 impl fmt::Display for MessageReference {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MessageReference::Timestamp(server_time) => write!(
-                f,
-                "timestamp={}",
-                server_time.to_rfc3339_opts(SecondsFormat::Millis, true)
-            ),
+            MessageReference::Timestamp(server_time) => {
+                write!(
+                    f,
+                    "timestamp={}",
+                    Timestamp::strftime(server_time, RFC3339_WITH_MILLIS)
+                )
+            }
             MessageReference::MessageId(id) => write!(f, "msgid={id}"),
         }
     }
@@ -1059,7 +972,7 @@ pub const DEFAULT_PREFIX: &[PrefixMap] = &[
 pub const DEFAULT_STATUSMSG: &[char] =
     proto::DEFAULT_CHANNEL_MEMBERSHIP_PREFIXES;
 
-const FUZZ_SECONDS: chrono::Duration = chrono::Duration::seconds(1);
+const FUZZ_SECONDS: SignedDuration = SignedDuration::from_secs(1);
 
 pub fn fuzz_start_message_reference(
     message_reference: MessageReference,

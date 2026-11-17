@@ -3,11 +3,12 @@ use std::str::FromStr;
 use std::string::ToString;
 use std::sync::LazyLock;
 
-use chrono::{DateTime, TimeDelta, Utc};
 use hashbrown::{HashMap, HashSet};
 use irc::proto::{self, Tags, command, format};
+use jiff::{Timestamp, ToSpan};
 use serde::Deserialize;
 
+use crate::client::{ServerTimeTracking, estimate_server_time};
 use crate::message::formatting::{Modifier, update_formatting_with_modifier};
 use crate::message::time;
 use crate::{Target, User, config, message};
@@ -628,11 +629,18 @@ pub struct LabeledResponseContext {
 }
 
 impl LabeledResponseContext {
-    pub fn new(message: &message::Encoded, label: &str) -> Self {
+    pub fn new(
+        server_time_tracking: Option<ServerTimeTracking>,
+        label: &str,
+    ) -> Self {
         Self {
             // Prefix ':' to ensure it cannot match any valid message id
             label_as_id: format!(":label={label}").into(),
-            time: message.time(),
+            // Attempt to predict server-time by using the last seen offset
+            // between local and server-time.
+            time: message::Time::client(estimate_server_time(
+                server_time_tracking,
+            )),
         }
     }
 }
@@ -643,16 +651,12 @@ impl LabeledResponseContext {
 /// will be shifted into the future.  If the resultant time is ahead of the
 /// server's clock, then deduplication should take care of any duplicate
 /// messages we receive.
-pub fn chathistory_entry_server_time(
-    message: &message::Encoded,
-) -> DateTime<Utc> {
+pub fn chathistory_entry_server_time(message: &message::Encoded) -> Timestamp {
     let time = message.time();
 
     if matches!(time.source, time::Source::Server) {
         time.utc
     } else {
-        TimeDelta::try_minutes(90)
-            .and_then(|time_delta| time.utc.checked_add_signed(time_delta))
-            .unwrap_or(time.utc)
+        time.utc.saturating_add(90.minutes()).unwrap_or(time.utc)
     }
 }

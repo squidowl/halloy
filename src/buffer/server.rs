@@ -115,6 +115,7 @@ pub fn view<'a>(
             move |link: &message::Link, entry: context_menu::Entry, length| {
                 let context = Context::link(
                     link,
+                    None,
                     Some(|user| UserContext {
                         server: &state.server,
                         prefix,

@@ -2,9 +2,10 @@ use std::sync::{OnceLock, mpsc};
 use std::time::{Duration, Instant};
 use std::{env, mem, panic, thread};
 
-use chrono::Utc;
 use data::config;
 pub use data::log::{Error, Record};
+use jiff::tz::TimeZone;
+use jiff::{Timestamp, Zoned};
 use log::Log;
 use tokio::sync::mpsc as tokio_mpsc;
 use tokio_stream::wrappers::ReceiverStream;
@@ -75,15 +76,13 @@ fn file_dispatch(
 
         fern::Dispatch::new()
             .format(move |out, message, record| {
-                let timestamp_format = "%H:%M:%S%.3f";
-                let timestamp = match config.file_timestamp {
-                    config::logs::Timestamp::Local => {
-                        chrono::Local::now().format(timestamp_format)
-                    }
+                let zoned = match config.file_timestamp {
+                    config::logs::Timestamp::Local => Zoned::now(),
                     config::logs::Timestamp::Utc => {
-                        chrono::Utc::now().format(timestamp_format)
+                        Zoned::now().with_time_zone(TimeZone::UTC)
                     }
                 };
+                let timestamp = Zoned::strftime(&zoned, "%H:%M:%S%.3f");
 
                 if message
                     .as_str()
@@ -186,7 +185,7 @@ fn channel_logger() -> (Box<dyn Log>, ReceiverStream<Vec<Record>>) {
 
         fn log(&self, record: &::log::Record) {
             let _ = self.sender.send(Record {
-                timestamp: Utc::now(),
+                timestamp: Timestamp::now(),
                 level: record.level().into(),
                 message: format!("{}", record.args()),
             });

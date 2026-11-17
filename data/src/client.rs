@@ -8,12 +8,12 @@ use std::time::{Duration, Instant};
 use std::{fmt, io, iter};
 
 use anyhow::{Context as ErrorContext, Result, anyhow, bail};
-use chrono::{DateTime, Utc};
 use futures::channel::mpsc;
 use hashbrown::{HashMap, HashSet};
 use indexmap::IndexMap;
 use irc::proto::{self, Command, Tags, command, tags};
 use itertools::{Either, Itertools};
+use jiff::{SignedDuration, Timestamp};
 
 pub use self::map::{ChannelState, ClientsContext, Map, State, Status};
 pub use self::on_connect::on_connect;
@@ -36,7 +36,7 @@ use crate::isupport::{
 use crate::message::{broadcast, source};
 use crate::rate_limit::{TokenBucket, TokenPriority};
 use crate::target::{self, Target};
-use crate::time::Posix;
+use crate::time::RFC3339_WITH_MILLIS;
 use crate::user::{ChannelUsers, Nick};
 use crate::{
     Server, User, buffer, channel_discovery, compression, config, ctcp, dcc,
@@ -162,6 +162,44 @@ enum ConnectionRole {
     BouncerNetwork,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct ServerTimeTracking {
+    latest: Timestamp,
+    offset: SignedDuration,
+}
+
+impl ServerTimeTracking {
+    fn new(server_time: Timestamp) -> Self {
+        Self {
+            latest: server_time,
+            offset: Timestamp::now().duration_until(server_time),
+        }
+    }
+
+    fn update(&mut self, server_time: Timestamp) {
+        self.latest = self.latest.max(server_time);
+        self.offset = Timestamp::now().duration_until(server_time);
+    }
+
+    fn estimate_server_time(&self) -> Timestamp {
+        // Using the last seen offset between local and server-time should be
+        // later than `latest`, unless the local clock has changed.
+        (Timestamp::now() + self.offset).max(self.latest)
+    }
+}
+
+/// Estimate server-time based on the most recent comparison between server-time
+/// and local time it was received.
+pub fn estimate_server_time(
+    server_time_tracking: Option<ServerTimeTracking>,
+) -> Timestamp {
+    if let Some(server_time_tracking) = server_time_tracking {
+        server_time_tracking.estimate_server_time()
+    } else {
+        Timestamp::now()
+    }
+}
+
 pub struct Client {
     server: Server,
     config: Arc<config::Server>,
@@ -175,6 +213,7 @@ pub struct Client {
     querymap: IndexMap<target::Query, QueryState>,
     labels: HashMap<String, Context>,
     batches: HashMap<String, Batch>,
+    server_time_tracking: Option<ServerTimeTracking>,
     reroute_responses_to: Option<buffer::Upstream>,
     logged_in: bool,
     away: bool,
@@ -246,6 +285,7 @@ impl Client {
             querymap: IndexMap::default(),
             labels: HashMap::new(),
             batches: HashMap::new(),
+            server_time_tracking: None,
             reroute_responses_to: None,
             logged_in: false,
             away: false,
@@ -667,8 +707,12 @@ impl Client {
             if self.capabilities.acknowledged(Capability::LabeledResponse) {
                 let label = generate_label();
 
-                let context =
-                    Context::new(message, buffer.clone(), Some(&label));
+                let context = Context::new(
+                    message,
+                    buffer.clone(),
+                    Some(&label),
+                    self.server_time_tracking,
+                );
 
                 let labeled_response_context =
                     context.labeled_response_context().cloned();
@@ -703,8 +747,9 @@ impl Client {
         if matches!(priority, TokenPriority::User) {
             match &message.command {
                 Command::LIST(..) => {
-                    self.channel_discovery_manager.status =
-                        Some(channel_discovery::Status::Requested(Utc::now()));
+                    self.channel_discovery_manager.status = Some(
+                        channel_discovery::Status::Requested(Timestamp::now()),
+                    );
                 }
                 Command::WHO(..) => {
                     let params = message.command.clone().parameters();
@@ -830,19 +875,126 @@ impl Client {
         labeled_response_context
     }
 
-    fn send_multiline_batch(
+    fn send_from_buffer(
         &mut self,
         buffer: &buffer::Upstream,
-        mut messages: Vec<message::Encoded>,
-        priority: TokenPriority,
+        command: Irc,
         reply_id: Option<&message::Id>,
-    ) -> Option<LabeledResponseContext> {
+        reroute_rules: Option<&RerouteRules>,
+        priority: TokenPriority,
+    ) -> Vec<storage::Update> {
+        let Ok(mut message_to_send) =
+            message::Encoded::try_from(command.clone())
+        else {
+            log::warn!(
+                "[{}] attempting to send IRC command that cannot be encoded: {command:?}",
+                self.server
+            );
+
+            return vec![];
+        };
+
+        message_to_send.set_reply_to(reply_id);
+
+        let labeled_response_context =
+            self.send(Some(buffer), message_to_send, priority);
+
+        match command {
+            Irc::Msg(_, _) | Irc::Notice(_, _) | Irc::Me(_, _) => self
+                .convert_command_to_messages(
+                    buffer,
+                    &command,
+                    reroute_rules,
+                    labeled_response_context.as_ref(),
+                )
+                .into_iter()
+                .map(|mut message| {
+                    message.reply_to = reply_id.cloned();
+
+                    storage::Update::Message(
+                        Some(self.server.clone()),
+                        message::MessageWithContext {
+                            inner: message,
+                            highlight: None,
+                            historical: false,
+                            labeled_response_context: None,
+                            notification_allowed: false,
+                        }
+                        .with_labeled_response_context(
+                            labeled_response_context.clone(),
+                        ),
+                    )
+                })
+                .collect(),
+            Irc::React { .. } | Irc::Unreact { .. } => {
+                if !self.capabilities.acknowledged(Capability::EchoMessage)
+                    && let Some(target) = buffer.target()
+                    && let Some((reaction, msgid)) =
+                        self.convert_command_to_reaction(command)
+                {
+                    vec![storage::Update::Reaction(
+                        self.server.clone(),
+                        reaction::ReactionWithContext {
+                            inner: reaction,
+                            target,
+                            in_reply_to: msgid,
+                            // TODO: Confirm delivery of reactions, and allow to re-send
+                            // when failed (or simply remove?).
+                            direction: message::Direction::Sent {
+                                command: None,
+                            },
+                            labeled_response_context: None,
+                            historical: false,
+                            notification_allowed: false,
+                        }
+                        .with_labeled_response_context(
+                            labeled_response_context,
+                        ),
+                    )]
+                } else {
+                    vec![]
+                }
+            }
+            _ => vec![],
+        }
+    }
+
+    fn send_multiline_batch_from_buffer(
+        &mut self,
+        buffer: &buffer::Upstream,
+        commands: Vec<Irc>,
+        reply_id: Option<&message::Id>,
+        reroute_rules: &RerouteRules,
+        priority: TokenPriority,
+    ) -> Option<storage::Update> {
+        let mut messages_to_send = commands
+            .iter()
+            .filter_map(|command| {
+                message::Encoded::try_from(command.clone()).ok()
+            })
+            .collect::<Vec<_>>();
+
+        if messages_to_send.is_empty() {
+            log::warn!(
+                "[{}] attempting to send IRC multiline message that cannot be encoded: {commands:?}",
+                self.server
+            );
+
+            return None;
+        }
+
         if self.multiline_limits().is_some()
             && let Some(batch_kind) =
-                messages.first().and_then(|message| match message.command {
-                    Command::PRIVMSG(_, _) => Some(MultilineBatchKind::PRIVMSG),
-                    Command::NOTICE(_, _) => Some(MultilineBatchKind::NOTICE),
-                    _ => None,
+                messages_to_send.first().and_then(|message| {
+                    match message.command {
+                        Command::PRIVMSG(_, _) => {
+                            Some(MultilineBatchKind::PRIVMSG)
+                        }
+                        Command::NOTICE(_, _) => {
+                            Some(MultilineBatchKind::NOTICE)
+                        }
+                        _ => None,
+                    }
                 })
             && let Some(target) = buffer.target().as_ref()
         {
@@ -863,7 +1015,7 @@ impl Client {
 
             // Overwrite any existing tags, since messages in the batch can only
             // have draft/multiline-concat and batch tags
-            for message in messages.iter_mut() {
+            for message in messages_to_send.iter_mut() {
                 message.tags = tags![ "batch" => reference_tag.clone() ];
             }
 
@@ -876,8 +1028,8 @@ impl Client {
                 target.as_str(),
             );
 
-            let messages = iter::once(opening_batch)
-                .chain(messages.into_iter().flat_map(|message| {
+            let messages_to_send = iter::once(opening_batch)
+                .chain(messages_to_send.into_iter().flat_map(|message| {
                     match &message.command {
                         Command::PRIVMSG(_, text)
                         | Command::NOTICE(_, text) => {
@@ -938,11 +1090,11 @@ impl Client {
                 .collect::<Vec<message::Encoded>>();
 
             if let Some(ref mut anti_flood) = self.anti_flood {
-                for message in messages {
+                for message in messages_to_send {
                     anti_flood.add_token(message, priority);
                 }
             } else {
-                for message in messages {
+                for message in messages_to_send {
                     if let Err(e) = self.handle.try_send(message.into()) {
                         log::warn!(
                             "[{}] Error sending message: {e}",
@@ -952,10 +1104,99 @@ impl Client {
                 }
             }
 
-            labeled_response_context
+            commands
+                .iter()
+                .flat_map(|command| {
+                    self.convert_command_to_messages(
+                        buffer,
+                        command,
+                        Some(reroute_rules),
+                        labeled_response_context.as_ref(),
+                    )
+                })
+                .reduce(|mut batch_message, message| {
+                    match (&mut batch_message.content, message.content) {
+                        (
+                            message::Content::Plain(batch_text),
+                            message::Content::Plain(message_text),
+                        ) => {
+                            batch_text.push('\n');
+                            batch_text.push_str(message_text.as_str());
+                        }
+                        (
+                            message::Content::Plain(batch_text),
+                            message::Content::Fragments(message_fragments),
+                        ) => {
+                            batch_text.push('\n');
+                            let mut fragments = vec![message::Fragment::Text(
+                                batch_text.to_string(),
+                            )];
+                            fragments.extend(message_fragments);
+
+                            batch_message.content =
+                                message::Content::Fragments(fragments);
+                        }
+                        (
+                            message::Content::Fragments(batch_fragments),
+                            message::Content::Plain(message_text),
+                        ) => {
+                            batch_fragments.push(message::Fragment::Text(
+                                format!("\n{message_text}"),
+                            ));
+                        }
+                        (
+                            message::Content::Fragments(batch_fragments),
+                            message::Content::Fragments(message_fragments),
+                        ) => {
+                            batch_fragments.push(message::Fragment::Text(
+                                "\n".to_string(),
+                            ));
+                            batch_fragments.extend(message_fragments);
+                        }
+                        (message::Content::Log(_), _)
+                        | (_, message::Content::Log(_)) => (),
+                    }
+
+                    match (
+                        batch_message.as_command_mut(),
+                        message.direction.as_command(),
+                    ) {
+                        (
+                            Some(Irc::Msg(_, batch_text)),
+                            Some(Irc::Msg(_, text)),
+                        )
+                        | (
+                            Some(Irc::Notice(_, batch_text)),
+                            Some(Irc::Notice(_, text)),
+                        ) => {
+                            batch_text.push('\n');
+                            batch_text.push_str(text.as_str());
+                        }
+                        _ => (),
+                    }
+
+                    batch_message
+                })
+                .map(|mut message| {
+                    message.reply_to = reply_id.cloned();
+
+                    storage::Update::Message(
+                        Some(self.server.clone()),
+                        message::MessageWithContext {
+                            inner: message,
+                            highlight: None,
+                            historical: false,
+                            labeled_response_context: None,
+                            notification_allowed: false,
+                        }
+                        .with_labeled_response_context(
+                            labeled_response_context,
+                        ),
+                    )
+                })
         } else {
             log::warn!(
-                "[{}] unable to send messages as IRCv3 draft/multiline batch; capability not supported: {messages:?}",
+                "[{}] unable to send messages as IRCv3 draft/multiline batch; capability not supported: {messages_to_send:?}",
                 self.server
             );
 
@@ -1009,17 +1250,17 @@ impl Client {
         {
             return vec![];
         }
-        let Some(message) = self.resend_privmsg_or_notice(
+        let Some(storage_update) = self.resend_privmsg_or_notice(
             &lookup.buffer,
             &message,
-            TokenPriority::User,
             reroute_rules,
+            TokenPriority::User,
         ) else {
             return vec![];
         };
         vec![
             storage::Update::Remove(kind, lookup.history_id, lookup.time),
-            storage::Update::Message(Some(self.server.clone()), message),
+            storage_update,
         ]
     }
 
@@ -1027,9 +1268,9 @@ impl Client {
         &mut self,
         buffer: &buffer::Upstream,
         message: &message::Message,
-        priority: TokenPriority,
         reroute_rules: &RerouteRules,
-    ) -> Option<message::MessageWithContext> {
+        priority: TokenPriority,
+    ) -> Option<storage::Update> {
         message.as_command().and_then(|command| {
             let multiline = if let Some((target, text, batch_kind)) =
                 match &command {
@@ -1061,73 +1302,115 @@ impl Client {
 
             let reply_id = message.reply_to.as_ref();
 
-            // TODO: Use Client::handle to create message::MessageWithContext
-            // instead of Irc::messages.  Similarly, return
-            // message::MessageWithContext by Client::send and
-            // Client::send_multiline_batch in place of LabeledResponseContext,
-            // utilizing Client::handle.
-
-            let channel_users =
-                buffer.as_channel().and_then(|channel| self.users(channel));
-
-            let mut user = User::from(self.nickname().to_owned());
-
-            if let Some(channel_users) = channel_users {
-                user = channel_users.resolve(&user).cloned().unwrap_or(user);
-            }
-
-            // The command stored with each sent message is expected to
-            // correspond to a single message (i.e. it is not a multi-target
-            // command; if the original command was multi-target, then it was
-            // split into single-target commands).
-            if let Some(mut message) = command
-                .messages(
-                    user,
-                    channel_users,
-                    buffer.as_server(),
-                    self.chantypes(),
-                    self.statusmsg(),
-                    self.casemapping(),
-                    self.capabilities.acknowledged(Capability::EchoMessage),
+            if multiline {
+                self.send_multiline_batch_from_buffer(
+                    buffer,
+                    vec![command.clone()],
+                    reply_id,
                     reroute_rules,
-                    Some(buffer),
-                )
-                .and_then(|messages| messages.into_iter().next())
-                && let Some(mut encoded) =
-                    proto::Command::try_from(command.clone())
-                        .ok()
-                        .map(proto::Message::from)
-                        .map(message::Encoded::from)
-            {
-                let labeled_response_context = if multiline {
-                    self.send_multiline_batch(
-                        buffer,
-                        vec![encoded],
-                        priority,
-                        reply_id,
-                    )
-                } else {
-                    encoded.set_reply_to(reply_id);
-
-                    self.send(Some(buffer), encoded, priority)
-                };
-
-                message.reply_to = reply_id.cloned();
-
-                Some(
-                    message::MessageWithContext {
-                        inner: message,
-                        highlight: None,
-                        historical: false,
-                        labeled_response_context: None,
-                        notification_allowed: false,
-                    }
-                    .with_labeled_response_context(labeled_response_context),
+                    priority,
                 )
             } else {
-                None
+                // The command stored with each sent message is expected to
+                // correspond to a single message (i.e. it is not a multi-target
+                // command; if the original command was multi-target, then it
+                // was split into single-target commands).
+                self.send_from_buffer(
+                    buffer,
+                    command.clone(),
+                    reply_id,
+                    Some(reroute_rules),
+                    priority,
+                )
+                .into_iter()
+                .next()
             }
         })
+    }
+
+    fn convert_command_to_messages(
+        &self,
+        buffer: &buffer::Upstream,
+        command: &Irc,
+        reroute_rules: Option<&RerouteRules>,
+        labeled_response_context: Option<&LabeledResponseContext>,
+    ) -> Vec<message::Message> {
+        let mut user = self.nickname().to_owned().into();
+
+        let channel_users = match buffer {
+            buffer::Upstream::Channel(_, channel) => {
+                self.chanmap.get(channel).map(|chanimpl| &chanimpl.users)
+            }
+            _ => None,
+        };
+
+        if let Some(channel_users) = channel_users {
+            user = channel_users.resolve(&user).cloned().unwrap_or(user);
+        }
+
+        if reroute_rules.is_none() {
+            log::warn!(
+                "[{}] Missing reroute rules when converting IRC command to messages",
+                self.server
+            );
+        }
+
+        command
+            .messages(
+                &user,
+                channel_users,
+                &self.server,
+                self.chantypes(),
+                self.statusmsg(),
+                self.casemapping(),
+                self.capabilities.acknowledged(Capability::EchoMessage),
+                reroute_rules.unwrap_or(&RerouteRules::default()),
+                Some(buffer),
+                labeled_response_context.map_or(
+                    message::Time::client(estimate_server_time(
+                        self.server_time_tracking,
+                    )),
+                    |labeled_response_context| labeled_response_context.time,
+                ),
+            )
+            .unwrap_or_default()
+    }
+
+    fn convert_command_to_reaction(
+        &self,
+        command: Irc,
+    ) -> Option<(reaction::Reaction, Arc<str>)> {
+        let time = message::Time::client(
+            if let Some(server_time_tracking) = self.server_time_tracking {
+                server_time_tracking.estimate_server_time()
+            } else {
+                Timestamp::now()
+            },
+        );
+
+        match command {
+            Irc::React { text, msgid, .. } => Some((
+                reaction::Reaction {
+                    sender: self.nickname().to_owned(),
+                    text: text.into_owned(),
+                    unreact: false,
+                    id: None,
+                    time,
+                },
+                msgid,
+            )),
+            Irc::Unreact { text, msgid, .. } => Some((
+                reaction::Reaction {
+                    sender: self.nickname().to_owned(),
+                    text: text.into_owned(),
+                    unreact: true,
+                    id: None,
+                    time,
+                },
+                msgid,
+            )),
+            _ => None,
+        }
     }
 
     fn receive(
@@ -1143,6 +1426,33 @@ impl Client {
 
         let events =
             self.handle(message, None, storage, buffers_context, config)?;
+
+        for event in events.iter() {
+            let server_time = match event {
+                Event::Message(message) if !message.historical => {
+                    message.server_time()
+                }
+                Event::Reaction(reaction) if !reaction.historical => {
+                    reaction.server_time()
+                }
+                Event::Redaction(redaction) if !redaction.historical => {
+                    redaction.server_time()
+                }
+                Event::Broadcast(broadcast) => broadcast.server_time(),
+                _ => None,
+            };
+
+            if let Some(server_time) = server_time {
+                if let Some(server_time_tracking) =
+                    self.server_time_tracking.as_mut()
+                {
+                    server_time_tracking.update(server_time);
+                } else {
+                    self.server_time_tracking =
+                        Some(ServerTimeTracking::new(server_time));
+                }
+            }
+        }
 
         if stop_reroute {
             self.reroute_responses_to = None;
@@ -1523,8 +1833,9 @@ impl Client {
                 }
             }
             Command::Numeric(RPL_LISTSTART, _) => {
-                self.channel_discovery_manager.status =
-                    Some(channel_discovery::Status::Receiving(Utc::now()));
+                self.channel_discovery_manager.status = Some(
+                    channel_discovery::Status::Receiving(Timestamp::now()),
+                );
                 return Ok(vec![]);
             }
             Command::Numeric(RPL_LIST, args) => {
@@ -1535,13 +1846,14 @@ impl Client {
                 self.channel_discovery_manager
                     .push(channel, topic, user_count);
 
-                self.channel_discovery_manager.status =
-                    Some(channel_discovery::Status::Receiving(Utc::now()));
+                self.channel_discovery_manager.status = Some(
+                    channel_discovery::Status::Receiving(Timestamp::now()),
+                );
                 return Ok(vec![]);
             }
             Command::Numeric(RPL_LISTEND, _) => {
                 self.channel_discovery_manager.status =
-                    Some(channel_discovery::Status::Updated(Utc::now()));
+                    Some(channel_discovery::Status::Updated(Timestamp::now()));
                 return Ok(vec![]);
             }
             Command::Numeric(RPL_LOGGEDIN, args) => {
@@ -1747,19 +2059,18 @@ impl Client {
                                     }
                                     ctcp::Command::Time => {
                                         if config.ctcp.time {
-                                            let utc_time = Utc::now();
-                                            let formatted = utc_time
-                                                .to_rfc3339_opts(
-                                                chrono::SecondsFormat::Millis,
-                                                true,
-                                            );
+                                            let time = Timestamp::strftime(
+                                                &Timestamp::now(),
+                                                RFC3339_WITH_MILLIS,
+                                            )
+                                            .to_string();
 
                                             self.send(
                                                 None,
                                                 ctcp::response_message(
                                                     &query.command,
                                                     user.nickname().to_string(),
-                                                    Some(formatted),
+                                                    Some(time),
                                                 )
                                                 .into(),
                                                 TokenPriority::High,
@@ -2590,12 +2901,10 @@ impl Client {
                         isupport::get_prefix(&self.isupport),
                     )));
 
-                    let timestamp =
-                        Posix::from_seconds(ok!(args.get(3)).parse::<u64>()?);
-                    channel.topic.time =
-                        Some(timestamp.datetime().ok_or_else(|| {
-                            anyhow!("Unable to parse timestamp: {timestamp:?}")
-                        })?);
+                    let seconds = ok!(args.get(3)).parse::<i64>()?;
+                    let timestamp = context!(Timestamp::from_second(seconds));
+
+                    channel.topic.time = Some(timestamp);
 
                     if is_join_topic {
                         if config
@@ -3104,10 +3413,7 @@ impl Client {
 
                     let timestamp = ok!(args.get(1));
 
-                    if let Ok(server_time) =
-                        DateTime::parse_from_rfc3339(timestamp)
-                            .map(|date_time| date_time.to_utc())
-                    {
+                    if let Ok(server_time) = timestamp.parse() {
                         // Chathistory is automatically requested when JOIN is
                         // received, so we can filter out unprefixed channels.
                         if match &target {
@@ -3508,7 +3814,7 @@ impl Client {
                 if self.capabilities.acknowledged(Capability::Chathistory) {
                     let last_received_at = storage
                         .last_received_chathistory_targets(&self.server)
-                        .unwrap_or(DateTime::UNIX_EPOCH);
+                        .unwrap_or(Timestamp::UNIX_EPOCH);
 
                     let subcommand = ChathistorySubcommand::Targets(
                         last_received_at,
@@ -3875,7 +4181,7 @@ impl Client {
                         } else {
                             storage.update_last_received_chathistory_targets(
                                 &self.server,
-                                Utc::now(),
+                                Timestamp::now(),
                             );
                         }
                     }
@@ -3986,6 +4292,7 @@ impl Client {
                 .collect(),
             Command::REDACT(_, _, _) => self
                 .process_redaction(message)
+                .map(redaction::RedactionWithContext::into_historical)
                 .into_iter()
                 .map(Event::Redaction)
                 .collect(),
@@ -4117,6 +4424,7 @@ impl Client {
                 .collect(),
             Command::REDACT(_, _, _) => self
                 .process_redaction(message)
+                .map(redaction::RedactionWithContext::into_historical)
                 .into_iter()
                 .map(Event::Redaction)
                 .collect(),
@@ -4179,7 +4487,7 @@ impl Client {
     ) -> Option<message::MessageWithContext> {
         let message_with_context = message::Message::received(
             message,
-            self.nickname().as_nickref(),
+            self.nickname(),
             config,
             storage.get_reroute_rules(),
             buffers_context,
@@ -4209,7 +4517,7 @@ impl Client {
     ) -> Option<reaction::ReactionWithContext> {
         let reaction_with_context = reaction::Reaction::received(
             message,
-            self.nickname().as_nickref(),
+            self.nickname(),
             self.chantypes(),
             self.statusmsg(),
             self.casemapping(),
@@ -4231,7 +4539,7 @@ impl Client {
     ) -> Option<redaction::RedactionWithContext> {
         redaction::Redaction::received(
             message,
-            self.nickname().as_nickref(),
+            self.nickname(),
             self.chantypes(),
             self.statusmsg(),
             self.casemapping(),
@@ -4844,6 +5152,15 @@ impl Client {
         })
     }
 
+    pub fn has_any_channel_typing_users(&self) -> bool {
+        self.chanmap.values().any(|channel| {
+            channel
+                .typing
+                .values()
+                .any(|updated_at| !is_typing_expired(*updated_at))
+        })
+    }
+
     pub fn query_typing_users(&self, query: &target::Query) -> Vec<String> {
         self.querymap
             .get(query)
@@ -5440,13 +5757,14 @@ impl Context {
         message: &message::Encoded,
         buffer: buffer::Upstream,
         label: Option<&str>,
+        server_time_tracking: Option<ServerTimeTracking>,
     ) -> Self {
         match &message.command {
             Command::PRIVMSG(_, _) | Command::NOTICE(_, _) => {
                 Self::PrivmsgOrNotice(
                     buffer,
                     label.map(|label| {
-                        LabeledResponseContext::new(message, label)
+                        LabeledResponseContext::new(server_time_tracking, label)
                     }),
                 )
             }
@@ -5458,7 +5776,7 @@ impl Context {
                 Self::PrivmsgOrNotice(
                     buffer,
                     label.map(|label| {
-                        LabeledResponseContext::new(message, label)
+                        LabeledResponseContext::new(server_time_tracking, label)
                     }),
                 )
             }
@@ -5547,11 +5865,11 @@ impl Batch {
 }
 
 fn generate_label() -> String {
-    Posix::now().as_nanos().to_string()
+    Timestamp::now().as_nanosecond().to_string()
 }
 
 fn generate_batch_reference_tag() -> String {
-    Posix::now().as_nanos().to_string()
+    Timestamp::now().as_nanosecond().to_string()
 }
 
 fn prune_expired_typing(typing: &mut HashMap<Nick, Instant>) {
@@ -5630,7 +5948,7 @@ pub struct Topic {
     pub content: Option<message::Content>,
     pub raw: Option<String>,
     pub who: Option<User>,
-    pub time: Option<DateTime<Utc>>,
+    pub time: Option<Timestamp>,
 }
 
 #[derive(Debug, Clone)]

@@ -3,8 +3,8 @@ use std::collections::BinaryHeap;
 use std::ops::Bound;
 use std::time::Duration;
 
-use chrono::{DateTime, SubsecRound, Utc};
 use hashbrown::{HashMap, HashSet};
+use jiff::{SignedDuration, Timestamp, TimestampRound, Unit};
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -167,6 +167,8 @@ pub enum Error {
     Json(#[from] serde_json::Error),
     #[error("unsupported history schema version {0}")]
     Schema(i64),
+    #[error(transparent)]
+    Jiff(#[from] jiff::Error),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -379,7 +381,7 @@ impl Database {
         &self,
         kind: &Kind,
         limit: message::Limit,
-        clear: Option<DateTime<Utc>>,
+        clear: Option<Timestamp>,
         read_marker: Option<ReadMarker>,
     ) -> Result<Window, Error> {
         self.read_window(kind, &[], limit, clear, read_marker, None)
@@ -389,7 +391,7 @@ impl Database {
         &self,
         kinds: &[Kind],
         limit: message::Limit,
-        clear: Option<DateTime<Utc>>,
+        clear: Option<Timestamp>,
         read_marker: Option<ReadMarker>,
     ) -> Result<Window, Error> {
         self.read_window(
@@ -407,7 +409,7 @@ impl Database {
         kind: &Kind,
         monitored: &[Kind],
         limit: message::Limit,
-        clear: Option<DateTime<Utc>>,
+        clear: Option<Timestamp>,
         read_marker: Option<ReadMarker>,
         extension: Option<Extension>,
     ) -> Result<Window, Error> {
@@ -454,11 +456,11 @@ impl Database {
         source: WindowSource,
         monitored: &[(i64, &Kind)],
         limit: message::Limit,
-        clear: Option<DateTime<Utc>>,
+        clear: Option<Timestamp>,
         read_marker: Option<ReadMarker>,
         extension: Option<Extension>,
     ) -> Result<Window, Error> {
-        let clear = clear.map(|time| time.timestamp_micros());
+        let clear = clear.map(Timestamp::as_microsecond);
         let count = limit.count();
         if count == 0 {
             return Ok(Window {
@@ -516,10 +518,7 @@ impl Database {
                     WindowQuery {
                         clear,
                         boundary: Bound::Included((
-                            read_marker
-                                .unwrap()
-                                .as_date_time()
-                                .timestamp_micros(),
+                            read_marker.unwrap().as_microsecond(),
                             i64::MAX,
                         )),
                         descending: true,
@@ -569,7 +568,7 @@ impl Database {
                 before.extend(select(
                     true,
                     remaining,
-                    oldest.time.utc.timestamp_micros(),
+                    oldest.time.utc.as_microsecond(),
                     sql_id(oldest_id)?,
                 )?);
             }
@@ -825,12 +824,13 @@ impl Database {
         let mut statement = self.connection.prepare_cached(sql)?;
         let key = history_key(kind)?;
         let row = |row: &rusqlite::Row<'_>| -> rusqlite::Result<(
-            DateTime<Utc>,
+            Timestamp,
             message::MessageReferences,
         )> {
             let time: i64 = row.get(0)?;
-            let time = DateTime::from_timestamp_micros(time)
-                .ok_or(rusqlite::Error::IntegralValueOutOfRange(0, time))?;
+            let time = Timestamp::from_microsecond(time).map_err(|_| {
+                rusqlite::Error::IntegralValueOutOfRange(0, time)
+            })?;
             let server: bool = row.get(1)?;
             Ok((
                 time,
@@ -843,7 +843,7 @@ impl Database {
         let mut reference = if let Some(before) = before {
             statement
                 .query_row(
-                    params![key, msgid, timestamp, before.timestamp_micros()],
+                    params![key, msgid, timestamp, before.as_microsecond()],
                     row,
                 )
                 .optional()?
@@ -898,17 +898,19 @@ impl Write<'_> {
         casemapping: isupport::CaseMap,
     ) -> Result<(message::Message, bool), Error> {
         normalize(&mut incoming.inner, casemapping);
-        incoming.inner.time.utc = incoming.inner.time.utc.trunc_subsecs(6);
+        incoming.inner.time.utc = incoming
+            .inner
+            .time
+            .utc
+            .round(TimestampRound::new().smallest(Unit::Microsecond))?;
         let history = self.history(kind)?;
-        let fuzz = chrono::Duration::seconds(
-            if incoming.inner.is_echo()
-                && incoming.labeled_response_context.is_none()
-            {
-                300
-            } else {
-                1
-            },
-        );
+        let fuzz = if incoming.inner.is_echo()
+            && incoming.labeled_response_context.is_none()
+        {
+            storage::UNLABELED_ECHO_REPLACE_MESSAGE_FUZZ
+        } else {
+            storage::REPLACE_MESSAGE_FUZZ
+        };
         let time = incoming.inner.time.utc;
         let mut candidates = if !incoming.inner.is_echo()
             && incoming.labeled_response_context.is_none()
@@ -924,11 +926,11 @@ impl Write<'_> {
             .query_map(
                 params![
                     history,
-                    (time - fuzz).timestamp_micros(),
-                    (time + fuzz).timestamp_micros(),
+                    (time - fuzz).as_microsecond(),
+                    (time + fuzz).as_microsecond(),
                     incoming.inner.id.as_ref().map(AsRef::<str>::as_ref),
                     incoming.historical,
-                    time.timestamp_micros(),
+                    time.as_microsecond(),
                 ],
                 row_message,
             )?
@@ -943,11 +945,11 @@ impl Write<'_> {
                 .query_map(
                     params![
                         history,
-                        (time - fuzz).timestamp_micros(),
-                        (time + fuzz).timestamp_micros(),
+                        (time - fuzz).as_microsecond(),
+                        (time + fuzz).as_microsecond(),
                         incoming.inner.id.as_deref(),
                         incoming.historical,
-                        time.timestamp_micros(),
+                        time.as_microsecond(),
                     ],
                     row_message,
                 )?
@@ -968,10 +970,10 @@ impl Write<'_> {
             .query_map(
                 params![
                     history,
-                    (time - fuzz).timestamp_micros(),
-                    (time + fuzz).timestamp_micros(),
-                    (label_time - fuzz).timestamp_micros(),
-                    (label_time + fuzz).timestamp_micros()
+                    (time - fuzz).as_microsecond(),
+                    (time + fuzz).as_microsecond(),
+                    (label_time - fuzz).as_microsecond(),
+                    (label_time + fuzz).as_microsecond()
                 ],
                 row_message,
             )?
@@ -1018,7 +1020,7 @@ impl Write<'_> {
         };
         *append_only &= inserted
             && maximum.is_none_or(|maximum| {
-                (message.time.utc.timestamp_micros(), id as i64) > maximum
+                (message.time.utc.as_microsecond(), id as i64) > maximum
             });
         Ok((message, replaced_sent))
     }
@@ -1048,7 +1050,7 @@ impl Write<'_> {
             "SELECT m.id, m.time, m.time_from_server, m.msgid, m.content FROM message m
              JOIN history h ON h.id = m.history WHERE h.kind = ?1 AND m.msgid = ?2 AND m.time < ?3
              ORDER BY m.time DESC, m.id DESC LIMIT 1",
-        )?.query_row(params![key, id.as_ref(), (time.utc + chrono::Duration::seconds(1)).timestamp_micros()], row_message).optional()?;
+        )?.query_row(params![key, id.as_ref(), (time.utc + SignedDuration::from_secs(1)).as_microsecond()], row_message).optional()?;
         if before.is_some() {
             return Ok(before);
         }
@@ -1134,7 +1136,7 @@ impl Write<'_> {
             if is_searchable(kind)
                 && sql_id(id)? <= self.indexed
                 && let Some(key) =
-                    search_key(message.time.utc.timestamp_micros(), sql_id(id)?)
+                    search_key(message.time.utc.as_microsecond(), sql_id(id)?)
             {
                 self.transaction.execute(
                     "INSERT OR REPLACE INTO search_pending VALUES (?1, ?2)",
@@ -1157,12 +1159,12 @@ impl Write<'_> {
         away: bool,
         seconds: i64,
         casemapping: isupport::CaseMap,
-    ) -> Result<Option<DateTime<Utc>>, Error> {
+    ) -> Result<Option<Timestamp>, Error> {
         let Id::Determined(id) = message.history_id else {
             return Ok(None);
         };
         let lower = message.time.utc
-            - chrono::Duration::seconds(seconds.saturating_add(1));
+            - SignedDuration::from_secs(seconds.saturating_add(1));
         let mut statement = self.transaction.prepare_cached(
             "SELECT m.time, m.content FROM message m
              JOIN history h ON h.id = m.history WHERE h.kind = ?1
@@ -1171,8 +1173,8 @@ impl Write<'_> {
         )?;
         let mut rows = statement.query(params![
             history_key(kind)?,
-            lower.timestamp_micros(),
-            message.time.utc.timestamp_micros(),
+            lower.as_microsecond(),
+            message.time.utc.as_microsecond(),
             sql_id(id)?
         ])?;
         let nick = casemapping.normalize(nick.as_str());
@@ -1194,8 +1196,8 @@ impl Write<'_> {
             };
             if matches {
                 let time: i64 = row.get(0)?;
-                return Ok(Some(DateTime::from_timestamp_micros(time).ok_or(
-                    rusqlite::Error::IntegralValueOutOfRange(0, time),
+                return Ok(Some(Timestamp::from_microsecond(time).map_err(
+                    |_| rusqlite::Error::IntegralValueOutOfRange(0, time),
                 )?));
             }
         }
@@ -1215,7 +1217,10 @@ impl Write<'_> {
         for incoming in messages {
             let mut message = incoming.clone();
             message.history_id = Id::Undetermined;
-            message.time.utc = message.time.utc.trunc_subsecs(6);
+            message.time.utc = message
+                .time
+                .utc
+                .round(TimestampRound::new().smallest(Unit::Microsecond))?;
             self.link_highlight(&mut message)?;
             self.store(history, &mut message)?;
         }
@@ -1227,7 +1232,7 @@ impl Write<'_> {
             .prepare_cached(
                 "UPDATE history SET imported_at = ?2 WHERE id = ?1",
             )?
-            .execute(params![history, Utc::now().timestamp_micros()])?;
+            .execute(params![history, Timestamp::now().as_microsecond()])?;
         Ok(())
     }
 
@@ -1253,7 +1258,7 @@ impl Write<'_> {
                     )?;
                 let mut rows = statement.query(params![
                     history_key(&source)?,
-                    message.time.utc.timestamp_micros()
+                    message.time.utc.as_microsecond()
                 ])?;
                 let mut original = None;
                 while let Some(row) = rows.next()? {
@@ -1397,9 +1402,9 @@ impl Write<'_> {
                 latest_triggers_highlight = CASE WHEN latest_triggers_highlight IS NULL OR latest_triggers_highlight < ?5 THEN ?5 ELSE latest_triggers_highlight END,
                 chathistory_references = COALESCE(?6, chathistory_references)
              WHERE id = ?1")?.execute(
-            params![history, metadata.read_marker.map(|marker| marker.as_date_time().timestamp_micros()),
-                metadata.latest.map(|time| time.timestamp_micros()), metadata.latest_triggers_unread.map(|time| time.timestamp_micros()),
-                metadata.latest_triggers_highlight.map(|time| time.timestamp_micros()),
+            params![history, metadata.read_marker.map(|marker| marker.as_microsecond()),
+                metadata.latest.map(Timestamp::as_microsecond), metadata.latest_triggers_unread.map(Timestamp::as_microsecond),
+                metadata.latest_triggers_highlight.map(Timestamp::as_microsecond),
                 metadata.latest_chathistory_references.as_ref().map(serde_json::to_string).transpose()?],
         )?;
         Ok(())
@@ -1489,7 +1494,7 @@ impl Write<'_> {
                  msgid=excluded.msgid, referenceable=excluded.referenceable,
                  in_channel_monitor=excluded.in_channel_monitor, content=excluded.content
              WHERE message.history = excluded.history",
-        )?.execute(params![id, history, message.time.utc.timestamp_micros(),
+        )?.execute(params![id, history, message.time.utc.as_microsecond(),
             matches!(message.time.source, message::time::Source::Server),
             message.id.as_deref(), referenceable, monitor, self.serialization_buffer.as_slice()])?;
         if changed == 0 {
@@ -1562,10 +1567,10 @@ fn read_metadata(
     let Some((read, latest, unread, highlight, references)) = values else {
         return Ok(Metadata::default());
     };
-    let date = |value: Option<i64>| -> Result<Option<DateTime<Utc>>, Error> {
+    let date = |value: Option<i64>| -> Result<Option<Timestamp>, Error> {
         value
             .map(|time| {
-                DateTime::from_timestamp_micros(time).ok_or_else(|| {
+                Timestamp::from_microsecond(time).map_err(|_| {
                     rusqlite::Error::IntegralValueOutOfRange(0, time).into()
                 })
             })
@@ -1684,10 +1689,8 @@ fn is_searchable(kind: &Kind) -> bool {
 
 fn row_message(row: &rusqlite::Row<'_>) -> rusqlite::Result<message::Message> {
     let timestamp: i64 = row.get(1)?;
-    let utc =
-        DateTime::<Utc>::from_timestamp_micros(timestamp).ok_or_else(|| {
-            rusqlite::Error::IntegralValueOutOfRange(1, timestamp)
-        })?;
+    let timestamp = Timestamp::from_microsecond(timestamp)
+        .map_err(|_| rusqlite::Error::IntegralValueOutOfRange(1, timestamp))?;
     let content = row.get_ref(4)?.as_blob()?;
     let body: StoredMessage =
         serde_json::from_slice(content).map_err(|error| {
@@ -1709,7 +1712,7 @@ fn row_message(row: &rusqlite::Row<'_>) -> rusqlite::Result<message::Message> {
             })?,
         ),
         time: message::Time {
-            utc,
+            utc: timestamp,
             source: if server {
                 message::time::Source::Server
             } else {
@@ -1738,8 +1741,6 @@ fn sql_id(id: u64) -> rusqlite::Result<i64> {
 
 #[cfg(test)]
 mod tests {
-    use chrono::TimeZone;
-
     use super::*;
     use crate::history::search::{Buffer, Query};
     use crate::user::Nick;
@@ -1772,7 +1773,7 @@ mod tests {
         message::Message {
             history_id: Id::Undetermined,
             time: message::Time::client(
-                Utc.timestamp_opt(1_700_000_000 + seconds, 0).unwrap(),
+                Timestamp::from_second(1_700_000_000 + seconds).unwrap(),
             ),
             direction: message::Direction::Received { is_echo: false },
             source: message::Source::User(user(nick)),

@@ -1,11 +1,11 @@
-use chrono::{DateTime, Utc};
 use irc::proto::Command;
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 
 use crate::isupport;
 use crate::message::{Encoded, Id, Time};
 use crate::target::Target;
-use crate::user::{Nick, NickRef};
+use crate::user::Nick;
 
 /// A redaction data that is (potentially) stored with an IRC message.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -27,7 +27,7 @@ impl Redaction {
 
     pub fn received(
         message: Encoded,
-        our_nick: NickRef<'_>,
+        our_nick: &Nick,
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
@@ -58,6 +58,7 @@ impl Redaction {
             redacts,
             id,
             time,
+            historical: false,
         })
     }
 }
@@ -73,6 +74,7 @@ pub struct RedactionWithContext {
     pub redacts: Id,
     pub id: Option<Id>,
     pub time: Time,
+    pub historical: bool,
 }
 
 impl From<RedactionWithContext> for Redaction {
@@ -82,7 +84,14 @@ impl From<RedactionWithContext> for Redaction {
 }
 
 impl RedactionWithContext {
-    pub fn server_time(&self) -> Option<DateTime<Utc>> {
+    pub fn into_historical(self) -> Self {
+        Self {
+            historical: true,
+            ..self
+        }
+    }
+
+    pub fn server_time(&self) -> Option<Timestamp> {
         self.time.try_into_server_time()
     }
 }

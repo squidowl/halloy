@@ -1,8 +1,8 @@
 use std::fmt;
 use std::time::Instant;
 
-use chrono::{DateTime, Utc};
 use equivalent::Equivalent;
+use jiff::{SignedDuration, Timestamp};
 use serde::{Deserialize, Serialize};
 
 pub use self::metadata::{Metadata, ReadMarker};
@@ -36,7 +36,7 @@ pub enum Id {
 pub enum Request {
     Open {
         limit: message::Limit,
-        clear: Option<DateTime<Utc>>,
+        clear: Option<Timestamp>,
     },
     Closed {
         at: Option<Instant>,
@@ -376,7 +376,7 @@ impl Equivalent<Kind> for KindRef<'_> {
 pub fn smart_filter_message<M>(
     message: &M,
     seconds: &i64,
-    last_seen: Option<&DateTime<Utc>>,
+    last_seen: Option<&Timestamp>,
 ) -> bool
 where
     M: message::Temporal,
@@ -385,11 +385,8 @@ where
         return true;
     };
 
-    let duration_seconds = message
-        .time()
-        .utc
-        .signed_duration_since(*last_seen)
-        .num_seconds();
+    let duration_seconds =
+        message.time().utc.duration_since(*last_seen).as_secs();
 
     duration_seconds > *seconds
 }
@@ -397,7 +394,7 @@ where
 pub fn smart_filter_repeat<M>(
     message: &M,
     seconds: &i64,
-    last_seen: Option<&DateTime<Utc>>,
+    last_seen: Option<&Timestamp>,
 ) -> bool
 where
     M: message::Temporal,
@@ -406,11 +403,8 @@ where
         return false;
     };
 
-    let duration_seconds = message
-        .time()
-        .utc
-        .signed_duration_since(*last_seen)
-        .num_seconds();
+    let duration_seconds =
+        message.time().utc.duration_since(*last_seen).as_secs();
 
     duration_seconds <= *seconds
 }
@@ -418,14 +412,13 @@ where
 pub fn smart_filter_internal_message<M>(
     message: &M,
     seconds: &i64,
-    current_time: &DateTime<Utc>,
+    current_time: &Timestamp,
 ) -> bool
 where
     M: message::Temporal,
 {
-    let duration_seconds = current_time
-        .signed_duration_since(message.time().utc)
-        .num_seconds();
+    let duration_seconds =
+        current_time.duration_since(message.time().utc).as_secs();
 
     duration_seconds > *seconds
 }
@@ -525,7 +518,7 @@ where
     // ahead one second to ensure all messages at time are checked (without
     // having to find the exact last index with the input time).
 
-    let start = time.utc + chrono::Duration::seconds(1);
+    let start = time.utc + SignedDuration::from_secs(1);
 
     let start_index = match messages
         .binary_search_by(|stored| stored.time().utc.cmp(&start))
@@ -554,31 +547,31 @@ where
 }
 
 /// The position of the last message with time before or at the specified
-/// `date_time`. If all messages are after the specified `date_time` then `0`
+/// `timestamp`. If all messages are after the specified `timestamp` then `0`
 /// will be returned.
-pub fn position_last_message_before_or_at_date_time<M>(
+pub fn position_last_message_before_or_at_timestamp<M>(
     messages: &[M],
-    date_time: &DateTime<Utc>,
+    timestamp: &Timestamp,
 ) -> usize
 where
     M: message::Searchable,
 {
-    position_first_message_after_date_time(messages, date_time)
+    position_first_message_after_timestamp(messages, timestamp)
         .saturating_sub(1)
 }
 
-/// The position of the first message with time after the specified `date_time`.
-/// If all messages are at or before the specified `date_time` then
+/// The position of the first message with time after the specified `timestamp`.
+/// If all messages are at or before the specified `timestamp` then
 /// `messages.len()` will be returned.
-pub fn position_first_message_after_date_time<M>(
+pub fn position_first_message_after_timestamp<M>(
     messages: &[M],
-    date_time: &DateTime<Utc>,
+    timestamp: &Timestamp,
 ) -> usize
 where
     M: message::Searchable,
 {
     let start_index = match messages
-        .binary_search_by(|message| message.time().utc.cmp(date_time))
+        .binary_search_by(|message| message.time().utc.cmp(timestamp))
     {
         Ok(match_index) => match_index,
         Err(sorted_insert_index) => {
@@ -588,7 +581,7 @@ where
 
     if let Some(from_start_index) = messages[start_index..]
         .iter()
-        .position(|message| message.time().utc > *date_time)
+        .position(|message| message.time().utc > *timestamp)
     {
         start_index + from_start_index
     } else {
