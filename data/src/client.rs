@@ -866,7 +866,8 @@ impl Client {
         reroute_rules: Option<&RerouteRules>,
         priority: TokenPriority,
     ) -> Vec<storage::Update> {
-        let Ok(message_to_send) = message::Encoded::try_from(command.clone())
+        let Ok(mut message_to_send) =
+            message::Encoded::try_from(command.clone())
         else {
             log::warn!(
                 "[{}] attempting to send IRC command that cannot be encoded: {command:?}",
@@ -875,6 +876,8 @@ impl Client {
 
             return vec![];
         };
+
+        message_to_send.set_reply_to(reply_id);
 
         let labeled_response_context =
             self.send(Some(buffer), message_to_send, priority);
@@ -907,7 +910,8 @@ impl Client {
                 })
                 .collect(),
             Irc::React { .. } | Irc::Unreact { .. } => {
-                if let Some(target) = buffer.target()
+                if !self.capabilities.acknowledged(Capability::EchoMessage)
+                    && let Some(target) = buffer.target()
                     && let Some((reaction, msgid)) =
                         self.convert_command_to_reaction(command)
                 {
