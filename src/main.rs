@@ -1917,7 +1917,8 @@ impl Halloy {
                 &self.screen,
                 Screen::Dashboard(dashboard)
             if dashboard.has_typing_activity_in_focused_window(&self.clients, self.focused_window)
-            ) || (self.config.can_show_any_typing()
+            ) || (self.focused_window.is_some()
+                && self.config.can_show_any_typing()
                 && ((self.config.sidebar.can_show_typing(
                     config::sidebar::TypingIndicatorBuffer::Channel,
                 ) && self.clients.has_any_channel_typing())
