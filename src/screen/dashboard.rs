@@ -4628,14 +4628,33 @@ impl Dashboard {
     pub fn has_typing_activity_in_focused_window(
         &self,
         clients: &client::Map,
+        config: &Config,
         focused_window: Option<window::Id>,
     ) -> bool {
-        focused_window.is_some_and(|focused_window| {
+        let has_focused_pane_typing = |focused_window| {
             self.panes.iter().any(|(window, _, pane)| {
                 pane.buffer.has_typing_activity(clients)
                     && focused_window == window
             })
-        })
+        };
+        let has_sidebar_channel_typing = || {
+            config.sidebar.can_show_typing(
+                config::sidebar::TypingIndicatorBuffer::Channel,
+            ) && clients.has_any_channel_typing()
+        };
+        let has_sidebar_query_typing = || {
+            config
+                .sidebar
+                .can_show_typing(config::sidebar::TypingIndicatorBuffer::Query)
+                && clients.has_any_query_typing()
+        };
+
+        config.can_show_any_typing()
+            && focused_window.is_some_and(|focused_window| {
+                has_focused_pane_typing(focused_window)
+                    || has_sidebar_channel_typing()
+                    || has_sidebar_query_typing()
+            })
     }
 
     pub fn find_window_with_history(
