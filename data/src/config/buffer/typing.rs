@@ -31,6 +31,7 @@ pub struct Animation {
     pub enabled: bool,
     #[serde(deserialize_with = "deserialize_u8_positive_integer_maybe")]
     pub size: Option<u8>,
+    pub unfocused_window: bool,
 }
 
 impl Default for Animation {
@@ -38,6 +39,7 @@ impl Default for Animation {
         Self {
             enabled: true,
             size: None,
+            unfocused_window: false,
         }
     }
 }

@@ -1640,6 +1640,23 @@ Control the size of the animated typing dots. If not set we use `typing.font_siz
 size = 12
 ```
 
+#### `unfocused_window`
+
+Control whether the typing indicator animates for unfocused windows.
+
+::: warning
+Typing indicator animations for unfocused windows will use more resources.
+:::
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[buffer.typing.animation]
+unfocused_window = true
+```
+
 ## `timestamp`
 
 Customize how timestamps are displayed within a buffer.
