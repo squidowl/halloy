@@ -453,14 +453,35 @@ pub enum OrderChannelsBy {
     Config,
 }
 
-#[derive(Debug, Copy, Clone, Deserialize, Default, PartialEq, Eq)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Debug, Copy, Clone, Default, PartialEq, Eq)]
 pub enum RestoreOnLaunch {
     #[default]
     None,
     Queries,
     Channels,
     All,
+}
+
+impl<'de> Deserialize<'de> for RestoreOnLaunch {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        UntaggedEnumVisitor::new()
+            .bool(|value| match value {
+                true => Ok(RestoreOnLaunch::All),
+                false => Ok(RestoreOnLaunch::None),
+            })
+            .string(|string| match string {
+                "queries" => Ok(RestoreOnLaunch::Queries),
+                "channels" => Ok(RestoreOnLaunch::Channels),
+                _ => Err(serde::de::Error::invalid_value(
+                    serde::de::Unexpected::Str(string),
+                    &"\"queries\", \"channels\", or a boolean",
+                )),
+            })
+            .deserialize(deserializer)
+    }
 }
 
 impl RestoreOnLaunch {

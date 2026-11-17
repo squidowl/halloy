@@ -145,21 +145,22 @@ channels = ["#rust", "#halloy", "#halloy-test"]
 
 Restore the buffers that were in the sidebar during the last session.
 
-- `"none"`: Restore nothing
-- `"queries"`: Restore queries
-- `"channels"`: Restore channels
-- `"all"`: Restore queries and channels
+- `true`: Restore queries and channels
+- `false`: Restore nothing
+- `"queries"`: Restore only queries
+- `"channels"`: Restore only channels
 
 Channels are not automatically joined, this is instead covered by
-[`servers.<name>.channels`](/configuration/servers#channels).
+[`servers.<name>.channels`](/configuration/servers#channels) and
+[`servers.<name>.queries`](/configuration/servers#queries).
 
 ```toml
-# Type: string
-# Values: "none", "queries", "channels", "all"
-# Default: "none"
+# Type: boolean or string
+# Values: true, false, "queries", "channels"
+# Default: false
 
 [sidebar]
-restore_on_launch = "all"
+restore_on_launch = true
 ```
 
 ## `internal_buffers` {#internal-buffers}
