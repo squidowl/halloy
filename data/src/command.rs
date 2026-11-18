@@ -238,7 +238,7 @@ impl Irc {
                         channel_users,
                         casemapping,
                     ),
-                    supports_echoes.then_some(self.clone()),
+                    supports_echoes.then(|| self.clone()),
                     time,
                 )])
             }

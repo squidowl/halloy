@@ -589,7 +589,7 @@ fn parse_code_fence(input: &str) -> IResult<&str, CodeFence> {
             CodeFence {
                 indent,
                 backticks,
-                info: (!info.is_empty()).then_some(info.to_string()),
+                info: (!info.is_empty()).then(|| info.to_string()),
             }
         },
     ))

@@ -867,9 +867,7 @@ impl Message {
 
         selected
             .into_iter()
-            .filter_map(|(text, count)| {
-                (count >= 1).then_some(text.to_string())
-            })
+            .filter_map(|(text, count)| (count >= 1).then(|| text.to_string()))
             .collect()
     }
 }
@@ -1718,10 +1716,9 @@ fn condense_associated_fragments(
                                 condense.format,
                                 CondensationFormat::Detailed
                             )
-                            .then_some(vec![
-                                first_nick_fragment,
-                                last_nick_fragment,
-                            ])
+                            .then(|| {
+                                vec![first_nick_fragment, last_nick_fragment]
+                            })
                         } else {
                             Some(vec![first_nick_fragment])
                         }

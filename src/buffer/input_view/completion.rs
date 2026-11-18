@@ -490,7 +490,7 @@ impl Commands {
 
                             title
                                 .starts_with(&cmd.to_lowercase())
-                                .then_some((title, command.clone()))
+                                .then(|| (title, command.clone()))
                         })
                         .collect::<Vec<_>>();
 

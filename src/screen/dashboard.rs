@@ -2501,7 +2501,7 @@ impl Dashboard {
                     .iter()
                     .filter_map(|(url, preview_client)| {
                         (!tracking.contains(url))
-                            .then_some((url.clone(), preview_client.clone()))
+                            .then(|| (url.clone(), preview_client.clone()))
                     })
                     .collect::<Vec<_>>();
                 let removed = tracking
@@ -4827,7 +4827,7 @@ impl Dashboard {
         } else {
             self.panes.iter().find_map(|(win, _, pane)| {
                 (win == w && !matches!(pane.buffer, Buffer::Empty))
-                    .then_some(pane.buffer.to_string())
+                    .then(|| pane.buffer.to_string())
             })
         }
     }

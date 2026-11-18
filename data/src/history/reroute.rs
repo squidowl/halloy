@@ -33,7 +33,7 @@ impl RerouteRules {
                 );
 
                 (!reroute_rules.is_empty())
-                    .then_some((entry.server.clone(), reroute_rules))
+                    .then(|| (entry.server.clone(), reroute_rules))
             })
             .collect();
 
@@ -55,7 +55,7 @@ impl RerouteRules {
                 );
 
                 (!reroute_rules.is_empty())
-                    .then_some((entry.server.clone(), reroute_rules))
+                    .then(|| (entry.server.clone(), reroute_rules))
             })
             .collect();
 
