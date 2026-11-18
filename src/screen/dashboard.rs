@@ -2499,9 +2499,9 @@ impl Dashboard {
                     self.previews.keys().cloned().collect::<HashSet<_>>();
                 let missing = visible
                     .iter()
-                    .filter_map(|(url, preview_client)| {
-                        (!tracking.contains(url))
-                            .then(|| (url.clone(), preview_client.clone()))
+                    .filter(|&(url, _)| !tracking.contains(url))
+                    .map(|(url, preview_client)| {
+                        (url.clone(), preview_client.clone())
                     })
                     .collect::<Vec<_>>();
                 let removed = tracking

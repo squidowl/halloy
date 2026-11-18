@@ -867,7 +867,8 @@ impl Message {
 
         selected
             .into_iter()
-            .filter_map(|(text, count)| (count >= 1).then(|| text.to_string()))
+            .filter(|(_, count)| *count >= 1)
+            .map(|(text, _)| text.to_string())
             .collect()
     }
 }
