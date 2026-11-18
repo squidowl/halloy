@@ -7,6 +7,7 @@ Added:
 - Sidebar typing indicators for channels
 - Spellcheck for the message input (`buffer.text_input.spellcheck`)
 - Theme style `text.spellcheck_misspelled`
+- Spellcheck suggestion UI (`buffer.text_input.spellcheck.suggestion_mode`: `"none"` | `"tab"` | `"context-menu"` | `"both"`)
 
 Fixed:
 
