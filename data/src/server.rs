@@ -83,8 +83,17 @@ impl fmt::Binary for Server {
 // only when server names are equal (in a case-insensitive context).
 impl Ord for Server {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
-        let case_insensitive_ordering =
-            self.name.to_lowercase().cmp(&other.name.to_lowercase());
+        fn to_ascii_lowercase(s: &str) -> impl Iterator<Item = u8> + '_ {
+            s.bytes().map(|byte| byte.to_ascii_lowercase())
+        }
+
+        let case_insensitive_ordering = if self.name.is_ascii()
+            && other.name.is_ascii()
+        {
+            to_ascii_lowercase(&self.name).cmp(to_ascii_lowercase(&other.name))
+        } else {
+            self.name.to_lowercase().cmp(&other.name.to_lowercase())
+        };
 
         if !matches!(case_insensitive_ordering, cmp::Ordering::Equal) {
             return case_insensitive_ordering;
