@@ -12,7 +12,9 @@ use data::capabilities::{
     MultilineBatchKind, MultilineLimits, multiline_concat_lines,
 };
 use data::client::{self, ClientsContext};
-use data::config::buffer::text_input::{AutoFormat, Autocomplete, KeyBindings};
+use data::config::buffer::text_input::{
+    AutoFormat, Autocomplete, KeyBindings, SuggestionMode,
+};
 use data::dashboard::BufferAction;
 use data::history::filter::FilterChain;
 use data::history::{self, model, storage};
@@ -119,6 +121,8 @@ pub enum Message {
     Send,
     Kill(text_editor_key_bindings::Kill, bool),
     SelectCompletion(usize),
+    SelectSpellSuggestion(usize),
+    LearnSpellWord,
     Tab(bool),
     Up(bool),
     Down(bool),
@@ -164,6 +168,10 @@ pub enum Actions {
     CopyAll,
     Paste,
     SelectAll,
+    SuggestionsHeader,
+    ReplaceSpell(usize),
+    AddToDictionary,
+    HorizontalRule,
 }
 
 impl Actions {
@@ -175,6 +183,19 @@ impl Actions {
             Self::Paste,
             Self::SelectAll,
         ]
+    }
+
+    fn list_with_spell(suggestions: &[String], can_learn: bool) -> Vec<Self> {
+        let mut out = vec![Self::SuggestionsHeader];
+        for i in 0..suggestions.len().min(5) {
+            out.push(Self::ReplaceSpell(i));
+        }
+        if can_learn {
+            out.push(Self::AddToDictionary);
+        }
+        out.push(Self::HorizontalRule);
+        out.extend(Self::list());
+        out
     }
 }
 
@@ -398,13 +419,45 @@ pub fn view<'a>(
         },
     );
 
+    let spell_menu = if spell_context_menu_enabled(config) {
+        let text = state.input_content.text();
+        let pos = state.input_content.cursor().position;
+        let cursor_byte =
+            line_col_to_byte(&state.input_content, pos.line, pos.index);
+        spell_error_for_cursor(&text, cursor_byte, &state.spell_errors).map(
+            |err| {
+                let word = text[err.start..err.end].to_string();
+                let suggestions =
+                    SPELL_CHECKER.with(|slot| match slot.borrow().as_ref() {
+                        Some(SpellCheckerSlot::Ready { checker, .. }) => {
+                            checker.suggest(&word)
+                        }
+                        _ => Vec::new(),
+                    });
+                (word, suggestions)
+            },
+        )
+    } else {
+        None
+    };
+    let menu_actions = match &spell_menu {
+        Some((_word, suggestions)) => {
+            Actions::list_with_spell(suggestions, true)
+        }
+        None => Actions::list(),
+    };
+    let spell_suggestions = spell_menu
+        .as_ref()
+        .map(|(_, s)| s.clone())
+        .unwrap_or_default();
+
     let wrapped_input: Element<'a, Message> = context_menu(
         context_menu::MouseButton::default(),
         context_menu::Anchor::Cursor,
         context_menu::ToggleBehavior::KeepOpen,
         Some(mouse::Interaction::Text),
         text_input,
-        Actions::list(),
+        menu_actions,
         move |menu, length| {
             let context_button =
                 |title: Text<'a>,
@@ -433,6 +486,39 @@ pub fn view<'a>(
                 };
 
             match menu {
+                Actions::SuggestionsHeader => container(text("Suggestions"))
+                    .width(length)
+                    .padding(config.context_menu.padding.entry)
+                    .into(),
+                Actions::ReplaceSpell(index) => {
+                    let [v, h] = config.context_menu.padding.entry;
+                    button(text(
+                        spell_suggestions
+                            .get(index)
+                            .cloned()
+                            .unwrap_or_else(|| "…".to_string()),
+                    ))
+                    .width(length)
+                    .padding(
+                        padding::top(f32::from(v))
+                            .bottom(f32::from(v))
+                            .right(f32::from(h))
+                            .left(f32::from(h) + 12.0),
+                    )
+                    .on_press(Message::SelectSpellSuggestion(index))
+                    .into()
+                }
+                Actions::AddToDictionary => context_button(
+                    text("Add to dictionary"),
+                    None,
+                    Some(Message::LearnSpellWord),
+                ),
+                Actions::HorizontalRule => match length {
+                    Length::Fill => {
+                        container(rule::horizontal(1)).padding([3, 6]).into()
+                    }
+                    _ => Space::new().width(length).height(7).into(),
+                },
                 Actions::Cut => context_button(
                     text("Cut"),
                     Some(shortcut::cut()),
@@ -583,16 +669,18 @@ pub fn view<'a>(
         let overlay = || -> Element<'a, Message> {
             let cursor = state.input_content.cursor();
 
+            let completion = state.completion.view(
+                state.input_content.text().as_str(),
+                cursor.position.index,
+                cursor.selection.is_some(),
+                server,
+                config,
+                theme,
+                Message::SelectCompletion,
+            );
+
             column![
-                state.completion.view(
-                    state.input_content.text().as_str(),
-                    cursor.position.index,
-                    cursor.selection.is_some(),
-                    server,
-                    config,
-                    theme,
-                    Message::SelectCompletion,
-                ),
+                completion,
                 state
                     .notice
                     .as_ref()
@@ -979,15 +1067,11 @@ impl State {
         }
     }
 
-    fn cycle_spell_suggestions(
-        &mut self,
-        reverse: bool,
-        buffer: &buffer::Upstream,
-        clients: &client::Map,
-        storage: &mut storage::Manager,
-        config: &Config,
-    ) -> bool {
-        if !config.buffer.text_input.spellcheck.enabled {
+    fn ensure_spell_suggestion_session(&mut self, config: &Config) -> bool {
+        let spell = &config.buffer.text_input.spellcheck;
+        if !spell.enabled
+            || matches!(spell.suggestion_mode, SuggestionMode::None)
+        {
             self.spell_suggestions = None;
             return false;
         }
@@ -997,58 +1081,70 @@ impl State {
         let cursor_byte =
             line_col_to_byte(&self.input_content, pos.line, pos.index);
 
-        let in_session = self.spell_suggestions.as_ref().is_some_and(|s| {
+        if self.spell_suggestions.as_ref().is_some_and(|s| {
             spell_cursor_targets_range(&text, cursor_byte, s.start, s.end)
-        });
-
-        if !in_session {
-            let Some(err) =
-                spell_error_for_cursor(&text, cursor_byte, &self.spell_errors)
-            else {
-                self.spell_suggestions = None;
-                return false;
-            };
-
-            let start = err.start;
-            let end = err.end;
-            let original = text[start..end].to_string();
-            let suggestions =
-                SPELL_CHECKER.with(|slot| match slot.borrow().as_ref() {
-                    Some(SpellCheckerSlot::Ready { checker, .. }) => {
-                        checker.suggest(&original)
-                    }
-                    _ => Vec::new(),
-                });
-            if suggestions.is_empty() {
-                self.spell_suggestions = None;
-                return false;
-            }
-
-            let index = suggestions.len();
-            self.spell_suggestions = Some(SpellSuggestionSession {
-                start,
-                end,
-                original,
-                suggestions,
-                index,
-            });
+        }) {
+            return true;
         }
-        let session = self.spell_suggestions.as_mut().unwrap();
-        let count = session.suggestions.len() + 1;
-        session.index = if reverse {
-            (session.index + count - 1) % count
-        } else {
-            (session.index + 1) % count
+
+        let Some(err) =
+            spell_error_for_cursor(&text, cursor_byte, &self.spell_errors)
+        else {
+            self.spell_suggestions = None;
+            return false;
         };
 
-        let replacement = if session.index < session.suggestions.len() {
-            session.suggestions[session.index].clone()
+        let start = err.start;
+        let end = err.end;
+        let original = text[start..end].to_string();
+        let suggestions =
+            SPELL_CHECKER.with(|slot| match slot.borrow().as_ref() {
+                Some(SpellCheckerSlot::Ready { checker, .. }) => {
+                    checker.suggest(&original)
+                }
+                _ => Vec::new(),
+            });
+        if suggestions.is_empty() {
+            self.spell_suggestions = None;
+            return false;
+        }
+
+        let index = suggestions.len();
+        self.spell_suggestions = Some(SpellSuggestionSession {
+            start,
+            end,
+            original,
+            suggestions,
+            index,
+        });
+        true
+    }
+
+    fn apply_spell_suggestion(
+        &mut self,
+        index: usize,
+        buffer: &buffer::Upstream,
+        clients: &client::Map,
+        storage: &mut storage::Manager,
+        config: &Config,
+        clear_session: bool,
+    ) -> bool {
+        let Some(session) = self.spell_suggestions.as_ref() else {
+            return false;
+        };
+        if index > session.suggestions.len() {
+            return false;
+        }
+
+        let text = self.input_content.text();
+        let start = session.start;
+        let end = session.end;
+        let replacement = if index < session.suggestions.len() {
+            session.suggestions[index].clone()
         } else {
             session.original.clone()
         };
 
-        let start = session.start;
-        let end = session.end;
         let old = &text[start..end];
         let char_start =
             UnicodeSegmentation::graphemes(&text[..start], true).count();
@@ -1069,7 +1165,10 @@ impl State {
         self.input_content = text_editor::Content::with_text(&replaced);
         self.input_content.move_to(cursor);
 
-        if let Some(session) = self.spell_suggestions.as_mut() {
+        if clear_session {
+            self.spell_suggestions = None;
+        } else if let Some(session) = self.spell_suggestions.as_mut() {
+            session.index = index;
             session.end = start + replacement.len();
         }
 
@@ -1079,8 +1178,83 @@ impl State {
             reply: self.draft_reply.clone(),
         });
         self.refresh_spell_errors(buffer, clients, config);
-
         true
+    }
+
+    fn learn_spell_word(
+        &mut self,
+        buffer: &buffer::Upstream,
+        clients: &client::Map,
+        config: &Config,
+    ) -> bool {
+        let word = if let Some(session) = self.spell_suggestions.as_ref() {
+            session.original.clone()
+        } else {
+            let text = self.input_content.text();
+            let pos = self.input_content.cursor().position;
+            let cursor_byte =
+                line_col_to_byte(&self.input_content, pos.line, pos.index);
+            let Some(err) =
+                spell_error_for_cursor(&text, cursor_byte, &self.spell_errors)
+            else {
+                return false;
+            };
+            text[err.start..err.end].to_string()
+        };
+        if word.is_empty() {
+            return false;
+        }
+        let learned = SPELL_CHECKER.with(|slot| {
+            let mut slot = slot.borrow_mut();
+            match slot.as_mut() {
+                Some(SpellCheckerSlot::Ready { checker, .. }) => {
+                    match checker.learn(&word) {
+                        Ok(()) => true,
+                        Err(err) => {
+                            log::warn!("spellcheck learn failed: {err}");
+                            false
+                        }
+                    }
+                }
+                _ => false,
+            }
+        });
+        if !learned {
+            return false;
+        }
+        SPELL_CHECKER.with(|slot| {
+            *slot.borrow_mut() = None;
+        });
+        self.spell_suggestions = None;
+        self.refresh_spell_errors(buffer, clients, config);
+        true
+    }
+
+    fn cycle_spell_suggestions(
+        &mut self,
+        reverse: bool,
+        buffer: &buffer::Upstream,
+        clients: &client::Map,
+        storage: &mut storage::Manager,
+        config: &Config,
+    ) -> bool {
+        if !spell_tab_enabled(config) {
+            return false;
+        }
+        if !self.ensure_spell_suggestion_session(config) {
+            return false;
+        }
+        let session = self.spell_suggestions.as_mut().unwrap();
+        let count = session.suggestions.len() + 1;
+        session.index = if reverse {
+            (session.index + count - 1) % count
+        } else {
+            (session.index + 1) % count
+        };
+        let index = session.index;
+        self.apply_spell_suggestion(
+            index, buffer, clients, storage, config, false,
+        )
     }
 
     pub fn draft_reply(&self) -> Option<&input::DraftReply> {
@@ -1297,9 +1471,6 @@ impl State {
                     self.on_completion(
                         buffer, clients, storage, config, actions, true,
                     )
-                // IRCv3 draft/multiline forbids messages consisting
-                // entirely of blank lines, so we will take that as an
-                // IRC norm and require the same
                 } else if !self.input_content.text().trim().is_empty() {
                     // If there is an error in the input then display the error
                     // for the current line (if it has an error) or the first
@@ -1454,6 +1625,17 @@ impl State {
                 } else {
                     (Task::none(), None)
                 }
+            }
+            Message::SelectSpellSuggestion(index) => {
+                let _ = self.ensure_spell_suggestion_session(config);
+                let _ = self.apply_spell_suggestion(
+                    index, buffer, clients, storage, config, true,
+                );
+                Self::close_context_menu(vec![])
+            }
+            Message::LearnSpellWord => {
+                let _ = self.learn_spell_word(buffer, clients, config);
+                Self::close_context_menu(vec![])
             }
             Message::Up(shift) => {
                 // If holding shift, the user presumably wants to adjust the
@@ -2906,7 +3088,14 @@ impl State {
     }
 
     pub fn close_picker(&mut self) -> bool {
-        self.completion.close_picker()
+        if self.completion.close_picker() {
+            return true;
+        }
+        if self.spell_suggestions.is_some() {
+            self.spell_suggestions = None;
+            return true;
+        }
+        false
     }
 
     pub fn clear_draft_reply(
@@ -3636,6 +3825,24 @@ struct SpellSettings {
 struct SpellError {
     start: usize,
     end: usize,
+}
+
+fn spell_tab_enabled(config: &Config) -> bool {
+    let spell = &config.buffer.text_input.spellcheck;
+    spell.enabled
+        && matches!(
+            spell.suggestion_mode,
+            SuggestionMode::Tab | SuggestionMode::Both
+        )
+}
+
+fn spell_context_menu_enabled(config: &Config) -> bool {
+    let spell = &config.buffer.text_input.spellcheck;
+    spell.enabled
+        && matches!(
+            spell.suggestion_mode,
+            SuggestionMode::ContextMenu | SuggestionMode::Both
+        )
 }
 
 #[derive(Debug, Clone)]

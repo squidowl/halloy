@@ -49,6 +49,17 @@ pub struct Spellcheck {
     pub underline: bool,
     pub locale: Option<String>,
     pub ignore: Vec<String>,
+    pub suggestion_mode: SuggestionMode,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SuggestionMode {
+    None,
+    Tab,
+    ContextMenu,
+    #[default]
+    Both,
 }
 
 impl Default for Spellcheck {
@@ -58,6 +69,7 @@ impl Default for Spellcheck {
             underline: true,
             locale: None,
             ignore: Vec::new(),
+            suggestion_mode: SuggestionMode::Both,
         }
     }
 }
