@@ -79,12 +79,11 @@ impl fmt::Binary for Server {
     }
 }
 
-// Use case-insensitive comparison first, falling back to case-sensitive
-// only when server names are equal (in a case-insensitive context).
+// Compare server names case insensitively, then compare bouncer networks.
 impl Ord for Server {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         let case_insensitive_ordering =
-            self.name.to_lowercase().cmp(&other.name.to_lowercase());
+            crate::string::cmp_ignore_case(&self.name, &other.name);
 
         if !matches!(case_insensitive_ordering, cmp::Ordering::Equal) {
             return case_insensitive_ordering;

@@ -61,6 +61,7 @@ pub mod server;
 pub mod server_icon;
 pub mod shortcut;
 pub mod stream;
+mod string;
 pub mod target;
 pub mod time;
 pub mod url;

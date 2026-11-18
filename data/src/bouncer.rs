@@ -43,14 +43,10 @@ pub struct BouncerNetwork {
     pub name: String,
 }
 
-// for ordering, we try to order lexiographically by name, and then check ID
-// So ID equality must imply name equality
+// Compare network names case insensitively, then case sensitively, then by ID.
 impl Ord for BouncerNetwork {
     fn cmp(&self, other: &Self) -> Ordering {
-        // case sensitive first, then insensitive, then ID
-        self.name
-            .to_lowercase()
-            .cmp(&other.name.to_lowercase())
+        crate::string::cmp_ignore_case(&self.name, &other.name)
             .then_with(|| self.name.cmp(&other.name))
             .then_with(|| self.id.cmp(&other.id))
     }
