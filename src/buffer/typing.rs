@@ -136,7 +136,7 @@ pub fn animate_for_buffer<'a, Message: 'a>(
     animation_config: &data::config::buffer::Animation,
     dot_color: Color,
 ) -> Option<Element<'a, Message>> {
-    if !animation_config.enabled {
+    if !animation_config.is_enabled() {
         return None;
     }
 
@@ -167,7 +167,7 @@ pub fn animate_for_sidebar<'a, Message: 'a>(
     animation_config: &data::config::buffer::Animation,
     dot_color: Color,
 ) -> Option<Element<'a, Message>> {
-    if !animation_config.enabled {
+    if !animation_config.is_enabled() {
         return None;
     }
 

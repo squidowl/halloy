@@ -1920,7 +1920,7 @@ impl Halloy {
             tick,
             streams,
         ];
-        if self.config.buffer.typing.animation.enabled
+        if self.config.buffer.typing.animation.is_enabled()
             && matches!(
                 &self.screen,
                 Screen::Dashboard(dashboard)

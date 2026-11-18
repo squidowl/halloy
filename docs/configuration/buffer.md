@@ -1618,14 +1618,22 @@ Configure the animated dots shown next to the typing indicator text.
 
 Control whether the animated dots are shown.
 
+By default animations are enabled for focused windows.
+
+To animate the typing indicators when Halloy is unfocused, set to `"always"`.
+
 ```toml
-# Type: boolean
-# Values: true, false
-# Default: true
+# Type: string
+# Values: "focused", "always", "never"
+# Default: "focused"
 
 [buffer.typing.animation]
-enabled = true
+enabled = "focused"
 ```
+
+::: warning
+Typing indicator animations for unfocused windows will use more resources.
+:::
 
 #### `size`
 
@@ -1638,23 +1646,6 @@ Control the size of the animated typing dots. If not set we use `typing.font_siz
 
 [buffer.typing.animation]
 size = 12
-```
-
-#### `unfocused_window`
-
-Control whether the typing indicator animates for unfocused windows.
-
-::: warning
-Typing indicator animations for unfocused windows will use more resources.
-:::
-
-```toml
-# Type: boolean
-# Values: true, false
-# Default: false
-
-[buffer.typing.animation]
-unfocused_window = true
 ```
 
 ## `timestamp`

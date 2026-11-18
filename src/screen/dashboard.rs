@@ -4710,7 +4710,7 @@ impl Dashboard {
     ) -> bool {
         in_focused_window.is_some_and(|_| {
             self.has_typing_activity(clients, config, in_focused_window)
-        }) || (config.buffer.typing.animation.unfocused_window
+        }) || (config.buffer.typing.animation.is_enabled_always()
             && self.has_typing_activity(clients, config, None))
     }
 
