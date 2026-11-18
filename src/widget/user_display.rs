@@ -69,7 +69,7 @@ impl UserDisplay {
                 color,
             }
         } else {
-            let tooltip = (with_tooltip && has_icon).then_some(full.clone());
+            let tooltip = (with_tooltip && has_icon).then(|| full.clone());
 
             Self {
                 base: full.bracket(brackets),
