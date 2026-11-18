@@ -19,7 +19,7 @@ use tokio::fs::{self, File};
 use tokio::io::{AsyncWriteExt, BufWriter};
 use tokio::time::{self, Instant, Interval, MissedTickBehavior};
 
-use crate::client::{BURST_PING_TOKEN, Client};
+use crate::client::Client;
 use crate::config::server::IrcProtocolLogFormat;
 use crate::server::Server;
 use crate::{config, environment, message, server};
@@ -492,11 +492,6 @@ async fn _run(
                                     network_lost: false,
                                 };
                             }
-                        }
-                        proto::Command::PONG(_, Some(ref token))
-                            if token == BURST_PING_TOKEN =>
-                        {
-                            batch.messages.push(message.into());
                         }
                         proto::Command::PONG(_, token) => {
                             let token = token.unwrap_or_default();

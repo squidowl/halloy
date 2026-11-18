@@ -55,7 +55,6 @@ const MODE_REQUEST_DELAY: Duration = Duration::from_millis(600);
 const MODE_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 const TYPING_TIMEOUT: Duration = Duration::from_secs(6);
 const JOIN_TIMEOUT: Duration = Duration::from_secs(10);
-pub const BURST_PING_TOKEN: &str = "halloy-burst";
 // Upper bound on concurrently open IRCv3 batches. A server opens a batch with
 // `BATCH +<ref>` and must close it with `BATCH -<ref>`; without a ceiling a
 // malicious or buggy server could open batches without ever closing them and
@@ -230,7 +229,7 @@ pub struct Client {
     chathistory_targets_request: Option<ChathistoryRequest>,
     notification_blackout: NotificationBlackout,
     registration_required_channels: Vec<target::Channel>,
-    join_burst: Option<Instant>,
+    pending_joins: HashMap<target::Channel, Instant>,
     bouncer_network_listing: Option<Vec<Server>>,
     isupport: HashMap<isupport::Kind, isupport::Parameter>,
     who_queue: who_queue::WhoQueue,
@@ -303,7 +302,7 @@ impl Client {
                 Instant::now(),
             ),
             registration_required_channels: vec![],
-            join_burst: None,
+            pending_joins: HashMap::new(),
             bouncer_network_listing: None,
             isupport: HashMap::new(),
             who_queue: who_queue::WhoQueue::new(&config),
@@ -621,14 +620,64 @@ impl Client {
         }
     }
 
-    // replies come back in order, so this PONG follows the joins sent before it
-    fn send_join_burst_ping(&mut self) {
-        self.join_burst = Some(Instant::now());
-        self.send(
-            None,
-            command!("PING", BURST_PING_TOKEN).into(),
-            TokenPriority::High,
-        );
+    fn track_pending_joins(&mut self, channels: &str) {
+        for channel in channels.split(',') {
+            if let Ok(channel) = target::Channel::parse(
+                channel,
+                self.chantypes(),
+                self.statusmsg(),
+                self.casemapping(),
+            ) && !self.chanmap.contains_key(&channel)
+            {
+                self.pending_joins.insert(channel, Instant::now());
+            }
+        }
+    }
+
+    fn resolve_failed_join(&mut self, command: &Command) {
+        let (code, args) = match command {
+            Command::Numeric(numeric, args) => (*numeric as u16, args),
+            Command::Unknown(tag, args) => {
+                let Ok(code) = tag.parse::<u16>() else {
+                    return;
+                };
+
+                (code, args)
+            }
+            Command::FAIL(command, _, context, _) if command == "JOIN" => {
+                if let Some(channel) =
+                    context.as_ref().and_then(|context| context.first())
+                    && let Ok(channel) = target::Channel::parse(
+                        channel,
+                        self.chantypes(),
+                        self.statusmsg(),
+                        self.casemapping(),
+                    )
+                {
+                    self.pending_joins.remove(&channel);
+                }
+
+                return;
+            }
+            _ => return,
+        };
+
+        // modern.ircdocs.horse lists 403, 405, 471 and 473-476 as numerics
+        // returned for join, but they be refused by "other (depending on server
+        // software)" reasons, so any error range counts as the join failed. if
+        // this guess was wrong the timeout will eventually fix these, but
+        // something to watch out for.
+        if (400..600).contains(&code)
+            && let Some(channel) = args.get(1)
+            && let Ok(channel) = target::Channel::parse(
+                channel,
+                self.chantypes(),
+                self.statusmsg(),
+                self.casemapping(),
+            )
+        {
+            self.pending_joins.remove(&channel);
+        }
     }
 
     fn start_reroute(&self, command: &Command) -> bool {
@@ -743,6 +792,10 @@ impl Client {
             self.set_labeled_response_context(buffer, &mut message);
 
         let mut restore_automated_monitored_users: Vec<String> = vec![];
+
+        if let Command::JOIN(channels, _) = &message.command {
+            self.track_pending_joins(channels);
+        }
 
         if matches!(priority, TokenPriority::User) {
             match &message.command {
@@ -1510,12 +1563,11 @@ impl Client {
             };
         }
 
-        match &message.command {
-            Command::PONG(_, Some(token)) if token == BURST_PING_TOKEN => {
-                self.join_burst = None;
+        if !self.pending_joins.is_empty() {
+            self.resolve_failed_join(&message.command);
+        }
 
-                return Ok(vec![]);
-            }
+        match &message.command {
             Command::BATCH(batch, params) => {
                 let mut chars = batch.chars();
                 let symbol = ok!(chars.next());
@@ -1875,7 +1927,6 @@ impl Client {
                     }
 
                     self.registration_required_channels.clear();
-                    self.send_join_burst_ping();
                 }
 
                 if !self.capabilities.acknowledged(Capability::AccountNotify) {
@@ -2305,6 +2356,8 @@ impl Client {
                 ));
 
                 if user.nickname() == self.nickname() {
+                    self.pending_joins.remove(&target_channel);
+
                     let casemapping = self.casemapping();
                     let chantypes = self.chantypes().to_vec();
                     let _ = self.chanmap.insert_sorted_by(
@@ -2739,7 +2792,6 @@ impl Client {
                         }
 
                         self.registration_required_channels.clear();
-                        self.send_join_burst_ping();
                     }
                 }
             }
@@ -3226,7 +3278,6 @@ impl Client {
                     }
 
                     self.registration_required_channels.clear();
-                    self.send_join_burst_ping();
                 }
             }
             Command::CHGHOST(new_username, new_hostname) => {
@@ -3717,8 +3768,6 @@ impl Client {
                         self.send(None, message, TokenPriority::High);
                     }
                 }
-
-                self.send_join_burst_ping();
 
                 if !self.config.monitor.is_empty() {
                     if let Some(isupport::Parameter::MONITOR(monitor_limit)) =
@@ -5072,8 +5121,7 @@ impl Client {
     }
 
     fn is_join_pending(&self, channel: &target::Channel) -> bool {
-        self.join_burst
-            .is_some_and(|sent_at| sent_at.elapsed() < JOIN_TIMEOUT)
+        self.pending_joins.contains_key(channel)
             || self.registration_required_channels.contains(channel)
     }
 
@@ -5320,6 +5368,9 @@ impl Client {
         self.chanmap
             .values_mut()
             .for_each(|channel| prune_expired_typing(&mut channel.typing));
+
+        self.pending_joins
+            .retain(|_, sent_at| now.duration_since(*sent_at) < JOIN_TIMEOUT);
 
         for (message, priority) in self.who_queue.tick(
             &self.server,
