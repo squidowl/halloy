@@ -1589,36 +1589,35 @@ fn upstream_buffer_button<'a>(
     let show_unread_title =
         indicators.unread && config.sidebar.unread_indicator.title;
 
-    let (can_show_typing, show_typing) =
-        if config.buffer.typing.animation.is_enabled()
-            && config.sidebar.show_typing(
-                TypingIndicatorBuffer::Channel,
-                show_highlight_icon,
-                show_unread_icon,
-            )
-            && let buffer::Upstream::Channel(server, channel) = &buffer
-        {
-            (
-                true,
-                clients.get_server_show_typing(server)
-                    && clients.has_channel_typing_users(server, channel),
-            )
-        } else if config.buffer.typing.animation.is_enabled()
-            && config.sidebar.show_typing(
-                TypingIndicatorBuffer::Query,
-                show_highlight_icon,
-                show_unread_icon,
-            )
-            && let buffer::Upstream::Query(server, query) = &buffer
-        {
-            (
-                true,
-                clients.get_server_show_typing(server)
-                    && clients.has_query_typing_users(server, query),
-            )
-        } else {
-            (false, false)
-        };
+    let (can_show_typing, show_typing) = if config.buffer.typing.show
+        && config.sidebar.show_typing(
+            TypingIndicatorBuffer::Channel,
+            show_highlight_icon,
+            show_unread_icon,
+        )
+        && let buffer::Upstream::Channel(server, channel) = &buffer
+    {
+        (
+            true,
+            clients.get_server_show_typing(server)
+                && clients.has_channel_typing_users(server, channel),
+        )
+    } else if config.buffer.typing.show
+        && config.sidebar.show_typing(
+            TypingIndicatorBuffer::Query,
+            show_highlight_icon,
+            show_unread_icon,
+        )
+        && let buffer::Upstream::Query(server, query) = &buffer
+    {
+        (
+            true,
+            clients.get_server_show_typing(server)
+                && clients.has_query_typing_users(server, query),
+        )
+    } else {
+        (false, false)
+    };
 
     // If configured to only show one indicator for a channel or query, hide
     // highlight and unread indicators.
@@ -1721,12 +1720,11 @@ fn upstream_buffer_button<'a>(
     };
 
     let mut typing_indicator = if show_typing {
-        typing::animate_for_sidebar::<_>(
+        Some(typing::animate_for_sidebar::<_>(
             *typing_animation,
             config.sidebar.typing_indicator.icon_height,
-            &config.buffer.typing.animation,
             theme.styles().text.secondary.color,
-        )
+        ))
     } else {
         None
     };
