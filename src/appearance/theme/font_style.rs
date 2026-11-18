@@ -9,11 +9,12 @@ pub fn primary(theme: &Theme) -> Option<FontStyle> {
 }
 
 pub fn self_message(theme: &Theme) -> Option<FontStyle> {
-    theme.styles().buffer.self_message.font_style.or(theme
+    theme
         .styles()
-        .text
-        .primary
-        .font_style)
+        .buffer
+        .self_message
+        .font_style
+        .or_else(|| theme.styles().text.primary.font_style)
 }
 
 pub fn secondary(theme: &Theme) -> Option<FontStyle> {
@@ -56,11 +57,11 @@ pub fn server(
             Kind::StandardReply(StandardReply::Fail) => styles
                 .standard_reply_fail
                 .font_style
-                .or(theme.styles().text.error.font_style),
+                .or_else(|| theme.styles().text.error.font_style),
             Kind::StandardReply(StandardReply::Warn) => styles
                 .standard_reply_warn
                 .font_style
-                .or(theme.styles().text.warning.font_style),
+                .or_else(|| theme.styles().text.warning.font_style),
             Kind::StandardReply(StandardReply::Note) => {
                 styles.standard_reply_note.font_style
             }

@@ -1249,8 +1249,8 @@ impl State {
                 ..
             }) => {
                 let (highlight, align, position) =
-                    self.scroll_to.as_ref().map_or(
-                        (false, ScrollAnchor::default(), None),
+                    self.scroll_to.as_ref().map_or_else(
+                        || (false, ScrollAnchor::default(), None),
                         |scroll_to| {
                             (
                                 scroll_to.highlight,

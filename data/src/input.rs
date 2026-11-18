@@ -119,12 +119,10 @@ pub fn parse(
                 Content::Text(text)
             }
             Err(command::Error::HasDoubleSlash) => {
-                let text = input
-                    .strip_prefix('/')
-                    .map_or(input.to_string(), ToString::to_string);
+                let text = input.strip_prefix('/').unwrap_or(input);
 
                 let text = if let Some(encoding) = auto_format.encoding() {
-                    formatting::encode(&text, encoding)
+                    formatting::encode(text, encoding)
                 } else {
                     text.to_string()
                 };

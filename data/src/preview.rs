@@ -484,92 +484,95 @@ async fn fetch(
 
     // First chunk should always be enough bytes to detect raster image
     // MAGIC value (<32 bytes)
-    let fetched = match image::Format::from_magic_bytes(&first_chunk).or(resp
-        .headers()
-        .get("content-type")
-        .and_then(|content_type| content_type.to_str().ok())
-        .and_then(image::Format::from_mime_type))
-    {
-        Some(format) => {
-            if exceeds_image_size(
-                resp.content_length(),
-                config.request.max_image_size,
-            ) {
-                return Err(LoadError::ImageTooLarge);
-            }
-
-            // Store image to disk, we don't want to explode memory
-            let temp_path = cache.download_path(&url);
-
-            if let Some(parent) = temp_path.parent().filter(|p| !p.exists()) {
-                fs::create_dir_all(&parent).await?;
-            }
-
-            let image_result = async {
-                let mut file = File::create(&temp_path).await?;
-                let mut hasher = Sha256::default();
-
-                file.write_all(&first_chunk).await?;
-                hasher.update(&first_chunk);
-
-                let mut written = first_chunk.len();
-
-                while let Some(chunk) = resp.chunk().await? {
-                    if written + chunk.len() > config.request.max_image_size {
-                        return Err(LoadError::ImageTooLarge);
-                    }
-
-                    file.write_all(&chunk).await?;
-                    hasher.update(&chunk);
-
-                    written += chunk.len();
+    let fetched =
+        match image::Format::from_magic_bytes(&first_chunk).or_else(|| {
+            resp.headers()
+                .get("content-type")
+                .and_then(|content_type| content_type.to_str().ok())
+                .and_then(image::Format::from_mime_type)
+        }) {
+            Some(format) => {
+                if exceeds_image_size(
+                    resp.content_length(),
+                    config.request.max_image_size,
+                ) {
+                    return Err(LoadError::ImageTooLarge);
                 }
 
-                let digest = cache::HexDigest::new(&hasher.finalize());
-                let image_path =
-                    cache.blob_path(&digest, format.extensions_str()[0]);
+                // Store image to disk, we don't want to explode memory
+                let temp_path = cache.download_path(&url);
 
-                if let Some(parent) =
-                    image_path.parent().filter(|p| !p.exists())
+                if let Some(parent) = temp_path.parent().filter(|p| !p.exists())
                 {
                     fs::create_dir_all(&parent).await?;
                 }
 
-                fs::rename(&temp_path, &image_path).await?;
-                cache.account_blob(written as u64, image_path.clone());
+                let image_result = async {
+                    let mut file = File::create(&temp_path).await?;
+                    let mut hasher = Sha256::default();
 
-                Ok::<Image, LoadError>(Image::new(
-                    format, url, digest, image_path,
-                ))
-            }
-            .await;
+                    file.write_all(&first_chunk).await?;
+                    hasher.update(&first_chunk);
 
-            if image_result.is_err() {
-                remove_download_file(&temp_path).await;
-            }
+                    let mut written = first_chunk.len();
 
-            Fetched::Image(image_result?)
-        }
-        None => {
-            let max_scrape_size = config.request.max_scrape_size;
+                    while let Some(chunk) = resp.chunk().await? {
+                        if written + chunk.len() > config.request.max_image_size
+                        {
+                            return Err(LoadError::ImageTooLarge);
+                        }
 
-            let mut buffer = Vec::with_capacity(max_scrape_size);
-            buffer.extend(first_chunk);
+                        file.write_all(&chunk).await?;
+                        hasher.update(&chunk);
 
-            while let Some(mut chunk) = resp.chunk().await? {
-                if buffer.len() + chunk.len() > max_scrape_size {
-                    buffer.extend(chunk.split_to(
-                        max_scrape_size.saturating_sub(buffer.len()),
-                    ));
-                    break;
-                } else {
-                    buffer.extend(chunk);
+                        written += chunk.len();
+                    }
+
+                    let digest = cache::HexDigest::new(&hasher.finalize());
+                    let image_path =
+                        cache.blob_path(&digest, format.extensions_str()[0]);
+
+                    if let Some(parent) =
+                        image_path.parent().filter(|p| !p.exists())
+                    {
+                        fs::create_dir_all(&parent).await?;
+                    }
+
+                    fs::rename(&temp_path, &image_path).await?;
+                    cache.account_blob(written as u64, image_path.clone());
+
+                    Ok::<Image, LoadError>(Image::new(
+                        format, url, digest, image_path,
+                    ))
                 }
-            }
+                .await;
 
-            Fetched::Other(buffer)
-        }
-    };
+                if image_result.is_err() {
+                    remove_download_file(&temp_path).await;
+                }
+
+                Fetched::Image(image_result?)
+            }
+            None => {
+                let max_scrape_size = config.request.max_scrape_size;
+
+                let mut buffer = Vec::with_capacity(max_scrape_size);
+                buffer.extend(first_chunk);
+
+                while let Some(mut chunk) = resp.chunk().await? {
+                    if buffer.len() + chunk.len() > max_scrape_size {
+                        buffer.extend(chunk.split_to(
+                            max_scrape_size.saturating_sub(buffer.len()),
+                        ));
+                        break;
+                    } else {
+                        buffer.extend(chunk);
+                    }
+                }
+
+                Fetched::Other(buffer)
+            }
+        };
 
     // Artificially wait before releasing this permit for rate limiting
     time::sleep(Duration::from_millis(config.request.delay_ms)).await;

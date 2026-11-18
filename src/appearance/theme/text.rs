@@ -53,7 +53,7 @@ pub fn warning(theme: &Theme) -> Style {
             .text
             .warning
             .color
-            .or(Some(theme.styles().text.error.color)),
+            .or_else(|| Some(theme.styles().text.error.color)),
     }
 }
 
@@ -166,12 +166,12 @@ pub fn server(
             Kind::StandardReply(StandardReply::Fail) => styles
                 .standard_reply_fail
                 .color
-                .or(Some(theme.styles().text.error.color)),
+                .or_else(|| Some(theme.styles().text.error.color)),
             Kind::StandardReply(StandardReply::Warn) => styles
                 .standard_reply_warn
                 .color
-                .or(theme.styles().text.warning.color)
-                .or(Some(theme.styles().text.error.color)),
+                .or_else(|| theme.styles().text.warning.color)
+                .or_else(|| Some(theme.styles().text.error.color)),
             Kind::StandardReply(StandardReply::Note) => {
                 styles.standard_reply_note.color
             }

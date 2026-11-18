@@ -1192,8 +1192,8 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         let mut prefixes: Option<Element<_>> = self.format_prefixes(message);
 
         if let Some(right_alignment_widths) = right_alignment_widths {
-            prefixes = Some(prefixes.map_or(
-                Space::new().width(right_alignment_widths.prefixes).into(),
+            prefixes = Some(prefixes.map_or_else(
+                || Space::new().width(right_alignment_widths.prefixes).into(),
                 |prefixes| {
                     container(prefixes)
                         .width(right_alignment_widths.prefixes)
@@ -1206,8 +1206,8 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             self.format_timestamp(message, hide_timestamp);
 
         if let Some(right_alignment_widths) = right_alignment_widths {
-            timestamp = Some(timestamp.map_or(
-                Space::new().width(right_alignment_widths.timestamp).into(),
+            timestamp = Some(timestamp.map_or_else(
+                || Space::new().width(right_alignment_widths.timestamp).into(),
                 |timestamp| {
                     container(timestamp)
                         .width(right_alignment_widths.timestamp)

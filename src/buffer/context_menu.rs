@@ -454,52 +454,59 @@ impl Entry {
         theme: &'a Theme,
         selected: bool,
     ) -> Element<'a, Message> {
-        context.map_or(row![].into(), |context| match (self, context) {
-            (
-                Entry::UserInfo,
-                Context::User(UserContext {
-                    user,
+        context.map_or_else(
+            || row![].into(),
+            |context| match (self, context) {
+                (
+                    Entry::UserInfo,
+                    Context::User(UserContext {
+                        user,
+                        current_user,
+                        relayed_by,
+                        ..
+                    }),
+                ) => user_info(
                     current_user,
                     relayed_by,
-                    ..
-                }),
-            ) => user_info(
-                current_user,
-                relayed_by,
-                user.nickname().to_owned(),
-                length,
-                config,
-                theme,
-            ),
-            (
-                Entry::UserMetadata,
-                Context::User(UserContext {
+                    user.nickname().to_owned(),
+                    length,
+                    config,
+                    theme,
+                ),
+                (
+                    Entry::UserMetadata,
+                    Context::User(UserContext {
+                        user,
+                        registry,
+                        avatar,
+                        ..
+                    }),
+                ) => user_metadata(
                     user,
                     registry,
-                    avatar,
-                    ..
-                }),
-            ) => user_metadata(
-                user,
-                registry,
-                avatar.as_ref(),
-                config,
-                theme,
-                length,
-            ),
-            (Entry::HorizontalRule, _) => match length {
-                Length::Fill => {
-                    container(rule::horizontal(1)).padding([0, 6]).into()
-                }
-                _ => Space::new().width(length).height(1).into(),
-            },
-            (_, context) => self.as_label_and_message(&context, config).map_or(
-                row![].into(),
-                |(label, message)| {
-                    menu_button(label, message, selected, length, theme, config)
+                    avatar.as_ref(),
+                    config,
+                    theme,
+                    length,
+                ),
+                (Entry::HorizontalRule, _) => match length {
+                    Length::Fill => {
+                        container(rule::horizontal(1)).padding([0, 6]).into()
+                    }
+                    _ => Space::new().width(length).height(1).into(),
                 },
-            ),
-        })
+                (_, context) => {
+                    self.as_label_and_message(&context, config).map_or_else(
+                        || row![].into(),
+                        |(label, message)| {
+                            menu_button(
+                                label, message, selected, length, theme, config,
+                            )
+                        },
+                    )
+                }
+            },
+        )
     }
 
     pub fn as_label_and_message(
@@ -1521,15 +1528,15 @@ fn user_metadata<'a>(
                 }
                 _ => None,
             }
-            .unwrap_or(
+            .unwrap_or_else(|| {
                 selectable_text(format!("{value} ({key})"))
                     .style(theme::selectable_text::secondary)
                     .font_maybe(
                         theme::font_style::secondary(theme).map(font::get),
                     )
                     .width(length)
-                    .into(),
-            )
+                    .into()
+            })
         });
 
     let rows = column(rows).spacing(2);

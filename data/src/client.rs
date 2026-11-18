@@ -1406,6 +1406,10 @@ impl Client {
             );
         }
 
+        let default_rules = RerouteRules::default();
+        #[allow(clippy::or_fun_call)]
+        let rules = reroute_rules.unwrap_or(&default_rules);
+
         command
             .messages(
                 &user,
@@ -1415,12 +1419,14 @@ impl Client {
                 self.statusmsg(),
                 self.casemapping(),
                 self.capabilities.acknowledged(Capability::EchoMessage),
-                reroute_rules.unwrap_or(&RerouteRules::default()),
+                rules,
                 Some(buffer),
-                labeled_response_context.map_or(
-                    message::Time::client(estimate_server_time(
-                        self.server_time_tracking,
-                    )),
+                labeled_response_context.map_or_else(
+                    || {
+                        message::Time::client(estimate_server_time(
+                            self.server_time_tracking,
+                        ))
+                    },
                     |labeled_response_context| labeled_response_context.time,
                 ),
             )
@@ -1526,16 +1532,20 @@ impl Client {
 
         let batch_tag = message.tags.remove("batch");
 
-        let context = parent_context.or(label_tag
-            .as_ref()
-            // Remove context associated to label if we get resp for it
-            .and_then(|label| self.labels.remove(label))
-            // Otherwise if we're in a batch, get its context
-            .or(batch_tag.as_ref().and_then(|batch| {
-                self.batches
-                    .get(batch)
-                    .and_then(|batch| batch.context.clone())
-            })));
+        let context = parent_context.or_else(|| {
+            label_tag
+                .as_ref()
+                // Remove context associated to label if we get resp for it
+                .and_then(|label| self.labels.remove(label))
+                // Otherwise if we're in a batch, get its context
+                .or_else(|| {
+                    batch_tag.as_ref().and_then(|batch| {
+                        self.batches
+                            .get(batch)
+                            .and_then(|batch| batch.context.clone())
+                    })
+                })
+        });
 
         macro_rules! ok {
             ($option:expr) => {
@@ -2437,11 +2447,11 @@ impl Client {
                         .capabilities
                         .acknowledged(Capability::ExtendedJoin)
                     {
-                        accountname
-                            .as_ref()
-                            .map_or(user.clone(), |accountname| {
-                                user.with_accountname(accountname)
-                            })
+                        if let Some(accountname) = &accountname {
+                            user.with_accountname(accountname)
+                        } else {
+                            user
+                        }
                     } else {
                         user
                     };
@@ -5484,7 +5494,7 @@ impl Client {
             .filehost
             .override_url
             .as_deref()
-            .or(isupport::get_filehost(&self.isupport))
+            .or_else(|| isupport::get_filehost(&self.isupport))
     }
 
     pub fn safelist(&self) -> bool {

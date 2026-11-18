@@ -106,7 +106,7 @@ impl Styles {
     pub fn backlog_rule_text_or_fallback(&self) -> Color {
         self.buffer
             .backlog_rule_text
-            .unwrap_or(self.horizontal_rule_text_or_fallback())
+            .unwrap_or_else(|| self.horizontal_rule_text_or_fallback())
     }
 
     pub fn date_rule_or_fallback(&self) -> Color {
@@ -118,7 +118,7 @@ impl Styles {
     pub fn date_rule_text_or_fallback(&self) -> Color {
         self.buffer
             .date_rule_text
-            .unwrap_or(self.horizontal_rule_text_or_fallback())
+            .unwrap_or_else(|| self.horizontal_rule_text_or_fallback())
     }
 }
 

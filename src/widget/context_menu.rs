@@ -393,7 +393,7 @@ where
         renderer: &Renderer,
     ) -> mouse::Interaction {
         if cursor.is_over(layout.bounds()) {
-            self.mouse_interaction_on_hover.unwrap_or({
+            self.mouse_interaction_on_hover.unwrap_or_else(|| {
                 self.base.as_widget().mouse_interaction(
                     &tree.children[0],
                     layout,

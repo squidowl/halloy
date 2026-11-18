@@ -1885,7 +1885,10 @@ pub(super) fn reconcile_message(
             } else {
                 messages[index] = message::Message {
                     history_id: messages[index].history_id,
-                    id: message.id().clone().or(messages[index].id.clone()),
+                    id: message
+                        .id()
+                        .clone()
+                        .or_else(|| messages[index].id.clone()),
                     ..message.into()
                 };
             }

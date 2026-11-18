@@ -106,6 +106,6 @@ mod serde_image_format {
         let s = String::deserialize(deserializer)?;
 
         ImageFormat::from_mime_type(s)
-            .ok_or(serde::de::Error::custom("invalid mime type"))
+            .ok_or_else(|| serde::de::Error::custom("invalid mime type"))
     }
 }

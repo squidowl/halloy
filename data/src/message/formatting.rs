@@ -731,36 +731,58 @@ impl Color {
 
     pub fn into_iced(self, styles: &theme::Styles) -> Option<iced_core::Color> {
         match self {
-            Color::White => styles.formatting.white.or(Some(color!(0xffffff))),
-            Color::Black => styles.formatting.black.or(Some(color!(0x000000))),
-            Color::Blue => styles.formatting.blue.or(Some(color!(0x00007f))),
-            Color::Green => styles.formatting.green.or(Some(color!(0x009300))),
-            Color::Red => styles.formatting.red.or(Some(color!(0xff0000))),
-            Color::Brown => styles.formatting.brown.or(Some(color!(0x7f0000))),
+            Color::White => {
+                styles.formatting.white.or_else(|| Some(color!(0xffffff)))
+            }
+            Color::Black => {
+                styles.formatting.black.or_else(|| Some(color!(0x000000)))
+            }
+            Color::Blue => {
+                styles.formatting.blue.or_else(|| Some(color!(0x00007f)))
+            }
+            Color::Green => {
+                styles.formatting.green.or_else(|| Some(color!(0x009300)))
+            }
+            Color::Red => {
+                styles.formatting.red.or_else(|| Some(color!(0xff0000)))
+            }
+            Color::Brown => {
+                styles.formatting.brown.or_else(|| Some(color!(0x7f0000)))
+            }
             Color::Magenta => {
-                styles.formatting.magenta.or(Some(color!(0x9c009c)))
+                styles.formatting.magenta.or_else(|| Some(color!(0x9c009c)))
             }
             Color::Orange => {
-                styles.formatting.orange.or(Some(color!(0xfc7f00)))
+                styles.formatting.orange.or_else(|| Some(color!(0xfc7f00)))
             }
             Color::Yellow => {
-                styles.formatting.yellow.or(Some(color!(0xffff00)))
+                styles.formatting.yellow.or_else(|| Some(color!(0xffff00)))
             }
-            Color::LightGreen => {
-                styles.formatting.lightgreen.or(Some(color!(0x00fc00)))
+            Color::LightGreen => styles
+                .formatting
+                .lightgreen
+                .or_else(|| Some(color!(0x00fc00))),
+            Color::Cyan => {
+                styles.formatting.cyan.or_else(|| Some(color!(0x009393)))
             }
-            Color::Cyan => styles.formatting.cyan.or(Some(color!(0x009393))),
-            Color::LightCyan => {
-                styles.formatting.lightcyan.or(Some(color!(0x00ffff)))
+            Color::LightCyan => styles
+                .formatting
+                .lightcyan
+                .or_else(|| Some(color!(0x00ffff))),
+            Color::LightBlue => styles
+                .formatting
+                .lightblue
+                .or_else(|| Some(color!(0x0000fc))),
+            Color::Pink => {
+                styles.formatting.pink.or_else(|| Some(color!(0xff00ff)))
             }
-            Color::LightBlue => {
-                styles.formatting.lightblue.or(Some(color!(0x0000fc)))
+            Color::Grey => {
+                styles.formatting.grey.or_else(|| Some(color!(0x7f7f7f)))
             }
-            Color::Pink => styles.formatting.pink.or(Some(color!(0xff00ff))),
-            Color::Grey => styles.formatting.grey.or(Some(color!(0x7f7f7f))),
-            Color::LightGrey => {
-                styles.formatting.lightgrey.or(Some(color!(0xd2d2d2)))
-            }
+            Color::LightGrey => styles
+                .formatting
+                .lightgrey
+                .or_else(|| Some(color!(0xd2d2d2))),
             Color::Code16 => Some(color!(0x470000)),
             Color::Code17 => Some(color!(0x472100)),
             Color::Code18 => Some(color!(0x474700)),

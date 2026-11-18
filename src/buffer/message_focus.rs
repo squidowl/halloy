@@ -557,7 +557,7 @@ impl FocusedMessage {
                         )
                     })
                     .filter(|url| !previews.contains_key(url))
-                    .map_or(Task::none(), |url| {
+                    .map_or_else(Task::none, |url| {
                         Task::done(scroll_view::Message::ContextMenu(
                             context_menu::Message::LoadUserAvatar(
                                 server.clone(),

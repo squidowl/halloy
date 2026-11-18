@@ -128,7 +128,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .as_ref()
         .ok()
         .map(|config| config.font.clone())
-        .or(Config::load_font())
+        .or_else(Config::load_font)
         .unwrap_or_default();
 
     // DANGER ZONE - font must be set using config
