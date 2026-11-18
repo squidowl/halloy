@@ -5,7 +5,6 @@ Added:
 - `sidebar.restore_on_launch` can restore queries and/or channels that were in the sidebar during the last session
 - `buffer.text_input.auto_format` can be set to token-only formatting or a limited set of markdown features (in addition to the existing: markdown-only formatting, all formatting, and no formatting options)
 - Sidebar typing indicators for channels
-- `buffer.typing.animation.unfocused_window` can allow typing indicators to animate when Halloy is unfocused
 
 Fixed:
 
@@ -22,6 +21,7 @@ Changed:
 - Default position right for sidebar typing indicators
 - Being kicked from a channel no longer closes the buffer
 - Disconnecting from a server no longer removes its channels and queries from the sidebar
+- `buffer.typing.animation.enabled` can now be set to `"focused"` (default), `"always"` and `"never"`
 
 Thanks:
 
