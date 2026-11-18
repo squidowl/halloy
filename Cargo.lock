@@ -2958,15 +2958,12 @@ dependencies = [
  "mundy",
  "netwatcher",
  "notify-rust",
- "nucleo-matcher",
  "objc2 0.6.5",
  "objc2-app-kit 0.3.2",
  "objc2-foundation 0.3.2",
  "open",
  "palette",
- "percent-encoding",
  "rand 0.10.3",
- "rand_chacha 0.10.0",
  "reqwest",
  "rfd",
  "rodio",
@@ -3968,11 +3965,7 @@ dependencies = [
  "futures",
  "interprocess",
  "log",
- "rand 0.10.3",
- "rand_chacha 0.10.0",
- "thiserror 2.0.21",
  "tokio",
- "url",
 ]
 
 [[package]]

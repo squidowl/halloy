@@ -72,11 +72,9 @@ tokio-stream = { workspace = true, features = ["fs"] }
 itertools = { workspace = true }
 emojis = { workspace = true }
 rand = { workspace = true }
-rand_chacha = { workspace = true }
 palette = { workspace = true }
 log = { workspace = true }
 uptime_lib = { workspace = true }
-nucleo-matcher = { workspace = true }
 reqwest = { workspace = true }
 const_format = { workspace = true }
 dirs = { workspace = true }
@@ -95,7 +93,6 @@ iced = { workspace = true, features = [
     "web-colors",
     "highlighter",
 ] }
-percent-encoding = { workspace = true }
 unicode-segmentation = { workspace = true }
 
 data = { version = "0.1.0", path = "data" }
