@@ -1490,6 +1490,24 @@ Enable spellcheck in the text input.
 enabled = true
 ```
 
+#### `suggestion_mode`
+
+How replacement suggestions are offered when spellcheck is enabled. Nickname, command, and emoji autocomplete still take priority over Tab.
+
+- `"none"` — underlines only
+- `"tab"` — <kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd> cycle replacements in place
+- `"context-menu"` — right-click Suggestions section (replacements + Add to dictionary)
+- `"both"` — Tab cycling and context-menu section
+
+```toml
+# Type: string
+# Values: "none", "tab", "context-menu", "both"
+# Default: "both"
+
+[buffer.text_input.spellcheck]
+suggestion_mode = "both"
+```
+
 #### `underline`
 
 Underline color: `spellcheck_misspelled.underline_color`, else the misspelled text color if set, else `text.error`.
