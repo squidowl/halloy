@@ -1590,22 +1590,26 @@ fn upstream_buffer_button<'a>(
         indicators.unread && config.sidebar.unread_indicator.title;
 
     let (can_show_typing, show_typing) =
-        if config.sidebar.show_typing(
-            TypingIndicatorBuffer::Channel,
-            show_highlight_icon,
-            show_unread_icon,
-        ) && let buffer::Upstream::Channel(server, channel) = &buffer
+        if config.buffer.typing.animation.is_enabled()
+            && config.sidebar.show_typing(
+                TypingIndicatorBuffer::Channel,
+                show_highlight_icon,
+                show_unread_icon,
+            )
+            && let buffer::Upstream::Channel(server, channel) = &buffer
         {
             (
                 true,
                 clients.get_server_show_typing(server)
                     && clients.has_channel_typing_users(server, channel),
             )
-        } else if config.sidebar.show_typing(
-            TypingIndicatorBuffer::Query,
-            show_highlight_icon,
-            show_unread_icon,
-        ) && let buffer::Upstream::Query(server, query) = &buffer
+        } else if config.buffer.typing.animation.is_enabled()
+            && config.sidebar.show_typing(
+                TypingIndicatorBuffer::Query,
+                show_highlight_icon,
+                show_unread_icon,
+            )
+            && let buffer::Upstream::Query(server, query) = &buffer
         {
             (
                 true,
