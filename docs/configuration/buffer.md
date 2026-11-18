@@ -1469,6 +1469,13 @@ When that style is unset, misspelled words use `text.primary` with normal weight
 
 Halloy uses the platform spellchecker (system APIs on Windows and macOS; Hunspell dictionaries on other Unix-like systems). If no dictionary is available, spellcheck does nothing (a warning may be logged).
 
+Words added via **Add to dictionary** are stored in the platform personal dictionary:
+
+- Linux: `$XDG_DATA_HOME/spellkit/<locale>.words` or `$HOME/.local/share/spellkit/<locale>.words`
+- Linux (Flatpak): `$HOME/.var/app/org.squidowl.halloy/data/spellkit/<locale>.words`
+- macOS: typically `$HOME/Library/Group Containers/group.com.apple.AppleSpell/Library/Spelling/LocalDictionary` (older macOS versions may use `$HOME/Library/Spelling/LocalDictionary`)
+- Windows: `%AppData%\Microsoft\Spelling\<locale>\default.dic`
+
 Words are not marked as misspelled when they are:
 
 - a channel name (text after a channel prefix such as `#`)
@@ -1489,6 +1496,24 @@ Enable spellcheck in the text input.
 
 [buffer.text_input.spellcheck]
 enabled = true
+```
+
+#### `suggestion_mode`
+
+How replacement suggestions are offered when spellcheck is enabled. Nickname, command, and emoji autocomplete still take priority over Tab.
+
+- `"none"` — underlines only
+- `"tab"` — <kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd> cycle replacements in place
+- `"context-menu"` — right-click Suggestions section (replacements + Add to dictionary; see personal dictionary locations above)
+- `"both"` — Tab cycling and context-menu section
+
+```toml
+# Type: string
+# Values: "none", "tab", "context-menu", "both"
+# Default: "context-menu"
+
+[buffer.text_input.spellcheck]
+suggestion_mode = "context-menu"
 ```
 
 #### `underline`
