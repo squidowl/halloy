@@ -54,6 +54,7 @@ const CHATHISTORY_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 const MODE_REQUEST_DELAY: Duration = Duration::from_millis(600);
 const MODE_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 const TYPING_TIMEOUT: Duration = Duration::from_secs(6);
+const SERVER_TIME_OFFSET_TIMEOUT: Duration = Duration::from_secs(10);
 // Upper bound on concurrently open IRCv3 batches. A server opens a batch with
 // `BATCH +<ref>` and must close it with `BATCH -<ref>`; without a ceiling a
 // malicious or buggy server could open batches without ever closing them and
@@ -163,6 +164,7 @@ enum ConnectionRole {
 pub struct ServerTimeTracking {
     latest: Timestamp,
     offset: SignedDuration,
+    delayed_since: Option<Instant>,
 }
 
 impl ServerTimeTracking {
@@ -170,23 +172,41 @@ impl ServerTimeTracking {
         Self {
             latest: server_time,
             offset: Timestamp::now().duration_until(server_time),
+            delayed_since: None,
         }
     }
 
     fn update(&mut self, server_time: Timestamp) {
         self.latest = self.latest.max(server_time);
-        self.offset = Timestamp::now().duration_until(server_time);
+
+        let offset = Timestamp::now().duration_until(server_time);
+
+        // A smaller offset usually means that the message took longer to reach
+        // us (e.g. network lag, or it is replayed) rather than that a clock
+        // has changed, so it is only used once no message has matched the
+        // tracked offset for a while.
+        if offset >= self.offset {
+            self.offset = offset;
+            self.delayed_since = None;
+        } else if self
+            .delayed_since
+            .get_or_insert_with(Instant::now)
+            .elapsed()
+            >= SERVER_TIME_OFFSET_TIMEOUT
+        {
+            *self = Self::new(server_time);
+        }
     }
 
     fn estimate_server_time(&self) -> Timestamp {
-        // Using the last seen offset between local and server-time should be
+        // Using the tracked offset between local and server-time should be
         // later than `latest`, unless the local clock has changed.
         (Timestamp::now() + self.offset).max(self.latest)
     }
 }
 
-/// Estimate server-time based on the most recent comparison between server-time
-/// and local time it was received.
+/// Estimate server-time based on the offset between server-time and the local
+/// time it was received.
 pub fn estimate_server_time(
     server_time_tracking: Option<ServerTimeTracking>,
 ) -> Timestamp {
