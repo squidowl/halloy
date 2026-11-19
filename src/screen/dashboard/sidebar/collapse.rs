@@ -3,7 +3,6 @@ use data::config::Config;
 use data::config::server::SidebarVisibility;
 use hashbrown::HashMap;
 
-use crate::dashboard::sidebar::ConnectionStatus;
 use crate::widget::Text;
 use crate::{icon, theme};
 
@@ -33,14 +32,10 @@ impl State {
         config: &Config,
         server: &Server,
         default: SidebarVisibility,
-        connection_status: &ConnectionStatus,
         has_members: bool,
         content_height: f32,
     ) -> Option<Disclosure> {
-        if !matches!(connection_status, ConnectionStatus::Connected { .. })
-            || !has_members
-            || !config.sidebar.collapse_button.enabled
-        {
+        if !has_members || !config.sidebar.collapse_button.enabled {
             return None;
         }
 

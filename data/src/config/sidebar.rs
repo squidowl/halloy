@@ -41,6 +41,7 @@ pub struct Sidebar {
     pub order_channels_by: OrderChannelsBy,
     pub channel_name_casing: Option<ChannelNameCasing>,
     pub internal_buffers: InternalBuffers,
+    pub restore_on_launch: RestoreOnLaunch,
 }
 
 impl Sidebar {
@@ -615,6 +616,47 @@ pub enum OrderChannelsBy {
     Name,
     NameAndPrefix,
     Config,
+}
+
+#[derive(Debug, Copy, Clone, Default, PartialEq, Eq)]
+pub enum RestoreOnLaunch {
+    #[default]
+    None,
+    Queries,
+    Channels,
+    All,
+}
+
+impl<'de> Deserialize<'de> for RestoreOnLaunch {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        UntaggedEnumVisitor::new()
+            .bool(|value| match value {
+                true => Ok(RestoreOnLaunch::All),
+                false => Ok(RestoreOnLaunch::None),
+            })
+            .string(|string| match string {
+                "queries" => Ok(RestoreOnLaunch::Queries),
+                "channels" => Ok(RestoreOnLaunch::Channels),
+                _ => Err(serde::de::Error::invalid_value(
+                    serde::de::Unexpected::Str(string),
+                    &"\"queries\", \"channels\", or a boolean",
+                )),
+            })
+            .deserialize(deserializer)
+    }
+}
+
+impl RestoreOnLaunch {
+    pub fn includes_channels(&self) -> bool {
+        matches!(self, RestoreOnLaunch::Channels | RestoreOnLaunch::All)
+    }
+
+    pub fn includes_queries(&self) -> bool {
+        matches!(self, RestoreOnLaunch::Queries | RestoreOnLaunch::All)
+    }
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, PartialEq, Eq)]

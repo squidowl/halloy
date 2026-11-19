@@ -141,6 +141,28 @@ channels = ["#rust", "#halloy", "#halloy-test"]
 # Result: #rust → #halloy → #halloy-test → (any other channels are sorted by "name")
 ```
 
+## `restore_on_launch`
+
+Restore the buffers that were in the sidebar during the last session.
+
+- `true`: Restore queries and channels
+- `false`: Restore nothing
+- `"queries"`: Restore only queries
+- `"channels"`: Restore only channels
+
+Channels are not automatically joined, this is instead covered by
+[`servers.<name>.channels`](/configuration/servers#channels) and
+[`servers.<name>.queries`](/configuration/servers#queries).
+
+```toml
+# Type: boolean or string
+# Values: true, false, "queries", "channels"
+# Default: false
+
+[sidebar]
+restore_on_launch = true
+```
+
 ## `internal_buffers` {#internal-buffers}
 
 Configure which internal buffers appear in the sidebar and whether they are
