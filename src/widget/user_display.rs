@@ -455,14 +455,11 @@ impl UserDisplayData {
                     right: None,
                 });
             } else {
-                let right_length = self
-                    .right
-                    .as_ref()
-                    .map(|right| {
+                let right_length =
+                    self.right.as_ref().map_or_default(|right| {
                         UnicodeSegmentation::graphemes(right.as_str(), true)
                             .count()
-                    })
-                    .unwrap_or_default();
+                    });
 
                 if truncation_length
                     < left_length.saturating_add(2).saturating_add(right_length)

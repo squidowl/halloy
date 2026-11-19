@@ -75,10 +75,7 @@ impl From<Font> for iced::Font {
 }
 
 pub fn line_height(config: &config::Font) -> LineHeight {
-    config
-        .line_height
-        .map(LineHeight::Relative)
-        .unwrap_or_default()
+    config.line_height.map_or_default(LineHeight::Relative)
 }
 
 fn default_font() -> iced::Font {

@@ -283,18 +283,18 @@ pub fn view<'a>(
 
     let cursor = state.content.cursor();
     let line = cursor.position.line + 1;
-    let column = state
-        .content
-        .line(cursor.position.line)
-        .map(|line| {
-            unicode_segmentation::UnicodeSegmentation::graphemes(
-                &line.text[..cursor.position.index],
-                true,
-            )
-            .count()
-        })
-        .unwrap_or_default()
-        + 1;
+    let column =
+        state
+            .content
+            .line(cursor.position.line)
+            .map_or_default(|line| {
+                unicode_segmentation::UnicodeSegmentation::graphemes(
+                    &line.text[..cursor.position.index],
+                    true,
+                )
+                .count()
+            })
+            + 1;
     let position = text(format!("{line}:{column}"))
         .style(theme::text::secondary)
         .font_maybe(theme::font_style::secondary(theme).map(font::get));

@@ -665,10 +665,9 @@ fn message_focus_target_indices(
                 .reply_preview
                 .as_ref()
                 .and_then(|reply_preview| reply_preview.user.as_ref())
-                .map(|user| {
+                .map_or_default(|user| {
                     message_content::leading_nick_skip(fragments, user.as_str())
                 })
-                .unwrap_or_default()
         } else {
             0
         };

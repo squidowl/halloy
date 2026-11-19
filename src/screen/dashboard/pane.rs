@@ -103,8 +103,7 @@ impl Pane {
                     {
                         let users = clients
                             .get_channel_users(&state.server, &state.target)
-                            .map(ChannelUsers::len)
-                            .unwrap_or_default();
+                            .map_or_default(ChannelUsers::len);
 
                         text(format!(" ({mode}) @ {server} - {users} users"))
                             .wrapping(Wrapping::None)
@@ -142,8 +141,7 @@ impl Pane {
                     let base = format!("{base} @ {server}");
                     let channel_count = clients
                         .get_channel_discovery_manager(server)
-                        .map(data::channel_discovery::Manager::amount_of_channels)
-                        .unwrap_or_default();
+                        .map_or_default(data::channel_discovery::Manager::amount_of_channels);
                     if channel_count > 0 {
                         text(format!("{base} - {channel_count} channels"))
                             .wrapping(Wrapping::None)
