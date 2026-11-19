@@ -1887,8 +1887,9 @@ pub(super) fn reconcile_message(
                     history_id: messages[index].history_id,
                     id: message
                         .id()
-                        .clone()
-                        .or_else(|| messages[index].id.clone()),
+                        .as_ref()
+                        .or_else(|| messages[index].id.as_ref())
+                        .cloned(),
                     ..message.into()
                 };
             }
