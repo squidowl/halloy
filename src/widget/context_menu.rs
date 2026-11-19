@@ -33,45 +33,15 @@ pub enum ToggleBehavior {
     Close,
 }
 
-pub fn context_menu<'a, T, Message, Theme, Renderer>(
+pub fn context_menu<'a, Message, Theme, Renderer>(
     activation_button: MouseButton,
     anchor: Anchor,
     toggle_behavior: ToggleBehavior,
     mouse_interaction_on_hover: Option<mouse::Interaction>,
     base: impl Into<Element<'a, Message, Theme, Renderer>>,
-    entries: Vec<T>,
-    entry: impl Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a,
+    menu: impl FnOnce() -> Element<'a, Message, Theme, Renderer> + 'a,
 ) -> ContextMenu<'a, Message, Theme, Renderer>
 where
-    T: Copy + 'a,
-    Message: 'a,
-    Theme: 'a + container::Catalog + Catalog,
-    <Theme as container::Catalog>::Class<'a>:
-        From<container::StyleFn<'a, Theme>>,
-    Renderer: advanced::Renderer + 'a,
-{
-    lazy_context_menu(
-        activation_button,
-        anchor,
-        toggle_behavior,
-        mouse_interaction_on_hover,
-        base,
-        move || entries,
-        entry,
-    )
-}
-
-pub fn lazy_context_menu<'a, T, Message, Theme, Renderer>(
-    activation_button: MouseButton,
-    anchor: Anchor,
-    toggle_behavior: ToggleBehavior,
-    mouse_interaction_on_hover: Option<mouse::Interaction>,
-    base: impl Into<Element<'a, Message, Theme, Renderer>>,
-    entries: impl FnOnce() -> Vec<T> + 'a,
-    entry: impl Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a,
-) -> ContextMenu<'a, Message, Theme, Renderer>
-where
-    T: Copy + 'a,
     Message: 'a,
     Theme: 'a + container::Catalog + Catalog,
     <Theme as container::Catalog>::Class<'a>:
@@ -80,11 +50,7 @@ where
 {
     ContextMenu {
         base: base.into(),
-        menu: LazyCell::new(Box::new(move || {
-            let entries = entries();
-
-            build_menu(&entries, &entry)
-        })),
+        menu: LazyCell::new(Box::new(menu)),
         on_open: None,
         activation_button: match activation_button {
             MouseButton::Left => iced::mouse::Button::Left,
@@ -490,9 +456,9 @@ where
     }
 }
 
-fn build_menu<'a, T, Message, Theme, Renderer>(
-    entries: &[T],
-    entry: &(dyn Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a),
+pub fn items<'a, T, Message, Theme, Renderer>(
+    entries: impl AsRef<[T]>,
+    entry: impl Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a,
 ) -> Element<'a, Message, Theme, Renderer>
 where
     T: Copy + 'a,
@@ -502,6 +468,7 @@ where
         From<container::StyleFn<'a, Theme>>,
     Renderer: advanced::Renderer + 'a,
 {
+    let entries = entries.as_ref();
     let build_menu =
         |length,
          view: &(
@@ -517,8 +484,8 @@ where
         };
 
     double_pass(
-        build_menu(Length::Shrink, entry),
-        build_menu(Length::Fill, entry),
+        build_menu(Length::Shrink, &entry),
+        build_menu(Length::Fill, &entry),
     )
 }
 

@@ -366,69 +366,70 @@ pub fn view<'a>(
         context_menu::ToggleBehavior::KeepOpen,
         Some(mouse::Interaction::Text),
         text_input,
-        Actions::list(),
-        move |menu, length| {
-            let context_button =
-                |title: Text<'a>,
-                 keybind: Option<data::shortcut::KeyBind>,
-                 message: Option<Message>| {
-                    button(
-                        row![
-                            title,
-                            keybind.map(|kb| {
-                                text(format!("({kb})"))
-                                    .size(theme::TEXT_SIZE - 2.0)
-                                    .style(theme::text::secondary)
-                                    .font_maybe(
-                                        theme::font_style::secondary(theme)
-                                            .map(font::get),
-                                    )
-                            }),
-                        ]
-                        .spacing(8)
-                        .align_y(iced::Alignment::Center),
-                    )
-                    .width(length)
-                    .padding(config.context_menu.padding.entry)
-                    .on_press_maybe(message)
-                    .into()
-                };
+        move || {
+            context_menu::items(Actions::list(), move |menu, length| {
+                let context_button =
+                    |title: Text<'a>,
+                     keybind: Option<data::shortcut::KeyBind>,
+                     message: Option<Message>| {
+                        button(
+                            row![
+                                title,
+                                keybind.map(|kb| {
+                                    text(format!("({kb})"))
+                                        .size(theme::TEXT_SIZE - 2.0)
+                                        .style(theme::text::secondary)
+                                        .font_maybe(
+                                            theme::font_style::secondary(theme)
+                                                .map(font::get),
+                                        )
+                                }),
+                            ]
+                            .spacing(8)
+                            .align_y(iced::Alignment::Center),
+                        )
+                        .width(length)
+                        .padding(config.context_menu.padding.entry)
+                        .on_press_maybe(message)
+                        .into()
+                    };
 
-            match menu {
-                Actions::Cut => context_button(
-                    text("Cut"),
-                    Some(shortcut::cut()),
-                    state.input_content.selection().map(|_| Message::Cut),
-                ),
-                Actions::Copy => context_button(
-                    text("Copy"),
-                    Some(shortcut::copy()),
-                    state.input_content.selection().map(|_| Message::Copy),
-                ),
-                Actions::CopyAll => context_button(
-                    text("Copy All"),
-                    None,
-                    if !state.input_content.text().is_empty() {
-                        Some(Message::CopyAll)
-                    } else {
-                        None
-                    },
-                ),
-                Actions::SelectAll => context_button(
-                    text("Select All"),
-                    Some(shortcut::select_all()),
-                    if !state.input_content.text().is_empty() {
-                        Some(Message::SelectAll)
-                    } else {
-                        None
-                    },
-                ),
-                Actions::Paste => context_button(
-                    text("Paste"),
-                    Some(shortcut::paste()),
-                    Some(Message::Paste),
-                ),
-            }
+                match menu {
+                    Actions::Cut => context_button(
+                        text("Cut"),
+                        Some(shortcut::cut()),
+                        state.input_content.selection().map(|_| Message::Cut),
+                    ),
+                    Actions::Copy => context_button(
+                        text("Copy"),
+                        Some(shortcut::copy()),
+                        state.input_content.selection().map(|_| Message::Copy),
+                    ),
+                    Actions::CopyAll => context_button(
+                        text("Copy All"),
+                        None,
+                        if !state.input_content.text().is_empty() {
+                            Some(Message::CopyAll)
+                        } else {
+                            None
+                        },
+                    ),
+                    Actions::SelectAll => context_button(
+                        text("Select All"),
+                        Some(shortcut::select_all()),
+                        if !state.input_content.text().is_empty() {
+                            Some(Message::SelectAll)
+                        } else {
+                            None
+                        },
+                    ),
+                    Actions::Paste => context_button(
+                        text("Paste"),
+                        Some(shortcut::paste()),
+                        Some(Message::Paste),
+                    ),
+                }
+            })
         },
     )
     .into();

@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 use hashbrown::HashMap;
@@ -21,9 +20,9 @@ use super::context_menu;
 use super::selectable_text::{Catalog, Interaction, Style, StyleFn, selection};
 
 /// Creates a new [`Rich`] text widget with the provided spans.
-pub fn selectable_rich_text<'a, Message, Link, Entry, Theme, Renderer>(
+pub fn selectable_rich_text<'a, Message, Link, Theme, Renderer>(
     spans: impl Into<Cow<'a, [Span<'a, Link>]>>,
-) -> Rich<'a, Message, Link, Entry, Theme, Renderer>
+) -> Rich<'a, Message, Link, Theme, Renderer>
 where
     Link: self::Link + 'static,
     Theme: Catalog,
@@ -38,7 +37,6 @@ pub struct Rich<
     'a,
     Message,
     Link = (),
-    Entry = (),
     Theme = iced::Theme,
     Renderer = iced::Renderer,
 > where
@@ -58,11 +56,10 @@ pub struct Rich<
     on_link: Option<Box<dyn Fn(Link) -> Message + 'a>>,
 
     context_menus: Vec<Element<'a, Message, Theme, Renderer>>,
-    marker: PhantomData<Entry>,
 }
 
-impl<'a, Message, Link, Entry, Theme, Renderer>
-    Rich<'a, Message, Link, Entry, Theme, Renderer>
+impl<'a, Message, Link, Theme, Renderer>
+    Rich<'a, Message, Link, Theme, Renderer>
 where
     Link: self::Link + 'static,
     Theme: Catalog,
@@ -83,7 +80,6 @@ where
             on_link: None,
 
             context_menus: vec![],
-            marker: PhantomData,
         }
     }
 
@@ -191,40 +187,32 @@ where
 
     pub fn context_menu(
         mut self,
-        link_entries: impl Fn(&Link) -> Vec<Entry> + 'a,
-        view: impl Fn(&Link, Entry, Length) -> Element<'a, Message, Theme, Renderer>
-        + 'a,
+        menu: impl Fn(Link) -> Element<'a, Message, Theme, Renderer> + 'a,
     ) -> Self
     where
-        Entry: Copy + 'a,
         Message: 'a,
         Theme: 'a + container::Catalog + context_menu::Catalog,
         <Theme as container::Catalog>::Class<'a>:
             From<container::StyleFn<'a, Theme>>,
         Renderer: 'a,
     {
-        let link_entries = Arc::new(link_entries);
-        let view = Arc::new(view);
+        let menu = Arc::new(menu);
 
         self.context_menus = self
             .spans
             .iter()
             .map(|span| {
                 if let Some(link) = span.link.as_ref() {
-                    let link_entries = Arc::clone(&link_entries);
-                    let view = Arc::clone(&view);
-
-                    let entries_link = link.clone();
+                    let menu = Arc::clone(&menu);
                     let link = link.clone();
 
-                    return context_menu::lazy_context_menu(
+                    return context_menu::context_menu(
                         context_menu::MouseButton::Right,
                         context_menu::Anchor::Cursor,
                         context_menu::ToggleBehavior::KeepOpen,
                         None,
                         widget::Space::new(),
-                        move || link_entries(&entries_link),
-                        move |entry, length| view(&link, entry, length),
+                        move || menu(link),
                     )
                     .into();
                 }
@@ -237,8 +225,8 @@ where
     }
 }
 
-impl<Message, Link, Entry, Theme, Renderer> Default
-    for Rich<'_, Message, Link, Entry, Theme, Renderer>
+impl<Message, Link, Theme, Renderer> Default
+    for Rich<'_, Message, Link, Theme, Renderer>
 where
     Link: self::Link + 'static,
     Theme: Catalog,
@@ -301,8 +289,8 @@ impl Snapshot {
     }
 }
 
-impl<'a, Message, Link, Entry, Theme, Renderer> Widget<Message, Theme, Renderer>
-    for Rich<'a, Message, Link, Entry, Theme, Renderer>
+impl<'a, Message, Link, Theme, Renderer> Widget<Message, Theme, Renderer>
+    for Rich<'a, Message, Link, Theme, Renderer>
 where
     Message: 'a,
     Link: self::Link + 'static,
@@ -973,8 +961,8 @@ where
     })
 }
 
-impl<'a, Message, Link, Entry, Theme, Renderer> FromIterator<Span<'a, Link>>
-    for Rich<'a, Message, Link, Entry, Theme, Renderer>
+impl<'a, Message, Link, Theme, Renderer> FromIterator<Span<'a, Link>>
+    for Rich<'a, Message, Link, Theme, Renderer>
 where
     Link: self::Link + 'static,
     Theme: Catalog,
@@ -988,20 +976,19 @@ where
     }
 }
 
-impl<'a, Message, Link, Entry, Theme, Renderer>
-    From<Rich<'a, Message, Link, Entry, Theme, Renderer>>
+impl<'a, Message, Link, Theme, Renderer>
+    From<Rich<'a, Message, Link, Theme, Renderer>>
     for Element<'a, Message, Theme, Renderer>
 where
     Message: 'a,
     Link: self::Link + 'static,
-    Entry: 'a,
     Theme: 'a + container::Catalog + context_menu::Catalog + Catalog,
     <Theme as container::Catalog>::Class<'a>:
         From<container::StyleFn<'a, Theme>>,
     Renderer: text::Renderer + 'a,
 {
     fn from(
-        text: Rich<'a, Message, Link, Entry, Theme, Renderer>,
+        text: Rich<'a, Message, Link, Theme, Renderer>,
     ) -> Element<'a, Message, Theme, Renderer> {
         Element::new(text)
     }

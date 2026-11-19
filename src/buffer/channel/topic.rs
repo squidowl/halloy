@@ -137,8 +137,8 @@ pub fn view<'a>(
             theme::font_style::topic,
             Option::<fn(Color) -> Color>::None,
             move |link| {
-                context_menu::Entry::link_list(
-                    link,
+                let entries = context_menu::Entry::link_list(
+                    &link,
                     Some(|user| {
                         let user_in_channel =
                             users.and_then(|users| users.resolve(user));
@@ -159,42 +159,47 @@ pub fn view<'a>(
                     Some(|server, channel| {
                         channels_context.channel_entries(server, channel)
                     }),
-                )
-            },
-            move |link, entry, length| {
-                let context = Context::link(
-                    link,
-                    None,
-                    Some(|user| {
-                        let current_user =
-                            users.and_then(|users| users.resolve(user));
-
-                        UserContext {
-                            server,
-                            prefix,
-                            channel: Some(channel),
-                            registry,
-                            avatar: context_menu::user_avatar(
-                                user,
-                                registry,
-                                previews,
-                                config.metadata.avatar_size(),
-                            ),
-                            user,
-                            current_user,
-                            relayed_by: None,
-                            message: None,
-                        }
-                    }),
-                    Some(|url| UrlContext { url, message: None }),
-                    Some(|server, channel| {
-                        channels_context.channel_context(server, channel, None)
-                    }),
                 );
 
-                entry
-                    .view(context, length, config, theme, false)
-                    .map(Message::ContextMenu)
+                crate::widget::context_menu::items(
+                    entries,
+                    move |entry, length| {
+                        let context = Context::link(
+                            &link,
+                            None,
+                            Some(|user| {
+                                let current_user =
+                                    users.and_then(|users| users.resolve(user));
+
+                                UserContext {
+                                    server,
+                                    prefix,
+                                    channel: Some(channel),
+                                    registry,
+                                    avatar: context_menu::user_avatar(
+                                        user,
+                                        registry,
+                                        previews,
+                                        config.metadata.avatar_size(),
+                                    ),
+                                    user,
+                                    current_user,
+                                    relayed_by: None,
+                                    message: None,
+                                }
+                            }),
+                            Some(|url| UrlContext { url, message: None }),
+                            Some(|server, channel| {
+                                channels_context
+                                    .channel_context(server, channel, None)
+                            }),
+                        );
+
+                        entry
+                            .view(context, length, config, theme, false)
+                            .map(Message::ContextMenu)
+                    },
+                )
             },
             None,
             config,
