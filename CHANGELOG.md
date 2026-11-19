@@ -4,6 +4,7 @@ Added:
 
 - `buffer.text_input.auto_format` can be set to token-only formatting or a limited set of markdown features (in addition to the existing: markdown-only formatting, all formatting, and no formatting options)
 - Sidebar typing indicators for channels
+- Ctrl+Click (Cmd+Click on macOS), Shift+Click, or middle-click opens an embedded image in browser
 
 Fixed:
 
