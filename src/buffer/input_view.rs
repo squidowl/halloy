@@ -16,7 +16,7 @@ use data::history::{self, model, storage};
 use data::input::{self, CodeFence, RawInput};
 use data::rate_limit::TokenPriority;
 use data::server::Server;
-use data::target::Target;
+use data::target::{self, Target};
 use data::user::{ChannelUsers, Nick};
 use data::{Config, User, command, message, metadata, shortcut};
 use iced::Length::Fit;
@@ -66,6 +66,10 @@ pub enum Event {
         was_join_command: bool,
     },
     OpenBuffers {
+        server: Server,
+        targets: Vec<(Target, BufferAction)>,
+    },
+    ShowBuffers {
         server: Server,
         targets: Vec<(Target, BufferAction)>,
     },
@@ -214,7 +218,7 @@ fn paste_key_binding(
 pub fn view<'a>(
     state: &'a State,
     our_user: Option<&User>,
-    channel_state: Option<client::ChannelState>,
+    channel: Option<(&'a target::Channel, client::ChannelState)>,
     channel_users: Option<&'a ChannelUsers>,
     server: &'a Server,
     registry: &'a dyn metadata::Registry,
@@ -501,7 +505,7 @@ pub fn view<'a>(
         reply_bar(reply_preview, channel_users, registry, config, theme)
     });
 
-    let joined = channel_state.is_none_or(|channel_state| {
+    let joined = channel.is_none_or(|(_, channel_state)| {
         channel_state == client::ChannelState::Joined
     });
 
@@ -522,8 +526,8 @@ pub fn view<'a>(
     .padding(8);
 
     let join_banner: Element<'a, Message> =
-        if channel_state == Some(client::ChannelState::Parted) {
-            join_banner(config)
+        if let Some((channel, client::ChannelState::Parted)) = channel {
+            join_banner(channel, config)
         } else {
             column![].into()
         };
@@ -694,7 +698,10 @@ fn reply_bar<'a>(
     .into()
 }
 
-fn join_banner<'a>(config: &'a Config) -> Element<'a, Message> {
+fn join_banner<'a>(
+    channel: &target::Channel,
+    config: &'a Config,
+) -> Element<'a, Message> {
     let font_size = config.font.size.map_or(theme::TEXT_SIZE, f32::from);
 
     let banner = column![
@@ -702,7 +709,7 @@ fn join_banner<'a>(config: &'a Config) -> Element<'a, Message> {
         container(
             row![
                 container(
-                    text("You have left this channel")
+                    text(format!("Viewing history of {channel}"))
                         .size(font_size - 1.0)
                         .line_height(1.0)
                         .style(theme::text::primary),
@@ -2045,6 +2052,30 @@ impl State {
                         return (
                             Task::none(),
                             Some(Event::OpenBuffers {
+                                server: buffer.as_server().clone(),
+                                targets: targets
+                                    .into_iter()
+                                    .map(|target| match target {
+                                        Target::Channel(_) => (
+                                            target,
+                                            config
+                                                .actions
+                                                .buffer
+                                                .message_channel,
+                                        ),
+                                        Target::Query(_) => (
+                                            target,
+                                            config.actions.buffer.message_user,
+                                        ),
+                                    })
+                                    .collect(),
+                            }),
+                        );
+                    }
+                    command::Internal::ShowBuffers(targets) => {
+                        return (
+                            Task::none(),
+                            Some(Event::ShowBuffers {
                                 server: buffer.as_server().clone(),
                                 targets: targets
                                     .into_iter()

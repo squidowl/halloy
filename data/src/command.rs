@@ -36,6 +36,7 @@ pub enum Command {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Internal {
     OpenBuffers(Vec<Target>),
+    ShowBuffers(Vec<Target>),
     LeaveBuffers(Vec<Target>, Option<String>),
     ClearBuffer,
     /// Part the current channel and join a new one.
@@ -257,6 +258,7 @@ pub enum Kind {
     Me,
     Whois,
     Part,
+    Leave,
     Topic,
     Kick,
     Mode,
@@ -288,6 +290,7 @@ pub enum Kind {
     MassMessage,
     Exec,
     Search,
+    Show,
     Raw,
 }
 
@@ -300,10 +303,11 @@ impl FromStr for Kind {
             "motd" => Ok(Kind::Motd),
             "nick" => Ok(Kind::Nick),
             "quit" | "disconnect" => Ok(Kind::Quit),
-            "msg" | "query" => Ok(Kind::Msg),
+            "msg" | "query" | "open" => Ok(Kind::Msg),
             "me" | "describe" => Ok(Kind::Me),
             "whois" => Ok(Kind::Whois),
-            "part" | "leave" => Ok(Kind::Part),
+            "part" | "close" => Ok(Kind::Part),
+            "leave" => Ok(Kind::Leave),
             "topic" | "t" => Ok(Kind::Topic),
             "kick" => Ok(Kind::Kick),
             "mode" | "m" => Ok(Kind::Mode),
@@ -336,6 +340,7 @@ impl FromStr for Kind {
             "massmessage" | "mm" => Ok(Kind::MassMessage),
             "exec" => Ok(Kind::Exec),
             "search" => Ok(Kind::Search),
+            "show" => Ok(Kind::Show),
             _ => Err(()),
         }
     }
@@ -738,6 +743,91 @@ fn parse_command(
                             config.buffer.commands.part.default_reason.clone()
                         }),
                     )))
+                })
+            }
+            Kind::Leave => {
+                validated::<0, 2, true>(args, |_, [channel_list, reason]| {
+                    let chantypes =
+                        isupport::get_chantypes_or_default(isupport);
+
+                    let channels = if let Some(channel_list) = channel_list {
+                        let casemapping =
+                            isupport::get_casemapping_or_default(isupport);
+                        let statusmsg =
+                            isupport::get_statusmsg_or_default(isupport);
+
+                        let Ok(channels) = channel_list
+                            .split(',')
+                            .map(|channel| {
+                                target::Channel::parse(
+                                    channel,
+                                    chantypes,
+                                    statusmsg,
+                                    casemapping,
+                                )
+                            })
+                            .collect::<Result<Vec<_>, _>>()
+                        else {
+                            return Err(Error::InvalidChannelName {
+                                requirements: fmt_channel_name_requirements(
+                                    chantypes,
+                                ),
+                            });
+                        };
+
+                        channels
+                    } else {
+                        let Some(channel) = buffer
+                            .and_then(Upstream::target)
+                            .and_then(Target::to_channel)
+                        else {
+                            // If not in a channel then a channel argument is
+                            // required
+                            return Err(Error::IncorrectArgCount {
+                                min: 1,
+                                max: 2,
+                                actual: 0,
+                            });
+                        };
+
+                        vec![channel]
+                    };
+
+                    if let Some(isupport::Parameter::CHANNELLEN(max_len)) =
+                        isupport.get(&isupport::Kind::CHANNELLEN)
+                    {
+                        let max_len = *max_len as usize;
+
+                        if let Some(channel) = channels
+                            .iter()
+                            .find(|channel| channel.as_str().len() > max_len)
+                        {
+                            return Err(Error::ArgTooLong {
+                                name: "channel in channels",
+                                len: channel.as_str().len(),
+                                max_len,
+                            });
+                        }
+                    }
+
+                    // sending PART directly parts without closing the buffer
+                    Ok(Command::Irc(
+                        Irc::Part(
+                            channels
+                                .iter()
+                                .map(target::Channel::as_str)
+                                .join(","),
+                            reason.or_else(|| {
+                                config
+                                    .buffer
+                                    .commands
+                                    .part
+                                    .default_reason
+                                    .clone()
+                            }),
+                        ),
+                        None,
+                    ))
                 })
             }
             Kind::Topic => {
@@ -1568,6 +1658,26 @@ fn parse_command(
             Kind::Search => {
                 Ok(Command::Internal(Internal::Search(raw.trim().to_string())))
             }
+            Kind::Show => validated::<1, 0, false>(args, |[targets], _| {
+                let casemapping =
+                    isupport::get_casemapping_or_default(isupport);
+                let chantypes = isupport::get_chantypes_or_default(isupport);
+                let statusmsg = isupport::get_statusmsg_or_default(isupport);
+
+                Ok(Command::Internal(Internal::ShowBuffers(
+                    targets
+                        .split(',')
+                        .map(|target| {
+                            Target::parse(
+                                target,
+                                chantypes,
+                                statusmsg,
+                                casemapping,
+                            )
+                        })
+                        .collect(),
+                )))
+            }),
             Kind::Detach => {
                 if !features.detach {
                     return Err(Error::CommandNotAvailable {

@@ -96,7 +96,7 @@ impl Pane {
                         ChannelState::Offline | ChannelState::Joining => {
                             Some("(Offline)")
                         }
-                        ChannelState::Parted => Some("(Parted)"),
+                        ChannelState::Parted => Some("(History)"),
                         ChannelState::Joined => None,
                     };
 

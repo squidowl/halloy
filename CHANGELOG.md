@@ -3,6 +3,11 @@
 Added:
 
 - `sidebar.restore_on_launch` can restore queries and/or channels that were in the sidebar during the last session
+- It is now possible to leave a channel or browse its history while not being connected to it
+  - `/leave` parts while keeping the window open.
+  - `/close` is now the alias for `/part`
+  - `/open` is now an alias for `/msg`
+  - `/show` opens the history of a target without joining it
 - `buffer.text_input.auto_format` can be set to token-only formatting or a limited set of markdown features (in addition to the existing: markdown-only formatting, all formatting, and no formatting options)
 - Sidebar typing indicators for channels
 
@@ -13,6 +18,7 @@ Fixed:
 - Sent messages no longer briefly appear above the latest received messages when the server clock is ahead
 - Typing indicator only animates when window is focused
 - Utilize ISUPPORT parameters when parsing mode characters
+- Chat history requests refused by the server no longer stay pending
 
 Changed:
 
@@ -21,6 +27,8 @@ Changed:
 - Default position right for sidebar typing indicators
 - Being kicked from a channel no longer closes the buffer
 - Disconnecting from a server no longer removes its channels and queries from the sidebar
+- Sidebar "Leave channel" now parts without closing the buffer
+- Selecting a channel in channel discovery shows its history without joining
 
 Thanks:
 

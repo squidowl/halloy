@@ -3942,6 +3942,27 @@ impl Client {
                 }
             }
             Command::FAIL(command, code, context, _) => {
+                // a refused request never sends its batch, so clear it here
+                if command == "CHATHISTORY"
+                    && let Some(context) = context.as_ref()
+                {
+                    if context
+                        .first()
+                        .is_some_and(|sub| sub.eq_ignore_ascii_case("TARGETS"))
+                    {
+                        self.clear_chathistory_request(None);
+                    } else if let Some(target) = context.get(1) {
+                        let target = Target::parse(
+                            target,
+                            self.chantypes(),
+                            self.statusmsg(),
+                            self.casemapping(),
+                        );
+
+                        self.clear_chathistory_request(Some(&target));
+                    }
+                }
+
                 if command == "METADATA"
                     && code == "KEY_INVALID"
                     && let Some(key) =
@@ -4674,6 +4695,20 @@ impl Client {
         );
     }
 
+    pub fn request_latest_chathistory(
+        &mut self,
+        target: Target,
+        priority: TokenPriority,
+        storage: &mut storage::Manager,
+    ) {
+        self.request_chathistory_reference(
+            target,
+            storage::ReferenceQuery::Before(Timestamp::now()),
+            priority,
+            storage,
+        );
+    }
+
     fn request_chathistory_reference(
         &mut self,
         target: Target,
@@ -4722,14 +4757,19 @@ impl Client {
         self.chathistory_lookups.remove(&lookup.target);
         let subcommand = match lookup.query {
             storage::ReferenceQuery::Oldest => {
-                let Some(reference) = reference else {
-                    return;
-                };
-                ChathistorySubcommand::Before(
-                    lookup.target,
-                    reference,
-                    self.chathistory_limit(),
-                )
+                // with no local history to anchor on, start from the latest
+                match reference {
+                    Some(reference) => ChathistorySubcommand::Before(
+                        lookup.target,
+                        reference,
+                        self.chathistory_limit(),
+                    ),
+                    None => ChathistorySubcommand::Latest(
+                        lookup.target,
+                        None,
+                        self.chathistory_limit(),
+                    ),
+                }
             }
             storage::ReferenceQuery::Before(_) => {
                 ChathistorySubcommand::Latest(

@@ -81,6 +81,7 @@ pub enum Message {
 pub enum Event {
     ContextMenu(context_menu::Event),
     OpenBuffers(data::Server, Vec<(Target, BufferAction)>),
+    ShowBuffers(data::Server, Vec<(Target, BufferAction)>),
     OpenInternalBuffer(buffer::Internal),
     OpenServer(String),
     Reconnect(data::Server),
@@ -407,6 +408,9 @@ impl Buffer {
                     channel::Event::OpenBuffers(server, targets) => {
                         Event::OpenBuffers(server, targets)
                     }
+                    channel::Event::ShowBuffers(server, targets) => {
+                        Event::ShowBuffers(server, targets)
+                    }
                     channel::Event::OpenInternalBuffer(buffer) => {
                         Event::OpenInternalBuffer(buffer)
                     }
@@ -497,6 +501,9 @@ impl Buffer {
                     server::Event::OpenBuffers(server, targets) => {
                         Event::OpenBuffers(server, targets)
                     }
+                    server::Event::ShowBuffers(server, targets) => {
+                        Event::ShowBuffers(server, targets)
+                    }
                     server::Event::LeaveBuffers(targets, reason) => {
                         Event::LeaveBuffers(targets, reason)
                     }
@@ -553,6 +560,9 @@ impl Buffer {
                     }
                     query::Event::OpenBuffers(server, targets) => {
                         Event::OpenBuffers(server, targets)
+                    }
+                    query::Event::ShowBuffers(server, targets) => {
+                        Event::ShowBuffers(server, targets)
                     }
                     query::Event::OpenInternalBuffer(buffer) => {
                         Event::OpenInternalBuffer(buffer)
@@ -631,7 +641,7 @@ impl Buffer {
                         server,
                         channel,
                         buffer_action,
-                    ) => Event::OpenBuffers(
+                    ) => Event::ShowBuffers(
                         server,
                         vec![(Target::Channel(channel), buffer_action)],
                     ),

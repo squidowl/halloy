@@ -31,6 +31,7 @@ pub enum Message {
 pub enum Event {
     ContextMenu(context_menu::Event),
     OpenBuffers(Server, Vec<(Target, BufferAction)>),
+    ShowBuffers(Server, Vec<(Target, BufferAction)>),
     OpenInternalBuffer(buffer::Internal),
     OpenServer(String),
     Reconnect(Server),
@@ -217,7 +218,7 @@ pub fn view<'a>(
         input_view::view(
             &state.input_view,
             our_user.or(our_nick_user.as_ref()),
-            Some(channel_state),
+            Some((channel, channel_state)),
             users,
             &state.server,
             registry,
@@ -510,6 +511,10 @@ impl Channel {
                         server,
                         targets,
                     }) => (command, Some(Event::OpenBuffers(server, targets))),
+                    Some(input_view::Event::ShowBuffers {
+                        server,
+                        targets,
+                    }) => (command, Some(Event::ShowBuffers(server, targets))),
                     Some(input_view::Event::LeaveBuffers {
                         targets,
                         reason,
