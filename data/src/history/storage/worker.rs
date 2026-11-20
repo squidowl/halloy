@@ -573,11 +573,15 @@ impl State {
                         .rekey_bouncer_network(&old, &new)
                         .map_err(Error::from)
                 }) {
-                    Ok(()) => self.unload(new),
+                    Ok(()) => {
+                        self.unload(new, Message::BouncerNetworkRenamed);
+                    }
                     Err(error) => self.fail(error),
                 }
             }
-            Command::UnloadBouncerNetwork(server) => self.unload(server),
+            Command::UnloadBouncerNetwork(server) => {
+                self.unload(server, Message::BouncerNetworkUnloaded);
+            }
             Command::MarkReadOnExit(kinds) => {
                 let result = retry(|| {
                     let mut transaction = database.transaction()?;
@@ -618,9 +622,9 @@ impl State {
         }
     }
 
-    fn unload(&mut self, server: Server) {
+    fn unload(&mut self, server: Server, message: fn(Server) -> Message) {
         self.ready.retain(|kind| kind.as_server() != Some(&server));
-        self.emit(Message::BouncerNetworkUnloaded(server));
+        self.emit(message(server));
     }
 
     fn emit(&self, message: Message) {
