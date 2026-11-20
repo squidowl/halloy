@@ -1920,13 +1920,21 @@ impl Halloy {
             tick,
             streams,
         ];
-        if self.config.buffer.typing.animation.enabled
-            && matches!(
-                &self.screen,
-                Screen::Dashboard(dashboard)
-            if dashboard.has_typing_activity_in_focused_window(&self.clients, &self.config, self.focused_window)
-            )
-        {
+
+        if match self.config.buffer.typing.animation.enabled {
+            config::buffer::typing::AnimationEnabled::Never => false,
+            config::buffer::typing::AnimationEnabled::Focused => {
+                matches!(&self.screen, Screen::Dashboard(dashboard)
+                    if self.focused_window.is_some_and(|_| dashboard.has_typing_activity(
+                        &self.clients,
+                        &self.config,
+                        self.focused_window)))
+            }
+            config::buffer::typing::AnimationEnabled::Always => {
+                matches!(&self.screen, Screen::Dashboard(dashboard)
+                    if dashboard.has_typing_activity(&self.clients, &self.config, None))
+            }
+        } {
             subscriptions.push(
                 iced::time::every(Duration::from_millis(50))
                     .map(Message::AnimationTick),

@@ -21,6 +21,7 @@ Changed:
 - Default position right for sidebar typing indicators
 - Being kicked from a channel no longer closes the buffer
 - Disconnecting from a server no longer removes its channels and queries from the sidebar
+- `buffer.typing.animation.enabled` can now be set to `"focused"` (default), `"always"` and `"never"`
 
 Thanks:
 
