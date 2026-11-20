@@ -771,6 +771,18 @@ impl Map {
         }
     }
 
+    pub fn request_latest_chathistory(
+        &mut self,
+        server: &Server,
+        target: Target,
+        priority: TokenPriority,
+        storage: &mut storage::Manager,
+    ) {
+        if let Some(client) = self.client_mut(server) {
+            client.request_latest_chathistory(target, priority, storage);
+        }
+    }
+
     pub fn clear_chathistory_request(
         &mut self,
         server: &Server,

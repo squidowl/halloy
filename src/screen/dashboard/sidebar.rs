@@ -47,6 +47,7 @@ pub enum Message {
     Swap(window::Id, pane_grid::Pane),
     Detach(buffer::Upstream),
     Join(buffer::Upstream),
+    Part(buffer::Upstream),
     Leave(buffer::Upstream),
     CloseAllQueries(Server, Vec<target::Query>),
     ToggleCommandBar,
@@ -81,6 +82,7 @@ pub enum Event {
     Swap(window::Id, pane_grid::Pane),
     Detach(buffer::Upstream),
     Join(buffer::Upstream),
+    Part(buffer::Upstream),
     Leave(buffer::Upstream),
     CloseAllQueries(Server, Vec<target::Query>),
     ToggleCommandBar,
@@ -439,6 +441,7 @@ impl Sidebar {
                 (Task::none(), Some(Event::Detach(buffer)))
             }
             Message::Join(buffer) => (Task::none(), Some(Event::Join(buffer))),
+            Message::Part(buffer) => (Task::none(), Some(Event::Part(buffer))),
             Message::Leave(buffer) => {
                 (Task::none(), Some(Event::Leave(buffer)))
             }
@@ -1305,6 +1308,7 @@ enum Entry {
     Swap(window::Id, pane_grid::Pane),
     Detach,
     Join,
+    Part,
     Leave,
     Remove,
     ToggleCollapse,
@@ -1373,13 +1377,17 @@ impl Entry {
 
         if connected {
             match channel_state {
-                Some(client::ChannelState::Parted) => entries.push(Join),
-                Some(client::ChannelState::Joined) if supports_detach => {
-                    entries.push(Detach);
+                Some(client::ChannelState::Parted) => {
+                    entries.extend([Join, Leave]);
                 }
-                _ => {}
+                Some(client::ChannelState::Joined) => {
+                    if supports_detach {
+                        entries.push(Detach);
+                    }
+                    entries.push(Part);
+                }
+                _ => entries.push(Leave),
             }
-            entries.push(Leave);
         } else if connection_status.is_some()
             && matches!(
                 buffer,
@@ -2011,16 +2019,13 @@ fn upstream_buffer_context_menu<'a>(
                 Entry::Join => {
                     ("Join channel", Some(Message::Join(buffer.clone())))
                 }
+                Entry::Part => {
+                    ("Leave channel", Some(Message::Part(buffer.clone())))
+                }
                 Entry::Leave => (
                     match &buffer {
                         buffer::Upstream::Server(_) => "Disconnect from server",
-                        buffer::Upstream::Channel(_, _)
-                            if channel_state
-                                != Some(client::ChannelState::Joined) =>
-                        {
-                            "Close channel"
-                        }
-                        buffer::Upstream::Channel(_, _) => "Leave channel",
+                        buffer::Upstream::Channel(_, _) => "Close channel",
                         buffer::Upstream::Query(_, _) => "Close query",
                     },
                     Some(Message::Leave(buffer.clone())),

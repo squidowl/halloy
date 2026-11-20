@@ -47,6 +47,7 @@ pub enum Message {
 pub enum Event {
     ContextMenu(context_menu::Event),
     OpenBuffers(data::server::Server, Vec<(Target, BufferAction)>),
+    ShowBuffers(data::server::Server, Vec<(Target, BufferAction)>),
     OpenInternalBuffer(buffer::Internal),
     OpenServer(String),
     Reconnect(data::server::Server),
@@ -525,6 +526,10 @@ impl Server {
                         server,
                         targets,
                     }) => (command, Some(Event::OpenBuffers(server, targets))),
+                    Some(input_view::Event::ShowBuffers {
+                        server,
+                        targets,
+                    }) => (command, Some(Event::ShowBuffers(server, targets))),
                     Some(input_view::Event::LeaveBuffers {
                         targets,
                         reason,

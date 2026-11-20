@@ -1092,6 +1092,19 @@ fn connected_command_list<'a>(
 
             part_command(default, channel_len)
         },
+        // LEAVE
+        {
+            let default = current_target
+                .and_then(|target| target.as_channel())
+                .map(target::Channel::to_string);
+
+            let channel_len = match isupport.get(&isupport::Kind::CHANNELLEN) {
+                Some(isupport::Parameter::CHANNELLEN(len)) => Some(*len),
+                _ => None,
+            };
+
+            leave_command(default, channel_len)
+        },
         // TOPIC
         {
             let default = current_target
@@ -1310,6 +1323,8 @@ fn connected_command_list<'a>(
         },
         // SEARCH
         search_command(),
+        // SHOW
+        show_command(),
         // EXEC
         exec_command(),
         // CLEAR
@@ -1555,6 +1570,8 @@ fn disconnected_command_list(server: &Server) -> Vec<Command> {
         exec_command(),
         // SEARCH
         search_command(),
+        // SHOW
+        show_command(),
         // CONNECT
         {
             Command {
@@ -1590,6 +1607,20 @@ fn search_command() -> Command {
             tooltip: Some(
                 "words to search for; from:nick and in:#channel narrow the search"
                     .to_string(),
+            ),
+        }],
+        subcommands: None,
+    }
+}
+
+fn show_command() -> Command {
+    Command {
+        title: "SHOW".into(),
+        args: vec![Argument {
+            text: "targets".into(),
+            kind: ArgumentKind::Required,
+            tooltip: Some(
+                "channels and/or queries, comma-separated".to_string(),
             ),
         }],
         subcommands: None,
@@ -1700,7 +1731,12 @@ impl Command {
             ),
             "notice" => Cow::Borrowed("Send a notice message to a target"),
             "nick" => Cow::Owned(format!("Change your nickname on {server}")),
-            "part" => Cow::Borrowed("Leave channel(s) with an optional reason"),
+            "part" => Cow::Borrowed(
+                "Leave and close target(s) with an optional reason",
+            ),
+            "leave" => Cow::Borrowed(
+                "Leave channel(s) with an optional reason, keeping the buffer open",
+            ),
             "quit" => Cow::Owned(format!(
                 "Disconnect from {server} with an optional reason"
             )),
@@ -1764,6 +1800,9 @@ impl Command {
             "cleartopic" => Cow::Borrowed("Clear the topic of a channel"),
             "sysinfo" => Cow::Borrowed("Send system information"),
             "search" => Cow::Borrowed("Search messages in all buffers"),
+            "show" => {
+                Cow::Borrowed("Open the history of target without joining")
+            }
             "detach" => Cow::Borrowed(
                 "Hide the channel, leaving the bouncer's connection to the channel active",
             ),
@@ -1791,8 +1830,8 @@ impl Command {
             "join" => vec!["j"],
             "me" => vec!["describe"],
             "mode" => vec!["m"],
-            "msg" => vec!["query"],
-            "part" => vec!["leave"],
+            "msg" => vec!["query", "open"],
+            "part" => vec!["close"],
             "quit" => vec!["disconnect"],
             "topic" => vec!["t"],
             "format" => vec!["f"],
@@ -3318,6 +3357,42 @@ fn part_command(default: Option<String>, max_len: Option<u16>) -> Command {
                     ArgumentKind::Required
                 },
                 tooltip: Some(targets_tooltip),
+            },
+            Argument {
+                text: "reason".into(),
+                kind: ArgumentKind::Optional { skipped: false },
+                tooltip: None,
+            },
+        ],
+        subcommands: None,
+    }
+}
+
+fn leave_command(default: Option<String>, max_len: Option<u16>) -> Command {
+    let mut channels_tooltip = String::from("comma-separated");
+
+    if let Some(max_len) = max_len {
+        channels_tooltip
+            .push_str(format!("\nmaximum length of each: {max_len}").as_str());
+    }
+
+    if let Some(ref default) = default {
+        channels_tooltip.push_str(
+            format!("\nmay be omitted (default: {default})").as_str(),
+        );
+    }
+
+    Command {
+        title: "LEAVE".into(),
+        args: vec![
+            Argument {
+                text: "channels".into(),
+                kind: if default.is_some() {
+                    ArgumentKind::Optional { skipped: false }
+                } else {
+                    ArgumentKind::Required
+                },
+                tooltip: Some(channels_tooltip),
             },
             Argument {
                 text: "reason".into(),

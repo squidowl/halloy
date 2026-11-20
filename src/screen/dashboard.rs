@@ -674,6 +674,27 @@ impl Dashboard {
 
                         (Task::none(), None)
                     }
+                    sidebar::Event::Part(buffer) => {
+                        if let buffer::Upstream::Channel(_, channel) = &buffer {
+                            clients.send_from_buffer(
+                                &buffer,
+                                command::Irc::Part(
+                                    channel.to_string(),
+                                    config
+                                        .buffer
+                                        .commands
+                                        .part
+                                        .default_reason
+                                        .clone(),
+                                ),
+                                None,
+                                None,
+                                TokenPriority::User,
+                            );
+                        }
+
+                        (Task::none(), None)
+                    }
                     sidebar::Event::Leave(buffer) => {
                         self.leave_buffer(clients, storage, config, buffer)
                     }
@@ -2414,6 +2435,35 @@ impl Dashboard {
                         buffer_action,
                         config,
                         true,
+                    ));
+                }
+
+                return (Task::batch(tasks), None);
+            }
+            buffer::Event::ShowBuffers(server, targets) => {
+                let mut tasks = vec![];
+
+                for (target, buffer_action) in targets {
+                    // joined channels already request chathistory on JOIN
+                    if let Target::Channel(channel) = &target
+                        && !clients.contains_channel(&server, channel)
+                    {
+                        clients.request_latest_chathistory(
+                            &server,
+                            target.clone(),
+                            TokenPriority::High,
+                            storage,
+                        );
+                    }
+
+                    tasks.push(self.open_target(
+                        server.clone(),
+                        target,
+                        clients,
+                        storage,
+                        buffer_action,
+                        config,
+                        false,
                     ));
                 }
 

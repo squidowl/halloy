@@ -106,6 +106,7 @@ pub fn on_connect(
                             // channel_discovery, search, connect, or reconnect
                             // when called on connection.
                             command::Internal::ClearBuffer
+                            | command::Internal::ShowBuffers(_)
                             | command::Internal::ChannelDiscovery
                             | command::Internal::Search(_)
                             | command::Internal::Connect(_)

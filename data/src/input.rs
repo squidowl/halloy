@@ -97,6 +97,7 @@ pub fn parse(
                         | command::Internal::Connect(_)
                         | command::Internal::Exec(_)
                         | command::Internal::Search(_)
+                        | command::Internal::ShowBuffers(_)
                 ) {
                     return Ok(Parsed::Internal(command));
                 } else {
