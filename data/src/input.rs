@@ -16,14 +16,12 @@ use tokio::time::Duration;
 use crate::capabilities::{Capabilities, MultilineBatchKind};
 use crate::config::buffer::text_input::{AutoFormat, MarkdownFeatures};
 use crate::features::Features;
-use crate::history::reroute::RerouteRules;
 use crate::history::storage;
 use crate::message::formatting;
 use crate::target::Target;
-use crate::user::{ChannelUsers, Nick};
+use crate::user::Nick;
 use crate::{
-    Command, Config, Message, Server, User, buffer, command, environment,
-    isupport, message,
+    Command, Config, Server, buffer, command, environment, isupport, message,
 };
 
 const INPUT_HISTORY_LENGTH: usize = 100;
@@ -276,6 +274,13 @@ impl Input {
         }
     }
 
+    pub fn into_command(
+        self,
+        buffer: &buffer::Upstream,
+    ) -> Option<command::Irc> {
+        self.content.command(buffer)
+    }
+
     pub fn warning(&self) -> Option<&command::Warning> {
         match &self.content {
             Content::Text(_) => None,
@@ -285,32 +290,6 @@ impl Input {
 
     pub fn server(&self) -> &Server {
         self.buffer.as_server()
-    }
-
-    pub fn messages(
-        &self,
-        user: User,
-        channel_users: Option<&ChannelUsers>,
-        server: &Server,
-        chantypes: &[char],
-        statusmsg: &[char],
-        casemapping: isupport::CaseMap,
-        supports_echoes: bool,
-        reroute_rules: &RerouteRules,
-    ) -> Option<Vec<Message>> {
-        self.content.command(&self.buffer).and_then(|command| {
-            command.messages(
-                user,
-                channel_users,
-                server,
-                chantypes,
-                statusmsg,
-                casemapping,
-                supports_echoes,
-                reroute_rules,
-                Some(&self.buffer),
-            )
-        })
     }
 
     pub fn targets(

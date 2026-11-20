@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 use std::collections::VecDeque;
-use std::convert;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use std::{convert, slice};
 
 use data::buffer::{self, BuffersContext, Upstream};
 use data::capabilities::{
@@ -131,6 +131,7 @@ pub enum Message {
         to_nick: Nick,
     },
     ClearDraftReply,
+    JoinChannel,
     NavigateFocus(FocusDirection, bool),
     ExitFocus,
     FocusAction(FocusAction),
@@ -213,6 +214,7 @@ fn paste_key_binding(
 pub fn view<'a>(
     state: &'a State,
     our_user: Option<&User>,
+    channel_state: Option<client::ChannelState>,
     channel_users: Option<&'a ChannelUsers>,
     server: &'a Server,
     registry: &'a dyn metadata::Registry,
@@ -499,9 +501,13 @@ pub fn view<'a>(
         reply_bar(reply_preview, channel_users, registry, config, theme)
     });
 
+    let joined = channel_state.is_none_or(|channel_state| {
+        channel_state == client::ChannelState::Joined
+    });
+
     let input_row = container(
         row![]
-            .extend(maybe_our_user(our_user, registry, config, theme))
+            .extend(maybe_our_user(our_user, joined, registry, config, theme))
             .push(wrapped_input)
             .extend(maybe_upload_spinner.into_iter().chain(maybe_upload_button))
             .spacing(INPUT_ROW_SPACING)
@@ -515,8 +521,15 @@ pub fn view<'a>(
     )
     .padding(8);
 
-    let styled_input =
-        container(input_row).style(theme::container::buffer_text_input);
+    let join_banner: Element<'a, Message> =
+        if channel_state == Some(client::ChannelState::Parted) {
+            join_banner(config)
+        } else {
+            column![].into()
+        };
+
+    let styled_input = container(column![join_banner, input_row])
+        .style(theme::container::buffer_text_input);
 
     let input_column = column![
         if let Some(bar) = maybe_reply_bar {
@@ -556,7 +569,9 @@ pub fn view<'a>(
 
         let overlay = double_pass(
             row![]
-                .extend(maybe_our_user(our_user, registry, config, theme))
+                .extend(maybe_our_user(
+                    our_user, joined, registry, config, theme,
+                ))
                 .push(overlay())
                 .spacing(INPUT_ROW_SPACING),
             row![Space::new().width(Length::Fill), overlay()],
@@ -577,6 +592,7 @@ pub fn view<'a>(
 
 fn maybe_our_user<'a>(
     our_user: Option<&User>,
+    joined: bool,
     registry: &'a dyn metadata::Registry,
     config: &'a Config,
     theme: &'a Theme,
@@ -600,7 +616,7 @@ fn maybe_our_user<'a>(
                 vec![
                     container(user_display.into_element(
                         user,
-                        user.is_away(),
+                        user.is_away() || !joined,
                         false,
                         None,
                         None,
@@ -676,6 +692,39 @@ fn reply_bar<'a>(
     )
     .padding([2, 8])
     .into()
+}
+
+fn join_banner<'a>(config: &'a Config) -> Element<'a, Message> {
+    let font_size = config.font.size.map_or(theme::TEXT_SIZE, f32::from);
+
+    let banner = column![
+        rule::horizontal(1.0).style(theme::rule::primary),
+        container(
+            row![
+                container(
+                    text("You have left this channel")
+                        .size(font_size - 1.0)
+                        .line_height(1.0)
+                        .style(theme::text::primary),
+                )
+                .padding([4, 0])
+                .width(Length::Fill),
+                button(text("Join").size(font_size - 1.0).line_height(1.0))
+                    .padding(5)
+                    .style(|theme, status| {
+                        theme::button::secondary(theme, status, false)
+                    })
+                    .on_press(Message::JoinChannel),
+            ]
+            .spacing(8)
+            .align_y(Alignment::Center),
+        )
+        .padding([4, 6])
+        .style(theme::container::buffer_background),
+        rule::horizontal(1.0).style(theme::rule::primary),
+    ];
+
+    container(banner).padding([0, 1]).into()
 }
 
 fn notice_view<'a, 'b, Message: 'a>(
@@ -1225,17 +1274,14 @@ impl State {
             // `Dashboard::handle_event` to allow global state to be considered.
             Message::Escape => (Task::none(), None),
             Message::SendCommand { buffer, command } => {
-                let input = data::Input::from_command(buffer.clone(), command)
-                    .encoded();
-
                 // Send command.
-                if let Some(input) = input {
-                    clients.send_from_buffer(
-                        &buffer,
-                        input,
-                        TokenPriority::User,
-                    );
-                }
+                clients.send_from_buffer(
+                    &buffer,
+                    command,
+                    None,
+                    Some(storage.get_reroute_rules()),
+                    TokenPriority::User,
+                );
 
                 (Task::none(), None)
             }
@@ -1503,6 +1549,13 @@ impl State {
             }
             Message::ClearDraftReply => {
                 let _ = self.clear_draft_reply(buffer, storage, config);
+
+                (self.focus(), None)
+            }
+            Message::JoinChannel => {
+                if let Upstream::Channel(server, channel) = buffer {
+                    clients.join(server, slice::from_ref(channel));
+                }
 
                 (self.focus(), None)
             }
@@ -1935,9 +1988,9 @@ impl State {
             })
             .collect::<Vec<_>>();
 
-        let encoded = inputs
-            .iter()
-            .filter_map(data::Input::encoded)
+        let commands = inputs
+            .into_iter()
+            .filter_map(|input| data::Input::into_command(input, buffer))
             .collect::<Vec<_>>();
 
         let reply_id = self
@@ -1945,143 +1998,22 @@ impl State {
             .as_ref()
             .map(|input::DraftReply { id, .. }| id);
 
-        let labeled_response_context = clients
-            .send_multiline_batch_from_buffer(
-                buffer,
-                encoded,
-                TokenPriority::User,
-                reply_id,
+        let storage_update = clients.send_multiline_batch_from_buffer(
+            buffer,
+            commands,
+            reply_id,
+            storage.get_reroute_rules(),
+            TokenPriority::User,
+        );
+
+        if let Some(storage_update) = storage_update {
+            storage.write(
+                vec![storage_update],
+                clients,
+                buffers_context,
+                focused_window,
+                config,
             );
-
-        if let Some(nick) = clients.nickname(buffer.as_server()) {
-            let mut user = nick.to_owned().into();
-            let mut channel_users = None;
-
-            let chantypes =
-                clients.get_server_chantypes_or_default(buffer.as_server());
-            let statusmsg =
-                clients.get_server_statusmsg_or_default(buffer.as_server());
-            let casemapping =
-                clients.get_server_casemapping_or_default(buffer.as_server());
-            let supports_echoes =
-                clients.get_server_supports_echoes(buffer.as_server());
-
-            // Resolve our attributes if sending this message in a channel
-            if let buffer::Upstream::Channel(server, channel) = &buffer {
-                channel_users = clients.get_channel_users(server, channel);
-
-                if let Some(user_with_attributes) =
-                    clients.resolve_user_attributes(server, channel, &user)
-                {
-                    user = user_with_attributes.clone();
-                }
-            }
-
-            if let Some(mut message) = inputs
-                .into_iter()
-                .filter_map(|input| {
-                    input.messages(
-                        user.clone(),
-                        channel_users,
-                        buffer.as_server(),
-                        chantypes,
-                        statusmsg,
-                        casemapping,
-                        supports_echoes,
-                        storage.get_reroute_rules(),
-                    )
-                })
-                .flatten()
-                .reduce(|mut batch_message, message| {
-                    match (&mut batch_message.content, message.content) {
-                        (
-                            message::Content::Plain(batch_text),
-                            message::Content::Plain(message_text),
-                        ) => {
-                            batch_text.push('\n');
-                            batch_text.push_str(message_text.as_str());
-                        }
-                        (
-                            message::Content::Plain(batch_text),
-                            message::Content::Fragments(message_fragments),
-                        ) => {
-                            batch_text.push('\n');
-                            let mut fragments = vec![message::Fragment::Text(
-                                batch_text.to_string(),
-                            )];
-                            fragments.extend(message_fragments);
-
-                            batch_message.content =
-                                message::Content::Fragments(fragments);
-                        }
-                        (
-                            message::Content::Fragments(batch_fragments),
-                            message::Content::Plain(message_text),
-                        ) => {
-                            batch_fragments.push(message::Fragment::Text(
-                                format!("\n{message_text}"),
-                            ));
-                        }
-                        (
-                            message::Content::Fragments(batch_fragments),
-                            message::Content::Fragments(message_fragments),
-                        ) => {
-                            batch_fragments.push(message::Fragment::Text(
-                                "\n".to_string(),
-                            ));
-                            batch_fragments.extend(message_fragments);
-                        }
-                        (message::Content::Log(_), _)
-                        | (_, message::Content::Log(_)) => (),
-                    }
-
-                    match (
-                        batch_message.as_command_mut(),
-                        message.direction.as_command(),
-                    ) {
-                        (
-                            Some(command::Irc::Msg(_, batch_text)),
-                            Some(command::Irc::Msg(_, text)),
-                        )
-                        | (
-                            Some(command::Irc::Notice(_, batch_text)),
-                            Some(command::Irc::Notice(_, text)),
-                        ) => {
-                            batch_text.push('\n');
-                            batch_text.push_str(text.as_str());
-                        }
-                        _ => (),
-                    }
-
-                    batch_message
-                })
-            {
-                if let Some(input::DraftReply { id: reply_id, .. }) =
-                    &self.draft_reply
-                {
-                    message.reply_to = Some(reply_id.clone());
-                }
-
-                let message_with_context = message::MessageWithContext {
-                    inner: message,
-                    highlight: None,
-                    historical: false,
-                    labeled_response_context: None,
-                    notification_allowed: false,
-                }
-                .with_labeled_response_context(labeled_response_context);
-
-                storage.write(
-                    vec![storage::Update::Message(
-                        Some(buffer.as_server().clone()),
-                        message_with_context,
-                    )],
-                    clients,
-                    buffers_context,
-                    focused_window,
-                    config,
-                );
-            }
         }
 
         self.reply_preview = None;
@@ -2185,16 +2117,19 @@ impl State {
                         };
 
                         // Part channel. Might not exist if we execute on a query/server.
-                        let part_command =
-                            buffer.as_channel().and_then(|channel| {
-                                data::Input::from_command(
-                                    buffer.clone(),
-                                    command::Irc::Part(
-                                        channel.as_str().to_string(),
-                                        message,
-                                    ),
+                        let part_command = buffer
+                            .as_channel()
+                            .filter(|channel| {
+                                clients.contains_channel(
+                                    buffer.as_server(),
+                                    channel,
                                 )
-                                .encoded()
+                            })
+                            .map(|channel| {
+                                command::Irc::Part(
+                                    channel.as_str().to_string(),
+                                    message,
+                                )
                             });
 
                         // Send part command.
@@ -2202,6 +2137,8 @@ impl State {
                             clients.send_from_buffer(
                                 buffer,
                                 part_command,
+                                None,
+                                None,
                                 TokenPriority::User,
                             );
                         }
@@ -2241,7 +2178,7 @@ impl State {
                             casemapping,
                         );
 
-                        let event = has_channel_argument.then_some({
+                        let event = has_channel_argument.then(|| {
                             let buffer_action = match buffer {
                                 // If it's a channel, we want to replace it when hopping to a new channel.
                                 Upstream::Channel(..) => {
@@ -2252,6 +2189,21 @@ impl State {
                                     config.actions.buffer.message_channel
                                 }
                             };
+
+                            // replaced channel is closed so its PART doesnt keep it open
+                            if let Some(channel) =
+                                buffer.as_channel().filter(|channel| {
+                                    target.as_channel() != Some(*channel)
+                                })
+                            {
+                                storage.show_in_sidebar(
+                                    history::Kind::Channel(
+                                        buffer.as_server().clone(),
+                                        channel.clone(),
+                                    ),
+                                    false,
+                                );
+                            }
 
                             Event::OpenBuffers {
                                 server: buffer.as_server().clone(),
@@ -2387,100 +2339,6 @@ impl State {
             }
         };
 
-        let labeled_response_context =
-            if let Some(mut encoded) = input.encoded() {
-                let reply_id = self
-                    .draft_reply
-                    .as_ref()
-                    .map(|input::DraftReply { id, .. }| id);
-
-                encoded.set_reply_to(reply_id);
-
-                clients.send_from_buffer(buffer, encoded, TokenPriority::User)
-            } else {
-                None
-            };
-
-        if let Some(nick) = clients.nickname(buffer.as_server()) {
-            let mut messages_with_context = vec![];
-
-            let mut user = nick.to_owned().into();
-            let mut channel_users = None;
-
-            let chantypes =
-                clients.get_server_chantypes_or_default(buffer.as_server());
-            let statusmsg =
-                clients.get_server_statusmsg_or_default(buffer.as_server());
-            let casemapping =
-                clients.get_server_casemapping_or_default(buffer.as_server());
-            let supports_echoes =
-                clients.get_server_supports_echoes(buffer.as_server());
-
-            // Resolve our attributes if sending this message in a channel
-            if let buffer::Upstream::Channel(server, channel) = &buffer {
-                channel_users = clients.get_channel_users(server, channel);
-
-                if let Some(user_with_attributes) =
-                    clients.resolve_user_attributes(server, channel, &user)
-                {
-                    user = user_with_attributes.clone();
-                }
-            }
-
-            if let Some(messages) = input.messages(
-                user,
-                channel_users,
-                buffer.as_server(),
-                chantypes,
-                statusmsg,
-                casemapping,
-                supports_echoes,
-                storage.get_reroute_rules(),
-            ) {
-                for mut message in messages {
-                    if let Some(input::DraftReply { id: reply_id, .. }) =
-                        &self.draft_reply
-                    {
-                        message.reply_to = Some(reply_id.clone());
-                    }
-
-                    messages_with_context.push(
-                        message::MessageWithContext {
-                            inner: message,
-                            highlight: None,
-                            historical: false,
-                            labeled_response_context: None,
-                            notification_allowed: false,
-                        }
-                        .with_labeled_response_context(
-                            labeled_response_context.clone(),
-                        ),
-                    );
-                }
-            }
-
-            if !messages_with_context.is_empty() {
-                storage.write(
-                    messages_with_context
-                        .into_iter()
-                        .map(|message| {
-                            storage::Update::Message(
-                                Some(buffer.as_server().clone()),
-                                message,
-                            )
-                        })
-                        .collect(),
-                    clients,
-                    buffers_context,
-                    focused_window,
-                    config,
-                );
-            }
-        }
-
-        self.reply_preview = None;
-        self.draft_reply = None;
-
         let (open_buffers, was_join_command) =
             if let Some(command::Irc::Join(targets, _)) = input.command() {
                 let chantypes =
@@ -2512,6 +2370,34 @@ impl State {
             } else {
                 (vec![], false)
             };
+
+        let storage_updates = if let Some(command) = input.into_command(buffer)
+        {
+            clients.send_from_buffer(
+                buffer,
+                command,
+                self.draft_reply
+                    .as_ref()
+                    .map(|input::DraftReply { id, .. }| id),
+                Some(storage.get_reroute_rules()),
+                TokenPriority::User,
+            )
+        } else {
+            vec![]
+        };
+
+        if !storage_updates.is_empty() {
+            storage.write(
+                storage_updates,
+                clients,
+                buffers_context,
+                focused_window,
+                config,
+            );
+        }
+
+        self.reply_preview = None;
+        self.draft_reply = None;
 
         (
             Task::none(),
@@ -2853,18 +2739,16 @@ impl State {
             return;
         };
 
-        let encoded = data::Input::from_command(
-            buffer.clone(),
+        clients.send_from_buffer(
+            buffer,
             command::Irc::Typing {
                 target: target.to_string(),
                 value: status,
             },
-        )
-        .encoded();
-
-        if let Some(encoded) = encoded {
-            clients.send_from_buffer(buffer, encoded, TokenPriority::Low);
-        }
+            None,
+            None,
+            TokenPriority::Low,
+        );
     }
 
     fn can_send_typing_status(

@@ -2,7 +2,9 @@
 
 Added:
 
+- `sidebar.restore_on_launch` can restore queries and/or channels that were in the sidebar during the last session
 - `buffer.text_input.auto_format` can be set to token-only formatting or a limited set of markdown features (in addition to the existing: markdown-only formatting, all formatting, and no formatting options)
+- Sidebar typing indicators for channels
 - Support for `soju.im/bouncer-networks-notify`
 - Sidebar shows the bouncer's upstream connection status for bouncer networks
 
@@ -10,15 +12,21 @@ Fixed:
 
 - Localization of default date separators and timestamp context menu formats
 - Context menu for condensed messages in the summary format
+- Sent messages no longer briefly appear above the latest received messages when the server clock is ahead
+- Typing indicator only animates when window is focused
+- Utilize ISUPPORT parameters when parsing mode characters
 
 Changed:
 
 - Supported strftime formats; new list of supported specifiers is viewable at <https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html#conversion-specifications>
 - Markdown link formatting is only applied if the contents are link-shaped (specifically adheres to the [autolink](https://spec.commonmark.org/0.31.2/#autolink) format)
+- Default position right for sidebar typing indicators
+- Being kicked from a channel no longer closes the buffer
+- Disconnecting from a server no longer removes its channels and queries from the sidebar
 
 Thanks:
 
-- Contributions: @auronandace. @sjm42, @furudean
+- Contributions: @auronandace, @sjm42, @kasper93, @furudean
 - Feature requests: @sebbu2, @dimaguy
 
 # 2026.10 (2026-11-03)

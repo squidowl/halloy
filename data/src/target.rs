@@ -1,12 +1,13 @@
 use std::hash::Hash;
-use std::sync::Arc;
 use std::{cmp, fmt};
 
+use ecow::{EcoVec, eco_vec};
 use equivalent::Equivalent;
 use irc::proto;
+use irc::string::CaseMapped;
 use serde::{Deserialize, Serialize};
 
-use crate::user::{Nick, NickRef, User};
+use crate::user::{Nick, User};
 use crate::{isupport, message};
 
 #[derive(Debug, Clone, Copy)]
@@ -160,16 +161,12 @@ impl Target {
         if let Some((prefixes, channel)) =
             proto::parse_channel_from_target(target, chantypes, statusmsg)
         {
-            Target::Channel(Channel::from(ChannelData {
+            Target::Channel(Channel {
                 prefixes,
-                normalized: casemapping.normalize(&channel),
-                raw: target.to_string(),
-            }))
+                casemapped: CaseMapped::from_string(channel, casemapping),
+            })
         } else {
-            Target::Query(Query::from(QueryData {
-                normalized: casemapping.normalize(target),
-                raw: target.to_string(),
-            }))
+            Target::Query(Query(CaseMapped::from_string(target, casemapping)))
         }
     }
 }
@@ -265,12 +262,6 @@ impl From<&Nick> for Target {
     }
 }
 
-impl From<NickRef<'_>> for Target {
-    fn from(nickref: NickRef) -> Self {
-        Target::Query(Query::from(nickref))
-    }
-}
-
 impl TryFrom<message::Target> for Target {
     type Error = ();
 
@@ -284,28 +275,19 @@ impl TryFrom<message::Target> for Target {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct ChannelData {
-    prefixes: Vec<char>,
-    normalized: String,
-    raw: String,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Channel(Arc<ChannelData>);
-
-impl From<ChannelData> for Channel {
-    fn from(inner: ChannelData) -> Self {
-        Channel(Arc::new(inner))
-    }
+pub struct Channel {
+    prefixes: EcoVec<char>,
+    #[serde(flatten)]
+    casemapped: CaseMapped,
 }
 
 impl Channel {
     pub fn as_normalized_str(&self) -> &str {
-        self.0.normalized.as_ref()
+        self.casemapped.as_normalized_str()
     }
 
     pub fn as_str(&self) -> &str {
-        self.0.raw.as_ref()
+        self.casemapped.as_str()
     }
 
     pub fn from_str(
@@ -313,24 +295,21 @@ impl Channel {
         chantypes: &[char],
         casemapping: isupport::CaseMap,
     ) -> Self {
-        let inner = if let Some(index) = target.find(chantypes) {
+        if let Some(index) = target.find(chantypes) {
             // This will not panic, since `find` always returns a valid codepoint index.
             // We call `find` -> `split_at` because it is an _inclusive_ split, which includes the match.
             let (prefixes, channel) = target.split_at(index);
 
-            ChannelData {
+            Channel {
                 prefixes: prefixes.chars().collect(),
-                normalized: casemapping.normalize(channel),
-                raw: target.to_string(),
+                casemapped: CaseMapped::from_string(channel, casemapping),
             }
         } else {
-            ChannelData {
-                prefixes: vec![],
-                normalized: casemapping.normalize(target),
-                raw: target.to_string(),
+            Channel {
+                prefixes: eco_vec![],
+                casemapped: CaseMapped::from_string(target, casemapping),
             }
-        };
-        Channel::from(inner)
+        }
     }
 
     pub fn parse(
@@ -342,23 +321,21 @@ impl Channel {
         if let Some((prefixes, channel)) =
             proto::parse_channel_from_target(target, chantypes, statusmsg)
         {
-            Ok(Channel::from(ChannelData {
+            Ok(Channel {
                 prefixes,
-                normalized: casemapping.normalize(&channel),
-                raw: target.to_string(),
-            }))
+                casemapped: CaseMapped::from_string(channel, casemapping),
+            })
         } else {
             Err(ParseError::InvalidChannel(target.to_string()))
         }
     }
 
     pub fn renormalize(&mut self, casemapping: isupport::CaseMap) {
-        let data = Arc::make_mut(&mut self.0);
-        data.normalized = casemapping.normalize(&data.raw);
+        self.casemapped.renormalize(casemapping);
     }
 
     pub fn prefixes(&self) -> &[char] {
-        &self.0.prefixes
+        &self.prefixes
     }
 
     pub fn into_target(self) -> Target {
@@ -376,7 +353,7 @@ impl Channel {
 
 impl PartialEq for Channel {
     fn eq(&self, other: &Self) -> bool {
-        self.0.normalized.eq(&other.0.normalized)
+        self.casemapped.eq(&other.casemapped)
     }
 }
 
@@ -384,13 +361,13 @@ impl Eq for Channel {}
 
 impl Hash for Channel {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.normalized.hash(state);
+        self.casemapped.hash(state);
     }
 }
 
 impl Ord for Channel {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
-        self.0.normalized.cmp(&other.0.normalized)
+        self.casemapped.cmp(&other.casemapped)
     }
 }
 
@@ -402,22 +379,18 @@ impl PartialOrd for Channel {
 
 impl fmt::Display for Channel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.raw.fmt(f)
+        self.casemapped.fmt(f)
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct QueryData {
-    normalized: String,
-    raw: String,
-}
+#[derive(
+    Clone, Debug, Serialize, Deserialize, Eq, PartialEq, Hash, Ord, PartialOrd,
+)]
+pub struct Query(CaseMapped);
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Query(Arc<QueryData>);
-
-impl From<QueryData> for Query {
-    fn from(inner: QueryData) -> Self {
-        Query(Arc::new(inner))
+impl From<CaseMapped> for Query {
+    fn from(inner: CaseMapped) -> Self {
+        Query(inner)
     }
 }
 
@@ -433,29 +406,27 @@ impl From<&User> for Query {
     }
 }
 
+impl From<&Query> for CaseMapped {
+    fn from(query: &Query) -> Self {
+        query.0.clone()
+    }
+}
+
+impl From<Query> for CaseMapped {
+    fn from(query: Query) -> Self {
+        query.0
+    }
+}
+
 impl From<Nick> for Query {
     fn from(nick: Nick) -> Self {
-        let (raw, normalized) = nick.into();
-
-        Query::from(QueryData { raw, normalized })
+        Query(nick.into())
     }
 }
 
 impl From<&Nick> for Query {
     fn from(nick: &Nick) -> Self {
-        Query::from(QueryData {
-            raw: nick.as_str().to_string(),
-            normalized: nick.as_normalized_str().to_string(),
-        })
-    }
-}
-
-impl From<NickRef<'_>> for Query {
-    fn from(nickref: NickRef) -> Self {
-        Query::from(QueryData {
-            raw: nickref.as_str().to_string(),
-            normalized: nickref.as_normalized_str().to_string(),
-        })
+        Query(nick.into())
     }
 }
 impl Equivalent<User> for Query {
@@ -466,11 +437,11 @@ impl Equivalent<User> for Query {
 
 impl Query {
     pub fn as_normalized_str(&self) -> &str {
-        self.0.normalized.as_ref()
+        self.0.as_normalized_str()
     }
 
     pub fn as_str(&self) -> &str {
-        self.0.raw.as_ref()
+        self.0.as_str()
     }
 
     pub fn parse(
@@ -484,16 +455,12 @@ impl Query {
         {
             Err(ParseError::InvalidQuery(target.to_string()))
         } else {
-            Ok(Query::from(QueryData {
-                normalized: casemapping.normalize(target),
-                raw: target.to_string(),
-            }))
+            Ok(Query(CaseMapped::from_string(target, casemapping)))
         }
     }
 
     pub fn renormalize(&mut self, casemapping: isupport::CaseMap) {
-        let data = Arc::make_mut(&mut self.0);
-        data.normalized = casemapping.normalize(&data.raw);
+        self.0.renormalize(casemapping);
     }
 
     pub fn into_target(self) -> Target {
@@ -509,35 +476,9 @@ impl Query {
     }
 }
 
-impl PartialEq for Query {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.normalized.eq(&other.0.normalized)
-    }
-}
-
-impl Eq for Query {}
-
-impl Hash for Query {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.normalized.hash(state);
-    }
-}
-
-impl Ord for Query {
-    fn cmp(&self, other: &Self) -> cmp::Ordering {
-        self.0.normalized.cmp(&other.0.normalized)
-    }
-}
-
-impl PartialOrd for Query {
-    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
 impl fmt::Display for Query {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.raw.fmt(f)
+        self.0.fmt(f)
     }
 }
 
@@ -547,4 +488,45 @@ pub enum ParseError {
     InvalidChannel(String),
     #[error("unable to parse query from {0}")]
     InvalidQuery(String),
+}
+
+#[cfg(test)]
+mod tests {
+    use irc::proto::{CHANNEL_MEMBERSHIP_PREFIXES, DEFAULT_CHANNEL_PREFIXES};
+
+    use super::*;
+    use crate::isupport::CaseMap;
+
+    #[test]
+    fn parse_channel() {
+        let chantypes = DEFAULT_CHANNEL_PREFIXES;
+        let prefixes = CHANNEL_MEMBERSHIP_PREFIXES;
+        let cm = CaseMap::default();
+        assert_eq!(
+            Channel::parse("#foo", chantypes, prefixes, cm).unwrap(),
+            Channel {
+                prefixes: eco_vec![],
+                casemapped: CaseMapped::from_string("#foo", cm)
+            }
+        );
+        assert_eq!(
+            Channel::parse("+%#foo", chantypes, prefixes, cm).unwrap(),
+            Channel {
+                prefixes: eco_vec!['+', '%'],
+                casemapped: CaseMapped::from_string("#foo", cm)
+            }
+        );
+    }
+
+    #[test]
+    fn test_renormalize() {
+        let chantypes = DEFAULT_CHANNEL_PREFIXES;
+        let prefixes = CHANNEL_MEMBERSHIP_PREFIXES;
+        let c =
+            Channel::parse("+%#foo", chantypes, prefixes, CaseMap::default())
+                .unwrap();
+        let mut c2 = c.clone();
+        c2.renormalize(CaseMap::default());
+        assert_eq!(c, c2);
+    }
 }

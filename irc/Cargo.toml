@@ -10,6 +10,7 @@ default = []
 tor = ["arti-client"]
 
 [dependencies]
+ecow = { workspace = true }
 thiserror = { workspace = true }
 futures = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
@@ -40,6 +41,10 @@ rustls-platform-verifier = "0.7.1"
 [dependencies.proto]
 path = "proto"
 package = "irc_proto"
+
+[dependencies.serde]
+version = "1.0"
+features = ["derive", "rc"]
 
 [lints]
 workspace = true

@@ -8,7 +8,7 @@ use super::{
     find_message_mut_by_history_id, position_message_by_history_id,
 };
 use crate::message::{self, ReplyPreview, Searchable, Temporal};
-use crate::{Config, Server, config, target};
+use crate::{Config, Server, client, config, target};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -108,6 +108,42 @@ impl Manager {
             .collect()
     }
 
+    pub fn sidebar_targets<'a>(
+        &'a self,
+        server: &Server,
+        clients: &'a client::Map,
+        config: Option<&config::Server>,
+    ) -> SidebarTargets<'a> {
+        let shown = self.models.iter().filter_map(|(kind, model)| {
+            if let Kind::Channel(channel_server, channel) = kind
+                && channel_server == server
+                && model.show_in_sidebar
+            {
+                Some(channel)
+            } else {
+                None
+            }
+        });
+
+        let channels = match (clients.client(server), config) {
+            (Some(client), _) => client
+                .sidebar_channels(shown)
+                .map(|channel| (channel, client.channel_state(channel)))
+                .collect(),
+            (None, Some(config)) => {
+                client::offline_sidebar_channels(config, shown)
+                    .map(|channel| (channel, client::ChannelState::Offline))
+                    .collect()
+            }
+            (None, None) => return SidebarTargets::default(),
+        };
+
+        SidebarTargets {
+            channels,
+            queries: self.visible_server_queries(server),
+        }
+    }
+
     pub fn has_more_messages(&self, kind_ref: KindRef) -> bool {
         self.models
             .get(&kind_ref)
@@ -201,6 +237,12 @@ impl Manager {
             .get(&kind_ref)
             .and_then(|model| model.find_message_by_id(id, time))
     }
+}
+
+#[derive(Debug, Default)]
+pub struct SidebarTargets<'a> {
+    pub channels: Vec<(&'a target::Channel, client::ChannelState)>,
+    pub queries: Vec<&'a target::Query>,
 }
 
 #[derive(Debug, Clone)]

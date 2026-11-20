@@ -4,7 +4,9 @@ use data::bouncer::NetworkState;
 use data::buffer::{Buffer, BufferRef};
 use data::client::{self, ClientsContext};
 use data::config::server::SidebarVisibility;
-use data::config::sidebar::{InternalBuffer, PrimaryIcon};
+use data::config::sidebar::{
+    InternalBuffer, PrimaryIcon, TypingIndicatorBuffer,
+};
 use data::config::{self, Config, sidebar};
 use data::dashboard::{BufferAction, BufferFocusedAction};
 use data::history::{self, model};
@@ -33,6 +35,9 @@ use crate::{Theme, font, icon, platform_specific, theme, window};
 
 mod collapse;
 
+const INTER_INDICATOR_SPACING: u32 = 2;
+const TITLE_HORIZONTAL_PADDING: u32 = 8;
+
 #[derive(Debug, Clone)]
 pub enum Message {
     New(data::Buffer),
@@ -42,6 +47,7 @@ pub enum Message {
     Close(window::Id, pane_grid::Pane),
     Swap(window::Id, pane_grid::Pane),
     Detach(buffer::Upstream),
+    Join(buffer::Upstream),
     Leave(buffer::Upstream),
     CloseAllQueries(Server, Vec<target::Query>),
     ToggleCommandBar,
@@ -75,6 +81,7 @@ pub enum Event {
     Close(window::Id, pane_grid::Pane),
     Swap(window::Id, pane_grid::Pane),
     Detach(buffer::Upstream),
+    Join(buffer::Upstream),
     Leave(buffer::Upstream),
     CloseAllQueries(Server, Vec<target::Query>),
     ToggleCommandBar,
@@ -210,12 +217,14 @@ impl Sidebar {
             |buffer: buffer::Upstream,
              kind: history::Kind,
              muted: bool,
+             channel_state: Option<client::ChannelState>,
              casemapping: isupport::CaseMap|
              -> Option<UpstreamBufferSidebarData> {
                 UpstreamBufferSidebarData::from_upstream_buffer(
                     buffer,
                     kind,
                     muted,
+                    channel_state,
                     casemapping,
                     show_muted_buffers,
                     models,
@@ -241,130 +250,102 @@ impl Sidebar {
             let is_collapsed =
                 !self.collapse.is_expanded(server, server_sidebar_visibility);
 
-            match state {
+            let mut buffer_data = upstream_buffer_data(
+                buffer::Upstream::Server(server.clone()),
+                history::Kind::Server(server.clone()),
+                false,
+                None,
+                casemapping,
+            )?;
+
+            let targets = models.sidebar_targets(
+                server,
+                clients,
+                server_config.as_deref(),
+            );
+
+            let muted = clients
+                .get_server_config(server)
+                .or(server_config.as_deref())
+                .map(|config| config.muted(casemapping))
+                .unwrap_or_default();
+
+            let mut collapsible_buffers = vec![];
+
+            for (channel, channel_state) in targets.channels {
+                if let Some(buffer_data) = upstream_buffer_data(
+                    buffer::Upstream::Channel(server.clone(), channel.clone()),
+                    history::Kind::Channel(server.clone(), channel.clone()),
+                    muted.channel(channel),
+                    Some(channel_state),
+                    casemapping,
+                ) {
+                    collapsible_buffers.push(buffer_data);
+                }
+            }
+
+            for query in targets.queries {
+                let query_muted = !show_muted_buffers && muted.query(query);
+                let query =
+                    clients.resolve_query(server, query).unwrap_or(query);
+
+                if let Some(buffer_data) = upstream_buffer_data(
+                    buffer::Upstream::Query(server.clone(), query.clone()),
+                    history::Kind::Query(server.clone(), query.clone()),
+                    query_muted,
+                    None,
+                    casemapping,
+                ) {
+                    collapsible_buffers.push(buffer_data);
+                }
+            }
+
+            let connection_status = match state {
                 data::client::State::Disconnected {
                     autoconnect,
                     connecting,
-                } => {
-                    // Hide channels & queries for disconnected servers
-                    upstream_buffer_data(
-                        buffer::Upstream::Server(server.clone()),
-                        history::Kind::Server(server.clone()),
-                        false,
-                        casemapping,
-                    )
-                    .map(|buffer_data| {
-                        SidebarBufferGroup::Upstream {
-                            server: server.clone(),
-                            visible_buffers: vec![buffer_data],
-                            connection_status: ConnectionStatus::Disconnected {
-                                autoconnect: *autoconnect,
-                                connecting: *connecting,
-                            },
-                            has_collapsible_buffers: false,
-                            casemapping,
-                            server_icon_enabled,
-                            server_sidebar_visibility,
-                        }
-                    })
-                }
+                } => ConnectionStatus::Disconnected {
+                    autoconnect: *autoconnect,
+                    connecting: *connecting,
+                },
                 data::client::State::Ready(connection) => {
-                    // Connected server.
-                    upstream_buffer_data(
-                        buffer::Upstream::Server(server.clone()),
-                        history::Kind::Server(server.clone()),
-                        false,
-                        casemapping,
-                    )
-                    .map(|mut buffer_data| {
-                        let mut collapsible_buffers = vec![];
-
-                        // TODO: Sort buffers in model::Manager so that models
-                        // can be used for channels like how they're used for
-                        // queries.
-
-                        // Channels from the connected server.
-                        for (channel, muted) in connection.channels_with_muted()
-                        {
-                            if let Some(buffer_data) = upstream_buffer_data(
-                                buffer::Upstream::Channel(
-                                    server.clone(),
-                                    channel.clone(),
-                                ),
-                                history::Kind::Channel(
-                                    server.clone(),
-                                    channel.clone(),
-                                ),
-                                muted,
-                                casemapping,
-                            ) {
-                                collapsible_buffers.push(buffer_data);
-                            }
-                        }
-
-                        // Queries from the connected server.
-                        for query in models.visible_server_queries(server) {
-                            let (resolved_query, muted) = connection
-                                .resolve_query_with_muted(
-                                    query,
-                                    show_muted_buffers,
-                                );
-                            let query = resolved_query.unwrap_or(query);
-
-                            if let Some(buffer_data) = upstream_buffer_data(
-                                buffer::Upstream::Query(
-                                    server.clone(),
-                                    query.clone(),
-                                ),
-                                history::Kind::Query(
-                                    server.clone(),
-                                    query.clone(),
-                                ),
-                                muted,
-                                casemapping,
-                            ) {
-                                collapsible_buffers.push(buffer_data);
-                            }
-                        }
-
-                        let has_collapsible_buffers =
-                            !collapsible_buffers.is_empty();
-
-                        let visible_buffers = if is_collapsed {
-                            buffer_data
-                                .collapse_indicators(&collapsible_buffers);
-
-                            vec![buffer_data]
-                                .into_iter()
-                                .chain(collapsible_buffers.into_iter().filter(
-                                    |buffer_data| {
-                                        buffer_data.is_visible_pane
-                                            || include_collapsed_buffers
-                                    },
-                                ))
-                                .collect()
-                        } else {
-                            vec![buffer_data]
-                                .into_iter()
-                                .chain(collapsible_buffers)
-                                .collect()
-                        };
-
-                        SidebarBufferGroup::Upstream {
-                            server: server.clone(),
-                            visible_buffers,
-                            connection_status: ConnectionStatus::Connected {
-                                registration_complete: connection
-                                    .registration_complete(),
-                            },
-                            has_collapsible_buffers,
-                            casemapping,
-                            server_icon_enabled,
-                            server_sidebar_visibility,
-                        }
-                    })
+                    ConnectionStatus::Connected {
+                        registration_complete: connection
+                            .registration_complete(),
+                    }
                 }
-            }
+            };
+
+            let has_collapsible_buffers = !collapsible_buffers.is_empty();
+
+            let visible_buffers = if is_collapsed {
+                buffer_data.collapse_indicators(&collapsible_buffers);
+
+                vec![buffer_data]
+                    .into_iter()
+                    .chain(collapsible_buffers.into_iter().filter(
+                        |buffer_data| {
+                            buffer_data.is_visible_pane
+                                || include_collapsed_buffers
+                        },
+                    ))
+                    .collect()
+            } else {
+                vec![buffer_data]
+                    .into_iter()
+                    .chain(collapsible_buffers)
+                    .collect()
+            };
+
+            Some(SidebarBufferGroup::Upstream {
+                server: server.clone(),
+                visible_buffers,
+                connection_status,
+                has_collapsible_buffers,
+                casemapping,
+                server_icon_enabled,
+                server_sidebar_visibility,
+            })
         };
 
         let upstream_buffers: Vec<SidebarBufferGroup> = servers
@@ -458,6 +439,7 @@ impl Sidebar {
             Message::Detach(buffer) => {
                 (Task::none(), Some(Event::Detach(buffer)))
             }
+            Message::Join(buffer) => (Task::none(), Some(Event::Join(buffer))),
             Message::Leave(buffer) => {
                 (Task::none(), Some(Event::Leave(buffer)))
             }
@@ -564,8 +546,9 @@ impl Sidebar {
         let base = button(
             sidebar_icon(
                 config,
-                Some(BufferIcon::Icon(Icon::Internal(icon))),
+                Some(Icon::Internal(icon)),
                 badge,
+                None,
                 dimensions,
             )
             .into_iter()
@@ -905,6 +888,7 @@ impl Sidebar {
                                 buffer: buffer_data.buffer,
                                 kind: buffer_data.kind,
                                 indicators: buffer_data.indicators,
+                                channel_state: buffer_data.channel_state,
                                 connection_status,
                                 server_has_collapsible_buffers:
                                     has_collapsible_buffers,
@@ -1085,6 +1069,7 @@ struct UpstreamBufferSidebarData {
     #[expect(dead_code)] // TODO: Cycle highlights
     has_highlight: bool,
     indicators: IndicatorState,
+    channel_state: Option<client::ChannelState>,
 }
 
 impl UpstreamBufferSidebarData {
@@ -1092,6 +1077,7 @@ impl UpstreamBufferSidebarData {
         buffer: buffer::Upstream,
         kind: history::Kind,
         muted: bool,
+        channel_state: Option<client::ChannelState>,
         casemapping: isupport::CaseMap,
         show_muted_buffers: bool,
         models: &model::Manager,
@@ -1148,6 +1134,7 @@ impl UpstreamBufferSidebarData {
             has_unread,
             has_highlight,
             indicators,
+            channel_state,
         })
     }
 
@@ -1318,6 +1305,7 @@ enum Entry {
     Replace,
     Swap(window::Id, pane_grid::Pane),
     Detach,
+    Join,
     Leave,
     Remove,
     ToggleCollapse,
@@ -1332,6 +1320,7 @@ impl Entry {
         connection_status: Option<ConnectionStatus>,
         supports_detach: bool,
         has_history: bool,
+        channel_state: Option<client::ChannelState>,
     ) -> Vec<Self> {
         use Entry::*;
 
@@ -1384,13 +1373,23 @@ impl Entry {
         });
 
         if connected {
-            if matches!(
-                buffer,
-                buffer::Buffer::Upstream(buffer::Upstream::Channel(_, _))
-            ) && supports_detach
-            {
-                entries.push(Detach);
+            match channel_state {
+                Some(client::ChannelState::Parted) => entries.push(Join),
+                Some(client::ChannelState::Joined) if supports_detach => {
+                    entries.push(Detach);
+                }
+                _ => {}
             }
+            entries.push(Leave);
+        } else if connection_status.is_some()
+            && matches!(
+                buffer,
+                buffer::Buffer::Upstream(
+                    buffer::Upstream::Channel(_, _)
+                        | buffer::Upstream::Query(_, _)
+                )
+            )
+        {
             entries.push(Leave);
         }
 
@@ -1398,9 +1397,7 @@ impl Entry {
         // entries, not both
         entries.sort();
 
-        if let buffer::Buffer::Upstream(buffer::Upstream::Server(_)) = buffer
-            && connected
-        {
+        if let buffer::Buffer::Upstream(buffer::Upstream::Server(_)) = buffer {
             entries.extend([HorizontalRule, ToggleCollapse]);
         }
         entries
@@ -1428,6 +1425,7 @@ struct UpstreamButtonContext<'a> {
     buffer: buffer::Upstream,
     kind: history::Kind,
     indicators: IndicatorState,
+    channel_state: Option<client::ChannelState>,
     connection_status: ConnectionStatus,
     server_has_collapsible_buffers: bool,
     server_has_unread: bool,
@@ -1538,11 +1536,6 @@ fn upstream_buffer_title<'a>(
     }
 }
 
-enum BufferIcon<'a> {
-    Icon(Icon<'a>),
-    Typing(Element<'a, Message>),
-}
-
 fn upstream_buffer_button<'a>(
     context: UpstreamButtonContext<'a>,
 ) -> Element<'a, Message> {
@@ -1553,6 +1546,7 @@ fn upstream_buffer_button<'a>(
         buffer,
         kind,
         indicators,
+        channel_state,
         connection_status,
         server_has_collapsible_buffers,
         clients,
@@ -1585,24 +1579,53 @@ fn upstream_buffer_button<'a>(
 
     let can_mark_as_read = models.can_mark_as_read(kind);
 
-    let show_unread_icon =
-        indicators.unread && config.sidebar.unread_indicator.has_icon();
-    let show_unread_title =
-        indicators.unread && config.sidebar.unread_indicator.title;
-
     let show_highlight_icon =
         indicators.highlight && config.sidebar.highlight_indicator.has_icon();
     let show_highlight_title =
         indicators.highlight && config.sidebar.highlight_indicator.title;
 
-    let is_query_with_typing = if config.sidebar.can_show_typing()
-        && let buffer::Upstream::Query(server, query) = &buffer
-    {
-        clients.get_server_show_typing(server)
-            && clients.has_query_typing_users(server, query)
-    } else {
-        false
-    };
+    let show_unread_icon = !show_highlight_icon
+        && indicators.unread
+        && config.sidebar.unread_indicator.has_icon();
+    let show_unread_title =
+        indicators.unread && config.sidebar.unread_indicator.title;
+
+    let (can_show_typing, show_typing) =
+        if config.sidebar.show_typing(
+            TypingIndicatorBuffer::Channel,
+            show_highlight_icon,
+            show_unread_icon,
+        ) && let buffer::Upstream::Channel(server, channel) = &buffer
+        {
+            (
+                true,
+                clients.get_server_show_typing(server)
+                    && clients.has_channel_typing_users(server, channel),
+            )
+        } else if config.sidebar.show_typing(
+            TypingIndicatorBuffer::Query,
+            show_highlight_icon,
+            show_unread_icon,
+        ) && let buffer::Upstream::Query(server, query) = &buffer
+        {
+            (
+                true,
+                clients.get_server_show_typing(server)
+                    && clients.has_query_typing_users(server, query),
+            )
+        } else {
+            (false, false)
+        };
+
+    // If configured to only show one indicator for a channel or query, hide
+    // highlight and unread indicators.
+    let show_highlight_icon = show_highlight_icon
+        && !(show_typing
+            && config.sidebar.typing_indicator.is_position_left_priority());
+
+    let show_unread_icon = show_unread_icon
+        && !(show_typing
+            && config.sidebar.typing_indicator.is_position_left_priority());
 
     let bouncer_state = match (buffer, connection_status) {
         (
@@ -1618,15 +1641,18 @@ fn upstream_buffer_button<'a>(
         theme::text::unread_indicator
     } else if let ConnectionStatus::Disconnected { connecting, .. } =
         &connection_status
-        && !*connecting
     {
-        if matches!(&buffer, buffer::Upstream::Server(_)) {
-            theme::text::error
-        } else {
-            theme::text::secondary
+        match buffer {
+            buffer::Upstream::Server(_) if *connecting => theme::text::primary,
+            buffer::Upstream::Server(_) => theme::text::error,
+            _ => theme::text::secondary,
         }
     } else if bouncer_state == Some(NetworkState::Disconnected) {
         theme::text::error
+    } else if channel_state.is_some_and(|channel_state| {
+        channel_state != client::ChannelState::Joined
+    }) {
+        theme::text::secondary
     } else {
         theme::text::primary
     };
@@ -1641,28 +1667,20 @@ fn upstream_buffer_button<'a>(
         if *server_icon_enabled
             && let Some(server_icon) = server_icons.get(server)
         {
-            Some(BufferIcon::Icon(Icon::Upstream(server_icon)))
+            Some(Icon::Upstream(server_icon))
         } else {
-            Some(BufferIcon::Icon(Icon::Internal(
-                if server.is_bouncer_network() {
-                    icon::link()
-                } else {
-                    icon::connected()
-                },
-            )))
+            Some(Icon::Internal(if server.is_bouncer_network() {
+                icon::link()
+            } else {
+                icon::connected()
+            }))
         }
-    } else if is_query_with_typing {
-        typing::animate_for_sidebar::<_>(
-            *typing_animation,
-            config.sidebar.typing_indicator.icon_height,
-            &config.buffer.typing.animation,
-            theme.styles().text.secondary.color,
-        )
-        .map(BufferIcon::Typing)
     } else {
         None
     };
 
+    // This includes all indicators *except* the typing indicator, which is
+    // handled distinctly from every other indicator.
     let indicator = if matches!(buffer, buffer::Upstream::Server(_))
         && let ConnectionStatus::Disconnected {
             autoconnect,
@@ -1677,7 +1695,7 @@ fn upstream_buffer_button<'a>(
             } else {
                 icon::not_connected().style(theme::text::error)
             },
-            dimensions.icon_badge_size,
+            dimensions.icon_badge_padded_size,
         ))
     } else if matches!(buffer, buffer::Upstream::Server(_))
         && let ConnectionStatus::Connected {
@@ -1688,12 +1706,12 @@ fn upstream_buffer_button<'a>(
     {
         Some((
             icon::connecting().style(theme::text::success),
-            dimensions.icon_badge_size,
+            dimensions.icon_badge_padded_size,
         ))
     } else if bouncer_state == Some(NetworkState::Disconnected) {
         Some((
             icon::disconnected().style(theme::text::error),
-            dimensions.icon_badge_size,
+            dimensions.icon_badge_padded_size,
         ))
     } else if show_highlight_icon
         && let Some(highlight_icon) =
@@ -1715,25 +1733,67 @@ fn upstream_buffer_button<'a>(
         None
     };
 
+    let mut typing_indicator = if show_typing {
+        typing::animate_for_sidebar::<_>(
+            *typing_animation,
+            config.sidebar.typing_indicator.icon_height,
+            &config.buffer.typing.animation,
+            theme.styles().text.secondary.color,
+        )
+    } else {
+        None
+    };
+
     let sidebar_icon_height = match icon {
-        Some(BufferIcon::Icon(_)) => dimensions
-            .icon_size
-            .max(indicator.as_ref().map_or(0, |_| dimensions.icon_badge_size)),
-        Some(BufferIcon::Typing(_)) => dimensions.typing_indicator_height,
-        None => indicator.as_ref().map_or(1, |(_, size)| *size),
+        Some(_) => dimensions.icon_size,
+        None => indicator
+            .as_ref()
+            .map(|(_, size)| *size)
+            .max(
+                typing_indicator
+                    .is_some()
+                    .then_some(dimensions.typing_indicator_height),
+            )
+            .unwrap_or(0),
     };
 
     let mut content = row![].align_y(iced::Alignment::Center);
 
-    content = content.extend(sidebar_icon(config, icon, indicator, dimensions));
+    content = content.extend(sidebar_icon(
+        config,
+        icon,
+        indicator,
+        if config.sidebar.typing_indicator.is_position_left() {
+            std::mem::take(&mut typing_indicator)
+        } else {
+            None
+        },
+        dimensions,
+    ));
 
-    content = content.extend(upstream_buffer_title(
+    let buffer_title = upstream_buffer_title(
         config,
         buffer,
         *casemapping,
         buffer_title_style,
         buffer_title_font,
-    ));
+    );
+
+    content = content.extend(buffer_title);
+
+    if can_show_typing && config.sidebar.typing_indicator.is_position_right() {
+        content = content.push(Space::new().width(Length::Fill));
+
+        if let Some(typing_indicator) = typing_indicator {
+            content = content
+                .push(Space::new().width(TITLE_HORIZONTAL_PADDING))
+                .push(typing_indicator);
+        } else {
+            content = content.push(Space::new().width(
+                TITLE_HORIZONTAL_PADDING + dimensions.typing_indicator_width,
+            ));
+        }
+    }
 
     let disclosure = if let buffer::Upstream::Server(server) = buffer {
         let font_size = config
@@ -1747,7 +1807,6 @@ fn upstream_buffer_button<'a>(
             config,
             server,
             *server_sidebar_visibility,
-            connection_status,
             *server_has_collapsible_buffers,
             font_size.max(sidebar_icon_height as f32),
         )
@@ -1868,6 +1927,7 @@ fn upstream_buffer_context_menu<'a>(
         config,
         panes,
         buffer,
+        channel_state,
         connection_status,
         server_has_unread,
         supports_detach,
@@ -1886,6 +1946,7 @@ fn upstream_buffer_context_menu<'a>(
         Some(connection_status),
         supports_detach,
         true,
+        channel_state,
     );
 
     if entries.is_empty() {
@@ -1964,9 +2025,18 @@ fn upstream_buffer_context_menu<'a>(
                     "Detach from channel",
                     Some(Message::Detach(buffer.clone())),
                 ),
+                Entry::Join => {
+                    ("Join channel", Some(Message::Join(buffer.clone())))
+                }
                 Entry::Leave => (
                     match &buffer {
                         buffer::Upstream::Server(_) => "Disconnect from server",
+                        buffer::Upstream::Channel(_, _)
+                            if channel_state
+                                != Some(client::ChannelState::Joined) =>
+                        {
+                            "Close channel"
+                        }
                         buffer::Upstream::Channel(_, _) => "Leave channel",
                         buffer::Upstream::Query(_, _) => "Close query",
                     },
@@ -2186,8 +2256,9 @@ fn internal_buffer_button<'a>(
 
     content = content.extend(sidebar_icon(
         config,
-        icon.map(|icon| BufferIcon::Icon(Icon::Internal(icon))),
+        icon.map(Icon::Internal),
         badge,
+        None,
         dimensions,
     ));
 
@@ -2267,6 +2338,7 @@ fn internal_buffer_button<'a>(
         None,
         false,
         kind.is_some(),
+        None,
     );
 
     if entries.is_empty() {
@@ -2357,16 +2429,22 @@ enum Icon<'a> {
 
 fn sidebar_icon<'a>(
     config: &'a Config,
-    icon: Option<BufferIcon<'a>>,
+    icon: Option<Icon<'a>>,
     indicator: Option<(TextColorSvg<'a, Theme>, u32)>,
+    typing_indicator: Option<Element<'a, Message>>,
     dimensions: Dimensions,
 ) -> impl IntoIterator<Item = Element<'a, Message>> {
+    let show_typing_gutter =
+        config.sidebar.typing_indicator.is_position_left_gutter()
+            && config.sidebar.can_show_any_typing()
+            && !config.sidebar.position.is_horizontal();
+
     let (icon, icon_height, icon_left_spacing): (
         Option<Element<'a, Message>>,
         u32,
-        f32,
+        Length,
     ) = match icon {
-        Some(BufferIcon::Icon(icon)) => {
+        Some(icon) => {
             let icon: Element<'a, Message> = match icon {
                 Icon::Upstream(server_icon) => container(image::from_data(
                     server_icon,
@@ -2384,26 +2462,7 @@ fn sidebar_icon<'a>(
 
             let badge: Option<Element<'a, Message>> =
                 indicator.map(move |(indicator, _)| {
-                    container(
-                        indicator
-                            .width(Length::Shrink)
-                            .content_fit(ContentFit::Contain),
-                    )
-                    .style(move |theme: &Theme| container::Style {
-                        text_color: None,
-                        background: Some(
-                            theme.styles().buttons.primary.background.into(),
-                        ),
-                        border: Border {
-                            radius: dimensions.icon_badge_size.into(),
-                            ..Border::default()
-                        },
-                        ..container::Style::default()
-                    })
-                    .width(dimensions.icon_badge_size)
-                    .height(dimensions.icon_badge_size)
-                    .padding(dimensions.icon_badge_padding as f32)
-                    .into()
+                    sidebar_icon_badge(indicator, dimensions)
                 });
 
             (
@@ -2414,60 +2473,115 @@ fn sidebar_icon<'a>(
                             column![
                                 Space::new()
                                     .height(dimensions.icon_badge_padding),
-                                icon
-                            ]
+                                icon,
+                                Space::new()
+                                    .height(dimensions.icon_badge_padding),
+                            ],
+                            Space::new().width(dimensions.icon_badge_padding),
                         ]
                         .align_y(iced::Alignment::Center),
-                        badge,
+                        row![
+                            Space::new().width(if show_typing_gutter {
+                                Length::Fill
+                            } else {
+                                Length::Fixed(0.0)
+                            }),
+                            badge
+                        ],
                     ]
                     .into(),
                 ),
-                dimensions.icon_size,
-                dimensions
-                    .max_indicator_size()
-                    .saturating_sub(dimensions.icon_badge_size)
-                    as f32
-                    / 2.0,
+                dimensions.icon_padded_size(),
+                if show_typing_gutter {
+                    Length::Fixed(
+                        dimensions.max_width(true)
+                            - dimensions.icon_padded_size() as f32
+                            - dimensions.indicator_center_align_spacing(
+                                dimensions.icon_badge_padded_size,
+                            ),
+                    )
+                } else {
+                    Length::Fixed(dimensions.indicator_center_align_spacing(
+                        dimensions.icon_badge_padded_size,
+                    ))
+                },
             )
         }
-        Some(BufferIcon::Typing(typing_indicator)) => (
-            Some(typing_indicator),
-            dimensions.typing_indicator_height,
-            dimensions
-                .max_indicator_size()
-                .saturating_sub(dimensions.typing_indicator_width)
-                as f32
-                / 2.0,
-        ),
         None => {
             if let Some((indicator, indicator_size)) = indicator {
+                if let Some(typing_indicator) = typing_indicator {
+                    (
+                        Some(
+                            row![
+                                typing_indicator,
+                                Space::new().width(
+                                    dimensions.indicator_center_align_spacing(
+                                        indicator_size
+                                    ) + INTER_INDICATOR_SPACING as f32
+                                ),
+                                container(
+                                    indicator
+                                        .width(Length::Shrink)
+                                        .content_fit(ContentFit::Contain),
+                                )
+                                .width(indicator_size)
+                                .height(indicator_size)
+                            ]
+                            .align_y(iced::Alignment::Center)
+                            .into(),
+                        ),
+                        indicator_size.max(dimensions.typing_indicator_height),
+                        Length::Fixed(0.0),
+                    )
+                } else {
+                    (
+                        Some(
+                            container(
+                                indicator
+                                    .width(Length::Shrink)
+                                    .content_fit(ContentFit::Contain),
+                            )
+                            .width(indicator_size)
+                            .height(indicator_size)
+                            .into(),
+                        ),
+                        indicator_size,
+                        Length::Fixed(
+                            if show_typing_gutter {
+                                (dimensions.typing_indicator_width
+                                    + INTER_INDICATOR_SPACING)
+                                    as f32
+                            } else {
+                                0.0
+                            } + dimensions
+                                .indicator_center_align_spacing(indicator_size),
+                        ),
+                    )
+                }
+            } else if let Some(typing_indicator) = typing_indicator {
                 (
-                    Some(
-                        container(
-                            indicator
-                                .width(Length::Shrink)
-                                .content_fit(ContentFit::Contain),
+                    Some(typing_indicator),
+                    dimensions.typing_indicator_height,
+                    Length::Fixed(if show_typing_gutter {
+                        0.0
+                    } else {
+                        dimensions.indicator_center_align_spacing(
+                            dimensions.typing_indicator_height,
                         )
-                        .width(indicator_size)
-                        .height(indicator_size)
-                        .into(),
-                    ),
-                    indicator_size,
-                    dimensions
-                        .max_indicator_size()
-                        .saturating_sub(indicator_size)
-                        as f32
-                        / 2.0,
+                    }),
                 )
             } else {
-                (None, 1, 0.0)
+                (None, 0, Length::Fixed(0.0))
             }
         }
     };
 
     if config.sidebar.position.is_horizontal() {
         if let Some(icon) = icon {
-            Either::Left(vec![icon, Space::new().width(8).into()].into_iter())
+            Either::Left(
+                vec![icon, Space::new().width(TITLE_HORIZONTAL_PADDING).into()]
+                    .into_iter(),
+            )
         } else {
             Either::Right(iter::empty())
         }
@@ -2476,7 +2590,7 @@ fn sidebar_icon<'a>(
             vec![
                 stack![
                     Space::new()
-                        .width(dimensions.max_icon_width())
+                        .width(dimensions.max_width(show_typing_gutter))
                         .height(icon_height),
                     icon.map(|icon| row![
                         Space::new().width(icon_left_spacing),
@@ -2484,17 +2598,42 @@ fn sidebar_icon<'a>(
                     ])
                 ]
                 .into(),
-                Space::new().width(8).into(),
+                Space::new().width(TITLE_HORIZONTAL_PADDING).into(),
             ]
             .into_iter(),
         )
     }
 }
 
+fn sidebar_icon_badge<'a>(
+    indicator: TextColorSvg<'a, Theme>,
+    dimensions: Dimensions,
+) -> Element<'a, Message> {
+    container(
+        indicator
+            .width(Length::Shrink)
+            .content_fit(ContentFit::Contain),
+    )
+    .style(move |theme: &Theme| container::Style {
+        text_color: None,
+        background: Some(theme.styles().buttons.primary.background.into()),
+        border: Border {
+            radius: dimensions.icon_badge_padded_size.into(),
+            ..Border::default()
+        },
+        ..container::Style::default()
+    })
+    .width(dimensions.icon_badge_padded_size)
+    .height(dimensions.icon_badge_padded_size)
+    .padding(dimensions.icon_badge_padding as f32)
+    .align_y(iced::Alignment::Start)
+    .into()
+}
+
 #[derive(Debug, Default, Clone, Copy)]
 struct Dimensions {
     icon_size: u32,
-    icon_badge_size: u32,
+    icon_badge_padded_size: u32,
     icon_badge_padding: u32,
     unread_indicator_size: u32,
     highlight_indicator_size: u32,
@@ -2504,14 +2643,14 @@ struct Dimensions {
 
 impl From<&config::sidebar::Sidebar> for Dimensions {
     fn from(config: &config::sidebar::Sidebar) -> Self {
-        let (icon_size, icon_badge_padding, icon_badge_size) =
+        let (icon_size, icon_badge_padding, icon_badge_padded_size) =
             match config.primary_icon {
                 PrimaryIcon::Size(icon_size) => {
                     let icon_badge_padding = 2;
-                    let icon_badge_size =
+                    let icon_badge_padded_size =
                         (icon_size / 3).max(4) + 2 * icon_badge_padding;
 
-                    (icon_size, icon_badge_padding, icon_badge_size)
+                    (icon_size, icon_badge_padding, icon_badge_padded_size)
                 }
                 PrimaryIcon::Hidden => (0, 0, 0),
             };
@@ -2529,22 +2668,20 @@ impl From<&config::sidebar::Sidebar> for Dimensions {
             0
         };
 
-        let (typing_indicator_width, typing_indicator_height) = if config
-            .typing_indicator
-            .can_show(config.position.is_horizontal())
-        {
-            (
-                3 * config.typing_indicator.icon_height
-                    + 2 * typing::DOT_SIDEBAR_SPACING,
-                config.typing_indicator.icon_height,
-            )
-        } else {
-            (0, 0)
-        };
+        let (typing_indicator_width, typing_indicator_height) =
+            if config.can_show_any_typing() {
+                (
+                    3 * config.typing_indicator.icon_height
+                        + 2 * typing::DOT_SIDEBAR_SPACING,
+                    config.typing_indicator.icon_height,
+                )
+            } else {
+                (0, 0)
+            };
 
         Self {
             icon_size,
-            icon_badge_size,
+            icon_badge_padded_size,
             icon_badge_padding,
             unread_indicator_size,
             highlight_indicator_size,
@@ -2556,17 +2693,32 @@ impl From<&config::sidebar::Sidebar> for Dimensions {
 
 impl Dimensions {
     fn max_indicator_size(&self) -> u32 {
-        self.icon_badge_size
+        self.icon_badge_padded_size
             .max(self.unread_indicator_size)
             .max(self.highlight_indicator_size)
             .max(self.typing_indicator_height)
     }
 
-    fn max_icon_width(&self) -> u32 {
-        self.icon_size
-            .max(self.unread_indicator_size)
-            .max(self.highlight_indicator_size)
-            .max(self.typing_indicator_width)
+    fn indicator_center_align_spacing(&self, indicator_size: u32) -> f32 {
+        self.max_indicator_size().saturating_sub(indicator_size) as f32 / 2.0
+    }
+
+    fn icon_padded_size(&self) -> u32 {
+        self.icon_size + 2 * self.icon_badge_padding
+    }
+
+    fn max_width(&self, show_typing_gutter: bool) -> f32 {
+        (self.icon_padded_size() as f32
+            + self.indicator_center_align_spacing(self.icon_badge_padded_size))
+        .max(if show_typing_gutter {
+            self.typing_indicator_width
+                + INTER_INDICATOR_SPACING
+                + self.max_indicator_size()
+        } else {
+            self.unread_indicator_size
+                .max(self.highlight_indicator_size)
+                .max(self.typing_indicator_width)
+        } as f32)
     }
 }
 

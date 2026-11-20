@@ -6,6 +6,7 @@ use std::hash::Hash;
 use indexmap::set::MutableValues;
 use indexmap::{Equivalent, IndexSet};
 use irc::proto;
+use irc::string::CaseMapped;
 use itertools::sorted;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -155,11 +156,17 @@ impl<'de> Deserialize<'de> for User {
         let value = String::deserialize(deserializer)?;
 
         if let Some((access_levels_and_is_bot, names)) = value.split_once(' ') {
-            let access_levels = access_levels_and_is_bot
+            let (is_bot, access_levels) = if let Some(access_levels) =
+                access_levels_and_is_bot.strip_suffix(':')
+            {
+                (true, access_levels)
+            } else {
+                (false, access_levels_and_is_bot)
+            };
+            let access_levels = access_levels
                 .chars()
-                .filter_map(|c| AccessLevel::try_from(c).ok())
+                .map(AccessLevel::from_prefix)
                 .collect::<BTreeSet<_>>();
-            let is_bot = access_levels_and_is_bot.ends_with(':');
 
             let (nickname, username, hostname) =
                 parse_user_names(names, isupport::CaseMap::default());
@@ -176,14 +183,17 @@ impl<'de> Deserialize<'de> for User {
         } else {
             // Older format for user string, with no space; attempt to parse
             // with default
-            User::parse(&value, isupport::CaseMap::default(), None).map_err(
-                |_| {
-                    serde::de::Error::invalid_value(
-                        serde::de::Unexpected::Str(&value),
-                        &"{access_levels}{nickname}{username}{hostname}",
-                    )
-                },
+            User::parse(
+                &value,
+                isupport::CaseMap::default(),
+                isupport::DEFAULT_PREFIX,
             )
+            .map_err(|_| {
+                serde::de::Error::invalid_value(
+                    serde::de::Unexpected::Str(&value),
+                    &"{access_levels}{nickname}{username}{hostname}",
+                )
+            })
         }
     }
 }
@@ -219,11 +229,8 @@ impl User {
         }
     }
 
-    fn key(&'_ self) -> (Reverse<AccessLevel>, NickRef<'_>) {
-        (
-            Reverse(self.highest_access_level()),
-            self.nickname.as_nickref(),
-        )
+    fn key(&'_ self) -> (Reverse<AccessLevel>, &Nick) {
+        (Reverse(self.highest_access_level()), self.nickname())
     }
 
     pub fn seed(&self) -> &str {
@@ -231,11 +238,11 @@ impl User {
     }
 
     pub fn as_str(&self) -> &str {
-        self.nickname.raw.as_ref()
+        self.nickname.as_str()
     }
 
     pub fn as_normalized_str(&self) -> &str {
-        self.nickname.normalized.as_ref()
+        self.nickname.as_normalized_str()
     }
 
     pub fn is_away(&self) -> bool {
@@ -248,10 +255,6 @@ impl User {
 
     pub fn nickname(&self) -> &Nick {
         &self.nickname
-    }
-
-    pub fn nickref(&self) -> NickRef<'_> {
-        self.nickname.as_nickref()
     }
 
     pub fn hostname(&self) -> Option<&str> {
@@ -310,16 +313,14 @@ impl User {
     pub fn update_access_level(
         &mut self,
         operation: mode::Operation,
-        mode: mode::Channel,
+        level: AccessLevel,
     ) {
-        if let Ok(level) = AccessLevel::try_from(mode) {
-            match operation {
-                mode::Operation::Add => {
-                    self.access_levels.insert(level);
-                }
-                mode::Operation::Remove => {
-                    self.access_levels.remove(&level);
-                }
+        match operation {
+            mode::Operation::Add => {
+                self.access_levels.insert(level);
+            }
+            mode::Operation::Remove => {
+                self.access_levels.remove(&level);
             }
         }
     }
@@ -416,19 +417,15 @@ impl User {
     pub fn parse(
         value: &str,
         casemapping: isupport::CaseMap,
-        prefix: Option<&[isupport::PrefixMap]>,
+        prefix: &[isupport::PrefixMap],
     ) -> Result<Self, ParseUserError> {
         if value.is_empty() {
             return Err(ParseUserError::NicknameEmpty);
         }
 
-        let index = if let Some(prefix) = prefix {
-            value.find(|c: char| {
-                prefix.iter().all(|prefix_map| c != prefix_map.prefix)
-            })
-        } else {
-            value.find(|c: char| AccessLevel::try_from(c).is_err())
-        };
+        let index = value.find(|c: char| {
+            prefix.iter().all(|prefix_map| c != prefix_map.prefix)
+        });
 
         let Some(index) = index else {
             return Err(ParseUserError::NicknameEmpty);
@@ -438,7 +435,7 @@ impl User {
 
         let access_levels = access_levels
             .chars()
-            .filter_map(|c| AccessLevel::try_from(c).ok())
+            .filter_map(|c| AccessLevel::try_from_prefix_char(c, prefix))
             .collect::<BTreeSet<_>>();
 
         let (nickname, username, hostname) =
@@ -462,12 +459,13 @@ impl User {
         host: &str,
         account: Option<&str>,
         casemapping: isupport::CaseMap,
+        prefix: &[isupport::PrefixMap],
         bot_mode_char: Option<char>,
     ) -> Self {
         let access_levels = flags
             .chars()
             .skip(1)
-            .filter_map(|c| AccessLevel::try_from(c).ok())
+            .filter_map(|c| AccessLevel::try_from_prefix_char(c, prefix))
             .collect::<BTreeSet<_>>();
         let away = flags.starts_with('G');
         let bot =
@@ -489,7 +487,7 @@ impl User {
     pub fn parse_or_force(
         value: &str,
         casemapping: isupport::CaseMap,
-        prefix: Option<&[isupport::PrefixMap]>,
+        prefix: &[isupport::PrefixMap],
     ) -> User {
         User::parse(value, casemapping, prefix)
             .unwrap_or(User::from(Nick::from_str(value, casemapping)))
@@ -537,35 +535,12 @@ pub enum ParseUserError {
     NicknameEmpty,
 }
 
-#[derive(Debug, Clone)]
-pub struct Nick {
-    raw: String,
-    normalized: String,
-}
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Nick(CaseMapped);
 
-impl PartialEq for Nick {
-    fn eq(&self, other: &Self) -> bool {
-        self.normalized.eq(&other.normalized)
-    }
-}
-
-impl Eq for Nick {}
-
-impl PartialOrd for Nick {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Nick {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.normalized.cmp(&other.normalized)
-    }
-}
-
-impl Hash for Nick {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.normalized.hash(state);
+impl fmt::Display for Nick {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 
@@ -575,27 +550,27 @@ impl Equivalent<User> for Nick {
     }
 }
 
-impl fmt::Display for Nick {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.raw.fmt(f)
+impl From<CaseMapped> for Nick {
+    fn from(inner: CaseMapped) -> Self {
+        Nick(inner)
     }
 }
 
-impl From<NickRef<'_>> for Nick {
-    fn from(nickref: NickRef) -> Self {
-        Nick {
-            raw: nickref.raw.to_string(),
-            normalized: nickref.normalized.to_string(),
-        }
+impl From<Nick> for CaseMapped {
+    fn from(nick: Nick) -> Self {
+        nick.0
+    }
+}
+
+impl From<&Nick> for CaseMapped {
+    fn from(nick: &Nick) -> Self {
+        nick.0.clone()
     }
 }
 
 impl From<&Query> for Nick {
     fn from(query: &Query) -> Self {
-        Nick {
-            raw: query.as_str().to_string(),
-            normalized: query.as_normalized_str().to_string(),
-        }
+        Nick(query.into())
     }
 }
 
@@ -605,48 +580,29 @@ impl From<User> for Nick {
     }
 }
 
-impl From<Nick> for (String, String) {
-    fn from(nick: Nick) -> Self {
-        (nick.raw, nick.normalized)
-    }
-}
-
 impl<'a> Nick {
     pub fn from_string(nick: String, casemapping: isupport::CaseMap) -> Self {
-        Nick {
-            normalized: casemapping.normalize(&nick),
-            raw: nick,
-        }
+        Nick(CaseMapped::from_string(nick, casemapping))
     }
 
     pub fn from_str(nick: &'a str, casemapping: isupport::CaseMap) -> Self {
-        Nick {
-            normalized: casemapping.normalize(nick),
-            raw: nick.to_string(),
-        }
-    }
-
-    pub fn as_nickref(&'a self) -> NickRef<'a> {
-        NickRef {
-            raw: self.raw.as_ref(),
-            normalized: self.normalized.as_ref(),
-        }
+        Nick(CaseMapped::from_string(nick, casemapping))
     }
 
     pub fn as_str(&self) -> &str {
-        self.raw.as_ref()
+        self.0.as_str()
     }
 
     pub fn as_normalized_str(&self) -> &str {
-        self.normalized.as_ref()
+        self.0.as_normalized_str()
     }
 
     pub fn renormalize(&mut self, casemapping: isupport::CaseMap) {
-        self.normalized = casemapping.normalize(self.raw.as_str());
+        self.0.renormalize(casemapping);
     }
 
     pub fn seed(&self) -> &str {
-        self.normalized.as_ref()
+        self.0.as_normalized_str()
     }
 }
 
@@ -655,7 +611,7 @@ impl Serialize for Nick {
     where
         S: serde::Serializer,
     {
-        self.raw.serialize(serializer)
+        self.as_str().serialize(serializer)
     }
 }
 
@@ -670,88 +626,16 @@ impl<'de> Deserialize<'de> for Nick {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct NickRef<'a> {
-    raw: &'a str,
-    normalized: &'a str,
-}
-
-impl<'a> From<&'a Nick> for NickRef<'a> {
-    fn from(nick: &'a Nick) -> Self {
-        NickRef {
-            raw: nick.raw.as_str(),
-            normalized: nick.normalized.as_str(),
-        }
-    }
-}
-
-impl NickRef<'_> {
-    pub fn to_owned(self) -> Nick {
-        Nick {
-            raw: self.raw.to_string(),
-            normalized: self.normalized.to_string(),
-        }
-    }
-
-    pub fn as_str(&self) -> &str {
-        self.raw
-    }
-
-    pub fn as_normalized_str(&self) -> &str {
-        self.normalized
-    }
-}
-
-impl Equivalent<User> for NickRef<'_> {
+impl Equivalent<User> for &Nick {
     fn equivalent(&self, user: &User) -> bool {
-        self.eq(&user.nickname.as_nickref())
+        self.eq(&user.nickname())
     }
 }
 
-impl Hash for NickRef<'_> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.normalized.hash(state);
-    }
-}
-
-impl fmt::Display for NickRef<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.raw.fmt(f)
-    }
-}
-
-impl PartialOrd for NickRef<'_> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for NickRef<'_> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.normalized.cmp(other.normalized)
-    }
-}
-
-impl PartialEq for NickRef<'_> {
-    fn eq(&self, other: &NickRef) -> bool {
-        self.normalized.eq(other.normalized)
-    }
-}
-
-impl Eq for NickRef<'_> {}
-
-impl PartialEq<Nick> for NickRef<'_> {
-    fn eq(&self, other: &Nick) -> bool {
-        self.normalized.eq(other.normalized.as_str())
-    }
-}
-
-impl PartialEq<NickRef<'_>> for Nick {
-    fn eq(&self, other: &NickRef<'_>) -> bool {
-        self.normalized.eq(other.normalized)
-    }
-}
-
+// These are the common mappings, plus a catch-all Unknown variant.  The allowed
+// customization and available information does not allow us to guarantee that
+// e.g. proto::FOUNDER_PREFIX maps to AccessLevel::Founder, but we make that
+// mapping to provide a reasonable UX.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AccessLevel {
     Member,
@@ -760,6 +644,7 @@ pub enum AccessLevel {
     Oper,
     Protected(ProtectedPrefix),
     Founder,
+    Unknown(char),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -778,38 +663,41 @@ impl std::fmt::Display for AccessLevel {
     }
 }
 
-impl TryFrom<char> for AccessLevel {
-    type Error = ();
+impl AccessLevel {
+    pub fn try_from_mode_char(
+        mode_char: char,
+        prefix: &[isupport::PrefixMap],
+    ) -> Option<AccessLevel> {
+        prefix.iter().find_map(|prefix_map| {
+            (prefix_map.mode == mode_char)
+                .then_some(AccessLevel::from_prefix(prefix_map.prefix))
+        })
+    }
 
-    fn try_from(c: char) -> Result<AccessLevel, ()> {
-        match c {
-            proto::FOUNDER_PREFIX => Ok(AccessLevel::Founder),
+    pub fn try_from_prefix_char(
+        prefix_char: char,
+        prefix: &[isupport::PrefixMap],
+    ) -> Option<AccessLevel> {
+        prefix.iter().find_map(|prefix_map| {
+            (prefix_map.prefix == prefix_char)
+                .then_some(AccessLevel::from_prefix(prefix_map.prefix))
+        })
+    }
+
+    pub fn from_prefix(prefix: char) -> AccessLevel {
+        match prefix {
+            proto::FOUNDER_PREFIX => AccessLevel::Founder,
             proto::PROTECTED_PREFIX_STD => {
-                Ok(AccessLevel::Protected(ProtectedPrefix::Standard))
+                AccessLevel::Protected(ProtectedPrefix::Standard)
             }
             proto::PROTECTED_PREFIX_ALT => {
-                Ok(AccessLevel::Protected(ProtectedPrefix::Alternative))
+                AccessLevel::Protected(ProtectedPrefix::Alternative)
             }
-            proto::OPERATOR_PREFIX => Ok(AccessLevel::Oper),
-            proto::HALF_OPERATOR_PREFIX => Ok(AccessLevel::HalfOp),
-            proto::VOICED_PREFIX => Ok(AccessLevel::Voice),
-            _ => Err(()),
+            proto::OPERATOR_PREFIX => AccessLevel::Oper,
+            proto::HALF_OPERATOR_PREFIX => AccessLevel::HalfOp,
+            proto::VOICED_PREFIX => AccessLevel::Voice,
+            _ => AccessLevel::Unknown(prefix),
         }
-    }
-}
-
-impl TryFrom<mode::Channel> for AccessLevel {
-    type Error = ();
-
-    fn try_from(mode: mode::Channel) -> Result<Self, Self::Error> {
-        Ok(match mode {
-            mode::Channel::Founder => Self::Founder,
-            mode::Channel::Protected(prefix) => Self::Protected(prefix),
-            mode::Channel::Oper => Self::Oper,
-            mode::Channel::HalfOp => Self::HalfOp,
-            mode::Channel::Voice => Self::Voice,
-            _ => return Err(()),
-        })
     }
 }
 
@@ -826,6 +714,7 @@ impl AccessLevel {
             AccessLevel::Oper => Some(proto::OPERATOR_PREFIX),
             AccessLevel::HalfOp => Some(proto::HALF_OPERATOR_PREFIX),
             AccessLevel::Voice => Some(proto::VOICED_PREFIX),
+            AccessLevel::Unknown(prefix) => Some(*prefix),
             AccessLevel::Member => None,
         }
     }
@@ -1091,7 +980,12 @@ mod tests {
         .map(|(a, b)| {
             (
                 Nick::from_str(a, isupport::CaseMap::default()),
-                User::parse(b, isupport::CaseMap::default(), None).unwrap(),
+                User::parse(
+                    b,
+                    isupport::CaseMap::default(),
+                    isupport::DEFAULT_PREFIX,
+                )
+                .unwrap(),
             )
         });
         let channel_users: ChannelUsers =

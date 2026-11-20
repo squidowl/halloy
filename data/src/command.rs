@@ -117,7 +117,7 @@ impl Typing {
 impl Irc {
     pub fn messages(
         &self,
-        user: User,
+        user: &User,
         channel_users: Option<&ChannelUsers>,
         server: &Server,
         chantypes: &[char],
@@ -126,6 +126,7 @@ impl Irc {
         supports_echoes: bool,
         reroute_rules: &RerouteRules,
         focused_buffer: Option<&buffer::Upstream>,
+        time: message::Time,
     ) -> Option<Vec<Message>> {
         let to_message_target = |target: &str| {
             if target == "*" {
@@ -180,6 +181,7 @@ impl Irc {
                                 target.to_string(),
                                 text.clone(),
                             )),
+                            time,
                         )
                     })
                     .collect(),
@@ -211,6 +213,7 @@ impl Irc {
                                 target.to_string(),
                                 text.clone(),
                             )),
+                            time,
                         )
                     })
                     .collect(),
@@ -230,12 +233,13 @@ impl Irc {
                     message::Source::Action(Some(user.clone())),
                     message_target,
                     message::action_text(
-                        &user,
+                        user,
                         Some(action),
                         channel_users,
                         casemapping,
                     ),
                     supports_echoes.then_some(self.clone()),
+                    time,
                 )])
             }
             _ => None,

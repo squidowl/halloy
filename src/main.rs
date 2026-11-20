@@ -1128,6 +1128,10 @@ impl Halloy {
                     self.servers.remove(&server);
                     self.clients.remove(&server);
 
+                    if let Screen::Dashboard(_) = &self.screen {
+                        self.storage.forget_sidebar_buffers(&server);
+                    }
+
                     if server.is_bouncer_network() {
                         self.storage.unload_bouncer_network(&server);
                     }
@@ -1208,7 +1212,12 @@ impl Halloy {
                 let dashboard_tasks =
                     if let Screen::Dashboard(dashboard) = &mut self.screen {
                         dashboard
-                            .tick(now, &self.clients, &self.config)
+                            .tick(
+                                now,
+                                &self.clients,
+                                &mut self.storage,
+                                &self.config,
+                            )
                             .map(Message::Dashboard)
                     } else {
                         Task::none()
@@ -1916,15 +1925,12 @@ impl Halloy {
             tick,
             streams,
         ];
-
         if self.config.buffer.typing.animation.enabled
-            && (matches!(
+            && matches!(
                 &self.screen,
                 Screen::Dashboard(dashboard)
-            if dashboard.has_typing_activity_in_focused_window(&self.clients, self.focused_window)
-            ) || (self.config.can_show_any_typing()
-                && self.config.sidebar.can_show_typing()
-                && self.clients.has_any_query_typing()))
+            if dashboard.has_typing_activity_in_focused_window(&self.clients, &self.config, self.focused_window)
+            )
         {
             subscriptions.push(
                 iced::time::every(Duration::from_millis(50))
@@ -2166,7 +2172,9 @@ impl Halloy {
 
         let dashboard_save_task =
             if let Screen::Dashboard(dashboard) = &mut self.screen {
-                dashboard.exit().map(|task| task.map(Message::Dashboard))
+                dashboard
+                    .exit(&self.clients, &mut self.storage, &self.config)
+                    .map(|task| task.map(Message::Dashboard))
             } else {
                 None
             };
@@ -2387,14 +2395,12 @@ fn handle_client_events(
                     controllers,
                 ));
             }
-            Event::BouncerNetworksListed(netids) => {
+            Event::BouncerNetworksListed(listed) => {
+                storage.forget_unlisted_bouncer_networks(server, &listed);
+
                 let missing = servers
                     .get_bouncer_networks(server)
-                    .filter(|network| {
-                        network
-                            .bouncer_netid()
-                            .is_some_and(|netid| !netids.contains(netid))
-                    })
+                    .filter(|network| !listed.contains(network))
                     .cloned()
                     .collect::<Vec<_>>();
 

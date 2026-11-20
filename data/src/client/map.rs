@@ -8,9 +8,7 @@ use hashbrown::HashMap;
 use super::{CLIENT_CHATHISTORY_LIMIT, Client, Event, Topic};
 use crate::bouncer::NetworkState;
 use crate::buffer::{self, BuffersContext};
-use crate::capabilities::{
-    self, Capabilities, Capability, LabeledResponseContext, MultilineLimits,
-};
+use crate::capabilities::{self, Capabilities, Capability, MultilineLimits};
 use crate::config::server::filehost;
 use crate::features::{self, Features};
 use crate::history::reroute::RerouteRules;
@@ -20,7 +18,9 @@ use crate::rate_limit::TokenPriority;
 use crate::server::{self, Server};
 use crate::target::{self, Target};
 use crate::user::{ChannelUsers, Nick, User};
-use crate::{channel_discovery, config, fileupload, message, metadata};
+use crate::{
+    channel_discovery, command, config, fileupload, message, metadata,
+};
 
 #[derive(Debug)]
 pub enum State {
@@ -39,6 +39,14 @@ impl Status {
     pub fn connected(&self) -> bool {
         matches!(self, Status::Connected)
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChannelState {
+    Joined,
+    Joining,
+    Parted,
+    Offline,
 }
 
 #[derive(Debug, Default)]
@@ -169,22 +177,40 @@ impl Map {
     pub fn send_from_buffer(
         &mut self,
         buffer: &buffer::Upstream,
-        message: message::Encoded,
+        command: command::Irc,
+        reply_id: Option<&message::Id>,
+        reroute_rules: Option<&RerouteRules>,
         priority: TokenPriority,
-    ) -> Option<LabeledResponseContext> {
+    ) -> Vec<storage::Update> {
         self.client_mut(buffer.as_server())
-            .and_then(|client| client.send(Some(buffer), message, priority))
+            .map(|client| {
+                client.send_from_buffer(
+                    buffer,
+                    command,
+                    reply_id,
+                    reroute_rules,
+                    priority,
+                )
+            })
+            .unwrap_or_default()
     }
 
     pub fn send_multiline_batch_from_buffer(
         &mut self,
         buffer: &buffer::Upstream,
-        messages: Vec<message::Encoded>,
-        priority: TokenPriority,
+        commands: Vec<command::Irc>,
         reply_id: Option<&message::Id>,
-    ) -> Option<LabeledResponseContext> {
+        reroute_rules: &RerouteRules,
+        priority: TokenPriority,
+    ) -> Option<storage::Update> {
         self.client_mut(buffer.as_server()).and_then(|client| {
-            client.send_multiline_batch(buffer, messages, priority, reply_id)
+            client.send_multiline_batch_from_buffer(
+                buffer,
+                commands,
+                reply_id,
+                reroute_rules,
+                priority,
+            )
         })
     }
 
@@ -193,9 +219,10 @@ impl Map {
         server: &Server,
         message: message::Encoded,
         priority: TokenPriority,
-    ) -> Option<LabeledResponseContext> {
-        self.client_mut(server)
-            .and_then(|client| client.send(None, message, priority))
+    ) {
+        if let Some(client) = self.client_mut(server) {
+            client.send(None, message, priority);
+        }
     }
 
     pub fn request_resend_message(
@@ -370,8 +397,16 @@ impl Map {
         server: &Server,
         chan: &target::Channel,
     ) -> bool {
+        self.client(server).is_some_and(|c| c.is_joined(chan))
+    }
+
+    pub fn channel_state(
+        &self,
+        server: &Server,
+        chan: &target::Channel,
+    ) -> ChannelState {
         self.client(server)
-            .is_some_and(|c| c.chanmap.contains_key(chan))
+            .map_or(ChannelState::Offline, |c| c.channel_state(chan))
     }
 
     pub fn contains_query(
@@ -676,6 +711,15 @@ impl Map {
     ) -> bool {
         self.client(server)
             .is_some_and(|client| client.has_channel_typing_users(channel))
+    }
+
+    pub fn has_any_channel_typing(&self) -> bool {
+        self.states()
+            .filter_map(|state| match state {
+                State::Ready(client) => Some(client),
+                _ => None,
+            })
+            .any(Client::has_any_channel_typing_users)
     }
 
     pub fn has_query_typing_users(

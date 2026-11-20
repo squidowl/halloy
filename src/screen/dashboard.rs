@@ -10,6 +10,7 @@ use data::buffer::{
 };
 use data::client::{self, ClientsContext};
 use data::config::buffer::{ScrollPosition, UsernameFormat};
+use data::config::sidebar::TypingIndicatorBuffer;
 use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
 use data::history::filter::FilterChain;
@@ -205,18 +206,17 @@ impl Dashboard {
         clients: &mut client::Map,
         server: &data::Server,
     ) {
-        if let Some(pane) = self.panes.iter().find_map(|(_, _, pane)| {
+        if self.panes.iter().any(|(_, _, pane)| {
             if let Some(data::Buffer::Internal(
                 buffer::Internal::ChannelDiscovery(Some(pane_server)),
             )) = pane.buffer.data()
-                && pane_server == *server
             {
-                Some(pane)
+                pane_server == *server
             } else {
-                None
+                false
             }
         }) {
-            Self::send_list_command_if_needed(server, pane, clients);
+            Self::send_list_command_if_needed(server, clients);
         }
     }
 
@@ -539,29 +539,21 @@ impl Dashboard {
                                     if let Some(buffer) = pane.buffer.upstream()
                                         && let Some(target) = buffer.target()
                                     {
-                                        let command = command::Irc::Redact {
-                                            target: target.to_string(),
-                                            msgid: msgid.clone(),
-                                            reason: if reason.is_empty() {
-                                                None
-                                            } else {
-                                                Some(reason.clone())
+                                        clients.send_from_buffer(
+                                            buffer,
+                                            command::Irc::Redact {
+                                                target: target.to_string(),
+                                                msgid: msgid.clone(),
+                                                reason: if reason.is_empty() {
+                                                    None
+                                                } else {
+                                                    Some(reason.clone())
+                                                },
                                             },
-                                        };
-
-                                        let input: data::Input =
-                                            data::Input::from_command(
-                                                buffer.clone(),
-                                                command,
-                                            );
-
-                                        if let Some(encoded) = input.encoded() {
-                                            clients.send_from_buffer(
-                                                &input.buffer,
-                                                encoded,
-                                                TokenPriority::User,
-                                            );
-                                        }
+                                            None,
+                                            None,
+                                            TokenPriority::User,
+                                        );
                                     }
 
                                     (self.refocus_pane(), None)
@@ -674,6 +666,15 @@ impl Dashboard {
                             (Task::none(), None)
                         }
                     }
+                    sidebar::Event::Join(buffer) => {
+                        if let buffer::Upstream::Channel(server, channel) =
+                            buffer
+                        {
+                            clients.join(&server, slice::from_ref(&channel));
+                        }
+
+                        (Task::none(), None)
+                    }
                     sidebar::Event::Leave(buffer) => {
                         self.leave_buffer(clients, storage, config, buffer)
                     }
@@ -681,7 +682,7 @@ impl Dashboard {
                         self.toggle_command_bar(
                             servers,
                             clients,
-                            &closed_upstream_buffers(self, clients),
+                            &closed_upstream_buffers(self, servers, clients),
                             version,
                             config,
                             theme,
@@ -720,14 +721,7 @@ impl Dashboard {
                         (Task::none(), None)
                     }
                     sidebar::Event::OpenChannelDiscovery(server) => {
-                        if let Some(pane) = self
-                            .panes
-                            .get(self.panes.focus.window, self.panes.focus.pane)
-                        {
-                            Self::send_list_command_if_needed(
-                                &server, pane, clients,
-                            );
-                        }
+                        Self::send_list_command_if_needed(&server, clients);
 
                         (
                             self.open_buffer(
@@ -864,7 +858,9 @@ impl Dashboard {
                                 self.toggle_command_bar(
                                     servers,
                                     clients,
-                                    &closed_upstream_buffers(self, clients),
+                                    &closed_upstream_buffers(
+                                        self, servers, clients,
+                                    ),
                                     version,
                                     config,
                                     theme,
@@ -878,7 +874,9 @@ impl Dashboard {
                             self.toggle_command_bar(
                                 servers,
                                 clients,
-                                &closed_upstream_buffers(self, clients),
+                                &closed_upstream_buffers(
+                                    self, servers, clients,
+                                ),
                                 version,
                                 config,
                                 theme,
@@ -1069,7 +1067,9 @@ impl Dashboard {
                             self.toggle_command_bar(
                                 servers,
                                 clients,
-                                &closed_upstream_buffers(self, clients),
+                                &closed_upstream_buffers(
+                                    self, servers, clients,
+                                ),
                                 version,
                                 config,
                                 theme,
@@ -1882,7 +1882,11 @@ impl Dashboard {
                         .view(
                             servers,
                             clients,
-                            &all_upstream_buffers(clients, &self.models),
+                            &all_upstream_buffers(
+                                servers,
+                                clients,
+                                &self.models,
+                            ),
                             self.panes.focus,
                             self.buffer_resize_action(),
                             version,
@@ -1981,7 +1985,7 @@ impl Dashboard {
                 if let buffer::Internal::ChannelDiscovery(Some(server)) =
                     &buffer
                 {
-                    Self::send_list_command_if_needed(server, pane, clients);
+                    Self::send_list_command_if_needed(server, clients);
                 }
 
                 return (
@@ -2123,20 +2127,17 @@ impl Dashboard {
                             channel.clone(),
                         );
 
-                        let command = command::Irc::Mode(
-                            channel.to_string(),
-                            Some(mode),
-                            Some(vec![nick.to_string()]),
+                        clients.send_from_buffer(
+                            &buffer,
+                            command::Irc::Mode(
+                                channel.to_string(),
+                                Some(mode),
+                                Some(vec![nick.to_string()]),
+                            ),
+                            None,
+                            None,
+                            TokenPriority::User,
                         );
-                        let input = data::Input::from_command(buffer, command);
-
-                        if let Some(encoded) = input.encoded() {
-                            clients.send_from_buffer(
-                                &input.buffer,
-                                encoded,
-                                TokenPriority::User,
-                            );
-                        }
 
                         None
                     }
@@ -2146,19 +2147,13 @@ impl Dashboard {
                                 || buffer::Upstream::Server(server.clone()),
                             );
 
-                        let command =
-                            command::Irc::Whois(None, nick.to_string());
-
-                        let input =
-                            data::Input::from_command(buffer.clone(), command);
-
-                        if let Some(encoded) = input.encoded() {
-                            clients.send_from_buffer(
-                                &input.buffer,
-                                encoded,
-                                TokenPriority::User,
-                            );
-                        }
+                        clients.send_from_buffer(
+                            &buffer,
+                            command::Irc::Whois(None, nick.to_string()),
+                            None,
+                            None,
+                            TokenPriority::User,
+                        );
 
                         None
                     }
@@ -2168,19 +2163,13 @@ impl Dashboard {
                                 || buffer::Upstream::Server(server.clone()),
                             );
 
-                        let command =
-                            command::Irc::Whowas(nick.to_string(), None);
-
-                        let input =
-                            data::Input::from_command(buffer.clone(), command);
-
-                        if let Some(encoded) = input.encoded() {
-                            clients.send_from_buffer(
-                                &input.buffer,
-                                encoded,
-                                TokenPriority::User,
-                            );
-                        }
+                        clients.send_from_buffer(
+                            &buffer,
+                            command::Irc::Whowas(nick.to_string(), None),
+                            None,
+                            None,
+                            TokenPriority::User,
+                        );
 
                         None
                     }
@@ -2258,22 +2247,17 @@ impl Dashboard {
                                 || buffer::Upstream::Server(server.clone()),
                             );
 
-                        let command = command::Irc::Ctcp(
-                            command,
-                            nick.to_string(),
-                            params,
+                        clients.send_from_buffer(
+                            &buffer,
+                            command::Irc::Ctcp(
+                                command,
+                                nick.to_string(),
+                                params,
+                            ),
+                            None,
+                            None,
+                            TokenPriority::High,
                         );
-
-                        let input =
-                            data::Input::from_command(buffer.clone(), command);
-
-                        if let Some(encoded) = input.encoded() {
-                            clients.send_from_buffer(
-                                &input.buffer,
-                                encoded,
-                                TokenPriority::High,
-                            );
-                        }
 
                         None
                     }
@@ -2632,14 +2616,14 @@ impl Dashboard {
                 return (Task::batch(tasks), None);
             }
             buffer::Event::SelectedServer(server) => {
-                Self::send_list_command_if_needed(&server, pane, clients);
+                Self::send_list_command_if_needed(&server, clients);
 
                 self.last_changed = Some(Instant::now());
 
                 return (Task::none(), None);
             }
             buffer::Event::SendUnsafeList(server) => {
-                Self::send_list_command(&server, pane, clients);
+                Self::send_list_command(&server, clients);
 
                 return (Task::none(), None);
             }
@@ -2881,7 +2865,7 @@ impl Dashboard {
                     self.toggle_command_bar(
                         servers,
                         clients,
-                        &closed_upstream_buffers(self, clients),
+                        &closed_upstream_buffers(self, servers, clients),
                         version,
                         config,
                         theme,
@@ -3215,7 +3199,6 @@ impl Dashboard {
 
     fn send_list_command_if_needed(
         server: &data::Server,
-        pane: &Pane,
         clients: &mut client::Map,
     ) {
         let is_needed = if clients.get_server_supports_list(server) {
@@ -3229,30 +3212,15 @@ impl Dashboard {
         };
 
         if is_needed {
-            Self::send_list_command(server, pane, clients);
+            Self::send_list_command(server, clients);
         }
     }
 
-    fn send_list_command(
-        server: &data::Server,
-        pane: &Pane,
-        clients: &mut client::Map,
-    ) {
-        let buffer = pane
-            .buffer
-            .upstream()
-            .cloned()
-            .unwrap_or_else(|| buffer::Upstream::Server(server.clone()));
-
-        let command = command::Irc::List(None, None);
-        let input = data::Input::from_command(buffer, command);
-
-        if let Some(encoded) = input.encoded() {
-            clients.send_from_buffer(
-                &input.buffer,
-                encoded,
-                TokenPriority::User,
-            );
+    fn send_list_command(server: &data::Server, clients: &mut client::Map) {
+        if let Ok(encoded) =
+            message::Encoded::try_from(command::Irc::List(None, None))
+        {
+            clients.send(server, encoded, TokenPriority::User);
         }
     }
 
@@ -3679,25 +3647,23 @@ impl Dashboard {
         let kind = match target {
             Target::Channel(channel) => {
                 // Send part & close history file
-                let command = command::Irc::Part(
-                    channel.to_string(),
-                    reason.or(config
-                        .buffer
-                        .commands
-                        .part
-                        .default_reason
-                        .clone()),
-                );
-
-                let buffer =
-                    buffer::Upstream::Channel(server.clone(), channel.clone());
-
-                let input = data::Input::from_command(buffer, command);
-
-                if let Some(encoded) = input.encoded() {
+                if clients.contains_channel(&server, &channel) {
                     clients.send_from_buffer(
-                        &input.buffer,
-                        encoded,
+                        &buffer::Upstream::Channel(
+                            server.clone(),
+                            channel.clone(),
+                        ),
+                        command::Irc::Part(
+                            channel.to_string(),
+                            reason.or(config
+                                .buffer
+                                .commands
+                                .part
+                                .default_reason
+                                .clone()),
+                        ),
+                        None,
+                        None,
                         TokenPriority::High,
                     );
                 }
@@ -3712,12 +3678,12 @@ impl Dashboard {
             }
         };
 
+        storage.show_in_sidebar(kind, false);
+
         // Close pane
         if let Some((window, pane)) = open {
             self.close_pane(clients, storage, config, window, pane)
         } else {
-            storage.show_in_sidebar(kind, false);
-
             Task::none()
         }
     }
@@ -4036,16 +4002,11 @@ impl Dashboard {
                 .is_some_and(|is_scrolled_to_bottom| is_scrolled_to_bottom);
 
             let hide_in_sidebar = match &kind {
-                history::Kind::Query(server, query) => {
-                    if config.buffer.close.query.close(replaced) {
-                        clients.remove_query(server, query);
-                        true
-                    } else {
-                        !clients.contains_query(server, query)
-                    }
-                }
-                history::Kind::Channel(server, channel) => {
-                    !clients.contains_channel(server, channel)
+                history::Kind::Query(server, query)
+                    if config.buffer.close.query.close(replaced) =>
+                {
+                    clients.remove_query(server, query);
+                    true
                 }
                 _ => false,
             };
@@ -4165,16 +4126,26 @@ impl Dashboard {
         &mut self,
         now: Instant,
         clients: &client::Map,
+        storage: &mut storage::Manager,
         config: &Config,
     ) -> Task<Message> {
         if !self.has_typing_activity(clients, config) {
             self.typing_animation = None;
         }
 
+        if storage
+            .update_saved_buffers(clients, config.sidebar.restore_on_launch)
+        {
+            self.last_changed = Some(now);
+        }
+
         if let Some(last_changed) = self.last_changed
             && now.duration_since(last_changed) >= SAVE_AFTER
         {
-            let dashboard = data::Dashboard::from(&*self);
+            let dashboard = data::Dashboard {
+                buffers: storage.saved_buffers(),
+                ..data::Dashboard::from(&*self)
+            };
 
             self.last_changed = None;
 
@@ -4433,6 +4404,12 @@ impl Dashboard {
 
         let mut tasks = vec![sidebar_task.map(Message::Sidebar)];
 
+        storage.restore_saved_buffers(
+            data.buffers,
+            &config.servers,
+            config.sidebar.restore_on_launch,
+        );
+
         for pane in data.popout_panes {
             // Popouts are only a single pane
             let pane_grid::Configuration::Pane(pane) = Panes::configuration(
@@ -4633,9 +4610,23 @@ impl Dashboard {
         }
     }
 
-    pub fn exit(&mut self) -> Option<Task<Message>> {
+    pub fn exit(
+        &mut self,
+        clients: &client::Map,
+        storage: &mut storage::Manager,
+        config: &Config,
+    ) -> Option<Task<Message>> {
+        if storage
+            .update_saved_buffers(clients, config.sidebar.restore_on_launch)
+        {
+            self.last_changed = Some(Instant::now());
+        }
+
         let last_changed = self.last_changed.take();
-        let dashboard = data::Dashboard::from(&*self);
+        let dashboard = data::Dashboard {
+            buffers: storage.saved_buffers(),
+            ..data::Dashboard::from(&*self)
+        };
 
         last_changed
             .is_some()
@@ -4704,21 +4695,46 @@ impl Dashboard {
             .iter()
             .any(|(_, _, pane)| pane.buffer.has_typing_activity(clients))
             || (config.can_show_any_typing()
-                && config.sidebar.can_show_typing()
-                && clients.has_any_query_typing())
+                && (config
+                    .sidebar
+                    .can_show_typing(TypingIndicatorBuffer::Channel)
+                    && clients.has_any_channel_typing())
+                || (config
+                    .sidebar
+                    .can_show_typing(TypingIndicatorBuffer::Query)
+                    && clients.has_any_query_typing()))
     }
 
     pub fn has_typing_activity_in_focused_window(
         &self,
         clients: &client::Map,
+        config: &Config,
         focused_window: Option<window::Id>,
     ) -> bool {
-        focused_window.is_some_and(|focused_window| {
+        let has_focused_pane_typing = |focused_window| {
             self.panes.iter().any(|(window, _, pane)| {
                 pane.buffer.has_typing_activity(clients)
                     && focused_window == window
             })
-        })
+        };
+        let has_sidebar_channel_typing = || {
+            config.sidebar.can_show_typing(
+                config::sidebar::TypingIndicatorBuffer::Channel,
+            ) && clients.has_any_channel_typing()
+        };
+        let has_sidebar_query_typing = || {
+            config
+                .sidebar
+                .can_show_typing(config::sidebar::TypingIndicatorBuffer::Query)
+                && clients.has_any_query_typing()
+        };
+
+        config.can_show_any_typing()
+            && focused_window.is_some_and(|focused_window| {
+                has_focused_pane_typing(focused_window)
+                    || has_sidebar_channel_typing()
+                    || has_sidebar_query_typing()
+            })
     }
 
     pub fn find_window_with_history(
@@ -5025,6 +5041,7 @@ impl<'a> From<&'a Dashboard> for data::Dashboard {
             } else {
                 data::dashboard::Sidebar::Visible
             },
+            buffers: vec![],
         }
     }
 }
@@ -5278,22 +5295,25 @@ impl Panes {
 }
 
 fn all_upstream_buffers(
+    servers: &server::Map,
     clients: &client::Map,
     models: &model::Manager,
 ) -> Vec<buffer::Upstream> {
     clients
-        .connected_servers()
+        .servers()
         .sorted_by(|a, b| a.display_cmp(b))
         .flat_map(|server| {
+            let config = servers.get(server);
+            let targets =
+                models.sidebar_targets(server, clients, config.as_deref());
+
             std::iter::once(buffer::Upstream::Server(server.clone()))
-                .chain(clients.get_channels(server).map(|channel| {
+                .chain(targets.channels.into_iter().map(|(channel, _)| {
                     buffer::Upstream::Channel(server.clone(), channel.clone())
                 }))
-                .chain(models.visible_server_queries(server).into_iter().map(
-                    |nick| {
-                        buffer::Upstream::Query(server.clone(), nick.clone())
-                    },
-                ))
+                .chain(targets.queries.into_iter().map(|nick| {
+                    buffer::Upstream::Query(server.clone(), nick.clone())
+                }))
         })
         .collect()
 }
@@ -5317,11 +5337,12 @@ fn open_upstream_buffers(dashboard: &Dashboard) -> Vec<buffer::Upstream> {
 
 fn closed_upstream_buffers(
     dashboard: &Dashboard,
+    servers: &server::Map,
     clients: &client::Map,
 ) -> Vec<buffer::Upstream> {
     let open_buffers = open_upstream_buffers(dashboard);
 
-    all_upstream_buffers(clients, &dashboard.models)
+    all_upstream_buffers(servers, clients, &dashboard.models)
         .into_iter()
         .filter(|buffer| !open_buffers.contains(buffer))
         .collect()
