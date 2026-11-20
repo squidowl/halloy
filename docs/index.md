@@ -62,4 +62,5 @@ We strive to be a leading irc client with a rich IRCv3 feature set. Currently su
 - [`UTF8ONLY`](https://ircv3.net/specs/extensions/utf8-only)
 - [`WHOX`](https://ircv3.net/specs/extensions/whox)
 - [`soju.im/bouncer-networks`](https://soju.im/bouncer-networks)
+- [`soju.im/bouncer-networks-notify`](https://soju.im/bouncer-networks)
 - [`soju.im/filehost`](https://soju.im/filehost)

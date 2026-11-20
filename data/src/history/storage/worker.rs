@@ -10,7 +10,7 @@ use rusqlite::Connection;
 
 use super::{Error, Event, Message, batch, cache};
 use crate::history::{Kind, Metadata, ReadMarker, database, legacy};
-use crate::{client, config, environment, message};
+use crate::{Server, client, config, environment, message};
 
 const QUEUE_WARNING: usize = 10_000;
 const MAX_ACTIVE_IMPORTS: usize = 2;
@@ -35,6 +35,8 @@ pub(super) enum Command {
         Result<(Vec<message::Message>, Metadata), legacy::Error>,
     ),
     UpdateConfig(config::buffer::ServerMessages),
+    RenameBouncerNetwork(Server, Server),
+    UnloadBouncerNetwork(Server),
 }
 
 impl Command {
@@ -43,7 +45,9 @@ impl Command {
             Self::Initialize(kind)
             | Self::MarkRead(kind, ..)
             | Self::Imported(kind, ..) => vec![kind.clone()],
-            Self::UpdateConfig(_) => vec![],
+            Self::UpdateConfig(_)
+            | Self::RenameBouncerNetwork(..)
+            | Self::UnloadBouncerNetwork(_) => vec![],
             Self::Write(batch) => batch.kinds().collect(),
             Self::Read(kind, _, monitored) => {
                 let mut kinds = vec![kind.clone()];
@@ -277,6 +281,16 @@ impl State {
         Ok(())
     }
 
+    fn bouncer_network_kinds(&self, server: &Server) -> Vec<Kind> {
+        self.ready
+            .iter()
+            .chain(&self.importing)
+            .chain(&self.blocked)
+            .filter(|kind| kind.as_server() == Some(server))
+            .cloned()
+            .collect()
+    }
+
     fn start_imports(&mut self) {
         if self.failure.is_some() {
             return;
@@ -343,7 +357,13 @@ impl State {
             self.start_imports();
             return self.drain();
         }
-        let kinds = command.kinds();
+        let kinds = match &command {
+            Command::RenameBouncerNetwork(server, _)
+            | Command::UnloadBouncerNetwork(server) => {
+                self.bouncer_network_kinds(server)
+            }
+            command => command.kinds(),
+        };
         if self.failure.is_none() {
             for kind in &kinds {
                 if let Err(error) = self.initialize(kind.clone()) {
@@ -382,6 +402,16 @@ impl State {
         for _ in 0..count {
             let (command, kinds) =
                 self.pending.pop_front().expect("pending command");
+
+            if self.failure.is_none() {
+                for kind in &kinds {
+                    if let Err(error) = self.initialize(kind.clone()) {
+                        self.fail(error);
+                        break;
+                    }
+                }
+            }
+
             let exiting = matches!(command, Command::Exit(..));
             if self.failure.is_none()
                 && (barrier
@@ -535,6 +565,23 @@ impl State {
                     Err(error) => self.fail(error),
                 }
             }
+            // loaded histories still carry the old name, so they are
+            // forgotten and reloaded under the new one
+            Command::RenameBouncerNetwork(old, new) => {
+                match retry(|| {
+                    database
+                        .rekey_bouncer_network(&old, &new)
+                        .map_err(Error::from)
+                }) {
+                    Ok(()) => {
+                        self.unload(new, Message::BouncerNetworkRenamed);
+                    }
+                    Err(error) => self.fail(error),
+                }
+            }
+            Command::UnloadBouncerNetwork(server) => {
+                self.unload(server, Message::BouncerNetworkUnloaded);
+            }
             Command::MarkReadOnExit(kinds) => {
                 let result = retry(|| {
                     let mut transaction = database.transaction()?;
@@ -573,6 +620,11 @@ impl State {
                 unreachable!("import completions bypass pending operations")
             }
         }
+    }
+
+    fn unload(&mut self, server: Server, message: fn(Server) -> Message) {
+        self.ready.retain(|kind| kind.as_server() != Some(&server));
+        self.emit(message(server));
     }
 
     fn emit(&self, message: Message) {

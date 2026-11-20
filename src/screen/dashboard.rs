@@ -27,6 +27,7 @@ use hashbrown::{HashMap, HashSet, hash_map};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{center, column, container, row, stack, text};
 use iced::{Length, Size, Task, Vector, clipboard, padding};
+use itertools::Itertools;
 use jiff::Timestamp;
 
 use self::command_bar::CommandBar;
@@ -3687,6 +3688,36 @@ impl Dashboard {
         }
     }
 
+    pub fn close_server_buffers(
+        &mut self,
+        clients: &mut client::Map,
+        storage: &mut storage::Manager,
+        config: &Config,
+        server: &Server,
+    ) -> Task<Message> {
+        let open = self
+            .panes
+            .iter()
+            .filter(|(_, _, state)| match &state.buffer {
+                Buffer::ChannelDiscovery(state) => {
+                    state.server.as_ref() == Some(server)
+                }
+                buffer => buffer.server().as_ref() == Some(server),
+            })
+            .map(|(window, pane, _)| (window, pane))
+            .collect::<Vec<_>>();
+
+        Task::batch(open.into_iter().map(|(window, pane)| {
+            self.close_pane(clients, storage, config, window, pane)
+        }))
+    }
+
+    pub fn rename_server(&mut self, server: &Server) {
+        for (_, _, pane) in self.panes.iter_mut() {
+            pane.buffer.rename_server(server);
+        }
+    }
+
     pub fn remove_server_icon(
         &mut self,
         clients: &mut client::Map,
@@ -5269,8 +5300,9 @@ fn all_upstream_buffers(
     models: &model::Manager,
 ) -> Vec<buffer::Upstream> {
     clients
-        .iter()
-        .flat_map(|(server, _)| {
+        .servers()
+        .sorted_by(|a, b| a.display_cmp(b))
+        .flat_map(|server| {
             let config = servers.get(server);
             let targets =
                 models.sidebar_targets(server, clients, config.as_deref());

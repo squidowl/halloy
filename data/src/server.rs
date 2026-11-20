@@ -43,6 +43,17 @@ impl Server {
             None
         }
     }
+
+    // matches Ord, except bouncer networks sort by name
+    pub fn display_cmp(&self, other: &Self) -> cmp::Ordering {
+        self.name
+            .to_lowercase()
+            .cmp(&other.name.to_lowercase())
+            .then_with(|| match (&self.network, &other.network) {
+                (Some(network), Some(other)) => network.display_cmp(other),
+                (network, other) => network.is_some().cmp(&other.is_some()),
+            })
+    }
 }
 
 impl From<ServerName> for Server {
@@ -412,7 +423,7 @@ impl Map {
             s2: &Server,
             _: &Arc<config::Server>,
         ) -> Ordering {
-            s1.cmp(s2)
+            s1.display_cmp(s2)
         }
 
         fn cmp_config(

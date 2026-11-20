@@ -929,7 +929,8 @@ impl Halloy {
                 self.controllers.network_changed(routable, &addresses);
                 Task::none()
             }
-            Message::Stream(update) => match update {
+            Message::Stream(update) => match self.resolve_stream_update(update)
+            {
                 stream::Update::Disconnected {
                     server,
                     is_initial,
@@ -1129,6 +1130,10 @@ impl Halloy {
 
                     if let Screen::Dashboard(_) = &self.screen {
                         self.storage.forget_sidebar_buffers(&server);
+                    }
+
+                    if server.is_bouncer_network() {
+                        self.storage.unload_bouncer_network(&server);
                     }
 
                     if let Screen::Exit {
@@ -2112,6 +2117,18 @@ impl Halloy {
         reload_complete
     }
 
+    fn resolve_stream_update(
+        &self,
+        mut update: stream::Update,
+    ) -> stream::Update {
+        *update.server_mut() =
+            self.clients.resolve_server(update.server_mut()).clone();
+        if let stream::Update::Connected { server, client, .. } = &mut update {
+            client.rename(server.clone());
+        }
+        update
+    }
+
     fn handle_messages_received(
         &mut self,
         server: Server,
@@ -2197,6 +2214,32 @@ impl Halloy {
 
         Task::batch(exit_tasks)
     }
+}
+
+fn remove_bouncer_network(
+    network: &Server,
+    screen: &mut Screen,
+    clients: &mut client::Map,
+    storage: &mut storage::Manager,
+    config: &Config,
+    servers: &server::Map,
+    controllers: &mut stream::Map,
+) -> Task<Message> {
+    let task = if let Screen::Dashboard(dashboard) = screen {
+        dashboard
+            .close_server_buffers(clients, storage, config, network)
+            .map(Message::Dashboard)
+    } else {
+        Task::none()
+    };
+
+    if servers.contains(network) {
+        controllers.end(network, &config.buffer.commands.quit.default_reason);
+    } else {
+        storage.unload_bouncer_network(network);
+    }
+
+    task
 }
 
 fn handle_client_events(
@@ -2308,7 +2351,26 @@ fn handle_client_events(
                 );
             }
             Event::BouncerNetwork(server, server_config) => {
-                servers.insert(server, server_config);
+                if let Some(old) = servers.keys().find(|known| {
+                    **known == server
+                        && format!("{known:b}") != format!("{server:b}")
+                }) {
+                    storage.rename_bouncer_network(old, &server);
+
+                    // overrides are keyed by name, so the running connection
+                    // picks up the config for its new name
+                    controllers.rename(&server, server_config.clone());
+                }
+
+                // an insert keeps the existing key, so remove it first to
+                // pick up a new name
+                servers.remove(&server);
+                servers.insert(server.clone(), server_config);
+                clients.rename(&server);
+
+                if let Screen::Dashboard(dashboard) = screen {
+                    dashboard.rename_server(&server);
+                }
 
                 storage.set_filters(servers, clients, &config.buffer);
 
@@ -2322,8 +2384,37 @@ fn handle_client_events(
                     );
                 }
             }
+            Event::BouncerNetworkRemoved(network) => {
+                commands.push(remove_bouncer_network(
+                    &network,
+                    screen,
+                    clients,
+                    storage,
+                    config,
+                    servers,
+                    controllers,
+                ));
+            }
             Event::BouncerNetworksListed(listed) => {
                 storage.forget_unlisted_bouncer_networks(server, &listed);
+
+                let missing = servers
+                    .get_bouncer_networks(server)
+                    .filter(|network| !listed.contains(network))
+                    .cloned()
+                    .collect::<Vec<_>>();
+
+                for network in missing {
+                    commands.push(remove_bouncer_network(
+                        &network,
+                        screen,
+                        clients,
+                        storage,
+                        config,
+                        servers,
+                        controllers,
+                    ));
+                }
             }
             Event::ShowInSidebar(target) => {
                 let kind = history::Kind::from_target(server.clone(), target);

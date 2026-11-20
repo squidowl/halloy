@@ -243,6 +243,35 @@ impl Buffer {
         }
     }
 
+    pub fn rename_server(&mut self, server: &data::Server) {
+        match self {
+            Buffer::Channel(state) if state.server == *server => {
+                state.server = server.clone();
+                state.buffer = buffer::Upstream::Channel(
+                    server.clone(),
+                    state.target.clone(),
+                );
+            }
+            Buffer::Query(state) if state.server == *server => {
+                state.server = server.clone();
+                state.buffer = buffer::Upstream::Query(
+                    server.clone(),
+                    state.target.clone(),
+                );
+            }
+            Buffer::Server(state) if state.server == *server => {
+                state.server = server.clone();
+                state.buffer = buffer::Upstream::Server(server.clone());
+            }
+            Buffer::ChannelDiscovery(state)
+                if state.server.as_ref() == Some(server) =>
+            {
+                state.server = Some(server.clone());
+            }
+            _ => (),
+        }
+    }
+
     pub fn server(&self) -> Option<data::Server> {
         match self {
             Buffer::Channel(state) => Some(state.server.clone()),

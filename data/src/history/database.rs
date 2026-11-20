@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use super::{Id, Kind, Metadata, ReadMarker, search, storage};
-use crate::{isupport, message, reaction, redaction, user};
+use crate::{Server, isupport, message, reaction, redaction, user};
 
 pub(super) const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 pub(super) const FILE_NAME: &str = "history.sqlite3";
@@ -276,6 +276,35 @@ impl Database {
 
     pub fn is_imported(&self, kind: &Kind) -> Result<bool, Error> {
         is_imported(&self.connection, kind)
+    }
+
+    pub fn rekey_bouncer_network(
+        &mut self,
+        old: &Server,
+        new: &Server,
+    ) -> Result<(), Error> {
+        let old_key = format!("{old:b}");
+        let new_key = format!("{new:b}");
+        let transaction = self.connection.transaction()?;
+        let histories = transaction
+            .prepare_cached("SELECT id, kind FROM history WHERE server = ?1")?
+            .query_map([&old_key], |row| {
+                Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        for (id, kind) in histories {
+            let (tag, _, target): (String, Option<String>, Option<String>) =
+                serde_json::from_str(&kind)?;
+            let kind = serde_json::to_string(&(tag, Some(&new_key), target))?;
+            transaction
+                .prepare_cached(
+                    "UPDATE history SET kind = ?2, server = ?3 WHERE id = ?1
+                     AND NOT EXISTS (SELECT 1 FROM history WHERE kind = ?2)",
+                )?
+                .execute(params![id, kind, new_key])?;
+        }
+        transaction.commit()?;
+        Ok(())
     }
 
     pub fn shutdown(&self) -> Result<(), Error> {

@@ -5,6 +5,8 @@ Added:
 - `sidebar.restore_on_launch` can restore queries and/or channels that were in the sidebar during the last session
 - `buffer.text_input.auto_format` can be set to token-only formatting or a limited set of markdown features (in addition to the existing: markdown-only formatting, all formatting, and no formatting options)
 - Sidebar typing indicators for channels
+- Support for `soju.im/bouncer-networks-notify`
+- Sidebar shows the bouncer's upstream connection status for bouncer networks
 
 Fixed:
 
@@ -25,7 +27,7 @@ Changed:
 Thanks:
 
 - Contributions: @auronandace, @sjm42, @kasper93, @furudean
-- Feature requests: @sebbu2
+- Feature requests: @sebbu2, @dimaguy
 
 # 2026.10 (2026-11-03)
 

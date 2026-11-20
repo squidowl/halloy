@@ -142,7 +142,10 @@ pub fn message_row<'a>(
     channels_context: &'a dyn context_menu::ChannelsContext,
 ) -> Option<Element<'a, scroll_view::Message>> {
     let label = match &buffer {
-        buffer::Upstream::Server(server) => server.to_string(),
+        // stored messages keep the name a network had when they arrived
+        buffer::Upstream::Server(server) => {
+            clients.resolve_server(server).to_string()
+        }
         buffer::Upstream::Channel(_, channel) => channel.as_str().to_owned(),
         buffer::Upstream::Query(_, query) => query.as_str().to_owned(),
     };

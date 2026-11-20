@@ -1,5 +1,6 @@
 use std::{convert, iter};
 
+use data::bouncer::NetworkState;
 use data::buffer::{Buffer, BufferRef};
 use data::client::{self, ClientsContext};
 use data::config::server::SidebarVisibility;
@@ -1626,6 +1627,14 @@ fn upstream_buffer_button<'a>(
         && !(show_typing
             && config.sidebar.typing_indicator.is_position_left_priority());
 
+    let bouncer_state = match (buffer, connection_status) {
+        (
+            buffer::Upstream::Server(server),
+            ConnectionStatus::Connected { .. },
+        ) => clients.get_bouncer_network_state(server),
+        _ => None,
+    };
+
     let buffer_title_style = if show_highlight_title {
         theme::text::highlight_indicator
     } else if show_unread_title {
@@ -1638,6 +1647,8 @@ fn upstream_buffer_button<'a>(
             buffer::Upstream::Server(_) => theme::text::error,
             _ => theme::text::secondary,
         }
+    } else if bouncer_state == Some(NetworkState::Disconnected) {
+        theme::text::error
     } else if channel_state.is_some_and(|channel_state| {
         channel_state != client::ChannelState::Joined
     }) {
@@ -1690,10 +1701,16 @@ fn upstream_buffer_button<'a>(
         && let ConnectionStatus::Connected {
             registration_complete,
         } = connection_status
-        && !registration_complete
+        && (!registration_complete
+            || bouncer_state == Some(NetworkState::Connecting))
     {
         Some((
             icon::connecting().style(theme::text::success),
+            dimensions.icon_badge_padded_size,
+        ))
+    } else if bouncer_state == Some(NetworkState::Disconnected) {
+        Some((
+            icon::disconnected().style(theme::text::error),
             dimensions.icon_badge_padded_size,
         ))
     } else if show_highlight_icon

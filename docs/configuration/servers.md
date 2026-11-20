@@ -1248,7 +1248,7 @@ With the exception of `no-implicit-names`, all [supported IRCv3 capabilities](/i
 
 ```toml
 # Type: array of strings
-# Values: "account-notify", "away-notify", "batch", "bouncer-networks", "chathistory", "chghost", "echo-message", "event-playback", "extended-join", "extended-monitor", "invite-notify", "labeled-response", "message-tags", "message-redaction", "multiline", "multi-prefix", "metadata", "no-implicit-names", "read-marker", "sasl", "server-time", "setname", "userhost-in-names", "whoami"
+# Values: "account-notify", "away-notify", "batch", "bouncer-networks", "bouncer-networks-notify", "chathistory", "chghost", "echo-message", "event-playback", "extended-join", "extended-monitor", "invite-notify", "labeled-response", "message-tags", "message-redaction", "multiline", "multi-prefix", "metadata", "no-implicit-names", "read-marker", "sasl", "server-time", "setname", "userhost-in-names", "whoami"
 # Default: ["no-implicit-names"]
 
 [servers.<name>]

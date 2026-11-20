@@ -46,6 +46,8 @@ pub const REPLACE_MESSAGE_FUZZ: SignedDuration = SignedDuration::from_secs(1);
 #[derive(Debug)]
 pub enum Message {
     Initialized(Kind, Metadata),
+    BouncerNetworkUnloaded(Server),
+    BouncerNetworkRenamed(Server),
     Read(Kind, cache::Read, database::Window),
     Committed(Vec<batch::Committed>),
     Importing(Kind),
@@ -408,6 +410,22 @@ impl Manager {
                 self.refresh(&kind);
                 self.publish(&kind);
             }
+            Message::BouncerNetworkUnloaded(server) => {
+                self.unload_bouncer_network_kinds(&server);
+            }
+            Message::BouncerNetworkRenamed(server) => {
+                let shown = self.unload_bouncer_network_kinds(&server);
+
+                self.saved_buffers
+                    .retain(|kind| kind.as_server() != Some(&server));
+
+                for target in shown {
+                    self.show_in_sidebar(
+                        Kind::from_target(server.clone(), target),
+                        true,
+                    );
+                }
+            }
             Message::Read(kind, read, window) => {
                 if self.failure.is_some() {
                     return;
@@ -658,6 +676,42 @@ impl Manager {
         for kind in kinds {
             self.mark_as_read(kind);
         }
+    }
+
+    pub fn rename_bouncer_network(&mut self, old: &Server, new: &Server) {
+        self.worker.send(worker::Command::RenameBouncerNetwork(
+            old.clone(),
+            new.clone(),
+        ));
+    }
+
+    pub fn unload_bouncer_network(&mut self, server: &Server) {
+        self.worker
+            .send(worker::Command::UnloadBouncerNetwork(server.clone()));
+    }
+
+    fn unload_bouncer_network_kinds(&mut self, server: &Server) -> Vec<Target> {
+        let mut shown = vec![];
+        let mut removed = vec![];
+
+        for (kind, storage) in self
+            .storage
+            .extract_if(|kind, _| kind.as_server() == Some(server))
+        {
+            if storage.show_in_sidebar
+                && let Some(target) = kind.target()
+            {
+                shown.push(target);
+            }
+
+            removed.push(Event::Model(model::Message::Remove(kind)));
+        }
+
+        if !removed.is_empty() {
+            let _ = self.event_sender.send(removed);
+        }
+
+        shown
     }
 
     pub fn mark_as_read_on_exit(
