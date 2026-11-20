@@ -401,9 +401,10 @@ impl std::fmt::Display for Version {
                     .remote
                     .as_ref()
                     .filter(|remote| remote != &&version.current)
-                    .map_or("(Latest release)".to_owned(), |remote| {
-                        format!("(Latest: {remote})")
-                    });
+                    .map_or_else(
+                        || "(Latest release)".to_owned(),
+                        |remote| format!("(Latest: {remote})"),
+                    );
 
                 write!(f, "{} {}", version.current, latest)
             }

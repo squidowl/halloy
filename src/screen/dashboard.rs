@@ -1219,8 +1219,8 @@ impl Dashboard {
                         );
                     }
                     ScrollToBottom => {
-                        let task = self.panes.get_focused_mut().map_or(
-                            Task::none(),
+                        let task = self.panes.get_focused_mut().map_or_else(
+                            Task::none,
                             |(window, pane, state)| {
                                 let task = state
                                     .buffer
@@ -1253,8 +1253,8 @@ impl Dashboard {
                         return (task, None);
                     }
                     ScrollToBacklog => {
-                        let task = self.panes.get_focused_mut().map_or(
-                            Task::none(),
+                        let task = self.panes.get_focused_mut().map_or_else(
+                            Task::none,
                             |(window, pane, state)| {
                                 state
                                     .buffer
@@ -2499,9 +2499,9 @@ impl Dashboard {
                     self.previews.keys().cloned().collect::<HashSet<_>>();
                 let missing = visible
                     .iter()
-                    .filter_map(|(url, preview_client)| {
-                        (!tracking.contains(url))
-                            .then_some((url.clone(), preview_client.clone()))
+                    .filter(|&(url, _)| !tracking.contains(url))
+                    .map(|(url, preview_client)| {
+                        (url.clone(), preview_client.clone())
                     })
                     .collect::<Vec<_>>();
                 let removed = tracking
@@ -3654,12 +3654,14 @@ impl Dashboard {
                         ),
                         command::Irc::Part(
                             channel.to_string(),
-                            reason.or(config
-                                .buffer
-                                .commands
-                                .part
-                                .default_reason
-                                .clone()),
+                            reason.or_else(|| {
+                                config
+                                    .buffer
+                                    .commands
+                                    .part
+                                    .default_reason
+                                    .clone()
+                            }),
                         ),
                         None,
                         None,
@@ -3822,7 +3824,7 @@ impl Dashboard {
             .iter()
             .find_map(|(w, pane, _)| (w == window).then_some(pane));
 
-        pane.map_or(Task::none(), |pane| self.focus_pane(window, pane))
+        pane.map_or_else(Task::none, |pane| self.focus_pane(window, pane))
     }
 
     pub fn focus_window_pane(&mut self, window: window::Id) -> Task<Message> {
@@ -4825,7 +4827,7 @@ impl Dashboard {
         } else {
             self.panes.iter().find_map(|(win, _, pane)| {
                 (win == w && !matches!(pane.buffer, Buffer::Empty))
-                    .then_some(pane.buffer.to_string())
+                    .then(|| pane.buffer.to_string())
             })
         }
     }

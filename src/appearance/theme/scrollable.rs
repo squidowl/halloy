@@ -23,7 +23,7 @@ pub fn primary(theme: &Theme, status: Status) -> Style {
         .styles()
         .general
         .scrollbar
-        .unwrap_or(theme.styles().general.horizontal_rule);
+        .unwrap_or_else(|| theme.styles().general.horizontal_rule);
 
     let rail = Rail {
         background: None,

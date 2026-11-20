@@ -35,7 +35,7 @@ pub fn self_message(theme: &Theme) -> Style {
                 .buffer
                 .self_message
                 .color
-                .unwrap_or(theme.styles().text.primary.color),
+                .unwrap_or_else(|| theme.styles().text.primary.color),
         ),
         selection_color: theme.styles().buffer.selection,
     }
@@ -121,12 +121,12 @@ pub fn server(
             Kind::StandardReply(StandardReply::Fail) => styles
                 .standard_reply_fail
                 .color
-                .or(Some(theme.styles().text.error.color)),
+                .or_else(|| Some(theme.styles().text.error.color)),
             Kind::StandardReply(StandardReply::Warn) => styles
                 .standard_reply_warn
                 .color
-                .or(theme.styles().text.warning.color)
-                .or(Some(theme.styles().text.error.color)),
+                .or_else(|| theme.styles().text.warning.color)
+                .or_else(|| Some(theme.styles().text.error.color)),
             Kind::StandardReply(StandardReply::Note) => {
                 styles.standard_reply_note.color
             }
@@ -194,25 +194,24 @@ pub fn log_level(theme: &Theme, log_level: log::Level) -> Style {
             .text
             .warning
             .color
-            .unwrap_or(theme.styles().general.unread_indicator),
-        log::Level::Info => theme
-            .styles()
-            .text
-            .info
-            .color
-            .unwrap_or(theme.styles().buffer.server_messages.default.color),
+            .unwrap_or_else(|| theme.styles().general.unread_indicator),
+        log::Level::Info => {
+            theme.styles().text.info.color.unwrap_or_else(|| {
+                theme.styles().buffer.server_messages.default.color
+            })
+        }
         log::Level::Debug => theme
             .styles()
             .text
             .debug
             .color
-            .unwrap_or(theme.styles().buffer.code.color),
+            .unwrap_or_else(|| theme.styles().buffer.code.color),
         log::Level::Trace => theme
             .styles()
             .text
             .trace
             .color
-            .unwrap_or(theme.styles().text.secondary.color),
+            .unwrap_or_else(|| theme.styles().text.secondary.color),
     };
 
     Style {
@@ -242,7 +241,7 @@ pub fn dimmed(
     if let Some((dimmed, background)) = dimmed {
         Style {
             color: Some(dimmed.transform_color(
-                style.color.unwrap_or(theme.base().text_color),
+                style.color.unwrap_or_else(|| theme.base().text_color),
                 background,
             )),
             selection_color: style.selection_color,

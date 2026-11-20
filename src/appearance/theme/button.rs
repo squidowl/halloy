@@ -109,7 +109,7 @@ pub fn sidebar_buffer(
         .then_some(
             button_colors
                 .border_active
-                .unwrap_or(theme.styles().buffer.border_selected),
+                .unwrap_or_else(|| theme.styles().buffer.border_selected),
         ),
         status,
     )

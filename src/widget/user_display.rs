@@ -69,7 +69,7 @@ impl UserDisplay {
                 color,
             }
         } else {
-            let tooltip = (with_tooltip && has_icon).then_some(full.clone());
+            let tooltip = (with_tooltip && has_icon).then(|| full.clone());
 
             Self {
                 base: full.bracket(brackets),
@@ -502,11 +502,10 @@ impl UserDisplayData {
                     left: format!("{}{}", brackets.left, self.left),
                     bot_icon: self.bot_icon,
                     reroute_icon: self.reroute_icon,
-                    right: Some(
-                        self.right
-                            .map(|right| format!("{right}{}", brackets.right))
-                            .unwrap_or(brackets.right.clone()),
-                    ),
+                    right: Some(self.right.map_or_else(
+                        || brackets.right.clone(),
+                        |right| format!("{right}{}", brackets.right),
+                    )),
                 }
             } else {
                 UserDisplayData {

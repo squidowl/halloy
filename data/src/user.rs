@@ -490,7 +490,7 @@ impl User {
         prefix: &[isupport::PrefixMap],
     ) -> User {
         User::parse(value, casemapping, prefix)
-            .unwrap_or(User::from(Nick::from_str(value, casemapping)))
+            .unwrap_or_else(|_| User::from(Nick::from_str(value, casemapping)))
     }
 }
 

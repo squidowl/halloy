@@ -119,12 +119,10 @@ pub fn parse(
                 Content::Text(text)
             }
             Err(command::Error::HasDoubleSlash) => {
-                let text = input
-                    .strip_prefix('/')
-                    .map_or(input.to_string(), ToString::to_string);
+                let text = input.strip_prefix('/').unwrap_or(input);
 
                 let text = if let Some(encoding) = auto_format.encoding() {
-                    formatting::encode(&text, encoding)
+                    formatting::encode(text, encoding)
                 } else {
                     text.to_string()
                 };
@@ -591,7 +589,7 @@ fn parse_code_fence(input: &str) -> IResult<&str, CodeFence> {
             CodeFence {
                 indent,
                 backticks,
-                info: (!info.is_empty()).then_some(info.to_string()),
+                info: (!info.is_empty()).then(|| info.to_string()),
             }
         },
     ))

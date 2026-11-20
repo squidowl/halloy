@@ -2856,7 +2856,7 @@ fn read_clipboard(
 ) -> Task<Message> {
     let handle_text = move |content| {
         handle_text_clipboard_content(content, max_lines, current, limit)
-            .unwrap_or(Task::none())
+            .unwrap_or_else(Task::none)
     };
 
     if has_filehost {

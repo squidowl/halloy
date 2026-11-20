@@ -297,7 +297,7 @@ impl ThemeEditor {
             "",
             self.hex_input
                 .clone()
-                .unwrap_or(theme::color_to_hex(color).to_string()),
+                .unwrap_or_else(|| theme::color_to_hex(color).to_string()),
         )
         .on_input(Message::HexInput)
         .style(move |theme, status| {

@@ -239,11 +239,13 @@ async fn fetch(
 
     // First chunk should always be enough bytes to detect raster image
     // MAGIC value (<32 bytes)
-    let Some(format) = image::Format::from_magic_bytes(&first_chunk).or(resp
-        .headers()
-        .get("content-type")
-        .and_then(|content_type| content_type.to_str().ok())
-        .and_then(image::Format::from_mime_type))
+    let Some(format) =
+        image::Format::from_magic_bytes(&first_chunk).or_else(|| {
+            resp.headers()
+                .get("content-type")
+                .and_then(|content_type| content_type.to_str().ok())
+                .and_then(image::Format::from_mime_type)
+        })
     else {
         return Err(LoadError::ParseImage);
     };

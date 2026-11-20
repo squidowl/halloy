@@ -559,10 +559,12 @@ impl ServerMessages {
     ) -> Option<&Dimmed> {
         kind.and_then(|kind| self.get(kind).dimmed.as_ref())
             .or(self.default.dimmed.as_ref())
-            .or(if kind.is_none_or(|kind| self.dimmed_by_default(kind)) {
-                Some(&DIMMED_DEFAULT)
-            } else {
-                None
+            .or_else(|| {
+                if kind.is_none_or(|kind| self.dimmed_by_default(kind)) {
+                    Some(&DIMMED_DEFAULT)
+                } else {
+                    None
+                }
             })
     }
 

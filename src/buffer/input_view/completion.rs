@@ -160,11 +160,13 @@ impl Completion {
         self.commands
             .select()
             .map(Entry::Command)
-            .or(self.emojis.select(config).map(Entry::Emoji))
-            .or(self.words.select().map(|next| Entry::Word {
-                next,
-                append_suffix: true,
-            }))
+            .or_else(|| self.emojis.select(config).map(Entry::Emoji))
+            .or_else(|| {
+                self.words.select().map(|next| Entry::Word {
+                    next,
+                    append_suffix: true,
+                })
+            })
     }
 
     pub fn select_at(
@@ -175,12 +177,14 @@ impl Completion {
         self.commands
             .select_at(index)
             .map(Entry::Command)
-            .or(self.emojis.select_at(index, config).map(Entry::Emoji))
-            .or(self.paths.select_at(index).map(Entry::Path))
-            .or(self.words.select_at(index).map(|next| Entry::Word {
-                next,
-                append_suffix: true,
-            }))
+            .or_else(|| self.emojis.select_at(index, config).map(Entry::Emoji))
+            .or_else(|| self.paths.select_at(index).map(Entry::Path))
+            .or_else(|| {
+                self.words.select_at(index).map(|next| Entry::Word {
+                    next,
+                    append_suffix: true,
+                })
+            })
     }
 
     pub fn complete_emoji(
@@ -486,7 +490,7 @@ impl Commands {
 
                             title
                                 .starts_with(&cmd.to_lowercase())
-                                .then_some((title, command.clone()))
+                                .then(|| (title, command.clone()))
                         })
                         .collect::<Vec<_>>();
 
@@ -1190,7 +1194,7 @@ fn connected_command_list<'a>(
 
             let default = current_target
                 .map(Target::to_string)
-                .or(our_nickname.map(ToString::to_string));
+                .or_else(|| our_nickname.map(ToString::to_string));
 
             let mut tooltip = String::from("a channel or user");
 
@@ -1961,9 +1965,10 @@ impl Command {
 
         container(column![
             subcommand
-                .map_or(self.description(server, config), |subcommand| {
-                    subcommand.description(server, config)
-                })
+                .map_or_else(
+                    || self.description(server, config),
+                    |subcommand| { subcommand.description(server, config) }
+                )
                 .map(|description| {
                     text(description).style(theme::text::secondary).font_maybe(
                         theme::font_style::secondary(theme).map(font::get),
@@ -3670,8 +3675,9 @@ impl Paths {
         };
 
         // Expand leading ~ to user's home directory
-        let expanded = if let Some(rest) =
-            path.strip_prefix("~/").or((path == "~").then_some(""))
+        let expanded = if let Some(rest) = path
+            .strip_prefix("~/")
+            .or_else(|| (path == "~").then_some(""))
         {
             dirs::home_dir().map_or_else(
                 || path.to_string(),

@@ -238,7 +238,7 @@ impl Irc {
                         channel_users,
                         casemapping,
                     ),
-                    supports_echoes.then_some(self.clone()),
+                    supports_echoes.then(|| self.clone()),
                     time,
                 )])
             }
@@ -910,10 +910,12 @@ fn parse_command(
                         };
 
                     let Some(target) = target
-                        .or(buffer
-                            .and_then(Upstream::target)
-                            .map(|buffer_target| buffer_target.to_string()))
-                        .or(our_nickname.map(ToString::to_string))
+                        .or_else(|| {
+                            buffer
+                                .and_then(Upstream::target)
+                                .map(|buffer_target| buffer_target.to_string())
+                        })
+                        .or_else(|| our_nickname.map(ToString::to_string))
                     else {
                         return Err(Error::IncorrectArgCount {
                             min: 1,
@@ -1934,7 +1936,7 @@ fn validated_mode_string(
         channel_modes_regex += r")+$";
 
         Regex::new(&channel_modes_regex)
-            .unwrap_or(Regex::new(r"^((\+|\-)?[A-Za-z]+)+$").unwrap())
+            .unwrap_or_else(|_| Regex::new(r"^((\+|\-)?[A-Za-z]+)+$").unwrap())
     } else {
         // User modes from RPL_MYINFO is unreliable, so use the most permissive
         // regex instead of crafting a regex for the server
@@ -1949,7 +1951,7 @@ fn validated_mode_string(
         }
         user_modes_regex += r")+$";
         Regex::new(&user_modes_regex)
-            .unwrap_or(Regex::new(r"^((\+|\-)?[A-Za-z]+)+$").unwrap())
+            .unwrap_or_else(|_| Regex::new(r"^((\+|\-)?[A-Za-z]+)+$").unwrap())
     };
 
     Ok(mode_string_regex.is_match(mode_string).unwrap_or_default())

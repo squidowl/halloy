@@ -452,13 +452,13 @@ impl Map {
             return None;
         }
 
-        client.config.filehost.override_url.as_deref().or(
+        client.config.filehost.override_url.as_deref().or_else(|| {
             if server.is_bouncer_network() {
                 server.parent().as_ref().and_then(|p| self.get_filehost(p))
             } else {
                 isupport::get_filehost(&client.isupport)
-            },
-        )
+            }
+        })
     }
 
     pub fn get_icon_url<'a>(&'a self, server: &Server) -> Option<&'a str> {
@@ -469,7 +469,7 @@ impl Map {
                     .icon
                     .override_url
                     .as_deref()
-                    .or(isupport::get_icon_url(&client.isupport))
+                    .or_else(|| isupport::get_icon_url(&client.isupport))
             } else {
                 None
             }

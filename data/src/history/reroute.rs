@@ -1,3 +1,5 @@
+use std::sync::LazyLock;
+
 use hashbrown::HashMap;
 
 use crate::client::{self, ClientsContext};
@@ -9,6 +11,9 @@ pub struct RerouteRules {
     pub direct_messages: HashMap<Server, Vec<RerouteRule>>,
     pub direct_notices: HashMap<Server, Vec<RerouteRule>>,
 }
+
+pub static EMPTY_REROUTE_RULES: LazyLock<RerouteRules> =
+    LazyLock::new(RerouteRules::default);
 
 impl RerouteRules {
     pub fn from_server_map(
@@ -33,7 +38,7 @@ impl RerouteRules {
                 );
 
                 (!reroute_rules.is_empty())
-                    .then_some((entry.server.clone(), reroute_rules))
+                    .then(|| (entry.server.clone(), reroute_rules))
             })
             .collect();
 
@@ -55,7 +60,7 @@ impl RerouteRules {
                 );
 
                 (!reroute_rules.is_empty())
-                    .then_some((entry.server.clone(), reroute_rules))
+                    .then(|| (entry.server.clone(), reroute_rules))
             })
             .collect();
 

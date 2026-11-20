@@ -217,7 +217,7 @@ impl Encoded {
     ) -> Option<target::Channel> {
         self.tags
             .get("+channel-context")
-            .or(self.tags.get("+draft/channel-context"))
+            .or_else(|| self.tags.get("+draft/channel-context"))
             .and_then(|channel| {
                 target::Channel::parse(
                     channel,
@@ -867,9 +867,8 @@ impl Message {
 
         selected
             .into_iter()
-            .filter_map(|(text, count)| {
-                (count >= 1).then_some(text.to_string())
-            })
+            .filter(|(_, count)| *count >= 1)
+            .map(|(text, _)| text.to_string())
             .collect()
     }
 }
@@ -1718,10 +1717,9 @@ fn condense_associated_fragments(
                                 condense.format,
                                 CondensationFormat::Detailed
                             )
-                            .then_some(vec![
-                                first_nick_fragment,
-                                last_nick_fragment,
-                            ])
+                            .then(|| {
+                                vec![first_nick_fragment, last_nick_fragment]
+                            })
                         } else {
                             Some(vec![first_nick_fragment])
                         }
@@ -2720,7 +2718,7 @@ fn source_and_target(
                     (target::Target::Channel(channel), Some(user)) => {
                         let source = source_from_user(
                             resolve_attributes_with_bot(user, &channel)
-                                .unwrap_or(user.clone()),
+                                .unwrap_or_else(|| user.clone()),
                         );
                         (source, Target::Channel { channel }, None)
                     }
@@ -2781,7 +2779,7 @@ fn source_and_target(
                     user.as_ref().map_or(Source::Server(None), |user| {
                         source_from_user(
                             resolve_attributes_with_bot(user, &channel_context)
-                                .unwrap_or(user.clone()),
+                                .unwrap_or_else(|| user.clone()),
                         )
                     });
 
@@ -3568,11 +3566,7 @@ fn content<'a>(
             let target_users = params
                 .get(1)?
                 .split(',')
-                .map(|target| {
-                    User::parse(target, casemapping, prefix).unwrap_or(
-                        User::from(Nick::from_str(target, casemapping)),
-                    )
-                })
+                .map(|target| User::parse_or_force(target, casemapping, prefix))
                 .collect::<ChannelUsers>();
 
             let target_usernames = target_users

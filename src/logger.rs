@@ -68,10 +68,10 @@ fn file_dispatch(
     }
 
     data::log::file(config.file_timestamp).ok().map(|log_file| {
-        let file_level_filter = env_rust_log
-            .map_or(log::LevelFilter::from(config.file_level), |env| {
-                env.to_level_filter()
-            });
+        let file_level_filter = env_rust_log.map_or_else(
+            || log::LevelFilter::from(config.file_level),
+            |env| env.to_level_filter(),
+        );
         let _ = FILE_LEVEL.set(file_level_filter);
 
         fern::Dispatch::new()

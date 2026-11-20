@@ -77,7 +77,7 @@ pub fn warning(theme: &Theme, status: Status) -> Style {
                     .text
                     .warning
                     .color
-                    .unwrap_or(theme.styles().text.error.color),
+                    .unwrap_or_else(|| theme.styles().text.error.color),
             },
             ..primary
         },

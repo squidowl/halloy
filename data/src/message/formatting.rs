@@ -729,6 +729,7 @@ impl Color {
         }
     }
 
+    #[allow(clippy::or_fun_call)]
     pub fn into_iced(self, styles: &theme::Styles) -> Option<iced_core::Color> {
         match self {
             Color::White => styles.formatting.white.or(Some(color!(0xffffff))),

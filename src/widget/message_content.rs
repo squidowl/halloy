@@ -122,12 +122,14 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
             .contains(&Metadata::Color)
             .then_some(registry)
             .and_then(|registry| registry.color(&Query::from(user)))
-            .map_or(
-                nickname_color(
-                    theme.styles().buffer.nickname.color,
-                    &config.buffer.nickname.color,
-                    Some(user.seed()),
-                ),
+            .map_or_else(
+                || {
+                    nickname_color(
+                        theme.styles().buffer.nickname.color,
+                        &config.buffer.nickname.color,
+                        Some(user.seed()),
+                    )
+                },
                 |color| {
                     config.display.adapt_metadata_colors.adapt(
                         color,
@@ -370,10 +372,12 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                                 } else {
                                     font_style(theme)
                                 }
-                                .or(Some(FontStyle::new(
-                                    formatting.bold,
-                                    formatting.italics,
-                                )));
+                                .or_else(|| {
+                                    Some(FontStyle::new(
+                                        formatting.bold,
+                                        formatting.italics,
+                                    ))
+                                });
 
                                 let formatted_font =
                                     formatted_style.map(|style| {
