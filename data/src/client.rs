@@ -27,7 +27,7 @@ use crate::capabilities::{
 use crate::command::Irc;
 use crate::environment::{SOURCE_WEBSITE, VERSION};
 use crate::features::{Features, VersionRequest};
-use crate::history::reroute::RerouteRules;
+use crate::history::reroute::{EMPTY_REROUTE_RULES, RerouteRules};
 use crate::history::{self, ReadMarker, storage};
 use crate::isupport::{
     ChathistorySubcommand, MessageReference, WhoToken, find_target_limit,
@@ -1406,9 +1406,7 @@ impl Client {
             );
         }
 
-        let default_rules = RerouteRules::default();
-        #[allow(clippy::or_fun_call)]
-        let rules = reroute_rules.unwrap_or(&default_rules);
+        let rules = reroute_rules.unwrap_or(&EMPTY_REROUTE_RULES);
 
         command
             .messages(
