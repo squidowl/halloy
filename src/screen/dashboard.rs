@@ -4675,7 +4675,7 @@ impl Dashboard {
     ) -> bool {
         config
             .sidebar
-            .can_show_typing(config::sidebar::TypingIndicatorBuffer::Channel)
+            .can_show_typing(config::sidebar::TypingBuffer::Channel)
             && clients.has_any_channel_typing()
     }
 
@@ -4686,7 +4686,7 @@ impl Dashboard {
     ) -> bool {
         config
             .sidebar
-            .can_show_typing(config::sidebar::TypingIndicatorBuffer::Query)
+            .can_show_typing(config::sidebar::TypingBuffer::Query)
             && clients.has_any_query_typing()
     }
 

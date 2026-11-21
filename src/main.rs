@@ -1921,19 +1921,27 @@ impl Halloy {
             streams,
         ];
 
-        if match self.config.buffer.typing.animation.enabled {
-            config::buffer::typing::AnimationEnabled::Never => false,
-            config::buffer::typing::AnimationEnabled::Focused => {
+        if match (
+            &self.config.buffer.typing.animation.enabled,
+            &self.config.sidebar.typing.animation.enabled,
+        ) {
+            (config::animation::AnimationEnabled::Always, _)
+            | (_, config::animation::AnimationEnabled::Always) => {
+                matches!(&self.screen, Screen::Dashboard(dashboard)
+                    if dashboard.has_typing_activity(&self.clients, &self.config, None))
+            }
+            (config::animation::AnimationEnabled::Focused, _)
+            | (_, config::animation::AnimationEnabled::Focused) => {
                 matches!(&self.screen, Screen::Dashboard(dashboard)
                     if self.focused_window.is_some_and(|_| dashboard.has_typing_activity(
                         &self.clients,
                         &self.config,
                         self.focused_window)))
             }
-            config::buffer::typing::AnimationEnabled::Always => {
-                matches!(&self.screen, Screen::Dashboard(dashboard)
-                    if dashboard.has_typing_activity(&self.clients, &self.config, None))
-            }
+            (
+                config::animation::AnimationEnabled::Never,
+                config::animation::AnimationEnabled::Never,
+            ) => false,
         } {
             subscriptions.push(
                 iced::time::every(Duration::from_millis(50))

@@ -495,7 +495,7 @@ exclude = "*"
 include = { channels = ["#halloy"] }
 ```
 
-## `typing_indicator`
+## `typing`
 
 Show typing indicator for channel & query buffers in the sidebar.
 Requires typing indicators to be enabled, either [globally](/configuration/buffer#show-1) or at the [server level](/configuration/servers#show).
@@ -514,7 +514,7 @@ To enable for both channels and queries, use `"all"`.
 # Values: "all", "channels", "queries", "none"
 # Default: "queries" when sidebar.position = "left" or "right", "none" when sidebar.position = "top" or "bottom"
 
-[sidebar.typing_indicator]
+[sidebar.typing]
 show = "all"
 ```
 
@@ -529,7 +529,7 @@ The default position is set to `"right"`.
 # Values: "left", "right"
 # Default: "right"
 
-[sidebar.typing_indicator]
+[sidebar.typing]
 position = "left"
 ```
 
@@ -545,7 +545,7 @@ indicators one at a time.
 # Values: "typing-gutter" or { "priority": "highlight" | "unread" | "none" }
 # Default: "typing-gutter"
 
-[sidebar.typing_indicator.position]
+[sidebar.typing.position]
 left = "typing-gutter"
 ```
 
@@ -567,7 +567,7 @@ highlight indicator.
 # Values: "highlight", "none", "unread"
 # Default: "highlight"
 
-[sidebar.typing_indicator.position.left]
+[sidebar.typing.position.left]
 priority = "highlight"
 ```
 
@@ -580,9 +580,34 @@ Change the sidebar typing indicator's icon height.
 # Values: any positive number 
 # Default: 4
 
-[sidebar.typing_indicator]
+[sidebar.typing]
 icon_height = 6
 ```
+
+### `animation`
+
+Configure animation of the typing indicator.
+
+#### `enabled`
+
+Control the animation of the typing indicator in the sidebar.
+
+Enabled by default for focused windows.
+
+To animate the typing indicators when Halloy is unfocused, set to `"always"`.
+
+```toml
+# Type: string
+# Values: "focused", "always", "never"
+# Default: "focused"
+
+[sidebar.typing.animation]
+enabled = "focused"
+```
+
+::: warning
+Typing indicator animations for unfocused windows will use more resources.
+:::
 
 ## `user_menu`
 

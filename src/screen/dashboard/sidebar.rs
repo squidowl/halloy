@@ -3,9 +3,7 @@ use std::{convert, iter};
 use data::buffer::{Buffer, BufferRef};
 use data::client::{self, ClientsContext};
 use data::config::server::SidebarVisibility;
-use data::config::sidebar::{
-    InternalBuffer, PrimaryIcon, TypingIndicatorBuffer,
-};
+use data::config::sidebar::{InternalBuffer, PrimaryIcon, TypingBuffer};
 use data::config::{self, Config, sidebar};
 use data::dashboard::{BufferAction, BufferFocusedAction};
 use data::history::{self, model};
@@ -1591,7 +1589,7 @@ fn upstream_buffer_button<'a>(
 
     let (can_show_typing, show_typing) = if config.buffer.typing.show
         && config.sidebar.show_typing(
-            TypingIndicatorBuffer::Channel,
+            TypingBuffer::Channel,
             show_highlight_icon,
             show_unread_icon,
         )
@@ -1604,7 +1602,7 @@ fn upstream_buffer_button<'a>(
         )
     } else if config.buffer.typing.show
         && config.sidebar.show_typing(
-            TypingIndicatorBuffer::Query,
+            TypingBuffer::Query,
             show_highlight_icon,
             show_unread_icon,
         )
@@ -1622,12 +1620,10 @@ fn upstream_buffer_button<'a>(
     // If configured to only show one indicator for a channel or query, hide
     // highlight and unread indicators.
     let show_highlight_icon = show_highlight_icon
-        && !(show_typing
-            && config.sidebar.typing_indicator.is_position_left_priority());
+        && !(show_typing && config.sidebar.typing.is_position_left_priority());
 
     let show_unread_icon = show_unread_icon
-        && !(show_typing
-            && config.sidebar.typing_indicator.is_position_left_priority());
+        && !(show_typing && config.sidebar.typing.is_position_left_priority());
 
     let buffer_title_style = if show_highlight_title {
         theme::text::highlight_indicator
@@ -1722,7 +1718,8 @@ fn upstream_buffer_button<'a>(
     let mut typing_indicator = if show_typing {
         Some(typing::animate_for_sidebar::<_>(
             *typing_animation,
-            config.sidebar.typing_indicator.icon_height,
+            &config.sidebar.typing.animation,
+            config.sidebar.typing.icon_height,
             theme.styles().text.secondary.color,
         ))
     } else {
@@ -1748,7 +1745,7 @@ fn upstream_buffer_button<'a>(
         config,
         icon,
         indicator,
-        if config.sidebar.typing_indicator.is_position_left() {
+        if config.sidebar.typing.is_position_left() {
             std::mem::take(&mut typing_indicator)
         } else {
             None
@@ -1766,7 +1763,7 @@ fn upstream_buffer_button<'a>(
 
     content = content.extend(buffer_title);
 
-    if can_show_typing && config.sidebar.typing_indicator.is_position_right() {
+    if can_show_typing && config.sidebar.typing.is_position_right() {
         content = content.push(Space::new().width(Length::Fill));
 
         if let Some(typing_indicator) = typing_indicator {
@@ -2419,10 +2416,9 @@ fn sidebar_icon<'a>(
     typing_indicator: Option<Element<'a, Message>>,
     dimensions: Dimensions,
 ) -> impl IntoIterator<Item = Element<'a, Message>> {
-    let show_typing_gutter =
-        config.sidebar.typing_indicator.is_position_left_gutter()
-            && config.sidebar.can_show_any_typing()
-            && !config.sidebar.position.is_horizontal();
+    let show_typing_gutter = config.sidebar.typing.is_position_left_gutter()
+        && config.sidebar.can_show_any_typing()
+        && !config.sidebar.position.is_horizontal();
 
     let (icon, icon_height, icon_left_spacing): (
         Option<Element<'a, Message>>,
@@ -2653,16 +2649,16 @@ impl From<&config::sidebar::Sidebar> for Dimensions {
             0
         };
 
-        let (typing_indicator_width, typing_indicator_height) =
-            if config.can_show_any_typing() {
-                (
-                    3 * config.typing_indicator.icon_height
-                        + 2 * typing::DOT_SIDEBAR_SPACING,
-                    config.typing_indicator.icon_height,
-                )
-            } else {
-                (0, 0)
-            };
+        let (typing_indicator_width, typing_indicator_height) = if config
+            .can_show_any_typing()
+        {
+            (
+                3 * config.typing.icon_height + 2 * typing::DOT_SIDEBAR_SPACING,
+                config.typing.icon_height,
+            )
+        } else {
+            (0, 0)
+        };
 
         Self {
             icon_size,

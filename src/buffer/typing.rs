@@ -133,7 +133,7 @@ pub fn view<'a, Message: 'a>(
 pub fn animate_for_buffer<'a, Message: 'a>(
     animation: Option<&Animation>,
     font_size: f32,
-    animation_config: &data::config::buffer::Animation,
+    animation_config: &data::config::buffer::typing::Animation,
     dot_color: Color,
 ) -> Option<Element<'a, Message>> {
     if !animation_config.is_enabled() {
@@ -163,10 +163,12 @@ pub fn animate_for_buffer<'a, Message: 'a>(
 
 pub fn animate_for_sidebar<'a, Message: 'a>(
     animation: Option<&Animation>,
+    animation_config: &data::config::sidebar::typing::Animation,
     dot_height: u32,
     dot_color: Color,
 ) -> Element<'a, Message> {
     let dot_opacities = animation
+        .filter(|_| animation_config.is_enabled())
         .map_or_else(|| [DOT_BASE_OPACITY; DOT_COUNT], Animation::opacities);
 
     row((0..DOT_COUNT).zip(dot_opacities).map(|(_, opacity)| {

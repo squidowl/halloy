@@ -22,6 +22,8 @@ Changed:
 - Being kicked from a channel no longer closes the buffer
 - Disconnecting from a server no longer removes its channels and queries from the sidebar
 - `buffer.typing.animation.enabled` can now be set to `"focused"` (default), `"always"` and `"never"`
+- `buffer.typing_indicator` is now aliased to `buffer.typing`
+- `sidebar.typing_indicator` is now aliased to `sidebar.typing`
 
 Thanks:
 

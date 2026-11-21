@@ -46,6 +46,7 @@ use crate::shortcut::{Commands, FocusCommands, KeyBind};
 use crate::{Theme, environment};
 
 pub mod actions;
+pub mod animation;
 pub mod buffer;
 pub mod channel_monitor;
 pub mod config_editor;
