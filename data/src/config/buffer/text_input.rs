@@ -21,6 +21,7 @@ pub struct TextInput {
     pub send_line_delay: u64,
     pub persist: bool,
     pub upload_long_paste: bool,
+    pub spellcheck: Spellcheck,
 }
 
 impl Default for TextInput {
@@ -36,6 +37,39 @@ impl Default for TextInput {
             send_line_delay: 100,
             persist: true,
             upload_long_paste: false,
+            spellcheck: Spellcheck::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct Spellcheck {
+    pub enabled: bool,
+    pub underline: bool,
+    pub locale: Option<String>,
+    pub ignore: Vec<String>,
+    pub suggestion_mode: SuggestionMode,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SuggestionMode {
+    None,
+    Tab,
+    ContextMenu,
+    #[default]
+    Both,
+}
+
+impl Default for Spellcheck {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            underline: true,
+            locale: None,
+            ignore: Vec::new(),
+            suggestion_mode: SuggestionMode::Both,
         }
     }
 }
