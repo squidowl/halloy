@@ -60,7 +60,8 @@ pub fn view<'a>(
     filter_chain: FilterChain,
     config: &'a Config,
     theme: &'a Theme,
-    is_focused: bool,
+    is_focused_pane: bool,
+    is_focused_window: bool,
     channels_context: &'a dyn context_menu::ChannelsContext,
 ) -> Element<'a, Message> {
     let server = &state.server;
@@ -143,10 +144,18 @@ pub fn view<'a>(
     )
     .height(Length::Fill);
 
-    let typing = typing::view(typing_text, typing_animation, config, theme);
+    let typing = typing::view(
+        typing_text,
+        typing_animation,
+        config,
+        theme,
+        is_focused_window,
+    );
 
     let show_text_input = match config.buffer.text_input.visibility {
-        data::config::buffer::text_input::Visibility::Focused => is_focused,
+        data::config::buffer::text_input::Visibility::Focused => {
+            is_focused_pane
+        }
         data::config::buffer::text_input::Visibility::Always => true,
     };
 

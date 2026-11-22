@@ -1813,6 +1813,7 @@ impl Halloy {
                         FilterChain::borrow(self.storage.get_filters()),
                         &self.config,
                         &self.theme,
+                        self.focused_window.is_some(),
                     )
                     .map(Message::Dashboard),
                 Screen::Help(help) => {
@@ -1865,6 +1866,7 @@ impl Halloy {
                         FilterChain::borrow(self.storage.get_filters()),
                         &self.config,
                         &self.theme,
+                        self.focused_window.is_some(),
                     )
                     .map(Message::Dashboard),
             )
@@ -1920,13 +1922,29 @@ impl Halloy {
             tick,
             streams,
         ];
-        if self.config.buffer.typing.animation.enabled
-            && matches!(
-                &self.screen,
-                Screen::Dashboard(dashboard)
-            if dashboard.has_typing_activity_in_focused_window(&self.clients, &self.config, self.focused_window)
-            )
-        {
+
+        if match (
+            &self.config.buffer.typing.animation.enabled,
+            &self.config.sidebar.typing.animation.enabled,
+        ) {
+            (config::animation::AnimationEnabled::Always, _)
+            | (_, config::animation::AnimationEnabled::Always) => {
+                matches!(&self.screen, Screen::Dashboard(dashboard)
+                    if dashboard.has_typing_activity(&self.clients, &self.config, None))
+            }
+            (config::animation::AnimationEnabled::Focused, _)
+            | (_, config::animation::AnimationEnabled::Focused) => {
+                matches!(&self.screen, Screen::Dashboard(dashboard)
+                    if self.focused_window.is_some_and(|_| dashboard.has_typing_activity(
+                        &self.clients,
+                        &self.config,
+                        self.focused_window)))
+            }
+            (
+                config::animation::AnimationEnabled::Never,
+                config::animation::AnimationEnabled::Never,
+            ) => false,
+        } {
             subscriptions.push(
                 iced::time::every(Duration::from_millis(50))
                     .map(Message::AnimationTick),

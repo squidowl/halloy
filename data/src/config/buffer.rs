@@ -15,7 +15,7 @@ pub use self::channel::{Channel, ChannelNameCasing};
 pub use self::hide_consecutive::{HideConsecutive, HideConsecutiveEnabled};
 pub use self::nickname::Offline;
 pub use self::redaction::Redaction;
-pub use self::typing::{Animation, Style, Typing};
+pub use self::typing::{Style, Typing};
 pub use crate::appearance::theme::{alpha_color, alpha_color_calculate};
 use crate::buffer::{
     self, BacklogSeparator, DateSeparators, SkinTone, StatusMessagePrefix,
@@ -56,6 +56,7 @@ pub struct Buffer {
     pub url: Url,
     pub line_spacing: u32,
     pub scroll_position_on_open: ScrollPosition,
+    #[serde(alias = "typing_indicator")]
     pub typing: Typing,
     pub redaction: Redaction,
     pub close: Close,

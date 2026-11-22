@@ -1,5 +1,6 @@
 use serde::Deserialize;
 
+pub use crate::config::animation::Animation;
 use crate::serde::deserialize_u8_positive_integer_maybe;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -21,23 +22,6 @@ impl Default for Typing {
             style: Style::default(),
             font_size: None,
             animation: Animation::default(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, PartialEq)]
-#[serde(default)]
-pub struct Animation {
-    pub enabled: bool,
-    #[serde(deserialize_with = "deserialize_u8_positive_integer_maybe")]
-    pub size: Option<u8>,
-}
-
-impl Default for Animation {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            size: None,
         }
     }
 }

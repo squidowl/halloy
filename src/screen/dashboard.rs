@@ -10,7 +10,6 @@ use data::buffer::{
 };
 use data::client::{self, ClientsContext};
 use data::config::buffer::{ScrollPosition, UsernameFormat};
-use data::config::sidebar::TypingIndicatorBuffer;
 use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
 use data::history::filter::FilterChain;
@@ -1675,6 +1674,7 @@ impl Dashboard {
         filter_chain: FilterChain,
         config: &'a Config,
         theme: &'a Theme,
+        is_focused_window: bool,
     ) -> Element<'a, Message> {
         if let Some(state) = self.panes.popout.get(&window) {
             let pane_gap = config.pane.gap.outer;
@@ -1684,7 +1684,7 @@ impl Dashboard {
 
             let content = container(
                 PaneGrid::new(state, |id, pane, _maximized| {
-                    let is_focused =
+                    let is_focused_pane =
                         self.panes.focus == Focus { window, pane: id };
                     let buffer = pane.buffer.data();
                     let settings = buffer
@@ -1694,7 +1694,6 @@ impl Dashboard {
                     pane.view(
                         id,
                         1,
-                        is_focused,
                         false,
                         self.typing_animation.as_ref(),
                         clients,
@@ -1706,6 +1705,8 @@ impl Dashboard {
                         config,
                         theme,
                         settings,
+                        is_focused_pane,
+                        is_focused_window,
                         window != self.main_window(),
                         self,
                     )
@@ -1741,10 +1742,11 @@ impl Dashboard {
         filter_chain: FilterChain,
         config: &'a Config,
         theme: &'a Theme,
+        is_focused_window: bool,
     ) -> Element<'a, Message> {
         let pane_grid: Element<_> =
             PaneGrid::new(&self.panes.main, |id, pane, maximized| {
-                let is_focused = self.panes.focus
+                let is_focused_pane = self.panes.focus
                     == Focus {
                         window: self.main_window(),
                         pane: id,
@@ -1757,7 +1759,6 @@ impl Dashboard {
                 pane.view(
                     id,
                     panes,
-                    is_focused,
                     maximized,
                     self.typing_animation.as_ref(),
                     clients,
@@ -1769,6 +1770,8 @@ impl Dashboard {
                     config,
                     theme,
                     settings,
+                    is_focused_pane,
+                    is_focused_window,
                     false,
                     self,
                 )
@@ -1817,6 +1820,7 @@ impl Dashboard {
                 theme,
                 self.buffer_settings.show_muted,
                 self.typing_animation.as_ref(),
+                is_focused_window,
             )
             .map(|e| e.map(Message::Sidebar));
 
@@ -4100,7 +4104,7 @@ impl Dashboard {
         storage: &mut storage::Manager,
         config: &Config,
     ) -> Task<Message> {
-        if !self.has_typing_activity(clients, config) {
+        if !self.has_typing_activity(clients, config, None) {
             self.typing_animation = None;
         }
 
@@ -4132,7 +4136,7 @@ impl Dashboard {
         clients: &client::Map,
         config: &Config,
     ) -> Task<Message> {
-        if self.has_typing_activity(clients, config) {
+        if self.has_typing_activity(clients, config, None) {
             buffer::typing::advance(&mut self.typing_animation, now);
         } else {
             self.typing_animation = None;
@@ -4657,55 +4661,50 @@ impl Dashboard {
         })
     }
 
+    pub fn has_pane_typing(
+        &self,
+        clients: &client::Map,
+        in_focused_window: Option<window::Id>,
+    ) -> bool {
+        self.panes.iter().any(|(window, _, pane)| {
+            pane.buffer.has_typing_activity(clients)
+                && in_focused_window
+                    .is_none_or(|focused_window| focused_window == window)
+        })
+    }
+
+    pub fn has_sidebar_channel_typing(
+        &self,
+        clients: &client::Map,
+        config: &Config,
+    ) -> bool {
+        config
+            .sidebar
+            .can_show_typing(config::sidebar::TypingBuffer::Channel)
+            && clients.has_any_channel_typing()
+    }
+
+    pub fn has_sidebar_query_typing(
+        &self,
+        clients: &client::Map,
+        config: &Config,
+    ) -> bool {
+        config
+            .sidebar
+            .can_show_typing(config::sidebar::TypingBuffer::Query)
+            && clients.has_any_query_typing()
+    }
+
     pub fn has_typing_activity(
         &self,
         clients: &client::Map,
         config: &Config,
+        in_focused_window: Option<window::Id>,
     ) -> bool {
-        self.panes
-            .iter()
-            .any(|(_, _, pane)| pane.buffer.has_typing_activity(clients))
-            || (config.can_show_any_typing()
-                && (config
-                    .sidebar
-                    .can_show_typing(TypingIndicatorBuffer::Channel)
-                    && clients.has_any_channel_typing())
-                || (config
-                    .sidebar
-                    .can_show_typing(TypingIndicatorBuffer::Query)
-                    && clients.has_any_query_typing()))
-    }
-
-    pub fn has_typing_activity_in_focused_window(
-        &self,
-        clients: &client::Map,
-        config: &Config,
-        focused_window: Option<window::Id>,
-    ) -> bool {
-        let has_focused_pane_typing = |focused_window| {
-            self.panes.iter().any(|(window, _, pane)| {
-                pane.buffer.has_typing_activity(clients)
-                    && focused_window == window
-            })
-        };
-        let has_sidebar_channel_typing = || {
-            config.sidebar.can_show_typing(
-                config::sidebar::TypingIndicatorBuffer::Channel,
-            ) && clients.has_any_channel_typing()
-        };
-        let has_sidebar_query_typing = || {
-            config
-                .sidebar
-                .can_show_typing(config::sidebar::TypingIndicatorBuffer::Query)
-                && clients.has_any_query_typing()
-        };
-
         config.can_show_any_typing()
-            && focused_window.is_some_and(|focused_window| {
-                has_focused_pane_typing(focused_window)
-                    || has_sidebar_channel_typing()
-                    || has_sidebar_query_typing()
-            })
+            && (self.has_pane_typing(clients, in_focused_window)
+                || self.has_sidebar_channel_typing(clients, config)
+                || self.has_sidebar_query_typing(clients, config))
     }
 
     pub fn find_window_with_history(

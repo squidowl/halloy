@@ -60,7 +60,6 @@ impl Pane {
         &'a self,
         id: pane_grid::Pane,
         panes: usize,
-        is_focused: bool,
         maximized: bool,
         typing_animation: Option<&'a buffer::typing::Animation>,
         clients: &'a client::Map,
@@ -72,6 +71,8 @@ impl Pane {
         config: &'a Config,
         theme: &'a Theme,
         settings: Option<&'a buffer::Settings>,
+        is_focused_pane: bool,
+        is_focused_window: bool,
         is_popout: bool,
         channels_context: &'a dyn ChannelsContext,
     ) -> widget::Content<'a, Message> {
@@ -240,8 +241,9 @@ impl Pane {
                 settings,
                 config,
                 theme,
-                is_focused,
                 sidebar,
+                is_focused_pane,
+                is_focused_window,
                 channels_context,
             )
             .map(move |msg| Message::Buffer(id, msg));
@@ -263,7 +265,9 @@ impl Pane {
         );
 
         widget::Content::new(content)
-            .style(move |theme| theme::container::buffer(theme, is_focused))
+            .style(move |theme| {
+                theme::container::buffer(theme, is_focused_pane)
+            })
             .title_bar(title_bar.style(theme::container::buffer_title_bar))
     }
 

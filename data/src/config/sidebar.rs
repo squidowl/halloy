@@ -1,6 +1,7 @@
 use serde::{Deserialize, Deserializer};
 use serde_untagged::UntaggedEnumVisitor;
 
+pub use self::typing::{Typing, TypingBuffer};
 use crate::config::Scrollbar;
 use crate::config::buffer::ChannelNameCasing;
 use crate::config::inclusivities::{
@@ -11,6 +12,8 @@ use crate::serde::deserialize_u32_positive_integer;
 use crate::server::Server;
 use crate::target::Target;
 
+pub mod typing;
+
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
 pub struct Sidebar {
@@ -19,7 +22,8 @@ pub struct Sidebar {
     pub unread_indicator: UnreadIndicator,
     #[serde(deserialize_with = "deserialize_highlight_indicator")]
     pub highlight_indicator: HighlightIndicator,
-    pub typing_indicator: TypingIndicator,
+    #[serde(alias = "typing_indicator")]
+    pub typing: Typing,
     pub position: Position,
     pub order_by: OrderBy,
     pub scrollbar: Scrollbar,
@@ -45,28 +49,26 @@ pub struct Sidebar {
 }
 
 impl Sidebar {
-    pub fn can_show_typing(&self, buffer: TypingIndicatorBuffer) -> bool {
-        self.typing_indicator
-            .can_show(self.position.is_horizontal(), buffer)
+    pub fn can_show_typing(&self, buffer: TypingBuffer) -> bool {
+        self.typing.can_show(self.position.is_horizontal(), buffer)
     }
 
     pub fn can_show_any_typing(&self) -> bool {
-        self.can_show_typing(TypingIndicatorBuffer::Channel)
-            || self.can_show_typing(TypingIndicatorBuffer::Query)
+        self.can_show_typing(TypingBuffer::Channel)
+            || self.can_show_typing(TypingBuffer::Query)
     }
 
     pub fn show_typing(
         &self,
-        buffer: TypingIndicatorBuffer,
+        buffer: TypingBuffer,
         show_highlight: bool,
         show_unread: bool,
     ) -> bool {
-        self.typing_indicator
-            .can_show(self.position.is_horizontal(), buffer)
-            && (!self.typing_indicator.is_position_left_priority()
+        self.typing.can_show(self.position.is_horizontal(), buffer)
+            && (!self.typing.is_position_left_priority()
                 || self
-                    .typing_indicator
-                    .typing_priority(show_highlight, show_unread))
+                    .typing
+                    .typing_indicator_priority(show_highlight, show_unread))
     }
 }
 
@@ -385,186 +387,6 @@ where
         })
         .map(|map| map.deserialize())
         .deserialize(deserializer)
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(default)]
-pub struct TypingIndicator {
-    pub show: Option<TypingIndicatorShow>,
-    #[serde(deserialize_with = "deserialize_typing_indicator_position")]
-    pub position: TypingIndicatorPosition,
-    #[serde(deserialize_with = "deserialize_u32_positive_integer")]
-    pub icon_height: u32,
-}
-
-impl Default for TypingIndicator {
-    fn default() -> Self {
-        Self {
-            show: None,
-            position: TypingIndicatorPosition::default(),
-            icon_height: 4,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Default, PartialEq)]
-#[serde(rename_all = "kebab-case")]
-pub enum TypingIndicatorShow {
-    All,
-    Channels,
-    #[default]
-    Queries,
-    None,
-}
-
-#[derive(Debug, Clone, Deserialize, PartialEq)]
-#[serde(rename_all = "kebab-case")]
-pub enum TypingIndicatorBuffer {
-    Channel,
-    Query,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "kebab-case")]
-pub enum TypingIndicatorPosition {
-    Left,
-    LeftPriority(TypingIndicatorPriority),
-    #[default]
-    Right,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct TypingIndicatorLeftPosition {
-    #[serde(deserialize_with = "deserialize_typing_indicator_left_position")]
-    pub left: TypingIndicatorLeftPositionOptions,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "kebab-case")]
-pub enum TypingIndicatorLeftPositionOptions {
-    #[default]
-    TypingGutter,
-    TypingPriority(TypingIndicatorPriority),
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct TypingIndicatorLeftPriority {
-    pub priority: TypingIndicatorPriority,
-}
-
-#[derive(Debug, Copy, Clone, Deserialize, Default)]
-#[serde(rename_all = "kebab-case")]
-pub enum TypingIndicatorPriority {
-    #[default]
-    Highlight,
-    None,
-    Unread,
-}
-
-pub fn deserialize_typing_indicator_position<'de, D>(
-    deserializer: D,
-) -> Result<TypingIndicatorPosition, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    #[derive(Deserialize)]
-    #[serde(untagged)]
-    enum Inner {
-        String(TypingIndicatorPosition),
-        TypingIndicatorLeftPosition(TypingIndicatorLeftPosition),
-    }
-
-    match Inner::deserialize(deserializer)? {
-        Inner::String(string) => Ok(string),
-        Inner::TypingIndicatorLeftPosition(position) => match position.left {
-            TypingIndicatorLeftPositionOptions::TypingGutter => {
-                Ok(TypingIndicatorPosition::Left)
-            }
-            TypingIndicatorLeftPositionOptions::TypingPriority(priority) => {
-                Ok(TypingIndicatorPosition::LeftPriority(priority))
-            }
-        },
-    }
-}
-
-pub fn deserialize_typing_indicator_left_position<'de, D>(
-    deserializer: D,
-) -> Result<TypingIndicatorLeftPositionOptions, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    #[derive(Deserialize)]
-    #[serde(untagged)]
-    enum Inner {
-        String(TypingIndicatorLeftPositionOptions),
-        TypingIndicatorLeftPriority(TypingIndicatorLeftPriority),
-    }
-
-    match Inner::deserialize(deserializer)? {
-        Inner::String(string) => Ok(string),
-        Inner::TypingIndicatorLeftPriority(left) => Ok(
-            TypingIndicatorLeftPositionOptions::TypingPriority(left.priority),
-        ),
-    }
-}
-
-impl TypingIndicator {
-    pub fn can_show(
-        &self,
-        is_horizontal: bool,
-        buffer: TypingIndicatorBuffer,
-    ) -> bool {
-        match &self.show {
-            Some(show) => match show {
-                TypingIndicatorShow::All => true,
-                _ => match buffer {
-                    TypingIndicatorBuffer::Channel => {
-                        *show == TypingIndicatorShow::Channels
-                    }
-                    TypingIndicatorBuffer::Query => {
-                        *show == TypingIndicatorShow::Queries
-                    }
-                },
-            },
-            None => !is_horizontal && buffer == TypingIndicatorBuffer::Query,
-        }
-    }
-
-    pub fn is_position_right(&self) -> bool {
-        matches!(self.position, TypingIndicatorPosition::Right)
-    }
-
-    pub fn is_position_left(&self) -> bool {
-        self.is_position_left_gutter() || self.is_position_left_priority()
-    }
-
-    pub fn is_position_left_gutter(&self) -> bool {
-        matches!(self.position, TypingIndicatorPosition::Left)
-    }
-
-    pub fn is_position_left_priority(&self) -> bool {
-        matches!(self.position, TypingIndicatorPosition::LeftPriority(..))
-    }
-
-    pub fn typing_priority(
-        &self,
-        show_highlight: bool,
-        show_unread: bool,
-    ) -> bool {
-        let priority = if let TypingIndicatorPosition::LeftPriority(priority) =
-            self.position
-        {
-            priority
-        } else {
-            TypingIndicatorPriority::None
-        };
-
-        match priority {
-            TypingIndicatorPriority::None => true,
-            TypingIndicatorPriority::Highlight => !show_highlight,
-            TypingIndicatorPriority::Unread => !show_unread && !show_highlight,
-        }
-    }
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, Default)]
