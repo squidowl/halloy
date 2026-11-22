@@ -111,14 +111,9 @@ pub fn view<'a, Message: 'a>(
                 font_size,
                 theme.styles().text.secondary.color,
             );
-            let content: Element<'a, Message> =
-                if let Some(indicator) = indicator {
-                    row![text, indicator]
-                        .align_y(iced::Alignment::Center)
-                        .into()
-                } else {
-                    text.into()
-                };
+            let content: Element<'a, Message> = row![text, indicator]
+                .align_y(iced::Alignment::Center)
+                .into();
 
             container(content)
         }
@@ -138,30 +133,25 @@ pub fn animate_for_buffer<'a, Message: 'a>(
     is_focused_window: bool,
     font_size: f32,
     dot_color: Color,
-) -> Option<Element<'a, Message>> {
-    if !animation_config.is_enabled(is_focused_window) {
-        return None;
-    }
-
+) -> Element<'a, Message> {
     let dot_opacities = animation
+        .filter(|_| animation_config.is_enabled(is_focused_window))
         .map_or_else(|| [DOT_BASE_OPACITY; DOT_COUNT], Animation::opacities);
     let dot_font_size =
         animation_config.size.map_or(font_size * 0.33, f32::from);
 
-    Some(
-        container(
-            row((0..DOT_COUNT).zip(dot_opacities).map(|(_, opacity)| {
-                let color = Color {
-                    a: dot_color.a * opacity,
-                    ..dot_color
-                };
+    container(
+        row((0..DOT_COUNT).zip(dot_opacities).map(|(_, opacity)| {
+            let color = Color {
+                a: dot_color.a * opacity,
+                ..dot_color
+            };
 
-                icon::dot().size(dot_font_size).color(color).into()
-            }))
-            .spacing(4),
-        )
-        .into(),
+            icon::dot().size(dot_font_size).color(color).into()
+        }))
+        .spacing(4),
     )
+    .into()
 }
 
 pub fn animate_for_sidebar<'a, Message: 'a>(
