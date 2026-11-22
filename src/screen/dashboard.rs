@@ -1674,6 +1674,7 @@ impl Dashboard {
         filter_chain: FilterChain,
         config: &'a Config,
         theme: &'a Theme,
+        is_focused_window: bool,
     ) -> Element<'a, Message> {
         if let Some(state) = self.panes.popout.get(&window) {
             let pane_gap = config.pane.gap.outer;
@@ -1683,7 +1684,7 @@ impl Dashboard {
 
             let content = container(
                 PaneGrid::new(state, |id, pane, _maximized| {
-                    let is_focused =
+                    let is_focused_pane =
                         self.panes.focus == Focus { window, pane: id };
                     let buffer = pane.buffer.data();
                     let settings = buffer
@@ -1693,7 +1694,6 @@ impl Dashboard {
                     pane.view(
                         id,
                         1,
-                        is_focused,
                         false,
                         self.typing_animation.as_ref(),
                         clients,
@@ -1705,6 +1705,8 @@ impl Dashboard {
                         config,
                         theme,
                         settings,
+                        is_focused_pane,
+                        is_focused_window,
                         window != self.main_window(),
                         self,
                     )
@@ -1740,10 +1742,11 @@ impl Dashboard {
         filter_chain: FilterChain,
         config: &'a Config,
         theme: &'a Theme,
+        is_focused_window: bool,
     ) -> Element<'a, Message> {
         let pane_grid: Element<_> =
             PaneGrid::new(&self.panes.main, |id, pane, maximized| {
-                let is_focused = self.panes.focus
+                let is_focused_pane = self.panes.focus
                     == Focus {
                         window: self.main_window(),
                         pane: id,
@@ -1756,7 +1759,6 @@ impl Dashboard {
                 pane.view(
                     id,
                     panes,
-                    is_focused,
                     maximized,
                     self.typing_animation.as_ref(),
                     clients,
@@ -1768,6 +1770,8 @@ impl Dashboard {
                     config,
                     theme,
                     settings,
+                    is_focused_pane,
+                    is_focused_window,
                     false,
                     self,
                 )
@@ -1816,6 +1820,7 @@ impl Dashboard {
                 theme,
                 self.buffer_settings.show_muted,
                 self.typing_animation.as_ref(),
+                is_focused_window,
             )
             .map(|e| e.map(Message::Sidebar));
 

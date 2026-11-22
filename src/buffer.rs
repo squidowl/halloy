@@ -751,8 +751,9 @@ impl Buffer {
         settings: Option<&'a buffer::Settings>,
         config: &'a Config,
         theme: &'a Theme,
-        is_focused: bool,
         sidebar: &'a sidebar::Sidebar,
+        is_focused_pane: bool,
+        is_focused_window: bool,
         channels_context: &'a dyn context_menu::ChannelsContext,
     ) -> Element<'a, Message> {
         match self {
@@ -767,7 +768,8 @@ impl Buffer {
                 settings,
                 config,
                 theme,
-                is_focused,
+                is_focused_pane,
+                is_focused_window,
                 channels_context,
             )
             .map(Message::Channel),
@@ -778,7 +780,7 @@ impl Buffer {
                 previews,
                 config,
                 theme,
-                is_focused,
+                is_focused_pane,
                 channels_context,
             )
             .map(Message::Server),
@@ -791,7 +793,8 @@ impl Buffer {
                 filter_chain,
                 config,
                 theme,
-                is_focused,
+                is_focused_pane,
+                is_focused_window,
                 channels_context,
             )
             .map(Message::Query),

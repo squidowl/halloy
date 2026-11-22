@@ -89,6 +89,7 @@ pub fn view<'a, Message: 'a>(
     animation: Option<&Animation>,
     config: &'a Config,
     theme: &'a Theme,
+    is_focused_window: bool,
 ) -> Element<'a, Message> {
     let font_size = typing_font_size(config);
     let line_spacing = config.buffer.line_spacing;
@@ -105,8 +106,9 @@ pub fn view<'a, Message: 'a>(
 
             let indicator = animate_for_buffer(
                 animation,
-                font_size,
                 animation_config,
+                is_focused_window,
+                font_size,
                 theme.styles().text.secondary.color,
             );
             let content: Element<'a, Message> =
@@ -132,11 +134,12 @@ pub fn view<'a, Message: 'a>(
 
 pub fn animate_for_buffer<'a, Message: 'a>(
     animation: Option<&Animation>,
-    font_size: f32,
     animation_config: &data::config::buffer::typing::Animation,
+    is_focused_window: bool,
+    font_size: f32,
     dot_color: Color,
 ) -> Option<Element<'a, Message>> {
-    if !animation_config.is_enabled() {
+    if !animation_config.is_enabled(is_focused_window) {
         return None;
     }
 
@@ -164,11 +167,12 @@ pub fn animate_for_buffer<'a, Message: 'a>(
 pub fn animate_for_sidebar<'a, Message: 'a>(
     animation: Option<&Animation>,
     animation_config: &data::config::sidebar::typing::Animation,
+    is_focused_window: bool,
     dot_height: u32,
     dot_color: Color,
 ) -> Element<'a, Message> {
     let dot_opacities = animation
-        .filter(|_| animation_config.is_enabled())
+        .filter(|_| animation_config.is_enabled(is_focused_window))
         .map_or_else(|| [DOT_BASE_OPACITY; DOT_COUNT], Animation::opacities);
 
     row((0..DOT_COUNT).zip(dot_opacities).map(|(_, opacity)| {

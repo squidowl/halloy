@@ -807,6 +807,7 @@ impl Sidebar {
         theme: &'a Theme,
         show_muted_buffers: bool,
         typing_animation: Option<&'a typing::Animation>,
+        is_focused_window: bool,
     ) -> Option<Element<'a, Message>> {
         if self.hidden {
             return None;
@@ -900,6 +901,7 @@ impl Sidebar {
                                 theme,
                                 collapse: &self.collapse,
                                 typing_animation,
+                                is_focused_window,
                             };
 
                             buffers.push(upstream_buffer_button(context));
@@ -1436,6 +1438,7 @@ struct UpstreamButtonContext<'a> {
     theme: &'a Theme,
     collapse: &'a collapse::State,
     typing_animation: Option<&'a typing::Animation>,
+    is_focused_window: bool,
 }
 
 fn upstream_buffer_title<'a>(
@@ -1555,6 +1558,7 @@ fn upstream_buffer_button<'a>(
         theme,
         collapse,
         typing_animation,
+        is_focused_window,
         ..
     } = &context;
 
@@ -1719,6 +1723,7 @@ fn upstream_buffer_button<'a>(
         Some(typing::animate_for_sidebar::<_>(
             *typing_animation,
             &config.sidebar.typing.animation,
+            *is_focused_window,
             config.sidebar.typing.icon_height,
             theme.styles().text.secondary.color,
         ))

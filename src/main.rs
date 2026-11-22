@@ -1813,6 +1813,7 @@ impl Halloy {
                         FilterChain::borrow(self.storage.get_filters()),
                         &self.config,
                         &self.theme,
+                        self.focused_window.is_some(),
                     )
                     .map(Message::Dashboard),
                 Screen::Help(help) => {
@@ -1865,6 +1866,7 @@ impl Halloy {
                         FilterChain::borrow(self.storage.get_filters()),
                         &self.config,
                         &self.theme,
+                        self.focused_window.is_some(),
                     )
                     .map(Message::Dashboard),
             )

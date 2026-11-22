@@ -16,12 +16,10 @@ impl Animation {
         matches!(self.enabled, AnimationEnabled::Never)
     }
 
-    pub fn is_enabled(&self) -> bool {
-        !self.is_disabled()
-    }
-
-    pub fn is_enabled_always(&self) -> bool {
+    pub fn is_enabled(&self, is_focused_window: bool) -> bool {
         matches!(self.enabled, AnimationEnabled::Always)
+            || (matches!(self.enabled, AnimationEnabled::Focused)
+                && is_focused_window)
     }
 }
 
