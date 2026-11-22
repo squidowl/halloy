@@ -4707,17 +4707,6 @@ impl Dashboard {
                 || self.has_sidebar_query_typing(clients, config))
     }
 
-    pub fn has_typing_activity_in_focused_window(
-        &self,
-        clients: &client::Map,
-        config: &Config,
-        in_focused_window: Option<window::Id>,
-    ) -> bool {
-        in_focused_window.is_some_and(|_| {
-            self.has_typing_activity(clients, config, in_focused_window)
-        })
-    }
-
     pub fn find_window_with_history(
         &mut self,
         kind: &history::Kind,
