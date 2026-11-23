@@ -73,6 +73,7 @@ pub enum Message {
     },
     ContextMenu(context_menu::Message),
     Link(message::Link),
+    OpenUrl(String),
     ImagePreview(Image),
     AnimatePreview(crate::widget::animated_image::hover::Request),
     ScrollTo(keyed::Hit),
@@ -1540,6 +1541,9 @@ impl State {
 
                     storage.set_model_limit(kind_ref.into(), self.limit);
                 }
+            }
+            Message::OpenUrl(url) => {
+                return (Task::none(), Some(Event::OpenUrl(url)));
             }
             Message::ImagePreview(image) => {
                 return (Task::none(), Some(Event::ImagePreview(image)));

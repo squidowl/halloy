@@ -460,9 +460,7 @@ impl<'a> ChannelQueryLayout<'a> {
                                     ))
                                 }
                                 data::config::preview::CardImageAction::OpenImageUrl => {
-                                    Message::Link(message::Link::Url(
-                                        card.image.url.to_string(),
-                                    ))
+                                    Message::OpenUrl(card.image.url.to_string())
                                 }
                                 data::config::preview::CardImageAction::Preview => {
                                     Message::ImagePreview(card.image.clone())
@@ -493,9 +491,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 let image = button(inner)
                     .on_press(match self.config.preview.image.action {
                         data::config::preview::ImageAction::OpenUrl => {
-                            Message::Link(message::Link::Url(
-                                img.url.to_string(),
-                            ))
+                            Message::OpenUrl(img.url.to_string())
                         }
                         data::config::preview::ImageAction::Preview => {
                             Message::ImagePreview(img.clone())
@@ -2191,7 +2187,7 @@ fn open_in_browser_action<'a>(
     base: Element<'a, Message>,
     url: &url::Url,
 ) -> Element<'a, Message> {
-    let on_press = Message::Link(message::Link::Url(url.to_string()));
+    let on_press = Message::OpenUrl(url.to_string());
 
     decorate(base)
         .update(
