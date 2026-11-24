@@ -178,6 +178,7 @@ pub fn view<'a>(
                     casemapping,
                     theme,
                     scroll_view::Message::Link,
+                    scroll_view::Message::OpenUrl,
                     None,
                     move |theme| {
                         theme::selectable_text::server(theme, server.as_ref())
@@ -215,6 +216,7 @@ pub fn view<'a>(
                     casemapping,
                     theme,
                     scroll_view::Message::Link,
+                    scroll_view::Message::OpenUrl,
                     None,
                     move |theme| theme::selectable_text::status(theme, *status),
                     move |theme| theme::font_style::status(theme, *status),
@@ -300,6 +302,7 @@ pub fn view<'a>(
                     casemapping,
                     theme,
                     scroll_view::Message::Link,
+                    scroll_view::Message::OpenUrl,
                     None,
                     move |theme| {
                         if rerouted_message {

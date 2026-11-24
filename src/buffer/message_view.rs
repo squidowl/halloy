@@ -502,7 +502,14 @@ impl<'a> ChannelQueryLayout<'a> {
 
                 keyed(
                     keyed::Key::Preview(*message.history_id(), index),
-                    open_in_browser_action(image.into(), &img.url),
+                    open_in_browser_action(
+                        image.into(),
+                        &img.url,
+                        matches!(
+                            self.config.preview.image.action,
+                            data::config::preview::ImageAction::Preview
+                        ),
+                    ),
                 )
             }
         };
@@ -765,6 +772,7 @@ impl<'a> ChannelQueryLayout<'a> {
                             self.casemapping,
                             self.theme,
                             Message::Link,
+                            Message::OpenUrl,
                             None,
                             message_style,
                             message_font_style,
@@ -878,6 +886,7 @@ impl<'a> ChannelQueryLayout<'a> {
             formatter.casemapping,
             self.theme,
             Message::Link,
+            Message::OpenUrl,
             link.map(|link| {
                 (
                     link,
@@ -1029,6 +1038,7 @@ impl<'a> ChannelQueryLayout<'a> {
             formatter.casemapping,
             self.theme,
             move |_| Message::Link(moved_link.clone()),
+            Message::OpenUrl,
             Some((link, true)),
             message_style,
             message_font_style,
@@ -1368,6 +1378,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     formatter.casemapping,
                     formatter.theme,
                     Message::Link,
+                    Message::OpenUrl,
                     None,
                     message_style,
                     theme::font_style::action,
@@ -1435,6 +1446,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     self.casemapping,
                     self.theme,
                     Message::Link,
+                    Message::OpenUrl,
                     None,
                     message_style,
                     message_font_style,
@@ -2018,6 +2030,7 @@ impl<'a> ChannelQueryLayout<'a> {
                         self.casemapping,
                         self.theme,
                         Message::Link,
+                        Message::OpenUrl,
                         None,
                         content_style,
                         if is_action {
@@ -2186,6 +2199,7 @@ fn strip_leading_nick_from_preview(text: String, nick: Option<&str>) -> String {
 fn open_in_browser_action<'a>(
     base: Element<'a, Message>,
     url: &url::Url,
+    opens_preview_modal: bool,
 ) -> Element<'a, Message> {
     let on_press = Message::OpenUrl(url.to_string());
 
@@ -2232,19 +2246,24 @@ fn open_in_browser_action<'a>(
         // HERE BE DRAGONS
         // cursor modifiers are not pretty in iced :-(
         .mouse_interaction(
-            |state: &keyboard::Modifiers,
-             _inner: &Element<'a, Message>,
-             _tree: &Tree,
-             layout: Layout,
-             cursor: mouse::Cursor,
-             _viewport: &Rectangle,
-             _renderer: &Renderer| {
+            move |state: &keyboard::Modifiers,
+                  inner: &Element<'a, Message>,
+                  tree: &Tree,
+                  layout: Layout,
+                  cursor: mouse::Cursor,
+                  viewport: &Rectangle,
+                  renderer: &Renderer| {
                 if (state.command() || state.shift())
                     && cursor.is_over(layout.bounds())
                 {
                     mouse::Interaction::Pointer
-                } else {
+                } else if opens_preview_modal {
+                    // pointer is reserved for clicks that open the browser
                     mouse::Interaction::None
+                } else {
+                    inner.as_widget().mouse_interaction(
+                        tree, layout, cursor, viewport, renderer,
+                    )
                 }
             },
         )

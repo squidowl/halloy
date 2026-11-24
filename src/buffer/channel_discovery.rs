@@ -323,6 +323,7 @@ fn channel_list_view<'a>(
                     clients.get_server_casemapping_or_default(server),
                     theme,
                     Message::Link,
+                    |url| Message::Link(message::Link::Url(url)),
                     None,
                     theme::selectable_text::topic,
                     theme::font_style::topic,

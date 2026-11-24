@@ -132,6 +132,7 @@ pub fn view<'a>(
             casemapping,
             theme,
             Message::Link,
+            |url| Message::Link(message::Link::Url(url)),
             None,
             theme::selectable_text::topic,
             theme::font_style::topic,

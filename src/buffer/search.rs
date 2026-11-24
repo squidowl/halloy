@@ -360,6 +360,7 @@ fn feed_event(message: scroll_view::Message, config: &Config) -> Option<Event> {
             message::Link::ExpandMessage(..)
             | message::Link::ContractMessage(..) => None,
         },
+        scroll_view::Message::OpenUrl(url) => Some(Event::OpenUrl(url)),
         _ => None,
     }
 }
