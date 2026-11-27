@@ -530,6 +530,7 @@ fn config_highlight(output: Code, theme: &Theme) -> Style {
         Code::Error => Style {
             color: Some(theme.styles().text.error.color),
             style: None,
+            ..Style::default()
         },
     }
 }
