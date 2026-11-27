@@ -15,6 +15,7 @@ Fixed:
 - Utilize ISUPPORT parameters when parsing mode characters
 - Drag & drop in Wayland
 - Improved clipboard support in some Wayland DEs, specifically under flatpak
+- Character Viewer (Emoji & Symbols) on macOS is now supported
 
 Changed:
 
