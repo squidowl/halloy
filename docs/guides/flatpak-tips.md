@@ -2,26 +2,6 @@
 
 Here are a collection of tips for using the Flatpak version of Halloy.
 
-## Wayland clipboard issues
-
-There are currently [Wayland clipboard issues](https://github.com/1Password/arboard/issues/223)
-with some desktop environments.
-
-There is a workaround that might work, but first test this:
-
-```sh
-flatpak run --nosocket=wayland org.squidowl.halloy
-```
-
-If this works, you can set the override permanently:
-```sh
-flatpak override --user --nosocket=wayland org.squidowl.halloy
-```
-
-Your mileage may vary, but turning off Wayland like this may cause UI issues.
-
-You can follow our [issue here](https://github.com/flathub/org.squidowl.halloy/issues/52).
-
 ## Keyring access
 
 To access keyrings while running in Flatpak, you will need to manually grant your install of
@@ -40,6 +20,16 @@ need to grant Flatpak access to the folder:
 
 ```bash
 flatpak override --user --filesystem=~/Downloads org.squidowl.halloy
+```
+
+## Filesystem access for file uploads
+
+If you want to use [file upload](/configuration/file-upload) you will need to
+grant Flatpak read access to the folder containing the files you wish to upload:
+
+
+```bash
+flatpak override --user --filesystem=~/Desktop:ro org.squidowl.halloy
 ```
 
 ## Configuration in `$HOME` paths

@@ -13,6 +13,9 @@ Fixed:
 - Sent messages no longer briefly appear above the latest received messages when the server clock is ahead
 - Typing indicator only animates when window is focused
 - Utilize ISUPPORT parameters when parsing mode characters
+- Drag & drop in Wayland
+- Improved clipboard support in some Wayland DEs, specifically under flatpak
+- Character Viewer (Emoji & Symbols) on macOS is now supported
 
 Changed:
 
