@@ -1898,8 +1898,7 @@ checksum = "117240f60069e65410b3ae1bb213295bd828f707b5bec6596a1afc8793ce0cbc"
 [[package]]
 name = "dpi"
 version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
+source = "git+https://github.com/luca020400/winit?rev=d8017b0bb6dd197fcacd8ee7b0a257cd319616fe#d8017b0bb6dd197fcacd8ee7b0a257cd319616fe"
 
 [[package]]
 name = "dunce"
@@ -10285,8 +10284,7 @@ checksum = "d6bbff5f0aada427a1e5a6da5f1f98158182f26556f345ac9e04d36d0ebed650"
 [[package]]
 name = "winit"
 version = "0.31.0-beta.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "453408a9f608e14c92c6c1b5ef0193e1699aee3bfb17b48cc5423c6ec2ae1806"
+source = "git+https://github.com/luca020400/winit?rev=d8017b0bb6dd197fcacd8ee7b0a257cd319616fe#d8017b0bb6dd197fcacd8ee7b0a257cd319616fe"
 dependencies = [
  "bitflags 2.13.2",
  "cfg_aliases",
@@ -10312,8 +10310,7 @@ dependencies = [
 [[package]]
 name = "winit-android"
 version = "0.31.0-beta.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d356e863a4adda4a0309e34a0cafbb9dd57be61cca7c7ae3de95a285938959cd"
+source = "git+https://github.com/luca020400/winit?rev=d8017b0bb6dd197fcacd8ee7b0a257cd319616fe#d8017b0bb6dd197fcacd8ee7b0a257cd319616fe"
 dependencies = [
  "android-activity",
  "bitflags 2.13.2",
@@ -10328,8 +10325,7 @@ dependencies = [
 [[package]]
 name = "winit-appkit"
 version = "0.31.0-beta.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd77d5b64db1abaf4ba11d08c1da69695f9c4fdc3ee19a543479872ef79e05c0"
+source = "git+https://github.com/luca020400/winit?rev=d8017b0bb6dd197fcacd8ee7b0a257cd319616fe#d8017b0bb6dd197fcacd8ee7b0a257cd319616fe"
 dependencies = [
  "bitflags 2.13.2",
  "block2",
@@ -10351,8 +10347,7 @@ dependencies = [
 [[package]]
 name = "winit-common"
 version = "0.31.0-beta.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93ef82b1146fc93e6f60755e851152d708ede1f845eb73e8fdefc3192458ccf5"
+source = "git+https://github.com/luca020400/winit?rev=d8017b0bb6dd197fcacd8ee7b0a257cd319616fe#d8017b0bb6dd197fcacd8ee7b0a257cd319616fe"
 dependencies = [
  "block2",
  "dpi",
@@ -10370,8 +10365,7 @@ dependencies = [
 [[package]]
 name = "winit-core"
 version = "0.31.0-beta.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74158ad0526ab0f1e850b89f63a4513f4fee9178ef72b408bfb37f30a429d62e"
+source = "git+https://github.com/luca020400/winit?rev=d8017b0bb6dd197fcacd8ee7b0a257cd319616fe#d8017b0bb6dd197fcacd8ee7b0a257cd319616fe"
 dependencies = [
  "bitflags 2.13.2",
  "cursor-icon",
@@ -10385,8 +10379,7 @@ dependencies = [
 [[package]]
 name = "winit-orbital"
 version = "0.31.0-beta.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "321adbc811d8b15f34f6d6ec49afaff4cbc06c3e807e56de8eda6ec9d3466151"
+source = "git+https://github.com/luca020400/winit?rev=d8017b0bb6dd197fcacd8ee7b0a257cd319616fe#d8017b0bb6dd197fcacd8ee7b0a257cd319616fe"
 dependencies = [
  "bitflags 2.13.2",
  "dpi",
@@ -10402,8 +10395,7 @@ dependencies = [
 [[package]]
 name = "winit-uikit"
 version = "0.31.0-beta.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed4addb22374bc174e41143c22608ed125590962157bdcb02415377b41ef1b5a"
+source = "git+https://github.com/luca020400/winit?rev=d8017b0bb6dd197fcacd8ee7b0a257cd319616fe#d8017b0bb6dd197fcacd8ee7b0a257cd319616fe"
 dependencies = [
  "bitflags 2.13.2",
  "block2",
@@ -10423,8 +10415,7 @@ dependencies = [
 [[package]]
 name = "winit-wayland"
 version = "0.31.0-beta.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8352b11bc0d223a37bbbdb55d2250949917c313f3ee07a34da7d614d74fce69e"
+source = "git+https://github.com/luca020400/winit?rev=d8017b0bb6dd197fcacd8ee7b0a257cd319616fe#d8017b0bb6dd197fcacd8ee7b0a257cd319616fe"
 dependencies = [
  "bitflags 2.13.2",
  "calloop",
@@ -10451,8 +10442,7 @@ dependencies = [
 [[package]]
 name = "winit-web"
 version = "0.31.0-beta.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c38d83a15b854abe625a3db8144ad9a5094899d9a0bc976b4edc4c233197563"
+source = "git+https://github.com/luca020400/winit?rev=d8017b0bb6dd197fcacd8ee7b0a257cd319616fe#d8017b0bb6dd197fcacd8ee7b0a257cd319616fe"
 dependencies = [
  "atomic-waker",
  "bitflags 2.13.2",
@@ -10474,8 +10464,7 @@ dependencies = [
 [[package]]
 name = "winit-win32"
 version = "0.31.0-beta.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf3b2326760dad4a8fe721a8c8a40fd4f7efb338ef468f340794ea1efcd5261e"
+source = "git+https://github.com/luca020400/winit?rev=d8017b0bb6dd197fcacd8ee7b0a257cd319616fe#d8017b0bb6dd197fcacd8ee7b0a257cd319616fe"
 dependencies = [
  "bitflags 2.13.2",
  "cursor-icon",
@@ -10493,8 +10482,7 @@ dependencies = [
 [[package]]
 name = "winit-x11"
 version = "0.31.0-beta.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eee2be0a6dce77b889b6f9040a349e8c2cea6c0c4257f0b61591d7e0d9a6dfaf"
+source = "git+https://github.com/luca020400/winit?rev=d8017b0bb6dd197fcacd8ee7b0a257cd319616fe#d8017b0bb6dd197fcacd8ee7b0a257cd319616fe"
 dependencies = [
  "bitflags 2.13.2",
  "bytemuck",

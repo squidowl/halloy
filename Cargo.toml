@@ -173,6 +173,7 @@ iced = { git = "https://github.com/squidowl/iced", rev = "b4a7ad07afa9890e5c538e
 iced_core = { git = "https://github.com/squidowl/iced", rev = "b4a7ad07afa9890e5c538e958f7b5a17ba0d6436" }
 iced_winit = { git = "https://github.com/squidowl/iced", rev = "b4a7ad07afa9890e5c538e958f7b5a17ba0d6436" }
 iced_wgpu = { git = "https://github.com/squidowl/iced", rev = "b4a7ad07afa9890e5c538e958f7b5a17ba0d6436" }
+winit = { git = "https://github.com/luca020400/winit", rev = "d8017b0bb6dd197fcacd8ee7b0a257cd319616fe" }
 
 [patch."https://github.com/hecrj/cosmic-text.git"]
 cosmic-text = { git = "https://github.com/squidowl/cosmic-text", rev = "f959ab5f753a911ce3c3649c22494b07da5d5340" }
