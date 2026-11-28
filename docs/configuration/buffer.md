@@ -1461,6 +1461,100 @@ If enabled, saves unsent messages on disk.
 persist = true
 ```
 
+### `spellcheck`
+
+Spellcheck for the message input. Misspelled words are highlighted using the theme's `text.spellcheck_misspelled` style (see [Custom themes](/guides/custom-themes)), including a solid underline when `underline` is enabled.
+
+When that style is unset, misspelled words use `text.primary` with normal weight; the underline uses `text.error` (or `underline_color` when set).
+
+Halloy uses the platform spellchecker (system APIs on Windows and macOS; Hunspell dictionaries on other Unix-like systems). If no dictionary is available, spellcheck does nothing (a warning may be logged).
+
+Words added via **Add to dictionary** are stored in the platform personal dictionary:
+
+- Linux: `$XDG_DATA_HOME/spellkit/<locale>.words` or `$HOME/.local/share/spellkit/<locale>.words`
+- Linux (Flatpak): `$HOME/.var/app/org.squidowl.halloy/data/spellkit/<locale>.words`
+- macOS: typically `$HOME/Library/Group Containers/group.com.apple.AppleSpell/Library/Spelling/LocalDictionary` (older macOS versions may use `$HOME/Library/Spelling/LocalDictionary`)
+- Windows: `%AppData%\Microsoft\Spelling\<locale>\default.dic`
+
+Words are not marked as misspelled when they are:
+
+- a channel name (text after a channel prefix such as `#`)
+- a slash command name (text after `/`, e.g. `/whois`)
+- your own nick
+- a nick present in the current channel
+- the peer nick in a query
+- listed in `ignore` (case-insensitive)
+
+#### `enabled`
+
+Enable spellcheck in the text input.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[buffer.text_input.spellcheck]
+enabled = true
+```
+
+#### `suggestion_mode`
+
+How replacement suggestions are offered when spellcheck is enabled. Nickname, command, and emoji autocomplete still take priority over Tab.
+
+- `"none"` — underlines only
+- `"tab"` — <kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd> cycle replacements in place
+- `"context-menu"` — right-click Suggestions section (replacements + Add to dictionary; see personal dictionary locations above)
+- `"both"` — Tab cycling and context-menu section
+
+```toml
+# Type: string
+# Values: "none", "tab", "context-menu", "both"
+# Default: "context-menu"
+
+[buffer.text_input.spellcheck]
+suggestion_mode = "context-menu"
+```
+
+#### `underline`
+
+Underline color: `spellcheck_misspelled.underline_color`, else the misspelled text color if set, else `text.error`.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.text_input.spellcheck]
+underline = true
+```
+
+#### `locale`
+
+Dictionary locale for the spellchecker. When unset, the system/default locale is used.
+
+```toml
+# Type: string
+# Values: locale id string (e.g. "en-US"), or omit
+# Default: unset (system/default)
+
+[buffer.text_input.spellcheck]
+locale = "en-US"
+```
+
+#### `ignore`
+
+Words to never mark as misspelled. Matching is case-insensitive and exact (whole word from the spellchecker), not substring.
+
+```toml
+# Type: array of strings
+# Values: array of strings
+# Default: []
+
+[buffer.text_input.spellcheck]
+ignore = ["http", "https", "irc", "ircs", "halloy"]
+```
+
 ### `autocomplete`
 
 Customize autocomplete.
