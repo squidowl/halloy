@@ -5,6 +5,8 @@ Added:
 - `sidebar.restore_on_launch` can restore queries and/or channels that were in the sidebar during the last session
 - `buffer.text_input.auto_format` can be set to token-only formatting or a limited set of markdown features (in addition to the existing: markdown-only formatting, all formatting, and no formatting options)
 - Sidebar typing indicators for channels
+- Spellcheck for the message input (`buffer.text_input.spellcheck`)
+- Theme style `text.spellcheck_misspelled`
 
 Fixed:
 
@@ -27,7 +29,7 @@ Changed:
 
 Thanks:
 
-- Contributions: @auronandace, @sjm42, @kasper93, @furudean
+- Contributions: @auronandace, @sjm42, @kasper93, @furudean, @rtmongold
 - Feature requests: @sebbu2
 
 # 2026.10 (2026-11-03)
