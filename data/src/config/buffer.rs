@@ -16,7 +16,7 @@ pub use self::hide_consecutive::{HideConsecutive, HideConsecutiveEnabled};
 pub use self::nickname::Offline;
 pub use self::redaction::Redaction;
 pub use self::typing::{Style, Typing};
-pub use crate::appearance::theme::{alpha_color, alpha_color_calculate};
+pub use crate::appearance::theme::{alpha_color, muted_color};
 use crate::buffer::{
     self, BacklogSeparator, DateSeparators, SkinTone, StatusMessagePrefix,
 };
@@ -1235,8 +1235,7 @@ impl Dimmed {
     pub fn transform_color(&self, color: Color, background: Color) -> Color {
         if self.enabled {
             match self.alpha {
-                // Calculate alpha based on background and foreground.
-                None => alpha_color_calculate(0.20, 0.61, background, color),
+                None => muted_color(background, color),
                 // Calculate alpha based on user defined alpha value.
                 Some(a) => alpha_color(color, a),
             }

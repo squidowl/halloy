@@ -589,17 +589,59 @@ pub fn color_to_hex(color: Color) -> String {
     hex
 }
 
-/// Adjusts the transparency of the foreground color based on the background color's lightness.
-pub fn alpha_color_calculate(
-    min_alpha: f32,
-    max_alpha: f32,
-    background: Color,
-    foreground: Color,
-) -> Color {
-    alpha_color(
-        foreground,
-        min_alpha + to_hsl(background).lightness * (max_alpha - min_alpha),
-    )
+// WCAG AAA 7:1
+const DIMMED_CONTRAST_DARK: f32 = 7.0;
+const DIMMED_CONTRAST_FLOOR_DARK: f32 = 2.0;
+
+// WCAG AA 4.5:1
+const DIMMED_CONTRAST_LIGHT: f32 = 4.5;
+const DIMMED_CONTRAST_FLOOR_LIGHT: f32 = 1.5;
+
+pub fn muted_color(background: Color, foreground: Color) -> Color {
+    let bg = background.relative_luminance();
+    let fg = foreground.relative_luminance();
+
+    let is_light = bg > fg;
+
+    let (max_contrast, min_contrast) = if is_light {
+        (DIMMED_CONTRAST_LIGHT, DIMMED_CONTRAST_FLOOR_LIGHT)
+    } else {
+        (DIMMED_CONTRAST_DARK, DIMMED_CONTRAST_FLOOR_DARK)
+    };
+
+    // scaling log contrast keeps every color's dimming proportional.
+    // 21:1 is the maximum.
+    // https://en.wikipedia.org/wiki/Weber%E2%80%93Fechner_law
+    let exponent = max_contrast.ln() / 21.0_f32.ln();
+
+    if (fg - bg).abs() < 1e-4 {
+        // avoids dividing by zero if the difference is minimal.
+        // this may be slightly paranoid...
+        return Color {
+            a: foreground.a,
+            ..foreground.mix(background, 1.0 - exponent)
+        };
+    }
+
+    let contrast = (fg.max(bg) + 0.05) / (fg.min(bg) + 0.05);
+
+    // stop at the floor so low contrast colors stay legible.
+    let target = contrast.powf(exponent).max(contrast.min(min_contrast));
+
+    // invert the contrast ratio to find the target luminance
+    // https://www.w3.org/TR/WCAG21/#dfn-contrast-ratio
+    let y = if fg > bg {
+        target * (bg + 0.05) - 0.05
+    } else {
+        (bg + 0.05) / target - 0.05
+    };
+
+    let factor = (fg - y) / (fg - bg);
+
+    Color {
+        a: foreground.a,
+        ..foreground.mix(background, factor)
+    }
 }
 
 const RANDOMIZED_COLOR_CAPACITY: usize = 4096;

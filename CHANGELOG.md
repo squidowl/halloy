@@ -24,6 +24,7 @@ Changed:
 - `buffer.typing.animation.enabled` can now be set to `"focused"` (default), `"always"` and `"never"`
 - `buffer.typing_indicator` is now aliased to `buffer.typing`
 - `sidebar.typing_indicator` is now aliased to `sidebar.typing`
+- Automated dimming formula to produce more legible (i.e. less dimmed) colors for more themes;  dimming can be manually set with settings `buffer.nickname.away.dimmed`, `buffer.nickname.offline.dimmed`, `buffer.server_messages.default.dimmed`, etc
 
 Thanks:
 

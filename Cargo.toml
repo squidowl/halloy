@@ -90,7 +90,6 @@ iced = { workspace = true, features = [
     "wayland",
     "x11",
     "crisp",
-    "web-colors",
     "highlighter",
 ] }
 unicode-segmentation = { workspace = true }
@@ -127,19 +126,16 @@ iced = { workspace = true, features = [
     "wayland",
     "x11",
     "crisp",
-    "web-colors",
     "debug",
 ] }
 
 [target.'cfg(windows)'.dependencies]
 iced = { workspace = true, features = [
-    "web-colors",
     "sysinfo",
 ] }
 
 [target.'cfg(windows)'.dev-dependencies]
 iced = { workspace = true, features = [
-    "web-colors",
     "sysinfo",
     "debug",
 ] }
