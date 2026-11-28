@@ -230,6 +230,7 @@ pub fn view<'a>(
             users,
             &state.server,
             registry,
+            clients.get_multiline_limits(server),
             config,
             theme,
             filehost_url,
