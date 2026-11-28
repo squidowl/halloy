@@ -19,6 +19,7 @@ pub fn message_content<'a, M: 'a + std::clone::Clone>(
     casemapping: isupport::CaseMap,
     theme: &'a Theme,
     on_link: impl Fn(message::Link) -> M + 'a,
+    on_modified_url: impl Fn(String) -> M + 'a,
     default_link: Option<(message::Link, bool)>,
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
     font_style: impl Fn(&Theme) -> Option<FontStyle>,
@@ -35,6 +36,7 @@ pub fn message_content<'a, M: 'a + std::clone::Clone>(
         casemapping,
         theme,
         on_link,
+        on_modified_url,
         default_link,
         style,
         font_style,
@@ -55,6 +57,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
     casemapping: isupport::CaseMap,
     theme: &'a Theme,
     on_link: impl Fn(message::Link) -> M + 'a,
+    on_modified_url: impl Fn(String) -> M + 'a,
     default_link: Option<(message::Link, bool)>,
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
     font_style: impl Fn(&Theme) -> Option<FontStyle>,
@@ -74,6 +77,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
         casemapping,
         theme,
         on_link,
+        on_modified_url,
         default_link,
         style,
         font_style,
@@ -95,6 +99,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
     casemapping: isupport::CaseMap,
     theme: &'a Theme,
     on_link: impl Fn(message::Link) -> M + 'a,
+    on_modified_url: impl Fn(String) -> M + 'a,
     default_link: Option<(message::Link, bool)>,
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
     font_style: impl Fn(&Theme) -> Option<FontStyle>,
@@ -432,6 +437,18 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                     .collect::<Vec<_>>(),
             )
             .on_link(on_link)
+            .on_link_modified(move |link| match link {
+                message::Link::Url(url)
+                | message::Link::ExpandMessage(
+                    ..,
+                    Some(message::LinkContext::Url(url)),
+                )
+                | message::Link::ContractMessage(
+                    ..,
+                    Some(message::LinkContext::Url(url)),
+                ) => Some(on_modified_url(url)),
+                _ => None,
+            })
             .font_maybe(font_style(theme).map(font::get))
             .style(style);
 

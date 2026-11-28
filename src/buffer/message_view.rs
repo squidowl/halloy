@@ -11,12 +11,17 @@ use data::user::{ChannelUsers, Nick};
 use data::{Config, Preview, User, history, metadata, target};
 use hashbrown::{HashMap, HashSet};
 use iced::Length::Fit;
+use iced::advanced::widget::Tree;
+use iced::advanced::{Layout, Shell};
 use iced::widget::text::LineHeight;
 use iced::widget::{
     Space, button, center, column, container, mouse_area, right, row, rule,
     space, stack, text,
 };
-use iced::{Color, ContentFit, Length, alignment, padding};
+use iced::{
+    Color, ContentFit, Event, Length, Rectangle, alignment, keyboard, mouse,
+    padding,
+};
 use jiff::{SignedDuration, Timestamp};
 
 use crate::buffer::context_menu::{self, Context, UrlContext, UserContext};
@@ -30,8 +35,9 @@ use crate::widget::preview::preview_card_parts;
 use crate::widget::reaction_row::{has_visible_reactions, reaction_row};
 use crate::widget::user_display::UserDisplay;
 use crate::widget::{
-    Element, Marker, message_content, message_marker, notify_visibility,
-    preview_content, reply_preview_content, selectable_text, tooltip,
+    Element, Marker, Renderer, decorate, message_content, message_marker,
+    notify_visibility, preview_content, reply_preview_content, selectable_text,
+    tooltip,
 };
 use crate::{Theme, font, icon, theme};
 
@@ -454,9 +460,7 @@ impl<'a> ChannelQueryLayout<'a> {
                                     ))
                                 }
                                 data::config::preview::CardImageAction::OpenImageUrl => {
-                                    Message::Link(message::Link::Url(
-                                        card.image.url.to_string(),
-                                    ))
+                                    Message::OpenUrl(card.image.url.to_string())
                                 }
                                 data::config::preview::CardImageAction::Preview => {
                                     Message::ImagePreview(card.image.clone())
@@ -484,21 +488,28 @@ impl<'a> ChannelQueryLayout<'a> {
                     Some(Message::AnimatePreview),
                 );
 
+                let image = button(inner)
+                    .on_press(match self.config.preview.image.action {
+                        data::config::preview::ImageAction::OpenUrl => {
+                            Message::OpenUrl(img.url.to_string())
+                        }
+                        data::config::preview::ImageAction::Preview => {
+                            Message::ImagePreview(img.clone())
+                        }
+                    })
+                    .padding(0)
+                    .style(theme::button::bare);
+
                 keyed(
                     keyed::Key::Preview(*message.history_id(), index),
-                    button(inner)
-                        .on_press(match self.config.preview.image.action {
-                            data::config::preview::ImageAction::OpenUrl => {
-                                Message::Link(message::Link::Url(
-                                    img.url.to_string(),
-                                ))
-                            }
-                            data::config::preview::ImageAction::Preview => {
-                                Message::ImagePreview(img.clone())
-                            }
-                        })
-                        .padding(0)
-                        .style(theme::button::bare),
+                    open_in_browser_action(
+                        image.into(),
+                        &img.url,
+                        matches!(
+                            self.config.preview.image.action,
+                            data::config::preview::ImageAction::Preview
+                        ),
+                    ),
                 )
             }
         };
@@ -761,6 +772,7 @@ impl<'a> ChannelQueryLayout<'a> {
                             self.casemapping,
                             self.theme,
                             Message::Link,
+                            Message::OpenUrl,
                             None,
                             message_style,
                             message_font_style,
@@ -874,6 +886,7 @@ impl<'a> ChannelQueryLayout<'a> {
             formatter.casemapping,
             self.theme,
             Message::Link,
+            Message::OpenUrl,
             link.map(|link| {
                 (
                     link,
@@ -1025,6 +1038,7 @@ impl<'a> ChannelQueryLayout<'a> {
             formatter.casemapping,
             self.theme,
             move |_| Message::Link(moved_link.clone()),
+            Message::OpenUrl,
             Some((link, true)),
             message_style,
             message_font_style,
@@ -1364,6 +1378,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     formatter.casemapping,
                     formatter.theme,
                     Message::Link,
+                    Message::OpenUrl,
                     None,
                     message_style,
                     theme::font_style::action,
@@ -1431,6 +1446,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     self.casemapping,
                     self.theme,
                     Message::Link,
+                    Message::OpenUrl,
                     None,
                     message_style,
                     message_font_style,
@@ -2014,6 +2030,7 @@ impl<'a> ChannelQueryLayout<'a> {
                         self.casemapping,
                         self.theme,
                         Message::Link,
+                        Message::OpenUrl,
                         None,
                         content_style,
                         if is_action {
@@ -2177,4 +2194,78 @@ fn strip_leading_nick_from_preview(text: String, nick: Option<&str>) -> String {
         .filter(|s| !s.is_empty())
         .map(ToOwned::to_owned)
         .unwrap_or(text)
+}
+
+fn open_in_browser_action<'a>(
+    base: Element<'a, Message>,
+    url: &url::Url,
+    opens_preview_modal: bool,
+) -> Element<'a, Message> {
+    let on_press = Message::OpenUrl(url.to_string());
+
+    decorate(base)
+        .update(
+            move |state: &mut keyboard::Modifiers,
+                  inner: &mut Element<'a, Message>,
+                  tree: &mut Tree,
+                  event: &Event,
+                  layout: Layout,
+                  cursor: mouse::Cursor,
+                  renderer: &Renderer,
+                  shell: &mut Shell<'_, Message>,
+                  viewport: &Rectangle| {
+                match &event {
+                    Event::Keyboard(keyboard::Event::ModifiersChanged(
+                        modifiers,
+                    )) => {
+                        *state = *modifiers;
+                    }
+                    Event::Mouse(mouse::Event::ButtonPressed {
+                        button,
+                        modifiers,
+                    }) if match button {
+                        mouse::Button::Left => {
+                            modifiers.command() || modifiers.shift()
+                        }
+                        mouse::Button::Middle => true,
+                        _ => false,
+                    } && cursor.is_over(layout.bounds()) =>
+                    {
+                        shell.publish(on_press.clone());
+                        shell.capture_event();
+                        return;
+                    }
+                    _ => {}
+                }
+
+                inner.as_widget_mut().update(
+                    tree, event, layout, cursor, renderer, shell, viewport,
+                );
+            },
+        )
+        // HERE BE DRAGONS
+        // cursor modifiers are not pretty in iced :-(
+        .mouse_interaction(
+            move |state: &keyboard::Modifiers,
+                  inner: &Element<'a, Message>,
+                  tree: &Tree,
+                  layout: Layout,
+                  cursor: mouse::Cursor,
+                  viewport: &Rectangle,
+                  renderer: &Renderer| {
+                if (state.command() || state.shift())
+                    && cursor.is_over(layout.bounds())
+                {
+                    mouse::Interaction::Pointer
+                } else if opens_preview_modal {
+                    // pointer is reserved for clicks that open the browser
+                    mouse::Interaction::None
+                } else {
+                    inner.as_widget().mouse_interaction(
+                        tree, layout, cursor, viewport, renderer,
+                    )
+                }
+            },
+        )
+        .into()
 }

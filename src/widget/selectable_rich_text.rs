@@ -56,6 +56,7 @@ pub struct Rich<
     align_y: alignment::Vertical,
     class: Theme::Class<'a>,
     on_link: Option<Box<dyn Fn(Link) -> Message + 'a>>,
+    on_link_modified: Option<Box<dyn Fn(Link) -> Option<Message> + 'a>>,
 
     context_menus: Vec<Element<'a, Message, Theme, Renderer>>,
     marker: PhantomData<Entry>,
@@ -81,6 +82,7 @@ where
             align_y: alignment::Vertical::Top,
             class: Theme::default(),
             on_link: None,
+            on_link_modified: None,
 
             context_menus: vec![],
             marker: PhantomData,
@@ -189,6 +191,14 @@ where
         self
     }
 
+    pub fn on_link_modified(
+        mut self,
+        on_link_modified: impl Fn(Link) -> Option<Message> + 'a,
+    ) -> Self {
+        self.on_link_modified = Some(Box::new(on_link_modified));
+        self
+    }
+
     pub fn context_menu(
         mut self,
         link_entries: impl Fn(&Link) -> Vec<Entry> + 'a,
@@ -237,6 +247,45 @@ where
     }
 }
 
+impl<Message, Link, Entry, Theme, Renderer>
+    Rich<'_, Message, Link, Entry, Theme, Renderer>
+where
+    Link: self::Link + 'static,
+    Theme: Catalog,
+    Renderer: text::Renderer,
+{
+    fn released_link(
+        &self,
+        state: &State<Link, Renderer::Paragraph>,
+        cursor: mouse::Cursor,
+        bounds: Rectangle,
+    ) -> Option<(Link, Press)> {
+        let (span_pressed, press) = state.span_pressed?;
+        let position = cursor.position_in(bounds)?;
+
+        (state.paragraph.hit_span(position)? == span_pressed)
+            .then(|| self.spans.get(span_pressed)?.link.clone())
+            .flatten()
+            .map(|link| (link, press))
+    }
+
+    fn link_message(&self, link: Link, press: Press) -> Option<Message> {
+        let modified = || {
+            self.on_link_modified
+                .as_ref()
+                .and_then(|on_link_modified| on_link_modified(link.clone()))
+        };
+        let plain =
+            || self.on_link.as_ref().map(|on_link| on_link(link.clone()));
+
+        match press {
+            Press::Plain => plain(),
+            Press::Modified => modified().or_else(plain),
+            Press::Middle => modified(),
+        }
+    }
+}
+
 impl<Message, Link, Entry, Theme, Renderer> Default
     for Rich<'_, Message, Link, Entry, Theme, Renderer>
 where
@@ -257,9 +306,16 @@ pub trait Link: Clone {
 
 impl Link for () {}
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Press {
+    Plain,
+    Modified,
+    Middle,
+}
+
 struct State<Link, P: Paragraph> {
     spans: Vec<Span<'static, Link>>,
-    span_pressed: Option<usize>,
+    span_pressed: Option<(usize, Press)>,
     paragraph: P,
     hovered: bool,
     link_hovered: bool,
@@ -283,7 +339,7 @@ impl<Link, P: Paragraph> From<&State<Link, P>> for Snapshot {
             hovered: value.hovered,
             link_hovered: value.link_hovered,
             spoiler_hovered: value.spoiler_hovered,
-            span_pressed: value.span_pressed,
+            span_pressed: value.span_pressed.map(|(span, _)| span),
             interaction: value.interaction,
             shown_spoilers: value.shown_spoilers.clone(),
         }
@@ -435,7 +491,19 @@ where
                 if let Some(position) = cursor.position_in(bounds)
                     && let Some(span) = state.paragraph.hit_span(position)
                 {
-                    state.span_pressed = Some(span);
+                    let press = if matches!(
+                        event,
+                        iced::Event::Mouse(mouse::Event::ButtonPressed {
+                            modifiers,
+                            ..
+                        }) if modifiers.command() || modifiers.shift()
+                    ) {
+                        Press::Modified
+                    } else {
+                        Press::Plain
+                    };
+
+                    state.span_pressed = Some((span, press));
                     shell.capture_event();
                 }
 
@@ -454,25 +522,15 @@ where
             ))
             | iced::Event::Touch(touch::Event::FingerLifted { .. })
             | iced::Event::Touch(touch::Event::FingerLost { .. }) => {
-                if let Some(on_link_click) = self.on_link.as_ref()
-                    && let Some(span_pressed) = state.span_pressed
-                {
-                    state.span_pressed = None;
-
-                    if let Some(position) = cursor.position_in(bounds) {
-                        match state.paragraph.hit_span(position) {
-                            Some(span) if span == span_pressed => {
-                                if let Some(link) = self
-                                    .spans
-                                    .get(span)
-                                    .and_then(|span| span.link.clone())
-                                {
-                                    shell.publish(on_link_click(link));
-                                }
-                            }
-                            _ => {}
-                        }
+                if !matches!(state.span_pressed, Some((_, Press::Middle))) {
+                    if let Some((link, press)) =
+                        self.released_link(state, cursor, bounds)
+                        && let Some(message) = self.link_message(link, press)
+                    {
+                        shell.publish(message);
                     }
+
+                    state.span_pressed = None;
                 }
 
                 // Toggle spoiler on click
@@ -558,6 +616,36 @@ where
                     state.interaction = Interaction::Selected(raw);
                 } else {
                     state.interaction = Interaction::Idle;
+                }
+            }
+            iced::Event::Mouse(mouse::Event::ButtonPressed {
+                button: mouse::Button::Middle,
+                ..
+            }) if self.on_link_modified.is_some() => {
+                if state.span_pressed.is_none()
+                    && let Some(position) = cursor.position_in(bounds)
+                    && let Some(span) = state.paragraph.hit_span(position)
+                    && self
+                        .spans
+                        .get(span)
+                        .is_some_and(|span| span.link.is_some())
+                {
+                    state.span_pressed = Some((span, Press::Middle));
+                    shell.capture_event();
+                }
+            }
+            iced::Event::Mouse(mouse::Event::ButtonReleased(
+                mouse::Button::Middle,
+            )) => {
+                if matches!(state.span_pressed, Some((_, Press::Middle))) {
+                    if let Some((link, press)) =
+                        self.released_link(state, cursor, bounds)
+                        && let Some(message) = self.link_message(link, press)
+                    {
+                        shell.publish(message);
+                    }
+
+                    state.span_pressed = None;
                 }
             }
             iced::Event::Mouse(mouse::Event::CursorMoved { .. })
