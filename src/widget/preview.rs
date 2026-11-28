@@ -1,13 +1,13 @@
 use data::{Config, Preview, preview};
 use iced::Length::Fit;
-use iced::widget::{column, container, stack, text};
+use iced::widget::{button, column, container, stack, text};
 use iced::{ContentFit, Fill, Padding};
 
 use super::Element;
 use crate::widget::{animated_image, image};
 use crate::{Theme, font, theme};
 
-pub fn preview_card_parts<'a, M: 'a>(
+fn preview_card_parts<'a, M: 'a>(
     preview: &'a preview::Card,
     config: &'a Config,
     theme: &'a Theme,
@@ -56,16 +56,29 @@ pub fn preview_card_parts<'a, M: 'a>(
     (title, description, image)
 }
 
-pub fn preview_content<'a, M: 'a>(
+pub fn preview_content<'a, M: 'a + Clone>(
     preview: &'a Preview,
     config: &'a Config,
     theme: &'a Theme,
     on_hover: Option<fn(animated_image::hover::Request) -> M>,
+    on_image_press: Option<M>,
 ) -> Element<'a, M> {
     match preview {
         Preview::Card(preview) => {
             let (title, description, image) =
                 preview_card_parts(preview, config, theme, on_hover);
+
+            let image: Option<Element<'a, M>> = image.map(|image| {
+                if let Some(on_image_press) = on_image_press {
+                    button(image)
+                        .on_press(on_image_press)
+                        .padding(0)
+                        .style(theme::button::bare)
+                        .into()
+                } else {
+                    image.into()
+                }
+            });
 
             container(
                 column![title, description, image]

@@ -26,7 +26,6 @@ use crate::buffer::message_focus::{
 use crate::buffer::scroll_view::keyed::{self, keyed};
 use crate::buffer::scroll_view::{LayoutMessage, Message};
 use crate::widget::anchored_overlay::{self, anchored_overlay};
-use crate::widget::preview::preview_card_parts;
 use crate::widget::reaction_row::{has_visible_reactions, reaction_row};
 use crate::widget::user_display::UserDisplay;
 use crate::widget::{
@@ -432,21 +431,12 @@ impl<'a> ChannelQueryLayout<'a> {
     ) -> Element<'a, Message> {
         let content = match preview {
             data::Preview::Card(card) => {
-                let (title, description, image) = preview_card_parts(
-                    card,
+                let inner = preview_content(
+                    preview,
                     self.config,
                     self.theme,
                     Some(Message::AnimatePreview),
-                );
-
-                let mut card_content = column![title, description]
-                    .spacing(8)
-                    .width(Fit.max(self.config.preview.card.max_width));
-
-                if let Some(image) = image {
-                    card_content = card_content.push(
-                        button(image)
-                            .on_press(match self.config.preview.card.image_action
+                    Some(match self.config.preview.card.image_action
                             {
                                 data::config::preview::CardImageAction::OpenUrl => {
                                     Message::Link(message::Link::Url(
@@ -461,19 +451,14 @@ impl<'a> ChannelQueryLayout<'a> {
                                 data::config::preview::CardImageAction::Preview => {
                                     Message::ImagePreview(card.image.clone())
                                 }
-                            })
-                            .padding(0)
-                            .style(theme::button::bare),
-                    );
-                }
+                            }),
+                );
 
                 keyed(
                     keyed::Key::Preview(*message.history_id(), index),
-                    button(container(card_content).padding(8))
-                        .style(theme::button::preview_card)
-                        .on_press(Message::Link(message::Link::Url(
-                            url.to_string(),
-                        ))),
+                    button(inner).style(theme::button::preview_card).on_press(
+                        Message::Link(message::Link::Url(url.to_string())),
+                    ),
                 )
             }
             data::Preview::Image(img) => {
@@ -482,6 +467,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     self.config,
                     self.theme,
                     Some(Message::AnimatePreview),
+                    None,
                 );
 
                 keyed(
@@ -2050,8 +2036,13 @@ impl<'a> ChannelQueryLayout<'a> {
 
         if show_previews {
             for (_, preview) in &loaded {
-                let el =
-                    preview_content(preview, self.config, self.theme, None);
+                let el = preview_content(
+                    preview,
+                    self.config,
+                    self.theme,
+                    None,
+                    None,
+                );
                 let el: Element<_> = match preview {
                     data::Preview::Card(..) => button(el)
                         .style(|theme, _| {
