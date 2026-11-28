@@ -366,6 +366,7 @@ pub fn view<'a>(
                 None,
                 &state.server,
                 registry,
+                clients.get_multiline_limits(&state.server),
                 config,
                 theme,
                 filehost_url,

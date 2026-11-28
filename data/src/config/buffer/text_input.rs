@@ -5,7 +5,9 @@ use serde::{Deserialize, de};
 
 use crate::config::buffer::AccessLevelFormat;
 use crate::message::formatting::encode::Encoding;
-use crate::serde::deserialize_usize_positive_integer;
+use crate::serde::deserialize_usize_positive_integer_maybe;
+
+pub const MAX_LINES_DEFAULT: usize = 5;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
@@ -16,8 +18,8 @@ pub struct TextInput {
     pub nickname: Nickname,
     pub key_bindings: KeyBindings,
     pub kill_to_clipboard: bool,
-    #[serde(deserialize_with = "deserialize_usize_positive_integer")]
-    pub max_lines: usize,
+    #[serde(deserialize_with = "deserialize_usize_positive_integer_maybe")]
+    pub max_lines: Option<usize>,
     pub send_line_delay: u64,
     pub persist: bool,
     pub upload_long_paste: bool,
@@ -32,7 +34,7 @@ impl Default for TextInput {
             nickname: Nickname::default(),
             key_bindings: KeyBindings::default(),
             kill_to_clipboard: true,
-            max_lines: 5,
+            max_lines: None,
             send_line_delay: 100,
             persist: true,
             upload_long_paste: false,

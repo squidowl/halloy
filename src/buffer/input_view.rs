@@ -9,7 +9,9 @@ use data::capabilities::{
     MultilineBatchKind, MultilineLimits, multiline_concat_lines,
 };
 use data::client::{self, ClientsContext};
-use data::config::buffer::text_input::{AutoFormat, Autocomplete, KeyBindings};
+use data::config::buffer::text_input::{
+    AutoFormat, Autocomplete, KeyBindings, MAX_LINES_DEFAULT,
+};
 use data::dashboard::BufferAction;
 use data::history::filter::FilterChain;
 use data::history::{self, model, storage};
@@ -218,11 +220,17 @@ pub fn view<'a>(
     channel_users: Option<&'a ChannelUsers>,
     server: &'a Server,
     registry: &'a dyn metadata::Registry,
+    multiline_limits: Option<MultilineLimits>,
     config: &'a Config,
     theme: &'a Theme,
     filehost_url: Option<&'a str>,
 ) -> Element<'a, Message> {
     const INPUT_ROW_SPACING: u32 = 4;
+
+    let max_lines = composer_max_lines(
+        config.buffer.text_input.max_lines,
+        multiline_limits,
+    );
 
     let style = if let Some(notice) = &state.notice {
         match notice {
@@ -287,8 +295,7 @@ pub fn view<'a>(
                 iced::keyboard::Key::Named(
                     iced::keyboard::key::Named::Enter,
                 ) if key_press.modifiers.shift() => {
-                    (state.input_content.line_count()
-                        < config.buffer.text_input.max_lines)
+                    (state.input_content.line_count() < max_lines)
                         .then_some(text_editor::Binding::Enter)
                 }
                 //
@@ -1302,7 +1309,12 @@ impl State {
                     clients.get_filehost(buffer.as_server()).is_some()
                         && config.filehost.paste();
 
-                let max_lines = config.buffer.text_input.max_lines;
+                let multiline_limits =
+                    clients.get_multiline_limits(buffer.as_server());
+                let max_lines = composer_max_lines(
+                    config.buffer.text_input.max_lines,
+                    multiline_limits,
+                );
 
                 let current = TextInfo {
                     bytes: self.input_content.text().len(),
@@ -1312,9 +1324,6 @@ impl State {
                 let limit = (config.buffer.text_input.upload_long_paste
                     && has_filehost)
                     .then(|| {
-                        let multiline_limits =
-                            clients.get_multiline_limits(buffer.as_server());
-
                         let max_bytes = multiline_limits.map_or_else(
                             || {
                                 buffer.target().map_or(usize::MAX, |target| {
@@ -1332,14 +1341,14 @@ impl State {
                             |limits| limits.max_bytes,
                         );
 
-                        let max_lines = multiline_limits
+                        let lines = multiline_limits
                             .as_ref()
                             .and_then(|limits| limits.max_lines)
                             .map_or(max_lines, |limit| max_lines.min(limit));
 
                         TextInfo {
                             bytes: max_bytes,
-                            lines: max_lines,
+                            lines,
                         }
                     });
 
@@ -3167,6 +3176,17 @@ fn reset_undo_history(content: &mut text_editor::Content) {
     content.move_to(cursor);
 }
 
+fn composer_max_lines(
+    configured: Option<usize>,
+    limits: Option<MultilineLimits>,
+) -> usize {
+    configured.unwrap_or_else(|| {
+        limits
+            .and_then(|limits| limits.max_lines)
+            .unwrap_or(MAX_LINES_DEFAULT)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3393,5 +3413,15 @@ mod tests {
                 "text: {ghost_prefix}{ghost}{ghost_suffix} url: {url} motion: {motion}"
             );
         }
+    }
+
+    #[test]
+    fn composer_max_lines_uses_server_cap_when_unset() {
+        let limits = MultilineLimits {
+            max_bytes: 16384,
+            max_lines: Some(16),
+        };
+
+        assert_eq!(composer_max_lines(None, Some(limits)), 16);
     }
 }

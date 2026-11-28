@@ -240,6 +240,26 @@ where
     }
 }
 
+pub fn deserialize_usize_positive_integer_maybe<'de, D>(
+    deserializer: D,
+) -> Result<Option<usize>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let integer_maybe: Option<usize> = Deserialize::deserialize(deserializer)?;
+
+    if let Some(integer) = integer_maybe
+        && integer == 0
+    {
+        Err(serde::de::Error::invalid_value(
+            serde::de::Unexpected::Unsigned(integer as u64),
+            &"any positive integer",
+        ))
+    } else {
+        Ok(integer_maybe)
+    }
+}
+
 pub fn deserialize_u64_positive_integer_limit<'de, D>(
     deserializer: D,
 ) -> Result<Option<u64>, D::Error>
