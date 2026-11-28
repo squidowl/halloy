@@ -24,11 +24,12 @@ Changed:
 - `buffer.typing.animation.enabled` can now be set to `"focused"` (default), `"always"` and `"never"`
 - `buffer.typing_indicator` is now aliased to `buffer.typing`
 - `sidebar.typing_indicator` is now aliased to `sidebar.typing`
+- Composer line limit follows the server's `draft/multiline` `max-lines` when `buffer.text_input.max_lines` is omitted
 
 Thanks:
 
-- Contributions: @auronandace, @sjm42, @kasper93, @furudean
-- Feature requests: @sebbu2
+- Contributions: @auronandace, @sjm42, @kasper93, @furudean, @rtmongold
+- Feature requests: @sebbu2, @Victorious3
 
 # 2026.10 (2026-11-03)
 
