@@ -1,7 +1,7 @@
 use icu_locale::{Locale, locale};
 use jiff::fmt::rfc2822;
 use jiff::tz::TimeZone;
-use jiff::{self, Timestamp};
+use jiff::{self, SignedDuration, Timestamp};
 
 #[cfg(target_os = "macos")]
 mod apple;
@@ -55,4 +55,105 @@ pub fn posix_to_bcp47(locale: &str) -> String {
         .take_while(|&c| c != '.' && c != '@')
         .map(|c| if c == '_' { '-' } else { c })
         .collect()
+}
+
+pub const OFFSET_WINDOW_LEN: usize = 16;
+
+#[derive(Debug, Clone)]
+pub struct ServerTimeTracking {
+    latest_received: Option<Timestamp>,
+    offset_window: Vec<SignedDuration>,
+    offset_window_index: usize,
+    median_offset: Option<SignedDuration>,
+    latest_estimate: Option<(Timestamp, SignedDuration)>,
+}
+
+impl ServerTimeTracking {
+    pub fn new(server_time: Timestamp) -> Self {
+        let mut offset_window = Vec::with_capacity(OFFSET_WINDOW_LEN);
+
+        let offset = Timestamp::now().duration_until(server_time);
+
+        offset_window.push(offset);
+
+        Self {
+            latest_received: Some(server_time),
+            offset_window,
+            offset_window_index: 0,
+            median_offset: Some(offset),
+            latest_estimate: None,
+        }
+    }
+
+    pub fn update(&mut self, server_time: Timestamp) {
+        // Only update if the server-time is later than the latest recorded, to
+        // avoid updating with any unmarked historical messages.
+        if self
+            .latest_received
+            .is_none_or(|latest_received| server_time > latest_received)
+        {
+            self.latest_received = Some(server_time);
+
+            let offset = Timestamp::now().duration_until(server_time);
+
+            if self.offset_window.len() < OFFSET_WINDOW_LEN {
+                self.offset_window.push(offset);
+            } else {
+                self.offset_window[self.offset_window_index] = offset;
+                self.offset_window_index =
+                    (self.offset_window_index + 1) % OFFSET_WINDOW_LEN;
+            }
+
+            self.median_offset = None;
+        }
+    }
+
+    fn estimate_server_time(&mut self) -> Timestamp {
+        // Use median offset within window in order to filter out transient lag
+        // spikes.
+        let (estimate, estimate_offset) = if let Some(latest_received) =
+            self.latest_received
+            && let Some(median_offset) = self.median_offset.or_else(|| {
+                let mut offset_window = self.offset_window.clone();
+
+                offset_window.sort();
+
+                offset_window.into_iter().nth(self.offset_window.len() / 2)
+            }) {
+            let server_time =
+                (Timestamp::now() + median_offset).max(latest_received);
+
+            // If the estimated server time would before the previous estimate,
+            // then re-estimate based on previous estimate instead (which we can
+            // expect will be later than the previous estimate).
+            if let Some((estimate, estimate_offset)) = self.latest_estimate
+                && estimate > server_time
+            {
+                (Timestamp::now() + estimate_offset, estimate_offset)
+            } else {
+                self.median_offset = Some(median_offset);
+
+                (server_time, median_offset)
+            }
+        } else {
+            // No server-time has been received, use local clock.
+            (Timestamp::now(), SignedDuration::new(0, 0))
+        };
+
+        self.latest_estimate = Some((estimate, estimate_offset));
+
+        estimate
+    }
+}
+
+/// Estimate server-time based on the median offset between server-time and the
+/// local time it was received and last server time estimate.
+pub fn estimate_server_time(
+    server_time_tracking: Option<&mut ServerTimeTracking>,
+) -> Timestamp {
+    if let Some(server_time_tracking) = server_time_tracking {
+        server_time_tracking.estimate_server_time()
+    } else {
+        Timestamp::now()
+    }
 }

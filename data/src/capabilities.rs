@@ -8,9 +8,9 @@ use irc::proto::{self, Tags, command, format};
 use jiff::{Timestamp, ToSpan};
 use serde::Deserialize;
 
-use crate::client::{ServerTimeTracking, estimate_server_time};
 use crate::message::formatting::{Modifier, update_formatting_with_modifier};
 use crate::message::time;
+use crate::time::{ServerTimeTracking, estimate_server_time};
 use crate::{Target, User, config, message};
 
 pub static DEFAULT: LazyLock<Capabilities> =
@@ -630,7 +630,7 @@ pub struct LabeledResponseContext {
 
 impl LabeledResponseContext {
     pub fn new(
-        server_time_tracking: Option<ServerTimeTracking>,
+        server_time_tracking: Option<&mut ServerTimeTracking>,
         label: &str,
     ) -> Self {
         Self {

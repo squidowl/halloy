@@ -13,7 +13,7 @@ use hashbrown::{HashMap, HashSet};
 use indexmap::IndexMap;
 use irc::proto::{self, Command, Tags, command, tags};
 use itertools::{Either, Itertools};
-use jiff::{SignedDuration, Timestamp};
+use jiff::Timestamp;
 
 pub use self::map::{ChannelState, ClientsContext, Map, State, Status};
 pub use self::on_connect::on_connect;
@@ -36,7 +36,9 @@ use crate::isupport::{
 use crate::message::{broadcast, source};
 use crate::rate_limit::{TokenBucket, TokenPriority};
 use crate::target::{self, Target};
-use crate::time::RFC3339_WITH_MILLIS;
+use crate::time::{
+    RFC3339_WITH_MILLIS, ServerTimeTracking, estimate_server_time,
+};
 use crate::user::{ChannelUsers, Nick};
 use crate::{
     Server, User, buffer, channel_discovery, compression, config, ctcp, dcc,
@@ -159,44 +161,6 @@ enum ConnectionRole {
     BouncerControl,
     /// A connection to one network on a bouncer.
     BouncerNetwork,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct ServerTimeTracking {
-    latest: Timestamp,
-    offset: SignedDuration,
-}
-
-impl ServerTimeTracking {
-    fn new(server_time: Timestamp) -> Self {
-        Self {
-            latest: server_time,
-            offset: Timestamp::now().duration_until(server_time),
-        }
-    }
-
-    fn update(&mut self, server_time: Timestamp) {
-        self.latest = self.latest.max(server_time);
-        self.offset = Timestamp::now().duration_until(server_time);
-    }
-
-    fn estimate_server_time(&self) -> Timestamp {
-        // Using the last seen offset between local and server-time should be
-        // later than `latest`, unless the local clock has changed.
-        (Timestamp::now() + self.offset).max(self.latest)
-    }
-}
-
-/// Estimate server-time based on the most recent comparison between server-time
-/// and local time it was received.
-pub fn estimate_server_time(
-    server_time_tracking: Option<ServerTimeTracking>,
-) -> Timestamp {
-    if let Some(server_time_tracking) = server_time_tracking {
-        server_time_tracking.estimate_server_time()
-    } else {
-        Timestamp::now()
-    }
 }
 
 pub struct Client {
@@ -760,7 +724,7 @@ impl Client {
                     message,
                     buffer.clone(),
                     Some(&label),
-                    self.server_time_tracking,
+                    self.server_time_tracking.as_mut(),
                 );
 
                 let labeled_response_context =
@@ -1380,7 +1344,7 @@ impl Client {
     }
 
     fn convert_command_to_messages(
-        &self,
+        &mut self,
         buffer: &buffer::Upstream,
         command: &Irc,
         reroute_rules: Option<&RerouteRules>,
@@ -1406,7 +1370,16 @@ impl Client {
             );
         }
 
-        let rules = reroute_rules.unwrap_or(&EMPTY_REROUTE_RULES);
+        let reroute_rules = reroute_rules.unwrap_or(&EMPTY_REROUTE_RULES);
+
+        let time = labeled_response_context.map_or_else(
+            || {
+                message::Time::client(estimate_server_time(
+                    self.server_time_tracking.as_mut(),
+                ))
+            },
+            |labeled_response_context| labeled_response_context.time,
+        );
 
         command
             .messages(
@@ -1417,31 +1390,20 @@ impl Client {
                 self.statusmsg(),
                 self.casemapping(),
                 self.capabilities.acknowledged(Capability::EchoMessage),
-                rules,
+                reroute_rules,
                 Some(buffer),
-                labeled_response_context.map_or_else(
-                    || {
-                        message::Time::client(estimate_server_time(
-                            self.server_time_tracking,
-                        ))
-                    },
-                    |labeled_response_context| labeled_response_context.time,
-                ),
+                time,
             )
             .unwrap_or_default()
     }
 
     fn convert_command_to_reaction(
-        &self,
+        &mut self,
         command: Irc,
     ) -> Option<(reaction::Reaction, Arc<str>)> {
-        let time = message::Time::client(
-            if let Some(server_time_tracking) = self.server_time_tracking {
-                server_time_tracking.estimate_server_time()
-            } else {
-                Timestamp::now()
-            },
-        );
+        let time = message::Time::client(estimate_server_time(
+            self.server_time_tracking.as_mut(),
+        ));
 
         match command {
             Irc::React { text, msgid, .. } => Some((
@@ -5829,7 +5791,7 @@ impl Context {
         message: &message::Encoded,
         buffer: buffer::Upstream,
         label: Option<&str>,
-        server_time_tracking: Option<ServerTimeTracking>,
+        server_time_tracking: Option<&mut ServerTimeTracking>,
     ) -> Self {
         match &message.command {
             Command::PRIVMSG(_, _) | Command::NOTICE(_, _) => {
