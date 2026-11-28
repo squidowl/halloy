@@ -3424,4 +3424,27 @@ mod tests {
 
         assert_eq!(composer_max_lines(None, Some(limits)), 16);
     }
+
+    #[test]
+    fn composer_max_lines_keeps_explicit_value() {
+        let limits = MultilineLimits {
+            max_bytes: 16384,
+            max_lines: Some(16),
+        };
+
+        assert_eq!(composer_max_lines(Some(3), Some(limits)), 3);
+        assert_eq!(composer_max_lines(Some(20), Some(limits)), 20);
+    }
+
+    #[test]
+    fn composer_max_lines_falls_back_to_five() {
+        assert_eq!(composer_max_lines(None, None), MAX_LINES_DEFAULT);
+
+        let limits = MultilineLimits {
+            max_bytes: 4096,
+            max_lines: None,
+        };
+
+        assert_eq!(composer_max_lines(None, Some(limits)), MAX_LINES_DEFAULT);
+    }
 }
